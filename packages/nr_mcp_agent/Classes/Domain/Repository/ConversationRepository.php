@@ -25,7 +25,7 @@ final class ConversationRepository
         $row = $qb->select('*')
             ->from(self::TABLE)
             ->where(
-                $qb->expr()->eq('uid', $qb->createNamedParameter($uid, \PDO::PARAM_INT)),
+                $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
                 $qb->expr()->eq('deleted', 0),
             )
             ->executeQuery()
@@ -40,7 +40,7 @@ final class ConversationRepository
         $qb->select('*')
             ->from(self::TABLE)
             ->where(
-                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, \PDO::PARAM_INT)),
+                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
                 $qb->expr()->eq('deleted', 0),
             )
             ->orderBy('tstamp', 'DESC');
@@ -59,8 +59,8 @@ final class ConversationRepository
         $row = $qb->select('*')
             ->from(self::TABLE)
             ->where(
-                $qb->expr()->eq('uid', $qb->createNamedParameter($uid, \PDO::PARAM_INT)),
-                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, \PDO::PARAM_INT)),
+                $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
+                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
                 $qb->expr()->eq('deleted', 0),
             )
             ->executeQuery()
@@ -75,7 +75,7 @@ final class ConversationRepository
         return (int)$qb->count('uid')
             ->from(self::TABLE)
             ->where(
-                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, \PDO::PARAM_INT)),
+                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
                 $qb->expr()->in('status', $qb->createNamedParameter(
                     ['processing', 'locked', 'tool_loop'],
                     Connection::PARAM_STR_ARRAY,
