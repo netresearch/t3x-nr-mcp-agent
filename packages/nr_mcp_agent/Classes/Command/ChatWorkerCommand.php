@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Command;
 
-use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -41,8 +41,9 @@ final class ChatWorkerCommand extends Command
         $output->writeln(sprintf('<info>AI Chat worker %s started. Polling every %dms</info>', $workerId, $pollInterval / 1000));
 
         while (true) {
+            $conversation = null;
             try {
-                $conversation = $this->dequeue($workerId);
+                $conversation = $this->repository->dequeueForWorker($workerId);
 
                 if ($conversation !== null) {
                     $output->writeln(sprintf(
@@ -58,43 +59,15 @@ final class ChatWorkerCommand extends Command
                 }
             } catch (\Throwable $e) {
                 $output->writeln(sprintf('<error>Error: %s</error>', $e->getMessage()));
+                if ($conversation !== null) {
+                    $conversation->setStatus(ConversationStatus::Failed);
+                    $conversation->setErrorMessage(mb_substr($e->getMessage(), 0, 500));
+                    $this->repository->update($conversation);
+                }
             } finally {
                 $GLOBALS['BE_USER'] = null;
             }
         }
-    }
-
-    private function dequeue(string $workerId): ?Conversation
-    {
-        $conn = $this->connectionPool->getConnectionForTable('tx_nrmcpagent_conversation');
-
-        $affected = $conn->executeStatement(
-            'UPDATE tx_nrmcpagent_conversation
-             SET status = \'locked\', current_request_id = ?
-             WHERE status = \'processing\' AND deleted = 0
-             ORDER BY tstamp ASC LIMIT 1',
-            [$workerId]
-        );
-
-        if ($affected === 0) {
-            return null;
-        }
-
-        $qb = $this->connectionPool->getQueryBuilderForTable('tx_nrmcpagent_conversation');
-        $row = $qb->select('*')
-            ->from('tx_nrmcpagent_conversation')
-            ->where(
-                $qb->expr()->eq('current_request_id', $qb->createNamedParameter($workerId)),
-                $qb->expr()->eq('status', $qb->createNamedParameter('locked')),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        if ($row === false) {
-            return null;
-        }
-
-        return Conversation::fromRow($row);
     }
 
     private function initializeBackendUser(int $userUid): void

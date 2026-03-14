@@ -108,6 +108,7 @@ final class Conversation
     public function setMessages(array $messages): void
     {
         $this->messages = json_encode($messages, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $this->messageCount = count($messages);
     }
 
     public function appendMessage(string $role, string|array $content): void

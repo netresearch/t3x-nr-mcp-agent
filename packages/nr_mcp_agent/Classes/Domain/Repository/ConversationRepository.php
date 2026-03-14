@@ -103,4 +103,41 @@ final class ConversationRepository
         $data['tstamp'] = time();
         $conn->update(self::TABLE, $data, ['uid' => $conversation->getUid()]);
     }
+
+    /**
+     * Atomically claim one 'processing' conversation for a worker.
+     * Uses UPDATE...LIMIT 1 with row-level locking to prevent race conditions.
+     */
+    public function dequeueForWorker(string $workerId): ?Conversation
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+
+        $affected = $conn->executeStatement(
+            'UPDATE ' . self::TABLE . '
+             SET status = \'locked\', current_request_id = ?
+             WHERE status = \'processing\' AND deleted = 0
+             ORDER BY tstamp ASC LIMIT 1',
+            [$workerId]
+        );
+
+        if ($affected === 0) {
+            return null;
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $row = $qb->select('*')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('current_request_id', $qb->createNamedParameter($workerId)),
+                $qb->expr()->eq('status', $qb->createNamedParameter('locked')),
+            )
+            ->executeQuery()
+            ->fetchAssociative();
+
+        if ($row === false) {
+            return null;
+        }
+
+        return Conversation::fromRow($row);
+    }
 }
