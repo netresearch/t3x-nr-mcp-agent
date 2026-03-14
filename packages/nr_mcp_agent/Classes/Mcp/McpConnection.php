@@ -15,6 +15,9 @@ final class McpConnection
     private int $requestId = 0;
     private bool $initialized = false;
 
+    /**
+     * @param list<string> $args
+     */
     public function open(string $command, array $args = [], string $cwd = ''): void
     {
         if ($this->process !== null) {
@@ -27,16 +30,18 @@ final class McpConnection
             2 => ['pipe', 'w'],
         ];
 
-        $this->process = proc_open(
+        $process = proc_open(
             [$command, ...$args],
             $descriptors,
             $pipes,
             $cwd ?: null,
         );
 
-        if (!is_resource($this->process)) {
+        if ($process === false) {
             throw new \RuntimeException('Failed to start MCP server process');
         }
+
+        $this->process = $process;
 
         $this->stdin = $pipes[0];
         $this->stdout = $pipes[1];
@@ -62,6 +67,10 @@ final class McpConnection
         return $this->initialized && $this->process !== null;
     }
 
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
     public function call(string $method, array $params = []): array
     {
         $id = ++$this->requestId;
@@ -78,6 +87,9 @@ final class McpConnection
         return $this->readResponse($id);
     }
 
+    /**
+     * @param array<string, mixed> $params
+     */
     public function notify(string $method, array $params = []): void
     {
         $request = json_encode([
@@ -120,6 +132,9 @@ final class McpConnection
         fflush($this->stdin);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function readResponse(int $expectedId, float $timeoutSeconds = 30.0): array
     {
         if ($this->stdout === null) {
@@ -138,8 +153,9 @@ final class McpConnection
 
             $buffer .= $chunk;
 
+            /** @var mixed $decoded */
             $decoded = json_decode(trim($buffer), true);
-            if ($decoded === null) {
+            if (!is_array($decoded)) {
                 continue;
             }
 
@@ -154,15 +170,18 @@ final class McpConnection
             }
 
             if (isset($decoded['error'])) {
+                /** @var array<string, mixed> $error */
+                $error = is_array($decoded['error']) ? $decoded['error'] : [];
+                $errCode = is_int($error['code'] ?? null) ? $error['code'] : -1;
+                $errMsg = is_string($error['message'] ?? null) ? $error['message'] : 'Unknown error';
                 throw new \RuntimeException(
-                    sprintf('MCP error %d: %s',
-                        $decoded['error']['code'] ?? -1,
-                        $decoded['error']['message'] ?? 'Unknown error'
-                    )
+                    sprintf('MCP error %d: %s', $errCode, $errMsg)
                 );
             }
 
-            return $decoded['result'] ?? [];
+            /** @var array<string, mixed> $result */
+            $result = $decoded['result'] ?? [];
+            return $result;
         }
 
         throw new \RuntimeException(

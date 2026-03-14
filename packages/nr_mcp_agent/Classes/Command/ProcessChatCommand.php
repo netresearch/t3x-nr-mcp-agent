@@ -35,7 +35,9 @@ final class ProcessChatCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $uid = (int)$input->getArgument('conversationUid');
+        $conversationUidArg = $input->getArgument('conversationUid');
+        assert(is_string($conversationUidArg) || is_int($conversationUidArg));
+        $uid = (int)$conversationUidArg;
         $conversation = $this->repository->findByUid($uid);
 
         if ($conversation === null) {

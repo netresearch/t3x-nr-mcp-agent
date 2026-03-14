@@ -9,27 +9,31 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class ExtensionConfiguration
 {
+    /** @var array<string, mixed> */
     private array $config;
 
     public function __construct()
     {
-        $this->config = GeneralUtility::makeInstance(Typo3ExtensionConfiguration::class)
+        /** @var array<string, mixed> $config */
+        $config = (array)GeneralUtility::makeInstance(Typo3ExtensionConfiguration::class)
             ->get('nr_mcp_agent');
+        $this->config = $config;
     }
 
     public function getLlmTaskUid(): int
     {
-        return (int)($this->config['llmTaskUid'] ?? 0);
+        return (int)$this->getString('llmTaskUid', '0');
     }
 
     public function getProcessingStrategy(): string
     {
-        return (string)($this->config['processingStrategy'] ?? 'exec');
+        return $this->getString('processingStrategy', 'exec');
     }
 
+    /** @return list<int> */
     public function getAllowedGroupIds(): array
     {
-        $groups = (string)($this->config['allowedGroups'] ?? '');
+        $groups = $this->getString('allowedGroups', '');
         if ($groups === '') {
             return [];
         }
@@ -38,40 +42,47 @@ final class ExtensionConfiguration
 
     public function isMcpEnabled(): bool
     {
-        return ($this->config['enableMcp'] ?? '0') === '1';
+        return $this->getString('enableMcp', '0') === '1';
     }
 
     public function getMaxConversationsPerUser(): int
     {
-        return (int)($this->config['maxConversationsPerUser'] ?? 50);
+        return (int)$this->getString('maxConversationsPerUser', '50');
     }
 
     public function getAutoArchiveDays(): int
     {
-        return (int)($this->config['autoArchiveDays'] ?? 30);
+        return (int)$this->getString('autoArchiveDays', '30');
     }
 
     public function getMaxMessageLength(): int
     {
-        return (int)($this->config['maxMessageLength'] ?? 10000);
+        return (int)$this->getString('maxMessageLength', '10000');
     }
 
     public function getMaxActiveConversationsPerUser(): int
     {
-        return (int)($this->config['maxActiveConversationsPerUser'] ?? 3);
+        return (int)$this->getString('maxActiveConversationsPerUser', '3');
     }
 
     public function getMcpServerCommand(): string
     {
-        return (string)($this->config['mcpServerCommand'] ?? '');
+        return $this->getString('mcpServerCommand', '');
     }
 
+    /** @return list<string> */
     public function getMcpServerArgs(): array
     {
-        $args = (string)($this->config['mcpServerArgs'] ?? '');
+        $args = $this->getString('mcpServerArgs', '');
         if ($args === '') {
             return [];
         }
         return array_map('trim', explode(',', $args));
+    }
+
+    private function getString(string $key, string $default): string
+    {
+        $value = $this->config[$key] ?? $default;
+        return is_scalar($value) ? (string)$value : $default;
     }
 }

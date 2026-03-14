@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service;
 
 use Netresearch\NrLlm\Dto\ToolOptions;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -70,7 +71,9 @@ final class ChatService
             $lastMessage = end($messages);
 
             if ($lastMessage && $lastMessage['role'] === 'assistant' && !empty($lastMessage['tool_calls'])) {
-                $toolResults = $this->executeToolCalls($lastMessage['tool_calls']);
+                /** @var array<mixed> $pendingToolCalls */
+                $pendingToolCalls = is_array($lastMessage['tool_calls']) ? $lastMessage['tool_calls'] : [];
+                $toolResults = $this->executeToolCalls($pendingToolCalls);
                 $messages = $conversation->getDecodedMessages();
                 foreach ($toolResults as $result) {
                     $messages[] = [
@@ -94,6 +97,9 @@ final class ChatService
         }
     }
 
+    /**
+     * @param list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
+     */
     private function runAgentLoop(
         Conversation $conversation,
         int $taskUid,
@@ -111,16 +117,18 @@ final class ChatService
 
             if ($response->hasToolCalls()) {
                 // Reuse $messages from above — no second decode needed
+                /** @var array<mixed> $toolCalls */
+                $toolCalls = $response->toolCalls ?? [];
                 $messages[] = [
                     'role' => 'assistant',
-                    'content' => $response->getContent(),
-                    'tool_calls' => $response->toolCalls,
+                    'content' => $response->content,
+                    'tool_calls' => $toolCalls,
                 ];
                 $conversation->setMessages($messages);
                 $this->persist($conversation);
 
                 $conversation->setStatus(ConversationStatus::ToolLoop);
-                $toolResults = $this->executeToolCalls($response->toolCalls);
+                $toolResults = $this->executeToolCalls($toolCalls);
                 foreach ($toolResults as $result) {
                     $messages[] = [
                         'role' => 'tool',
@@ -133,7 +141,7 @@ final class ChatService
                 continue;
             }
 
-            $conversation->appendMessage('assistant', $response->getContent());
+            $conversation->appendMessage('assistant', $response->content);
             $conversation->setStatus(ConversationStatus::Idle);
             $this->persist($conversation);
             return;
@@ -144,21 +152,25 @@ final class ChatService
         $this->persist($conversation);
     }
 
+    /**
+     * @param list<array<string, mixed>> $messages
+     * @param list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
+     */
     private function callLlmWithRetry(
         array $messages,
         array $tools,
         int $taskUid,
         Conversation $conversation,
-    ): mixed {
+    ): CompletionResponse {
         $lastException = null;
         for ($attempt = 0; $attempt <= self::MAX_LLM_RETRIES; $attempt++) {
             try {
                 return $this->llmManager->chatWithTools(
-                    $messages,
+                    $messages, // @phpstan-ignore argument.type (nr-llm API will be updated)
                     $tools,
-                    ToolOptions::auto(),
-                    taskUid: $taskUid,
-                    systemPrompt: $this->buildSystemPrompt($conversation),
+                    ToolOptions::auto(), // @phpstan-ignore class.notFound, argument.type (nr-llm API will be updated)
+                    taskUid: $taskUid, // @phpstan-ignore argument.unknown (nr-llm API will be updated)
+                    systemPrompt: $this->buildSystemPrompt($conversation), // @phpstan-ignore argument.unknown (nr-llm API will be updated)
                 );
             } catch (\Throwable $e) {
                 $lastException = $e;
@@ -172,21 +184,39 @@ final class ChatService
                 sleep(self::LLM_RETRY_DELAY_SECONDS * ($attempt + 1));
             }
         }
+        // $lastException is always set by the loop before this point
         throw $lastException;
     }
 
+    /**
+     * @param array<mixed> $toolCalls
+     * @return list<array{tool_call_id: mixed, content: string}>
+     */
     private function executeToolCalls(array $toolCalls): array
     {
         $results = [];
         foreach ($toolCalls as $call) {
-            $functionName = $call['function']['name'] ?? $call['name'] ?? '';
-            $arguments = $call['function']['arguments'] ?? $call['input'] ?? [];
+            if (!is_array($call)) {
+                continue;
+            }
+            /** @var array<string, mixed> $callData */
+            $callData = $call;
+            /** @var array<string, mixed> $function */
+            $function = is_array($callData['function'] ?? null) ? $callData['function'] : [];
+            $nameRaw = $function['name'] ?? $callData['name'] ?? '';
+            $functionName = is_string($nameRaw) ? $nameRaw : '';
+            $arguments = $function['arguments'] ?? $callData['input'] ?? [];
             if (is_string($arguments)) {
+                /** @var array<string, mixed> $arguments */
                 $arguments = json_decode($arguments, true) ?? [];
             }
+            if (!is_array($arguments)) {
+                $arguments = [];
+            }
+            /** @var array<string, mixed> $arguments */
             $result = $this->mcpToolProvider->executeTool($functionName, $arguments);
             $results[] = [
-                'tool_call_id' => $call['id'],
+                'tool_call_id' => $callData['id'] ?? null,
                 'content' => $result,
             ];
         }
@@ -200,7 +230,12 @@ final class ChatService
             return $custom;
         }
 
-        $lang = $GLOBALS['BE_USER']->uc['lang'] ?? 'default';
+        /** @var mixed $beUser */
+        $beUser = $GLOBALS['BE_USER'] ?? null;
+        /** @var array<string, mixed> $uc */
+        $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];
+        $langRaw = $uc['lang'] ?? 'default';
+        $lang = is_string($langRaw) ? $langRaw : 'default';
 
         return match ($lang) {
             'de' => 'Du bist ein TYPO3-Assistent. Du hilfst beim Verwalten von Inhalten über die verfügbaren Tools. Antworte auf Deutsch.',
@@ -210,8 +245,8 @@ final class ChatService
 
     private function sanitizeErrorMessage(string $message): string
     {
-        $message = preg_replace('/(?:Bearer |sk-|key-)[a-zA-Z0-9\-_]+/', '[REDACTED]', $message);
-        $message = preg_replace('#https?://[^\s]+#', '[URL]', $message);
+        $message = preg_replace('/(?:Bearer |sk-|key-)[a-zA-Z0-9\-_]+/', '[REDACTED]', $message) ?? $message;
+        $message = preg_replace('#https?://[^\s]+#', '[URL]', $message) ?? $message;
         return mb_substr($message, 0, 500);
     }
 

@@ -35,6 +35,7 @@ final class ConversationRepository
         return $row !== false ? Conversation::fromRow($row) : null;
     }
 
+    /** @return list<Conversation> */
     public function findByBeUser(int $beUserUid, bool $includeArchived = false): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
@@ -73,7 +74,7 @@ final class ConversationRepository
     public function countActiveByBeUser(int $beUserUid): int
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        return (int)$qb->count('uid')
+        $fetchResult = $qb->count('uid')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
@@ -85,6 +86,7 @@ final class ConversationRepository
             )
             ->executeQuery()
             ->fetchOne();
+        return is_int($fetchResult) ? $fetchResult : (is_string($fetchResult) ? (int)$fetchResult : 0);
     }
 
     public function add(Conversation $conversation): int

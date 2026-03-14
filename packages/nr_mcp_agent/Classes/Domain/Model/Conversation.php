@@ -24,32 +24,46 @@ final class Conversation
     private bool $pinned = false;
     private string $errorMessage = '';
     private int $tstamp = 0;
+    /** @phpstan-ignore-next-line property.onlyWritten */
     private int $crdate = 0;
 
     /**
      * Factory method: hydrate from a database row array.
+     *
+     * @param array<string, mixed> $row
      */
     public static function fromRow(array $row): self
     {
         $conversation = new self();
-        $conversation->uid = (int)($row['uid'] ?? 0);
-        $conversation->beUser = (int)($row['be_user'] ?? 0);
-        $conversation->title = (string)($row['title'] ?? '');
-        $conversation->messages = (string)($row['messages'] ?? '');
-        $conversation->messageCount = (int)($row['message_count'] ?? 0);
-        $conversation->status = (string)($row['status'] ?? 'idle');
-        $conversation->currentRequestId = (string)($row['current_request_id'] ?? '');
-        $conversation->systemPrompt = (string)($row['system_prompt'] ?? '');
-        $conversation->archived = (bool)($row['archived'] ?? false);
-        $conversation->pinned = (bool)($row['pinned'] ?? false);
-        $conversation->errorMessage = (string)($row['error_message'] ?? '');
-        $conversation->tstamp = (int)($row['tstamp'] ?? 0);
-        $conversation->crdate = (int)($row['crdate'] ?? 0);
+        $conversation->uid = (int)self::val($row, 'uid', 0);
+        $conversation->beUser = (int)self::val($row, 'be_user', 0);
+        $conversation->title = (string)self::val($row, 'title', '');
+        $conversation->messages = (string)self::val($row, 'messages', '');
+        $conversation->messageCount = (int)self::val($row, 'message_count', 0);
+        $conversation->status = (string)self::val($row, 'status', 'idle');
+        $conversation->currentRequestId = (string)self::val($row, 'current_request_id', '');
+        $conversation->systemPrompt = (string)self::val($row, 'system_prompt', '');
+        $conversation->archived = (bool)self::val($row, 'archived', false);
+        $conversation->pinned = (bool)self::val($row, 'pinned', false);
+        $conversation->errorMessage = (string)self::val($row, 'error_message', '');
+        $conversation->tstamp = (int)self::val($row, 'tstamp', 0);
+        $conversation->crdate = (int)self::val($row, 'crdate', 0);
         return $conversation;
     }
 
     /**
+     * @param array<string, mixed> $row
+     */
+    private static function val(array $row, string $key, mixed $default): int|float|string|bool|null
+    {
+        $v = $row[$key] ?? $default;
+        return is_scalar($v) ? $v : null;
+    }
+
+    /**
      * Serialize back to a DB-compatible array (for INSERT/UPDATE).
+     *
+     * @return array<string, int|string>
      */
     public function toRow(): array
     {
@@ -97,20 +111,31 @@ final class Conversation
         return $this->messages;
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function getDecodedMessages(): array
     {
         if ($this->messages === '') {
             return [];
         }
-        return json_decode($this->messages, true, 512, JSON_THROW_ON_ERROR);
+        /** @var list<array<string, mixed>> $decoded */
+        $decoded = json_decode($this->messages, true, 512, JSON_THROW_ON_ERROR);
+        return $decoded;
     }
 
+    /**
+     * @param list<array<string, mixed>> $messages
+     */
     public function setMessages(array $messages): void
     {
         $this->messages = json_encode($messages, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->messageCount = count($messages);
     }
 
+    /**
+     * @param string|array<mixed> $content
+     */
     public function appendMessage(string $role, string|array $content): void
     {
         $messages = $this->getDecodedMessages();

@@ -10,6 +10,7 @@ use TYPO3\CMS\Core\Core\Environment;
 final class McpToolProvider
 {
     private ?McpConnection $connection = null;
+    /** @var list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}>|null */
     private ?array $cachedTools = null;
 
     public function __construct(
@@ -30,6 +31,9 @@ final class McpToolProvider
         $this->connection->open($command, $args, Environment::getProjectPath());
     }
 
+    /**
+     * @return list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}>
+     */
     public function getToolDefinitions(): array
     {
         if ($this->connection === null || !$this->connection->isOpen()) {
@@ -42,25 +46,42 @@ final class McpToolProvider
 
         $result = $this->connection->call('tools/list');
 
-        $this->cachedTools = array_map(
-            static fn(array $tool): array => [
+        /** @var array<mixed> $rawTools */
+        $rawTools = is_array($result['tools'] ?? null) ? $result['tools'] : [];
+
+        $tools = [];
+        foreach ($rawTools as $tool) {
+            if (!is_array($tool)) {
+                continue;
+            }
+            /** @var array<string, mixed> $toolData */
+            $toolData = $tool;
+            $name = is_string($toolData['name'] ?? null) ? $toolData['name'] : '';
+            $description = is_string($toolData['description'] ?? null) ? $toolData['description'] : '';
+            /** @var array<string, mixed> $parameters */
+            $parameters = is_array($toolData['inputSchema'] ?? null) ? $toolData['inputSchema'] : ['type' => 'object'];
+            $tools[] = [
                 'type' => 'function',
                 'function' => [
-                    'name' => $tool['name'],
-                    'description' => $tool['description'] ?? '',
-                    'parameters' => $tool['inputSchema'] ?? ['type' => 'object'],
+                    'name' => $name,
+                    'description' => $description,
+                    'parameters' => $parameters,
                 ],
-            ],
-            $result['tools'] ?? []
-        );
+            ];
+        }
+
+        $this->cachedTools = $tools;
 
         return $this->cachedTools;
     }
 
+    /**
+     * @param array<string, mixed> $input
+     */
     public function executeTool(string $toolName, array $input): string
     {
         if ($this->connection === null || !$this->connection->isOpen()) {
-            return json_encode(['error' => 'MCP not connected']);
+            return json_encode(['error' => 'MCP not connected']) ?: '{"error":"MCP not connected"}';
         }
 
         $result = $this->connection->call('tools/call', [
@@ -69,13 +90,20 @@ final class McpToolProvider
         ]);
 
         $texts = [];
-        foreach ($result['content'] ?? [] as $block) {
-            if (($block['type'] ?? '') === 'text') {
-                $texts[] = $block['text'];
+        /** @var array<mixed> $contentBlocks */
+        $contentBlocks = is_array($result['content'] ?? null) ? $result['content'] : [];
+        foreach ($contentBlocks as $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+            /** @var array<string, mixed> $blockData */
+            $blockData = $block;
+            if (($blockData['type'] ?? '') === 'text') {
+                $texts[] = is_string($blockData['text'] ?? null) ? $blockData['text'] : '';
             }
         }
 
-        return implode("\n", $texts) ?: json_encode($result);
+        return implode("\n", $texts) ?: (json_encode($result) ?: '{}');
     }
 
     public function disconnect(): void
