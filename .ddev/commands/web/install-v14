@@ -11,7 +11,7 @@ EXTENSION_PATH="/var/www/nr_mcp_agent"
 echo "=== Installing TYPO3 v14 with nr_mcp_agent ==="
 
 # Drop and recreate database
-mysql -uroot -proot -hdb -e "DROP DATABASE IF EXISTS db; CREATE DATABASE db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -uroot -proot -hdb -e "DROP DATABASE IF EXISTS db_v14; CREATE DATABASE db_v14 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
 # Clean install directory (preserve volume)
 rm -rf "${INSTALL_DIR:?}"/*
@@ -49,7 +49,7 @@ vendor/bin/typo3 setup \
     --driver=mysqli \
     --host=db \
     --port=3306 \
-    --dbname=db \
+    --dbname=db_v14 \
     --username=root \
     --password=root \
     --admin-username="${TYPO3_SETUP_ADMIN_USERNAME:-admin}" \

@@ -1,4 +1,4 @@
-.PHONY: up start down restart install install-all install-v13 install-v14 sync test test-unit test-func lint lint-fix phpstan ci docs
+.PHONY: up start down restart install install-all install-v13 install-v14 sync test test-unit test-func test-arch test-js test-e2e test-mutation test-all coverage lint lint-fix phpstan ci docs
 
 # === Environment ===
 up: start install-all docs  ## Full setup: DDEV + all TYPO3 versions + docs

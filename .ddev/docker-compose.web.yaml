@@ -7,7 +7,7 @@ services:
       - TYPO3_DB_DRIVER=mysqli
       - TYPO3_DB_HOST=db
       - TYPO3_DB_PORT=3306
-      - TYPO3_DB_DBNAME=db
+      - TYPO3_DB_DBNAME=db_v14
       - TYPO3_DB_USERNAME=root
       - TYPO3_DB_PASSWORD=root
       - TYPO3_SETUP_ADMIN_EMAIL=admin@example.com
