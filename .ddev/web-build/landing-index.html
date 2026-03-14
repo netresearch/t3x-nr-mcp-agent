@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nr-mcp-agent – Development Environment</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --primary:  #2F99A4;
+      --accent:   #FF4D00;
+      --text:     #585961;
+      --bg:       #f5f6f7;
+      --card-bg:  #ffffff;
+      --border:   #e0e2e5;
+      --radius:   8px;
+    }
+
+    body {
+      font-family: 'Open Sans', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: #1a1c20;
+      color: #fff;
+      padding: 28px 40px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .header-logo {
+      width: 44px;
+      height: 44px;
+      background: var(--primary);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-family: 'Raleway', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+
+    .header-text p {
+      font-size: 0.85rem;
+      color: #a0a4aa;
+      margin-top: 2px;
+    }
+
+    /* ── Main content ───────────────────────────────────────── */
+    main {
+      flex: 1;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    /* ── Section headings ───────────────────────────────────── */
+    .section-title {
+      font-family: 'Raleway', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--primary);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--primary);
+    }
+
+    /* ── Navigation cards ───────────────────────────────────── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+
+    @media (max-width: 768px) {
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.18s, box-shadow 0.18s, transform 0.12s;
+    }
+
+    .card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 16px rgba(47, 153, 164, 0.15);
+      transform: translateY(-2px);
+      color: var(--text);
+    }
+
+    .card-icon {
+      font-size: 1.6rem;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .card-label {
+      font-family: 'Raleway', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .card-url {
+      font-size: 0.75rem;
+      color: #999;
+      margin-top: 3px;
+      word-break: break-all;
+    }
+
+    /* ── Credentials ────────────────────────────────────────── */
+    .info-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 36px;
+    }
+
+    .credentials {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .credential-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+
+    .credential-label {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .credential-value {
+      font-family: 'Courier New', monospace;
+      background: #f0f2f4;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      color: #333;
+    }
+
+    /* ── Git info ───────────────────────────────────────────── */
+    .git-info {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      font-size: 0.88rem;
+    }
+
+    .git-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .git-badge {
+      background: #f0f2f4;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      color: #444;
+    }
+
+    .git-badge.loading {
+      color: #aaa;
+      font-style: italic;
+    }
+
+    .git-badge.error {
+      color: #c0392b;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────── */
+    footer {
+      background: #1a1c20;
+      color: #666;
+      text-align: center;
+      padding: 16px 24px;
+      font-size: 0.8rem;
+    }
+
+    footer span {
+      color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-logo">🤖</div>
+    <div class="header-text">
+      <h1>nr-mcp-agent</h1>
+      <p>AI Chat for TYPO3 Editors via MCP – Development Environment</p>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Navigation cards -->
+    <h2 class="section-title">Environments</h2>
+    <div class="card-grid">
+
+      <a class="card" href="https://v13.nr-mcp-agent.ddev.site/typo3/" target="_blank" rel="noopener">
+        <span class="card-icon">🔧</span>
+        <div>
+          <div class="card-label">TYPO3 v13 Backend</div>
+          <div class="card-url">v13.nr-mcp-agent.ddev.site/typo3/</div>
+        </div>
+      </a>
+
+      <a class="card" href="https://v13.nr-mcp-agent.ddev.site/" target="_blank" rel="noopener">
+        <span class="card-icon">🌐</span>
+        <div>
+          <div class="card-label">TYPO3 v13 Frontend</div>
+          <div class="card-url">v13.nr-mcp-agent.ddev.site/</div>
+        </div>
+      </a>
+
+      <a class="card" href="https://v14.nr-mcp-agent.ddev.site/typo3/" target="_blank" rel="noopener">
+        <span class="card-icon">🔧</span>
+        <div>
+          <div class="card-label">TYPO3 v14 Backend</div>
+          <div class="card-url">v14.nr-mcp-agent.ddev.site/typo3/</div>
+        </div>
+      </a>
+
+      <a class="card" href="https://v14.nr-mcp-agent.ddev.site/" target="_blank" rel="noopener">
+        <span class="card-icon">🌐</span>
+        <div>
+          <div class="card-label">TYPO3 v14 Frontend</div>
+          <div class="card-url">v14.nr-mcp-agent.ddev.site/</div>
+        </div>
+      </a>
+
+      <a class="card" href="https://docs.nr-mcp-agent.ddev.site/" target="_blank" rel="noopener">
+        <span class="card-icon">📚</span>
+        <div>
+          <div class="card-label">Documentation</div>
+          <div class="card-url">docs.nr-mcp-agent.ddev.site/</div>
+        </div>
+      </a>
+
+      <a class="card" href="https://nr-mcp-agent.ddev.site:8026/" target="_blank" rel="noopener">
+        <span class="card-icon">📧</span>
+        <div>
+          <div class="card-label">Mailpit</div>
+          <div class="card-url">nr-mcp-agent.ddev.site:8026/</div>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- Credentials -->
+    <h2 class="section-title">Credentials</h2>
+    <div class="info-box">
+      <div class="credentials">
+        <div class="credential-item">
+          <span class="credential-label">Username</span>
+          <span class="credential-value">admin</span>
+        </div>
+        <div class="credential-item">
+          <span class="credential-label">Password</span>
+          <span class="credential-value">Joh316!!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Git info -->
+    <h2 class="section-title">Repository</h2>
+    <div class="info-box">
+      <div class="git-info">
+        <div class="git-item">
+          <span class="credential-label">Branch</span>
+          <span class="git-badge loading" id="git-branch">loading…</span>
+        </div>
+        <div class="git-item">
+          <span class="credential-label">Commit</span>
+          <span class="git-badge loading" id="git-commit">loading…</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    Powered by <span>DDEV</span> &bull; Netresearch DTT GmbH
+  </footer>
+
+  <script>
+    (function () {
+      var branchEl = document.getElementById('git-branch');
+      var commitEl = document.getElementById('git-commit');
+
+      fetch('/.git-info.json')
+        .then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          if (data.branch) {
+            branchEl.textContent = data.branch;
+            branchEl.classList.remove('loading');
+          } else {
+            branchEl.textContent = 'n/a';
+            branchEl.classList.remove('loading');
+          }
+          if (data.commit) {
+            commitEl.textContent = data.commit;
+            commitEl.classList.remove('loading');
+          } else {
+            commitEl.textContent = 'n/a';
+            commitEl.classList.remove('loading');
+          }
+        })
+        .catch(function () {
+          branchEl.textContent = 'unavailable';
+          branchEl.classList.remove('loading');
+          branchEl.classList.add('error');
+          commitEl.textContent = 'unavailable';
+          commitEl.classList.remove('loading');
+          commitEl.classList.add('error');
+        });
+    })();
+  </script>
+
+</body>
+</html>
