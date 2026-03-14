@@ -130,4 +130,88 @@ class ConversationTest extends TestCase
 
         self::assertFalse($conversation->isResumable());
     }
+
+    #[Test]
+    public function setMessagesUpdatesMessageCount(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setMessages([
+            ['role' => 'user', 'content' => 'Hello'],
+            ['role' => 'assistant', 'content' => 'Hi'],
+            ['role' => 'user', 'content' => 'How are you?'],
+        ]);
+        self::assertSame(3, $conversation->getMessageCount());
+    }
+
+    #[Test]
+    public function setSystemPromptTruncatesAt10000Chars(): void
+    {
+        $conversation = new Conversation();
+        $longPrompt = str_repeat('a', 10001);
+        $conversation->setSystemPrompt($longPrompt);
+        self::assertSame(10000, mb_strlen($conversation->getSystemPrompt()));
+    }
+
+    #[Test]
+    public function setSystemPromptKeepsExact10000Chars(): void
+    {
+        $conversation = new Conversation();
+        $exactPrompt = str_repeat('b', 10000);
+        $conversation->setSystemPrompt($exactPrompt);
+        self::assertSame(10000, mb_strlen($conversation->getSystemPrompt()));
+        self::assertSame($exactPrompt, $conversation->getSystemPrompt());
+    }
+
+    #[Test]
+    public function fromRowHydratesAllFields(): void
+    {
+        $row = [
+            'uid' => 42,
+            'be_user' => 7,
+            'title' => 'Test Title',
+            'messages' => '[]',
+            'message_count' => 0,
+            'status' => 'processing',
+            'current_request_id' => 'req_123',
+            'system_prompt' => 'You are helpful',
+            'archived' => 1,
+            'pinned' => 1,
+            'error_message' => 'Some error',
+            'tstamp' => 1700000000,
+            'crdate' => 1699000000,
+        ];
+        $conversation = Conversation::fromRow($row);
+
+        self::assertSame(42, $conversation->getUid());
+        self::assertSame(7, $conversation->getBeUser());
+        self::assertSame('Test Title', $conversation->getTitle());
+        self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
+        self::assertSame('req_123', $conversation->getCurrentRequestId());
+        self::assertSame('You are helpful', $conversation->getSystemPrompt());
+        self::assertTrue($conversation->isArchived());
+        self::assertTrue($conversation->isPinned());
+        self::assertSame('Some error', $conversation->getErrorMessage());
+        self::assertSame(1700000000, $conversation->getTstamp());
+    }
+
+    #[Test]
+    public function toRowSerializesCorrectly(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(5);
+        $conversation->setTitle('Test');
+        $conversation->setArchived(true);
+        $conversation->setPinned(true);
+        $conversation->setErrorMessage('err');
+        $conversation->setSystemPrompt('prompt');
+
+        $row = $conversation->toRow();
+
+        self::assertSame(5, $row['be_user']);
+        self::assertSame('Test', $row['title']);
+        self::assertSame(1, $row['archived']);
+        self::assertSame(1, $row['pinned']);
+        self::assertSame('err', $row['error_message']);
+        self::assertSame('prompt', $row['system_prompt']);
+    }
 }

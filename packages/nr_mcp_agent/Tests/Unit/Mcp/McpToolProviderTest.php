@@ -57,4 +57,16 @@ class McpToolProviderTest extends TestCase
         $provider->disconnect();
         self::assertSame([], $provider->getToolDefinitions());
     }
+
+    #[Test]
+    public function disconnectClearsCachedTools(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('isMcpEnabled')->willReturn(false);
+
+        $provider = new McpToolProvider($config);
+        // Even after disconnect, tool definitions should be empty
+        $provider->disconnect();
+        self::assertSame([], $provider->getToolDefinitions());
+    }
 }
