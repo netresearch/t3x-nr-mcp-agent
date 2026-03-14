@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+## Description: Copy landing page to webroot (for manual refresh)
+## Usage: copy-landing-page
+## Example: ddev copy-landing-page
+
+set -euo pipefail
+
+cp /var/www/nr_mcp_agent/.ddev/web-build/landing-index.html /var/www/html/index.html
+echo "Landing page copied to /var/www/html/index.html"

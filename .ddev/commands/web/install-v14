@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+## Description: Install TYPO3 v14 with nr_mcp_agent extension
+## Usage: install-v14
+## Example: ddev install-v14
+
+set -euo pipefail
+
+INSTALL_DIR="/var/www/html/v14"
+EXTENSION_PATH="/var/www/nr_mcp_agent"
+
+echo "=== Installing TYPO3 v14 with nr_mcp_agent ==="
+
+# Drop and recreate database
+mysql -uroot -proot -hdb -e "DROP DATABASE IF EXISTS db_v14; CREATE DATABASE db_v14 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# Clean install directory (preserve volume)
+rm -rf "${INSTALL_DIR:?}"/*
+
+# Install TYPO3 base distribution
+composer create-project typo3/cms-base-distribution:^14 "$INSTALL_DIR" --no-interaction
+
+cd "$INSTALL_DIR"
+
+# Remove PHP platform override (DDEV handles PHP version)
+composer config --unset platform.php 2>/dev/null || true
+
+# Add extension as path repository
+composer config repositories.nr_mcp_agent path "$EXTENSION_PATH"
+
+# Add nr-vault as path repository if available locally
+if [ -d "/var/www/nr-vault" ]; then
+    composer config repositories.nr_vault path "/var/www/nr-vault"
+    echo "  → nr-vault from local path"
+fi
+
+# Require the extension
+composer require "netresearch/nr-mcp-agent:@dev" --no-interaction
+
+# Require MCP server (from Packagist)
+composer require "hn/typo3-mcp-server:^1.0" --no-interaction || echo "  ⚠ hn/typo3-mcp-server not available yet, skipping"
+
+# Require nr-vault if not already added via path
+if ! composer show netresearch/nr-vault 2>/dev/null; then
+    composer require "netresearch/nr-vault:^0.4" --no-interaction || echo "  ⚠ nr-vault not available, skipping"
+fi
+
+# Run TYPO3 setup
+vendor/bin/typo3 setup \
+    --driver=mysqli \
+    --host=db \
+    --port=3306 \
+    --dbname=db_v14 \
+    --username=root \
+    --password=root \
+    --admin-username="${TYPO3_SETUP_ADMIN_USERNAME:-admin}" \
+    --admin-user-password="${TYPO3_SETUP_ADMIN_PASSWORD:-Joh316!!}" \
+    --admin-email="${TYPO3_SETUP_ADMIN_EMAIL:-admin@example.com}" \
+    --project-name="nr-mcp-agent Dev" \
+    --server-type=apache \
+    --no-interaction \
+    --force
+
+# Development settings
+cat > config/system/additional.php << 'PHPSETTINGS'
+<?php
+$GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = 1;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['exceptionalErrors'] = 12290;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
+$GLOBALS['TYPO3_CONF_VARS']['GFX']['processor'] = 'ImageMagick';
+$GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport'] = 'smtp';
+$GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_server'] = 'localhost:1025';
+
+// AI Chat: nr-llm Task UID can be set here for dev
+// Create nr-llm Task record after install, then set the UID:
+if (getenv('NR_MCP_AGENT_LLM_TASK_UID')) {
+    $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['llmTaskUid'] = (int)getenv('NR_MCP_AGENT_LLM_TASK_UID');
+}
+
+// AI Chat: Enable MCP if available
+if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('typo3_mcp_server')) {
+    $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['enableMcp'] = '1';
+}
+PHPSETTINGS
+
+# Run extension setup and flush caches
+vendor/bin/typo3 extension:setup
+vendor/bin/typo3 cache:flush
+
+echo ""
+echo "=== Installation complete ==="
+echo "  Backend:  https://v14.nr-mcp-agent.ddev.site/typo3"
+echo "  Login:    ${TYPO3_SETUP_ADMIN_USERNAME:-admin} / ${TYPO3_SETUP_ADMIN_PASSWORD:-Joh316!!}"
+echo "  Docs:     https://docs.nr-mcp-agent.ddev.site"
+echo ""
