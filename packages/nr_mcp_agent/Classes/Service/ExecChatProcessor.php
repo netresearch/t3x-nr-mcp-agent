@@ -40,8 +40,9 @@ final class ExecChatProcessor implements ChatProcessorInterface
                 $this->repository->update($conversation);
             }
 
+            // Close stdin and abandon process handle — do NOT call proc_close()
+            // as it waits for the child to exit, blocking the HTTP request.
             fclose($pipes[0]);
-            proc_close($process);
         }
     }
 }

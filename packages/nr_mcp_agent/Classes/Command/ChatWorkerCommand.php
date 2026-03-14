@@ -13,6 +13,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -40,19 +41,25 @@ final class ChatWorkerCommand extends Command
         $output->writeln(sprintf('<info>AI Chat worker %s started. Polling every %dms</info>', $workerId, $pollInterval / 1000));
 
         while (true) {
-            $conversation = $this->dequeue($workerId);
+            try {
+                $conversation = $this->dequeue($workerId);
 
-            if ($conversation !== null) {
-                $output->writeln(sprintf(
-                    '<info>Processing conversation %d for user %d</info>',
-                    $conversation->getUid(),
-                    $conversation->getBeUser(),
-                ));
+                if ($conversation !== null) {
+                    $output->writeln(sprintf(
+                        '<info>Processing conversation %d for user %d</info>',
+                        $conversation->getUid(),
+                        $conversation->getBeUser(),
+                    ));
 
-                $this->initializeBackendUser($conversation->getBeUser());
-                $this->chatService->processConversation($conversation);
-            } else {
-                usleep($pollInterval);
+                    $this->initializeBackendUser($conversation->getBeUser());
+                    $this->chatService->processConversation($conversation);
+                } else {
+                    usleep($pollInterval);
+                }
+            } catch (\Throwable $e) {
+                $output->writeln(sprintf('<error>Error: %s</error>', $e->getMessage()));
+            } finally {
+                $GLOBALS['BE_USER'] = null;
             }
         }
     }
@@ -97,7 +104,7 @@ final class ChatWorkerCommand extends Command
         $qb = $this->connectionPool->getQueryBuilderForTable('be_users');
         $userRecord = $qb->select('*')
             ->from('be_users')
-            ->where($qb->expr()->eq('uid', $userUid))
+            ->where($qb->expr()->eq('uid', $qb->createNamedParameter($userUid, Connection::PARAM_INT)))
             ->executeQuery()
             ->fetchAssociative();
 

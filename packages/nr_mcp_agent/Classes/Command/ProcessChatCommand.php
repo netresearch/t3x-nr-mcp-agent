@@ -12,6 +12,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -55,7 +56,7 @@ final class ProcessChatCommand extends Command
         $qb = $this->connectionPool->getQueryBuilderForTable('be_users');
         $userRecord = $qb->select('*')
             ->from('be_users')
-            ->where($qb->expr()->eq('uid', $userUid))
+            ->where($qb->expr()->eq('uid', $qb->createNamedParameter($userUid, Connection::PARAM_INT)))
             ->executeQuery()
             ->fetchAssociative();
 

@@ -54,24 +54,44 @@ final class ChatService
             return;
         }
 
-        $messages = $conversation->getDecodedMessages();
-        $lastMessage = end($messages);
-
-        if ($lastMessage && $lastMessage['role'] === 'assistant' && !empty($lastMessage['tool_calls'])) {
-            $toolResults = $this->executeToolCalls($lastMessage['tool_calls']);
-            $messages = $conversation->getDecodedMessages();
-            foreach ($toolResults as $result) {
-                $messages[] = [
-                    'role' => 'tool',
-                    'tool_call_id' => $result['tool_call_id'],
-                    'content' => $result['content'],
-                ];
-            }
-            $conversation->setMessages($messages);
+        $taskUid = $this->config->getLlmTaskUid();
+        if ($taskUid === 0) {
+            $conversation->setStatus(ConversationStatus::Failed);
+            $conversation->setErrorMessage('No nr-llm Task configured. Set llmTaskUid in Extension Configuration.');
             $this->persist($conversation);
+            return;
         }
 
-        $this->processConversation($conversation);
+        try {
+            $this->mcpToolProvider->connect();
+
+            // If last message is assistant with pending tool_calls, execute them first
+            $messages = $conversation->getDecodedMessages();
+            $lastMessage = end($messages);
+
+            if ($lastMessage && $lastMessage['role'] === 'assistant' && !empty($lastMessage['tool_calls'])) {
+                $toolResults = $this->executeToolCalls($lastMessage['tool_calls']);
+                $messages = $conversation->getDecodedMessages();
+                foreach ($toolResults as $result) {
+                    $messages[] = [
+                        'role' => 'tool',
+                        'tool_call_id' => $result['tool_call_id'],
+                        'content' => $result['content'],
+                    ];
+                }
+                $conversation->setMessages($messages);
+                $this->persist($conversation);
+            }
+
+            $tools = $this->mcpToolProvider->getToolDefinitions();
+            $this->runAgentLoop($conversation, $taskUid, $tools);
+        } catch (\Throwable $e) {
+            $conversation->setStatus(ConversationStatus::Failed);
+            $conversation->setErrorMessage($this->sanitizeErrorMessage($e->getMessage()));
+            $this->persist($conversation);
+        } finally {
+            $this->mcpToolProvider->disconnect();
+        }
     }
 
     private function runAgentLoop(
