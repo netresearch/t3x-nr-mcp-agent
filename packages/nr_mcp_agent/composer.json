@@ -1,0 +1,31 @@
+{
+    "name": "netresearch/nr-mcp-agent",
+    "type": "typo3-cms-extension",
+    "description": "AI chat assistant for the TYPO3 backend using nr-llm and MCP server",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": "^8.2",
+        "typo3/cms-core": "^13.4",
+        "typo3/cms-backend": "^13.4",
+        "netresearch/nr-llm": "^0.5"
+    },
+    "suggest": {
+        "netresearch/nr-vault": "For secure API key storage (^0.4)",
+        "hn/typo3-mcp-server": "For TYPO3 content management tools (^1.0)"
+    },
+    "autoload": {
+        "psr-4": {
+            "Netresearch\\NrMcpAgent\\": "Classes/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Netresearch\\NrMcpAgent\\Tests\\": "Tests/"
+        }
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nr_mcp_agent"
+        }
+    }
+}
