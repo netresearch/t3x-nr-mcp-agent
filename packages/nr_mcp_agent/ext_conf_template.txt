@@ -1,0 +1,29 @@
+# cat=basic/llm; type=int; label=nr-llm Task UID (reference to a configured nr-llm Task record)
+llmTaskUid = 0
+
+# cat=basic/processing; type=options[exec,worker]; label=Processing Strategy (exec: fork CLI process per request, worker: long-running systemd worker)
+processingStrategy = exec
+
+# cat=basic/access; type=string; label=Allowed Backend User Groups (comma-separated UIDs, empty = all)
+allowedGroups =
+
+# cat=basic/mcp; type=boolean; label=Enable MCP Server integration (requires hn/typo3-mcp-server)
+enableMcp = 0
+
+# cat=basic/mcp; type=string; label=MCP Server Command (path to binary, default: vendor/bin/typo3)
+mcpServerCommand =
+
+# cat=basic/mcp; type=string; label=MCP Server Arguments (comma-separated, default: mcp:server)
+mcpServerArgs =
+
+# cat=basic/ui; type=int; label=Max conversations to keep per user (0 = unlimited)
+maxConversationsPerUser = 50
+
+# cat=basic/ui; type=int; label=Auto-archive conversations after days of inactivity (0 = never)
+autoArchiveDays = 30
+
+# cat=basic/security; type=int; label=Maximum message length in characters (0 = unlimited)
+maxMessageLength = 10000
+
+# cat=basic/security; type=int; label=Maximum active (processing) conversations per user (0 = unlimited)
+maxActiveConversationsPerUser = 3
