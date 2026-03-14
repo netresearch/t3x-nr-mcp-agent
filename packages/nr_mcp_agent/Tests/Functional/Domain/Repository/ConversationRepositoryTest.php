@@ -6,6 +6,7 @@ namespace Netresearch\NrMcpAgent\Tests\Functional\Domain\Repository;
 
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -97,5 +98,64 @@ class ConversationRepositoryTest extends FunctionalTestCase
 
         $reloaded = $this->subject->findByUid(1);
         self::assertSame('Updated title', $reloaded->getTitle());
+    }
+
+    #[Test]
+    public function updateStatusChangesOnlyStatusInDatabase(): void
+    {
+        // Conv 1 is 'idle' — change to 'processing'
+        $this->subject->updateStatus(1, ConversationStatus::Processing);
+
+        $reloaded = $this->subject->findByUid(1);
+        self::assertSame(ConversationStatus::Processing, $reloaded->getStatus());
+        // Title must be unchanged
+        self::assertSame('Conv 1', $reloaded->getTitle());
+    }
+
+    #[Test]
+    public function dequeueForWorkerClaimsOldestProcessingRow(): void
+    {
+        // Conv 2 has status 'processing' — should be claimed
+        $conversation = $this->subject->dequeueForWorker('test_worker_1');
+
+        self::assertNotNull($conversation);
+        self::assertSame(2, $conversation->getUid());
+
+        // Verify DB state: status should now be 'locked'
+        $reloaded = $this->subject->findByUid(2);
+        self::assertSame(ConversationStatus::Locked, $reloaded->getStatus());
+        self::assertSame('test_worker_1', $reloaded->getCurrentRequestId());
+    }
+
+    #[Test]
+    public function dequeueForWorkerReturnsNullWhenQueueEmpty(): void
+    {
+        // First call claims the only 'processing' row (Conv 2)
+        $this->subject->dequeueForWorker('worker_a');
+
+        // Second call should find nothing
+        $result = $this->subject->dequeueForWorker('worker_b');
+        self::assertNull($result);
+    }
+
+    #[Test]
+    public function dequeueForWorkerClaimsOldestWhenMultipleProcessing(): void
+    {
+        // Add a second 'processing' conversation with older tstamp
+        $older = new Conversation();
+        $older->setBeUser(1);
+        $older->setTitle('Older conv');
+        $older->setStatus(ConversationStatus::Processing);
+        $olderUid = $this->subject->add($older);
+
+        // Update tstamp to be older than Conv 2
+        $conn = $this->get(\TYPO3\CMS\Core\Database\ConnectionPool::class)
+            ->getConnectionForTable('tx_nrmcpagent_conversation');
+        $conn->update('tx_nrmcpagent_conversation', ['tstamp' => 1700000000], ['uid' => $olderUid]);
+
+        // Dequeue should return the older one first
+        $claimed = $this->subject->dequeueForWorker('worker_order');
+        self::assertNotNull($claimed);
+        self::assertSame($olderUid, $claimed->getUid());
     }
 }
