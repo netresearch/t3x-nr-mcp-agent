@@ -52,6 +52,32 @@ class ExtensionConfigurationTest extends TestCase
     }
 
     #[Test]
+    public function getMcpServerArgsTrimsWhitespace(): void
+    {
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'mcpServerArgs' => 'mcp:server , --verbose , --debug',
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame(['mcp:server', '--verbose', '--debug'], $config->getMcpServerArgs());
+    }
+
+    #[Test]
+    public function isMcpEnabledReturnsFalseForZeroString(): void
+    {
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'enableMcp' => '0',
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertFalse($config->isMcpEnabled());
+    }
+
+    #[Test]
     public function defaultsAreUsedForMissingKeys(): void
     {
         $mock = $this->createMock(Typo3ExtensionConfiguration::class);

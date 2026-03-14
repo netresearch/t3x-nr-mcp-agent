@@ -38,7 +38,7 @@ final class ExtensionConfiguration
 
     public function isMcpEnabled(): bool
     {
-        return (bool)($this->config['enableMcp'] ?? false);
+        return ($this->config['enableMcp'] ?? '0') === '1';
     }
 
     public function getMaxConversationsPerUser(): int
@@ -72,6 +72,6 @@ final class ExtensionConfiguration
         if ($args === '') {
             return [];
         }
-        return explode(',', $args);
+        return array_map('trim', explode(',', $args));
     }
 }
