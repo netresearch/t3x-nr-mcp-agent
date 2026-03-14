@@ -6,3 +6,18 @@ services:
 
   Netresearch\NrMcpAgent\:
     resource: '../Classes/*'
+
+  # CLI Commands
+  Netresearch\NrMcpAgent\Command\ProcessChatCommand:
+    tags:
+      - name: 'console.command'
+        command: 'ai-chat:process'
+
+  Netresearch\NrMcpAgent\Command\ChatWorkerCommand:
+    tags:
+      - name: 'console.command'
+        command: 'ai-chat:worker'
+
+  # Processor: defaults to exec, override for worker mode
+  Netresearch\NrMcpAgent\Service\ChatProcessorInterface:
+    class: Netresearch\NrMcpAgent\Service\ExecChatProcessor
