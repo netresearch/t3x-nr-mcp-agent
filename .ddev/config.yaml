@@ -1,0 +1,20 @@
+name: nr-mcp-agent
+type: php
+php_version: "8.4"
+webserver_type: apache-fpm
+database:
+  type: mariadb
+  version: "11.4"
+composer_version: "2"
+xdebug_enabled: false
+additional_hostnames:
+  - v13.nr-mcp-agent
+  - v14.nr-mcp-agent
+  - docs.nr-mcp-agent
+no_project_mount: true
+hooks:
+  post-start:
+    - exec: |
+        # Write git info for display in backend
+        cd /var/www/nr_mcp_agent 2>/dev/null && \
+        echo "{\"branch\":\"$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')\",\"commit\":\"$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')\"}" > /var/www/html/.git-info.json 2>/dev/null || true
