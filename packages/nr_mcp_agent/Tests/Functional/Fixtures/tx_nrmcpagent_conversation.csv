@@ -1,0 +1,7 @@
+"tx_nrmcpagent_conversation"
+,"uid","pid","be_user","title","messages","message_count","status","current_request_id","archived","pinned","deleted","tstamp","crdate"
+,1,0,1,"Conv 1","[]",0,"idle","",0,0,0,1710000000,1710000000
+,2,0,1,"Conv 2","[]",0,"processing","",0,0,0,1710000000,1710000000
+,3,0,2,"Conv 3","[]",0,"idle","",0,0,0,1710000000,1710000000
+,4,0,1,"Archived","[]",0,"idle","",1,0,0,1710000000,1710000000
+,5,0,1,"Deleted","[]",0,"idle","",0,0,1,1710000000,1710000000
