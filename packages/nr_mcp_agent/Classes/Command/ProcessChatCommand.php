@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Command;
 
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -42,6 +43,11 @@ final class ProcessChatCommand extends Command
             return Command::FAILURE;
         }
 
+        if ($conversation->getStatus() !== ConversationStatus::Processing) {
+            $output->writeln('<error>Conversation is not in processing state</error>');
+            return Command::FAILURE;
+        }
+
         $this->initializeBackendUser($conversation->getBeUser());
 
         $this->chatService->processConversation($conversation);
@@ -56,7 +62,11 @@ final class ProcessChatCommand extends Command
         $qb = $this->connectionPool->getQueryBuilderForTable('be_users');
         $userRecord = $qb->select('*')
             ->from('be_users')
-            ->where($qb->expr()->eq('uid', $qb->createNamedParameter($userUid, Connection::PARAM_INT)))
+            ->where(
+                $qb->expr()->eq('uid', $qb->createNamedParameter($userUid, Connection::PARAM_INT)),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->eq('disable', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
             ->executeQuery()
             ->fetchAssociative();
 

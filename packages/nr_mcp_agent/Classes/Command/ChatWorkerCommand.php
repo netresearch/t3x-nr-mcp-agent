@@ -77,7 +77,11 @@ final class ChatWorkerCommand extends Command
         $qb = $this->connectionPool->getQueryBuilderForTable('be_users');
         $userRecord = $qb->select('*')
             ->from('be_users')
-            ->where($qb->expr()->eq('uid', $qb->createNamedParameter($userUid, Connection::PARAM_INT)))
+            ->where(
+                $qb->expr()->eq('uid', $qb->createNamedParameter($userUid, Connection::PARAM_INT)),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->eq('disable', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
             ->executeQuery()
             ->fetchAssociative();
 

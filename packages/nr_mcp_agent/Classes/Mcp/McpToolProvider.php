@@ -10,6 +10,7 @@ use TYPO3\CMS\Core\Core\Environment;
 final class McpToolProvider
 {
     private ?McpConnection $connection = null;
+    private ?array $cachedTools = null;
 
     public function __construct(
         private readonly ExtensionConfiguration $config,
@@ -35,9 +36,13 @@ final class McpToolProvider
             return [];
         }
 
+        if ($this->cachedTools !== null) {
+            return $this->cachedTools;
+        }
+
         $result = $this->connection->call('tools/list');
 
-        return array_map(
+        $this->cachedTools = array_map(
             static fn(array $tool): array => [
                 'type' => 'function',
                 'function' => [
@@ -48,6 +53,8 @@ final class McpToolProvider
             ],
             $result['tools'] ?? []
         );
+
+        return $this->cachedTools;
     }
 
     public function executeTool(string $toolName, array $input): string
@@ -75,5 +82,6 @@ final class McpToolProvider
     {
         $this->connection?->close();
         $this->connection = null;
+        $this->cachedTools = null;
     }
 }

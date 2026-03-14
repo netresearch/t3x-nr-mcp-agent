@@ -155,7 +155,7 @@ final class Conversation
 
     public function setSystemPrompt(string $prompt): void
     {
-        $this->systemPrompt = $prompt;
+        $this->systemPrompt = mb_substr($prompt, 0, 10000);
     }
 
     public function isArchived(): bool

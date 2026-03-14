@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Domain\Repository;
 
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
+use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -102,6 +103,18 @@ final class ConversationRepository
         $data = $conversation->toRow();
         $data['tstamp'] = time();
         $conn->update(self::TABLE, $data, ['uid' => $conversation->getUid()]);
+    }
+
+    /**
+     * Lightweight status-only update — avoids writing the full messages blob.
+     */
+    public function updateStatus(int $uid, ConversationStatus $status): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'status' => $status->value,
+            'tstamp' => time(),
+        ], ['uid' => $uid]);
     }
 
     /**

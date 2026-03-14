@@ -100,7 +100,7 @@ final class ChatService
         array $tools,
     ): void {
         $conversation->setStatus(ConversationStatus::Processing);
-        $this->persist($conversation);
+        $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Processing);
 
         for ($i = 0; $i < self::MAX_TOOL_ITERATIONS; $i++) {
             $messages = $conversation->getDecodedMessages();
@@ -110,7 +110,7 @@ final class ChatService
             );
 
             if ($response->hasToolCalls()) {
-                $messages = $conversation->getDecodedMessages();
+                // Reuse $messages from above — no second decode needed
                 $messages[] = [
                     'role' => 'assistant',
                     'content' => $response->getContent(),
@@ -122,14 +122,13 @@ final class ChatService
                 $conversation->setStatus(ConversationStatus::ToolLoop);
                 $toolResults = $this->executeToolCalls($response->toolCalls);
                 foreach ($toolResults as $result) {
-                    $messages = $conversation->getDecodedMessages();
                     $messages[] = [
                         'role' => 'tool',
                         'tool_call_id' => $result['tool_call_id'],
                         'content' => $result['content'],
                     ];
-                    $conversation->setMessages($messages);
                 }
+                $conversation->setMessages($messages);
                 $this->persist($conversation);
                 continue;
             }
