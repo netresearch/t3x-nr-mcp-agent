@@ -6,8 +6,8 @@
 set -euo pipefail
 
 echo "=== Installing all TYPO3 versions ==="
-/var/www/html/.ddev/commands/web/install-v13
-/var/www/html/.ddev/commands/web/install-v14
+/mnt/ddev_config/commands/web/install-v13
+/mnt/ddev_config/commands/web/install-v14
 echo ""
 echo "=== All versions installed ==="
 echo "  v13: https://v13.nr-mcp-agent.ddev.site/typo3"

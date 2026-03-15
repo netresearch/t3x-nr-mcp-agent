@@ -9,6 +9,8 @@ CREATE TABLE tx_nrmcpagent_conversation (
     archived tinyint(1) unsigned DEFAULT 0 NOT NULL,
     pinned tinyint(1) unsigned DEFAULT 0 NOT NULL,
     error_message text,
+    tstamp int(11) unsigned DEFAULT 0 NOT NULL,
+    crdate int(11) unsigned DEFAULT 0 NOT NULL,
 
     KEY be_user_archived (be_user, archived, tstamp)
 );

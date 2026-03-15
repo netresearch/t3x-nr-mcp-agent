@@ -6,7 +6,7 @@
 set -euo pipefail
 
 INSTALL_DIR="/var/www/html/v13"
-EXTENSION_PATH="/var/www/nr_mcp_agent"
+EXTENSION_PATH="/var/www/nr_mcp_agent/packages/nr_mcp_agent"
 
 echo "=== Installing TYPO3 v13 with nr_mcp_agent ==="
 
@@ -14,7 +14,7 @@ echo "=== Installing TYPO3 v13 with nr_mcp_agent ==="
 mysql -uroot -proot -hdb -e "DROP DATABASE IF EXISTS db_v13; CREATE DATABASE db_v13 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
 # Clean install directory (preserve volume)
-rm -rf "${INSTALL_DIR:?}"/*
+find "${INSTALL_DIR:?}" -mindepth 1 -delete 2>/dev/null || true
 
 # Install TYPO3 base distribution
 composer create-project typo3/cms-base-distribution:^13.4 "$INSTALL_DIR" --no-interaction
@@ -37,7 +37,7 @@ fi
 composer require "netresearch/nr-mcp-agent:@dev" --no-interaction
 
 # Require MCP server (from Packagist)
-composer require "hn/typo3-mcp-server:^1.0" --no-interaction || echo "  ⚠ hn/typo3-mcp-server not available yet, skipping"
+composer require "hn/typo3-mcp-server:^0.2" --no-interaction || echo "  ⚠ hn/typo3-mcp-server not available, skipping"
 
 # Require nr-vault if not already added via path
 if ! composer show netresearch/nr-vault 2>/dev/null; then
@@ -78,10 +78,8 @@ if (getenv('NR_MCP_AGENT_LLM_TASK_UID')) {
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['llmTaskUid'] = (int)getenv('NR_MCP_AGENT_LLM_TASK_UID');
 }
 
-// AI Chat: Enable MCP if available
-if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('typo3_mcp_server')) {
-    $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['enableMcp'] = '1';
-}
+// AI Chat: Enable MCP (typo3-mcp-server installed via composer)
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['enableMcp'] = '1';
 PHPSETTINGS
 
 # Run extension setup and flush caches
