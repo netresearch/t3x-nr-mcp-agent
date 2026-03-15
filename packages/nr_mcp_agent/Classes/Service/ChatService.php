@@ -11,7 +11,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
-use Netresearch\NrMcpAgent\Mcp\McpToolProvider;
+use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Throwable;
 
 final readonly class ChatService
@@ -24,7 +24,7 @@ final readonly class ChatService
         private LlmServiceManagerInterface $llmManager,
         private ConversationRepository $repository,
         private ExtensionConfiguration $config,
-        private McpToolProvider $mcpToolProvider,
+        private McpToolProviderInterface $mcpToolProvider,
     ) {}
 
     public function processConversation(Conversation $conversation): void
@@ -65,14 +65,11 @@ final readonly class ChatService
         try {
             $this->mcpToolProvider->connect();
 
-            // If last message is assistant with pending tool_calls, execute them first
-            $messages = $conversation->getDecodedMessages();
-            $lastMessage = end($messages);
-
-            if ($lastMessage && $lastMessage['role'] === 'assistant' && !empty($lastMessage['tool_calls'])) {
-                /** @var array<mixed> $pendingToolCalls */
-                $pendingToolCalls = is_array($lastMessage['tool_calls']) ? $lastMessage['tool_calls'] : [];
-                $toolResults = $this->executeToolCalls($pendingToolCalls);
+            if ($conversation->hasPendingToolCalls()) {
+                $messages = $conversation->getDecodedMessages();
+                /** @var array{tool_calls: array<mixed>} $lastMessage */
+                $lastMessage = end($messages);
+                $toolResults = $this->executeToolCalls($lastMessage['tool_calls']);
                 $messages = $conversation->getDecodedMessages();
                 foreach ($toolResults as $result) {
                     $messages[] = [
@@ -183,7 +180,7 @@ final readonly class ChatService
                 sleep(self::LLM_RETRY_DELAY_SECONDS * ($attempt + 1));
             }
         }
-        // $lastException is always set by the loop before this point
+        // Unreachable: the loop always either returns or throws before exiting
         throw $lastException;
     }
 

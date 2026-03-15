@@ -27,7 +27,7 @@ readonly class ConversationRepository
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
-                $qb->expr()->eq('deleted', 0),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchAssociative();
@@ -43,12 +43,12 @@ readonly class ConversationRepository
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
-                $qb->expr()->eq('deleted', 0),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->orderBy('tstamp', 'DESC');
 
         if (!$includeArchived) {
-            $qb->andWhere($qb->expr()->eq('archived', 0));
+            $qb->andWhere($qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)));
         }
 
         $rows = $qb->executeQuery()->fetchAllAssociative();
@@ -63,7 +63,7 @@ readonly class ConversationRepository
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
-                $qb->expr()->eq('deleted', 0),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchAssociative();
@@ -79,10 +79,10 @@ readonly class ConversationRepository
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
                 $qb->expr()->in('status', $qb->createNamedParameter(
-                    ['processing', 'locked', 'tool_loop'],
+                    [ConversationStatus::Processing->value, ConversationStatus::Locked->value, ConversationStatus::ToolLoop->value],
                     Connection::PARAM_STR_ARRAY,
                 )),
-                $qb->expr()->eq('deleted', 0),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchOne();
@@ -120,6 +120,39 @@ readonly class ConversationRepository
     }
 
     /**
+     * Atomic Compare-And-Swap: writes the full conversation row only if the
+     * current DB status matches $expectedStatus. Prevents race conditions
+     * where a worker could claim the row between a status change and the data write.
+     *
+     * Returns true if the row was updated (status matched), false otherwise.
+     */
+    public function updateIf(Conversation $conversation, ConversationStatus $expectedStatus): bool
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $data = $conversation->toRow();
+        $data['tstamp'] = time();
+
+        $columns = [];
+        $params = [];
+        foreach ($data as $col => $val) {
+            $columns[] = $col . ' = ?';
+            $params[] = $val;
+        }
+        // WHERE uid = ? AND status = ? AND deleted = 0
+        $params[] = $conversation->getUid();
+        $params[] = $expectedStatus->value;
+
+        $params[] = 0; // deleted
+
+        $affected = $conn->executeStatement(
+            'UPDATE ' . self::TABLE . ' SET ' . implode(', ', $columns)
+            . ' WHERE uid = ? AND status = ? AND deleted = ?',
+            $params,
+        );
+        return $affected > 0;
+    }
+
+    /**
      * Atomically claim one 'processing' conversation for a worker.
      * Uses UPDATE...LIMIT 1 with row-level locking to prevent race conditions.
      */
@@ -129,10 +162,10 @@ readonly class ConversationRepository
 
         $affected = $conn->executeStatement(
             'UPDATE ' . self::TABLE . '
-             SET status = \'locked\', current_request_id = ?
-             WHERE status = \'processing\' AND deleted = 0
+             SET status = ?, current_request_id = ?
+             WHERE status = ? AND deleted = ?
              ORDER BY tstamp ASC LIMIT 1',
-            [$workerId],
+            [ConversationStatus::Locked->value, $workerId, ConversationStatus::Processing->value, 0],
         );
 
         if ($affected === 0) {
@@ -144,7 +177,7 @@ readonly class ConversationRepository
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('current_request_id', $qb->createNamedParameter($workerId)),
-                $qb->expr()->eq('status', $qb->createNamedParameter('locked')),
+                $qb->expr()->eq('status', $qb->createNamedParameter(ConversationStatus::Locked->value)),
             )
             ->executeQuery()
             ->fetchAssociative();

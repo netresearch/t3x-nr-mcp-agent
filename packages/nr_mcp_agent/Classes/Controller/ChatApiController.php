@@ -158,9 +158,10 @@ final class ChatApiController
             return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
         }
 
-        if ($conversation->getStatus() === ConversationStatus::Processing
-            || $conversation->getStatus() === ConversationStatus::Locked
-            || $conversation->getStatus() === ConversationStatus::ToolLoop
+        $currentStatus = $conversation->getStatus();
+        if ($currentStatus === ConversationStatus::Processing
+            || $currentStatus === ConversationStatus::Locked
+            || $currentStatus === ConversationStatus::ToolLoop
         ) {
             return new JsonResponse(['error' => 'Conversation is already processing'], 409);
         }
@@ -176,7 +177,13 @@ final class ChatApiController
         $conversation->appendMessage('user', $content);
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->setErrorMessage('');
-        $this->repository->update($conversation);
+
+        // Atomic CAS: write full row only if status still matches,
+        // preventing race conditions with concurrent requests or worker dequeue.
+        $claimed = $this->repository->updateIf($conversation, $currentStatus);
+        if (!$claimed) {
+            return new JsonResponse(['error' => 'Conversation is already processing'], 409);
+        }
 
         $this->processor->dispatch($conversation->getUid());
 
@@ -202,9 +209,16 @@ final class ChatApiController
             return new JsonResponse(['error' => 'Conversation is not resumable'], 400);
         }
 
+        $currentStatus = $conversation->getStatus();
+
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->setErrorMessage('');
-        $this->repository->update($conversation);
+
+        // Atomic CAS: write full row only if status still matches.
+        $claimed = $this->repository->updateIf($conversation, $currentStatus);
+        if (!$claimed) {
+            return new JsonResponse(['error' => 'Conversation is already processing'], 409);
+        }
 
         $this->processor->dispatch($conversation->getUid());
 

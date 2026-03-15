@@ -140,8 +140,7 @@ final class Conversation
     {
         $messages = $this->getDecodedMessages();
         $messages[] = ['role' => $role, 'content' => $content];
-        $this->setMessages($messages);
-        $this->messageCount = count($messages);
+        $this->setMessages($messages); // setMessages already updates messageCount
 
         if ($this->title === '' && $role === 'user' && is_string($content)) {
             $this->setTitle($content);
@@ -155,7 +154,7 @@ final class Conversation
 
     public function getStatus(): ConversationStatus
     {
-        return ConversationStatus::from($this->status);
+        return ConversationStatus::tryFrom($this->status) ?? ConversationStatus::Idle;
     }
 
     public function setStatus(ConversationStatus $status): void
@@ -216,6 +215,15 @@ final class Conversation
     public function getTstamp(): int
     {
         return $this->tstamp;
+    }
+
+    public function hasPendingToolCalls(): bool
+    {
+        $messages = $this->getDecodedMessages();
+        $lastMessage = end($messages);
+        return is_array($lastMessage)
+            && ($lastMessage['role'] ?? '') === 'assistant'
+            && !empty($lastMessage['tool_calls']);
     }
 
     public function isResumable(): bool

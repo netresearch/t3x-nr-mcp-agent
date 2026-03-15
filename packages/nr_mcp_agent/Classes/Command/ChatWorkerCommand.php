@@ -57,7 +57,12 @@ final class ChatWorkerCommand extends Command
                     ));
 
                     $this->initializeBackendUser($conversation->getBeUser());
-                    $this->chatService->processConversation($conversation);
+
+                    if ($conversation->hasPendingToolCalls()) {
+                        $this->chatService->resumeConversation($conversation);
+                    } else {
+                        $this->chatService->processConversation($conversation);
+                    }
                 } else {
                     usleep($pollInterval);
                 }
@@ -65,13 +70,20 @@ final class ChatWorkerCommand extends Command
                 $output->writeln(sprintf('<error>Error: %s</error>', $e->getMessage()));
                 if ($conversation !== null) {
                     $conversation->setStatus(ConversationStatus::Failed);
-                    $conversation->setErrorMessage(mb_substr($e->getMessage(), 0, 500));
+                    $conversation->setErrorMessage($this->sanitizeErrorMessage($e->getMessage()));
                     $this->repository->update($conversation);
                 }
             } finally {
                 $GLOBALS['BE_USER'] = null;
             }
         }
+    }
+
+    private function sanitizeErrorMessage(string $message): string
+    {
+        $message = preg_replace('/(?:Bearer |sk-|key-)[a-zA-Z0-9\-_]+/', '[REDACTED]', $message) ?? $message;
+        $message = preg_replace('#https?://[^\s]+#', '[URL]', $message) ?? $message;
+        return mb_substr($message, 0, 500);
     }
 
     private function initializeBackendUser(int $userUid): void

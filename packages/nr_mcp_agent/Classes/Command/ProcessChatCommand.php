@@ -53,7 +53,11 @@ final class ProcessChatCommand extends Command
 
         $this->initializeBackendUser($conversation->getBeUser());
 
-        $this->chatService->processConversation($conversation);
+        if ($conversation->hasPendingToolCalls()) {
+            $this->chatService->resumeConversation($conversation);
+        } else {
+            $this->chatService->processConversation($conversation);
+        }
 
         return Command::SUCCESS;
     }
