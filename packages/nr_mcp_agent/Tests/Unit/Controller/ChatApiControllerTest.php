@@ -181,6 +181,12 @@ class ChatApiControllerTest extends TestCase
         $conversation->appendMessage('assistant', 'Hi');
         $conversation->appendMessage('user', 'How are you?');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        // Fast-path poll check returns message_count > after, so full load is needed
+        $this->repository->method('findPollStatus')->willReturn([
+            'status' => 'idle',
+            'message_count' => 3,
+            'error_message' => '',
+        ]);
 
         $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '1']);
         $response = $this->subject->getMessages($request);
@@ -196,13 +202,12 @@ class ChatApiControllerTest extends TestCase
     {
         $conversation = new Conversation();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
-        $this->repository->expects(self::once())->method('update');
+        $this->repository->expects(self::once())->method('updateArchived');
 
         $request = $this->createRequest('POST', '{"conversationUid": 1}');
         $response = $this->subject->archiveConversation($request);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertTrue($conversation->isArchived());
     }
 
     #[Test]
