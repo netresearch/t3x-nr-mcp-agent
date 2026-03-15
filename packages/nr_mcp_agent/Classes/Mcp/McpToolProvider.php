@@ -7,7 +7,7 @@ namespace Netresearch\NrMcpAgent\Mcp;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Core\Environment;
 
-class McpToolProvider
+final class McpToolProvider implements McpToolProviderInterface
 {
     private ?McpConnection $connection = null;
     /** @var list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}>|null */

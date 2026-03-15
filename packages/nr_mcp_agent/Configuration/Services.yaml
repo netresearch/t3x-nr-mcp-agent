@@ -21,3 +21,7 @@ services:
   # Processor: defaults to exec, override for worker mode
   Netresearch\NrMcpAgent\Service\ChatProcessorInterface:
     class: Netresearch\NrMcpAgent\Service\ExecChatProcessor
+
+  # MCP Tool Provider interface alias
+  Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface:
+    class: Netresearch\NrMcpAgent\Mcp\McpToolProvider
