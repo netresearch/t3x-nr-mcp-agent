@@ -35,19 +35,19 @@ final class Conversation
     public static function fromRow(array $row): self
     {
         $conversation = new self();
-        $conversation->uid = (int)self::val($row, 'uid', 0);
-        $conversation->beUser = (int)self::val($row, 'be_user', 0);
-        $conversation->title = (string)self::val($row, 'title', '');
-        $conversation->messages = (string)self::val($row, 'messages', '');
-        $conversation->messageCount = (int)self::val($row, 'message_count', 0);
-        $conversation->status = (string)self::val($row, 'status', 'idle');
-        $conversation->currentRequestId = (string)self::val($row, 'current_request_id', '');
-        $conversation->systemPrompt = (string)self::val($row, 'system_prompt', '');
-        $conversation->archived = (bool)self::val($row, 'archived', false);
-        $conversation->pinned = (bool)self::val($row, 'pinned', false);
-        $conversation->errorMessage = (string)self::val($row, 'error_message', '');
-        $conversation->tstamp = (int)self::val($row, 'tstamp', 0);
-        $conversation->crdate = (int)self::val($row, 'crdate', 0);
+        $conversation->uid = (int) self::val($row, 'uid', 0);
+        $conversation->beUser = (int) self::val($row, 'be_user', 0);
+        $conversation->title = (string) self::val($row, 'title', '');
+        $conversation->messages = (string) self::val($row, 'messages', '');
+        $conversation->messageCount = (int) self::val($row, 'message_count', 0);
+        $conversation->status = (string) self::val($row, 'status', 'idle');
+        $conversation->currentRequestId = (string) self::val($row, 'current_request_id', '');
+        $conversation->systemPrompt = (string) self::val($row, 'system_prompt', '');
+        $conversation->archived = (bool) self::val($row, 'archived', false);
+        $conversation->pinned = (bool) self::val($row, 'pinned', false);
+        $conversation->errorMessage = (string) self::val($row, 'error_message', '');
+        $conversation->tstamp = (int) self::val($row, 'tstamp', 0);
+        $conversation->crdate = (int) self::val($row, 'crdate', 0);
         return $conversation;
     }
 
@@ -75,8 +75,8 @@ final class Conversation
             'status' => $this->status,
             'current_request_id' => $this->currentRequestId,
             'system_prompt' => $this->systemPrompt,
-            'archived' => (int)$this->archived,
-            'pinned' => (int)$this->pinned,
+            'archived' => (int) $this->archived,
+            'pinned' => (int) $this->pinned,
             'error_message' => $this->errorMessage,
         ];
     }
@@ -223,7 +223,7 @@ final class Conversation
         return in_array(
             $this->getStatus(),
             [ConversationStatus::Processing, ConversationStatus::ToolLoop, ConversationStatus::Failed],
-            true
+            true,
         );
     }
 }

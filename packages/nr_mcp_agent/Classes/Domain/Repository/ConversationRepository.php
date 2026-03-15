@@ -12,12 +12,12 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 /**
  * DBAL-based repository — no Extbase, direct QueryBuilder access.
  */
-final class ConversationRepository
+readonly class ConversationRepository
 {
     private const TABLE = 'tx_nrmcpagent_conversation';
 
     public function __construct(
-        private readonly ConnectionPool $connectionPool,
+        private ConnectionPool $connectionPool,
     ) {}
 
     public function findByUid(int $uid): ?Conversation
@@ -86,7 +86,7 @@ final class ConversationRepository
             )
             ->executeQuery()
             ->fetchOne();
-        return is_int($fetchResult) ? $fetchResult : (is_string($fetchResult) ? (int)$fetchResult : 0);
+        return is_int($fetchResult) ? $fetchResult : (is_string($fetchResult) ? (int) $fetchResult : 0);
     }
 
     public function add(Conversation $conversation): int
@@ -96,7 +96,7 @@ final class ConversationRepository
         $data['crdate'] = $data['tstamp'] = time();
         $data['pid'] = 0;
         $conn->insert(self::TABLE, $data);
-        return (int)$conn->lastInsertId();
+        return (int) $conn->lastInsertId();
     }
 
     public function update(Conversation $conversation): void
@@ -132,7 +132,7 @@ final class ConversationRepository
              SET status = \'locked\', current_request_id = ?
              WHERE status = \'processing\' AND deleted = 0
              ORDER BY tstamp ASC LIMIT 1',
-            [$workerId]
+            [$workerId],
         );
 
         if ($affected === 0) {

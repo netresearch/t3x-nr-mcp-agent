@@ -4,32 +4,32 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
-use Netresearch\NrLlm\Dto\ToolOptions;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Mcp\McpToolProvider;
+use Throwable;
 
-final class ChatService
+final readonly class ChatService
 {
     private const MAX_TOOL_ITERATIONS = 20;
     private const MAX_LLM_RETRIES = 2;
     private const LLM_RETRY_DELAY_SECONDS = 3;
 
     public function __construct(
-        private readonly LlmServiceManager $llmManager,
-        private readonly ConversationRepository $repository,
-        private readonly ExtensionConfiguration $config,
-        private readonly McpToolProvider $mcpToolProvider,
+        private LlmServiceManagerInterface $llmManager,
+        private ConversationRepository $repository,
+        private ExtensionConfiguration $config,
+        private McpToolProvider $mcpToolProvider,
     ) {}
 
     public function processConversation(Conversation $conversation): void
     {
-        $taskUid = $this->config->getLlmTaskUid();
-        if ($taskUid === 0) {
+        if ($this->config->getLlmTaskUid() === 0) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage('No nr-llm Task configured. Set llmTaskUid in Extension Configuration.');
             $this->persist($conversation);
@@ -39,8 +39,8 @@ final class ChatService
         try {
             $this->mcpToolProvider->connect();
             $tools = $this->mcpToolProvider->getToolDefinitions();
-            $this->runAgentLoop($conversation, $taskUid, $tools);
-        } catch (\Throwable $e) {
+            $this->runAgentLoop($conversation, $tools);
+        } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage($this->sanitizeErrorMessage($e->getMessage()));
             $this->persist($conversation);
@@ -55,8 +55,7 @@ final class ChatService
             return;
         }
 
-        $taskUid = $this->config->getLlmTaskUid();
-        if ($taskUid === 0) {
+        if ($this->config->getLlmTaskUid() === 0) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage('No nr-llm Task configured. Set llmTaskUid in Extension Configuration.');
             $this->persist($conversation);
@@ -87,8 +86,8 @@ final class ChatService
             }
 
             $tools = $this->mcpToolProvider->getToolDefinitions();
-            $this->runAgentLoop($conversation, $taskUid, $tools);
-        } catch (\Throwable $e) {
+            $this->runAgentLoop($conversation, $tools);
+        } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage($this->sanitizeErrorMessage($e->getMessage()));
             $this->persist($conversation);
@@ -102,17 +101,20 @@ final class ChatService
      */
     private function runAgentLoop(
         Conversation $conversation,
-        int $taskUid,
         array $tools,
     ): void {
         $conversation->setStatus(ConversationStatus::Processing);
         $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Processing);
 
+        $options = $this->buildToolOptions($conversation);
+
         for ($i = 0; $i < self::MAX_TOOL_ITERATIONS; $i++) {
             $messages = $conversation->getDecodedMessages();
 
             $response = $this->callLlmWithRetry(
-                $messages, $tools, $taskUid, $conversation
+                $messages,
+                $tools,
+                $options,
             );
 
             if ($response->hasToolCalls()) {
@@ -159,20 +161,17 @@ final class ChatService
     private function callLlmWithRetry(
         array $messages,
         array $tools,
-        int $taskUid,
-        Conversation $conversation,
+        ToolOptions $options,
     ): CompletionResponse {
         $lastException = null;
         for ($attempt = 0; $attempt <= self::MAX_LLM_RETRIES; $attempt++) {
             try {
                 return $this->llmManager->chatWithTools(
-                    $messages, // @phpstan-ignore argument.type (nr-llm API will be updated)
+                    $messages, // @phpstan-ignore argument.type (message format will be aligned)
                     $tools,
-                    ToolOptions::auto(), // @phpstan-ignore class.notFound, argument.type (nr-llm API will be updated)
-                    taskUid: $taskUid, // @phpstan-ignore argument.unknown (nr-llm API will be updated)
-                    systemPrompt: $this->buildSystemPrompt($conversation), // @phpstan-ignore argument.unknown (nr-llm API will be updated)
+                    $options,
                 );
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $lastException = $e;
                 $isTransient = str_contains($e->getMessage(), '429')
                     || str_contains($e->getMessage(), '503')
@@ -223,6 +222,14 @@ final class ChatService
         return $results;
     }
 
+    private function buildToolOptions(Conversation $conversation): ToolOptions
+    {
+        return new ToolOptions(
+            systemPrompt: $this->buildSystemPrompt($conversation),
+            toolChoice: 'auto',
+        );
+    }
+
     private function buildSystemPrompt(Conversation $conversation): string
     {
         $custom = $conversation->getSystemPrompt();
@@ -230,7 +237,6 @@ final class ChatService
             return $custom;
         }
 
-        /** @var mixed $beUser */
         $beUser = $GLOBALS['BE_USER'] ?? null;
         /** @var array<string, mixed> $uc */
         $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];

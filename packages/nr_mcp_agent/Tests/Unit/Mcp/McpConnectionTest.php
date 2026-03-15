@@ -7,6 +7,7 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Mcp;
 use Netresearch\NrMcpAgent\Mcp\McpConnection;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class McpConnectionTest extends TestCase
 {
@@ -28,7 +29,7 @@ class McpConnectionTest extends TestCase
     #[Test]
     public function openWithInvalidCommandThrowsException(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $connection = new McpConnection();
         $connection->open('/nonexistent/binary', [], '/tmp');
     }

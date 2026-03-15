@@ -7,8 +7,8 @@ namespace Netresearch\NrMcpAgent\Tests\Functional\Domain\Repository;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
-use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 class ConversationRepositoryTest extends FunctionalTestCase
 {

@@ -7,6 +7,7 @@ namespace Netresearch\NrMcpAgent\Command;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -37,7 +38,7 @@ final class ProcessChatCommand extends Command
     {
         $conversationUidArg = $input->getArgument('conversationUid');
         assert(is_string($conversationUidArg) || is_int($conversationUidArg));
-        $uid = (int)$conversationUidArg;
+        $uid = (int) $conversationUidArg;
         $conversation = $this->repository->findByUid($uid);
 
         if ($conversation === null) {
@@ -73,7 +74,7 @@ final class ProcessChatCommand extends Command
             ->fetchAssociative();
 
         if ($userRecord === false) {
-            throw new \RuntimeException(sprintf('Backend user %d not found', $userUid));
+            throw new RuntimeException(sprintf('Backend user %d not found', $userUid));
         }
 
         $backendUser->user = $userRecord;

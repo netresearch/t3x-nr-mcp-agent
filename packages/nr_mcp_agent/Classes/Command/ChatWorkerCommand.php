@@ -7,11 +7,13 @@ namespace Netresearch\NrMcpAgent\Command;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -36,7 +38,7 @@ final class ChatWorkerCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $pollIntervalOpt = $input->getOption('poll-interval');
-        $pollInterval = (is_numeric($pollIntervalOpt) ? (int)$pollIntervalOpt : 200) * 1000; // to microseconds
+        $pollInterval = (is_numeric($pollIntervalOpt) ? (int) $pollIntervalOpt : 200) * 1000; // to microseconds
         $workerId = 'worker_' . getmypid() . '_' . bin2hex(random_bytes(4));
 
         $output->writeln(sprintf('<info>AI Chat worker %s started. Polling every %dms</info>', $workerId, $pollInterval / 1000));
@@ -59,7 +61,7 @@ final class ChatWorkerCommand extends Command
                 } else {
                     usleep($pollInterval);
                 }
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $output->writeln(sprintf('<error>Error: %s</error>', $e->getMessage()));
                 if ($conversation !== null) {
                     $conversation->setStatus(ConversationStatus::Failed);
@@ -88,7 +90,7 @@ final class ChatWorkerCommand extends Command
             ->fetchAssociative();
 
         if ($userRecord === false) {
-            throw new \RuntimeException(sprintf('Backend user %d not found', $userUid));
+            throw new RuntimeException(sprintf('Backend user %d not found', $userUid));
         }
 
         $backendUser->user = $userRecord;

@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Mcp;
 
+use RuntimeException;
+use stdClass;
+
 final class McpConnection
 {
     /** @var resource|null */
-    private $process = null;
+    private $process;
     /** @var resource|null */
-    private $stdin = null;
+    private $stdin;
     /** @var resource|null */
-    private $stdout = null;
+    private $stdout;
     private int $requestId = 0;
     private bool $initialized = false;
 
@@ -38,7 +41,7 @@ final class McpConnection
         );
 
         if ($process === false) {
-            throw new \RuntimeException('Failed to start MCP server process');
+            throw new RuntimeException('Failed to start MCP server process');
         }
 
         $this->process = $process;
@@ -51,7 +54,7 @@ final class McpConnection
 
         $this->call('initialize', [
             'protocolVersion' => '2024-11-05',
-            'capabilities' => new \stdClass(),
+            'capabilities' => new stdClass(),
             'clientInfo' => [
                 'name' => 'nr-mcp-agent',
                 'version' => '0.1.0',
@@ -126,7 +129,7 @@ final class McpConnection
     private function write(string $data): void
     {
         if ($this->stdin === null) {
-            throw new \RuntimeException('MCP connection not open');
+            throw new RuntimeException('MCP connection not open');
         }
         fwrite($this->stdin, $data . "\n");
         fflush($this->stdin);
@@ -138,7 +141,7 @@ final class McpConnection
     private function readResponse(int $expectedId, float $timeoutSeconds = 30.0): array
     {
         if ($this->stdout === null) {
-            throw new \RuntimeException('MCP connection not open');
+            throw new RuntimeException('MCP connection not open');
         }
 
         $deadline = microtime(true) + $timeoutSeconds;
@@ -174,8 +177,8 @@ final class McpConnection
                 $error = is_array($decoded['error']) ? $decoded['error'] : [];
                 $errCode = is_int($error['code'] ?? null) ? $error['code'] : -1;
                 $errMsg = is_string($error['message'] ?? null) ? $error['message'] : 'Unknown error';
-                throw new \RuntimeException(
-                    sprintf('MCP error %d: %s', $errCode, $errMsg)
+                throw new RuntimeException(
+                    sprintf('MCP error %d: %s', $errCode, $errMsg),
                 );
             }
 
@@ -184,8 +187,8 @@ final class McpConnection
             return $result;
         }
 
-        throw new \RuntimeException(
-            sprintf('MCP server timeout after %.1fs waiting for response to request %d', $timeoutSeconds, $expectedId)
+        throw new RuntimeException(
+            sprintf('MCP server timeout after %.1fs waiting for response to request %d', $timeoutSeconds, $expectedId),
         );
     }
 }

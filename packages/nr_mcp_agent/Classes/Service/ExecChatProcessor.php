@@ -7,10 +7,10 @@ namespace Netresearch\NrMcpAgent\Service;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use TYPO3\CMS\Core\Core\Environment;
 
-final class ExecChatProcessor implements ChatProcessorInterface
+final readonly class ExecChatProcessor implements ChatProcessorInterface
 {
     public function __construct(
-        private readonly ConversationRepository $repository,
+        private ConversationRepository $repository,
     ) {}
 
     public function dispatch(int $conversationUid): void
@@ -32,7 +32,7 @@ final class ExecChatProcessor implements ChatProcessorInterface
         $process = proc_open($cmd, $descriptors, $pipes);
         if (is_resource($process)) {
             $status = proc_get_status($process);
-            $pid = (string)$status['pid'];
+            $pid = (string) $status['pid'];
 
             $conversation = $this->repository->findByUid($conversationUid);
             if ($conversation !== null) {

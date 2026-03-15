@@ -1,0 +1,9 @@
+includes:
+    - .Build/vendor/saschaegerer/phpstan-typo3/extension.neon
+    - .Build/vendor/phpat/phpat/extension.neon
+
+parameters:
+    level: 10
+    paths:
+        - Classes
+    treatPhpDocTypesAsCertain: false
