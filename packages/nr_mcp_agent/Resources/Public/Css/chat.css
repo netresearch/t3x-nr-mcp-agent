@@ -1,0 +1,4 @@
+/* Module-level layout override: remove default padding from TYPO3 module body */
+.module[data-module-name="nr_mcp_agent_chat"] .module-body {
+    padding: 0;
+}
