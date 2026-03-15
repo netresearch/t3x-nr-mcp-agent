@@ -35,11 +35,16 @@ readonly class ConversationRepository
         return $row !== false ? Conversation::fromRow($row) : null;
     }
 
+    private const LIST_COLUMNS = [
+        'uid', 'be_user', 'title', 'status', 'message_count',
+        'pinned', 'archived', 'error_message', 'tstamp', 'crdate',
+    ];
+
     /** @return list<Conversation> */
     public function findByBeUser(int $beUserUid, bool $includeArchived = false): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $qb->select('*')
+        $qb->select(...self::LIST_COLUMNS)
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
@@ -117,6 +122,63 @@ readonly class ConversationRepository
             'status' => $status->value,
             'tstamp' => time(),
         ], ['uid' => $uid]);
+    }
+
+    /**
+     * Lightweight flag update — avoids reading/writing the full messages blob.
+     */
+    public function updateArchived(int $uid, bool $archived): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'archived' => (int) $archived,
+            'tstamp' => time(),
+        ], ['uid' => $uid]);
+    }
+
+    /**
+     * Lightweight flag update — avoids reading/writing the full messages blob.
+     */
+    public function updatePinned(int $uid, bool $pinned): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'pinned' => (int) $pinned,
+            'tstamp' => time(),
+        ], ['uid' => $uid]);
+    }
+
+    /**
+     * Lightweight poll check — returns status metadata without loading messages.
+     *
+     * @return array{status: string, message_count: int, error_message: string}|null
+     */
+    public function findPollStatus(int $uid, int $beUserUid): ?array
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $row = $qb->select('status', 'message_count', 'error_message')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
+                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchAssociative();
+
+        if ($row === false) {
+            return null;
+        }
+
+        $status = $row['status'] ?? '';
+        $messageCount = $row['message_count'] ?? 0;
+        $errorMessage = $row['error_message'] ?? '';
+
+        return [
+            'status' => is_string($status) ? $status : '',
+            'message_count' => is_int($messageCount) ? $messageCount : (int) (is_string($messageCount) ? $messageCount : 0),
+            'error_message' => is_string($errorMessage) ? $errorMessage : '',
+        ];
     }
 
     /**

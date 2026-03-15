@@ -111,16 +111,33 @@ final class ChatApiController
             return $accessDenied;
         }
 
+        /** @var array<string, string> $queryParams */
+        $queryParams = $request->getQueryParams();
+        $uid = (int) ($queryParams['conversationUid'] ?? 0);
+        $afterIndex = (int) ($queryParams['after'] ?? 0);
+
+        // Fast path for polling: check metadata first without loading messages blob
+        if ($afterIndex > 0) {
+            $meta = $this->repository->findPollStatus($uid, $this->getBeUserUid());
+            if ($meta === null) {
+                return new JsonResponse(['error' => 'Conversation not found'], 404);
+            }
+            if ($meta['message_count'] <= $afterIndex) {
+                return new JsonResponse([
+                    'status' => $meta['status'],
+                    'messages' => [],
+                    'totalCount' => $meta['message_count'],
+                    'errorMessage' => $meta['error_message'],
+                ]);
+            }
+        }
+
         $conversation = $this->findConversationOrFail($request);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
         }
 
-        /** @var array<string, string> $queryParams */
-        $queryParams = $request->getQueryParams();
-        $afterIndex = (int) ($queryParams['after'] ?? 0);
         $messages = $conversation->getDecodedMessages();
-
         $newMessages = array_slice($messages, $afterIndex);
 
         return new JsonResponse([
@@ -240,8 +257,7 @@ final class ChatApiController
             return $conversation;
         }
 
-        $conversation->setArchived(true);
-        $this->repository->update($conversation);
+        $this->repository->updateArchived($conversation->getUid(), true);
 
         return new JsonResponse(['status' => 'archived']);
     }
@@ -261,10 +277,10 @@ final class ChatApiController
             return $conversation;
         }
 
-        $conversation->setPinned(!$conversation->isPinned());
-        $this->repository->update($conversation);
+        $newPinned = !$conversation->isPinned();
+        $this->repository->updatePinned($conversation->getUid(), $newPinned);
 
-        return new JsonResponse(['pinned' => $conversation->isPinned()]);
+        return new JsonResponse(['pinned' => $newPinned]);
     }
 
     /**
