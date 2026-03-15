@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Configuration;
 
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration as Typo3ExtensionConfiguration;
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class ExtensionConfiguration
@@ -43,6 +44,11 @@ class ExtensionConfiguration
     public function isMcpEnabled(): bool
     {
         return $this->getString('enableMcp', '0') === '1';
+    }
+
+    public function isMcpServerInstalled(): bool
+    {
+        return ExtensionManagementUtility::isLoaded('mcp_server');
     }
 
     public function getMaxConversationsPerUser(): int
