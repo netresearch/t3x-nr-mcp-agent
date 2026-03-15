@@ -11,7 +11,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
-use Netresearch\NrMcpAgent\Mcp\McpToolProvider;
+use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -43,7 +43,7 @@ class ChatServiceTest extends TestCase
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProvider::class);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('getToolDefinitions')->willReturn([]);
 
         $GLOBALS['BE_USER'] = new stdClass();
@@ -69,7 +69,7 @@ class ChatServiceTest extends TestCase
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(0);
-        $mcpProvider = $this->createMock(McpToolProvider::class);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
 
         $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
         $service->processConversation($conversation);
@@ -90,7 +90,7 @@ class ChatServiceTest extends TestCase
 
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
-        $mcpProvider = $this->createMock(McpToolProvider::class);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
 
         $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
         $service->resumeConversation($conversation);
@@ -113,7 +113,7 @@ class ChatServiceTest extends TestCase
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(0);
-        $mcpProvider = $this->createMock(McpToolProvider::class);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
 
         $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
         $service->resumeConversation($conversation);
@@ -144,7 +144,7 @@ class ChatServiceTest extends TestCase
 
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProvider::class);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('getToolDefinitions')->willReturn([]);
 
         $GLOBALS['BE_USER'] = new stdClass();
@@ -173,7 +173,7 @@ class ChatServiceTest extends TestCase
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProvider::class);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('getToolDefinitions')->willReturn([]);
 
         $GLOBALS['BE_USER'] = new stdClass();
@@ -206,7 +206,7 @@ class ChatServiceTest extends TestCase
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProvider::class);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('getToolDefinitions')->willReturn([]);
 
         $GLOBALS['BE_USER'] = new stdClass();
@@ -218,5 +218,108 @@ class ChatServiceTest extends TestCase
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
 
         unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function buildSystemPromptPassesGermanPromptToLlm(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage('user', 'Hallo');
+
+        $capturedOptions = null;
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatWithTools')->willReturnCallback(
+            function ($messages, $tools, $options) use (&$capturedOptions) {
+                $capturedOptions = $options;
+                return $this->createCompletionResponse('Hallo!');
+            },
+        );
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'de'];
+
+        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedOptions);
+        self::assertStringContainsString('Deutsch', $capturedOptions->getSystemPrompt());
+        self::assertStringContainsString('TYPO3-Assistent', $capturedOptions->getSystemPrompt());
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function buildSystemPromptPassesCustomPromptToLlm(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSystemPrompt('My custom system prompt');
+        $conversation->appendMessage('user', 'Hello');
+
+        $capturedOptions = null;
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatWithTools')->willReturnCallback(
+            function ($messages, $tools, $options) use (&$capturedOptions) {
+                $capturedOptions = $options;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedOptions);
+        self::assertSame('My custom system prompt', $capturedOptions->getSystemPrompt());
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function buildSystemPromptDefaultsToEnglishWhenNoBeUser(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage('user', 'Hello');
+
+        $capturedOptions = null;
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatWithTools')->willReturnCallback(
+            function ($messages, $tools, $options) use (&$capturedOptions) {
+                $capturedOptions = $options;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+
+        // No BE_USER set
+        unset($GLOBALS['BE_USER']);
+
+        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedOptions);
+        self::assertStringContainsString('English', $capturedOptions->getSystemPrompt());
+        self::assertStringContainsString('TYPO3 assistant', $capturedOptions->getSystemPrompt());
     }
 }

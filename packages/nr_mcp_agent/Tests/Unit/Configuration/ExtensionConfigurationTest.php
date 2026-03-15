@@ -84,6 +84,80 @@ class ExtensionConfigurationTest extends TestCase
     }
 
     #[Test]
+    public function getMaxConversationsPerUserReturnsConfiguredValue(): void
+    {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'maxConversationsPerUser' => '100',
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame(100, $config->getMaxConversationsPerUser());
+    }
+
+    #[Test]
+    public function getAutoArchiveDaysReturnsConfiguredValue(): void
+    {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'autoArchiveDays' => '60',
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame(60, $config->getAutoArchiveDays());
+    }
+
+    #[Test]
+    public function getAutoArchiveDaysDefaultsTo30(): void
+    {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame(30, $config->getAutoArchiveDays());
+    }
+
+    #[Test]
+    public function getMaxConversationsPerUserDefaultsTo50(): void
+    {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame(50, $config->getMaxConversationsPerUser());
+    }
+
+    #[Test]
+    public function getMcpServerCommandReturnsConfiguredPath(): void
+    {
+        $config = new ExtensionConfiguration();
+        self::assertSame('/usr/bin/typo3', $config->getMcpServerCommand());
+    }
+
+    #[Test]
+    public function getProcessingStrategyReturnsWorkerWhenConfigured(): void
+    {
+        $config = new ExtensionConfiguration();
+        self::assertSame('worker', $config->getProcessingStrategy());
+    }
+
+    #[Test]
     public function defaultsAreUsedForMissingKeys(): void
     {
         // Consume the setUp mock first (FIFO queue)

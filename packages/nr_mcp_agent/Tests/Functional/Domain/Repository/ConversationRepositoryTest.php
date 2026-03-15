@@ -139,6 +139,62 @@ class ConversationRepositoryTest extends FunctionalTestCase
     }
 
     #[Test]
+    public function updateIfReturnsTrueWhenStatusMatches(): void
+    {
+        // Conv 1 is 'idle'
+        $conversation = $this->subject->findByUid(1);
+        self::assertNotNull($conversation);
+        $conversation->setTitle('CAS updated');
+        $conversation->setStatus(ConversationStatus::Processing);
+
+        $result = $this->subject->updateIf($conversation, ConversationStatus::Idle);
+        self::assertTrue($result);
+
+        $reloaded = $this->subject->findByUid(1);
+        self::assertNotNull($reloaded);
+        self::assertSame('CAS updated', $reloaded->getTitle());
+        self::assertSame(ConversationStatus::Processing, $reloaded->getStatus());
+    }
+
+    #[Test]
+    public function updateIfReturnsFalseWhenStatusDoesNotMatch(): void
+    {
+        // Conv 1 is 'idle' — try to update expecting 'processing'
+        $conversation = $this->subject->findByUid(1);
+        self::assertNotNull($conversation);
+        $conversation->setTitle('Should not be saved');
+        $conversation->setStatus(ConversationStatus::Processing);
+
+        $result = $this->subject->updateIf($conversation, ConversationStatus::Processing);
+        self::assertFalse($result);
+
+        // Verify row is unchanged
+        $reloaded = $this->subject->findByUid(1);
+        self::assertNotNull($reloaded);
+        self::assertSame('Conv 1', $reloaded->getTitle());
+        self::assertSame(ConversationStatus::Idle, $reloaded->getStatus());
+    }
+
+    #[Test]
+    public function updateIfReturnsFalseForDeletedRow(): void
+    {
+        // Conv 5 is deleted
+        $conn = $this->get(\TYPO3\CMS\Core\Database\ConnectionPool::class)
+            ->getConnectionForTable('tx_nrmcpagent_conversation');
+        // Read the raw row to build a Conversation (findByUid filters deleted rows)
+        $row = $conn->executeQuery(
+            'SELECT * FROM tx_nrmcpagent_conversation WHERE uid = 5',
+        )->fetchAssociative();
+        self::assertIsArray($row);
+
+        $conversation = Conversation::fromRow($row);
+        $conversation->setTitle('Try update deleted');
+
+        $result = $this->subject->updateIf($conversation, ConversationStatus::Idle);
+        self::assertFalse($result);
+    }
+
+    #[Test]
     public function dequeueForWorkerClaimsOldestWhenMultipleProcessing(): void
     {
         // Add a second 'processing' conversation with older tstamp

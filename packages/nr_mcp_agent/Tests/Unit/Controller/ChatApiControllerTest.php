@@ -27,6 +27,7 @@ class ChatApiControllerTest extends TestCase
     {
         parent::setUp();
         $this->repository = $this->createMock(ConversationRepository::class);
+        $this->repository->method('updateIf')->willReturn(true);
         $this->processor = $this->createMock(ChatProcessorInterface::class);
         $this->config = $this->createMock(ExtensionConfiguration::class);
         $this->config->method('getAllowedGroupIds')->willReturn([]);
@@ -426,7 +427,7 @@ class ChatApiControllerTest extends TestCase
         $conversation->setStatus(ConversationStatus::Failed);
         $conversation->setErrorMessage('Some error');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
-        $this->repository->expects(self::once())->method('update');
+        $this->repository->expects(self::once())->method('updateIf')->willReturn(true);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1}');
         $this->subject->resumeConversation($request);
@@ -449,6 +450,113 @@ class ChatApiControllerTest extends TestCase
         $data = json_decode((string) $response->getBody(), true);
         self::assertSame('failed', $data['status']);
         self::assertSame('LLM timeout', $data['errorMessage']);
+    }
+
+    #[Test]
+    public function sendMessageReturnsConflictWhenCasFails(): void
+    {
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateIf')->willReturn(false);
+        $repository->method('countActiveByBeUser')->willReturn(0);
+        $conversation = new Conversation();
+        $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $subject = new ChatApiController($repository, $this->processor, $this->config);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
+        $response = $subject->sendMessage($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertStringContainsString('already processing', $data['error']);
+    }
+
+    #[Test]
+    public function resumeConversationReturnsConflictWhenCasFails(): void
+    {
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateIf')->willReturn(false);
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Failed);
+        $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $subject = new ChatApiController($repository, $this->processor, $this->config);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $subject->resumeConversation($request);
+
+        self::assertSame(409, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function getMessagesWithZeroOffsetReturnsAll(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage('user', 'Q1');
+        $conversation->appendMessage('assistant', 'A1');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '0']);
+        $response = $this->subject->getMessages($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertCount(2, $data['messages']);
+        self::assertSame(2, $data['totalCount']);
+    }
+
+    #[Test]
+    public function sendMessageSkipsRateLimitWhenMaxActiveIsZero(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getMaxMessageLength')->willReturn(10000);
+        $config->method('getMaxActiveConversationsPerUser')->willReturn(0);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateIf')->willReturn(true);
+        $conversation = new Conversation();
+        $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        // countActiveByBeUser should never be called when maxActive is 0
+        $repository->expects(self::never())->method('countActiveByBeUser');
+
+        $subject = new ChatApiController($repository, $this->processor, $config);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
+        $response = $subject->sendMessage($request);
+
+        self::assertSame(202, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function resumeConversationDispatchesForProcessingStatus(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Processing);
+
+        // Processing is resumable
+        self::assertTrue($conversation->isResumable());
+
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->processor->expects(self::once())->method('dispatch');
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(202, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function resumeConversationDispatchesForToolLoopStatus(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::ToolLoop);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->processor->expects(self::once())->method('dispatch');
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(202, $response->getStatusCode());
     }
 
     /**

@@ -214,4 +214,93 @@ class ConversationTest extends TestCase
         self::assertSame('err', $row['error_message']);
         self::assertSame('prompt', $row['system_prompt']);
     }
+
+    #[Test]
+    public function hasPendingToolCallsReturnsTrueWhenLastMessageHasToolCalls(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setMessages([
+            ['role' => 'user', 'content' => 'Do thing'],
+            ['role' => 'assistant', 'content' => '', 'tool_calls' => [
+                ['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'tool', 'arguments' => '{}']],
+            ]],
+        ]);
+
+        self::assertTrue($conversation->hasPendingToolCalls());
+    }
+
+    #[Test]
+    public function hasPendingToolCallsReturnsFalseForUserMessage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage('user', 'Hello');
+
+        self::assertFalse($conversation->hasPendingToolCalls());
+    }
+
+    #[Test]
+    public function hasPendingToolCallsReturnsFalseForEmptyConversation(): void
+    {
+        $conversation = new Conversation();
+        self::assertFalse($conversation->hasPendingToolCalls());
+    }
+
+    #[Test]
+    public function hasPendingToolCallsReturnsFalseForAssistantWithoutToolCalls(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage('user', 'Hi');
+        $conversation->appendMessage('assistant', 'Hello!');
+
+        self::assertFalse($conversation->hasPendingToolCalls());
+    }
+
+    #[Test]
+    public function getMessagesReturnsRawJsonString(): void
+    {
+        $conversation = new Conversation();
+        self::assertSame('', $conversation->getMessages());
+
+        $conversation->appendMessage('user', 'Hello');
+        self::assertNotSame('', $conversation->getMessages());
+        self::assertJson($conversation->getMessages());
+    }
+
+    #[Test]
+    public function autoTitleNotOverwrittenBySecondUserMessage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage('user', 'First message');
+        $conversation->appendMessage('assistant', 'Reply');
+        $conversation->appendMessage('user', 'Second message');
+
+        self::assertSame('First message', $conversation->getTitle());
+    }
+
+    #[Test]
+    public function toRowDoesNotIncludeUid(): void
+    {
+        $conversation = new Conversation();
+        $row = $conversation->toRow();
+
+        self::assertArrayNotHasKey('uid', $row);
+    }
+
+    #[Test]
+    public function setCurrentRequestIdAndGet(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setCurrentRequestId('req_abc123');
+        self::assertSame('req_abc123', $conversation->getCurrentRequestId());
+    }
+
+    #[Test]
+    public function getStatusFallsBackToIdleForUnknownStatus(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'status' => 'nonexistent_status',
+        ]);
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+    }
 }
