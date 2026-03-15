@@ -141,13 +141,12 @@ final class ChatApiController
             return $accessDenied;
         }
 
-        $conversation = $this->findConversationOrFail($request);
+        $body = $this->parseBody($request);
+        $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
         }
 
-        /** @var array<string, string|int> $body */
-        $body = json_decode((string) $request->getBody(), true) ?? [];
         $content = trim((string) ($body['content'] ?? ''));
 
         if ($content === '') {
@@ -203,6 +202,10 @@ final class ChatApiController
             return new JsonResponse(['error' => 'Conversation is not resumable'], 400);
         }
 
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->setErrorMessage('');
+        $this->repository->update($conversation);
+
         $this->processor->dispatch($conversation->getUid());
 
         return new JsonResponse(['status' => 'processing'], 202);
@@ -250,10 +253,12 @@ final class ChatApiController
         return new JsonResponse(['pinned' => $conversation->isPinned()]);
     }
 
-    private function findConversationOrFail(ServerRequestInterface $request): Conversation|ResponseInterface
+    /**
+     * @param array<string, string|int>|null $parsedBody
+     */
+    private function findConversationOrFail(ServerRequestInterface $request, ?array $parsedBody = null): Conversation|ResponseInterface
     {
-        /** @var array<string, string|int> $body */
-        $body = json_decode((string) $request->getBody(), true) ?? [];
+        $body = $parsedBody ?? $this->parseBody($request);
         /** @var array<string, string> $queryParams */
         $queryParams = $request->getQueryParams();
         $uid = (int) ($queryParams['conversationUid'] ?? $body['conversationUid'] ?? 0);
@@ -275,6 +280,11 @@ final class ChatApiController
         }
 
         $beUser = $this->getBackendUser();
+
+        if (((int) ($beUser['admin'] ?? 0)) === 1) {
+            return null;
+        }
+
         $userGroups = GeneralUtility::intExplode(
             ',',
             (string) ($beUser['usergroup'] ?? ''),
@@ -286,6 +296,16 @@ final class ChatApiController
         }
 
         return new JsonResponse(['error' => 'Access denied'], 403);
+    }
+
+    /**
+     * @return array<string, string|int>
+     */
+    private function parseBody(ServerRequestInterface $request): array
+    {
+        /** @var array<string, string|int> $body */
+        $body = json_decode((string) $request->getBody(), true) ?? [];
+        return $body;
     }
 
     private function getBeUserUid(): int

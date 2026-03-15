@@ -257,6 +257,200 @@ class ChatApiControllerTest extends TestCase
         self::assertSame(404, $response->getStatusCode());
     }
 
+    #[Test]
+    public function getStatusReportsNoTaskConfigured(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getLlmTaskUid')->willReturn(0);
+        $config->method('isMcpEnabled')->willReturn(false);
+        $config->method('isMcpServerInstalled')->willReturn(false);
+        $subject = new ChatApiController($this->repository, $this->processor, $config);
+
+        $request = $this->createRequest('GET', '');
+        $response = $subject->getStatus($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertFalse($data['available']);
+        self::assertNotEmpty($data['issues']);
+        self::assertStringContainsString('No nr-llm Task', $data['issues'][0]);
+    }
+
+    #[Test]
+    public function getStatusReportsMcpEnabledButNotInstalled(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(true);
+        $config->method('isMcpServerInstalled')->willReturn(false);
+        $subject = new ChatApiController($this->repository, $this->processor, $config);
+
+        $request = $this->createRequest('GET', '');
+        $response = $subject->getStatus($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertTrue($data['available']);
+        self::assertTrue($data['mcpEnabled']);
+        self::assertStringContainsString('not installed', $data['issues'][0]);
+    }
+
+    #[Test]
+    public function getStatusReportsMcpInstalledButDisabled(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+        $config->method('isMcpServerInstalled')->willReturn(true);
+        $subject = new ChatApiController($this->repository, $this->processor, $config);
+
+        $request = $this->createRequest('GET', '');
+        $response = $subject->getStatus($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertStringContainsString('MCP is not enabled', $data['issues'][0]);
+    }
+
+    #[Test]
+    public function getStatusReturnsCleanWhenFullyConfigured(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(true);
+        $config->method('isMcpServerInstalled')->willReturn(true);
+        $subject = new ChatApiController($this->repository, $this->processor, $config);
+
+        $request = $this->createRequest('GET', '');
+        $response = $subject->getStatus($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertTrue($data['available']);
+        self::assertTrue($data['mcpEnabled']);
+        self::assertEmpty($data['issues']);
+    }
+
+    #[Test]
+    public function sendMessageRejectsLockedConversation(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Locked);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
+        $response = $this->subject->sendMessage($request);
+
+        self::assertSame(409, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function sendMessageRejectsToolLoopConversation(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::ToolLoop);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
+        $response = $this->subject->sendMessage($request);
+
+        self::assertSame(409, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function sendMessageClearsErrorMessage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setErrorMessage('Previous error');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('countActiveByBeUser')->willReturn(0);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
+        $this->subject->sendMessage($request);
+
+        self::assertSame('', $conversation->getErrorMessage());
+        self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
+    }
+
+    #[Test]
+    public function sendMessageAppendsUserMessage(): void
+    {
+        $conversation = new Conversation();
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('countActiveByBeUser')->willReturn(0);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello AI"}');
+        $this->subject->sendMessage($request);
+
+        $messages = $conversation->getDecodedMessages();
+        self::assertCount(1, $messages);
+        self::assertSame('user', $messages[0]['role']);
+        self::assertSame('Hello AI', $messages[0]['content']);
+    }
+
+    #[Test]
+    public function checkAccessAllowsAdminDespiteGroupRestriction(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([99]);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+        $config->method('isMcpServerInstalled')->willReturn(false);
+        $subject = new ChatApiController($this->repository, $this->processor, $config);
+
+        $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '', 'admin' => 1];
+
+        $request = $this->createRequest('GET', '');
+        $response = $subject->getStatus($request);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function listConversationsReturnsEmptyArrayWhenNone(): void
+    {
+        $this->repository->method('findByBeUser')->willReturn([]);
+
+        $request = $this->createRequest('GET', '');
+        $response = $this->subject->listConversations($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertSame([], $data['conversations']);
+    }
+
+    #[Test]
+    public function resumeConversationSetsStatusToProcessing(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Failed);
+        $conversation->setErrorMessage('Some error');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->expects(self::once())->method('update');
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $this->subject->resumeConversation($request);
+
+        self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
+        self::assertSame('', $conversation->getErrorMessage());
+    }
+
+    #[Test]
+    public function getMessagesReturnsStatusAndErrorMessage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Failed);
+        $conversation->setErrorMessage('LLM timeout');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('GET', '', ['conversationUid' => '1']);
+        $response = $this->subject->getMessages($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertSame('failed', $data['status']);
+        self::assertSame('LLM timeout', $data['errorMessage']);
+    }
+
     /**
      * @param array<string, string> $queryParams
      */
