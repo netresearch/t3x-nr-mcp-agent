@@ -4,17 +4,36 @@
 Agent loop
 ==========
 
-The agent loop is the core processing logic in
-``ChatService::runAgentLoop()``. It orchestrates the
+``ChatService`` has two processing paths that are selected
+automatically based on whether MCP tools are available.
+
+Simple chat (no tools)
+======================
+
+When MCP is disabled or the MCP server provides no tools,
+``runSimpleChat()`` is used. This is a fast path that:
+
+1.  Resolves the LLM provider via the nr-llm DB chain.
+2.  Builds the system prompt (see Architecture > System
+    prompt priority).
+3.  Prepends the system prompt as a ``system`` message.
+4.  Calls ``ProviderInterface::chatCompletion()``.
+5.  Appends the response and sets status to ``idle``.
+
+Agent loop (with tools)
+=======================
+
+When MCP is enabled and tools are available,
+``runAgentLoop()`` is used. It orchestrates the
 interaction between the LLM and MCP tools.
 
 Flow
-====
+----
 
 ::
 
     1. Set status to "processing"
-    2. Build system prompt and tool options
+    2. Resolve provider and build system prompt
     3. LOOP (max 20 iterations):
        a. Send messages + tools to LLM (with retry)
        b. IF response has tool calls:
@@ -95,5 +114,5 @@ subprocess:
     process.
 
 When MCP is disabled in the extension configuration,
-a null implementation is used that provides no tools
-and performs no operations.
+the tool provider returns no tools and ChatService
+uses the simple chat path instead of the agent loop.

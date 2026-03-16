@@ -30,7 +30,13 @@ System overview
         v
     ChatService
         |
-        |--- LlmServiceManager (nr-llm)
+        |--- resolveProvider()
+        |        |
+        |        v
+        |    Task --> Configuration --> Model (nr-llm DB)
+        |        |
+        |        v
+        |    ProviderAdapterRegistry (nr-llm)
         |        |
         |        v
         |    LLM Provider (OpenAI, Anthropic, ...)
@@ -126,7 +132,41 @@ The central entity. Stored in
     for worker dequeue locking.
 
 ``system_prompt``
-    Optional custom system prompt override.
+    Optional custom system prompt override (per conversation).
+
+System prompt priority
+----------------------
+
+The system prompt sent to the LLM is resolved in this order:
+
+1.  **Conversation-level prompt** -- If a conversation has a
+    custom ``system_prompt`` set, it takes highest priority.
+2.  **nr-llm Configuration + Task prompts** -- The
+    ``system_prompt`` from the nr-llm Configuration record
+    and the ``prompt_template`` from the Task record are
+    combined (separated by a blank line). Configure these
+    in the TYPO3 backend to provide tool usage instructions
+    or persona definitions.
+3.  **Locale-based fallback** -- If nothing is configured,
+    a default prompt is used based on the backend user's
+    language setting (German or English).
+
+Provider resolution
+-------------------
+
+``ChatService`` resolves the LLM provider through the nr-llm
+database chain:
+
+1.  Read the Task record (by ``llmTaskUid`` from extension
+    configuration).
+2.  Follow ``Task → Configuration → Model`` via foreign keys.
+3.  Use ``ProviderAdapterRegistry::createAdapterFromModel()``
+    to create a fully configured provider instance (with API
+    key from nr-vault).
+
+The Configuration's ``system_prompt`` and the Task's
+``prompt_template`` are fetched in the same query and used
+by ``buildSystemPrompt()``.
 
 ``archived``
     Whether the conversation is archived.

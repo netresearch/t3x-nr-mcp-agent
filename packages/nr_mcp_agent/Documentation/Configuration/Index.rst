@@ -88,6 +88,37 @@ MCP integration
 
     Example: ``mcp:server,--verbose``
 
+System prompt
+=============
+
+The system prompt sent to the LLM is not configured in the
+extension configuration itself, but in the **nr-llm records**:
+
+**Configuration record** (``tx_nrllm_configuration.system_prompt``)
+    The primary system prompt. Set this to define the AI
+    assistant's persona, language, and behavior. Also use
+    this field for tool usage instructions when MCP is
+    enabled.
+
+    Example for MCP usage::
+
+        Du bist ein TYPO3-Assistent.
+
+        ## Tool-Nutzung
+        - Bei WriteTable gehören Record-Felder IMMER in den
+          "data" Parameter als Objekt.
+        - Beispiel: {"action": "create", "table": "pages",
+          "pid": 1, "data": {"title": "Meine Seite"}}
+
+**Task record** (``tx_nrllm_task.prompt_template``)
+    Additional instructions appended after the Configuration
+    prompt. Use this for task-specific context.
+
+When both fields are set, they are combined (separated by a
+blank line). If neither is set, a locale-based default prompt
+is used. A per-conversation ``system_prompt`` field can
+override everything (set programmatically, not via UI).
+
 User interface
 ==============
 
