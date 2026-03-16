@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Domain\Model;
 
+use JsonException;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -22,7 +25,7 @@ class ConversationTest extends TestCase
     public function appendMessageIncreasesCount(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         self::assertSame(1, $conversation->getMessageCount());
     }
@@ -31,7 +34,7 @@ class ConversationTest extends TestCase
     public function appendMessageAddsToMessages(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $messages = $conversation->getDecodedMessages();
         self::assertCount(1, $messages);
@@ -54,7 +57,7 @@ class ConversationTest extends TestCase
             ['type' => 'text', 'text' => 'I will translate that.'],
             ['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'translate', 'input' => ['page' => 5]],
         ];
-        $conversation->appendMessage('assistant', $content);
+        $conversation->appendMessage(MessageRole::Assistant, $content);
 
         $messages = $conversation->getDecodedMessages();
         self::assertSame($content, $messages[0]['content']);
@@ -64,7 +67,7 @@ class ConversationTest extends TestCase
     public function autoTitleUsesFirstUserMessage(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', 'Übersetze Seite 5 ins Englische');
+        $conversation->appendMessage(MessageRole::User, 'Übersetze Seite 5 ins Englische');
 
         self::assertSame('Übersetze Seite 5 ins Englische', $conversation->getTitle());
     }
@@ -73,7 +76,7 @@ class ConversationTest extends TestCase
     public function autoTitleTruncatesLongMessages(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', str_repeat('a', 300));
+        $conversation->appendMessage(MessageRole::User, str_repeat('a', 300));
 
         self::assertSame(255, mb_strlen($conversation->getTitle()));
     }
@@ -83,7 +86,7 @@ class ConversationTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setTitle('My custom title');
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         self::assertSame('My custom title', $conversation->getTitle());
     }
@@ -233,7 +236,7 @@ class ConversationTest extends TestCase
     public function hasPendingToolCallsReturnsFalseForUserMessage(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         self::assertFalse($conversation->hasPendingToolCalls());
     }
@@ -249,8 +252,8 @@ class ConversationTest extends TestCase
     public function hasPendingToolCallsReturnsFalseForAssistantWithoutToolCalls(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', 'Hi');
-        $conversation->appendMessage('assistant', 'Hello!');
+        $conversation->appendMessage(MessageRole::User, 'Hi');
+        $conversation->appendMessage(MessageRole::Assistant, 'Hello!');
 
         self::assertFalse($conversation->hasPendingToolCalls());
     }
@@ -261,7 +264,7 @@ class ConversationTest extends TestCase
         $conversation = new Conversation();
         self::assertSame('', $conversation->getMessages());
 
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
         self::assertNotSame('', $conversation->getMessages());
         self::assertJson($conversation->getMessages());
     }
@@ -270,9 +273,9 @@ class ConversationTest extends TestCase
     public function autoTitleNotOverwrittenBySecondUserMessage(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', 'First message');
-        $conversation->appendMessage('assistant', 'Reply');
-        $conversation->appendMessage('user', 'Second message');
+        $conversation->appendMessage(MessageRole::User, 'First message');
+        $conversation->appendMessage(MessageRole::Assistant, 'Reply');
+        $conversation->appendMessage(MessageRole::User, 'Second message');
 
         self::assertSame('First message', $conversation->getTitle());
     }
@@ -302,5 +305,166 @@ class ConversationTest extends TestCase
             'status' => 'nonexistent_status',
         ]);
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+    }
+
+    #[Test]
+    public function fromRowWithMinimalRowUsesDefaults(): void
+    {
+        $conversation = Conversation::fromRow([]);
+
+        self::assertSame(0, $conversation->getUid());
+        self::assertSame(0, $conversation->getBeUser());
+        self::assertSame('', $conversation->getTitle());
+        self::assertSame(0, $conversation->getMessageCount());
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+        self::assertSame('', $conversation->getCurrentRequestId());
+        self::assertSame('', $conversation->getSystemPrompt());
+        self::assertFalse($conversation->isArchived());
+        self::assertFalse($conversation->isPinned());
+        self::assertSame('', $conversation->getErrorMessage());
+        self::assertSame(0, $conversation->getTstamp());
+    }
+
+    #[Test]
+    public function toRowFromRowRoundtripConsistency(): void
+    {
+        $original = new Conversation();
+        $original->setBeUser(7);
+        $original->setTitle('Roundtrip Test');
+        $original->setSystemPrompt('Be helpful');
+        $original->setArchived(true);
+        $original->setPinned(true);
+        $original->setErrorMessage('some error');
+        $original->setCurrentRequestId('req_42');
+        $original->setStatus(ConversationStatus::Processing);
+        $original->appendMessage(MessageRole::User, 'Hello');
+        $original->appendMessage(MessageRole::Assistant, 'Hi there');
+
+        $row = $original->toRow();
+        $hydrated = Conversation::fromRow($row);
+
+        self::assertSame($original->getBeUser(), $hydrated->getBeUser());
+        self::assertSame($original->getTitle(), $hydrated->getTitle());
+        self::assertSame($original->getSystemPrompt(), $hydrated->getSystemPrompt());
+        self::assertSame($original->isArchived(), $hydrated->isArchived());
+        self::assertSame($original->isPinned(), $hydrated->isPinned());
+        self::assertSame($original->getErrorMessage(), $hydrated->getErrorMessage());
+        self::assertSame($original->getStatus(), $hydrated->getStatus());
+        self::assertSame($original->getMessageCount(), $hydrated->getMessageCount());
+        self::assertSame($original->getDecodedMessages(), $hydrated->getDecodedMessages());
+    }
+
+    #[Test]
+    public function appendMessageWithArrayContentWorksForToolRole(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::Tool, ['result' => 'Page created']);
+
+        $messages = $conversation->getDecodedMessages();
+        self::assertCount(1, $messages);
+        self::assertSame('tool', $messages[0]['role']);
+        self::assertSame(['result' => 'Page created'], $messages[0]['content']);
+    }
+
+    #[Test]
+    public function appendMultipleMessagesIncrementsCountCorrectly(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Q1');
+        $conversation->appendMessage(MessageRole::Assistant, 'A1');
+        $conversation->appendMessage(MessageRole::User, 'Q2');
+
+        self::assertSame(3, $conversation->getMessageCount());
+    }
+
+    #[Test]
+    public function getDecodedMessagesThrowsOnMalformedJson(): void
+    {
+        $conversation = Conversation::fromRow([
+            'messages' => '{invalid json',
+        ]);
+
+        $this->expectException(JsonException::class);
+        $conversation->getDecodedMessages();
+    }
+
+    #[Test]
+    public function setTitleTruncatesLongTitle(): void
+    {
+        $conversation = new Conversation();
+        $longTitle = str_repeat('x', 300);
+        $conversation->setTitle($longTitle);
+
+        self::assertSame(255, mb_strlen($conversation->getTitle()));
+        self::assertSame(str_repeat('x', 255), $conversation->getTitle());
+    }
+
+    #[Test]
+    public function setTitleKeepsExact255Chars(): void
+    {
+        $conversation = new Conversation();
+        $exactTitle = str_repeat('y', 255);
+        $conversation->setTitle($exactTitle);
+
+        self::assertSame(255, mb_strlen($conversation->getTitle()));
+        self::assertSame($exactTitle, $conversation->getTitle());
+    }
+
+    #[Test]
+    public function setSystemPromptNormalValuePassesThrough(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setSystemPrompt('You are a helpful assistant.');
+        self::assertSame('You are a helpful assistant.', $conversation->getSystemPrompt());
+    }
+
+    #[Test]
+    public function setMessagesWithEmptyArrayResetsCount(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        self::assertSame(1, $conversation->getMessageCount());
+
+        $conversation->setMessages([]);
+        self::assertSame(0, $conversation->getMessageCount());
+    }
+
+    /**
+     * @return array<string, array{ConversationStatus, bool}>
+     */
+    public static function isResumableProvider(): array
+    {
+        return [
+            'idle' => [ConversationStatus::Idle, false],
+            'processing' => [ConversationStatus::Processing, true],
+            'locked' => [ConversationStatus::Locked, false],
+            'tool_loop' => [ConversationStatus::ToolLoop, true],
+            'failed' => [ConversationStatus::Failed, true],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('isResumableProvider')]
+    public function isResumableForAllStatuses(ConversationStatus $status, bool $expected): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus($status);
+        self::assertSame($expected, $conversation->isResumable());
+    }
+
+    #[Test]
+    public function autoTitleIgnoresAssistantMessage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::Assistant, 'Hello there');
+        self::assertSame('', $conversation->getTitle());
+    }
+
+    #[Test]
+    public function autoTitleIgnoresArrayContent(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, ['type' => 'text', 'text' => 'Hello']);
+        self::assertSame('', $conversation->getTitle());
     }
 }

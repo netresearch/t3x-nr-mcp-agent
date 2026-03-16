@@ -7,6 +7,7 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Configuration;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration as Typo3ExtensionConfiguration;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -174,5 +175,90 @@ class ExtensionConfigurationTest extends TestCase
         self::assertFalse($config->isMcpEnabled());
         self::assertSame(10000, $config->getMaxMessageLength());
         self::assertSame(3, $config->getMaxActiveConversationsPerUser());
+    }
+
+    #[Test]
+    public function getMaxMessageLengthReturnsConfiguredValue(): void
+    {
+        $config = new ExtensionConfiguration();
+        self::assertSame(5000, $config->getMaxMessageLength());
+    }
+
+    #[Test]
+    public function getMaxActiveConversationsPerUserReturnsConfiguredValue(): void
+    {
+        $config = new ExtensionConfiguration();
+        self::assertSame(2, $config->getMaxActiveConversationsPerUser());
+    }
+
+    #[Test]
+    public function isMcpEnabledReturnsTrueForOneString(): void
+    {
+        $config = new ExtensionConfiguration();
+        self::assertTrue($config->isMcpEnabled());
+    }
+
+    #[Test]
+    public function getAllowedGroupIdsReturnsSingleValue(): void
+    {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'allowedGroups' => '42',
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame([42], $config->getAllowedGroupIds());
+    }
+
+    #[Test]
+    public function getMcpServerArgsReturnsEmptyArrayWhenEmpty(): void
+    {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'mcpServerArgs' => '',
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame([], $config->getMcpServerArgs());
+    }
+
+    #[Test]
+    public function getMcpServerCommandReturnsEmptyDefault(): void
+    {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame('', $config->getMcpServerCommand());
+    }
+
+    #[Test]
+    public function nonScalarConfigValueFallsBackToDefault(): void
+    {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'llmTaskUid' => ['nested' => 'array'],
+            'maxMessageLength' => new stdClass(),
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        $config = new ExtensionConfiguration();
+        self::assertSame(0, $config->getLlmTaskUid());
+        self::assertSame(10000, $config->getMaxMessageLength());
     }
 }

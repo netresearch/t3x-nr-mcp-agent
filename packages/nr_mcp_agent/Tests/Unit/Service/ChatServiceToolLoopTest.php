@@ -11,6 +11,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
@@ -75,7 +76,7 @@ class ChatServiceToolLoopTest extends TestCase
 
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Do something');
+        $conversation->appendMessage(MessageRole::User, 'Do something');
 
         $toolCall = [
             'id' => 'call_1',
@@ -106,7 +107,7 @@ class ChatServiceToolLoopTest extends TestCase
 
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Use a tool');
+        $conversation->appendMessage(MessageRole::User, 'Use a tool');
 
         $toolCall = [
             'id' => 'call_abc',
@@ -148,7 +149,7 @@ class ChatServiceToolLoopTest extends TestCase
 
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'call tool');
+        $conversation->appendMessage(MessageRole::User, 'call tool');
 
         $toolCall = [
             'id' => 'call_json',
@@ -190,7 +191,7 @@ class ChatServiceToolLoopTest extends TestCase
 
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'call');
+        $conversation->appendMessage(MessageRole::User, 'call');
 
         // Mix of valid and invalid tool calls
         $toolCalls = [
@@ -310,7 +311,7 @@ class ChatServiceToolLoopTest extends TestCase
 
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('connect')->willThrowException(new RuntimeException('Connection failed'));
@@ -331,7 +332,7 @@ class ChatServiceToolLoopTest extends TestCase
 
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('connect')->willThrowException(new RuntimeException('fail'));
@@ -350,7 +351,7 @@ class ChatServiceToolLoopTest extends TestCase
 
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('connect')->willThrowException(

@@ -11,6 +11,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
@@ -25,7 +26,7 @@ class ChatServiceRetryTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $callCount = 0;
@@ -64,7 +65,7 @@ class ChatServiceRetryTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->method('chatWithTools')->willThrowException(
@@ -93,7 +94,7 @@ class ChatServiceRetryTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->method('chatWithTools')->willThrowException(
@@ -124,7 +125,7 @@ class ChatServiceRetryTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $callCount = 0;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
@@ -163,7 +164,7 @@ class ChatServiceRetryTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $callCount = 0;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
@@ -202,7 +203,7 @@ class ChatServiceRetryTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $callCount = 0;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
@@ -235,7 +236,7 @@ class ChatServiceRetryTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->method('chatWithTools')->willThrowException(
@@ -265,7 +266,7 @@ class ChatServiceRetryTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $longError = str_repeat('a', 600);
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);

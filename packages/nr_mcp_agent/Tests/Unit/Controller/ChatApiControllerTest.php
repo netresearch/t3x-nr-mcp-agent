@@ -9,6 +9,7 @@ use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -177,9 +178,9 @@ class ChatApiControllerTest extends TestCase
     public function getMessagesReturnsSlicedMessages(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', 'Hello');
-        $conversation->appendMessage('assistant', 'Hi');
-        $conversation->appendMessage('user', 'How are you?');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $conversation->appendMessage(MessageRole::Assistant, 'Hi');
+        $conversation->appendMessage(MessageRole::User, 'How are you?');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
         // Fast-path poll check returns message_count > after, so full load is needed
         $this->repository->method('findPollStatus')->willReturn([
@@ -497,8 +498,8 @@ class ChatApiControllerTest extends TestCase
     public function getMessagesWithZeroOffsetReturnsAll(): void
     {
         $conversation = new Conversation();
-        $conversation->appendMessage('user', 'Q1');
-        $conversation->appendMessage('assistant', 'A1');
+        $conversation->appendMessage(MessageRole::User, 'Q1');
+        $conversation->appendMessage(MessageRole::Assistant, 'A1');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
         $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '0']);
@@ -560,6 +561,120 @@ class ChatApiControllerTest extends TestCase
 
         $request = $this->createRequest('POST', '{"conversationUid": 1}');
         $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(202, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function getMessagesFastPathReturnsEarlyWhenNoNewMessages(): void
+    {
+        $this->repository->method('findPollStatus')->willReturn([
+            'status' => 'idle',
+            'message_count' => 2,
+            'error_message' => '',
+        ]);
+        // findOneByUidAndBeUser should never be called in the fast path
+        $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
+
+        $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '2']);
+        $response = $this->subject->getMessages($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertSame([], $data['messages']);
+        self::assertSame(2, $data['totalCount']);
+        self::assertSame('idle', $data['status']);
+    }
+
+    #[Test]
+    public function getMessagesFastPathReturns404WhenPollStatusNull(): void
+    {
+        $this->repository->method('findPollStatus')->willReturn(null);
+
+        $request = $this->createRequest('GET', '', ['conversationUid' => '999', 'after' => '1']);
+        $response = $this->subject->getMessages($request);
+
+        self::assertSame(404, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function archiveConversationCallsUpdateArchivedWithCorrectArguments(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 42,
+            'be_user' => 1,
+        ]);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->expects(self::once())
+            ->method('updateArchived')
+            ->with(42, true, 1);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 42}');
+        $response = $this->subject->archiveConversation($request);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function togglePinCallsUpdatePinnedWithCorrectArguments(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 10,
+            'be_user' => 1,
+            'pinned' => 0,
+        ]);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->expects(self::once())
+            ->method('updatePinned')
+            ->with(10, true, 1);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 10}');
+        $response = $this->subject->togglePin($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertTrue($data['pinned']);
+    }
+
+    #[Test]
+    public function togglePinUnpinsPinnedConversation(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 10,
+            'be_user' => 1,
+            'pinned' => 1,
+        ]);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->expects(self::once())
+            ->method('updatePinned')
+            ->with(10, false, 1);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 10}');
+        $response = $this->subject->togglePin($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertFalse($data['pinned']);
+    }
+
+    #[Test]
+    public function sendMessageWithMaxLengthZeroAllowsAnyLength(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getMaxMessageLength')->willReturn(0);
+        $config->method('getMaxActiveConversationsPerUser')->willReturn(0);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateIf')->willReturn(true);
+        $conversation = new Conversation();
+        $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $subject = new ChatApiController($repository, $this->processor, $config);
+
+        $longContent = str_repeat('x', 100000);
+        $request = $this->createRequest('POST', json_encode(['conversationUid' => 1, 'content' => $longContent]));
+        $response = $subject->sendMessage($request);
 
         self::assertSame(202, $response->getStatusCode());
     }

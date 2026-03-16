@@ -11,6 +11,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
@@ -34,7 +35,7 @@ class ChatServiceTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->expects(self::once())->method('chatWithTools')
@@ -63,7 +64,7 @@ class ChatServiceTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $repository = $this->createMock(ConversationRepository::class);
@@ -161,7 +162,7 @@ class ChatServiceTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hallo');
+        $conversation->appendMessage(MessageRole::User, 'Hallo');
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->method('chatWithTools')->willReturnCallback(
@@ -194,7 +195,7 @@ class ChatServiceTest extends TestCase
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->setSystemPrompt('Custom system prompt');
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->method('chatWithTools')->willReturnCallback(
@@ -225,7 +226,7 @@ class ChatServiceTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hallo');
+        $conversation->appendMessage(MessageRole::User, 'Hallo');
 
         $capturedOptions = null;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
@@ -261,7 +262,7 @@ class ChatServiceTest extends TestCase
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->setSystemPrompt('My custom system prompt');
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $capturedOptions = null;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
@@ -295,7 +296,7 @@ class ChatServiceTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->appendMessage('user', 'Hello');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $capturedOptions = null;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
