@@ -25,7 +25,7 @@ The existing full-page module remains as a fullscreen alternative for history br
 └── <ai-chat-panel>             ← NEW: fixed-position panel, outside iframe
 ```
 
-The panel is created by JavaScript at runtime and appended to `document.body`. It floats above the entire backend using `z-index: 4900` (below TYPO3 modals at 5000+, above scaffold content). Because it lives outside the module iframe, it persists across module navigation.
+The panel is created by JavaScript at runtime and appended to `document.body`. It uses `z-index: 1040` — above the scaffold header (990) and toolbar dropdowns (1000), but below the modal backdrop (1050) and modals (1055). Uses TYPO3's CSS custom property scale: `calc(var(--typo3-zindex-modal-backdrop) - 10)`. Because it lives outside the module iframe, it persists across module navigation.
 
 ### Toolbar Integration
 
@@ -37,7 +37,7 @@ A new `ChatToolbarItem` registers in the TYPO3 top toolbar (right side, alongsid
 
 Implementation via `ToolbarItemInterface` and `RequestAwareToolbarItemInterface`. Auto-registered by TYPO3 DI (`autoconfigure: true` is set in `Services.yaml`).
 
-The toolbar item's `getItem()` renders the button HTML. The JavaScript module is loaded via `PageRenderer::loadJavaScriptModule()` in the toolbar item — this JS module creates the `<ai-chat-panel>` element and appends it to `document.body` at runtime. The PHP class does NOT inject the panel DOM node directly.
+The toolbar item's `getItem()` renders only the button HTML (icon + badge). The `<ai-chat-panel>` element is created and appended to `document.body` by the JavaScript module, not by the PHP class. The JS module auto-loads in the outer backend frame via the import map `backend.module` tag (same pattern as TYPO3 core's `LiveSearchToolbarItem` / `toolbar/live-search.js`). No `PageRenderer::loadJavaScriptModule()` call from PHP needed.
 
 ### AJAX Routes in Outer Frame
 
@@ -105,12 +105,17 @@ The panel is a full-featured chat client, not a simplified view:
 
 The existing `chat-app.js` component contains chat logic (message rendering, polling, API calls) tightly coupled with layout. Refactor into:
 
-1. **`chat-core.js`** — Chat logic as Lit ReactiveController: message handling, polling, API integration, conversation state management. No layout opinions.
-2. **`chat-app.js`** — Full-page module component. Uses chat-core. Existing layout preserved.
-3. **`ai-chat-panel.js`** — Panel component. Uses chat-core. Panel-specific layout, state management, resize, toolbar integration.
+1. **`chat-core.js`** — Chat logic as Lit ReactiveController: message handling, polling, API integration, conversation state management. No layout opinions. Exposes callback hooks for DOM interactions that the host must implement:
+   - `onScrollToBottom()` — host scrolls its message container
+   - `onFocusInput()` — host focuses its textarea
+   - `onResetInput()` — host resets textarea height after send
+   - `onMessagesChanged(messages)` — host re-renders message list
+   These are needed because ReactiveController cannot access the host's shadow DOM.
+2. **`chat-app.js`** — Full-page module component. Uses chat-core. Existing layout preserved. Implements the callback hooks above.
+3. **`ai-chat-panel.js`** — Panel component. Uses chat-core. Panel-specific layout, state management, resize, toolbar integration. Implements same callback hooks with panel-specific DOM queries.
 4. **`api-client.js`** — Unchanged, used by both.
 
-All new JS modules must be registered in `Configuration/JavaScriptModules.php` (TYPO3 import map) under the `@netresearch/nr-mcp-agent/` namespace.
+The existing `@netresearch/nr-mcp-agent/` import map entry in `Configuration/JavaScriptModules.php` resolves all files under `Resources/Public/JavaScript/`. For auto-loading `ai-chat-panel.js` in the outer backend frame, a dedicated entry point (`toolbar/chat-panel.js`) is registered with the `backend.module` tag. This avoids loading the full chat-app module unnecessarily in the outer frame.
 
 This keeps the full-page module working without changes while sharing all business logic.
 
@@ -130,7 +135,7 @@ The toolbar badge shows the count of conversations in `processing`, `locked`, or
 
 - The existing `ai_chat_status` endpoint, extended with an `activeConversationCount` field in the response
 - When panel is visible: piggybacks on the panel's regular poll cycle (2s during processing, 5s idle)
-- When panel is hidden: reduced poll frequency (every 30s) for badge-only updates
+- When panel is hidden: badge polling starts only after the user has opened the panel at least once in the current session (avoids server load for users who never use the chat). Polls every 30s for badge-only updates.
 - Badge disappears when count is 0
 
 ### Accessibility
@@ -147,22 +152,27 @@ The toolbar badge shows the count of conversations in `processing`, `locked`, or
 
 **`ChatToolbarItem`**
 - Implements `ToolbarItemInterface` and `RequestAwareToolbarItemInterface`
-- `getItem()`: renders toolbar button with icon + badge container
+- `getItem()`: renders toolbar button with icon + badge container (HTML only, no JS loading)
 - `checkAccess()`: respects `allowedGroups` extension configuration
-- Loads `@netresearch/nr-mcp-agent/ai-chat-panel.js` via `PageRenderer::loadJavaScriptModule()`
-- Badge count queried via `ConversationRepository` (count by status in processing/locked/tool_loop for current BE user)
+- Initial badge count queried via `ConversationRepository::countActiveByBeUser()` at page render time
+- JS module loading handled by import map tag, not by this PHP class
 
 ### New JavaScript Modules
+
+**`toolbar/chat-panel.js`** (Entry point, auto-loaded via `backend.module` tag)
+- Finds the toolbar button by CSS selector
+- Creates and appends `<ai-chat-panel>` to `document.body`
+- Wires toolbar button click to panel toggle
 
 **`ai-chat-panel.js`** (Lit component)
 - Properties: `state`, `height`, `activeConversationUid`, `conversations`, `messages`
 - Handles: panel rendering, state transitions, resize drag (mouse + touch), localStorage persistence
-- Delegates chat logic to shared core
-- Self-appends to `document.body` when loaded
+- Delegates chat logic to shared core, implements DOM callback hooks
 
 **`chat-core.js`** (Lit ReactiveController)
 - Extracted from current `chat-app.js`
 - Message polling, send, conversation CRUD, status management
+- Exposes callback hooks for DOM interactions (scroll, focus, reset)
 - Used by both `chat-app.js` and `ai-chat-panel.js`
 
 ### Modified Files
@@ -172,7 +182,8 @@ The toolbar badge shows the count of conversations in `processing`, `locked`, or
 - Layout code stays, now only responsible for full-page rendering
 
 **`Configuration/JavaScriptModules.php`**
-- Register `chat-core.js` and `ai-chat-panel.js` in import map
+- Add `toolbar/chat-panel.js` entry point with `backend.module` tag for outer-frame auto-loading
+- `chat-core.js` and `ai-chat-panel.js` resolve via existing wildcard mapping, no individual registration needed
 
 **`ChatApiController::getStatus()`**
 - Extend response with `activeConversationCount` field
