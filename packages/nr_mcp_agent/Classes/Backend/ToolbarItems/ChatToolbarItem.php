@@ -55,14 +55,12 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
 
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-mcp-agent/toolbar/chat-panel.js');
 
-        return '<button class="toolbar-item ai-chat-toolbar-btn" title="AI Chat">'
-            . '<span class="toolbar-item-icon">'
+        return '<span class="toolbar-item-link ai-chat-toolbar-btn" role="button" title="AI Chat" tabindex="0">'
             . '<typo3-backend-icon identifier="actions-message" size="small"></typo3-backend-icon>'
-            . '</span>'
-            . '<span class="toolbar-item-badge badge badge-warning ai-chat-badge" style="' . $badgeStyle . '">'
+            . '<span class="badge badge-warning ai-chat-badge" style="' . $badgeStyle . '">'
             . $count
             . '</span>'
-            . '</button>';
+            . '</span>';
     }
 
     public function hasDropDown(): bool
@@ -78,7 +76,7 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
     /** @return array<string, string> */
     public function getAdditionalAttributes(): array
     {
-        return ['class' => 'ai-chat-toolbar'];
+        return ['class' => 'toolbar-item ai-chat-toolbar'];
     }
 
     public function getIndex(): int

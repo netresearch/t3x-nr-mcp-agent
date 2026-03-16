@@ -25,8 +25,9 @@ export class AiChatPanel extends LitElement {
         :host {
             position: fixed;
             bottom: 0;
-            left: 0;
-            right: 0;
+            right: 16px;
+            width: 480px;
+            max-width: calc(100vw - 32px);
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
             box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15);
             font-family: var(--typo3-font-family, sans-serif);
@@ -38,14 +39,23 @@ export class AiChatPanel extends LitElement {
             display: none;
         }
 
-        /* Resize handle */
+        /* Resize handle — larger hit area for easier drag */
         .resize-handle {
-            height: 4px;
+            height: 8px;
             cursor: ns-resize;
             background: transparent;
             width: 100%;
             flex-shrink: 0;
             position: relative;
+            touch-action: none;
+        }
+        .resize-handle::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: 0;
+            right: 0;
+            height: 16px;
         }
         .resize-handle:hover,
         .resize-handle:active {
@@ -395,10 +405,19 @@ export class AiChatPanel extends LitElement {
         if (this.state === STATES.HIDDEN) return;
         if (this.state === STATES.COLLAPSED) {
             this.style.height = COLLAPSED_HEIGHT + 'px';
+            this.style.width = '';
+            this.style.left = '';
+            this.style.right = '16px';
         } else if (this.state === STATES.MAXIMIZED) {
             this.style.height = '100vh';
+            this.style.width = '100vw';
+            this.style.left = '0';
+            this.style.right = '0';
         } else {
             this.style.height = this._height + 'px';
+            this.style.width = '';
+            this.style.left = '';
+            this.style.right = '16px';
         }
     }
 
