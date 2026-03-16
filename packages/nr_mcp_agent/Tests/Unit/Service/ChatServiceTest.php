@@ -43,13 +43,21 @@ class ChatServiceTest extends TestCase
      *
      * @return array{ConnectionPool, ProviderAdapterRegistry, DataMapper}
      */
-    private function createProviderResolutionMocks(ProviderInterface $provider): array
+    /**
+     * @param array{system_prompt?: string, prompt_template?: string} $prompts
+     */
+    private function createProviderResolutionMocks(ProviderInterface $provider, array $prompts = []): array
     {
         $exprBuilder = $this->createMock(ExpressionBuilder::class);
         $exprBuilder->method('eq')->willReturn('1 = 1');
 
         $result = $this->createMock(Result::class);
-        $result->method('fetchAssociative')->willReturn(['uid' => 1, 'name' => 'test-model']);
+        $result->method('fetchAssociative')->willReturn([
+            'uid' => 1,
+            'name' => 'test-model',
+            '_config_system_prompt' => $prompts['system_prompt'] ?? '',
+            '_task_prompt_template' => $prompts['prompt_template'] ?? '',
+        ]);
 
         $qb = $this->createMock(QueryBuilder::class);
         $qb->method('select')->willReturnSelf();
@@ -74,11 +82,15 @@ class ChatServiceTest extends TestCase
         return [$connectionPool, $adapterRegistry, $dataMapper];
     }
 
+    /**
+     * @param array{system_prompt?: string, prompt_template?: string} $prompts
+     */
     private function createChatService(
         ProviderInterface $provider,
         ?ConversationRepository $repository = null,
         ?ExtensionConfiguration $config = null,
         ?McpToolProviderInterface $mcpProvider = null,
+        array $prompts = [],
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -88,7 +100,7 @@ class ChatServiceTest extends TestCase
         }
         $mcpProvider ??= $this->createMock(McpToolProviderInterface::class);
 
-        [$connectionPool, $adapterRegistry, $dataMapper] = $this->createProviderResolutionMocks($provider);
+        [$connectionPool, $adapterRegistry, $dataMapper] = $this->createProviderResolutionMocks($provider, $prompts);
 
         return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
     }
@@ -316,7 +328,7 @@ class ChatServiceTest extends TestCase
     }
 
     #[Test]
-    public function defaultSystemPromptIncludesToolUsageHints(): void
+    public function systemPromptUsesConfigurationPromptWhenSet(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
@@ -334,20 +346,52 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = $this->createChatService($provider);
+        $service = $this->createChatService($provider, prompts: [
+            'system_prompt' => 'You are a content editor.',
+        ]);
         $service->processConversation($conversation);
 
         self::assertNotNull($capturedMessages);
-        $systemContent = $capturedMessages[0]['content'];
-        self::assertStringContainsString('WriteTable', $systemContent);
-        self::assertStringContainsString('"data"', $systemContent);
-        self::assertStringContainsString('nested inside "data"', $systemContent);
+        self::assertSame('You are a content editor.', $capturedMessages[0]['content']);
 
         unset($GLOBALS['BE_USER']);
     }
 
     #[Test]
-    public function customSystemPromptDoesNotIncludeToolHints(): void
+    public function systemPromptCombinesConfigAndTaskPrompts(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, prompts: [
+            'system_prompt' => 'You are a TYPO3 assistant.',
+            'prompt_template' => 'Always wrap record fields in the data parameter.',
+        ]);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $content = $capturedMessages[0]['content'];
+        self::assertStringContainsString('You are a TYPO3 assistant.', $content);
+        self::assertStringContainsString('Always wrap record fields', $content);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function conversationPromptOverridesConfigPrompts(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
@@ -366,12 +410,13 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = $this->createChatService($provider);
+        $service = $this->createChatService($provider, prompts: [
+            'system_prompt' => 'This should be ignored.',
+        ]);
         $service->processConversation($conversation);
 
         self::assertNotNull($capturedMessages);
         self::assertSame('Only custom instructions', $capturedMessages[0]['content']);
-        self::assertStringNotContainsString('WriteTable', $capturedMessages[0]['content']);
 
         unset($GLOBALS['BE_USER']);
     }

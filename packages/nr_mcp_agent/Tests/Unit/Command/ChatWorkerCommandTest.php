@@ -113,7 +113,7 @@ class ChatWorkerCommandTest extends TestCase
         $exprBuilder = $this->createMock(ExpressionBuilder::class);
         $exprBuilder->method('eq')->willReturn('1 = 1');
         $result = $this->createMock(Result::class);
-        $result->method('fetchAssociative')->willReturn(['uid' => 1]);
+        $result->method('fetchAssociative')->willReturn(['uid' => 1, '_config_system_prompt' => '', '_task_prompt_template' => '']);
         $qb = $this->createMock(QueryBuilder::class);
         $qb->method('select')->willReturnSelf();
         $qb->method('from')->willReturnSelf();

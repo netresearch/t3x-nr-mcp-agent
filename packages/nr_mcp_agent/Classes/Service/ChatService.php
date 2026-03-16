@@ -22,19 +22,22 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
-final readonly class ChatService
+final class ChatService
 {
     private const MAX_TOOL_ITERATIONS = 20;
     private const MAX_LLM_RETRIES = 2;
     private const LLM_RETRY_DELAY_SECONDS = 3;
 
+    /** @var array{system_prompt: string, prompt_template: string}|null */
+    private ?array $resolvedPrompts = null;
+
     public function __construct(
-        private ConversationRepository $repository,
-        private ExtensionConfiguration $config,
-        private McpToolProviderInterface $mcpToolProvider,
-        private ConnectionPool $connectionPool,
-        private ProviderAdapterRegistry $adapterRegistry,
-        private DataMapper $dataMapper,
+        private readonly ConversationRepository $repository,
+        private readonly ExtensionConfiguration $config,
+        private readonly McpToolProviderInterface $mcpToolProvider,
+        private readonly ConnectionPool $connectionPool,
+        private readonly ProviderAdapterRegistry $adapterRegistry,
+        private readonly DataMapper $dataMapper,
     ) {}
 
     public function processConversation(Conversation $conversation): void
@@ -289,7 +292,7 @@ final readonly class ChatService
 
         $qb = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_model');
         $row = $qb
-            ->select('m.*')
+            ->select('m.*', 'c.system_prompt AS _config_system_prompt', 't.prompt_template AS _task_prompt_template')
             ->from('tx_nrllm_task', 't')
             ->join('t', 'tx_nrllm_configuration', 'c', $qb->expr()->eq('c.uid', $qb->quoteIdentifier('t.configuration_uid')))
             ->join('c', 'tx_nrllm_model', 'm', $qb->expr()->eq('m.uid', $qb->quoteIdentifier('c.model_uid')))
@@ -300,6 +303,13 @@ final readonly class ChatService
         if ($row === false) {
             throw new RuntimeException(sprintf('Could not resolve LLM model for task uid %d', $taskUid));
         }
+
+        // Extract prompts before passing row to DataMapper (which only expects model columns)
+        $this->resolvedPrompts = [
+            'system_prompt' => is_string($row['_config_system_prompt'] ?? null) ? $row['_config_system_prompt'] : '',
+            'prompt_template' => is_string($row['_task_prompt_template'] ?? null) ? $row['_task_prompt_template'] : '',
+        ];
+        unset($row['_config_system_prompt'], $row['_task_prompt_template']);
 
         /** @var list<LlmModel> $models */
         $models = $this->dataMapper->map(LlmModel::class, [$row]);
@@ -349,30 +359,40 @@ final readonly class ChatService
 
     private function buildSystemPrompt(Conversation $conversation): string
     {
+        // 1. Conversation-level custom prompt (highest priority)
         $custom = $conversation->getSystemPrompt();
         if ($custom !== '') {
             return $custom;
         }
 
-        $beUser = $GLOBALS['BE_USER'] ?? null;
-        /** @var array<string, mixed> $uc */
-        $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];
-        $langRaw = $uc['lang'] ?? 'default';
-        $lang = is_string($langRaw) ? $langRaw : 'default';
+        // 2. Build from nr-llm Task prompt_template + Configuration system_prompt
+        $parts = [];
 
-        $toolHints = <<<'HINT'
+        $configPrompt = $this->resolvedPrompts['system_prompt'] ?? '';
+        if ($configPrompt !== '') {
+            $parts[] = $configPrompt;
+        }
 
-## Tool usage rules
-- When using WriteTable with action "create", "update", or "translate", always put record fields inside the "data" parameter object. Example: {"action": "create", "table": "pages", "pid": 1, "data": {"title": "My Page", "doktype": 1}}
-- Never pass record fields (title, bodytext, header, etc.) as top-level parameters — they must be nested inside "data".
-- For "delete" action, only "action", "table", and "uid" are needed (no "data").
-- Always check the page tree and existing content with GetPage/ReadTable before creating or modifying content.
-HINT;
+        $taskPrompt = $this->resolvedPrompts['prompt_template'] ?? '';
+        if ($taskPrompt !== '') {
+            $parts[] = $taskPrompt;
+        }
 
-        return match ($lang) {
-            'de' => 'Du bist ein TYPO3-Assistent. Du hilfst beim Verwalten von Inhalten über die verfügbaren Tools. Antworte auf Deutsch.' . $toolHints,
-            default => 'You are a TYPO3 assistant. You help manage content using the available tools. Respond in English.' . $toolHints,
-        };
+        // 3. Fallback: locale-based default if nothing configured
+        if ($parts === []) {
+            $beUser = $GLOBALS['BE_USER'] ?? null;
+            /** @var array<string, mixed> $uc */
+            $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];
+            $langRaw = $uc['lang'] ?? 'default';
+            $lang = is_string($langRaw) ? $langRaw : 'default';
+
+            $parts[] = match ($lang) {
+                'de' => 'Du bist ein TYPO3-Assistent. Du hilfst beim Verwalten von Inhalten über die verfügbaren Tools. Antworte auf Deutsch.',
+                default => 'You are a TYPO3 assistant. You help manage content using the available tools. Respond in English.',
+            };
+        }
+
+        return implode("\n\n", $parts);
     }
 
     private function persist(Conversation $conversation): void

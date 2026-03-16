@@ -65,7 +65,7 @@ class ChatServiceToolLoopTest extends TestCase
         $exprBuilder->method('eq')->willReturn('1 = 1');
 
         $result = $this->createMock(Result::class);
-        $result->method('fetchAssociative')->willReturn(['uid' => 1, 'name' => 'test-model']);
+        $result->method('fetchAssociative')->willReturn(['uid' => 1, 'name' => 'test-model', '_config_system_prompt' => '', '_task_prompt_template' => '']);
 
         $qb = $this->createMock(QueryBuilder::class);
         $qb->method('select')->willReturnSelf();
