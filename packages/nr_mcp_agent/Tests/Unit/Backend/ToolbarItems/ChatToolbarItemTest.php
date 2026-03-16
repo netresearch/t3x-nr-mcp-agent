@@ -17,12 +17,14 @@ class ChatToolbarItemTest extends TestCase
 {
     private ConversationRepository $repository;
     private ExtensionConfiguration $config;
+    private \TYPO3\CMS\Core\Page\PageRenderer $pageRenderer;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->repository = $this->createMock(ConversationRepository::class);
         $this->config = $this->createMock(ExtensionConfiguration::class);
+        $this->pageRenderer = $this->createMock(\TYPO3\CMS\Core\Page\PageRenderer::class);
     }
 
     protected function tearDown(): void
@@ -33,7 +35,7 @@ class ChatToolbarItemTest extends TestCase
 
     private function createSubject(): ChatToolbarItem
     {
-        return new ChatToolbarItem($this->repository, $this->config);
+        return new ChatToolbarItem($this->repository, $this->config, $this->pageRenderer);
     }
 
     private function setUpBeUser(int $uid = 1, string $usergroup = '1,2'): void

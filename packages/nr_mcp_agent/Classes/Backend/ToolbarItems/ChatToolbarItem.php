@@ -10,6 +10,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Toolbar\RequestAwareToolbarItemInterface;
 use TYPO3\CMS\Backend\Toolbar\ToolbarItemInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Page\PageRenderer;
 
 final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbarItemInterface
 {
@@ -18,6 +19,7 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
     public function __construct(
         private readonly ConversationRepository $repository,
         private readonly ExtensionConfiguration $config,
+        private readonly PageRenderer $pageRenderer,
     ) {}
 
     public function setRequest(ServerRequestInterface $request): void
@@ -44,6 +46,8 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
 
     public function getItem(): string
     {
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-mcp-agent/toolbar/chat-panel.js');
+
         $count = 0;
         $beUser = $this->getBackendUser();
         if ($beUser !== null) {
