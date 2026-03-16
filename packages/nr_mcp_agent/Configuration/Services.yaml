@@ -7,6 +7,12 @@ services:
   Netresearch\NrMcpAgent\:
     resource: '../Classes/*'
 
+  Netresearch\NrMcpAgent\Controller\ChatModuleController:
+    public: true
+
+  Netresearch\NrMcpAgent\Controller\ChatApiController:
+    public: true
+
   # Processor: defaults to exec, override for worker mode
   Netresearch\NrMcpAgent\Service\ChatProcessorInterface:
     class: Netresearch\NrMcpAgent\Service\ExecChatProcessor
