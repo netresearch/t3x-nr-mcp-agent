@@ -3,11 +3,14 @@ import {ChatCoreController} from './chat-core.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const DEFAULT_HEIGHT = 350;
+const DEFAULT_WIDTH = 480;
+const MIN_WIDTH = 320;
+const MIN_HEIGHT = 120;
 const COLLAPSED_HEIGHT = 36;
 const STORAGE_KEY = 'ai-chat-panel';
 
 /**
- * <ai-chat-panel> - Floating bottom panel for AI chat.
+ * <ai-chat-panel> - Floating draggable panel for AI chat.
  *
  * Panel states: HIDDEN (display:none), COLLAPSED (header only),
  * EXPANDED (chat + compact conversation switcher),
@@ -19,57 +22,64 @@ export class AiChatPanel extends LitElement {
     static properties = {
         state: {type: String, reflect: true},
         _height: {state: true},
+        _width: {state: true},
+        _posX: {state: true},
+        _posY: {state: true},
     };
 
     static styles = css`
         :host {
             position: fixed;
-            bottom: 0;
-            right: 16px;
-            width: 480px;
-            max-width: calc(100vw - 32px);
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
-            box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06);
+            border-radius: 12px;
             font-family: var(--typo3-font-family, sans-serif);
             background: var(--typo3-surface-container-lowest, #fff);
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         :host([state="hidden"]) {
             display: none;
         }
+        :host([state="maximized"]) {
+            border-radius: 0;
+        }
 
-        /* Resize handle — larger hit area for easier drag */
-        .resize-handle {
-            height: 8px;
-            cursor: ns-resize;
-            background: transparent;
-            width: 100%;
-            flex-shrink: 0;
-            position: relative;
-            touch-action: none;
-        }
-        .resize-handle::before {
-            content: '';
+        /* Corner resize grip — bottom-right */
+        .resize-grip {
             position: absolute;
-            top: -4px;
-            left: 0;
+            bottom: 0;
             right: 0;
-            height: 16px;
+            width: 20px;
+            height: 20px;
+            cursor: nwse-resize;
+            touch-action: none;
+            z-index: 10;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 2px;
         }
-        .resize-handle:hover,
-        .resize-handle:active {
-            background: var(--typo3-primary, #0078d4);
-            opacity: 0.4;
+        .resize-grip svg {
+            width: 12px;
+            height: 12px;
+            opacity: 0.3;
+            transition: opacity 0.15s;
         }
-        .resize-handle:focus-visible {
-            background: var(--typo3-primary, #0078d4);
+        .resize-grip:hover svg,
+        .resize-grip:active svg {
             opacity: 0.6;
+        }
+        .resize-grip:focus-visible {
             outline: 2px solid var(--typo3-primary, #0078d4);
             outline-offset: -2px;
         }
+        .resize-grip:focus-visible svg {
+            opacity: 0.8;
+        }
 
-        /* Panel header */
+        /* Panel header — drag handle */
         .panel-header {
             height: 36px;
             min-height: 36px;
@@ -77,10 +87,19 @@ export class AiChatPanel extends LitElement {
             align-items: center;
             gap: 8px;
             padding: 0 12px;
-            background: var(--typo3-surface-container-low, #f5f5f5);
+            background: linear-gradient(to bottom, var(--typo3-surface-container-low, #f5f5f5), color-mix(in srgb, var(--typo3-surface-container-low, #f5f5f5) 85%, transparent));
             border-bottom: 1px solid var(--typo3-list-border-color, #ccc);
-            cursor: default;
+            cursor: grab;
             flex-shrink: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            border-radius: 12px 12px 0 0;
+        }
+        :host([state="maximized"]) .panel-header {
+            border-radius: 0;
+        }
+        .panel-header:active {
+            cursor: grabbing;
         }
         .panel-header .title {
             flex: 1;
@@ -197,7 +216,7 @@ export class AiChatPanel extends LitElement {
         .message {
             max-width: 85%;
             padding: 8px 12px;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 13px;
             line-height: 1.5;
             white-space: pre-wrap;
@@ -207,12 +226,12 @@ export class AiChatPanel extends LitElement {
             align-self: flex-end;
             background: #0078d4;
             color: #fff;
-            border-bottom-right-radius: 2px;
+            border-bottom-right-radius: 4px;
         }
         .message.assistant {
             align-self: flex-start;
             background: var(--typo3-surface-container-high, #e8e8e8);
-            border-bottom-left-radius: 2px;
+            border-bottom-left-radius: 4px;
         }
         .message.tool {
             align-self: flex-start;
@@ -286,7 +305,7 @@ export class AiChatPanel extends LitElement {
             gap: 4px;
             padding: 6px 12px;
             border: 1px solid var(--typo3-input-border-color, #ccc);
-            border-radius: 4px;
+            border-radius: 6px;
             background: var(--typo3-surface-container-lowest, #fff);
             cursor: pointer;
             font-size: 13px;
@@ -304,6 +323,7 @@ export class AiChatPanel extends LitElement {
             background: #0078d4;
             color: #fff;
             border-color: transparent;
+            border-radius: 8px;
         }
         .btn-primary:hover:not(:disabled) {
             background: #006abc;
@@ -316,17 +336,17 @@ export class AiChatPanel extends LitElement {
             padding: 4px 6px;
             border: none;
             background: transparent;
+            border-radius: 6px;
         }
         .btn-icon:hover {
             background: var(--typo3-state-hover, rgba(0, 0, 0, 0.04));
-            border-radius: 4px;
         }
 
         /* Status */
         .status-badge {
             display: inline-block;
-            padding: 2px 6px;
-            border-radius: 3px;
+            padding: 3px 8px;
+            border-radius: 10px;
             font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
@@ -374,8 +394,12 @@ export class AiChatPanel extends LitElement {
         this.chat = new ChatCoreController(this);
         this.state = STATES.HIDDEN;
         this._height = DEFAULT_HEIGHT;
+        this._width = DEFAULT_WIDTH;
+        this._posX = null;
+        this._posY = null;
         this._lastVisibleState = STATES.EXPANDED;
         this._resizing = false;
+        this._dragging = false;
         this._restoreState();
     }
 
@@ -393,7 +417,7 @@ export class AiChatPanel extends LitElement {
     }
 
     updated(changed) {
-        if (changed.has('state') || changed.has('_height')) {
+        if (changed.has('state') || changed.has('_height') || changed.has('_width') || changed.has('_posX') || changed.has('_posY')) {
             this._applySize();
         }
         if (changed.has('state')) {
@@ -401,24 +425,67 @@ export class AiChatPanel extends LitElement {
         }
     }
 
+    /** Calculate default bottom-right position */
+    _defaultPosition() {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        return {
+            x: vw - this._width - 16,
+            y: vh - this._height - 16,
+        };
+    }
+
     _applySize() {
         if (this.state === STATES.HIDDEN) return;
-        if (this.state === STATES.COLLAPSED) {
-            this.style.height = COLLAPSED_HEIGHT + 'px';
-            this.style.width = '';
-            this.style.left = '';
-            this.style.right = '16px';
-        } else if (this.state === STATES.MAXIMIZED) {
-            this.style.height = '100vh';
-            this.style.width = '100vw';
+
+        if (this.state === STATES.MAXIMIZED) {
+            this.style.top = '0';
             this.style.left = '0';
-            this.style.right = '0';
-        } else {
-            this.style.height = this._height + 'px';
-            this.style.width = '';
-            this.style.left = '';
-            this.style.right = '16px';
+            this.style.width = '100vw';
+            this.style.height = '100vh';
+            this.style.right = '';
+            this.style.bottom = '';
+            return;
         }
+
+        if (this.state === STATES.COLLAPSED) {
+            const pos = this._getPosition();
+            this.style.top = pos.y + 'px';
+            this.style.left = pos.x + 'px';
+            this.style.width = this._width + 'px';
+            this.style.height = COLLAPSED_HEIGHT + 'px';
+            this.style.right = '';
+            this.style.bottom = '';
+            return;
+        }
+
+        // EXPANDED
+        const pos = this._getPosition();
+        this.style.top = pos.y + 'px';
+        this.style.left = pos.x + 'px';
+        this.style.width = this._width + 'px';
+        this.style.height = this._height + 'px';
+        this.style.right = '';
+        this.style.bottom = '';
+    }
+
+    /** Get current position, falling back to default bottom-right */
+    _getPosition() {
+        if (this._posX !== null && this._posY !== null) {
+            return {x: this._posX, y: this._posY};
+        }
+        return this._defaultPosition();
+    }
+
+    /** Constrain position so the panel stays within the viewport */
+    _constrainPosition(x, y) {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const w = this._width;
+        const h = this.state === STATES.COLLAPSED ? COLLAPSED_HEIGHT : this._height;
+        x = Math.max(0, Math.min(x, vw - w));
+        y = Math.max(0, Math.min(y, vh - h));
+        return {x, y};
     }
 
     // ── Public API ──────────────────────────────────────────────────────
@@ -477,20 +544,68 @@ export class AiChatPanel extends LitElement {
         if (ta) ta.style.height = 'auto';
     }
 
-    // ── Resize ──────────────────────────────────────────────────────────
+    // ── Drag (move) ─────────────────────────────────────────────────────
+
+    _onDragStart(e) {
+        // Don't start drag if clicking a button
+        if (e.target.closest('button, .btn-icon')) return;
+        e.preventDefault();
+        this._dragging = true;
+
+        const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+        const pos = this._getPosition();
+        this._dragOffsetX = clientX - pos.x;
+        this._dragOffsetY = clientY - pos.y;
+
+        const onMove = (ev) => {
+            const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
+            const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
+            let newX = cx - this._dragOffsetX;
+            let newY = cy - this._dragOffsetY;
+            const constrained = this._constrainPosition(newX, newY);
+            this._posX = constrained.x;
+            this._posY = constrained.y;
+        };
+
+        const onEnd = () => {
+            this._dragging = false;
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onEnd);
+            this._saveState();
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchmove', onMove, {passive: false});
+        document.addEventListener('touchend', onEnd);
+    }
+
+    // ── Resize (corner grip) ────────────────────────────────────────────
 
     _onResizeStart(e) {
         e.preventDefault();
+        e.stopPropagation();
         this._resizing = true;
-        this._startY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+        const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+        this._startX = clientX;
+        this._startY = clientY;
+        this._startWidth = this._width;
         this._startHeight = this.state === STATES.MAXIMIZED ? window.innerHeight : this._height;
 
         const onMove = (ev) => {
-            const clientY = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
-            const delta = this._startY - clientY;
-            let newHeight = this._startHeight + delta;
+            const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
+            const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
+            const deltaX = cx - this._startX;
+            const deltaY = cy - this._startY;
+
+            const maxW = window.innerWidth * 0.9;
             const vh = window.innerHeight;
-            newHeight = Math.max(COLLAPSED_HEIGHT, Math.min(newHeight, vh));
+            let newWidth = Math.max(MIN_WIDTH, Math.min(this._startWidth + deltaX, maxW));
+            let newHeight = Math.max(MIN_HEIGHT, Math.min(this._startHeight + deltaY, vh));
 
             if (newHeight < 50) {
                 newHeight = COLLAPSED_HEIGHT;
@@ -501,6 +616,8 @@ export class AiChatPanel extends LitElement {
             } else {
                 this.state = STATES.EXPANDED;
             }
+
+            this._width = newWidth;
             this._height = newHeight;
         };
 
@@ -532,6 +649,15 @@ export class AiChatPanel extends LitElement {
             if (this._height < 50) { this._height = 36; this.state = 'collapsed'; }
             else this.state = 'expanded';
             this._saveState();
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            const maxW = window.innerWidth * 0.9;
+            this._width = Math.min(this._width + 50, maxW);
+            this._saveState();
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            this._width = Math.max(this._width - 50, MIN_WIDTH);
+            this._saveState();
         }
     }
 
@@ -542,6 +668,9 @@ export class AiChatPanel extends LitElement {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({
                 state: this.state,
                 height: this._height,
+                width: this._width,
+                x: this._posX,
+                y: this._posY,
                 activeUid: this.chat.activeUid,
             }));
         } catch { /* ignore */ }
@@ -557,6 +686,13 @@ export class AiChatPanel extends LitElement {
             }
             if (typeof data.height === 'number' && data.height >= COLLAPSED_HEIGHT) {
                 this._height = data.height;
+            }
+            if (typeof data.width === 'number' && data.width >= MIN_WIDTH) {
+                this._width = data.width;
+            }
+            if (typeof data.x === 'number' && typeof data.y === 'number') {
+                this._posX = data.x;
+                this._posY = data.y;
             }
         } catch { /* ignore corrupted data */ }
     }
@@ -592,16 +728,24 @@ export class AiChatPanel extends LitElement {
         if (this.state === STATES.HIDDEN) return nothing;
 
         return html`
-            <div class="resize-handle"
-                 role="separator"
-                 aria-orientation="horizontal"
-                 aria-label="Resize panel"
-                 tabindex="0"
-                 @mousedown=${(e) => this._onResizeStart(e)}
-                 @touchstart=${(e) => this._onResizeStart(e)}
-                 @keydown=${(e) => this._onResizeKeydown(e)}></div>
             ${this._renderHeader()}
             ${this.state === STATES.COLLAPSED ? nothing : this._renderBody()}
+            ${this.state !== STATES.COLLAPSED && this.state !== STATES.MAXIMIZED ? html`
+                <div class="resize-grip"
+                     role="separator"
+                     aria-orientation="horizontal"
+                     aria-label="Resize panel"
+                     tabindex="0"
+                     @mousedown=${(e) => this._onResizeStart(e)}
+                     @touchstart=${(e) => this._onResizeStart(e)}
+                     @keydown=${(e) => this._onResizeKeydown(e)}>
+                    <svg viewBox="0 0 12 12" fill="currentColor">
+                        <circle cx="9" cy="9" r="1.2"/>
+                        <circle cx="5" cy="9" r="1.2"/>
+                        <circle cx="9" cy="5" r="1.2"/>
+                    </svg>
+                </div>
+            ` : nothing}
         `;
     }
 
@@ -610,7 +754,9 @@ export class AiChatPanel extends LitElement {
         const title = conv?.title || 'AI Chat';
 
         return html`
-            <div class="panel-header">
+            <div class="panel-header"
+                 @mousedown=${(e) => this._onDragStart(e)}
+                 @touchstart=${(e) => this._onDragStart(e)}>
                 <span class="title">${title}</span>
                 ${this.chat.status ? html`
                     <span class="status-badge status-${this.chat.status}">${this.chat.status}</span>
