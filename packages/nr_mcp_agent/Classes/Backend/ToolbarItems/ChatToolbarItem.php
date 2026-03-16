@@ -46,14 +46,14 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
 
     public function getItem(): string
     {
-        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-mcp-agent/toolbar/chat-panel.js');
-
         $count = 0;
         $beUser = $this->getBackendUser();
         if ($beUser !== null) {
             $count = $this->repository->countActiveByBeUser((int) $beUser->user['uid']);
         }
         $badgeStyle = $count > 0 ? '' : 'display:none';
+
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-mcp-agent/toolbar/chat-panel.js');
 
         return '<button class="toolbar-item ai-chat-toolbar-btn" title="AI Chat">'
             . '<span class="toolbar-item-icon">'
