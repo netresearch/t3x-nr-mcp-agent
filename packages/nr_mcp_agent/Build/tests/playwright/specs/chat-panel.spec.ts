@@ -48,9 +48,14 @@ test.describe('AI Chat Panel', () => {
         await expect(page.locator('ai-chat-panel')).not.toHaveAttribute('state', 'hidden');
     });
 
-    test('escape key collapses panel', async ({ page }) => {
+    test('escape key collapses panel when focused', async ({ page }) => {
         await page.locator('.ai-chat-toolbar-btn').click();
         await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'expanded', { timeout: 3000 });
+        // Focus the panel by focusing an element inside its shadow DOM
+        await page.evaluate(() => {
+            const panel = document.querySelector('ai-chat-panel');
+            if (panel) (panel as HTMLElement).focus();
+        });
         await page.keyboard.press('Escape');
         await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'collapsed', { timeout: 3000 });
     });

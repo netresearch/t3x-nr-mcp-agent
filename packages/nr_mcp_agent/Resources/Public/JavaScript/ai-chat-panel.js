@@ -416,6 +416,7 @@ export class AiChatPanel extends LitElement {
         super.connectedCallback();
         this.setAttribute('role', 'complementary');
         this.setAttribute('aria-label', 'AI Chat');
+        this.setAttribute('tabindex', '-1'); // focusable programmatically but not in tab order
         this._keydownHandler = (e) => this._onKeydown(e);
         document.addEventListener('keydown', this._keydownHandler);
     }
@@ -767,8 +768,11 @@ export class AiChatPanel extends LitElement {
 
     _onKeydown(e) {
         if (e.key === 'Escape' && this.state !== STATES.HIDDEN) {
-            // Only collapse if focus is within the panel — don't interfere with modals/dropdowns
-            if (this.contains(document.activeElement) || this.shadowRoot?.contains(document.activeElement)) {
+            // Only collapse if focus is within the panel or no modal is open
+            const active = document.activeElement;
+            const inPanel = active === this || this.contains(active) || this.shadowRoot?.contains(active);
+            const modalOpen = !!document.querySelector('.modal.show, typo3-backend-modal[open]');
+            if (inPanel || (!modalOpen && !active?.closest('.dropdown-menu'))) {
                 this.collapse();
             }
         }
