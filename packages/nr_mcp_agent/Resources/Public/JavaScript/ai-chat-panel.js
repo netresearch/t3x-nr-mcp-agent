@@ -37,7 +37,6 @@ export class AiChatPanel extends LitElement {
             background: var(--typo3-surface-container-lowest, #fff);
             display: flex;
             flex-direction: column;
-            overflow: hidden;
         }
         :host([state="hidden"]) {
             display: none;
@@ -561,9 +560,26 @@ export class AiChatPanel extends LitElement {
 
     // ── Drag (move) ─────────────────────────────────────────────────────
 
+    _onHeaderClick(e) {
+        // Clicking the header in collapsed state expands the panel
+        if (this.state === STATES.COLLAPSED && !e.target.closest('button, .btn-icon')) {
+            this.state = STATES.EXPANDED;
+            this._saveState();
+        }
+    }
+
+    _onHeaderDblClick(e) {
+        // Double-click header toggles between expanded and maximized
+        if (!e.target.closest('button, .btn-icon')) {
+            this.maximize();
+        }
+    }
+
     _onDragStart(e) {
         // Don't start drag if clicking a button
         if (e.target.closest('button, .btn-icon')) return;
+        // In collapsed state, click expands instead of dragging
+        if (this.state === STATES.COLLAPSED) return;
         e.preventDefault();
         this._dragging = true;
 
@@ -832,7 +848,9 @@ export class AiChatPanel extends LitElement {
         return html`
             <div class="panel-header"
                  @mousedown=${(e) => this._onDragStart(e)}
-                 @touchstart=${(e) => this._onDragStart(e)}>
+                 @touchstart=${(e) => this._onDragStart(e)}
+                 @click=${(e) => this._onHeaderClick(e)}
+                 @dblclick=${(e) => this._onHeaderDblClick(e)}>
                 <span class="title">${title}</span>
                 ${this.chat.status ? html`
                     <span class="status-badge status-${this.chat.status}">${this.chat.status}</span>
