@@ -1,0 +1,4 @@
+"be_users",,,,,,
+,"uid","pid","username","password","admin","deleted"
+,1,0,"admin","$2y$12$dummy",1,0
+,2,0,"editor","$2y$12$dummy",0,0

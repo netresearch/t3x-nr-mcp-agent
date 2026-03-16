@@ -1,0 +1,7 @@
+"tx_nrmcpagent_conversation",,,,,,,,,,,,,,
+,"uid","pid","be_user","title","messages","message_count","status","current_request_id","system_prompt","archived","pinned","error_message","tstamp","crdate","deleted"
+,1,0,1,"Conv 1","[]",0,"idle","","",0,0,"",1700000100,1700000100,0
+,2,0,1,"Conv 2","[]",0,"processing","","",0,0,"",1700000200,1700000200,0
+,3,0,2,"Conv 3","[]",0,"idle","","",0,0,"",1700000300,1700000300,0
+,4,0,1,"Conv 4 archived","[]",0,"idle","","",1,0,"",1700000400,1700000400,0
+,5,0,1,"Conv 5 deleted","[]",0,"idle","","",0,0,"",1700000500,1700000500,1
