@@ -3,7 +3,15 @@
  * All methods return parsed JSON or throw on HTTP errors.
  */
 export class ApiClient {
-    constructor() {}
+    /** @type {AbortSignal|null} */
+    _signal;
+
+    /**
+     * @param {AbortSignal} [signal] – optional AbortSignal forwarded to every fetch call
+     */
+    constructor(signal) {
+        this._signal = signal || null;
+    }
 
     /** @returns {Promise<{available: boolean, mcpEnabled: boolean, issues: string[]}>} */
     async getStatus() {
@@ -93,6 +101,7 @@ export class ApiClient {
         const res = await fetch(url, {
             credentials: 'same-origin',
             headers: {'Accept': 'application/json'},
+            signal: this._signal,
         });
         return this._handleResponse(res);
     }
@@ -110,6 +119,7 @@ export class ApiClient {
                 'Accept': 'application/json',
             },
             body: JSON.stringify(body),
+            signal: this._signal,
         });
         return this._handleResponse(res);
     }

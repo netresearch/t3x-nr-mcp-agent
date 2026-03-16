@@ -1,6 +1,8 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {ApiClient} from './api-client.js';
 
+const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
+
 /**
  * <nr-chat-app> – Main chat application component.
  *
@@ -18,16 +20,24 @@ export class ChatApp extends LitElement {
         _sending: {state: true},
         _available: {state: true},
         _issues: {state: true},
-        _inputValue: {state: true},
+        _hasInput: {state: true},
         _sidebarCollapsed: {state: true},
     };
 
     /** @type {ApiClient} */
     _api;
+    /** @type {AbortController} */
+    _abortController;
     /** @type {number|null} */
     _pollTimer = null;
     /** @type {number} */
     _knownMessageCount = 0;
+    /** @type {number} */
+    _pollFailures = 0;
+    /** @type {Set<number>} */
+    _expandedTools = new Set();
+    /** @type {string} */
+    _inputValue = '';
 
     static styles = css`
         :host {
@@ -305,7 +315,6 @@ export class ChatApp extends LitElement {
 
     constructor() {
         super();
-        this._api = new ApiClient();
         this.maxLength = 0;
         this._conversations = [];
         this._activeUid = null;
@@ -313,6 +322,7 @@ export class ChatApp extends LitElement {
         this._status = '';
         this._errorMessage = '';
         this._inputValue = '';
+        this._hasInput = false;
         this._loading = true;
         this._sending = false;
         this._available = false;
@@ -323,6 +333,7 @@ export class ChatApp extends LitElement {
     connectedCallback() {
         super.connectedCallback();
         this._abortController = new AbortController();
+        this._api = new ApiClient(this._abortController.signal);
         this._init();
     }
 
@@ -356,6 +367,7 @@ export class ChatApp extends LitElement {
     async _selectConversation(uid) {
         this._activeUid = uid;
         this._knownMessageCount = 0;
+        this._expandedTools = new Set();
         await this._loadMessages();
         this._startPollingIfNeeded();
         await this.updateComplete;
@@ -371,16 +383,18 @@ export class ChatApp extends LitElement {
             this._errorMessage = data.errorMessage || '';
             this._knownMessageCount = data.totalCount;
             await this.updateComplete;
-            this._scrollToBottom();
+            this._scrollToBottom(true);
         } catch (e) {
             this._errorMessage = e.message;
         }
     }
 
     async _pollMessages() {
-        if (!this._activeUid) return;
+        const uid = this._activeUid;
+        if (!uid) return;
         try {
-            const data = await this._api.getMessages(this._activeUid, this._knownMessageCount);
+            const data = await this._api.getMessages(uid, this._knownMessageCount);
+            if (uid !== this._activeUid) return; // stale response, discard
             const newMessages = data.messages || [];
             const statusChanged = data.status !== this._status;
 
@@ -401,12 +415,22 @@ export class ChatApp extends LitElement {
                 this._scrollToBottom();
             }
 
+            // Reset failure counter on success
+            this._pollFailures = 0;
+            if (this._errorMessage === 'Connection lost. Retrying...') {
+                this._errorMessage = '';
+            }
+
             // Stop polling when no longer processing
             if (!this._isProcessing()) {
                 this._stopPolling();
             }
         } catch {
-            // Silently ignore polling errors
+            this._pollFailures++;
+            if (this._pollFailures >= 5) {
+                this._errorMessage = 'Connection lost. Retrying...';
+                this._stopPolling();
+            }
         }
     }
 
@@ -419,8 +443,9 @@ export class ChatApp extends LitElement {
 
     _schedulePoll() {
         this._pollTimer = setTimeout(async () => {
+            if (!this.isConnected) return;
             await this._pollMessages();
-            if (this._isProcessing()) {
+            if (this.isConnected && this._isProcessing()) {
                 this._schedulePoll();
             }
         }, 2000);
@@ -434,7 +459,7 @@ export class ChatApp extends LitElement {
     }
 
     _isProcessing() {
-        return ['processing', 'locked', 'tool_loop'].includes(this._status);
+        return PROCESSING_STATUSES.has(this._status);
     }
 
     async _handleSend() {
@@ -451,6 +476,7 @@ export class ChatApp extends LitElement {
         try {
             await this._api.sendMessage(this._activeUid, content);
             this._inputValue = '';
+            this._hasInput = false;
             // Reset textarea height
             const ta = this.renderRoot?.querySelector('.input-area textarea');
             if (ta) ta.style.height = 'auto';
@@ -461,8 +487,9 @@ export class ChatApp extends LitElement {
             this._conversations = this._conversations.map(c =>
                 c.uid === this._activeUid ? {...c, status: 'processing'} : c
             );
+            this._errorMessage = '';
             await this.updateComplete;
-            this._scrollToBottom();
+            this._scrollToBottom(true);
             this._startPollingIfNeeded();
         } catch (e) {
             this._errorMessage = e.message;
@@ -504,6 +531,7 @@ export class ChatApp extends LitElement {
             this._activeUid = null;
             this._messages = [];
             this._status = '';
+            this._errorMessage = '';
             this._stopPolling();
             await this._loadConversations();
         } catch (e) {
@@ -515,6 +543,7 @@ export class ChatApp extends LitElement {
         if (!this._activeUid) return;
         try {
             await this._api.togglePin(this._activeUid);
+            this._errorMessage = '';
             await this._loadConversations();
         } catch (e) {
             this._errorMessage = e.message;
@@ -530,32 +559,36 @@ export class ChatApp extends LitElement {
 
     _handleInput(e) {
         this._inputValue = e.target.value;
+        this._hasInput = e.target.value.trim().length > 0;
         // Auto-grow textarea
         e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
     }
 
-    _handleToolMessageClick(e) {
-        e.currentTarget.classList.toggle('expanded');
+    _handleToolMessageClick(idx) {
+        if (this._expandedTools.has(idx)) {
+            this._expandedTools.delete(idx);
+        } else {
+            this._expandedTools.add(idx);
+        }
+        this.requestUpdate();
     }
 
-    _scrollToBottom() {
-        const el = this.renderRoot?.querySelector('.messages');
-        if (el) el.scrollTop = el.scrollHeight;
+    _scrollToBottom(force = false) {
+        const container = this.renderRoot?.querySelector('.messages');
+        if (!container) return;
+        if (force) {
+            container.scrollTop = container.scrollHeight;
+            return;
+        }
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+        if (isNearBottom) {
+            container.scrollTop = container.scrollHeight;
+        }
     }
 
     _getActiveConversation() {
         return this._conversations.find(c => c.uid === this._activeUid);
-    }
-
-    _formatTime(tstamp) {
-        if (!tstamp) return '';
-        const d = new Date(tstamp * 1000);
-        const now = new Date();
-        if (d.toDateString() === now.toDateString()) {
-            return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-        }
-        return d.toLocaleDateString([], {month: 'short', day: 'numeric'});
     }
 
     _renderMessageContent(msg) {
@@ -670,7 +703,7 @@ export class ChatApp extends LitElement {
             </div>
 
             <div class="messages" aria-live="polite" aria-relevant="additions">
-                ${this._messages.map(msg => this._renderMessage(msg))}
+                ${this._messages.map((msg, idx) => this._renderMessage(msg, idx))}
                 ${this._isProcessing() ? html`
                     <div class="message system"><span class="spinner"></span> Processing...</div>
                 ` : nothing}
@@ -693,6 +726,7 @@ export class ChatApp extends LitElement {
                     @input=${this._handleInput}
                     @keydown=${this._handleKeydown}
                     placeholder="Type a message... (Enter to send, Shift+Enter for newline)"
+                    aria-label="Type your message"
                     ?disabled=${!this._available || this._isProcessing()}
                     maxlength=${this.maxLength > 0 ? this.maxLength : nothing}
                     rows="1"
@@ -700,26 +734,28 @@ export class ChatApp extends LitElement {
                 <button class="btn btn-primary"
                     @click=${this._handleSend}
                     aria-label="Send message"
-                    ?disabled=${!this._inputValue.trim() || this._sending || this._isProcessing() || !this._available}>
+                    ?disabled=${!this._hasInput || this._sending || this._isProcessing() || !this._available}>
                     ${this._sending ? html`<span class="spinner"></span>` : 'Send'}
                 </button>
             </div>
         `;
     }
 
-    _renderMessage(msg) {
+    _renderMessage(msg, idx) {
         const role = msg.role || 'system';
         // Skip tool-call assistant messages (just show the tool results)
         if (role === 'assistant' && msg.tool_calls && !msg.content) return nothing;
 
         if (role === 'tool') {
+            const isExpanded = this._expandedTools.has(idx);
             return html`
-                <div class="message tool"
+                <div class="message tool ${isExpanded ? 'expanded' : ''}"
                      role="button"
                      tabindex="0"
                      aria-label="Tool output, activate to expand"
-                     @click=${this._handleToolMessageClick}
-                     @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._handleToolMessageClick(e); } }}>
+                     aria-expanded="${isExpanded}"
+                     @click=${() => this._handleToolMessageClick(idx)}
+                     @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._handleToolMessageClick(idx); } }}>
                     ${this._renderMessageContent(msg)}
                 </div>
             `;
