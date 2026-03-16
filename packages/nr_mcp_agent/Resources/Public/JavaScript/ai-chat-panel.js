@@ -46,24 +46,33 @@ export class AiChatPanel extends LitElement {
             border-radius: 0;
         }
 
-        /* Corner resize grip — bottom-right */
+        /* Corner resize grip — bottom-right, generous hit area */
         .resize-grip {
             position: absolute;
             bottom: 0;
             right: 0;
-            width: 20px;
-            height: 20px;
+            width: 28px;
+            height: 28px;
             cursor: nwse-resize;
             touch-action: none;
             z-index: 10;
             display: flex;
             align-items: flex-end;
             justify-content: flex-end;
-            padding: 2px;
+            padding: 4px;
+            border-radius: 0 0 12px 0;
+        }
+        .resize-grip::before {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            right: -4px;
+            width: 36px;
+            height: 36px;
         }
         .resize-grip svg {
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             opacity: 0.3;
             transition: opacity 0.15s;
         }
@@ -596,7 +605,13 @@ export class AiChatPanel extends LitElement {
         this._startWidth = this._width;
         this._startHeight = this.state === STATES.MAXIMIZED ? window.innerHeight : this._height;
 
+        // Prevent text selection during resize
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
+        this.style.willChange = 'width, height';
+
         const onMove = (ev) => {
+            ev.preventDefault();
             const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
             const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
             const deltaX = cx - this._startX;
@@ -604,29 +619,43 @@ export class AiChatPanel extends LitElement {
 
             const maxW = window.innerWidth * 0.9;
             const vh = window.innerHeight;
-            let newWidth = Math.max(MIN_WIDTH, Math.min(this._startWidth + deltaX, maxW));
-            let newHeight = Math.max(MIN_HEIGHT, Math.min(this._startHeight + deltaY, vh));
+            const newWidth = Math.max(MIN_WIDTH, Math.min(this._startWidth + deltaX, maxW));
+            const newHeight = Math.max(MIN_HEIGHT, Math.min(this._startHeight + deltaY, vh));
 
-            if (newHeight < 50) {
-                newHeight = COLLAPSED_HEIGHT;
-                this.state = STATES.COLLAPSED;
-            } else if (newHeight > vh * 0.9) {
-                newHeight = vh;
-                this.state = STATES.MAXIMIZED;
-            } else {
-                this.state = STATES.EXPANDED;
-            }
-
-            this._width = newWidth;
-            this._height = newHeight;
+            // Write directly to style for smooth 60fps — skip Lit reactivity during drag
+            this.style.width = newWidth + 'px';
+            this.style.height = newHeight + 'px';
+            // Track values for onEnd
+            this._pendingWidth = newWidth;
+            this._pendingHeight = newHeight;
         };
 
         const onEnd = () => {
             this._resizing = false;
+            document.body.style.userSelect = '';
+            document.body.style.webkitUserSelect = '';
+            this.style.willChange = '';
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
             document.removeEventListener('touchmove', onMove);
             document.removeEventListener('touchend', onEnd);
+
+            // Now commit to Lit state
+            const w = this._pendingWidth ?? this._width;
+            const h = this._pendingHeight ?? this._height;
+            this._width = w;
+            if (h < 50) {
+                this._height = COLLAPSED_HEIGHT;
+                this.state = STATES.COLLAPSED;
+            } else if (h > window.innerHeight * 0.9) {
+                this._height = window.innerHeight;
+                this.state = STATES.MAXIMIZED;
+            } else {
+                this._height = h;
+                this.state = STATES.EXPANDED;
+            }
+            this._pendingWidth = null;
+            this._pendingHeight = null;
             this._saveState();
         };
 
