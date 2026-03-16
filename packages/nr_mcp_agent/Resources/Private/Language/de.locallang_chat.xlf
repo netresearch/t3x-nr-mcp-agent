@@ -1,88 +1,113 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
-    <file source-language="en" datatype="plaintext" original="messages" date="2025-01-01T00:00:00Z" product-name="nr_mcp_agent">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages" date="2025-01-01T00:00:00Z" product-name="nr_mcp_agent">
         <body>
             <!-- Panel header -->
             <trans-unit id="panel.title" resname="panel.title">
                 <source>AI Chat</source>
+                <target>KI-Chat</target>
             </trans-unit>
             <trans-unit id="panel.collapse" resname="panel.collapse">
                 <source>Minimize</source>
+                <target>Minimieren</target>
             </trans-unit>
             <trans-unit id="panel.maximize" resname="panel.maximize">
                 <source>Maximize</source>
+                <target>Maximieren</target>
             </trans-unit>
             <trans-unit id="panel.restore" resname="panel.restore">
                 <source>Restore</source>
+                <target>Wiederherstellen</target>
             </trans-unit>
             <trans-unit id="panel.close" resname="panel.close">
                 <source>Close</source>
+                <target>Schließen</target>
             </trans-unit>
             <trans-unit id="panel.resize" resname="panel.resize">
                 <source>Resize panel</source>
+                <target>Fenstergröße ändern</target>
             </trans-unit>
 
             <!-- Conversations -->
             <trans-unit id="conversations.title" resname="conversations.title">
                 <source>Chats</source>
+                <target>Chats</target>
             </trans-unit>
             <trans-unit id="conversations.new" resname="conversations.new">
                 <source>New chat</source>
+                <target>Neuer Chat</target>
             </trans-unit>
             <trans-unit id="conversations.empty" resname="conversations.empty">
                 <source>No chats yet. Start a new one!</source>
+                <target>Noch keine Chats. Starte jetzt einen!</target>
             </trans-unit>
             <trans-unit id="conversations.select" resname="conversations.select">
                 <source>Select chat...</source>
+                <target>Chat auswählen...</target>
             </trans-unit>
             <trans-unit id="conversations.newConversation" resname="conversations.newConversation">
                 <source>New chat</source>
+                <target>Neuer Chat</target>
             </trans-unit>
             <trans-unit id="conversations.pin" resname="conversations.pin">
                 <source>Pin</source>
+                <target>Anheften</target>
             </trans-unit>
             <trans-unit id="conversations.unpin" resname="conversations.unpin">
                 <source>Unpin</source>
+                <target>Lösen</target>
             </trans-unit>
             <trans-unit id="conversations.archive" resname="conversations.archive">
                 <source>Archive</source>
+                <target>Archivieren</target>
             </trans-unit>
             <trans-unit id="conversations.archiveConfirm" resname="conversations.archiveConfirm">
                 <source>Archive this chat? You can find it later in the full chat module.</source>
+                <target>Diesen Chat archivieren? Du findest ihn später im Chat-Modul.</target>
             </trans-unit>
 
             <!-- Chat -->
             <trans-unit id="chat.selectOrCreate" resname="chat.selectOrCreate">
                 <source>Select or start a chat</source>
+                <target>Chat auswählen oder neuen starten</target>
             </trans-unit>
             <trans-unit id="chat.notAvailable" resname="chat.notAvailable">
                 <source>Chat not available. Please contact your administrator.</source>
+                <target>Chat nicht verfügbar. Bitte kontaktiere deinen Administrator.</target>
             </trans-unit>
             <trans-unit id="chat.processing" resname="chat.processing">
                 <source>Processing...</source>
+                <target>Wird verarbeitet...</target>
             </trans-unit>
             <trans-unit id="chat.retry" resname="chat.retry">
                 <source>Retry</source>
+                <target>Erneut versuchen</target>
             </trans-unit>
             <trans-unit id="chat.dismiss" resname="chat.dismiss">
                 <source>Dismiss</source>
+                <target>Schließen</target>
             </trans-unit>
             <trans-unit id="chat.send" resname="chat.send">
                 <source>Send</source>
+                <target>Senden</target>
             </trans-unit>
             <trans-unit id="chat.placeholder" resname="chat.placeholder">
                 <source>Ask anything...</source>
+                <target>Frag einfach...</target>
             </trans-unit>
             <trans-unit id="chat.connectionLost" resname="chat.connectionLost">
                 <source>Connection lost — reconnecting...</source>
+                <target>Verbindung unterbrochen — wird wiederhergestellt...</target>
             </trans-unit>
             <trans-unit id="chat.messageTooLong" resname="chat.messageTooLong">
                 <source>Message exceeds %d character limit</source>
+                <target>Nachricht überschreitet das Limit von %d Zeichen</target>
             </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">
                 <source>Tool result (click to expand)</source>
+                <target>Tool-Ergebnis (klicken zum Aufklappen)</target>
             </trans-unit>
         </body>
     </file>
