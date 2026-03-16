@@ -216,17 +216,17 @@ export class AiChatPanel extends LitElement {
         .panel-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 12px;
+            padding: 8px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
         }
         .message {
             max-width: 85%;
-            padding: 8px 12px;
-            border-radius: 12px;
-            font-size: 13px;
-            line-height: 1.5;
+            padding: 5px 9px;
+            border-radius: 10px;
+            font-size: 12.5px;
+            line-height: 1.45;
             white-space: pre-wrap;
             word-break: break-word;
         }
@@ -234,29 +234,30 @@ export class AiChatPanel extends LitElement {
             align-self: flex-end;
             background: #0078d4;
             color: #fff;
-            border-bottom-right-radius: 4px;
+            border-bottom-right-radius: 3px;
         }
         .message.assistant {
             align-self: flex-start;
             background: var(--typo3-surface-container-high, #e8e8e8);
-            border-bottom-left-radius: 4px;
+            border-bottom-left-radius: 3px;
         }
         .message.tool {
             align-self: flex-start;
             background: var(--typo3-surface-container, #f0f0f0);
-            font-size: 12px;
+            font-size: 11px;
             font-family: monospace;
-            opacity: 0.7;
-            max-height: 80px;
+            opacity: 0.5;
+            max-height: 40px;
             overflow: hidden;
             cursor: pointer;
             position: relative;
+            padding: 4px 8px;
         }
         .message.tool.expanded {
             max-height: none;
         }
         .message.tool:not(.expanded)::after {
-            content: '... click to expand';
+            content: '...';
             position: absolute;
             bottom: 0;
             left: 0;
@@ -534,16 +535,20 @@ export class AiChatPanel extends LitElement {
     // ── ChatCoreController callback hooks ───────────────────────────────
 
     onScrollToBottom(force = false) {
-        requestAnimationFrame(() => {
-            const el = this.renderRoot?.querySelector('.panel-messages');
-            if (!el) return;
-            if (force) {
-                el.scrollTop = el.scrollHeight;
-                return;
-            }
-            if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
-                el.scrollTop = el.scrollHeight;
-            }
+        // Wait for Lit to finish rendering, then scroll
+        this.updateComplete.then(() => {
+            requestAnimationFrame(() => {
+                const el = this.renderRoot?.querySelector('.panel-messages');
+                if (!el) return;
+                if (force) {
+                    el.scrollTop = el.scrollHeight;
+                    return;
+                }
+                // Auto-scroll if user is near the bottom (within 150px)
+                if (el.scrollHeight - el.scrollTop - el.clientHeight < 150) {
+                    el.scrollTop = el.scrollHeight;
+                }
+            });
         });
     }
 
@@ -562,9 +567,14 @@ export class AiChatPanel extends LitElement {
 
     _onHeaderClick(e) {
         // Clicking the header in collapsed state expands the panel
-        if (this.state === STATES.COLLAPSED && !e.target.closest('button, .btn-icon')) {
-            this.state = STATES.EXPANDED;
-            this._saveState();
+        if (this.state === STATES.COLLAPSED) {
+            // Don't expand if a button was clicked (collapse/maximize/close)
+            const path = e.composedPath();
+            const clickedButton = path.some(el => el.tagName === 'BUTTON');
+            if (!clickedButton) {
+                this.state = STATES.EXPANDED;
+                this._saveState();
+            }
         }
     }
 
