@@ -52,6 +52,12 @@ export class AiChatPanel extends LitElement {
             background: var(--typo3-primary, #0078d4);
             opacity: 0.4;
         }
+        .resize-handle:focus-visible {
+            background: var(--typo3-primary, #0078d4);
+            opacity: 0.6;
+            outline: 2px solid var(--typo3-primary, #0078d4);
+            outline-offset: -2px;
+        }
 
         /* Panel header */
         .panel-header {
@@ -365,6 +371,8 @@ export class AiChatPanel extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
+        this.setAttribute('role', 'complementary');
+        this.setAttribute('aria-label', 'AI Chat');
         this._keydownHandler = (e) => this._onKeydown(e);
         document.addEventListener('keydown', this._keydownHandler);
     }
@@ -377,6 +385,9 @@ export class AiChatPanel extends LitElement {
     updated(changed) {
         if (changed.has('state') || changed.has('_height')) {
             this._applySize();
+        }
+        if (changed.has('state')) {
+            this.setAttribute('aria-expanded', String(this.state !== STATES.HIDDEN));
         }
     }
 
@@ -489,6 +500,22 @@ export class AiChatPanel extends LitElement {
         document.addEventListener('touchend', onEnd);
     }
 
+    _onResizeKeydown(e) {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this._height = Math.min(this._height + 50, window.innerHeight);
+            if (this._height > window.innerHeight * 0.9) this.state = 'maximized';
+            else this.state = 'expanded';
+            this._saveState();
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this._height = Math.max(this._height - 50, 36);
+            if (this._height < 50) { this._height = 36; this.state = 'collapsed'; }
+            else this.state = 'expanded';
+            this._saveState();
+        }
+    }
+
     // ── Persistence ─────────────────────────────────────────────────────
 
     _saveState() {
@@ -547,9 +574,13 @@ export class AiChatPanel extends LitElement {
 
         return html`
             <div class="resize-handle"
+                 role="separator"
+                 aria-orientation="horizontal"
+                 aria-label="Resize panel"
+                 tabindex="0"
                  @mousedown=${(e) => this._onResizeStart(e)}
                  @touchstart=${(e) => this._onResizeStart(e)}
-                 aria-hidden="true"></div>
+                 @keydown=${(e) => this._onResizeKeydown(e)}></div>
             ${this._renderHeader()}
             ${this.state === STATES.COLLAPSED ? nothing : this._renderBody()}
         `;
@@ -589,7 +620,7 @@ export class AiChatPanel extends LitElement {
                     ${this.chat.issues.map(i => html`<div>${i}</div>`)}
                 </div>
             ` : nothing}
-            <div class="panel-body" role="complementary" aria-label="AI Chat">
+            <div class="panel-body">
                 ${this.state === STATES.MAXIMIZED ? this._renderSidebar() : nothing}
                 <div class="panel-content">
                     ${this.state === STATES.EXPANDED ? this._renderCompactSwitcher() : nothing}
