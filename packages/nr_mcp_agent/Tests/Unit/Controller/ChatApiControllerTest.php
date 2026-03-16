@@ -728,6 +728,26 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function getStatusReturnsActiveConversationCount(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+        $config->method('isMcpServerInstalled')->willReturn(false);
+        $this->repository->method('countActiveByBeUser')->willReturn(2);
+        $subject = new ChatApiController($this->repository, $this->processor, $config);
+
+        $request = $this->createRequest('GET', '');
+        $response = $subject->getStatus($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertArrayHasKey('activeConversationCount', $data);
+        self::assertSame(2, $data['activeConversationCount']);
+    }
+
+    #[Test]
     public function sendMessageWithMaxLengthZeroAllowsAnyLength(): void
     {
         $config = $this->createMock(ExtensionConfiguration::class);

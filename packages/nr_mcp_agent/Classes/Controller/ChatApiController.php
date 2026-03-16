@@ -52,6 +52,7 @@ final readonly class ChatApiController
         return new JsonResponse([
             'available' => $taskUid > 0,
             'mcpEnabled' => $mcpEnabled,
+            'activeConversationCount' => $this->repository->countActiveByBeUser($this->getBeUserUid()),
             'issues' => $issues,
         ]);
     }
