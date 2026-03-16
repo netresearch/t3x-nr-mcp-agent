@@ -446,6 +446,8 @@ export class AiChatPanel extends LitElement {
 
     _applySize() {
         if (this.state === STATES.HIDDEN) return;
+        // Don't override styles during active drag or resize — we write directly to this.style
+        if (this._dragging || this._resizing) return;
 
         if (this.state === STATES.MAXIMIZED) {
             this.style.top = '0';
@@ -570,10 +572,13 @@ export class AiChatPanel extends LitElement {
         this._dragOffsetX = clientX - pos.x;
         this._dragOffsetY = clientY - pos.y;
 
-        // Prevent text selection during drag
+        // Prevent text selection and enable GPU compositing during drag
         document.body.style.userSelect = 'none';
         document.body.style.webkitUserSelect = 'none';
+        this.style.willChange = 'left, top';
+        this.style.transition = 'none';
 
+        let rafId = null;
         const onMove = (ev) => {
             ev.preventDefault();
             const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
@@ -581,17 +586,25 @@ export class AiChatPanel extends LitElement {
             const newX = cx - this._dragOffsetX;
             const newY = cy - this._dragOffsetY;
             const constrained = this._constrainPosition(newX, newY);
-            // Write directly to style for smooth 60fps — skip Lit reactivity during drag
-            this.style.left = constrained.x + 'px';
-            this.style.top = constrained.y + 'px';
             this._pendingPosX = constrained.x;
             this._pendingPosY = constrained.y;
+            // Throttle to animation frame for smooth 60fps
+            if (rafId === null) {
+                rafId = requestAnimationFrame(() => {
+                    this.style.left = this._pendingPosX + 'px';
+                    this.style.top = this._pendingPosY + 'px';
+                    rafId = null;
+                });
+            }
         };
 
         const onEnd = () => {
             this._dragging = false;
+            if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
             document.body.style.userSelect = '';
             document.body.style.webkitUserSelect = '';
+            this.style.willChange = '';
+            this.style.transition = '';
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
             document.removeEventListener('touchmove', onMove);
@@ -627,7 +640,9 @@ export class AiChatPanel extends LitElement {
         document.body.style.userSelect = 'none';
         document.body.style.webkitUserSelect = 'none';
         this.style.willChange = 'width, height';
+        this.style.transition = 'none';
 
+        let rafId = null;
         const onMove = (ev) => {
             ev.preventDefault();
             const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
@@ -637,22 +652,26 @@ export class AiChatPanel extends LitElement {
 
             const maxW = window.innerWidth * 0.9;
             const vh = window.innerHeight;
-            const newWidth = Math.max(MIN_WIDTH, Math.min(this._startWidth + deltaX, maxW));
-            const newHeight = Math.max(MIN_HEIGHT, Math.min(this._startHeight + deltaY, vh));
+            this._pendingWidth = Math.max(MIN_WIDTH, Math.min(this._startWidth + deltaX, maxW));
+            this._pendingHeight = Math.max(MIN_HEIGHT, Math.min(this._startHeight + deltaY, vh));
 
-            // Write directly to style for smooth 60fps — skip Lit reactivity during drag
-            this.style.width = newWidth + 'px';
-            this.style.height = newHeight + 'px';
-            // Track values for onEnd
-            this._pendingWidth = newWidth;
-            this._pendingHeight = newHeight;
+            // Throttle to animation frame for smooth 60fps
+            if (rafId === null) {
+                rafId = requestAnimationFrame(() => {
+                    this.style.width = this._pendingWidth + 'px';
+                    this.style.height = this._pendingHeight + 'px';
+                    rafId = null;
+                });
+            }
         };
 
         const onEnd = () => {
             this._resizing = false;
+            if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
             document.body.style.userSelect = '';
             document.body.style.webkitUserSelect = '';
             this.style.willChange = '';
+            this.style.transition = '';
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
             document.removeEventListener('touchmove', onMove);
