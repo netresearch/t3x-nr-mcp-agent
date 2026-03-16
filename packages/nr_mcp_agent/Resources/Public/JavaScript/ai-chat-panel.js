@@ -576,61 +576,36 @@ export class AiChatPanel extends LitElement {
     }
 
     _onDragStart(e) {
-        // Don't start drag if clicking a button
         if (e.target.closest('button, .btn-icon')) return;
-        // In collapsed state, click expands instead of dragging
         if (this.state === STATES.COLLAPSED) return;
         e.preventDefault();
         this._dragging = true;
 
         const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
         const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-        const pos = this._getPosition();
-        this._dragOffsetX = clientX - pos.x;
-        this._dragOffsetY = clientY - pos.y;
+        this._dragOffsetX = clientX - (parseFloat(this.style.left) || 0);
+        this._dragOffsetY = clientY - (parseFloat(this.style.top) || 0);
 
-        // Prevent text selection and enable GPU compositing during drag
         document.body.style.userSelect = 'none';
-        document.body.style.webkitUserSelect = 'none';
-        this.style.willChange = 'left, top';
-        this.style.transition = 'none';
 
-        let rafId = null;
         const onMove = (ev) => {
             ev.preventDefault();
             const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
             const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
-            const newX = cx - this._dragOffsetX;
-            const newY = cy - this._dragOffsetY;
-            const constrained = this._constrainPosition(newX, newY);
-            this._pendingPosX = constrained.x;
-            this._pendingPosY = constrained.y;
-            // Throttle to animation frame for smooth 60fps
-            if (rafId === null) {
-                rafId = requestAnimationFrame(() => {
-                    this.style.left = this._pendingPosX + 'px';
-                    this.style.top = this._pendingPosY + 'px';
-                    rafId = null;
-                });
-            }
+            const constrained = this._constrainPosition(cx - this._dragOffsetX, cy - this._dragOffsetY);
+            this.style.left = constrained.x + 'px';
+            this.style.top = constrained.y + 'px';
         };
 
         const onEnd = () => {
             this._dragging = false;
-            if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
             document.body.style.userSelect = '';
-            document.body.style.webkitUserSelect = '';
-            this.style.willChange = '';
-            this.style.transition = '';
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
             document.removeEventListener('touchmove', onMove);
             document.removeEventListener('touchend', onEnd);
-            // Commit to Lit state
-            this._posX = this._pendingPosX ?? this._posX;
-            this._posY = this._pendingPosY ?? this._posY;
-            this._pendingPosX = null;
-            this._pendingPosY = null;
+            this._posX = parseFloat(this.style.left) || 0;
+            this._posY = parseFloat(this.style.top) || 0;
             this._saveState();
         };
 
@@ -646,57 +621,36 @@ export class AiChatPanel extends LitElement {
         e.preventDefault();
         e.stopPropagation();
         this._resizing = true;
+
         const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
         const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
         this._startX = clientX;
         this._startY = clientY;
-        this._startWidth = this._width;
-        this._startHeight = this.state === STATES.MAXIMIZED ? window.innerHeight : this._height;
+        this._startWidth = parseFloat(this.style.width) || this._width;
+        this._startHeight = parseFloat(this.style.height) || this._height;
 
-        // Prevent text selection during resize
         document.body.style.userSelect = 'none';
-        document.body.style.webkitUserSelect = 'none';
-        this.style.willChange = 'width, height';
-        this.style.transition = 'none';
 
-        let rafId = null;
         const onMove = (ev) => {
             ev.preventDefault();
             const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
             const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
-            const deltaX = cx - this._startX;
-            const deltaY = cy - this._startY;
-
-            const maxW = window.innerWidth * 0.9;
-            const vh = window.innerHeight;
-            this._pendingWidth = Math.max(MIN_WIDTH, Math.min(this._startWidth + deltaX, maxW));
-            this._pendingHeight = Math.max(MIN_HEIGHT, Math.min(this._startHeight + deltaY, vh));
-
-            // Throttle to animation frame for smooth 60fps
-            if (rafId === null) {
-                rafId = requestAnimationFrame(() => {
-                    this.style.width = this._pendingWidth + 'px';
-                    this.style.height = this._pendingHeight + 'px';
-                    rafId = null;
-                });
-            }
+            const newW = Math.max(MIN_WIDTH, Math.min(this._startWidth + (cx - this._startX), window.innerWidth * 0.9));
+            const newH = Math.max(MIN_HEIGHT, Math.min(this._startHeight + (cy - this._startY), window.innerHeight));
+            this.style.width = newW + 'px';
+            this.style.height = newH + 'px';
         };
 
         const onEnd = () => {
             this._resizing = false;
-            if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
             document.body.style.userSelect = '';
-            document.body.style.webkitUserSelect = '';
-            this.style.willChange = '';
-            this.style.transition = '';
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
             document.removeEventListener('touchmove', onMove);
             document.removeEventListener('touchend', onEnd);
 
-            // Now commit to Lit state
-            const w = this._pendingWidth ?? this._width;
-            const h = this._pendingHeight ?? this._height;
+            const w = parseFloat(this.style.width) || this._width;
+            const h = parseFloat(this.style.height) || this._height;
             this._width = w;
             if (h < 50) {
                 this._height = COLLAPSED_HEIGHT;
