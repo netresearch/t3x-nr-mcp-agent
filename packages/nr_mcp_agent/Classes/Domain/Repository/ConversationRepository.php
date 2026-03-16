@@ -115,37 +115,37 @@ readonly class ConversationRepository
     /**
      * Lightweight status-only update — avoids writing the full messages blob.
      */
-    public function updateStatus(int $uid, ConversationStatus $status): void
+    public function updateStatus(int $uid, ConversationStatus $status, int $beUserUid): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
             'status' => $status->value,
             'tstamp' => time(),
-        ], ['uid' => $uid]);
+        ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 
     /**
      * Lightweight flag update — avoids reading/writing the full messages blob.
      */
-    public function updateArchived(int $uid, bool $archived): void
+    public function updateArchived(int $uid, bool $archived, int $beUserUid): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
             'archived' => (int) $archived,
             'tstamp' => time(),
-        ], ['uid' => $uid]);
+        ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 
     /**
      * Lightweight flag update — avoids reading/writing the full messages blob.
      */
-    public function updatePinned(int $uid, bool $pinned): void
+    public function updatePinned(int $uid, bool $pinned, int $beUserUid): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
             'pinned' => (int) $pinned,
             'tstamp' => time(),
-        ], ['uid' => $uid]);
+        ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 
     /**

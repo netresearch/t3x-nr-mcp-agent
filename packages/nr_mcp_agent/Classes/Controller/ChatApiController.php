@@ -8,13 +8,14 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-final class ChatApiController
+final readonly class ChatApiController
 {
     public function __construct(
         private readonly ConversationRepository $repository,
@@ -191,7 +192,7 @@ final class ChatApiController
             }
         }
 
-        $conversation->appendMessage('user', $content);
+        $conversation->appendMessage(MessageRole::User, $content);
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->setErrorMessage('');
 
@@ -257,7 +258,7 @@ final class ChatApiController
             return $conversation;
         }
 
-        $this->repository->updateArchived($conversation->getUid(), true);
+        $this->repository->updateArchived($conversation->getUid(), true, $this->getBeUserUid());
 
         return new JsonResponse(['status' => 'archived']);
     }
@@ -278,7 +279,7 @@ final class ChatApiController
         }
 
         $newPinned = !$conversation->isPinned();
-        $this->repository->updatePinned($conversation->getUid(), $newPinned);
+        $this->repository->updatePinned($conversation->getUid(), $newPinned, $this->getBeUserUid());
 
         return new JsonResponse(['pinned' => $newPinned]);
     }

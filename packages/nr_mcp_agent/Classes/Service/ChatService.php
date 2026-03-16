@@ -11,7 +11,9 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
+use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Throwable;
 
 final readonly class ChatService
@@ -42,7 +44,7 @@ final readonly class ChatService
             $this->runAgentLoop($conversation, $tools);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
-            $conversation->setErrorMessage($this->sanitizeErrorMessage($e->getMessage()));
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
             $this->persist($conversation);
         } finally {
             $this->mcpToolProvider->disconnect();
@@ -86,7 +88,7 @@ final readonly class ChatService
             $this->runAgentLoop($conversation, $tools);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
-            $conversation->setErrorMessage($this->sanitizeErrorMessage($e->getMessage()));
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
             $this->persist($conversation);
         } finally {
             $this->mcpToolProvider->disconnect();
@@ -101,7 +103,7 @@ final readonly class ChatService
         array $tools,
     ): void {
         $conversation->setStatus(ConversationStatus::Processing);
-        $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Processing);
+        $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Processing, $conversation->getBeUser());
 
         $options = $this->buildToolOptions($conversation);
 
@@ -140,7 +142,7 @@ final readonly class ChatService
                 continue;
             }
 
-            $conversation->appendMessage('assistant', $response->content);
+            $conversation->appendMessage(MessageRole::Assistant, $response->content);
             $conversation->setStatus(ConversationStatus::Idle);
             $this->persist($conversation);
             return;
@@ -244,13 +246,6 @@ final readonly class ChatService
             'de' => 'Du bist ein TYPO3-Assistent. Du hilfst beim Verwalten von Inhalten über die verfügbaren Tools. Antworte auf Deutsch.',
             default => 'You are a TYPO3 assistant. You help manage content using the available tools. Respond in English.',
         };
-    }
-
-    private function sanitizeErrorMessage(string $message): string
-    {
-        $message = preg_replace('/(?:Bearer |sk-|key-)[a-zA-Z0-9\-_]+/', '[REDACTED]', $message) ?? $message;
-        $message = preg_replace('#https?://[^\s]+#', '[URL]', $message) ?? $message;
-        return mb_substr($message, 0, 500);
     }
 
     private function persist(Conversation $conversation): void

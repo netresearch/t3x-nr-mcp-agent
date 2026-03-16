@@ -7,17 +7,15 @@ namespace Netresearch\NrMcpAgent\Command;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
-use RuntimeException;
+use Netresearch\NrMcpAgent\Utility\BackendUserInitializer;
+use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 #[AsCommand(name: 'ai-chat:worker', description: 'Long-running worker that processes chat conversations from queue')]
 final class ChatWorkerCommand extends Command
@@ -56,7 +54,7 @@ final class ChatWorkerCommand extends Command
                         $conversation->getBeUser(),
                     ));
 
-                    $this->initializeBackendUser($conversation->getBeUser());
+                    BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool);
 
                     if ($conversation->hasPendingToolCalls()) {
                         $this->chatService->resumeConversation($conversation);
@@ -70,7 +68,7 @@ final class ChatWorkerCommand extends Command
                 $output->writeln(sprintf('<error>Error: %s</error>', $e->getMessage()));
                 if ($conversation !== null) {
                     $conversation->setStatus(ConversationStatus::Failed);
-                    $conversation->setErrorMessage($this->sanitizeErrorMessage($e->getMessage()));
+                    $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
                     $this->repository->update($conversation);
                 }
             } finally {
@@ -79,34 +77,4 @@ final class ChatWorkerCommand extends Command
         }
     }
 
-    private function sanitizeErrorMessage(string $message): string
-    {
-        $message = preg_replace('/(?:Bearer |sk-|key-)[a-zA-Z0-9\-_]+/', '[REDACTED]', $message) ?? $message;
-        $message = preg_replace('#https?://[^\s]+#', '[URL]', $message) ?? $message;
-        return mb_substr($message, 0, 500);
-    }
-
-    private function initializeBackendUser(int $userUid): void
-    {
-        $backendUser = GeneralUtility::makeInstance(BackendUserAuthentication::class);
-
-        $qb = $this->connectionPool->getQueryBuilderForTable('be_users');
-        $userRecord = $qb->select('*')
-            ->from('be_users')
-            ->where(
-                $qb->expr()->eq('uid', $qb->createNamedParameter($userUid, Connection::PARAM_INT)),
-                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-                $qb->expr()->eq('disable', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        if ($userRecord === false) {
-            throw new RuntimeException(sprintf('Backend user %d not found', $userUid));
-        }
-
-        $backendUser->user = $userRecord;
-        $backendUser->fetchGroupData();
-        $GLOBALS['BE_USER'] = $backendUser;
-    }
 }

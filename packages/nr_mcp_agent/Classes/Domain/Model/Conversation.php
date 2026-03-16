@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Domain\Model;
 
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 
 /**
  * Simple DTO/Value Object — no Extbase, no AbstractEntity.
@@ -136,13 +137,13 @@ final class Conversation
     /**
      * @param string|array<mixed> $content
      */
-    public function appendMessage(string $role, string|array $content): void
+    public function appendMessage(MessageRole $role, string|array $content): void
     {
         $messages = $this->getDecodedMessages();
-        $messages[] = ['role' => $role, 'content' => $content];
+        $messages[] = ['role' => $role->value, 'content' => $content];
         $this->setMessages($messages); // setMessages already updates messageCount
 
-        if ($this->title === '' && $role === 'user' && is_string($content)) {
+        if ($this->title === '' && $role === MessageRole::User && is_string($content)) {
             $this->setTitle($content);
         }
     }

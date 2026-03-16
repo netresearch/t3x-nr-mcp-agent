@@ -12,5 +12,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     tstamp int(11) unsigned DEFAULT 0 NOT NULL,
     crdate int(11) unsigned DEFAULT 0 NOT NULL,
 
-    KEY be_user_archived (be_user, archived, tstamp)
+    KEY be_user_archived (be_user, archived, tstamp),
+    KEY status_deleted_tstamp (status, deleted, tstamp),
+    KEY be_user_status (be_user, status, deleted)
 );
