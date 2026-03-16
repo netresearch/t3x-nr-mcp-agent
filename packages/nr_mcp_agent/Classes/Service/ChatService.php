@@ -360,9 +360,18 @@ final readonly class ChatService
         $langRaw = $uc['lang'] ?? 'default';
         $lang = is_string($langRaw) ? $langRaw : 'default';
 
+        $toolHints = <<<'HINT'
+
+## Tool usage rules
+- When using WriteTable with action "create", "update", or "translate", always put record fields inside the "data" parameter object. Example: {"action": "create", "table": "pages", "pid": 1, "data": {"title": "My Page", "doktype": 1}}
+- Never pass record fields (title, bodytext, header, etc.) as top-level parameters — they must be nested inside "data".
+- For "delete" action, only "action", "table", and "uid" are needed (no "data").
+- Always check the page tree and existing content with GetPage/ReadTable before creating or modifying content.
+HINT;
+
         return match ($lang) {
-            'de' => 'Du bist ein TYPO3-Assistent. Du hilfst beim Verwalten von Inhalten über die verfügbaren Tools. Antworte auf Deutsch.',
-            default => 'You are a TYPO3 assistant. You help manage content using the available tools. Respond in English.',
+            'de' => 'Du bist ein TYPO3-Assistent. Du hilfst beim Verwalten von Inhalten über die verfügbaren Tools. Antworte auf Deutsch.' . $toolHints,
+            default => 'You are a TYPO3 assistant. You help manage content using the available tools. Respond in English.' . $toolHints,
         };
     }
 

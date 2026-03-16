@@ -316,6 +316,67 @@ class ChatServiceTest extends TestCase
     }
 
     #[Test]
+    public function defaultSystemPromptIncludesToolUsageHints(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $systemContent = $capturedMessages[0]['content'];
+        self::assertStringContainsString('WriteTable', $systemContent);
+        self::assertStringContainsString('"data"', $systemContent);
+        self::assertStringContainsString('nested inside "data"', $systemContent);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function customSystemPromptDoesNotIncludeToolHints(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSystemPrompt('Only custom instructions');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        self::assertSame('Only custom instructions', $capturedMessages[0]['content']);
+        self::assertStringNotContainsString('WriteTable', $capturedMessages[0]['content']);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
     public function processConversationDisconnectsMcpOnSuccess(): void
     {
         $conversation = new Conversation();
