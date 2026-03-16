@@ -1,4 +1,5 @@
 import {ApiClient} from './api-client.js';
+import {lll} from '@typo3/core/lit-helper.js';
 
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
@@ -146,7 +147,7 @@ export class ChatCoreController {
 
             // Reset failure counter on success
             this._pollFailures = 0;
-            if (this.errorMessage === 'Connection lost. Retrying...') {
+            if (this.errorMessage === lll('chat.connectionLost')) {
                 this.errorMessage = '';
                 this.host.requestUpdate();
             }
@@ -158,7 +159,7 @@ export class ChatCoreController {
         } catch {
             this._pollFailures++;
             if (this._pollFailures >= 5) {
-                this.errorMessage = 'Connection lost. Retrying...';
+                this.errorMessage = lll('chat.connectionLost');
                 this.host.requestUpdate();
                 this.stopPolling();
             }
@@ -198,7 +199,7 @@ export class ChatCoreController {
         if (!content || this.sending || this.isProcessing()) return;
 
         if (this.maxLength > 0 && content.length > this.maxLength) {
-            this.errorMessage = `Message too long (max ${this.maxLength} characters)`;
+            this.errorMessage = lll('chat.messageTooLong', this.maxLength);
             this.host.requestUpdate();
             return;
         }
@@ -261,7 +262,7 @@ export class ChatCoreController {
 
     async handleArchive() {
         if (!this.activeUid) return;
-        if (!confirm('Archive this conversation? It will be removed from the list.')) return;
+        if (!confirm(lll('conversations.archiveConfirm'))) return;
         try {
             await this._api.archiveConversation(this.activeUid);
             this.activeUid = null;

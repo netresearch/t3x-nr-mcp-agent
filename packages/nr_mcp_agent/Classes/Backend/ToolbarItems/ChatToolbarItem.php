@@ -51,6 +51,7 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
     public function getItem(): string
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-mcp-agent/toolbar/chat-panel.js');
+        $this->pageRenderer->addInlineLanguageLabelFile('EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf');
 
         // Badge count is updated client-side from the status endpoint
         // to avoid a DB query on every backend page load.

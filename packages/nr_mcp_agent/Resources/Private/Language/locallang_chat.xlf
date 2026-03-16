@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" datatype="plaintext" original="messages" date="2025-01-01T00:00:00Z" product-name="nr_mcp_agent">
+        <body>
+            <!-- Panel header -->
+            <trans-unit id="panel.title" resname="panel.title">
+                <source>AI Chat</source>
+            </trans-unit>
+            <trans-unit id="panel.collapse" resname="panel.collapse">
+                <source>Collapse</source>
+            </trans-unit>
+            <trans-unit id="panel.maximize" resname="panel.maximize">
+                <source>Maximize</source>
+            </trans-unit>
+            <trans-unit id="panel.restore" resname="panel.restore">
+                <source>Restore</source>
+            </trans-unit>
+            <trans-unit id="panel.close" resname="panel.close">
+                <source>Close</source>
+            </trans-unit>
+            <trans-unit id="panel.resize" resname="panel.resize">
+                <source>Resize panel</source>
+            </trans-unit>
+
+            <!-- Conversations -->
+            <trans-unit id="conversations.title" resname="conversations.title">
+                <source>Conversations</source>
+            </trans-unit>
+            <trans-unit id="conversations.new" resname="conversations.new">
+                <source>+ New</source>
+            </trans-unit>
+            <trans-unit id="conversations.empty" resname="conversations.empty">
+                <source>No conversations yet</source>
+            </trans-unit>
+            <trans-unit id="conversations.select" resname="conversations.select">
+                <source>Select conversation...</source>
+            </trans-unit>
+            <trans-unit id="conversations.newConversation" resname="conversations.newConversation">
+                <source>New conversation</source>
+            </trans-unit>
+            <trans-unit id="conversations.pin" resname="conversations.pin">
+                <source>Pin</source>
+            </trans-unit>
+            <trans-unit id="conversations.unpin" resname="conversations.unpin">
+                <source>Unpin</source>
+            </trans-unit>
+            <trans-unit id="conversations.archive" resname="conversations.archive">
+                <source>Archive</source>
+            </trans-unit>
+            <trans-unit id="conversations.archiveConfirm" resname="conversations.archiveConfirm">
+                <source>Archive this conversation? It will be removed from the list.</source>
+            </trans-unit>
+
+            <!-- Chat -->
+            <trans-unit id="chat.selectOrCreate" resname="chat.selectOrCreate">
+                <source>Select a conversation or create a new one</source>
+            </trans-unit>
+            <trans-unit id="chat.notAvailable" resname="chat.notAvailable">
+                <source>AI Chat is not available. Check extension configuration.</source>
+            </trans-unit>
+            <trans-unit id="chat.processing" resname="chat.processing">
+                <source>Processing...</source>
+            </trans-unit>
+            <trans-unit id="chat.retry" resname="chat.retry">
+                <source>Retry</source>
+            </trans-unit>
+            <trans-unit id="chat.dismiss" resname="chat.dismiss">
+                <source>Dismiss</source>
+            </trans-unit>
+            <trans-unit id="chat.send" resname="chat.send">
+                <source>Send</source>
+            </trans-unit>
+            <trans-unit id="chat.placeholder" resname="chat.placeholder">
+                <source>Type a message... (Enter to send)</source>
+            </trans-unit>
+            <trans-unit id="chat.connectionLost" resname="chat.connectionLost">
+                <source>Connection lost. Retrying...</source>
+            </trans-unit>
+            <trans-unit id="chat.messageTooLong" resname="chat.messageTooLong">
+                <source>Message too long (max %d characters)</source>
+            </trans-unit>
+
+            <!-- Tool messages -->
+            <trans-unit id="tool.output" resname="tool.output">
+                <source>Tool output</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

@@ -1,4 +1,5 @@
 import {LitElement, html, css, nothing} from 'lit';
+import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 
 /**
@@ -374,17 +375,17 @@ export class ChatApp extends LitElement {
     _renderSidebar() {
         return html`
             <div class="sidebar-header">
-                <h3>Conversations</h3>
+                <h3>${lll('conversations.title')}</h3>
                 <button class="btn btn-sm btn-primary"
                     @click=${() => this.chat.handleNewConversation()}
                     ?disabled=${!this.chat.available}
-                    aria-label="Create new conversation">
-                    + New
+                    aria-label="${lll('conversations.new')}">
+                    ${lll('conversations.new')}
                 </button>
             </div>
-            <div class="conversation-list" role="listbox" aria-label="Conversations">
+            <div class="conversation-list" role="listbox" aria-label="${lll('conversations.title')}">
                 ${this.chat.conversations.length === 0
-                    ? html`<div class="empty-state" style="font-size:12px;">No conversations yet</div>`
+                    ? html`<div class="empty-state" style="font-size:12px;">${lll('conversations.empty')}</div>`
                     : this.chat.conversations.map(c => this._renderConversationItem(c))
                 }
             </div>
@@ -401,7 +402,7 @@ export class ChatApp extends LitElement {
                  @click=${() => this.chat.selectConversation(c.uid)}
                  @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.chat.selectConversation(c.uid); } }}>
                 <div class="title">
-                    ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || 'New conversation'}
+                    ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
                 </div>
                 <div class="meta">
                     <span class="status-badge status-${c.status}">${c.status}</span>
@@ -429,8 +430,8 @@ export class ChatApp extends LitElement {
                 </div>
                 <div class="empty-state">
                     ${this.chat.available
-                        ? 'Select a conversation or create a new one'
-                        : 'AI Chat is not available. Check extension configuration.'
+                        ? lll('chat.selectOrCreate')
+                        : lll('chat.notAvailable')
                     }
                 </div>
             `;
@@ -443,29 +444,29 @@ export class ChatApp extends LitElement {
             <div class="main-header">
                 ${this._renderToggleButton()}
                 <strong style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                    ${conv?.title || 'New conversation'}
+                    ${conv?.title || lll('conversations.newConversation')}
                 </strong>
                 <button class="btn btn-sm" @click=${() => this.chat.handleTogglePin()}
-                    title="${conv?.pinned ? 'Unpin' : 'Pin'}">
-                    ${conv?.pinned ? '\u{1F4CC}' : 'Pin'}
+                    title="${conv?.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
+                    ${conv?.pinned ? '\u{1F4CC}' : lll('conversations.pin')}
                 </button>
-                <button class="btn btn-sm" @click=${() => this.chat.handleArchive()}>Archive</button>
+                <button class="btn btn-sm" @click=${() => this.chat.handleArchive()}>${lll('conversations.archive')}</button>
             </div>
 
             <div class="messages" aria-live="polite" aria-relevant="additions">
                 ${this.chat.messages.map((msg, idx) => this._renderMessage(msg, idx))}
                 ${this.chat.isProcessing() ? html`
-                    <div class="message system"><span class="spinner"></span> Processing...</div>
+                    <div class="message system"><span class="spinner"></span> ${lll('chat.processing')}</div>
                 ` : nothing}
                 ${this.chat.errorMessage ? html`
                     <div class="message system" style="color:#c62828;">
                         Error: ${this.chat.errorMessage}
                         ${isResumable ? html`
                             <button class="btn btn-sm" @click=${() => this.chat.handleResume()}
-                                style="margin-left:8px;">Retry</button>
+                                style="margin-left:8px;">${lll('chat.retry')}</button>
                         ` : nothing}
                         <button class="btn btn-sm btn-icon" @click=${() => { this.chat.errorMessage = ''; this.requestUpdate(); }}
-                            style="margin-left:4px;" title="Dismiss" aria-label="Dismiss error">&times;</button>
+                            style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
                     </div>
                 ` : nothing}
             </div>
@@ -475,17 +476,17 @@ export class ChatApp extends LitElement {
                     .value=${this.chat.inputValue}
                     @input=${this._handleInput}
                     @keydown=${this._handleKeydown}
-                    placeholder="Type a message... (Enter to send, Shift+Enter for newline)"
-                    aria-label="Type your message"
+                    placeholder="${lll('chat.placeholder')}"
+                    aria-label="${lll('chat.placeholder')}"
                     ?disabled=${!this.chat.available || this.chat.isProcessing()}
                     maxlength=${this.maxLength > 0 ? this.maxLength : nothing}
                     rows="1"
                 ></textarea>
                 <button class="btn btn-primary"
                     @click=${() => this.chat.handleSend()}
-                    aria-label="Send message"
+                    aria-label="${lll('chat.send')}"
                     ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isProcessing() || !this.chat.available}>
-                    ${this.chat.sending ? html`<span class="spinner"></span>` : 'Send'}
+                    ${this.chat.sending ? html`<span class="spinner"></span>` : lll('chat.send')}
                 </button>
             </div>
         `;
@@ -502,7 +503,7 @@ export class ChatApp extends LitElement {
                 <div class="message tool ${isExpanded ? 'expanded' : ''}"
                      role="button"
                      tabindex="0"
-                     aria-label="Tool output, activate to expand"
+                     aria-label="${lll('tool.output')}"
                      aria-expanded="${isExpanded}"
                      @click=${() => this.chat.handleToolMessageClick(idx)}
                      @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.chat.handleToolMessageClick(idx); } }}>
