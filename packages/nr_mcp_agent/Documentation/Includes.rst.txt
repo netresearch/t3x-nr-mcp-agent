@@ -1,0 +1,5 @@
+..  This is included by all RST files to provide common
+    definitions.
+
+..  |extension_key| replace:: nr_mcp_agent
+..  |package_name| replace:: netresearch/nr-mcp-agent
