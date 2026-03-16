@@ -134,7 +134,9 @@ final class Conversation
                     $call['function']['arguments'] = json_encode($call['function']['arguments'], JSON_THROW_ON_ERROR);
                 }
             }
+            unset($call);
         }
+        unset($msg);
 
         return $decoded;
     }

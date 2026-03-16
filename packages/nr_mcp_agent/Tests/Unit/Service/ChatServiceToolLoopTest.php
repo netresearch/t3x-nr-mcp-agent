@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -18,9 +22,30 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use stdClass;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
+
+/**
+ * Combined interface for testing — provider that supports both chat and tool calling.
+ */
+interface ToolCapableProviderStub extends ProviderInterface, ToolCapableInterface {}
 
 class ChatServiceToolLoopTest extends TestCase
 {
+    /** @var list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> */
+    private array $dummyTools = [
+        [
+            'type' => 'function',
+            'function' => [
+                'name' => 'dummy_tool',
+                'description' => 'A dummy tool for testing',
+                'parameters' => ['type' => 'object', 'properties' => []],
+            ],
+        ],
+    ];
+
     private function createCompletionResponse(string $content = '', ?array $toolCalls = null): CompletionResponse
     {
         return new CompletionResponse(
@@ -31,30 +56,68 @@ class ChatServiceToolLoopTest extends TestCase
         );
     }
 
+    /**
+     * @return array{ConnectionPool, ProviderAdapterRegistry, DataMapper}
+     */
+    private function createProviderResolutionMocks(ProviderInterface $provider): array
+    {
+        $exprBuilder = $this->createMock(ExpressionBuilder::class);
+        $exprBuilder->method('eq')->willReturn('1 = 1');
+
+        $result = $this->createMock(Result::class);
+        $result->method('fetchAssociative')->willReturn(['uid' => 1, 'name' => 'test-model']);
+
+        $qb = $this->createMock(QueryBuilder::class);
+        $qb->method('select')->willReturnSelf();
+        $qb->method('from')->willReturnSelf();
+        $qb->method('join')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($exprBuilder);
+        $qb->method('quoteIdentifier')->willReturnArgument(0);
+        $qb->method('createNamedParameter')->willReturn('1');
+        $qb->method('executeQuery')->willReturn($result);
+
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
+
+        $model = $this->createMock(LlmModel::class);
+        $dataMapper = $this->createMock(DataMapper::class);
+        $dataMapper->method('map')->willReturn([$model]);
+
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
+
+        return [$connectionPool, $adapterRegistry, $dataMapper];
+    }
+
     private function createService(
-        LlmServiceManagerInterface $llmManager,
+        ToolCapableProviderStub $provider,
         ?ConversationRepository $repository = null,
         ?ExtensionConfiguration $config = null,
         ?McpToolProviderInterface $mcpProvider = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
-        $config ??= $this->createConfigStub();
+        $config ??= $this->createMcpEnabledConfig();
         $mcpProvider ??= $this->createMcpProviderStub();
 
-        return new ChatService($llmManager, $repository, $config, $mcpProvider);
+        [$connectionPool, $adapterRegistry, $dataMapper] = $this->createProviderResolutionMocks($provider);
+
+        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
     }
 
-    private function createConfigStub(): ExtensionConfiguration
+    private function createMcpEnabledConfig(): ExtensionConfiguration
     {
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(true);
+        $config->method('isMcpServerInstalled')->willReturn(true);
         return $config;
     }
 
     private function createMcpProviderStub(): McpToolProviderInterface
     {
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
         return $mcpProvider;
     }
 
@@ -84,16 +147,16 @@ class ChatServiceToolLoopTest extends TestCase
             'function' => ['name' => 'test_tool', 'arguments' => '{}'],
         ];
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $provider = $this->createMock(ToolCapableProviderStub::class);
         // Always return tool calls — should hit MAX_TOOL_ITERATIONS (20)
-        $llmManager->method('chatWithTools')
+        $provider->method('chatCompletionWithTools')
             ->willReturn($this->createCompletionResponse('', [$toolCall]));
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
         $mcpProvider->method('executeTool')->willReturn('tool result');
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -116,8 +179,8 @@ class ChatServiceToolLoopTest extends TestCase
         ];
 
         $callCount = 0;
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')
+        $provider = $this->createMock(ToolCapableProviderStub::class);
+        $provider->method('chatCompletionWithTools')
             ->willReturnCallback(function () use ($toolCall, &$callCount) {
                 $callCount++;
                 if ($callCount === 1) {
@@ -127,13 +190,13 @@ class ChatServiceToolLoopTest extends TestCase
             });
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
         $mcpProvider->expects(self::once())
             ->method('executeTool')
             ->with('my_tool', ['key' => 'val'])
             ->willReturn('tool output');
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -161,8 +224,8 @@ class ChatServiceToolLoopTest extends TestCase
         ];
 
         $callCount = 0;
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')
+        $provider = $this->createMock(ToolCapableProviderStub::class);
+        $provider->method('chatCompletionWithTools')
             ->willReturnCallback(function () use ($toolCall, &$callCount) {
                 $callCount++;
                 if ($callCount === 1) {
@@ -172,13 +235,13 @@ class ChatServiceToolLoopTest extends TestCase
             });
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
         $mcpProvider->expects(self::once())
             ->method('executeTool')
             ->with('json_tool', ['query' => 'SELECT 1'])
             ->willReturn('1');
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -205,8 +268,8 @@ class ChatServiceToolLoopTest extends TestCase
         ];
 
         $callCount = 0;
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')
+        $provider = $this->createMock(ToolCapableProviderStub::class);
+        $provider->method('chatCompletionWithTools')
             ->willReturnCallback(function () use ($toolCalls, &$callCount) {
                 $callCount++;
                 if ($callCount === 1) {
@@ -216,14 +279,14 @@ class ChatServiceToolLoopTest extends TestCase
             });
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
         // Only the valid tool call should be executed
         $mcpProvider->expects(self::once())
             ->method('executeTool')
             ->with('valid_tool', [])
             ->willReturn('ok');
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -253,18 +316,18 @@ class ChatServiceToolLoopTest extends TestCase
             'message_count' => 2,
         ]);
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')
+        $provider = $this->createMock(ToolCapableProviderStub::class);
+        $provider->method('chatCompletionWithTools')
             ->willReturn($this->createCompletionResponse('Resumed!'));
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
         $mcpProvider->expects(self::once())
             ->method('executeTool')
             ->with('pending_tool', [])
             ->willReturn('pending result');
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->resumeConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -289,16 +352,16 @@ class ChatServiceToolLoopTest extends TestCase
             'message_count' => 1,
         ]);
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->expects(self::once())
-            ->method('chatWithTools')
+        $provider = $this->createMock(ToolCapableProviderStub::class);
+        $provider->expects(self::once())
+            ->method('chatCompletionWithTools')
             ->willReturn($this->createCompletionResponse('Hi!'));
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
         $mcpProvider->expects(self::never())->method('executeTool');
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->resumeConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -316,9 +379,9 @@ class ChatServiceToolLoopTest extends TestCase
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('connect')->willThrowException(new RuntimeException('Connection failed'));
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $provider = $this->createMock(ToolCapableProviderStub::class);
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -338,9 +401,9 @@ class ChatServiceToolLoopTest extends TestCase
         $mcpProvider->method('connect')->willThrowException(new RuntimeException('fail'));
         $mcpProvider->expects(self::once())->method('disconnect');
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $provider = $this->createMock(ToolCapableProviderStub::class);
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
     }
 
@@ -358,9 +421,9 @@ class ChatServiceToolLoopTest extends TestCase
             new RuntimeException('Auth failed with Bearer sk-abc123def456 at https://api.example.com/v1/chat'),
         );
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $provider = $this->createMock(ToolCapableProviderStub::class);
 
-        $service = $this->createService($llmManager, mcpProvider: $mcpProvider);
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
 
         self::assertStringNotContainsString('sk-abc123def456', $conversation->getErrorMessage());

@@ -38,8 +38,8 @@ final readonly class ExecChatProcessor implements ChatProcessorInterface
     {
         $binary = PHP_BINARY;
 
-        // Already a CLI binary
-        if (!str_contains($binary, 'fpm')) {
+        // Already a CLI binary — check SAPI type, not binary path
+        if (PHP_SAPI !== 'fpm-fcgi' && PHP_SAPI !== 'cgi-fcgi') {
             return $binary;
         }
 

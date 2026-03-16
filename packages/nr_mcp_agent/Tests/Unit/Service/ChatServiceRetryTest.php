@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -18,9 +21,60 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use stdClass;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 class ChatServiceRetryTest extends TestCase
 {
+    /**
+     * @return array{ConnectionPool, ProviderAdapterRegistry, DataMapper}
+     */
+    private function createProviderResolutionMocks(ProviderInterface $provider): array
+    {
+        $exprBuilder = $this->createMock(ExpressionBuilder::class);
+        $exprBuilder->method('eq')->willReturn('1 = 1');
+
+        $result = $this->createMock(Result::class);
+        $result->method('fetchAssociative')->willReturn(['uid' => 1, 'name' => 'test-model']);
+
+        $qb = $this->createMock(QueryBuilder::class);
+        $qb->method('select')->willReturnSelf();
+        $qb->method('from')->willReturnSelf();
+        $qb->method('join')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($exprBuilder);
+        $qb->method('quoteIdentifier')->willReturnArgument(0);
+        $qb->method('createNamedParameter')->willReturn('1');
+        $qb->method('executeQuery')->willReturn($result);
+
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
+
+        $model = $this->createMock(LlmModel::class);
+        $dataMapper = $this->createMock(DataMapper::class);
+        $dataMapper->method('map')->willReturn([$model]);
+
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
+
+        return [$connectionPool, $adapterRegistry, $dataMapper];
+    }
+
+    private function createChatService(ProviderInterface $provider): ChatService
+    {
+        $repository = $this->createMock(ConversationRepository::class);
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+
+        [$connectionPool, $adapterRegistry, $dataMapper] = $this->createProviderResolutionMocks($provider);
+
+        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
+    }
+
     #[Test]
     public function retriesOnTransient429Error(): void
     {
@@ -28,9 +82,9 @@ class ChatServiceRetryTest extends TestCase
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $callCount = 0;
-        $llmManager->method('chatWithTools')->willReturnCallback(function () use (&$callCount) {
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(function () use (&$callCount) {
             $callCount++;
             if ($callCount === 1) {
                 throw new RuntimeException('429 Too Many Requests');
@@ -42,16 +96,10 @@ class ChatServiceRetryTest extends TestCase
             );
         });
 
-        $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
-
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service = $this->createChatService($provider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -67,21 +115,15 @@ class ChatServiceRetryTest extends TestCase
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')->willThrowException(
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willThrowException(
             new RuntimeException('Invalid API key'),
         );
-
-        $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service = $this->createChatService($provider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -96,21 +138,15 @@ class ChatServiceRetryTest extends TestCase
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')->willThrowException(
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willThrowException(
             new RuntimeException('Error calling https://api.anthropic.com/v1/messages with Bearer sk-ant-api03-secretkey123: 500'),
         );
-
-        $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service = $this->createChatService($provider);
         $service->processConversation($conversation);
 
         self::assertStringNotContainsString('sk-ant', $conversation->getErrorMessage());
@@ -128,8 +164,8 @@ class ChatServiceRetryTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $callCount = 0;
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')->willReturnCallback(function () use (&$callCount) {
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(function () use (&$callCount) {
             $callCount++;
             if ($callCount === 1) {
                 throw new RuntimeException('The server is overloaded');
@@ -141,16 +177,10 @@ class ChatServiceRetryTest extends TestCase
             );
         });
 
-        $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
-
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service = $this->createChatService($provider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -167,8 +197,8 @@ class ChatServiceRetryTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $callCount = 0;
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')->willReturnCallback(function () use (&$callCount) {
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(function () use (&$callCount) {
             $callCount++;
             if ($callCount === 1) {
                 throw new RuntimeException('503 Service Unavailable');
@@ -180,16 +210,10 @@ class ChatServiceRetryTest extends TestCase
             );
         });
 
-        $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
-
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service = $this->createChatService($provider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -206,22 +230,16 @@ class ChatServiceRetryTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $callCount = 0;
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')->willReturnCallback(function () use (&$callCount) {
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(function () use (&$callCount) {
             $callCount++;
             throw new RuntimeException('429 Too Many Requests');
         });
 
-        $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
-
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service = $this->createChatService($provider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -238,21 +256,15 @@ class ChatServiceRetryTest extends TestCase
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')->willThrowException(
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willThrowException(
             new RuntimeException('Error with key-abc123def456 token'),
         );
-
-        $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service = $this->createChatService($provider);
         $service->processConversation($conversation);
 
         self::assertStringNotContainsString('key-abc123def456', $conversation->getErrorMessage());
@@ -269,19 +281,13 @@ class ChatServiceRetryTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $longError = str_repeat('a', 600);
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatWithTools')->willThrowException(new RuntimeException($longError));
-
-        $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willThrowException(new RuntimeException($longError));
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service = $this->createChatService($provider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());

@@ -119,7 +119,9 @@ class McpToolProviderTest extends TestCase
         self::assertSame('function', $tools[0]['type']);
         self::assertSame('my_tool', $tools[0]['function']['name']);
         self::assertSame('A test tool', $tools[0]['function']['description']);
-        self::assertSame(['type' => 'object', 'properties' => []], $tools[0]['function']['parameters']);
+        $params = $tools[0]['function']['parameters'];
+        self::assertSame('object', $params['type']);
+        self::assertInstanceOf(\stdClass::class, $params['properties']);
     }
 
     #[Test]
@@ -240,7 +242,9 @@ class McpToolProviderTest extends TestCase
         $tools = $provider->getToolDefinitions();
 
         self::assertCount(1, $tools);
-        self::assertSame(['type' => 'object'], $tools[0]['function']['parameters']);
+        $params = $tools[0]['function']['parameters'];
+        self::assertSame('object', $params['type']);
+        self::assertInstanceOf(\stdClass::class, $params['properties']);
     }
 
     #[Test]

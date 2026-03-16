@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Command;
 
-use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Doctrine\DBAL\Result;
+use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Command\ProcessChatCommand;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -18,18 +21,44 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 class ProcessChatCommandTest extends TestCase
 {
     private function createChatService(): ChatService
     {
-        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(0);
+        $config->method('isMcpEnabled')->willReturn(false);
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
 
-        return new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $exprBuilder = $this->createMock(ExpressionBuilder::class);
+        $exprBuilder->method('eq')->willReturn('1 = 1');
+        $result = $this->createMock(Result::class);
+        $result->method('fetchAssociative')->willReturn(['uid' => 1]);
+        $qb = $this->createMock(QueryBuilder::class);
+        $qb->method('select')->willReturnSelf();
+        $qb->method('from')->willReturnSelf();
+        $qb->method('join')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($exprBuilder);
+        $qb->method('quoteIdentifier')->willReturnArgument(0);
+        $qb->method('createNamedParameter')->willReturn('1');
+        $qb->method('executeQuery')->willReturn($result);
+
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
+
+        $dataMapper = $this->createMock(DataMapper::class);
+        $dataMapper->method('map')->willReturn([$this->createMock(LlmModel::class)]);
+
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($this->createMock(ProviderInterface::class));
+
+        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
     }
 
     #[Test]

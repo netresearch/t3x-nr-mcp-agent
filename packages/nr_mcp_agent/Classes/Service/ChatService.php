@@ -85,10 +85,14 @@ final readonly class ChatService
             return;
         }
 
-        try {
-            $this->mcpToolProvider->connect();
+        $mcpEnabled = $this->config->isMcpEnabled() && $this->config->isMcpServerInstalled();
 
-            if ($conversation->hasPendingToolCalls()) {
+        try {
+            if ($mcpEnabled) {
+                $this->mcpToolProvider->connect();
+            }
+
+            if ($mcpEnabled && $conversation->hasPendingToolCalls()) {
                 $messages = $conversation->getDecodedMessages();
                 /** @var array{tool_calls: array<mixed>} $lastMessage */
                 $lastMessage = end($messages);
@@ -105,14 +109,25 @@ final readonly class ChatService
                 $this->persist($conversation);
             }
 
-            $tools = $this->mcpToolProvider->getToolDefinitions();
-            $this->runAgentLoop($conversation, $tools);
+            if ($mcpEnabled) {
+                $tools = $this->mcpToolProvider->getToolDefinitions();
+            } else {
+                $tools = [];
+            }
+
+            if ($tools !== []) {
+                $this->runAgentLoop($conversation, $tools);
+            } else {
+                $this->runSimpleChat($conversation);
+            }
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
             $this->persist($conversation);
         } finally {
-            $this->mcpToolProvider->disconnect();
+            if ($mcpEnabled) {
+                $this->mcpToolProvider->disconnect();
+            }
         }
     }
 
