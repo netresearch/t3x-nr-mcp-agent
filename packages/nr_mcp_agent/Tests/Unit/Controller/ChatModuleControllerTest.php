@@ -8,8 +8,11 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatModuleController;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionParameter;
+use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
 
 /**
@@ -59,5 +62,50 @@ class ChatModuleControllerTest extends TestCase
         $ref = new ReflectionClass(ChatModuleController::class);
         self::assertTrue($ref->isFinal());
         self::assertTrue($ref->isReadonly());
+    }
+
+    #[Test]
+    public function indexActionMethodExistsWithCorrectSignature(): void
+    {
+        $ref = new ReflectionClass(ChatModuleController::class);
+        self::assertTrue($ref->hasMethod('indexAction'));
+
+        $method = $ref->getMethod('indexAction');
+        self::assertTrue($method->isPublic());
+
+        $params = $method->getParameters();
+        self::assertCount(1, $params);
+        self::assertSame('request', $params[0]->getName());
+        self::assertSame(ServerRequestInterface::class, $params[0]->getType()?->getName());
+
+        $returnType = $method->getReturnType();
+        self::assertNotNull($returnType);
+        self::assertSame(ResponseInterface::class, $returnType->getName());
+    }
+
+    #[Test]
+    public function constructorAcceptsModuleTemplateFactory(): void
+    {
+        $ref = new ReflectionClass(ChatModuleController::class);
+        $params = $ref->getConstructor()?->getParameters() ?? [];
+
+        $types = array_map(
+            static fn(ReflectionParameter $p): string => (string) $p->getType(),
+            $params,
+        );
+
+        self::assertContains(ModuleTemplateFactory::class, $types);
+    }
+
+    #[Test]
+    public function constructorHasThreeDependencies(): void
+    {
+        $ref = new ReflectionClass(ChatModuleController::class);
+        $params = $ref->getConstructor()?->getParameters() ?? [];
+
+        self::assertCount(3, $params);
+        self::assertSame('moduleTemplateFactory', $params[0]->getName());
+        self::assertSame('pageRenderer', $params[1]->getName());
+        self::assertSame('config', $params[2]->getName());
     }
 }
