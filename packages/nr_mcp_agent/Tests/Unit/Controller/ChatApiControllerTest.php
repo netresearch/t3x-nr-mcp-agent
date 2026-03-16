@@ -748,6 +748,19 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function sendMessageReturns404WhenConversationNotFound(): void
+    {
+        $this->repository->method('findOneByUidAndBeUser')->willReturn(null);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 999, "content": "Hello"}');
+        $response = $this->subject->sendMessage($request);
+
+        self::assertSame(404, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertStringContainsString('not found', $data['error']);
+    }
+
+    #[Test]
     public function sendMessageWithMaxLengthZeroAllowsAnyLength(): void
     {
         $config = $this->createMock(ExtensionConfiguration::class);

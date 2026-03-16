@@ -18,9 +18,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class ChatApiController
 {
     public function __construct(
-        private readonly ConversationRepository $repository,
-        private readonly ChatProcessorInterface $processor,
-        private readonly ExtensionConfiguration $config,
+        private ConversationRepository $repository,
+        private ChatProcessorInterface $processor,
+        private ExtensionConfiguration $config,
     ) {}
 
     /**

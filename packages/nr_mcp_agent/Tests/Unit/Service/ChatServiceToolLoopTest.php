@@ -433,6 +433,45 @@ class ChatServiceToolLoopTest extends TestCase
     }
 
     #[Test]
+    public function resumeConversationSetsFailedWhenToolExecutionThrows(): void
+    {
+        $this->setUpBeUser();
+
+        $pendingToolCalls = [
+            [
+                'id' => 'call_fail',
+                'type' => 'function',
+                'function' => ['name' => 'failing_tool', 'arguments' => '{}'],
+            ],
+        ];
+
+        $conversation = Conversation::fromRow([
+            'uid' => 20,
+            'be_user' => 1,
+            'status' => 'failed',
+            'messages' => json_encode([
+                ['role' => 'user', 'content' => 'Do thing'],
+                ['role' => 'assistant', 'content' => '', 'tool_calls' => $pendingToolCalls],
+            ]),
+            'message_count' => 2,
+        ]);
+
+        $provider = $this->createMock(ToolCapableProviderStub::class);
+
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
+        $mcpProvider->method('executeTool')
+            ->willThrowException(new RuntimeException('Tool execution failed with key sk-secret123'));
+
+        $service = $this->createService($provider, mcpProvider: $mcpProvider);
+        $service->resumeConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertStringNotContainsString('sk-secret123', $conversation->getErrorMessage());
+        self::assertStringContainsString('[REDACTED]', $conversation->getErrorMessage());
+    }
+
+    #[Test]
     public function agentLoopFailsWhenProviderNotToolCapable(): void
     {
         $this->setUpBeUser();

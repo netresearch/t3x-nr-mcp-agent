@@ -17,5 +17,6 @@ CREATE TABLE tx_nrmcpagent_conversation (
 
     KEY be_user_archived (be_user, archived, tstamp),
     KEY status_deleted_tstamp (status, deleted, tstamp),
-    KEY be_user_status (be_user, status, deleted)
+    KEY be_user_status (be_user, status, deleted),
+    KEY current_request_id (current_request_id, status)
 );

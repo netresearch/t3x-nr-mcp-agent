@@ -11,6 +11,7 @@ use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use stdClass;
 
 class McpToolProviderTest extends TestCase
 {
@@ -121,7 +122,41 @@ class McpToolProviderTest extends TestCase
         self::assertSame('A test tool', $tools[0]['function']['description']);
         $params = $tools[0]['function']['parameters'];
         self::assertSame('object', $params['type']);
-        self::assertInstanceOf(\stdClass::class, $params['properties']);
+        self::assertInstanceOf(stdClass::class, $params['properties']);
+    }
+
+    #[Test]
+    public function getToolDefinitionsPreservesPopulatedProperties(): void
+    {
+        $provider = $this->createProviderWithFakeServer([
+            'tools/list' => [
+                'tools' => [
+                    [
+                        'name' => 'create_page',
+                        'description' => 'Create a page',
+                        'inputSchema' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'name' => ['type' => 'string'],
+                                'slug' => ['type' => 'string'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $tools = $provider->getToolDefinitions();
+
+        self::assertCount(1, $tools);
+        $params = $tools[0]['function']['parameters'];
+        self::assertSame('object', $params['type']);
+        // Populated properties are preserved as associative array (not replaced with stdClass)
+        self::assertIsArray($params['properties']);
+        self::assertArrayHasKey('name', $params['properties']);
+        self::assertArrayHasKey('slug', $params['properties']);
+        self::assertSame('string', $params['properties']['name']['type']);
+        self::assertSame('string', $params['properties']['slug']['type']);
     }
 
     #[Test]
@@ -244,7 +279,7 @@ class McpToolProviderTest extends TestCase
         self::assertCount(1, $tools);
         $params = $tools[0]['function']['parameters'];
         self::assertSame('object', $params['type']);
-        self::assertInstanceOf(\stdClass::class, $params['properties']);
+        self::assertInstanceOf(stdClass::class, $params['properties']);
     }
 
     #[Test]

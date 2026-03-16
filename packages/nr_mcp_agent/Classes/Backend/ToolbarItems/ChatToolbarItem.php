@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Backend\ToolbarItems;
 
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
-use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Toolbar\RequestAwareToolbarItemInterface;
 use TYPO3\CMS\Backend\Toolbar\ToolbarItemInterface;
@@ -17,7 +16,6 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
     private ServerRequestInterface $request;
 
     public function __construct(
-        private readonly ConversationRepository $repository,
         private readonly ExtensionConfiguration $config,
         private readonly PageRenderer $pageRenderer,
     ) {}

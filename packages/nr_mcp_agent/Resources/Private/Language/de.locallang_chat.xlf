@@ -28,6 +28,16 @@
                 <target>Fenstergröße ändern</target>
             </trans-unit>
 
+            <!-- Sidebar -->
+            <trans-unit id="sidebar.show" resname="sidebar.show">
+                <source>Show sidebar</source>
+                <target>Seitenleiste einblenden</target>
+            </trans-unit>
+            <trans-unit id="sidebar.hide" resname="sidebar.hide">
+                <source>Hide sidebar</source>
+                <target>Seitenleiste ausblenden</target>
+            </trans-unit>
+
             <!-- Conversations -->
             <trans-unit id="conversations.title" resname="conversations.title">
                 <source>Chats</source>

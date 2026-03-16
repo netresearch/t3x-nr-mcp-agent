@@ -334,11 +334,13 @@ export class ChatApp extends LitElement {
 
     _handleInput(e) {
         this.chat.inputValue = e.target.value;
-        this.chat.hasInput = e.target.value.trim().length > 0;
-        // Auto-grow textarea
+        const newHasInput = e.target.value.trim().length > 0;
+        if (newHasInput !== this.chat.hasInput) {
+            this.chat.hasInput = newHasInput;
+            this.requestUpdate();
+        }
         e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-        this.requestUpdate();
     }
 
     _handleKeydown(e) {
@@ -415,8 +417,8 @@ export class ChatApp extends LitElement {
         return html`
             <button class="btn btn-icon"
                 @click=${() => this._sidebarCollapsed = !this._sidebarCollapsed}
-                title="${this._sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}"
-                aria-label="${this._sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}">
+                title="${this._sidebarCollapsed ? lll('sidebar.show') : lll('sidebar.hide')}"
+                aria-label="${this._sidebarCollapsed ? lll('sidebar.show') : lll('sidebar.hide')}">
                 ${this._sidebarCollapsed ? '\u2630' : '\u2039'}
             </button>
         `;

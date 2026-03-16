@@ -6,7 +6,6 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Backend\ToolbarItems;
 
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
-use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Backend\Toolbar\RequestAwareToolbarItemInterface;
@@ -16,14 +15,12 @@ use TYPO3\CMS\Core\Page\PageRenderer;
 
 class ChatToolbarItemTest extends TestCase
 {
-    private ConversationRepository $repository;
     private ExtensionConfiguration $config;
     private PageRenderer $pageRenderer;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->repository = $this->createMock(ConversationRepository::class);
         $this->config = $this->createMock(ExtensionConfiguration::class);
         $this->pageRenderer = $this->createMock(PageRenderer::class);
     }
@@ -36,7 +33,7 @@ class ChatToolbarItemTest extends TestCase
 
     private function createSubject(): ChatToolbarItem
     {
-        return new ChatToolbarItem($this->repository, $this->config, $this->pageRenderer);
+        return new ChatToolbarItem($this->config, $this->pageRenderer);
     }
 
     private function setUpBeUser(int $uid = 1, string $usergroup = '1,2', bool $isAdmin = false): void

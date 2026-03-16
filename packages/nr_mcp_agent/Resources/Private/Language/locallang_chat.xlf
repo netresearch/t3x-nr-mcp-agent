@@ -22,6 +22,14 @@
                 <source>Resize panel</source>
             </trans-unit>
 
+            <!-- Sidebar -->
+            <trans-unit id="sidebar.show" resname="sidebar.show">
+                <source>Show sidebar</source>
+            </trans-unit>
+            <trans-unit id="sidebar.hide" resname="sidebar.hide">
+                <source>Hide sidebar</source>
+            </trans-unit>
+
             <!-- Conversations -->
             <trans-unit id="conversations.title" resname="conversations.title">
                 <source>Chats</source>

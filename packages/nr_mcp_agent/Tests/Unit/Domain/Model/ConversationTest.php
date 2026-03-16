@@ -461,6 +461,36 @@ class ConversationTest extends TestCase
     }
 
     #[Test]
+    public function fromRowHandlesNonScalarValues(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => [1],
+            'be_user' => null,
+            'title' => ['nested'],
+            'messages' => '',
+            'message_count' => [5],
+            'status' => 'idle',
+            'current_request_id' => '',
+            'system_prompt' => null,
+            'archived' => [],
+            'pinned' => null,
+            'error_message' => ['error'],
+            'tstamp' => null,
+        ]);
+
+        // Non-scalar values should fall back to defaults (val() returns null for non-scalar, then cast)
+        self::assertSame(0, $conversation->getUid());
+        self::assertSame(0, $conversation->getBeUser());
+        self::assertSame('', $conversation->getTitle());
+        self::assertSame(0, $conversation->getMessageCount());
+        self::assertSame('', $conversation->getSystemPrompt());
+        self::assertFalse($conversation->isArchived());
+        self::assertFalse($conversation->isPinned());
+        self::assertSame('', $conversation->getErrorMessage());
+        self::assertSame(0, $conversation->getTstamp());
+    }
+
+    #[Test]
     public function autoTitleIgnoresArrayContent(): void
     {
         $conversation = new Conversation();
