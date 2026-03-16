@@ -6,4 +6,13 @@ parameters:
     level: 10
     paths:
         - Classes
+        - Tests/Architecture
     treatPhpDocTypesAsCertain: false
+    scanDirectories:
+        - Tests/Architecture
+
+services:
+    -
+        class: Netresearch\NrMcpAgent\Tests\Architecture\LayerDependencyTest
+        tags:
+            - phpat.test
