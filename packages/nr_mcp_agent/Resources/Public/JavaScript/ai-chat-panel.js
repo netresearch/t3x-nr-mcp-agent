@@ -502,10 +502,12 @@ export class AiChatPanel extends LitElement {
     toggle() {
         if (this.state === STATES.HIDDEN) {
             this.state = this._lastVisibleState || STATES.EXPANDED;
+            this.chat.startPollingIfNeeded();
             this.updateComplete.then(() => this.onFocusInput());
         } else {
             this._lastVisibleState = this.state;
             this.state = STATES.HIDDEN;
+            this.chat.stopPolling();
         }
         this._saveState();
     }
@@ -518,6 +520,7 @@ export class AiChatPanel extends LitElement {
     hide() {
         this._lastVisibleState = this.state !== STATES.HIDDEN ? this.state : STATES.EXPANDED;
         this.state = STATES.HIDDEN;
+        this.chat.stopPolling();
         this._saveState();
     }
 
@@ -567,22 +570,37 @@ export class AiChatPanel extends LitElement {
         this._dragOffsetX = clientX - pos.x;
         this._dragOffsetY = clientY - pos.y;
 
+        // Prevent text selection during drag
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
+
         const onMove = (ev) => {
+            ev.preventDefault();
             const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
             const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
-            let newX = cx - this._dragOffsetX;
-            let newY = cy - this._dragOffsetY;
+            const newX = cx - this._dragOffsetX;
+            const newY = cy - this._dragOffsetY;
             const constrained = this._constrainPosition(newX, newY);
-            this._posX = constrained.x;
-            this._posY = constrained.y;
+            // Write directly to style for smooth 60fps — skip Lit reactivity during drag
+            this.style.left = constrained.x + 'px';
+            this.style.top = constrained.y + 'px';
+            this._pendingPosX = constrained.x;
+            this._pendingPosY = constrained.y;
         };
 
         const onEnd = () => {
             this._dragging = false;
+            document.body.style.userSelect = '';
+            document.body.style.webkitUserSelect = '';
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
             document.removeEventListener('touchmove', onMove);
             document.removeEventListener('touchend', onEnd);
+            // Commit to Lit state
+            this._posX = this._pendingPosX ?? this._posX;
+            this._posY = this._pendingPosY ?? this._posY;
+            this._pendingPosX = null;
+            this._pendingPosY = null;
             this._saveState();
         };
 
@@ -669,14 +687,14 @@ export class AiChatPanel extends LitElement {
         if (e.key === 'ArrowUp') {
             e.preventDefault();
             this._height = Math.min(this._height + 50, window.innerHeight);
-            if (this._height > window.innerHeight * 0.9) this.state = 'maximized';
-            else this.state = 'expanded';
+            if (this._height > window.innerHeight * 0.9) this.state = STATES.MAXIMIZED;
+            else this.state = STATES.EXPANDED;
             this._saveState();
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            this._height = Math.max(this._height - 50, 36);
-            if (this._height < 50) { this._height = 36; this.state = 'collapsed'; }
-            else this.state = 'expanded';
+            this._height = Math.max(this._height - 50, COLLAPSED_HEIGHT);
+            if (this._height < 50) { this._height = COLLAPSED_HEIGHT; this.state = STATES.COLLAPSED; }
+            else this.state = STATES.EXPANDED;
             this._saveState();
         } else if (e.key === 'ArrowRight') {
             e.preventDefault();
@@ -730,7 +748,10 @@ export class AiChatPanel extends LitElement {
 
     _onKeydown(e) {
         if (e.key === 'Escape' && this.state !== STATES.HIDDEN) {
-            this.collapse();
+            // Only collapse if focus is within the panel — don't interfere with modals/dropdowns
+            if (this.contains(document.activeElement) || this.shadowRoot?.contains(document.activeElement)) {
+                this.collapse();
+            }
         }
     }
 
@@ -738,8 +759,11 @@ export class AiChatPanel extends LitElement {
 
     _handleInput(e) {
         this.chat.inputValue = e.target.value;
-        this.chat.hasInput = e.target.value.trim().length > 0;
-        this.chat.host.requestUpdate();
+        const newHasInput = e.target.value.trim().length > 0;
+        if (newHasInput !== this.chat.hasInput) {
+            this.chat.hasInput = newHasInput;
+            this.requestUpdate();
+        }
         e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
     }

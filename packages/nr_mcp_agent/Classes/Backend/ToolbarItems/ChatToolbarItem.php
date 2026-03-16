@@ -40,26 +40,23 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
         if ($beUser === null) {
             return false;
         }
+        // Admin users always have access (consistent with ChatApiController)
+        if ($beUser->isAdmin()) {
+            return true;
+        }
         $userGroups = array_map('intval', explode(',', $beUser->user['usergroup'] ?? ''));
         return array_intersect($allowed, $userGroups) !== [];
     }
 
     public function getItem(): string
     {
-        $count = 0;
-        $beUser = $this->getBackendUser();
-        if ($beUser !== null) {
-            $count = $this->repository->countActiveByBeUser((int) $beUser->user['uid']);
-        }
-        $badgeStyle = $count > 0 ? '' : 'display:none';
-
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-mcp-agent/toolbar/chat-panel.js');
 
+        // Badge count is updated client-side from the status endpoint
+        // to avoid a DB query on every backend page load.
         return '<span class="toolbar-item-link ai-chat-toolbar-btn" role="button" title="AI Chat" tabindex="0">'
             . '<typo3-backend-icon identifier="actions-message" size="small"></typo3-backend-icon>'
-            . '<span class="badge badge-warning ai-chat-badge" style="' . $badgeStyle . '">'
-            . $count
-            . '</span>'
+            . '<span class="badge badge-warning ai-chat-badge" style="display:none">0</span>'
             . '</span>';
     }
 
