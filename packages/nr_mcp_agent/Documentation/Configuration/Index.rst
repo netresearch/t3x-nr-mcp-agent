@@ -88,6 +88,27 @@ MCP integration
 
     Example: ``mcp:server,--verbose``
 
+Chat panel
+==========
+
+When ``llmTaskUid`` is configured, a chat button appears
+automatically in the TYPO3 backend toolbar (top right).
+Clicking it opens a floating bottom panel that stays visible
+across module navigation.
+
+The panel supports four states:
+
+*   **Hidden** -- Default. Only the toolbar button is visible.
+*   **Collapsed** -- Minimal header bar showing the active
+    conversation title and status.
+*   **Expanded** -- Resizable panel with chat messages, input,
+    and a compact conversation switcher.
+*   **Maximized** -- Full-height panel with a sidebar for
+    conversation management (search, pin, archive).
+
+The panel height and state are persisted per user in the
+browser's localStorage.
+
 System prompt
 =============
 

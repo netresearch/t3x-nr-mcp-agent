@@ -19,6 +19,8 @@ backend users to manage content through natural language.
   auto-archive support.
 - **Background processing** -- Messages are processed via CLI commands (`exec` or
   `worker` mode), keeping the web server responsive.
+- **Floating chat panel** -- A toolbar-triggered bottom panel that stays visible
+  across module navigation, allowing users to chat while working in the page tree.
 - **Secure by design** -- Group-based access control, message length limits,
   concurrency caps, and sanitized error messages.
 

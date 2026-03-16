@@ -53,6 +53,14 @@ The frontend (a Lit web component) communicates with the
 backend exclusively through polling. There are no
 WebSocket or Server-Sent Events connections.
 
+The AI Chat is accessible in two ways:
+
+*   **Backend module** (Admin Tools > AI Chat) -- Full-page chat
+    interface for longer conversations and history management.
+*   **Toolbar panel** -- Floating bottom panel triggered by the
+    toolbar button. Stays visible across module navigation,
+    allowing users to chat while working in the page tree.
+
 Key design decisions
 ====================
 
