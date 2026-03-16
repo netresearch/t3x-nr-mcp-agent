@@ -1,43 +1,17 @@
 import {LitElement, html, css, nothing} from 'lit';
-import {ApiClient} from './api-client.js';
-
-const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
+import {ChatCoreController} from './chat-core.js';
 
 /**
  * <nr-chat-app> – Main chat application component.
  *
  * Renders a sidebar with conversation list and a main area with messages.
+ * All chat business logic is delegated to ChatCoreController.
  */
 export class ChatApp extends LitElement {
     static properties = {
         maxLength: {type: Number, attribute: 'data-max-length'},
-        _conversations: {state: true},
-        _activeUid: {state: true},
-        _messages: {state: true},
-        _status: {state: true},
-        _errorMessage: {state: true},
-        _loading: {state: true},
-        _sending: {state: true},
-        _available: {state: true},
-        _issues: {state: true},
-        _hasInput: {state: true},
         _sidebarCollapsed: {state: true},
     };
-
-    /** @type {ApiClient} */
-    _api;
-    /** @type {AbortController} */
-    _abortController;
-    /** @type {number|null} */
-    _pollTimer = null;
-    /** @type {number} */
-    _knownMessageCount = 0;
-    /** @type {number} */
-    _pollFailures = 0;
-    /** @type {Set<number>} */
-    _expandedTools = new Set();
-    /** @type {string} */
-    _inputValue = '';
 
     static styles = css`
         :host {
@@ -316,298 +290,74 @@ export class ChatApp extends LitElement {
     constructor() {
         super();
         this.maxLength = 0;
-        this._conversations = [];
-        this._activeUid = null;
-        this._messages = [];
-        this._status = '';
-        this._errorMessage = '';
-        this._inputValue = '';
-        this._hasInput = false;
-        this._loading = true;
-        this._sending = false;
-        this._available = false;
-        this._issues = [];
         this._sidebarCollapsed = false;
+        this.chat = new ChatCoreController(this);
     }
 
     connectedCallback() {
         super.connectedCallback();
-        this._abortController = new AbortController();
-        this._api = new ApiClient(this._abortController.signal);
-        this._init();
+        this.chat.maxLength = this.maxLength || 0;
     }
 
-    disconnectedCallback() {
-        super.disconnectedCallback();
-        this._abortController?.abort();
-        this._stopPolling();
-    }
+    // ── Callback hooks for ChatCoreController ──────────────────────────
 
-    async _init() {
-        const signal = this._abortController?.signal;
-        try {
-            const statusData = await this._api.getStatus();
-            if (signal?.aborted) return;
-            this._available = statusData.available;
-            this._issues = statusData.issues || [];
-            await this._loadConversations();
-        } catch (e) {
-            if (signal?.aborted) return;
-            this._issues = [e.message];
-        } finally {
-            if (!signal?.aborted) this._loading = false;
-        }
-    }
-
-    async _loadConversations() {
-        const data = await this._api.listConversations();
-        this._conversations = data.conversations || [];
-    }
-
-    async _selectConversation(uid) {
-        this._activeUid = uid;
-        this._knownMessageCount = 0;
-        this._expandedTools = new Set();
-        await this._loadMessages();
-        this._startPollingIfNeeded();
-        await this.updateComplete;
-        this.renderRoot?.querySelector('.input-area textarea')?.focus();
-    }
-
-    async _loadMessages() {
-        if (!this._activeUid) return;
-        try {
-            const data = await this._api.getMessages(this._activeUid, 0);
-            this._messages = data.messages || [];
-            this._status = data.status;
-            this._errorMessage = data.errorMessage || '';
-            this._knownMessageCount = data.totalCount;
-            await this.updateComplete;
-            this._scrollToBottom(true);
-        } catch (e) {
-            this._errorMessage = e.message;
-        }
-    }
-
-    async _pollMessages() {
-        const uid = this._activeUid;
-        if (!uid) return;
-        try {
-            const data = await this._api.getMessages(uid, this._knownMessageCount);
-            if (uid !== this._activeUid) return; // stale response, discard
-            const newMessages = data.messages || [];
-            const statusChanged = data.status !== this._status;
-
-            if (newMessages.length > 0 || statusChanged) {
-                if (newMessages.length > 0) {
-                    this._messages = [...this._messages, ...newMessages];
-                }
-                this._status = data.status;
-                this._errorMessage = data.errorMessage || '';
-                this._knownMessageCount = data.totalCount;
-                // Update active conversation status in-place (avoids extra request)
-                this._conversations = this._conversations.map(c =>
-                    c.uid === this._activeUid
-                        ? {...c, status: data.status, errorMessage: data.errorMessage || ''}
-                        : c
-                );
-                await this.updateComplete;
-                this._scrollToBottom();
+    onScrollToBottom(force = false) {
+        const doScroll = () => {
+            const container = this.renderRoot?.querySelector('.messages');
+            if (!container) return;
+            if (force) {
+                container.scrollTop = container.scrollHeight;
+                return;
             }
-
-            // Reset failure counter on success
-            this._pollFailures = 0;
-            if (this._errorMessage === 'Connection lost. Retrying...') {
-                this._errorMessage = '';
+            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+            if (isNearBottom) {
+                container.scrollTop = container.scrollHeight;
             }
-
-            // Stop polling when no longer processing
-            if (!this._isProcessing()) {
-                this._stopPolling();
-            }
-        } catch {
-            this._pollFailures++;
-            if (this._pollFailures >= 5) {
-                this._errorMessage = 'Connection lost. Retrying...';
-                this._stopPolling();
-            }
-        }
+        };
+        // Ensure DOM is updated before scrolling
+        this.updateComplete.then(() => doScroll());
     }
 
-    _startPollingIfNeeded() {
-        this._stopPolling();
-        if (this._isProcessing()) {
-            this._schedulePoll();
-        }
+    onFocusInput() {
+        this.updateComplete.then(() => {
+            this.renderRoot?.querySelector('.input-area textarea')?.focus();
+        });
     }
 
-    _schedulePoll() {
-        this._pollTimer = setTimeout(async () => {
-            if (!this.isConnected) return;
-            await this._pollMessages();
-            if (this.isConnected && this._isProcessing()) {
-                this._schedulePoll();
-            }
-        }, 2000);
+    onResetInput() {
+        const ta = this.renderRoot?.querySelector('.input-area textarea');
+        if (ta) ta.style.height = 'auto';
     }
 
-    _stopPolling() {
-        if (this._pollTimer) {
-            clearTimeout(this._pollTimer);
-            this._pollTimer = null;
-        }
-    }
+    // ── DOM-specific event handlers ────────────────────────────────────
 
-    _isProcessing() {
-        return PROCESSING_STATUSES.has(this._status);
-    }
-
-    async _handleSend() {
-        const content = this._inputValue.trim();
-        if (!content || this._sending || this._isProcessing()) return;
-
-        if (this.maxLength > 0 && content.length > this.maxLength) {
-            this._errorMessage = `Message too long (max ${this.maxLength} characters)`;
-            return;
-        }
-
-        this._sending = true;
-        this._errorMessage = '';
-        try {
-            await this._api.sendMessage(this._activeUid, content);
-            this._inputValue = '';
-            this._hasInput = false;
-            // Reset textarea height
-            const ta = this.renderRoot?.querySelector('.input-area textarea');
-            if (ta) ta.style.height = 'auto';
-            // Optimistic: add user message locally
-            this._messages = [...this._messages, {role: 'user', content}];
-            this._status = 'processing';
-            this._knownMessageCount++;
-            this._conversations = this._conversations.map(c =>
-                c.uid === this._activeUid ? {...c, status: 'processing'} : c
-            );
-            this._errorMessage = '';
-            await this.updateComplete;
-            this._scrollToBottom(true);
-            this._startPollingIfNeeded();
-        } catch (e) {
-            this._errorMessage = e.message;
-        } finally {
-            this._sending = false;
-        }
-    }
-
-    async _handleNewConversation() {
-        try {
-            const data = await this._api.createConversation();
-            await this._loadConversations();
-            await this._selectConversation(data.uid);
-        } catch (e) {
-            this._errorMessage = e.message;
-        }
-    }
-
-    async _handleResume() {
-        if (!this._activeUid) return;
-        try {
-            await this._api.resumeConversation(this._activeUid);
-            this._status = 'processing';
-            this._errorMessage = '';
-            this._conversations = this._conversations.map(c =>
-                c.uid === this._activeUid ? {...c, status: 'processing'} : c
-            );
-            this._startPollingIfNeeded();
-        } catch (e) {
-            this._errorMessage = e.message;
-        }
-    }
-
-    async _handleArchive() {
-        if (!this._activeUid) return;
-        if (!confirm('Archive this conversation? It will be removed from the list.')) return;
-        try {
-            await this._api.archiveConversation(this._activeUid);
-            this._activeUid = null;
-            this._messages = [];
-            this._status = '';
-            this._errorMessage = '';
-            this._stopPolling();
-            await this._loadConversations();
-        } catch (e) {
-            this._errorMessage = e.message;
-        }
-    }
-
-    async _handleTogglePin() {
-        if (!this._activeUid) return;
-        try {
-            await this._api.togglePin(this._activeUid);
-            this._errorMessage = '';
-            await this._loadConversations();
-        } catch (e) {
-            this._errorMessage = e.message;
-        }
+    _handleInput(e) {
+        this.chat.inputValue = e.target.value;
+        this.chat.hasInput = e.target.value.trim().length > 0;
+        // Auto-grow textarea
+        e.target.style.height = 'auto';
+        e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+        this.requestUpdate();
     }
 
     _handleKeydown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            this._handleSend().catch(() => {});
+            this.chat.handleSend().catch(() => {});
         }
     }
 
-    _handleInput(e) {
-        this._inputValue = e.target.value;
-        this._hasInput = e.target.value.trim().length > 0;
-        // Auto-grow textarea
-        e.target.style.height = 'auto';
-        e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-    }
-
-    _handleToolMessageClick(idx) {
-        if (this._expandedTools.has(idx)) {
-            this._expandedTools.delete(idx);
-        } else {
-            this._expandedTools.add(idx);
-        }
-        this.requestUpdate();
-    }
-
-    _scrollToBottom(force = false) {
-        const container = this.renderRoot?.querySelector('.messages');
-        if (!container) return;
-        if (force) {
-            container.scrollTop = container.scrollHeight;
-            return;
-        }
-        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-        if (isNearBottom) {
-            container.scrollTop = container.scrollHeight;
-        }
-    }
-
-    _getActiveConversation() {
-        return this._conversations.find(c => c.uid === this._activeUid);
-    }
-
-    _renderMessageContent(msg) {
-        if (typeof msg.content === 'string') return msg.content;
-        if (Array.isArray(msg.content)) {
-            return msg.content.map(p => p.text || '').join('\n');
-        }
-        return JSON.stringify(msg.content);
-    }
+    // ── Render ─────────────────────────────────────────────────────────
 
     render() {
-        if (this._loading) {
+        if (this.chat.loading) {
             return html`<div class="empty-state"><span class="spinner"></span></div>`;
         }
 
         return html`
-            ${this._issues.length > 0 ? html`
+            ${this.chat.issues.length > 0 ? html`
                 <div class="issues-banner">
-                    ${this._issues.map(i => html`<div>${i}</div>`)}
+                    ${this.chat.issues.map(i => html`<div>${i}</div>`)}
                 </div>
             ` : nothing}
             <div class="chat-body">
@@ -626,30 +376,30 @@ export class ChatApp extends LitElement {
             <div class="sidebar-header">
                 <h3>Conversations</h3>
                 <button class="btn btn-sm btn-primary"
-                    @click=${this._handleNewConversation}
-                    ?disabled=${!this._available}
+                    @click=${() => this.chat.handleNewConversation()}
+                    ?disabled=${!this.chat.available}
                     aria-label="Create new conversation">
                     + New
                 </button>
             </div>
             <div class="conversation-list" role="listbox" aria-label="Conversations">
-                ${this._conversations.length === 0
+                ${this.chat.conversations.length === 0
                     ? html`<div class="empty-state" style="font-size:12px;">No conversations yet</div>`
-                    : this._conversations.map(c => this._renderConversationItem(c))
+                    : this.chat.conversations.map(c => this._renderConversationItem(c))
                 }
             </div>
         `;
     }
 
     _renderConversationItem(c) {
-        const isActive = c.uid === this._activeUid;
+        const isActive = c.uid === this.chat.activeUid;
         return html`
             <div class="conversation-item ${isActive ? 'active' : ''}"
                  role="option"
                  tabindex="0"
                  aria-selected="${isActive}"
-                 @click=${() => this._selectConversation(c.uid)}
-                 @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._selectConversation(c.uid); } }}>
+                 @click=${() => this.chat.selectConversation(c.uid)}
+                 @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.chat.selectConversation(c.uid); } }}>
                 <div class="title">
                     ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || 'New conversation'}
                 </div>
@@ -672,13 +422,13 @@ export class ChatApp extends LitElement {
     }
 
     _renderMain() {
-        if (!this._activeUid) {
+        if (!this.chat.activeUid) {
             return html`
                 <div class="main-header">
                     ${this._renderToggleButton()}
                 </div>
                 <div class="empty-state">
-                    ${this._available
+                    ${this.chat.available
                         ? 'Select a conversation or create a new one'
                         : 'AI Chat is not available. Check extension configuration.'
                     }
@@ -686,7 +436,7 @@ export class ChatApp extends LitElement {
             `;
         }
 
-        const conv = this._getActiveConversation();
+        const conv = this.chat.getActiveConversation();
         const isResumable = conv?.resumable || false;
 
         return html`
@@ -695,26 +445,26 @@ export class ChatApp extends LitElement {
                 <strong style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                     ${conv?.title || 'New conversation'}
                 </strong>
-                <button class="btn btn-sm" @click=${this._handleTogglePin}
+                <button class="btn btn-sm" @click=${() => this.chat.handleTogglePin()}
                     title="${conv?.pinned ? 'Unpin' : 'Pin'}">
                     ${conv?.pinned ? '\u{1F4CC}' : 'Pin'}
                 </button>
-                <button class="btn btn-sm" @click=${this._handleArchive}>Archive</button>
+                <button class="btn btn-sm" @click=${() => this.chat.handleArchive()}>Archive</button>
             </div>
 
             <div class="messages" aria-live="polite" aria-relevant="additions">
-                ${this._messages.map((msg, idx) => this._renderMessage(msg, idx))}
-                ${this._isProcessing() ? html`
+                ${this.chat.messages.map((msg, idx) => this._renderMessage(msg, idx))}
+                ${this.chat.isProcessing() ? html`
                     <div class="message system"><span class="spinner"></span> Processing...</div>
                 ` : nothing}
-                ${this._errorMessage ? html`
+                ${this.chat.errorMessage ? html`
                     <div class="message system" style="color:#c62828;">
-                        Error: ${this._errorMessage}
+                        Error: ${this.chat.errorMessage}
                         ${isResumable ? html`
-                            <button class="btn btn-sm" @click=${this._handleResume}
+                            <button class="btn btn-sm" @click=${() => this.chat.handleResume()}
                                 style="margin-left:8px;">Retry</button>
                         ` : nothing}
-                        <button class="btn btn-sm btn-icon" @click=${() => this._errorMessage = ''}
+                        <button class="btn btn-sm btn-icon" @click=${() => { this.chat.errorMessage = ''; this.requestUpdate(); }}
                             style="margin-left:4px;" title="Dismiss" aria-label="Dismiss error">&times;</button>
                     </div>
                 ` : nothing}
@@ -722,20 +472,20 @@ export class ChatApp extends LitElement {
 
             <div class="input-area">
                 <textarea
-                    .value=${this._inputValue}
+                    .value=${this.chat.inputValue}
                     @input=${this._handleInput}
                     @keydown=${this._handleKeydown}
                     placeholder="Type a message... (Enter to send, Shift+Enter for newline)"
                     aria-label="Type your message"
-                    ?disabled=${!this._available || this._isProcessing()}
+                    ?disabled=${!this.chat.available || this.chat.isProcessing()}
                     maxlength=${this.maxLength > 0 ? this.maxLength : nothing}
                     rows="1"
                 ></textarea>
                 <button class="btn btn-primary"
-                    @click=${this._handleSend}
+                    @click=${() => this.chat.handleSend()}
                     aria-label="Send message"
-                    ?disabled=${!this._hasInput || this._sending || this._isProcessing() || !this._available}>
-                    ${this._sending ? html`<span class="spinner"></span>` : 'Send'}
+                    ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isProcessing() || !this.chat.available}>
+                    ${this.chat.sending ? html`<span class="spinner"></span>` : 'Send'}
                 </button>
             </div>
         `;
@@ -747,23 +497,23 @@ export class ChatApp extends LitElement {
         if (role === 'assistant' && msg.tool_calls && !msg.content) return nothing;
 
         if (role === 'tool') {
-            const isExpanded = this._expandedTools.has(idx);
+            const isExpanded = this.chat.expandedTools.has(idx);
             return html`
                 <div class="message tool ${isExpanded ? 'expanded' : ''}"
                      role="button"
                      tabindex="0"
                      aria-label="Tool output, activate to expand"
                      aria-expanded="${isExpanded}"
-                     @click=${() => this._handleToolMessageClick(idx)}
-                     @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._handleToolMessageClick(idx); } }}>
-                    ${this._renderMessageContent(msg)}
+                     @click=${() => this.chat.handleToolMessageClick(idx)}
+                     @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.chat.handleToolMessageClick(idx); } }}>
+                    ${this.chat.renderMessageContent(msg)}
                 </div>
             `;
         }
 
         return html`
             <div class="message ${role}">
-                ${this._renderMessageContent(msg)}
+                ${this.chat.renderMessageContent(msg)}
             </div>
         `;
     }
