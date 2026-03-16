@@ -63,11 +63,11 @@ test.describe('AI Chat Panel', () => {
         const box = await panel.boundingBox();
         if (!box) { test.skip(); return; }
 
-        // Focus the resize handle and use keyboard to resize
+        // Focus the resize grip (bottom-right corner) and use keyboard to resize
         await page.evaluate(() => {
             const panel = document.querySelector('ai-chat-panel');
-            const handle = panel?.shadowRoot?.querySelector('.resize-handle');
-            if (handle instanceof HTMLElement) handle.focus();
+            const grip = panel?.shadowRoot?.querySelector('.resize-grip');
+            if (grip instanceof HTMLElement) grip.focus();
         });
         // Press ArrowUp 3 times to increase height by 150px
         await page.keyboard.press('ArrowUp');
@@ -81,7 +81,7 @@ test.describe('AI Chat Panel', () => {
         }
     });
 
-    test('resize panel by dragging downward snaps to collapsed', async ({ page }) => {
+    test('resize panel by dragging corner grip', async ({ page }) => {
         await page.locator('.ai-chat-toolbar-btn').click();
         await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'expanded', { timeout: 3000 });
 
@@ -89,18 +89,21 @@ test.describe('AI Chat Panel', () => {
         const box = await panel.boundingBox();
         if (!box) { test.skip(); return; }
 
-        const x = box.x + box.width / 2;
-        const y = box.y + 4;
-        const viewportH = page.viewportSize()?.height || 720;
+        // Drag the bottom-right corner to resize
+        const gripX = box.x + box.width - 8;
+        const gripY = box.y + box.height - 8;
 
-        // Drag down to near bottom
-        await page.mouse.move(x, y);
+        await page.mouse.move(gripX, gripY);
         await page.mouse.down();
-        await page.mouse.move(x, viewportH - 10, { steps: 10 });
+        await page.mouse.move(gripX + 100, gripY + 50, { steps: 10 });
         await page.mouse.up();
         await page.waitForTimeout(200);
 
-        await expect(panel).toHaveAttribute('state', 'collapsed', { timeout: 3000 });
+        const newBox = await panel.boundingBox();
+        if (newBox) {
+            // Panel should be wider after dragging right
+            expect(newBox.width).toBeGreaterThan(box.width + 50);
+        }
     });
 
     test('panel has ARIA complementary role', async ({ page }) => {
