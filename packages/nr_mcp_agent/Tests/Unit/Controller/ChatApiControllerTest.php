@@ -658,6 +658,76 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function listConversationsReturnsAllConversationFields(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 5,
+            'be_user' => 1,
+            'title' => 'Test Chat',
+            'status' => 'processing',
+            'messages' => json_encode([['role' => 'user', 'content' => 'Hi']]),
+            'message_count' => 1,
+            'pinned' => 1,
+            'error_message' => 'Some error',
+            'tstamp' => 1700000000,
+        ]);
+        $this->repository->method('findByBeUser')->willReturn([$conversation]);
+
+        $request = $this->createRequest('GET', '');
+        $response = $this->subject->listConversations($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        $item = $data['conversations'][0];
+
+        self::assertSame(5, $item['uid']);
+        self::assertSame('Test Chat', $item['title']);
+        self::assertSame('processing', $item['status']);
+        self::assertSame(1, $item['messageCount']);
+        self::assertTrue($item['pinned']);
+        self::assertTrue($item['resumable']);
+        self::assertSame('Some error', $item['errorMessage']);
+        self::assertSame(1700000000, $item['tstamp']);
+    }
+
+    #[Test]
+    public function resumeConversationDispatchesWithCorrectUid(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 77,
+            'be_user' => 1,
+            'status' => 'failed',
+        ]);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->processor->expects(self::once())
+            ->method('dispatch')
+            ->with(77);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 77}');
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(202, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function getStatusReturnsAvailableTrueWhenTaskConfiguredWithoutMcp(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getLlmTaskUid')->willReturn(5);
+        $config->method('isMcpEnabled')->willReturn(false);
+        $config->method('isMcpServerInstalled')->willReturn(false);
+        $subject = new ChatApiController($this->repository, $this->processor, $config);
+
+        $request = $this->createRequest('GET', '');
+        $response = $subject->getStatus($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertTrue($data['available']);
+        self::assertFalse($data['mcpEnabled']);
+        self::assertEmpty($data['issues']);
+    }
+
+    #[Test]
     public function sendMessageWithMaxLengthZeroAllowsAnyLength(): void
     {
         $config = $this->createMock(ExtensionConfiguration::class);

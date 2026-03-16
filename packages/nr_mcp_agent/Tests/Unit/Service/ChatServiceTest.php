@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use stdClass;
 
 class ChatServiceTest extends TestCase
@@ -287,6 +288,104 @@ class ChatServiceTest extends TestCase
 
         self::assertNotNull($capturedOptions);
         self::assertSame('My custom system prompt', $capturedOptions->getSystemPrompt());
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function processConversationDisconnectsMcpOnSuccess(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatWithTools')
+            ->willReturn($this->createCompletionResponse('Hi!'));
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->expects(self::once())->method('disconnect');
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service->processConversation($conversation);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function processConversationDisconnectsMcpOnError(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatWithTools')
+            ->willThrowException(new RuntimeException('LLM exploded'));
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->expects(self::once())->method('disconnect');
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertStringContainsString('LLM exploded', $conversation->getErrorMessage());
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function processConversationSetsStatusToProcessingAtStart(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 10,
+            'be_user' => 1,
+            'status' => 'processing',
+            'messages' => json_encode([['role' => 'user', 'content' => 'Hi']]),
+            'message_count' => 1,
+        ]);
+
+        $statusUpdates = [];
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatWithTools')
+            ->willReturn($this->createCompletionResponse('Hello!'));
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateStatus')->willReturnCallback(
+            function (int $uid, ConversationStatus $status) use (&$statusUpdates): void {
+                $statusUpdates[] = ['uid' => $uid, 'status' => $status];
+            },
+        );
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = new ChatService($llmManager, $repository, $config, $mcpProvider);
+        $service->processConversation($conversation);
+
+        self::assertNotEmpty($statusUpdates);
+        self::assertSame(10, $statusUpdates[0]['uid']);
+        self::assertSame(ConversationStatus::Processing, $statusUpdates[0]['status']);
 
         unset($GLOBALS['BE_USER']);
     }

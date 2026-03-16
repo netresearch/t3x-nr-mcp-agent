@@ -467,4 +467,108 @@ class ConversationTest extends TestCase
         $conversation->appendMessage(MessageRole::User, ['type' => 'text', 'text' => 'Hello']);
         self::assertSame('', $conversation->getTitle());
     }
+
+    #[Test]
+    public function setStatusUpdatesValue(): void
+    {
+        $conversation = new Conversation();
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+
+        $conversation->setStatus(ConversationStatus::Processing);
+        self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
+
+        $conversation->setStatus(ConversationStatus::Failed);
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+    }
+
+    #[Test]
+    public function setBeUserUpdatesValue(): void
+    {
+        $conversation = new Conversation();
+        self::assertSame(0, $conversation->getBeUser());
+
+        $conversation->setBeUser(42);
+        self::assertSame(42, $conversation->getBeUser());
+    }
+
+    #[Test]
+    public function setArchivedUpdatesValue(): void
+    {
+        $conversation = new Conversation();
+        self::assertFalse($conversation->isArchived());
+
+        $conversation->setArchived(true);
+        self::assertTrue($conversation->isArchived());
+
+        $conversation->setArchived(false);
+        self::assertFalse($conversation->isArchived());
+    }
+
+    #[Test]
+    public function setPinnedUpdatesValue(): void
+    {
+        $conversation = new Conversation();
+        self::assertFalse($conversation->isPinned());
+
+        $conversation->setPinned(true);
+        self::assertTrue($conversation->isPinned());
+
+        $conversation->setPinned(false);
+        self::assertFalse($conversation->isPinned());
+    }
+
+    #[Test]
+    public function setErrorMessageUpdatesValue(): void
+    {
+        $conversation = new Conversation();
+        self::assertSame('', $conversation->getErrorMessage());
+
+        $conversation->setErrorMessage('Something went wrong');
+        self::assertSame('Something went wrong', $conversation->getErrorMessage());
+
+        $conversation->setErrorMessage('');
+        self::assertSame('', $conversation->getErrorMessage());
+    }
+
+    #[Test]
+    public function setCurrentRequestIdUpdatesValue(): void
+    {
+        $conversation = new Conversation();
+        self::assertSame('', $conversation->getCurrentRequestId());
+
+        $conversation->setCurrentRequestId('req_xyz');
+        self::assertSame('req_xyz', $conversation->getCurrentRequestId());
+    }
+
+    #[Test]
+    public function appendMessageAutoGeneratesTitleFromFirstUserMessage(): void
+    {
+        $conversation = new Conversation();
+        self::assertSame('', $conversation->getTitle());
+
+        $conversation->appendMessage(MessageRole::User, 'Translate page 5 to English');
+        self::assertSame('Translate page 5 to English', $conversation->getTitle());
+    }
+
+    #[Test]
+    public function appendMessageDoesNotOverwriteExistingTitle(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'First question');
+        self::assertSame('First question', $conversation->getTitle());
+
+        $conversation->appendMessage(MessageRole::Assistant, 'Answer');
+        $conversation->appendMessage(MessageRole::User, 'Second question');
+        self::assertSame('First question', $conversation->getTitle());
+    }
+
+    #[Test]
+    public function fromRowWithUnknownStatusDefaultsToIdle(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'status' => 'completely_invalid_status',
+        ]);
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+    }
 }
