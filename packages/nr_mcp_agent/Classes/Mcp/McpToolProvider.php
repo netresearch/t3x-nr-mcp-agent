@@ -58,8 +58,12 @@ final class McpToolProvider implements McpToolProviderInterface
             $toolData = $tool;
             $name = is_string($toolData['name'] ?? null) ? $toolData['name'] : '';
             $description = is_string($toolData['description'] ?? null) ? $toolData['description'] : '';
-            /** @var array<string, mixed> $parameters */
-            $parameters = is_array($toolData['inputSchema'] ?? null) ? $toolData['inputSchema'] : ['type' => 'object'];
+            /** @var array<string, mixed> $inputSchema */
+            $inputSchema = is_array($toolData['inputSchema'] ?? null) ? $toolData['inputSchema'] : [];
+            // OpenAI requires parameters to be a JSON Schema object with type "object"
+            // and "properties" as an object (not an empty array).
+            // MCP tools may return [], omit inputSchema, or have properties: [].
+            $parameters = $this->normalizeToolSchema($inputSchema);
             $tools[] = [
                 'type' => 'function',
                 'function' => [
@@ -104,6 +108,29 @@ final class McpToolProvider implements McpToolProviderInterface
         }
 
         return implode("\n", $texts) ?: (json_encode($result) ?: '{}');
+    }
+
+    /**
+     * Normalize an MCP inputSchema to a valid OpenAI function parameters schema.
+     *
+     * @param array<string, mixed> $schema
+     * @return array<string, mixed>
+     */
+    private function normalizeToolSchema(array $schema): array
+    {
+        // Empty or missing schema → parameterless tool
+        if ($schema === [] || !isset($schema['type'])) {
+            return ['type' => 'object', 'properties' => new \stdClass()];
+        }
+
+        // Ensure properties is always an object, not an empty array.
+        // json_decode("[]", true) and json_decode("{}", true) both produce [],
+        // but OpenAI requires properties to be a JSON object.
+        if (isset($schema['properties']) && is_array($schema['properties']) && $schema['properties'] === []) {
+            $schema['properties'] = new \stdClass();
+        }
+
+        return $schema;
     }
 
     public function disconnect(): void

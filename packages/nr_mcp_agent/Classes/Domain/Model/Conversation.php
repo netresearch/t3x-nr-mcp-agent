@@ -122,6 +122,20 @@ final class Conversation
         }
         /** @var list<array<string, mixed>> $decoded */
         $decoded = json_decode($this->messages, true, 512, JSON_THROW_ON_ERROR);
+
+        // Normalize tool_calls: OpenAI requires arguments as JSON string, not object.
+        // json_decode turns the stored string into an array — re-encode it.
+        foreach ($decoded as &$msg) {
+            if (!isset($msg['tool_calls']) || !is_array($msg['tool_calls'])) {
+                continue;
+            }
+            foreach ($msg['tool_calls'] as &$call) {
+                if (isset($call['function']['arguments']) && is_array($call['function']['arguments'])) {
+                    $call['function']['arguments'] = json_encode($call['function']['arguments'], JSON_THROW_ON_ERROR);
+                }
+            }
+        }
+
         return $decoded;
     }
 

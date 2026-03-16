@@ -115,7 +115,11 @@ final class McpConnection
             $this->stdout = null;
         }
         if ($this->process !== null) {
-            proc_close($this->process);
+            $status = proc_get_status($this->process);
+            if (is_array($status) && ($status['running'] ?? false)) {
+                proc_terminate($this->process);
+            }
+            @proc_close($this->process);
             $this->process = null;
         }
         $this->initialized = false;

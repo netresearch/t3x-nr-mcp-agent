@@ -1,4 +1,7 @@
 CREATE TABLE tx_nrmcpagent_conversation (
+    uid int(11) unsigned NOT NULL AUTO_INCREMENT,
+    pid int(11) unsigned DEFAULT 0 NOT NULL,
+    deleted smallint(5) unsigned DEFAULT 0 NOT NULL,
     be_user int(11) unsigned DEFAULT 0 NOT NULL,
     title varchar(255) DEFAULT '' NOT NULL,
     messages mediumtext,

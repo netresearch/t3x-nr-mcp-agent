@@ -10,16 +10,55 @@ final readonly class ExecChatProcessor implements ChatProcessorInterface
 {
     public function dispatch(int $conversationUid): void
     {
-        $typo3Bin = Environment::getProjectPath() . '/vendor/bin/typo3';
+        $projectPath = Environment::getProjectPath();
+        $typo3Bin = $projectPath . '/vendor/bin/typo3';
+        $logFile = $projectPath . '/var/log/ai-chat-process.log';
+
+        // PHP_BINARY may be php-fpm in web context — resolve CLI binary instead.
+        $phpBin = $this->resolvePhpCliBinary();
+
         $cmd = sprintf(
-            '%s %s ai-chat:process %d > /dev/null 2>&1 &',
-            escapeshellarg(PHP_BINARY),
+            '%s %s ai-chat:process %d >> %s 2>&1 &',
+            escapeshellarg($phpBin),
             escapeshellarg($typo3Bin),
             $conversationUid,
+            escapeshellarg($logFile),
         );
 
-        // Fire-and-forget: exec() with & does not block the HTTP request
-        // and avoids proc_open resource handle leaks.
         exec($cmd);
+    }
+
+    /**
+     * Resolve the PHP CLI binary path.
+     *
+     * PHP_BINARY points to php-fpm when running in web context,
+     * which cannot execute CLI scripts. Fall back to common CLI paths.
+     */
+    private function resolvePhpCliBinary(): string
+    {
+        $binary = PHP_BINARY;
+
+        // Already a CLI binary
+        if (!str_contains($binary, 'fpm')) {
+            return $binary;
+        }
+
+        // Try php CLI binary in same directory (e.g. /usr/bin/php8.4 alongside /usr/sbin/php-fpm8.4)
+        $version = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+        $candidates = [
+            '/usr/bin/php' . $version,
+            '/usr/bin/php',
+            '/usr/local/bin/php' . $version,
+            '/usr/local/bin/php',
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_executable($candidate)) {
+                return $candidate;
+            }
+        }
+
+        // Last resort — hope "php" is in PATH
+        return 'php';
     }
 }

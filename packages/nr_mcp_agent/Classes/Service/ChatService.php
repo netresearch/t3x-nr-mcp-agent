@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
-use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -14,7 +16,11 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
+use RuntimeException;
 use Throwable;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 final readonly class ChatService
 {
@@ -23,10 +29,12 @@ final readonly class ChatService
     private const LLM_RETRY_DELAY_SECONDS = 3;
 
     public function __construct(
-        private LlmServiceManagerInterface $llmManager,
         private ConversationRepository $repository,
         private ExtensionConfiguration $config,
         private McpToolProviderInterface $mcpToolProvider,
+        private ConnectionPool $connectionPool,
+        private ProviderAdapterRegistry $adapterRegistry,
+        private DataMapper $dataMapper,
     ) {}
 
     public function processConversation(Conversation $conversation): void
@@ -38,16 +46,29 @@ final readonly class ChatService
             return;
         }
 
+        $mcpEnabled = $this->config->isMcpEnabled() && $this->config->isMcpServerInstalled();
+
         try {
-            $this->mcpToolProvider->connect();
-            $tools = $this->mcpToolProvider->getToolDefinitions();
-            $this->runAgentLoop($conversation, $tools);
+            if ($mcpEnabled) {
+                $this->mcpToolProvider->connect();
+                $tools = $this->mcpToolProvider->getToolDefinitions();
+            } else {
+                $tools = [];
+            }
+
+            if ($tools !== []) {
+                $this->runAgentLoop($conversation, $tools);
+            } else {
+                $this->runSimpleChat($conversation);
+            }
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
             $this->persist($conversation);
         } finally {
-            $this->mcpToolProvider->disconnect();
+            if ($mcpEnabled) {
+                $this->mcpToolProvider->disconnect();
+            }
         }
     }
 
@@ -96,6 +117,31 @@ final readonly class ChatService
     }
 
     /**
+     * Simple chat without tools — fast path for when MCP is disabled.
+     */
+    private function runSimpleChat(Conversation $conversation): void
+    {
+        $conversation->setStatus(ConversationStatus::Processing);
+        $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Processing, $conversation->getBeUser());
+
+        $provider = $this->resolveProvider();
+        $systemPrompt = $this->buildSystemPrompt($conversation);
+        $messages = $conversation->getDecodedMessages();
+
+        if ($systemPrompt !== '') {
+            array_unshift($messages, ['role' => 'system', 'content' => $systemPrompt]);
+        }
+
+        $response = $this->callChatWithRetry($provider, $messages);
+
+        $conversation->appendMessage(MessageRole::Assistant, $response->content);
+        $conversation->setStatus(ConversationStatus::Idle);
+        $this->persist($conversation);
+    }
+
+    /**
+     * Agent loop with MCP tools — used when tools are available.
+     *
      * @param list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
      */
     private function runAgentLoop(
@@ -105,19 +151,26 @@ final readonly class ChatService
         $conversation->setStatus(ConversationStatus::Processing);
         $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Processing, $conversation->getBeUser());
 
-        $options = $this->buildToolOptions($conversation);
+        $provider = $this->resolveProvider();
+        if (!$provider instanceof ToolCapableInterface) {
+            throw new RuntimeException(sprintf(
+                'Provider "%s" does not support tool calling',
+                $provider->getIdentifier(),
+            ));
+        }
+
+        $systemPrompt = $this->buildSystemPrompt($conversation);
+        $optionsArray = array_filter([
+            'system_prompt' => $systemPrompt,
+            'tool_choice' => 'auto',
+        ]);
 
         for ($i = 0; $i < self::MAX_TOOL_ITERATIONS; $i++) {
             $messages = $conversation->getDecodedMessages();
 
-            $response = $this->callLlmWithRetry(
-                $messages,
-                $tools,
-                $options,
-            );
+            $response = $this->callToolChatWithRetry($provider, $messages, $tools, $optionsArray);
 
             if ($response->hasToolCalls()) {
-                // Reuse $messages from above — no second decode needed
                 /** @var array<mixed> $toolCalls */
                 $toolCalls = $response->toolCalls ?? [];
                 $messages[] = [
@@ -155,35 +208,93 @@ final readonly class ChatService
 
     /**
      * @param list<array<string, mixed>> $messages
-     * @param list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
      */
-    private function callLlmWithRetry(
+    private function callChatWithRetry(
+        ProviderInterface $provider,
         array $messages,
-        array $tools,
-        ToolOptions $options,
     ): CompletionResponse {
         $lastException = null;
         for ($attempt = 0; $attempt <= self::MAX_LLM_RETRIES; $attempt++) {
             try {
-                return $this->llmManager->chatWithTools(
-                    $messages, // @phpstan-ignore argument.type (message format will be aligned)
-                    $tools,
-                    $options,
-                );
+                return $provider->chatCompletion($messages, []);
             } catch (Throwable $e) {
                 $lastException = $e;
-                $isTransient = str_contains($e->getMessage(), '429')
-                    || str_contains($e->getMessage(), '503')
-                    || str_contains($e->getMessage(), 'rate')
-                    || str_contains($e->getMessage(), 'overloaded');
-                if (!$isTransient || $attempt >= self::MAX_LLM_RETRIES) {
+                if (!$this->isTransientError($e) || $attempt >= self::MAX_LLM_RETRIES) {
                     throw $e;
                 }
                 sleep(self::LLM_RETRY_DELAY_SECONDS * ($attempt + 1));
             }
         }
-        // Unreachable: the loop always either returns or throws before exiting
         throw $lastException;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $messages
+     * @param list<array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
+     * @param array<string, mixed> $options
+     */
+    private function callToolChatWithRetry(
+        ToolCapableInterface $provider,
+        array $messages,
+        array $tools,
+        array $options,
+    ): CompletionResponse {
+        $lastException = null;
+        for ($attempt = 0; $attempt <= self::MAX_LLM_RETRIES; $attempt++) {
+            try {
+                return $provider->chatCompletionWithTools($messages, $tools, $options);
+            } catch (Throwable $e) {
+                $lastException = $e;
+                if (!$this->isTransientError($e) || $attempt >= self::MAX_LLM_RETRIES) {
+                    throw $e;
+                }
+                sleep(self::LLM_RETRY_DELAY_SECONDS * ($attempt + 1));
+            }
+        }
+        throw $lastException;
+    }
+
+    private function isTransientError(Throwable $e): bool
+    {
+        return str_contains($e->getMessage(), '429')
+            || str_contains($e->getMessage(), '503')
+            || str_contains($e->getMessage(), 'rate')
+            || str_contains($e->getMessage(), 'overloaded');
+    }
+
+    /**
+     * Resolve a fully configured provider adapter from the task chain.
+     *
+     * Follows: Task → Configuration → Model → Provider (DB entities),
+     * then uses ProviderAdapterRegistry to create a configured adapter instance.
+     */
+    private function resolveProvider(): ProviderInterface
+    {
+        $taskUid = $this->config->getLlmTaskUid();
+
+        $qb = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_model');
+        $row = $qb
+            ->select('m.*')
+            ->from('tx_nrllm_task', 't')
+            ->join('t', 'tx_nrllm_configuration', 'c', $qb->expr()->eq('c.uid', $qb->quoteIdentifier('t.configuration_uid')))
+            ->join('c', 'tx_nrllm_model', 'm', $qb->expr()->eq('m.uid', $qb->quoteIdentifier('c.model_uid')))
+            ->where($qb->expr()->eq('t.uid', $qb->createNamedParameter($taskUid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAssociative();
+
+        if ($row === false) {
+            throw new RuntimeException(sprintf('Could not resolve LLM model for task uid %d', $taskUid));
+        }
+
+        /** @var list<LlmModel> $models */
+        $models = $this->dataMapper->map(LlmModel::class, [$row]);
+        $model = $models[0] ?? null;
+
+        if ($model === null) {
+            throw new RuntimeException(sprintf('Could not map LLM model for task uid %d', $taskUid));
+        }
+
+        return $this->adapterRegistry->createAdapterFromModel($model);
     }
 
     /**
@@ -219,14 +330,6 @@ final readonly class ChatService
             ];
         }
         return $results;
-    }
-
-    private function buildToolOptions(Conversation $conversation): ToolOptions
-    {
-        return new ToolOptions(
-            systemPrompt: $this->buildSystemPrompt($conversation),
-            toolChoice: 'auto',
-        );
     }
 
     private function buildSystemPrompt(Conversation $conversation): string
