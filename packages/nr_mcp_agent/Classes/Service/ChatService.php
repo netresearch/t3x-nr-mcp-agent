@@ -42,6 +42,8 @@ final class ChatService
 
     public function processConversation(Conversation $conversation): void
     {
+        $this->resolvedPrompts = null;
+
         if ($this->config->getLlmTaskUid() === 0) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage('No nr-llm Task configured. Set llmTaskUid in Extension Configuration.');
@@ -77,6 +79,8 @@ final class ChatService
 
     public function resumeConversation(Conversation $conversation): void
     {
+        $this->resolvedPrompts = null;
+
         if (!$conversation->isResumable()) {
             return;
         }
@@ -366,14 +370,18 @@ final class ChatService
         }
 
         // 2. Build from nr-llm Task prompt_template + Configuration system_prompt
+        if ($this->resolvedPrompts === null) {
+            throw new \LogicException('resolveProvider() must be called before buildSystemPrompt()');
+        }
+
         $parts = [];
 
-        $configPrompt = $this->resolvedPrompts['system_prompt'] ?? '';
+        $configPrompt = $this->resolvedPrompts['system_prompt'];
         if ($configPrompt !== '') {
             $parts[] = $configPrompt;
         }
 
-        $taskPrompt = $this->resolvedPrompts['prompt_template'] ?? '';
+        $taskPrompt = $this->resolvedPrompts['prompt_template'];
         if ($taskPrompt !== '') {
             $parts[] = $taskPrompt;
         }

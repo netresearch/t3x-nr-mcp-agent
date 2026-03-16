@@ -41,10 +41,8 @@ class ChatServiceTest extends TestCase
     /**
      * Create mock chain for resolveProvider() — returns [ConnectionPool, ProviderAdapterRegistry, DataMapper].
      *
-     * @return array{ConnectionPool, ProviderAdapterRegistry, DataMapper}
-     */
-    /**
      * @param array{system_prompt?: string, prompt_template?: string} $prompts
+     * @return array{ConnectionPool, ProviderAdapterRegistry, DataMapper}
      */
     private function createProviderResolutionMocks(ProviderInterface $provider, array $prompts = []): array
     {
@@ -55,8 +53,8 @@ class ChatServiceTest extends TestCase
         $result->method('fetchAssociative')->willReturn([
             'uid' => 1,
             'name' => 'test-model',
-            '_config_system_prompt' => $prompts['system_prompt'] ?? '',
-            '_task_prompt_template' => $prompts['prompt_template'] ?? '',
+            '_config_system_prompt' => array_key_exists('system_prompt', $prompts) ? $prompts['system_prompt'] : '',
+            '_task_prompt_template' => array_key_exists('prompt_template', $prompts) ? $prompts['prompt_template'] : '',
         ]);
 
         $qb = $this->createMock(QueryBuilder::class);
@@ -536,5 +534,198 @@ class ChatServiceTest extends TestCase
         self::assertSame('system', $capturedMessages[0]['role']);
         self::assertStringContainsString('English', $capturedMessages[0]['content']);
         self::assertStringContainsString('TYPO3 assistant', $capturedMessages[0]['content']);
+    }
+
+    #[Test]
+    public function processConversationFailsWhenProviderModelNotFound(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        // Mock fetchAssociative to return false (no DB row)
+        $exprBuilder = $this->createMock(ExpressionBuilder::class);
+        $exprBuilder->method('eq')->willReturn('1 = 1');
+
+        $result = $this->createMock(Result::class);
+        $result->method('fetchAssociative')->willReturn(false);
+
+        $qb = $this->createMock(QueryBuilder::class);
+        $qb->method('select')->willReturnSelf();
+        $qb->method('from')->willReturnSelf();
+        $qb->method('join')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($exprBuilder);
+        $qb->method('quoteIdentifier')->willReturnArgument(0);
+        $qb->method('createNamedParameter')->willReturn('1');
+        $qb->method('executeQuery')->willReturn($result);
+
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(999);
+        $config->method('isMcpEnabled')->willReturn(false);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $dataMapper = $this->createMock(DataMapper::class);
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $connectionPool, $adapterRegistry, $dataMapper);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertStringContainsString('Could not resolve LLM model', $conversation->getErrorMessage());
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function processConversationFailsWhenDataMapperReturnsEmpty(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $exprBuilder = $this->createMock(ExpressionBuilder::class);
+        $exprBuilder->method('eq')->willReturn('1 = 1');
+
+        $result = $this->createMock(Result::class);
+        $result->method('fetchAssociative')->willReturn([
+            'uid' => 1, 'name' => 'test',
+            '_config_system_prompt' => '', '_task_prompt_template' => '',
+        ]);
+
+        $qb = $this->createMock(QueryBuilder::class);
+        $qb->method('select')->willReturnSelf();
+        $qb->method('from')->willReturnSelf();
+        $qb->method('join')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($exprBuilder);
+        $qb->method('quoteIdentifier')->willReturnArgument(0);
+        $qb->method('createNamedParameter')->willReturn('1');
+        $qb->method('executeQuery')->willReturn($result);
+
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+
+        $dataMapper = $this->createMock(DataMapper::class);
+        $dataMapper->method('map')->willReturn([]);  // Empty — model mapping failed
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $connectionPool, $adapterRegistry, $dataMapper);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertStringContainsString('Could not map LLM model', $conversation->getErrorMessage());
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function systemPromptUsesTaskPromptOnlyWhenConfigEmpty(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, prompts: [
+            'system_prompt' => '',
+            'prompt_template' => 'Use the data parameter for record fields.',
+        ]);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        self::assertSame('Use the data parameter for record fields.', $capturedMessages[0]['content']);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function systemPromptFallsBackToLocaleWhenBothPromptsEmpty(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'de'];
+
+        $service = $this->createChatService($provider, prompts: [
+            'system_prompt' => '',
+            'prompt_template' => '',
+        ]);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        self::assertStringContainsString('TYPO3-Assistent', $capturedMessages[0]['content']);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function resolveProviderHandlesNullPromptFieldsFromDatabase(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        // Simulate null values from DB (no system_prompt configured)
+        $service = $this->createChatService($provider, prompts: [
+            'system_prompt' => null,
+            'prompt_template' => null,
+        ]);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        // Should fall back to locale default
+        self::assertStringContainsString('TYPO3 assistant', $capturedMessages[0]['content']);
+
+        unset($GLOBALS['BE_USER']);
     }
 }

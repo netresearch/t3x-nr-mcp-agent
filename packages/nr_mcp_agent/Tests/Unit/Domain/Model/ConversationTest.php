@@ -571,4 +571,77 @@ class ConversationTest extends TestCase
         ]);
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
     }
+
+    #[Test]
+    public function getDecodedMessagesReEncodesToolCallArgumentsAsJsonString(): void
+    {
+        // After json_decode, arguments become arrays — getDecodedMessages must re-encode them
+        $messages = [
+            ['role' => 'user', 'content' => 'Do something'],
+            [
+                'role' => 'assistant',
+                'content' => '',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_1',
+                        'type' => 'function',
+                        'function' => [
+                            'name' => 'WriteTable',
+                            'arguments' => ['action' => 'create', 'table' => 'pages'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'be_user' => 1,
+            'status' => 'idle',
+            'messages' => json_encode($messages),
+            'message_count' => 2,
+        ]);
+
+        $decoded = $conversation->getDecodedMessages();
+        $arguments = $decoded[1]['tool_calls'][0]['function']['arguments'];
+
+        // Must be a JSON string, not an array
+        self::assertIsString($arguments);
+        self::assertSame('{"action":"create","table":"pages"}', $arguments);
+    }
+
+    #[Test]
+    public function getDecodedMessagesPreservesStringArguments(): void
+    {
+        $messages = [
+            [
+                'role' => 'assistant',
+                'content' => '',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_1',
+                        'type' => 'function',
+                        'function' => [
+                            'name' => 'test',
+                            'arguments' => '{"key":"value"}',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'be_user' => 1,
+            'status' => 'idle',
+            'messages' => json_encode($messages),
+            'message_count' => 1,
+        ]);
+
+        $decoded = $conversation->getDecodedMessages();
+        // String arguments should stay as-is (but json_decode already turned them into arrays...)
+        // After json_decode + json_encode roundtrip, they should be valid JSON strings
+        $arguments = $decoded[0]['tool_calls'][0]['function']['arguments'];
+        self::assertIsString($arguments);
+    }
 }

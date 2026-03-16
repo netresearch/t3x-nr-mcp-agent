@@ -431,4 +431,54 @@ class ChatServiceToolLoopTest extends TestCase
         self::assertStringContainsString('[REDACTED]', $conversation->getErrorMessage());
         self::assertStringContainsString('[URL]', $conversation->getErrorMessage());
     }
+
+    #[Test]
+    public function agentLoopFailsWhenProviderNotToolCapable(): void
+    {
+        $this->setUpBeUser();
+
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        // Plain ProviderInterface — does NOT implement ToolCapableInterface
+        $provider = $this->createMock(ProviderInterface::class);
+
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
+
+        $config = $this->createMcpEnabledConfig();
+        $repository = $this->createMock(ConversationRepository::class);
+
+        // Build mocks manually since createService expects ToolCapableProviderStub
+        $exprBuilder = $this->createMock(ExpressionBuilder::class);
+        $exprBuilder->method('eq')->willReturn('1 = 1');
+        $result = $this->createMock(\Doctrine\DBAL\Result::class);
+        $result->method('fetchAssociative')->willReturn([
+            'uid' => 1, 'name' => 'test',
+            '_config_system_prompt' => '', '_task_prompt_template' => '',
+        ]);
+        $qb = $this->createMock(QueryBuilder::class);
+        $qb->method('select')->willReturnSelf();
+        $qb->method('from')->willReturnSelf();
+        $qb->method('join')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($exprBuilder);
+        $qb->method('quoteIdentifier')->willReturnArgument(0);
+        $qb->method('createNamedParameter')->willReturn('1');
+        $qb->method('executeQuery')->willReturn($result);
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
+        $model = $this->createMock(LlmModel::class);
+        $dataMapper = $this->createMock(DataMapper::class);
+        $dataMapper->method('map')->willReturn([$model]);
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
+
+        $service = new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertStringContainsString('does not support tool calling', $conversation->getErrorMessage());
+    }
 }
