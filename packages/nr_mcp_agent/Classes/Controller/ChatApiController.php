@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Controller;
 
+use Exception;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -14,6 +15,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Resource\Folder;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -180,6 +182,27 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
         }
 
+        $fileUid = isset($body['fileUid']) ? (int) $body['fileUid'] : null;
+        $fileName = null;
+        $fileMimeType = null;
+
+        if ($fileUid !== null) {
+            $existingFileCount = $this->countFilesInConversation($conversation);
+            if ($existingFileCount >= 5) {
+                return new JsonResponse(['error' => 'Maximum 5 files per conversation reached'], 400);
+            }
+
+            try {
+                /** @var ResourceFactory $resourceFactory */
+                $resourceFactory = GeneralUtility::makeInstance(ResourceFactory::class);
+                $file = $resourceFactory->getFileObject($fileUid);
+                $fileName = $file->getName();
+                $fileMimeType = $file->getMimeType();
+            } catch (Exception) {
+                return new JsonResponse(['error' => 'File not found'], 404);
+            }
+        }
+
         $currentStatus = $conversation->getStatus();
         if ($currentStatus === ConversationStatus::Processing
             || $currentStatus === ConversationStatus::Locked
@@ -196,7 +219,23 @@ final readonly class ChatApiController
             }
         }
 
-        $conversation->appendMessage(MessageRole::User, $content);
+        if ($fileUid !== null) {
+            $messages = $conversation->getDecodedMessages();
+            $messages[] = [
+                'role' => MessageRole::User->value,
+                'content' => $content,
+                'fileUid' => $fileUid,
+                'fileName' => $fileName,
+                'fileMimeType' => $fileMimeType,
+            ];
+            $conversation->setMessages($messages);
+            if ($conversation->getTitle() === '') {
+                $conversation->setTitle($content);
+            }
+        } else {
+            $conversation->appendMessage(MessageRole::User, $content);
+        }
+
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->setErrorMessage('');
 
@@ -397,6 +436,12 @@ final readonly class ChatApiController
     private function getBeUserUid(): int
     {
         return (int) ($this->getBackendUser()['uid'] ?? 0);
+    }
+
+    private function countFilesInConversation(Conversation $conversation): int
+    {
+        $messages = $conversation->getDecodedMessages();
+        return count(array_filter($messages, static fn(array $msg): bool => isset($msg['fileUid'])));
     }
 
     private function getOrCreateUploadFolder(ResourceStorage $storage, int $beUserUid): Folder

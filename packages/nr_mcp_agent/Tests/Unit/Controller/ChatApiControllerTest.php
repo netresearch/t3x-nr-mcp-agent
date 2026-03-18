@@ -16,7 +16,11 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UploadedFileInterface;
+use RuntimeException;
 use stdClass;
+use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class ChatApiControllerTest extends TestCase
 {
@@ -44,6 +48,7 @@ class ChatApiControllerTest extends TestCase
     protected function tearDown(): void
     {
         unset($GLOBALS['BE_USER']);
+        GeneralUtility::purgeInstances();
         parent::tearDown();
     }
 
@@ -781,6 +786,68 @@ class ChatApiControllerTest extends TestCase
         $response = $subject->sendMessage($request);
 
         self::assertSame(202, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function sendMessageWithFileUidStoresFileMetadata(): void
+    {
+        $conversation = new Conversation();
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('countActiveByBeUser')->willReturn(0);
+
+        $mockFile = $this->createMock(File::class);
+        $mockFile->method('getName')->willReturn('photo.png');
+        $mockFile->method('getMimeType')->willReturn('image/png');
+        $mockFactory = $this->createMock(ResourceFactory::class);
+        $mockFactory->method('getFileObject')->with(42)->willReturn($mockFile);
+        GeneralUtility::setSingletonInstance(ResourceFactory::class, $mockFactory);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Look at this", "fileUid": 42}');
+        $response = $this->subject->sendMessage($request);
+
+        self::assertSame(202, $response->getStatusCode());
+        $messages = $conversation->getDecodedMessages();
+        self::assertCount(1, $messages);
+        self::assertSame(42, $messages[0]['fileUid']);
+        self::assertSame('photo.png', $messages[0]['fileName']);
+        self::assertSame('image/png', $messages[0]['fileMimeType']);
+    }
+
+    #[Test]
+    public function sendMessageRejectsWhenFileLimitExceeded(): void
+    {
+        $conversation = new Conversation();
+        $messages = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $messages[] = ['role' => 'user', 'content' => "Message $i", 'fileUid' => $i];
+        }
+        $conversation->setMessages($messages);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('countActiveByBeUser')->willReturn(0);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello", "fileUid": 6}');
+        $response = $this->subject->sendMessage($request);
+
+        self::assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertStringContainsString('5 files', $data['error']);
+    }
+
+    #[Test]
+    public function sendMessageReturns404ForMissingFile(): void
+    {
+        $conversation = new Conversation();
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('countActiveByBeUser')->willReturn(0);
+
+        $mockFactory = $this->createMock(ResourceFactory::class);
+        $mockFactory->method('getFileObject')->willThrowException(new RuntimeException('File not found'));
+        GeneralUtility::setSingletonInstance(ResourceFactory::class, $mockFactory);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello", "fileUid": 999}');
+        $response = $this->subject->sendMessage($request);
+
+        self::assertSame(404, $response->getStatusCode());
     }
 
     #[Test]
