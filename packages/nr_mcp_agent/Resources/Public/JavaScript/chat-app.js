@@ -174,6 +174,36 @@ export class ChatApp extends LitElement {
             font-style: italic;
         }
 
+        /* Attachment menu and file badge */
+        .attachment-menu { position: relative; display: flex; align-items: center; }
+        .attachment-dropdown {
+            position: absolute; bottom: 100%; left: 0; margin-bottom: 4px;
+            background: var(--typo3-surface-container-lowest, #fff);
+            border: 1px solid var(--typo3-list-border-color, #ccc);
+            border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            padding: 4px; min-width: 180px; z-index: 10;
+        }
+        .attachment-dropdown button {
+            display: block; width: 100%; text-align: left;
+            padding: 8px 12px; border: none; background: none;
+            cursor: pointer; font-size: 13px; border-radius: 4px;
+        }
+        .attachment-dropdown button:hover { background: var(--typo3-state-hover, rgba(0,0,0,0.04)); }
+        .file-badge {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 8px; margin: 4px 12px 0;
+            background: var(--typo3-surface-container-low, #f5f5f5);
+            border: 1px solid var(--typo3-list-border-color, #ccc);
+            border-radius: 6px; font-size: 12px;
+        }
+        .file-badge .file-badge-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-badge .remove { cursor: pointer; opacity: 0.5; font-size: 16px; line-height: 1; }
+        .file-badge .remove:hover { opacity: 1; }
+        .message-file-badge {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 11px; margin-bottom: 3px; opacity: 0.85;
+        }
+
         /* Input area */
         .input-area {
             display: flex;
@@ -292,6 +322,7 @@ export class ChatApp extends LitElement {
         super();
         this.maxLength = 0;
         this._sidebarCollapsed = false;
+        this._attachMenuOpen = false;
         this.chat = new ChatCoreController(this);
     }
 
@@ -473,7 +504,9 @@ export class ChatApp extends LitElement {
                 ` : nothing}
             </div>
 
+            ${this._renderFileBadge()}
             <div class="input-area">
+                ${this._renderAttachmentMenu()}
                 <textarea
                     .value=${this.chat.inputValue}
                     @input=${this._handleInput}
@@ -494,6 +527,64 @@ export class ChatApp extends LitElement {
         `;
     }
 
+    _renderFileBadge() {
+        if (!this.chat.pendingFile) return nothing;
+        const icon = this.chat.pendingFile.mimeType?.startsWith('image/') ? '\u{1F5BC}\uFE0F' : '\u{1F4C4}';
+        return html`
+            <div class="file-badge">
+                <span>${icon}</span>
+                <span class="file-badge-name">${this.chat.pendingFile.name}</span>
+                <span class="remove"
+                      role="button"
+                      tabindex="0"
+                      title="${lll('attachment.remove')}"
+                      @click=${() => this.chat.clearPendingFile()}
+                      @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') this.chat.clearPendingFile(); }}
+                >&times;</span>
+            </div>
+        `;
+    }
+
+    _renderAttachmentMenu() {
+        if (!this.chat.visionSupported) {
+            return html`
+                <button class="btn btn-icon" disabled title="${lll('attachment.notSupported')}"
+                        aria-label="${lll('attachment.notSupported')}">+</button>
+            `;
+        }
+        const canAttach = this.chat.canAttachFile();
+        return html`
+            <div class="attachment-menu">
+                <button class="btn btn-icon"
+                        ?disabled=${!canAttach}
+                        title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
+                        aria-label="${lll('attachment.upload')}"
+                        @click=${() => { this._attachMenuOpen = !this._attachMenuOpen; this.requestUpdate(); }}>+</button>
+                ${this._attachMenuOpen ? html`
+                    <div class="attachment-dropdown">
+                        <button @click=${this._handleUploadClick}>\u{1F4CE} ${lll('attachment.upload')}</button>
+                    </div>
+                ` : nothing}
+            </div>
+            <input type="file"
+                   accept=".pdf,.png,.jpg,.jpeg,.webp"
+                   style="display:none"
+                   @change=${this._handleFileSelected}>
+        `;
+    }
+
+    _handleUploadClick() {
+        this._attachMenuOpen = false;
+        this.renderRoot.querySelector('input[type="file"]')?.click();
+    }
+
+    async _handleFileSelected(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = '';
+        await this.chat.handleFileUpload(file);
+    }
+
     _renderMessage(msg, idx) {
         const role = msg.role || 'system';
         // Skip tool-call assistant messages (just show the tool results)
@@ -509,6 +600,16 @@ export class ChatApp extends LitElement {
                      aria-expanded="${isExpanded}"
                      @click=${() => this.chat.handleToolMessageClick(idx)}
                      @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.chat.handleToolMessageClick(idx); } }}>
+                    ${this.chat.renderMessageContent(msg)}
+                </div>
+            `;
+        }
+
+        if (role === 'user' && msg.fileUid) {
+            const icon = msg.fileMimeType?.startsWith('image/') ? '\u{1F5BC}\uFE0F' : '\u{1F4C4}';
+            return html`
+                <div class="message user">
+                    <div class="message-file-badge">${icon} ${msg.fileName || 'File'}</div>
                     ${this.chat.renderMessageContent(msg)}
                 </div>
             `;
