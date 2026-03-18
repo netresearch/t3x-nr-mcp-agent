@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "942c9559de3da185614a8a39543aae81",
+    "content-hash": "3c32c2db5b61990a7c1fecc68f8de489",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1204,16 +1204,16 @@
         },
         {
             "name": "netresearch/nr-llm",
-            "version": "v0.5.0",
+            "version": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/netresearch/t3x-nr-llm.git",
-                "reference": "dbabb4b5f490627fdcc8e13ddf09529b071174e5"
+                "reference": "047a55362e657d2382440326c75890cc19edc30c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/netresearch/t3x-nr-llm/zipball/dbabb4b5f490627fdcc8e13ddf09529b071174e5",
-                "reference": "dbabb4b5f490627fdcc8e13ddf09529b071174e5",
+                "url": "https://api.github.com/repos/netresearch/t3x-nr-llm/zipball/047a55362e657d2382440326c75890cc19edc30c",
+                "reference": "047a55362e657d2382440326c75890cc19edc30c",
                 "shasum": ""
             },
             "require": {
@@ -1225,26 +1225,21 @@
                 "typo3/cms-core": "^13.4 || ^14.0"
             },
             "require-dev": {
-                "a9f/typo3-fractor": "^0.5.8",
-                "enlightn/security-checker": "^2.0",
                 "ergebnis/composer-normalize": "^2.0",
                 "fakerphp/faker": "^1.24",
-                "friendsofphp/php-cs-fixer": "^3.0",
                 "giorgiosironi/eris": "^1.0",
-                "infection/infection": "^0.32",
-                "phpat/phpat": "^0.12",
-                "phpro/grumphp": "^2.0",
-                "phpstan/phpstan": "^2.1.37",
-                "rector/rector": "^2.3.1",
-                "ssch/typo3-rector": "^3.0",
-                "typo3/cms-install": "^13.4 || ^14.0",
-                "typo3/testing-framework": "^9.0"
+                "netresearch/typo3-ci-workflows": "^1.2",
+                "typo3/cms-install": "^13.4 || ^14.0"
             },
+            "default-branch": true,
             "type": "typo3-cms-extension",
             "extra": {
                 "typo3/cms": {
                     "web-dir": ".Build/Web",
                     "extension-key": "nr_llm"
+                },
+                "captainhook": {
+                    "config": "Build/captainhook.json"
                 }
             },
             "autoload": {
@@ -1284,7 +1279,7 @@
                 "issues": "https://github.com/netresearch/t3x-nr-llm/issues",
                 "source": "https://github.com/netresearch/t3x-nr-llm"
             },
-            "time": "2026-03-09T12:37:20+00:00"
+            "time": "2026-03-18T08:18:53+00:00"
         },
         {
             "name": "netresearch/nr-vault",
@@ -9530,7 +9525,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "netresearch/nr-llm": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
