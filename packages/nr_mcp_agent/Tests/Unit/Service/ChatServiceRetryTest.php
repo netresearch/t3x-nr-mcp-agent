@@ -24,6 +24,7 @@ use stdClass;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 class ChatServiceRetryTest extends TestCase
@@ -72,7 +73,7 @@ class ChatServiceRetryTest extends TestCase
 
         [$connectionPool, $adapterRegistry, $dataMapper] = $this->createProviderResolutionMocks($provider);
 
-        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
+        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
     }
 
     #[Test]

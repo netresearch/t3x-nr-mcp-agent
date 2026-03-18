@@ -22,6 +22,7 @@ use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 final class ChatService implements ChatCapabilitiesInterface
@@ -40,6 +41,7 @@ final class ChatService implements ChatCapabilitiesInterface
         private readonly ConnectionPool $connectionPool,
         private readonly ProviderAdapterRegistry $adapterRegistry,
         private readonly DataMapper $dataMapper,
+        private readonly ResourceFactory $resourceFactory,
     ) {}
 
     /**
@@ -175,7 +177,7 @@ final class ChatService implements ChatCapabilitiesInterface
 
         $provider = $this->resolveProvider();
         $systemPrompt = $this->buildSystemPrompt($conversation);
-        $messages = $conversation->getDecodedMessages();
+        $messages = $this->buildLlmMessages($conversation->getDecodedMessages());
 
         if ($systemPrompt !== '') {
             array_unshift($messages, ['role' => 'system', 'content' => $systemPrompt]);
@@ -215,7 +217,7 @@ final class ChatService implements ChatCapabilitiesInterface
         ]);
 
         for ($i = 0; $i < self::MAX_TOOL_ITERATIONS; $i++) {
-            $messages = $conversation->getDecodedMessages();
+            $messages = $this->buildLlmMessages($conversation->getDecodedMessages());
 
             $response = $this->callToolChatWithRetry($provider, $messages, $tools, $optionsArray);
 
@@ -386,6 +388,63 @@ final class ChatService implements ChatCapabilitiesInterface
             ];
         }
         return $results;
+    }
+
+    /**
+     * Converts stored messages (which may contain fileUid references) into
+     * the multimodal content arrays expected by the LLM API.
+     *
+     * @param list<array<string, mixed>> $messages
+     * @return list<array<string, mixed>>
+     */
+    private function buildLlmMessages(array $messages): array
+    {
+        $result = [];
+        foreach ($messages as $msg) {
+            if (!isset($msg['fileUid'])) {
+                $result[] = $msg;
+                continue;
+            }
+
+            try {
+                $file = $this->resourceFactory->getFileObject((int) $msg['fileUid']);
+                $localPath = $file->getForLocalProcessing(false);
+                $base64 = base64_encode((string) file_get_contents($localPath));
+                $mimeType = $file->getMimeType();
+
+                $result[] = [
+                    'role' => $msg['role'],
+                    'content' => [
+                        ['type' => 'text', 'text' => (string) ($msg['content'] ?? '')],
+                        $this->buildFileContentBlock($mimeType, $base64),
+                    ],
+                ];
+            } catch (Throwable) {
+                $fileName = isset($msg['fileName']) && is_string($msg['fileName']) ? $msg['fileName'] : 'unknown';
+                $result[] = [
+                    'role' => $msg['role'],
+                    'content' => ((string) ($msg['content'] ?? '')) . "\n\n[Attached file '" . $fileName . "' is no longer available]",
+                ];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildFileContentBlock(string $mimeType, string $base64): array
+    {
+        if (str_starts_with($mimeType, 'image/')) {
+            return [
+                'type' => 'image_url',
+                'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . $base64],
+            ];
+        }
+        return [
+            'type' => 'document',
+            'source' => ['type' => 'base64', 'media_type' => $mimeType, 'data' => $base64],
+        ];
     }
 
     private function buildSystemPrompt(Conversation $conversation): string

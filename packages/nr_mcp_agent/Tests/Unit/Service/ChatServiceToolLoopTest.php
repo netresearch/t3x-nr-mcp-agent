@@ -25,6 +25,7 @@ use stdClass;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 /**
@@ -102,7 +103,7 @@ class ChatServiceToolLoopTest extends TestCase
 
         [$connectionPool, $adapterRegistry, $dataMapper] = $this->createProviderResolutionMocks($provider);
 
-        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
+        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
     }
 
     private function createMcpEnabledConfig(): ExtensionConfiguration
@@ -514,7 +515,7 @@ class ChatServiceToolLoopTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        $service = new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
+        $service = new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());

@@ -24,6 +24,8 @@ use stdClass;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 class ChatServiceTest extends TestCase
@@ -89,6 +91,7 @@ class ChatServiceTest extends TestCase
         ?ExtensionConfiguration $config = null,
         ?McpToolProviderInterface $mcpProvider = null,
         array $prompts = [],
+        ?ResourceFactory $resourceFactory = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -97,10 +100,11 @@ class ChatServiceTest extends TestCase
             $config->method('isMcpEnabled')->willReturn(false);
         }
         $mcpProvider ??= $this->createMock(McpToolProviderInterface::class);
+        $resourceFactory ??= $this->createMock(ResourceFactory::class);
 
         [$connectionPool, $adapterRegistry, $dataMapper] = $this->createProviderResolutionMocks($provider, $prompts);
 
-        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper);
+        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper, $resourceFactory);
     }
 
     private function createMcpEnabledConfig(): ExtensionConfiguration
@@ -574,7 +578,7 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $connectionPool, $adapterRegistry, $dataMapper);
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $connectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -625,7 +629,7 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $connectionPool, $adapterRegistry, $dataMapper);
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $connectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -692,6 +696,196 @@ class ChatServiceTest extends TestCase
 
         self::assertNotNull($capturedMessages);
         self::assertStringContainsString('TYPO3-Assistent', $capturedMessages[0]['content']);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function buildLlmMessagesPassesThroughRegularMessages(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello without file');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->expects(self::never())->method('getFileObject');
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, resourceFactory: $resourceFactory);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        // System prompt + user message
+        $userMsg = end($capturedMessages);
+        self::assertSame('user', $userMsg['role']);
+        self::assertSame('Hello without file', $userMsg['content']);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function buildLlmMessagesConvertsImageFileToMultimodal(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'chat_test_');
+        file_put_contents($tempFile, 'fake-image-data');
+
+        $mockFile = $this->createMock(File::class);
+        $mockFile->method('getForLocalProcessing')->willReturn($tempFile);
+        $mockFile->method('getMimeType')->willReturn('image/jpeg');
+
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->method('getFileObject')->with(42)->willReturn($mockFile);
+
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'be_user' => 1,
+            'status' => 'idle',
+            'messages' => json_encode([[
+                'role' => 'user',
+                'content' => 'What is in this image?',
+                'fileUid' => 42,
+                'fileName' => 'photo.jpg',
+                'fileMimeType' => 'image/jpeg',
+            ]]),
+            'message_count' => 1,
+        ]);
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('It is a dog.');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, resourceFactory: $resourceFactory);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $userMsg = end($capturedMessages);
+        self::assertSame('user', $userMsg['role']);
+        self::assertIsArray($userMsg['content']);
+        self::assertSame('text', $userMsg['content'][0]['type']);
+        self::assertSame('What is in this image?', $userMsg['content'][0]['text']);
+        self::assertSame('image_url', $userMsg['content'][1]['type']);
+        self::assertStringStartsWith('data:image/jpeg;base64,', $userMsg['content'][1]['image_url']['url']);
+
+        unlink($tempFile);
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function buildLlmMessagesConvertsPdfToDocumentBlock(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'chat_test_');
+        file_put_contents($tempFile, '%PDF-fake-data');
+
+        $mockFile = $this->createMock(File::class);
+        $mockFile->method('getForLocalProcessing')->willReturn($tempFile);
+        $mockFile->method('getMimeType')->willReturn('application/pdf');
+
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->method('getFileObject')->with(99)->willReturn($mockFile);
+
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'be_user' => 1,
+            'status' => 'idle',
+            'messages' => json_encode([[
+                'role' => 'user',
+                'content' => 'Summarize this PDF',
+                'fileUid' => 99,
+                'fileName' => 'report.pdf',
+                'fileMimeType' => 'application/pdf',
+            ]]),
+            'message_count' => 1,
+        ]);
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Summary here.');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, resourceFactory: $resourceFactory);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $userMsg = end($capturedMessages);
+        self::assertSame('user', $userMsg['role']);
+        self::assertIsArray($userMsg['content']);
+        self::assertSame('text', $userMsg['content'][0]['type']);
+        self::assertSame('Summarize this PDF', $userMsg['content'][0]['text']);
+        self::assertSame('document', $userMsg['content'][1]['type']);
+        self::assertSame('base64', $userMsg['content'][1]['source']['type']);
+        self::assertSame('application/pdf', $userMsg['content'][1]['source']['media_type']);
+
+        unlink($tempFile);
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function buildLlmMessagesHandlesMissingFile(): void
+    {
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->method('getFileObject')->willThrowException(new RuntimeException('File not found'));
+
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'be_user' => 1,
+            'status' => 'idle',
+            'messages' => json_encode([[
+                'role' => 'user',
+                'content' => 'Look at this',
+                'fileUid' => 77,
+                'fileName' => 'deleted.png',
+                'fileMimeType' => 'image/png',
+            ]]),
+            'message_count' => 1,
+        ]);
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('OK');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, resourceFactory: $resourceFactory);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $userMsg = end($capturedMessages);
+        self::assertSame('user', $userMsg['role']);
+        self::assertIsString($userMsg['content']);
+        self::assertStringContainsString('Look at this', $userMsg['content']);
+        self::assertStringContainsString('deleted.png', $userMsg['content']);
 
         unset($GLOBALS['BE_USER']);
     }

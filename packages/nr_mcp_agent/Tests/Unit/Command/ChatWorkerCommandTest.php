@@ -21,6 +21,7 @@ use Symfony\Component\Console\Command\Command;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 class ChatWorkerCommandTest extends TestCase
@@ -132,7 +133,7 @@ class ChatWorkerCommandTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($this->createMock(ProviderInterface::class));
 
-        $chatService = new ChatService($chatRepository, $config, $mcpProvider, $chatConnectionPool, $adapterRegistry, $dataMapper);
+        $chatService = new ChatService($chatRepository, $config, $mcpProvider, $chatConnectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
         $repository = $this->createMock(ConversationRepository::class);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
