@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Mcp;
 
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use stdClass;
 use TYPO3\CMS\Core\Core\Environment;
 
 final class McpToolProvider implements McpToolProviderInterface
@@ -120,14 +121,14 @@ final class McpToolProvider implements McpToolProviderInterface
     {
         // Empty or missing schema → parameterless tool
         if ($schema === [] || !isset($schema['type'])) {
-            return ['type' => 'object', 'properties' => new \stdClass()];
+            return ['type' => 'object', 'properties' => new stdClass()];
         }
 
         // Ensure properties is always an object, not an empty array.
         // json_decode("[]", true) and json_decode("{}", true) both produce [],
         // but OpenAI requires properties to be a JSON object.
         if (isset($schema['properties']) && is_array($schema['properties']) && $schema['properties'] === []) {
-            $schema['properties'] = new \stdClass();
+            $schema['properties'] = new stdClass();
         }
 
         return $schema;

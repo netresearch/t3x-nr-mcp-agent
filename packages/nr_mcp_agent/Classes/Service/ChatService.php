@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -371,7 +372,7 @@ final class ChatService
 
         // 2. Build from nr-llm Task prompt_template + Configuration system_prompt
         if ($this->resolvedPrompts === null) {
-            throw new \LogicException('resolveProvider() must be called before buildSystemPrompt()');
+            throw new LogicException('resolveProvider() must be called before buildSystemPrompt()');
         }
 
         $parts = [];

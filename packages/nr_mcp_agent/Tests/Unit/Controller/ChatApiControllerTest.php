@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UploadedFileInterface;
 use stdClass;
 
 class ChatApiControllerTest extends TestCase
@@ -780,6 +781,69 @@ class ChatApiControllerTest extends TestCase
         $response = $subject->sendMessage($request);
 
         self::assertSame(202, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function fileUploadRejectsWhenNoFile(): void
+    {
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn([]);
+
+        $response = $this->subject->fileUpload($request);
+
+        self::assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function fileUploadRejectsInvalidMimeType(): void
+    {
+        $file = $this->createMock(UploadedFileInterface::class);
+        $file->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $file->method('getClientMediaType')->willReturn('text/plain');
+        $file->method('getSize')->willReturn(1024);
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $file]);
+
+        $response = $this->subject->fileUpload($request);
+
+        self::assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertStringContainsString('not supported', $data['error']);
+    }
+
+    #[Test]
+    public function fileUploadRejectsOversizedFile(): void
+    {
+        $file = $this->createMock(UploadedFileInterface::class);
+        $file->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $file->method('getClientMediaType')->willReturn('image/png');
+        $file->method('getSize')->willReturn(21 * 1024 * 1024);
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $file]);
+
+        $response = $this->subject->fileUpload($request);
+
+        self::assertSame(400, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertStringContainsString('too large', strtolower($data['error']));
+    }
+
+    #[Test]
+    public function fileUploadRejectsUploadError(): void
+    {
+        $file = $this->createMock(UploadedFileInterface::class);
+        $file->method('getError')->willReturn(UPLOAD_ERR_PARTIAL);
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $file]);
+
+        $response = $this->subject->fileUpload($request);
+
+        self::assertSame(400, $response->getStatusCode());
     }
 
     /**

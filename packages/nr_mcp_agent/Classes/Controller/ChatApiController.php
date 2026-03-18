@@ -13,6 +13,9 @@ use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Resource\Folder;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
+use TYPO3\CMS\Core\Resource\StorageRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class ChatApiController
@@ -210,6 +213,57 @@ final readonly class ChatApiController
     }
 
     /**
+     * POST /ai-chat/file-upload – Upload a file to FAL for use as chat attachment.
+     */
+    public function fileUpload(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        /** @var array<string, \Psr\Http\Message\UploadedFileInterface> $uploadedFiles */
+        $uploadedFiles = $request->getUploadedFiles();
+        $file = $uploadedFiles['file'] ?? null;
+
+        if ($file === null || $file->getError() !== UPLOAD_ERR_OK) {
+            return new JsonResponse(['error' => 'No file uploaded'], 400);
+        }
+
+        $allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+        $mimeType = (string) $file->getClientMediaType();
+
+        if (!in_array($mimeType, $allowedMimeTypes, true)) {
+            return new JsonResponse(['error' => 'File type not supported'], 400);
+        }
+
+        $maxSize = 20 * 1024 * 1024; // 20 MB
+        if ($file->getSize() > $maxSize) {
+            return new JsonResponse(['error' => 'File too large (max 20 MB)'], 400);
+        }
+
+        $beUserUid = $this->getBeUserUid();
+        /** @var StorageRepository $storageRepository */
+        $storageRepository = GeneralUtility::makeInstance(StorageRepository::class);
+        $storage = $storageRepository->getDefaultStorage();
+        $targetFolder = $this->getOrCreateUploadFolder($storage, $beUserUid);
+
+        $tempPath = (string) $file->getStream()->getMetadata('uri');
+        $falFile = $storage->addFile(
+            $tempPath,
+            $targetFolder,
+            (string) $file->getClientFilename(),
+        );
+
+        return new JsonResponse([
+            'fileUid' => $falFile->getUid(),
+            'name' => $falFile->getName(),
+            'mimeType' => $falFile->getMimeType(),
+            'size' => $falFile->getSize(),
+        ]);
+    }
+
+    /**
      * POST /ai-chat/conversations/resume
      */
     public function resumeConversation(ServerRequestInterface $request): ResponseInterface
@@ -343,6 +397,15 @@ final readonly class ChatApiController
     private function getBeUserUid(): int
     {
         return (int) ($this->getBackendUser()['uid'] ?? 0);
+    }
+
+    private function getOrCreateUploadFolder(ResourceStorage $storage, int $beUserUid): Folder
+    {
+        $basePath = 'ai-chat/' . $beUserUid;
+        if (!$storage->hasFolder($basePath)) {
+            return $storage->createFolder($basePath);
+        }
+        return $storage->getFolder($basePath);
     }
 
     /**

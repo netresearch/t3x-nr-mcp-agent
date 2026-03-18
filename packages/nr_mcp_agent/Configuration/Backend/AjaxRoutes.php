@@ -45,4 +45,9 @@ return [
         'target' => ChatApiController::class . '::togglePin',
         'methods' => ['POST'],
     ],
+    'ai_chat_file_upload' => [
+        'path' => '/ai-chat/file-upload',
+        'target' => ChatApiController::class . '::fileUpload',
+        'methods' => ['POST'],
+    ],
 ];
