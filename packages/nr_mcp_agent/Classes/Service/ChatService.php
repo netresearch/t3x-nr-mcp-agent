@@ -7,9 +7,9 @@ namespace Netresearch\NrMcpAgent\Service;
 use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
+use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
-use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
@@ -182,7 +182,7 @@ final class ChatService implements ChatCapabilitiesInterface
 
         $provider = $this->resolveProvider();
         $systemPrompt = $this->buildSystemPrompt($conversation);
-        $messages = $this->buildLlmMessages($conversation->getDecodedMessages());
+        $messages = $this->buildLlmMessages($conversation->getDecodedMessages(), $provider);
 
         if ($systemPrompt !== '') {
             array_unshift($messages, ['role' => 'system', 'content' => $systemPrompt]);
@@ -224,7 +224,7 @@ final class ChatService implements ChatCapabilitiesInterface
         for ($i = 0; $i < self::MAX_TOOL_ITERATIONS; $i++) {
             // buildLlmMessages expands fileUid refs to base64 for the LLM call only —
             // never persist the expanded result back to DB.
-            $messages = $this->buildLlmMessages($conversation->getDecodedMessages());
+            $messages = $this->buildLlmMessages($conversation->getDecodedMessages(), $provider);
 
             $response = $this->callToolChatWithRetry($provider, $messages, $tools, $optionsArray);
 
@@ -407,7 +407,7 @@ final class ChatService implements ChatCapabilitiesInterface
      * @param list<array<string, mixed>> $messages
      * @return list<array<string, mixed>>
      */
-    private function buildLlmMessages(array $messages): array
+    private function buildLlmMessages(array $messages, ProviderInterface $provider): array
     {
         $result = [];
         foreach ($messages as $msg) {
@@ -426,7 +426,7 @@ final class ChatService implements ChatCapabilitiesInterface
                     'role' => $msg['role'],
                     'content' => [
                         ['type' => 'text', 'text' => (string) ($msg['content'] ?? '')],
-                        $this->buildFileContentBlock($mimeType, $base64),
+                        $this->buildFileContentBlock($mimeType, $base64, $provider),
                     ],
                 ];
             } catch (Throwable) {
@@ -442,14 +442,21 @@ final class ChatService implements ChatCapabilitiesInterface
 
     /**
      * @return array<string, mixed>
+     * @throws RuntimeException if the file type is not supported by the provider
      */
-    private function buildFileContentBlock(string $mimeType, string $base64): array
+    private function buildFileContentBlock(string $mimeType, string $base64, ProviderInterface $provider): array
     {
         if (str_starts_with($mimeType, 'image/')) {
             return [
                 'type' => 'image_url',
                 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . $base64],
             ];
+        }
+        if (!$provider instanceof DocumentCapableInterface || !$provider->supportsDocuments()) {
+            throw new RuntimeException(
+                'Provider "' . $provider->getIdentifier() . '" does not support document uploads (mime type: ' . $mimeType . ')',
+                1742320000,
+            );
         }
         return [
             'type' => 'document',

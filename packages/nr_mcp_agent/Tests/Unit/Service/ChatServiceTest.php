@@ -8,6 +8,7 @@ use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
@@ -817,7 +818,8 @@ class ChatServiceTest extends TestCase
         ]);
 
         $capturedMessages = null;
-        $provider = $this->createMock(ProviderInterface::class);
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, DocumentCapableInterface::class]);
+        $provider->method('supportsDocuments')->willReturn(true);
         $provider->method('chatCompletion')->willReturnCallback(
             function (array $messages) use (&$capturedMessages) {
                 $capturedMessages = $messages;
