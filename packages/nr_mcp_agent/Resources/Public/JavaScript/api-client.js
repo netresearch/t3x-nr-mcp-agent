@@ -40,10 +40,25 @@ export class ApiClient {
     /**
      * @param {number} conversationUid
      * @param {string} content
+     * @param {number|null} [fileUid]
      * @returns {Promise<{status: string}>}
      */
-    async sendMessage(conversationUid, content) {
-        return this._post('ai_chat_conversation_send', {conversationUid, content});
+    async sendMessage(conversationUid, content, fileUid = null) {
+        const body = {conversationUid, content};
+        if (fileUid !== null) {
+            body.fileUid = fileUid;
+        }
+        return this._post('ai_chat_conversation_send', body);
+    }
+
+    /**
+     * @param {File} file
+     * @returns {Promise<{fileUid: number, name: string, mimeType: string, size: number}>}
+     */
+    async uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        return this._postFormData('ai_chat_file_upload', formData);
     }
 
     /**
@@ -101,6 +116,21 @@ export class ApiClient {
         const res = await fetch(url, {
             credentials: 'same-origin',
             headers: {'Accept': 'application/json'},
+            signal: this._signal,
+        });
+        return this._handleResponse(res);
+    }
+
+    /**
+     * @param {string} routeName
+     * @param {FormData} formData
+     */
+    async _postFormData(routeName, formData) {
+        const res = await fetch(this._url(routeName), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {'Accept': 'application/json'},
+            body: formData,
             signal: this._signal,
         });
         return this._handleResponse(res);
