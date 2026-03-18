@@ -10,6 +10,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -28,6 +29,7 @@ class ChatApiControllerTest extends TestCase
     private ConversationRepository $repository;
     private ChatProcessorInterface $processor;
     private ExtensionConfiguration $config;
+    private ChatCapabilitiesInterface $chatService;
 
     protected function setUp(): void
     {
@@ -39,7 +41,13 @@ class ChatApiControllerTest extends TestCase
         $this->config->method('getAllowedGroupIds')->willReturn([]);
         $this->config->method('getMaxMessageLength')->willReturn(10000);
         $this->config->method('getMaxActiveConversationsPerUser')->willReturn(3);
-        $this->subject = new ChatApiController($this->repository, $this->processor, $this->config);
+        $this->chatService = $this->createMock(ChatCapabilitiesInterface::class);
+        $this->chatService->method('getProviderCapabilities')->willReturn([
+            'visionSupported' => false,
+            'maxFileSize' => 0,
+            'supportedFormats' => [],
+        ]);
+        $this->subject = new ChatApiController($this->repository, $this->processor, $this->config, $this->chatService);
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '1,2'];
@@ -99,7 +107,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getMaxMessageLength')->willReturn(10);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $conversation = new Conversation();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
@@ -156,7 +164,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([99]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -172,7 +180,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -278,7 +286,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(0);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -297,7 +305,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -316,7 +324,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(true);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -333,7 +341,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
         $config->method('isMcpServerInstalled')->willReturn(true);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -409,7 +417,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '', 'admin' => 1];
 
@@ -473,7 +481,7 @@ class ChatApiControllerTest extends TestCase
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $this->config);
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
         $response = $subject->sendMessage($request);
@@ -492,7 +500,7 @@ class ChatApiControllerTest extends TestCase
         $conversation->setStatus(ConversationStatus::Failed);
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $this->config);
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1}');
         $response = $subject->resumeConversation($request);
@@ -531,7 +539,7 @@ class ChatApiControllerTest extends TestCase
         // countActiveByBeUser should never be called when maxActive is 0
         $repository->expects(self::never())->method('countActiveByBeUser');
 
-        $subject = new ChatApiController($repository, $this->processor, $config);
+        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
         $response = $subject->sendMessage($request);
@@ -722,7 +730,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(5);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -742,7 +750,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
         $this->repository->method('countActiveByBeUser')->willReturn(2);
-        $subject = new ChatApiController($this->repository, $this->processor, $config);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -779,13 +787,40 @@ class ChatApiControllerTest extends TestCase
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $config);
+        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService);
 
         $longContent = str_repeat('x', 100000);
         $request = $this->createRequest('POST', json_encode(['conversationUid' => 1, 'content' => $longContent]));
         $response = $subject->sendMessage($request);
 
         self::assertSame(202, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function getStatusIncludesVisionCapabilitiesFromChatService(): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+        $config->method('isMcpServerInstalled')->willReturn(false);
+
+        $chatService = $this->createMock(ChatCapabilitiesInterface::class);
+        $chatService->method('getProviderCapabilities')->willReturn([
+            'visionSupported' => true,
+            'maxFileSize' => 20971520,
+            'supportedFormats' => ['png', 'jpeg', 'webp', 'pdf'],
+        ]);
+
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $chatService);
+        $request = $this->createRequest('GET', '');
+        $response = $subject->getStatus($request);
+
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertTrue($data['visionSupported']);
+        self::assertSame(20971520, $data['maxFileSize']);
+        self::assertContains('png', $data['supportedFormats']);
+        self::assertContains('pdf', $data['supportedFormats']);
     }
 
     #[Test]

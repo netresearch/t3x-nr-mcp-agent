@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -23,7 +24,7 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
-final class ChatService
+final class ChatService implements ChatCapabilitiesInterface
 {
     private const MAX_TOOL_ITERATIONS = 20;
     private const MAX_LLM_RETRIES = 2;
@@ -40,6 +41,31 @@ final class ChatService
         private readonly ProviderAdapterRegistry $adapterRegistry,
         private readonly DataMapper $dataMapper,
     ) {}
+
+    /**
+     * @return array{visionSupported: bool, maxFileSize: int, supportedFormats: list<string>}
+     */
+    public function getProviderCapabilities(): array
+    {
+        try {
+            $provider = $this->resolveProvider();
+            if ($provider instanceof VisionCapableInterface && $provider->supportsVision()) {
+                return [
+                    'visionSupported' => true,
+                    'maxFileSize' => $provider->getMaxImageSize(),
+                    'supportedFormats' => array_merge($provider->getSupportedImageFormats(), ['pdf']),
+                ];
+            }
+        } catch (Throwable) {
+            // Provider resolution failed — no vision support
+        }
+
+        return [
+            'visionSupported' => false,
+            'maxFileSize' => 0,
+            'supportedFormats' => [],
+        ];
+    }
 
     public function processConversation(Conversation $conversation): void
     {

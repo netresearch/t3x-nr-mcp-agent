@@ -10,6 +10,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -26,6 +27,7 @@ final readonly class ChatApiController
         private ConversationRepository $repository,
         private ChatProcessorInterface $processor,
         private ExtensionConfiguration $config,
+        private ChatCapabilitiesInterface $chatService,
     ) {}
 
     /**
@@ -54,11 +56,14 @@ final readonly class ChatApiController
             $issues[] = 'hn/typo3-mcp-server is installed but MCP is not enabled. Enable MCP in Extension Configuration to allow content actions.';
         }
 
+        $capabilities = $this->chatService->getProviderCapabilities();
+
         return new JsonResponse([
             'available' => $taskUid > 0,
             'mcpEnabled' => $mcpEnabled,
             'activeConversationCount' => $this->repository->countActiveByBeUser($this->getBeUserUid()),
             'issues' => $issues,
+            ...$capabilities,
         ]);
     }
 
