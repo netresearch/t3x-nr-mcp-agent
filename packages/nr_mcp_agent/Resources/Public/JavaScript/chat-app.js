@@ -609,7 +609,7 @@ export class ChatApp extends LitElement {
             const icon = msg.fileMimeType?.startsWith('image/') ? '\u{1F5BC}\uFE0F' : '\u{1F4C4}';
             return html`
                 <div class="message user">
-                    <div class="message-file-badge">${icon} ${msg.fileName || 'File'}</div>
+                    <div class="message-file-badge">${icon} ${msg.fileName || lll('attachment.file')}</div>
                     ${this.chat.renderMessageContent(msg)}
                 </div>
             `;

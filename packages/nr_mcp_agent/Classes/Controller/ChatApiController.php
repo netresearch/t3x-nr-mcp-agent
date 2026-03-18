@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Controller;
 
 use Exception;
+use finfo;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -28,6 +29,8 @@ final readonly class ChatApiController
         private ChatProcessorInterface $processor,
         private ExtensionConfiguration $config,
         private ChatCapabilitiesInterface $chatService,
+        private ResourceFactory $resourceFactory,
+        private StorageRepository $storageRepository,
     ) {}
 
     /**
@@ -198,9 +201,12 @@ final readonly class ChatApiController
             }
 
             try {
-                /** @var ResourceFactory $resourceFactory */
-                $resourceFactory = GeneralUtility::makeInstance(ResourceFactory::class);
-                $file = $resourceFactory->getFileObject($fileUid);
+                $file = $this->resourceFactory->getFileObject($fileUid);
+                // Verify that the file belongs to the current user
+                $expectedFolder = '/ai-chat/' . $this->getBeUserUid() . '/';
+                if (!str_starts_with($file->getIdentifier(), $expectedFolder)) {
+                    return new JsonResponse(['error' => 'File not found'], 404);
+                }
                 $fileName = $file->getName();
                 $fileMimeType = $file->getMimeType();
             } catch (Exception) {
@@ -275,28 +281,33 @@ final readonly class ChatApiController
         }
 
         $allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
-        $mimeType = (string) $file->getClientMediaType();
-
-        if (!in_array($mimeType, $allowedMimeTypes, true)) {
-            return new JsonResponse(['error' => 'File type not supported'], 400);
-        }
 
         $maxSize = 20 * 1024 * 1024; // 20 MB
         if ($file->getSize() > $maxSize) {
             return new JsonResponse(['error' => 'File too large (max 20 MB)'], 400);
         }
 
+        // Validate MIME type server-side via finfo — client-supplied Content-Type is untrusted
+        $tempPath = (string) $file->getStream()->getMetadata('uri');
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $detectedMime = $finfo->file($tempPath);
+        if (!is_string($detectedMime) || !in_array($detectedMime, $allowedMimeTypes, true)) {
+            return new JsonResponse(['error' => 'File type not supported'], 400);
+        }
+
+        $storage = $this->storageRepository->getDefaultStorage();
+        if ($storage === null) {
+            return new JsonResponse(['error' => 'No default storage configured'], 500);
+        }
+
         $beUserUid = $this->getBeUserUid();
-        /** @var StorageRepository $storageRepository */
-        $storageRepository = GeneralUtility::makeInstance(StorageRepository::class);
-        $storage = $storageRepository->getDefaultStorage();
         $targetFolder = $this->getOrCreateUploadFolder($storage, $beUserUid);
 
-        $tempPath = (string) $file->getStream()->getMetadata('uri');
+        $clientFilename = $file->getClientFilename() ?? 'upload';
         $falFile = $storage->addFile(
             $tempPath,
             $targetFolder,
-            (string) $file->getClientFilename(),
+            $clientFilename,
         );
 
         return new JsonResponse([

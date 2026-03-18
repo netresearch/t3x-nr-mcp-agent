@@ -13,7 +13,7 @@ export class ApiClient {
         this._signal = signal || null;
     }
 
-    /** @returns {Promise<{available: boolean, mcpEnabled: boolean, issues: string[]}>} */
+    /** @returns {Promise<{available: boolean, mcpEnabled: boolean, issues: string[], visionSupported: boolean, maxFileSize: number, supportedFormats: string[]}>} */
     async getStatus() {
         return this._get('ai_chat_status');
     }

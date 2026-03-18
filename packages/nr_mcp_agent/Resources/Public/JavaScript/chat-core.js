@@ -106,6 +106,7 @@ export class ChatCoreController {
         this.activeUid = uid;
         this._knownMessageCount = 0;
         this.expandedTools = new Set();
+        this.pendingFile = null;
         this.host.requestUpdate();
         await this.loadMessages();
         this.startPollingIfNeeded();
@@ -342,6 +343,7 @@ export class ChatCoreController {
         }
     }
 
+    // Reserved for the TYPO3 Element Browser (FAL picker) flow — not yet wired to UI.
     handleFileSelect(fileUid, name, mimeType) {
         this.pendingFile = {fileUid, name, mimeType};
         this.host.requestUpdate();

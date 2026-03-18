@@ -217,6 +217,8 @@ final class ChatService implements ChatCapabilitiesInterface
         ]);
 
         for ($i = 0; $i < self::MAX_TOOL_ITERATIONS; $i++) {
+            // buildLlmMessages expands fileUid refs to base64 for the LLM call only —
+            // never persist the expanded result back to DB.
             $messages = $this->buildLlmMessages($conversation->getDecodedMessages());
 
             $response = $this->callToolChatWithRetry($provider, $messages, $tools, $optionsArray);
@@ -224,24 +226,27 @@ final class ChatService implements ChatCapabilitiesInterface
             if ($response->hasToolCalls()) {
                 /** @var array<mixed> $toolCalls */
                 $toolCalls = $response->toolCalls ?? [];
-                $messages[] = [
+                // Append assistant + tool messages to the stored (non-expanded) messages
+                $storedMessages = $conversation->getDecodedMessages();
+                $storedMessages[] = [
                     'role' => 'assistant',
                     'content' => $response->content,
                     'tool_calls' => $toolCalls,
                 ];
-                $conversation->setMessages($messages);
+                $conversation->setMessages($storedMessages);
                 $this->persist($conversation);
 
                 $conversation->setStatus(ConversationStatus::ToolLoop);
                 $toolResults = $this->executeToolCalls($toolCalls);
+                $storedMessages = $conversation->getDecodedMessages();
                 foreach ($toolResults as $result) {
-                    $messages[] = [
+                    $storedMessages[] = [
                         'role' => 'tool',
                         'tool_call_id' => $result['tool_call_id'],
                         'content' => $result['content'],
                     ];
                 }
-                $conversation->setMessages($messages);
+                $conversation->setMessages($storedMessages);
                 $this->persist($conversation);
                 continue;
             }

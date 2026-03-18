@@ -112,6 +112,9 @@
             <trans-unit id="attachment.invalidType" resname="attachment.invalidType">
                 <source>File type not supported</source>
             </trans-unit>
+            <trans-unit id="attachment.file" resname="attachment.file">
+                <source>File</source>
+            </trans-unit>
             <trans-unit id="attachment.remove" resname="attachment.remove">
                 <source>Remove attachment</source>
             </trans-unit>
