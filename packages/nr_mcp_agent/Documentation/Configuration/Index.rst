@@ -163,6 +163,38 @@ User interface
     Auto-archiving runs via the ``ai-chat:cleanup``
     command.
 
+File attachments
+================
+
+When the configured LLM provider supports vision (e.g. GPT-4o, Claude 3+),
+users can attach images and PDFs to their messages. The chat frontend shows
+a **+** button next to the input field when vision is supported.
+
+Supported file types:
+
+*   Images: ``image/png``, ``image/jpeg``, ``image/webp``
+*   Documents: ``application/pdf``
+
+**Storage:** Uploaded files are stored in TYPO3 FAL under
+``fileadmin/ai-chat/<be_user_uid>/``. They are read at LLM call time and
+sent as Base64-encoded multimodal content.
+
+**Limits:**
+
+*   Maximum 5 files per conversation.
+*   Maximum file size: 20 MB per file.
+*   File count is enforced both in the frontend (before upload) and in the
+    backend API.
+
+**Security:** The ``fileadmin/ai-chat/`` directory should be protected
+from direct HTTP access. Add the following to your web server configuration
+or deploy a ``.htaccess`` file to ``fileadmin/ai-chat/``:
+
+..  code-block:: apache
+
+    # fileadmin/ai-chat/.htaccess
+    Require all denied
+
 Security
 ========
 

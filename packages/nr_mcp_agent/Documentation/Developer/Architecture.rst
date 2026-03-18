@@ -129,6 +129,22 @@ The central entity. Stored in
     JSON-encoded array of all messages (user, assistant,
     tool calls, tool results). Stored as ``mediumtext``.
 
+    User messages with file attachments contain additional fields:
+
+    .. code-block:: json
+
+        {
+            "role": "user",
+            "content": "What is in this image?",
+            "fileUid": 42,
+            "fileName": "photo.jpg",
+            "fileMimeType": "image/jpeg"
+        }
+
+    The ``fileUid`` is a TYPO3 FAL UID. ``ChatService::buildLlmMessages()``
+    reads the file and converts it to a multimodal content array before
+    passing messages to the LLM.
+
 ``message_count``
     Denormalized count for display without decoding.
 
@@ -215,3 +231,41 @@ State transitions::
                                              (tool iteration)
     idle --> processing --> failed        (error)
     * --> failed                         (cleanup timeout)
+
+File attachment flow
+====================
+
+::
+
+    User selects file (upload or FAL browser)
+        |
+        | POST /ai-chat/file-upload (multipart/form-data)
+        v
+    ChatApiController::fileUpload()
+        | validates MIME type + size (max 20 MB)
+        v
+    FAL storage: fileadmin/ai-chat/<be_user_uid>/
+        | returns fileUid
+        v
+    Frontend stores {fileUid, name, mimeType} as pendingFile
+
+    User sends message
+        |
+        | POST /ai-chat/conversations/send {content, fileUid}
+        v
+    ChatApiController::sendMessage()
+        | validates file limit (max 5 per conversation)
+        | reads FAL metadata (fileName, fileMimeType)
+        | stores message with fileUid in conversation JSON
+        v
+    ChatService::processConversation()
+        |
+        v
+    ChatService::buildLlmMessages()
+        | reads file from FAL (getForLocalProcessing)
+        | base64-encodes content
+        | builds multimodal content array:
+        |   images  → {type: image_url, image_url: {url: data:...}}
+        |   PDFs    → {type: document, source: {type: base64, ...}}
+        v
+    LLM Provider (multimodal chatCompletion call)
