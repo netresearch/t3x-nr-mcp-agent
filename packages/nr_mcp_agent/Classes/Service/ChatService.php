@@ -55,7 +55,7 @@ final class ChatService implements ChatCapabilitiesInterface
                 return [
                     'visionSupported' => true,
                     'maxFileSize' => $provider->getMaxImageSize(),
-                    'supportedFormats' => array_merge($provider->getSupportedImageFormats(), ['pdf']),
+                    'supportedFormats' => $provider->getSupportedImageFormats(),
                 ];
             }
         } catch (Throwable) {
