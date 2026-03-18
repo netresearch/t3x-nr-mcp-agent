@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
@@ -52,10 +53,14 @@ final class ChatService implements ChatCapabilitiesInterface
         try {
             $provider = $this->resolveProvider();
             if ($provider instanceof VisionCapableInterface && $provider->supportsVision()) {
+                $documentFormats = $provider instanceof DocumentCapableInterface && $provider->supportsDocuments()
+                    ? $provider->getSupportedDocumentFormats()
+                    : [];
+
                 return [
                     'visionSupported' => true,
                     'maxFileSize' => $provider->getMaxImageSize(),
-                    'supportedFormats' => array_merge($provider->getSupportedImageFormats(), ['pdf']),
+                    'supportedFormats' => array_merge($provider->getSupportedImageFormats(), $documentFormats),
                 ];
             }
         } catch (Throwable) {
