@@ -92,6 +92,35 @@
             <trans-unit id="tool.output" resname="tool.output">
                 <source>Tool result (click to expand)</source>
             </trans-unit>
+
+            <!-- Attachments -->
+            <trans-unit id="attachment.upload" resname="attachment.upload">
+                <source>Upload file</source>
+            </trans-unit>
+            <trans-unit id="attachment.fromFal" resname="attachment.fromFal">
+                <source>From file list</source>
+            </trans-unit>
+            <trans-unit id="attachment.notSupported" resname="attachment.notSupported">
+                <source>Your LLM model does not support file attachments</source>
+            </trans-unit>
+            <trans-unit id="attachment.tooLarge" resname="attachment.tooLarge">
+                <source>File too large (max %d MB)</source>
+            </trans-unit>
+            <trans-unit id="attachment.limitReached" resname="attachment.limitReached">
+                <source>Maximum 5 files per conversation reached</source>
+            </trans-unit>
+            <trans-unit id="attachment.invalidType" resname="attachment.invalidType">
+                <source>File type not supported</source>
+            </trans-unit>
+            <trans-unit id="attachment.remove" resname="attachment.remove">
+                <source>Remove attachment</source>
+            </trans-unit>
+            <trans-unit id="attachment.uploading" resname="attachment.uploading">
+                <source>Uploading...</source>
+            </trans-unit>
+            <trans-unit id="attachment.fileMissing" resname="attachment.fileMissing">
+                <source>File no longer available</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

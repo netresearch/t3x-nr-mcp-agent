@@ -119,6 +119,44 @@
                 <source>Tool result (click to expand)</source>
                 <target>Tool-Ergebnis (klicken zum Aufklappen)</target>
             </trans-unit>
+
+            <!-- Attachments -->
+            <trans-unit id="attachment.upload" resname="attachment.upload">
+                <source>Upload file</source>
+                <target>Datei hochladen</target>
+            </trans-unit>
+            <trans-unit id="attachment.fromFal" resname="attachment.fromFal">
+                <source>From file list</source>
+                <target>Aus Dateiliste</target>
+            </trans-unit>
+            <trans-unit id="attachment.notSupported" resname="attachment.notSupported">
+                <source>Your LLM model does not support file attachments</source>
+                <target>Ihr LLM-Modell unterstützt keine Dateianhänge</target>
+            </trans-unit>
+            <trans-unit id="attachment.tooLarge" resname="attachment.tooLarge">
+                <source>File too large (max %d MB)</source>
+                <target>Datei zu groß (max. %d MB)</target>
+            </trans-unit>
+            <trans-unit id="attachment.limitReached" resname="attachment.limitReached">
+                <source>Maximum 5 files per conversation reached</source>
+                <target>Maximum 5 Dateien pro Chat erreicht</target>
+            </trans-unit>
+            <trans-unit id="attachment.invalidType" resname="attachment.invalidType">
+                <source>File type not supported</source>
+                <target>Dateityp nicht unterstützt</target>
+            </trans-unit>
+            <trans-unit id="attachment.remove" resname="attachment.remove">
+                <source>Remove attachment</source>
+                <target>Anhang entfernen</target>
+            </trans-unit>
+            <trans-unit id="attachment.uploading" resname="attachment.uploading">
+                <source>Uploading...</source>
+                <target>Wird hochgeladen...</target>
+            </trans-unit>
+            <trans-unit id="attachment.fileMissing" resname="attachment.fileMissing">
+                <source>File no longer available</source>
+                <target>Datei nicht mehr verfügbar</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
