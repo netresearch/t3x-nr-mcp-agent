@@ -32,6 +32,12 @@ export class ChatCoreController {
     maxLength = 0;
     /** @type {Set<number>} */
     expandedTools = new Set();
+    /** @type {{fileUid: number, name: string, mimeType: string}|null} */
+    pendingFile = null;
+    visionSupported = false;
+    maxFileSize = 0;
+    /** @type {string[]} */
+    supportedFormats = [];
 
     // ── Internal state ─────────────────────────────────────────────────
     /** @type {ApiClient} */
@@ -75,6 +81,9 @@ export class ChatCoreController {
             if (signal?.aborted) return;
             this.available = statusData.available;
             this.issues = statusData.issues || [];
+            this.visionSupported = statusData.visionSupported || false;
+            this.maxFileSize = statusData.maxFileSize || 0;
+            this.supportedFormats = statusData.supportedFormats || [];
             await this.loadConversations();
         } catch (e) {
             if (signal?.aborted) return;
@@ -204,16 +213,25 @@ export class ChatCoreController {
             return;
         }
 
+        const fileUid = this.pendingFile?.fileUid ?? null;
+
         this.sending = true;
         this.errorMessage = '';
         this.host.requestUpdate();
         try {
-            await this._api.sendMessage(this.activeUid, content);
+            await this._api.sendMessage(this.activeUid, content, fileUid);
             this.inputValue = '';
             this.hasInput = false;
             this.host.onResetInput();
             // Optimistic: add user message locally
-            this.messages = [...this.messages, {role: 'user', content}];
+            const msg = {role: 'user', content};
+            if (this.pendingFile) {
+                msg.fileUid = this.pendingFile.fileUid;
+                msg.fileName = this.pendingFile.name;
+                msg.fileMimeType = this.pendingFile.mimeType;
+            }
+            this.pendingFile = null;
+            this.messages = [...this.messages, msg];
             this.status = 'processing';
             this._knownMessageCount++;
             this.conversations = this.conversations.map(c =>
@@ -300,6 +318,38 @@ export class ChatCoreController {
 
     getActiveConversation() {
         return this.conversations.find(c => c.uid === this.activeUid);
+    }
+
+    canAttachFile() {
+        if (!this.visionSupported) return false;
+        const fileCount = this.messages.filter(m => m.fileUid).length;
+        return fileCount < 5 && !this.pendingFile;
+    }
+
+    async handleFileUpload(file) {
+        if (file.size > this.maxFileSize) {
+            this.errorMessage = lll('attachment.tooLarge', Math.round(this.maxFileSize / 1024 / 1024));
+            this.host.requestUpdate();
+            return;
+        }
+        try {
+            const result = await this._api.uploadFile(file);
+            this.pendingFile = result;
+            this.host.requestUpdate();
+        } catch (e) {
+            this.errorMessage = e.message;
+            this.host.requestUpdate();
+        }
+    }
+
+    handleFileSelect(fileUid, name, mimeType) {
+        this.pendingFile = {fileUid, name, mimeType};
+        this.host.requestUpdate();
+    }
+
+    clearPendingFile() {
+        this.pendingFile = null;
+        this.host.requestUpdate();
     }
 
     renderMessageContent(msg) {
