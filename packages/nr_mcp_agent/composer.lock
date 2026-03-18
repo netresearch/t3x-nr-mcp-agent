@@ -1208,12 +1208,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/netresearch/t3x-nr-llm.git",
-                "reference": "047a55362e657d2382440326c75890cc19edc30c"
+                "reference": "ca352e4aed5fda20688064ee36be44b4d226fdbe"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/netresearch/t3x-nr-llm/zipball/047a55362e657d2382440326c75890cc19edc30c",
-                "reference": "047a55362e657d2382440326c75890cc19edc30c",
+                "url": "https://api.github.com/repos/netresearch/t3x-nr-llm/zipball/ca352e4aed5fda20688064ee36be44b4d226fdbe",
+                "reference": "ca352e4aed5fda20688064ee36be44b4d226fdbe",
                 "shasum": ""
             },
             "require": {
@@ -1279,7 +1279,7 @@
                 "issues": "https://github.com/netresearch/t3x-nr-llm/issues",
                 "source": "https://github.com/netresearch/t3x-nr-llm"
             },
-            "time": "2026-03-18T08:18:53+00:00"
+            "time": "2026-03-18T18:32:42+00:00"
         },
         {
             "name": "netresearch/nr-vault",
