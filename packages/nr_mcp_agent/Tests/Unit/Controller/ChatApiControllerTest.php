@@ -905,6 +905,54 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function fileUploadStoresFileAndReturnsMetadata(): void
+    {
+        // Real temp file with PDF magic bytes so finfo detects application/pdf
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, '%PDF-1.4 fake content');
+
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
+
+        $uploadedFile = $this->createMock(UploadedFileInterface::class);
+        $uploadedFile->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $uploadedFile->method('getSize')->willReturn(1024);
+        $uploadedFile->method('getStream')->willReturn($stream);
+        $uploadedFile->method('getClientFilename')->willReturn('report.pdf');
+
+        $falFile = $this->createMock(File::class);
+        $falFile->method('getUid')->willReturn(77);
+        $falFile->method('getName')->willReturn('report.pdf');
+        $falFile->method('getMimeType')->willReturn('application/pdf');
+        $falFile->method('getSize')->willReturn(1024);
+
+        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
+
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('hasFolder')->willReturn(true);
+        $storage->method('getFolder')->willReturn($folder);
+        $storage->method('addFile')->willReturn($falFile);
+
+        $this->storageRepository->method('getDefaultStorage')->willReturn($storage);
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
+
+        try {
+            $response = $this->subject->fileUpload($request);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        self::assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertSame(77, $data['fileUid']);
+        self::assertSame('report.pdf', $data['name']);
+        self::assertSame('application/pdf', $data['mimeType']);
+        self::assertSame(1024, $data['size']);
+    }
+
+    #[Test]
     public function fileUploadRejectsWhenNoFile(): void
     {
         $request = $this->createMock(ServerRequestInterface::class);

@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -922,6 +923,113 @@ class ChatServiceTest extends TestCase
         // Should fall back to locale default
         self::assertStringContainsString('TYPO3 assistant', $capturedMessages[0]['content']);
 
+        unset($GLOBALS['BE_USER']);
+    }
+
+    // -------------------------------------------------------------------------
+    // getProviderCapabilities
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function getProviderCapabilitiesReturnsPdfForVisionAndDocumentCapableProvider(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class, DocumentCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getSupportedImageFormats')->willReturn(['png', 'jpeg', 'webp']);
+        $provider->method('getMaxImageSize')->willReturn(20 * 1024 * 1024);
+        $provider->method('supportsDocuments')->willReturn(true);
+        $provider->method('getSupportedDocumentFormats')->willReturn(['pdf']);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertTrue($caps['visionSupported']);
+        self::assertSame(20 * 1024 * 1024, $caps['maxFileSize']);
+        self::assertContains('png', $caps['supportedFormats']);
+        self::assertContains('pdf', $caps['supportedFormats']);
+    }
+
+    #[Test]
+    public function getProviderCapabilitiesExcludesPdfForVisionOnlyProvider(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getSupportedImageFormats')->willReturn(['png', 'jpeg']);
+        $provider->method('getMaxImageSize')->willReturn(10 * 1024 * 1024);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertTrue($caps['visionSupported']);
+        self::assertContains('png', $caps['supportedFormats']);
+        self::assertNotContains('pdf', $caps['supportedFormats']);
+    }
+
+    #[Test]
+    public function getProviderCapabilitiesReturnsEmptyForNonVisionProvider(): void
+    {
+        $provider = $this->createMock(ProviderInterface::class);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertFalse($caps['visionSupported']);
+        self::assertSame(0, $caps['maxFileSize']);
+        self::assertSame([], $caps['supportedFormats']);
+    }
+
+    #[Test]
+    public function buildLlmMessagesFallsBackToUnavailableWhenProviderDoesNotSupportDocuments(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'chat_test_');
+        file_put_contents($tempFile, '%PDF-fake-data');
+
+        $mockFile = $this->createMock(File::class);
+        $mockFile->method('getForLocalProcessing')->willReturn($tempFile);
+        $mockFile->method('getMimeType')->willReturn('application/pdf');
+
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->method('getFileObject')->with(55)->willReturn($mockFile);
+
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'be_user' => 1,
+            'status' => 'idle',
+            'messages' => json_encode([[
+                'role' => 'user',
+                'content' => 'Check this PDF',
+                'fileUid' => 55,
+                'fileName' => 'report.pdf',
+                'fileMimeType' => 'application/pdf',
+            ]]),
+            'message_count' => 1,
+        ]);
+
+        // Provider does NOT implement DocumentCapableInterface
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('OK');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, resourceFactory: $resourceFactory);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $userMsg = end($capturedMessages);
+        self::assertSame('user', $userMsg['role']);
+        // Should fall back to "file unavailable" text, not a document block
+        self::assertIsString($userMsg['content']);
+        self::assertStringContainsString('report.pdf', $userMsg['content']);
+        self::assertStringContainsString('no longer available', $userMsg['content']);
+
+        unlink($tempFile);
         unset($GLOBALS['BE_USER']);
     }
 }
