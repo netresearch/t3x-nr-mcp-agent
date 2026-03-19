@@ -78,6 +78,37 @@ sidebar view but can still be accessed.
 Conversations are also auto-archived after a
 configurable period of inactivity (default: 30 days).
 
+Attaching files
+===============
+
+When the active LLM provider supports file attachments, a **+** button
+appears to the left of the input field.
+
+1.  Click **+** to open the attachment menu.
+2.  Select **Upload file** to open a file picker and choose a file from
+    your computer.
+3.  The selected file is uploaded immediately and shown as a badge above
+    the input field (file name and size).
+4.  Type your message and send — the file is included in the request.
+
+To remove a pending attachment before sending, click the **×** on the
+file badge.
+
+**Supported file types** depend on the active provider:
+
+*   All vision-capable providers (Claude, Gemini, GPT-4o, etc.) accept
+    images: PNG, JPEG, WebP.
+*   PDF support is available for Claude and Gemini only. The file picker
+    automatically shows only the formats the current provider supports.
+
+**Limits:**
+
+*   Maximum 5 files per conversation.
+*   Maximum file size: 20 MB per file.
+
+If a file is not accepted (wrong type, too large, or upload error), an
+error message is shown above the input.
+
 Error handling
 ==============
 

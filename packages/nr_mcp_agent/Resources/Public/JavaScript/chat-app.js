@@ -567,7 +567,7 @@ export class ChatApp extends LitElement {
                 ` : nothing}
             </div>
             <input type="file"
-                   accept=".pdf,.png,.jpg,.jpeg,.webp"
+                   accept="${(this.chat.supportedFormats || []).map(f => '.' + f).join(',') || '*'}"
                    style="display:none"
                    @change=${this._handleFileSelected}>
         `;

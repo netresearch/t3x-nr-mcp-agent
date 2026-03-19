@@ -166,18 +166,28 @@ User interface
 File attachments
 ================
 
-When the configured LLM provider supports vision (e.g. GPT-4o, Claude 3+),
-users can attach images and PDFs to their messages. The chat frontend shows
-a **+** button next to the input field when vision is supported.
+When the configured LLM provider supports vision (e.g. Claude 3+, Gemini,
+GPT-4o), users can attach images and PDFs to their messages. The chat
+frontend shows a **+** button next to the input field when vision is
+supported.
 
-Supported file types:
+**Provider-specific support:** Supported file types are determined at
+runtime by querying the active provider. Image formats (PNG, JPEG, WebP)
+are available for all vision-capable providers. PDF support requires the
+provider to implement ``DocumentCapableInterface`` — currently Claude and
+Gemini support this; OpenAI does not. The file picker in the browser
+automatically shows only the formats supported by the active provider.
+
+Supported file types (provider-dependent):
 
 *   Images: ``image/png``, ``image/jpeg``, ``image/webp``
-*   Documents: ``application/pdf``
+*   Documents: ``application/pdf`` *(Claude and Gemini only)*
 
 **Storage:** Uploaded files are stored in TYPO3 FAL under
 ``fileadmin/ai-chat/<be_user_uid>/``. They are read at LLM call time and
-sent as Base64-encoded multimodal content.
+sent as Base64-encoded multimodal content. Each file is stored in a
+user-specific subfolder; the API enforces that users can only attach their
+own files (cross-user access attempts return 404).
 
 **Limits:**
 

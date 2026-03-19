@@ -267,5 +267,15 @@ File attachment flow
         | builds multimodal content array:
         |   images  → {type: image_url, image_url: {url: data:...}}
         |   PDFs    → {type: document, source: {type: base64, ...}}
+        |             (only if provider implements DocumentCapableInterface)
+        |   PDFs on unsupported provider → "[file no longer available]"
         v
     LLM Provider (multimodal chatCompletion call)
+
+``ChatService::getProviderCapabilities()`` queries the active provider for
+its supported formats. It calls ``VisionCapableInterface::getSupportedImageFormats()``
+for image formats and, if the provider also implements
+``DocumentCapableInterface``, appends ``getSupportedDocumentFormats()``
+(e.g. ``['pdf']``). The frontend receives this list via ``GET /ai-chat/status``
+and uses it to set the file picker's ``accept`` attribute dynamically —
+ensuring users can only select file types the current provider can process.
