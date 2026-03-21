@@ -1,13 +1,45 @@
 {
     "name": "netresearch/nr-mcp-agent",
-    "type": "typo3-cms-extension",
     "description": "AI chat assistant for the TYPO3 backend using nr-llm and MCP server",
     "license": "GPL-2.0-or-later",
+    "type": "typo3-cms-extension",
+    "keywords": [
+        "TYPO3",
+        "extension",
+        "AI",
+        "chat",
+        "MCP",
+        "LLM",
+        "backend"
+    ],
+    "authors": [
+        {
+            "name": "Netresearch DTT GmbH",
+            "homepage": "https://www.netresearch.de/",
+            "role": "Developer"
+        }
+    ],
+    "homepage": "https://github.com/netresearch/t3x-nr-mcp-agent",
+    "support": {
+        "issues": "https://github.com/netresearch/t3x-nr-mcp-agent/issues",
+        "source": "https://github.com/netresearch/t3x-nr-mcp-agent"
+    },
     "require": {
         "php": "^8.2",
-        "typo3/cms-core": "^13.4 || ^14.0",
         "typo3/cms-backend": "^13.4 || ^14.0",
+        "typo3/cms-core": "^13.4 || ^14.0",
         "netresearch/nr-llm": "dev-main"
+    },
+    "require-dev": {
+        "captainhook/captainhook": "^5.0",
+        "captainhook/hook-installer": "^1.0",
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "phpat/phpat": "^0.11",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^10.5 || ^11.0",
+        "rector/rector": "^2.0",
+        "saschaegerer/phpstan-typo3": "^2.0",
+        "typo3/testing-framework": "^8.0 || ^9.0"
     },
     "suggest": {
         "netresearch/nr-vault": "For secure API key storage (^0.4)",
@@ -18,18 +50,29 @@
             "Netresearch\\NrMcpAgent\\": "Classes/"
         }
     },
-    "require-dev": {
-        "friendsofphp/php-cs-fixer": "^3.0",
-        "phpat/phpat": "^0.11",
-        "phpstan/phpstan": "^2.0",
-        "phpunit/phpunit": "^10.5 || ^11.0",
-        "rector/rector": "^2.0",
-        "saschaegerer/phpstan-typo3": "^2.0",
-        "typo3/testing-framework": "^8.0 || ^9.0"
-    },
     "autoload-dev": {
         "psr-4": {
             "Netresearch\\NrMcpAgent\\Tests\\": "Tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "captainhook/hook-installer": true,
+            "phpstan/extension-installer": true,
+            "typo3/class-alias-loader": true,
+            "typo3/cms-composer-installers": true
+        },
+        "bin-dir": ".Build/bin",
+        "sort-packages": true,
+        "vendor-dir": ".Build/vendor"
+    },
+    "extra": {
+        "captainhook": {
+            "config": "Build/captainhook.json"
+        },
+        "typo3/cms": {
+            "extension-key": "nr_mcp_agent",
+            "web-dir": ".Build/Web"
         }
     },
     "scripts": {
@@ -38,24 +81,14 @@
             "@ci:cgl",
             "@ci:tests"
         ],
-        "ci:phpstan": ".Build/bin/phpstan analyse -c phpstan.neon --no-progress",
+        "ci:phpstan": ".Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon --no-progress",
         "ci:cgl": ".Build/bin/php-cs-fixer fix --dry-run --diff",
-        "ci:tests": ".Build/bin/phpunit -c phpunit.xml",
-        "fix:cgl": ".Build/bin/php-cs-fixer fix"
-    },
-    "config": {
-        "allow-plugins": {
-            "typo3/cms-composer-installers": true,
-            "typo3/class-alias-loader": true,
-            "phpstan/extension-installer": true
-        },
-        "vendor-dir": ".Build/vendor",
-        "bin-dir": ".Build/bin"
-    },
-    "extra": {
-        "typo3/cms": {
-            "extension-key": "nr_mcp_agent",
-            "web-dir": ".Build/Web"
-        }
+        "ci:tests": ".Build/bin/phpunit -c Build/phpunit.xml",
+        "ci:tests:unit": ".Build/bin/phpunit -c Build/phpunit.xml --testsuite unit",
+        "ci:tests:functional": ".Build/bin/phpunit -c Build/phpunit.xml --testsuite functional",
+        "ci:tests:architecture": ".Build/bin/phpunit -c Build/phpunit.xml --testsuite architecture",
+        "ci:rector": ".Build/bin/rector process --config Build/rector/rector.php --dry-run",
+        "fix:cgl": ".Build/bin/php-cs-fixer fix",
+        "rector": ".Build/bin/rector process --config Build/rector/rector.php"
     }
 }
