@@ -3,3 +3,6 @@ package-lock.json
 playwright-report/
 test-results/
 Build/tests/playwright/.auth/
+.Build/
+.php-cs-fixer.cache
+Documentation-GENERATED-temp/

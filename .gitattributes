@@ -1,0 +1,11 @@
+# Exclude development-only directories from TER export (composer archive / git archive)
+/.ddev export-ignore
+/Build/Scripts export-ignore
+/Build/captainhook.json export-ignore
+/Build/tests export-ignore
+/docs export-ignore
+/Tests export-ignore
+/.editorconfig export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/Makefile export-ignore
