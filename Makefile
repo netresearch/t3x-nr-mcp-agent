@@ -35,19 +35,19 @@ sync:  ## Re-sync extension after code changes
 test: test-unit test-func test-arch  ## Run all PHP tests
 
 test-unit:  ## Run unit tests
-	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c .Build/phpunit.xml --testsuite unit
+	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c Build/phpunit.xml --testsuite unit
 
 test-func:  ## Run functional tests
-	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c .Build/phpunit.xml --testsuite functional
+	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c Build/phpunit.xml --testsuite functional
 
 test-arch:  ## Run architecture tests (phpat)
-	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c .Build/phpunit.xml --testsuite architecture
+	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c Build/phpunit.xml --testsuite architecture
 
 test-js:  ## Run Jest tests (Lit Elements)
 	ddev exec -d /var/www/nr_mcp_agent npx jest --coverage
 
 test-e2e:  ## Run Playwright E2E tests
-	ddev exec -d /var/www/nr_mcp_agent npx playwright test --config=Build/playwright.config.ts
+	ddev exec -d /var/www/nr_mcp_agent npx playwright test --config=Build/tests/playwright/playwright.config.ts
 
 test-mutation:  ## Run mutation testing (Infection)
 	ddev exec -d /var/www/nr_mcp_agent .Build/bin/infection --min-msi=70 --threads=4
@@ -55,7 +55,7 @@ test-mutation:  ## Run mutation testing (Infection)
 test-all: test test-js test-e2e  ## Run entire test pyramid
 
 coverage:  ## Generate HTML coverage report
-	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c .Build/phpunit.xml --coverage-html=.Build/coverage
+	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c Build/phpunit.xml --coverage-html=.Build/coverage
 
 # === Quality ===
 lint:  ## Check code style
@@ -65,7 +65,7 @@ lint-fix:  ## Fix code style
 	ddev exec -d /var/www/nr_mcp_agent .Build/bin/php-cs-fixer fix
 
 phpstan:  ## Static analysis
-	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpstan analyse
+	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon
 
 ci: lint phpstan test test-js  ## Run CI checks (without E2E — those run separately)
 
