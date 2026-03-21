@@ -116,7 +116,7 @@ final class McpConnection
         }
         if ($this->process !== null) {
             $status = proc_get_status($this->process);
-            if (is_array($status) && ($status['running'] ?? false)) {
+            if ($status['running']) {
                 proc_terminate($this->process);
             }
             @proc_close($this->process);

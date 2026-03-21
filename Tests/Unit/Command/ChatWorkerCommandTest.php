@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Command;
 
-use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Command\ChatWorkerCommand;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
@@ -19,10 +19,7 @@ use ReflectionClass;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
-use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
-use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 class ChatWorkerCommandTest extends TestCase
 {
@@ -111,29 +108,17 @@ class ChatWorkerCommandTest extends TestCase
         $config->method('isMcpEnabled')->willReturn(false);
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
 
-        $exprBuilder = $this->createMock(ExpressionBuilder::class);
-        $exprBuilder->method('eq')->willReturn('1 = 1');
-        $result = $this->createMock(Result::class);
-        $result->method('fetchAssociative')->willReturn(['uid' => 1, '_config_system_prompt' => '', '_task_prompt_template' => '']);
-        $qb = $this->createMock(QueryBuilder::class);
-        $qb->method('select')->willReturnSelf();
-        $qb->method('from')->willReturnSelf();
-        $qb->method('join')->willReturnSelf();
-        $qb->method('where')->willReturnSelf();
-        $qb->method('expr')->willReturn($exprBuilder);
-        $qb->method('quoteIdentifier')->willReturnArgument(0);
-        $qb->method('createNamedParameter')->willReturn('1');
-        $qb->method('executeQuery')->willReturn($result);
+        $llmTaskRepository = $this->createMock(LlmTaskRepository::class);
+        $llmTaskRepository->method('resolveModelByTaskUid')->willReturn([
+            'model' => $this->createMock(LlmModel::class),
+            'systemPrompt' => '',
+            'promptTemplate' => '',
+        ]);
 
-        $chatConnectionPool = $this->createMock(ConnectionPool::class);
-        $chatConnectionPool->method('getQueryBuilderForTable')->willReturn($qb);
-
-        $dataMapper = $this->createMock(DataMapper::class);
-        $dataMapper->method('map')->willReturn([$this->createMock(LlmModel::class)]);
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($this->createMock(ProviderInterface::class));
 
-        $chatService = new ChatService($chatRepository, $config, $mcpProvider, $chatConnectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
+        $chatService = new ChatService($chatRepository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class));
         $repository = $this->createMock(ConversationRepository::class);
         $connectionPool = $this->createMock(ConnectionPool::class);
 

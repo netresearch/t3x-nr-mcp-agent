@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
-use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -14,6 +13,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
@@ -22,11 +22,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use stdClass;
-use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
-use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
-use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 /**
  * Combined interface for testing — provider that supports both chat and tool calling.
@@ -57,40 +53,6 @@ class ChatServiceToolLoopTest extends TestCase
         );
     }
 
-    /**
-     * @return array{ConnectionPool, ProviderAdapterRegistry, DataMapper}
-     */
-    private function createProviderResolutionMocks(ProviderInterface $provider): array
-    {
-        $exprBuilder = $this->createMock(ExpressionBuilder::class);
-        $exprBuilder->method('eq')->willReturn('1 = 1');
-
-        $result = $this->createMock(Result::class);
-        $result->method('fetchAssociative')->willReturn(['uid' => 1, 'name' => 'test-model', '_config_system_prompt' => '', '_task_prompt_template' => '']);
-
-        $qb = $this->createMock(QueryBuilder::class);
-        $qb->method('select')->willReturnSelf();
-        $qb->method('from')->willReturnSelf();
-        $qb->method('join')->willReturnSelf();
-        $qb->method('where')->willReturnSelf();
-        $qb->method('expr')->willReturn($exprBuilder);
-        $qb->method('quoteIdentifier')->willReturnArgument(0);
-        $qb->method('createNamedParameter')->willReturn('1');
-        $qb->method('executeQuery')->willReturn($result);
-
-        $connectionPool = $this->createMock(ConnectionPool::class);
-        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
-
-        $model = $this->createMock(LlmModel::class);
-        $dataMapper = $this->createMock(DataMapper::class);
-        $dataMapper->method('map')->willReturn([$model]);
-
-        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
-        $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
-
-        return [$connectionPool, $adapterRegistry, $dataMapper];
-    }
-
     private function createService(
         ToolCapableProviderStub $provider,
         ?ConversationRepository $repository = null,
@@ -101,9 +63,18 @@ class ChatServiceToolLoopTest extends TestCase
         $config ??= $this->createMcpEnabledConfig();
         $mcpProvider ??= $this->createMcpProviderStub();
 
-        [$connectionPool, $adapterRegistry, $dataMapper] = $this->createProviderResolutionMocks($provider);
+        $model = $this->createMock(LlmModel::class);
+        $llmTaskRepository = $this->createMock(LlmTaskRepository::class);
+        $llmTaskRepository->method('resolveModelByTaskUid')->willReturn([
+            'model' => $model,
+            'systemPrompt' => '',
+            'promptTemplate' => '',
+        ]);
 
-        return new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
+
+        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class));
     }
 
     private function createMcpEnabledConfig(): ExtensionConfiguration
@@ -491,31 +462,17 @@ class ChatServiceToolLoopTest extends TestCase
         $repository = $this->createMock(ConversationRepository::class);
 
         // Build mocks manually since createService expects ToolCapableProviderStub
-        $exprBuilder = $this->createMock(ExpressionBuilder::class);
-        $exprBuilder->method('eq')->willReturn('1 = 1');
-        $result = $this->createMock(\Doctrine\DBAL\Result::class);
-        $result->method('fetchAssociative')->willReturn([
-            'uid' => 1, 'name' => 'test',
-            '_config_system_prompt' => '', '_task_prompt_template' => '',
-        ]);
-        $qb = $this->createMock(QueryBuilder::class);
-        $qb->method('select')->willReturnSelf();
-        $qb->method('from')->willReturnSelf();
-        $qb->method('join')->willReturnSelf();
-        $qb->method('where')->willReturnSelf();
-        $qb->method('expr')->willReturn($exprBuilder);
-        $qb->method('quoteIdentifier')->willReturnArgument(0);
-        $qb->method('createNamedParameter')->willReturn('1');
-        $qb->method('executeQuery')->willReturn($result);
-        $connectionPool = $this->createMock(ConnectionPool::class);
-        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
         $model = $this->createMock(LlmModel::class);
-        $dataMapper = $this->createMock(DataMapper::class);
-        $dataMapper->method('map')->willReturn([$model]);
+        $llmTaskRepository = $this->createMock(LlmTaskRepository::class);
+        $llmTaskRepository->method('resolveModelByTaskUid')->willReturn([
+            'model' => $model,
+            'systemPrompt' => '',
+            'promptTemplate' => '',
+        ]);
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        $service = new ChatService($repository, $config, $mcpProvider, $connectionPool, $adapterRegistry, $dataMapper, $this->createMock(ResourceFactory::class));
+        $service = new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());

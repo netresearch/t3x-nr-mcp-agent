@@ -130,9 +130,10 @@ final class Conversation
                 continue;
             }
             foreach ($msg['tool_calls'] as &$call) {
-                if (isset($call['function']['arguments']) && is_array($call['function']['arguments'])) {
-                    $call['function']['arguments'] = json_encode($call['function']['arguments'], JSON_THROW_ON_ERROR);
+                if (!is_array($call) || !is_array($call['function'] ?? null) || !is_array($call['function']['arguments'] ?? null)) {
+                    continue;
                 }
+                $call['function']['arguments'] = json_encode($call['function']['arguments'], JSON_THROW_ON_ERROR);
             }
             unset($call);
         }

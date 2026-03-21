@@ -13,6 +13,7 @@ use TYPO3\CMS\Core\Page\PageRenderer;
 
 final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbarItemInterface
 {
+    // @phpstan-ignore property.onlyWritten (required by RequestAwareToolbarItemInterface)
     private ServerRequestInterface $request;
 
     public function __construct(
@@ -42,7 +43,8 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
         if ($beUser->isAdmin()) {
             return true;
         }
-        $userGroups = array_map('intval', explode(',', $beUser->user['usergroup'] ?? ''));
+        $usergroup = $beUser->user['usergroup'] ?? null;
+        $userGroups = array_map('intval', explode(',', is_string($usergroup) ? $usergroup : ''));
         return array_intersect($allowed, $userGroups) !== [];
     }
 
@@ -82,6 +84,7 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
 
     private function getBackendUser(): ?BackendUserAuthentication
     {
-        return $GLOBALS['BE_USER'] ?? null;
+        $user = $GLOBALS['BE_USER'] ?? null;
+        return $user instanceof BackendUserAuthentication ? $user : null;
     }
 }

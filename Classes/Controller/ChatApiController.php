@@ -288,7 +288,8 @@ final readonly class ChatApiController
         }
 
         // Validate MIME type server-side via finfo — client-supplied Content-Type is untrusted
-        $tempPath = (string) $file->getStream()->getMetadata('uri');
+        $uri = $file->getStream()->getMetadata('uri');
+        $tempPath = is_string($uri) ? $uri : '';
         $finfo = new finfo(FILEINFO_MIME_TYPE);
         $detectedMime = $finfo->file($tempPath);
         if (!is_string($detectedMime) || !in_array($detectedMime, $allowedMimeTypes, true)) {

@@ -6,7 +6,6 @@ namespace Netresearch\NrMcpAgent\Service;
 
 use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -15,16 +14,14 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use RuntimeException;
 use Throwable;
-use TYPO3\CMS\Core\Database\Connection;
-use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
-use TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper;
 
 final class ChatService implements ChatCapabilitiesInterface
 {
@@ -39,9 +36,8 @@ final class ChatService implements ChatCapabilitiesInterface
         private readonly ConversationRepository $repository,
         private readonly ExtensionConfiguration $config,
         private readonly McpToolProviderInterface $mcpToolProvider,
-        private readonly ConnectionPool $connectionPool,
+        private readonly LlmTaskRepository $llmTaskRepository,
         private readonly ProviderAdapterRegistry $adapterRegistry,
-        private readonly DataMapper $dataMapper,
         private readonly ResourceFactory $resourceFactory,
     ) {}
 
@@ -60,7 +56,7 @@ final class ChatService implements ChatCapabilitiesInterface
                 return [
                     'visionSupported' => true,
                     'maxFileSize' => $provider->getMaxImageSize(),
-                    'supportedFormats' => array_merge($provider->getSupportedImageFormats(), $documentFormats),
+                    'supportedFormats' => array_values(array_merge($provider->getSupportedImageFormats(), $documentFormats)),
                 ];
             }
         } catch (Throwable) {
@@ -332,37 +328,14 @@ final class ChatService implements ChatCapabilitiesInterface
     private function resolveProvider(): ProviderInterface
     {
         $taskUid = $this->config->getLlmTaskUid();
+        $resolved = $this->llmTaskRepository->resolveModelByTaskUid($taskUid);
 
-        $qb = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_model');
-        $row = $qb
-            ->select('m.*', 'c.system_prompt AS _config_system_prompt', 't.prompt_template AS _task_prompt_template')
-            ->from('tx_nrllm_task', 't')
-            ->join('t', 'tx_nrllm_configuration', 'c', $qb->expr()->eq('c.uid', $qb->quoteIdentifier('t.configuration_uid')))
-            ->join('c', 'tx_nrllm_model', 'm', $qb->expr()->eq('m.uid', $qb->quoteIdentifier('c.model_uid')))
-            ->where($qb->expr()->eq('t.uid', $qb->createNamedParameter($taskUid, Connection::PARAM_INT)))
-            ->executeQuery()
-            ->fetchAssociative();
-
-        if ($row === false) {
-            throw new RuntimeException(sprintf('Could not resolve LLM model for task uid %d', $taskUid));
-        }
-
-        // Extract prompts before passing row to DataMapper (which only expects model columns)
         $this->resolvedPrompts = [
-            'system_prompt' => is_string($row['_config_system_prompt'] ?? null) ? $row['_config_system_prompt'] : '',
-            'prompt_template' => is_string($row['_task_prompt_template'] ?? null) ? $row['_task_prompt_template'] : '',
+            'system_prompt' => $resolved['systemPrompt'],
+            'prompt_template' => $resolved['promptTemplate'],
         ];
-        unset($row['_config_system_prompt'], $row['_task_prompt_template']);
 
-        /** @var list<LlmModel> $models */
-        $models = $this->dataMapper->map(LlmModel::class, [$row]);
-        $model = $models[0] ?? null;
-
-        if ($model === null) {
-            throw new RuntimeException(sprintf('Could not map LLM model for task uid %d', $taskUid));
-        }
-
-        return $this->adapterRegistry->createAdapterFromModel($model);
+        return $this->adapterRegistry->createAdapterFromModel($resolved['model']);
     }
 
     /**
@@ -417,23 +390,25 @@ final class ChatService implements ChatCapabilitiesInterface
             }
 
             try {
-                $file = $this->resourceFactory->getFileObject((int) $msg['fileUid']);
+                $fileUid = is_int($msg['fileUid']) ? $msg['fileUid'] : (is_numeric($msg['fileUid']) ? (int) $msg['fileUid'] : 0);
+                $file = $this->resourceFactory->getFileObject($fileUid);
                 $localPath = $file->getForLocalProcessing(false);
                 $base64 = base64_encode((string) file_get_contents($localPath));
                 $mimeType = $file->getMimeType();
 
                 $result[] = [
-                    'role' => $msg['role'],
+                    'role' => is_string($msg['role']) ? $msg['role'] : '',
                     'content' => [
-                        ['type' => 'text', 'text' => (string) ($msg['content'] ?? '')],
+                        ['type' => 'text', 'text' => is_string($msg['content'] ?? null) ? $msg['content'] : ''],
                         $this->buildFileContentBlock($mimeType, $base64, $provider),
                     ],
                 ];
             } catch (Throwable) {
                 $fileName = isset($msg['fileName']) && is_string($msg['fileName']) ? $msg['fileName'] : 'unknown';
+                $content = is_string($msg['content'] ?? null) ? $msg['content'] : '';
                 $result[] = [
-                    'role' => $msg['role'],
-                    'content' => ((string) ($msg['content'] ?? '')) . "\n\n[Attached file '" . $fileName . "' is no longer available]",
+                    'role' => is_string($msg['role']) ? $msg['role'] : '',
+                    'content' => $content . "\n\n[Attached file '" . $fileName . "' is no longer available]",
                 ];
             }
         }

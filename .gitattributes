@@ -1,7 +1,10 @@
 # Exclude development-only directories from TER export (composer archive / git archive)
 /.ddev export-ignore
-/Build/Scripts export-ignore
 /Build/captainhook.json export-ignore
+/Build/phpstan export-ignore
+/Build/phpunit.xml export-ignore
+/Build/rector export-ignore
+/Build/Scripts export-ignore
 /Build/tests export-ignore
 /docs export-ignore
 /Tests export-ignore
