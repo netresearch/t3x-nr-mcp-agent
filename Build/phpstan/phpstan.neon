@@ -1,0 +1,18 @@
+includes:
+    - %currentWorkingDirectory%/.Build/vendor/saschaegerer/phpstan-typo3/extension.neon
+    - %currentWorkingDirectory%/.Build/vendor/phpat/phpat/extension.neon
+
+parameters:
+    level: 10
+    paths:
+        - ../../Classes
+        - ../../Tests/Architecture
+    treatPhpDocTypesAsCertain: false
+    scanDirectories:
+        - ../../Tests/Architecture
+
+services:
+    -
+        class: Netresearch\NrMcpAgent\Tests\Architecture\LayerDependencyTest
+        tags:
+            - phpat.test
