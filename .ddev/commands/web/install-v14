@@ -6,7 +6,7 @@
 set -euo pipefail
 
 INSTALL_DIR="/var/www/html/v14"
-EXTENSION_PATH="/var/www/nr_mcp_agent/packages/nr_mcp_agent"
+EXTENSION_PATH="/var/www/nr_mcp_agent"
 
 echo "=== Installing TYPO3 v14 with nr_mcp_agent ==="
 
