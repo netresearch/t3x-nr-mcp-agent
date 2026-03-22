@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7886b4fd12acf02d73887e3a66f1407a",
+    "content-hash": "2ab1cb6892e4a315132c098ac45fd14b",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -8477,16 +8477,16 @@
         },
         {
             "name": "saschaegerer/phpstan-typo3",
-            "version": "2.1.1",
+            "version": "3.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sascha-egerer/phpstan-typo3.git",
-                "reference": "cf04d90a9f1cbbf51dccc217129a6e2594496f4e"
+                "reference": "8baaeb38c03944f64577f16bcdc8ec6799aad3cb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sascha-egerer/phpstan-typo3/zipball/cf04d90a9f1cbbf51dccc217129a6e2594496f4e",
-                "reference": "cf04d90a9f1cbbf51dccc217129a6e2594496f4e",
+                "url": "https://api.github.com/repos/sascha-egerer/phpstan-typo3/zipball/8baaeb38c03944f64577f16bcdc8ec6799aad3cb",
+                "reference": "8baaeb38c03944f64577f16bcdc8ec6799aad3cb",
                 "shasum": ""
             },
             "require": {
@@ -8502,7 +8502,6 @@
             "require-dev": {
                 "consistence-community/coding-standard": "^3.11",
                 "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
-                "phing/phing": "^2.17",
                 "php-parallel-lint/php-parallel-lint": "^1.4",
                 "phpstan/phpstan-phpunit": "^2.0.3",
                 "phpstan/phpstan-strict-rules": "^2.0",
@@ -8531,7 +8530,7 @@
             ],
             "support": {
                 "issues": "https://github.com/sascha-egerer/phpstan-typo3/issues",
-                "source": "https://github.com/sascha-egerer/phpstan-typo3/tree/2.1.1"
+                "source": "https://github.com/sascha-egerer/phpstan-typo3/tree/3.0.0"
             },
             "funding": [
                 {
@@ -8543,7 +8542,7 @@
                     "type": "liberapay"
                 }
             ],
-            "time": "2025-07-29T20:11:35+00:00"
+            "time": "2025-12-23T16:59:11+00:00"
         },
         {
             "name": "sebastian/cli-parser",
