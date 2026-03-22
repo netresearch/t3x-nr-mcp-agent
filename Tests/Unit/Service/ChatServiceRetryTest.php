@@ -267,4 +267,93 @@ class ChatServiceRetryTest extends TestCase
 
         unset($GLOBALS['BE_USER']);
     }
+
+    // -------------------------------------------------------------------------
+    // isTransientError(): LogicalOr subexpressions (line 316)
+    // Each keyword must independently trigger a retry
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function retriesOnRateLimitKeyword(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $callCount = 0;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(function () use (&$callCount) {
+            $callCount++;
+            if ($callCount === 1) {
+                throw new RuntimeException('rate limit exceeded');
+            }
+            return new CompletionResponse(content: 'ok', model: 'test', usage: new UsageStatistics(1, 2, 3));
+        });
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+        self::assertSame(2, $callCount);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function doesNotRetryWhenErrorKeywordIsMissing(): void
+    {
+        // 'api error' contains no retry keyword — must fail immediately
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $callCount = 0;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(function () use (&$callCount) {
+            $callCount++;
+            throw new RuntimeException('api error');
+        });
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertSame(1, $callCount);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function exhaustsRetriesAfterMaxAttemptsEvenForTransientErrors(): void
+    {
+        // Kills GreaterThanOrEqualTo / IncrementInteger mutations on the retry counter
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $callCount = 0;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(function () use (&$callCount) {
+            $callCount++;
+            throw new RuntimeException('503 Service Unavailable');
+        });
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        // MAX_LLM_RETRIES = 2 → exactly 3 attempts
+        self::assertSame(3, $callCount);
+
+        unset($GLOBALS['BE_USER']);
+    }
 }

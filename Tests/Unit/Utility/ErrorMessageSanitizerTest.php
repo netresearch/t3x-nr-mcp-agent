@@ -134,4 +134,50 @@ class ErrorMessageSanitizerTest extends TestCase
 
         self::assertStringNotContainsString('my-secret-token', $result);
     }
+
+    // -------------------------------------------------------------------------
+    // MBString mutation (line 14): mb_strlen / mb_substr vs strlen / substr
+    // Tests must use multibyte characters at the truncation boundary
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function truncationCountsMultibyteCharactersCorrectly(): void
+    {
+        // Each 'ü' is 2 bytes in UTF-8 but 1 mb_strlen unit.
+        // If substr() (byte-based) were used instead of mb_substr(), a 500-byte
+        // limit would cut in the middle of a multibyte character or count chars wrong.
+        $message = str_repeat('ü', 600);
+        $result = ErrorMessageSanitizer::sanitize($message);
+
+        // Result must be exactly 500 multibyte chars (not bytes)
+        self::assertSame(500, mb_strlen($result));
+        // Must end with ellipsis, not a broken byte
+        self::assertStringEndsWith("\u{2026}", $result);
+    }
+
+    #[Test]
+    public function truncationResultLengthIsExactlyMaxLengthInCharsNotBytes(): void
+    {
+        // ConcatOperandRemoval mutation removes the ellipsis from truncation output
+        $message = str_repeat('a', 600);
+        $result = ErrorMessageSanitizer::sanitize($message, 50);
+
+        self::assertSame(50, mb_strlen($result));
+        // Ellipsis must be present — 49 content chars + 1 ellipsis = 50
+        self::assertStringEndsWith("\u{2026}", $result);
+        self::assertSame(49, mb_strlen(str_replace("\u{2026}", '', $result)));
+    }
+
+    #[Test]
+    public function urlRedactionReplacesBothProtocols(): void
+    {
+        // ConcatOperandRemoval on the [URL] replacement text
+        $result1 = ErrorMessageSanitizer::sanitize('See https://example.com for details');
+        $result2 = ErrorMessageSanitizer::sanitize('See http://example.com for details');
+
+        self::assertStringContainsString('[URL]', $result1);
+        self::assertStringContainsString('[URL]', $result2);
+        self::assertStringNotContainsString('example.com', $result1);
+        self::assertStringNotContainsString('example.com', $result2);
+    }
 }

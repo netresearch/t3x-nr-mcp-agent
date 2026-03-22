@@ -1,0 +1,182 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
+
+use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
+use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
+use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
+use Netresearch\NrMcpAgent\Service\ChatService;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
+
+/**
+ * Targets mutation survivors in ChatService::getProviderCapabilities() (lines 47-71):
+ * - InstanceOf_ + LogicalAnd: VisionCapable check + supportsVision() call
+ * - UnwrapArrayValues: array_values() on merged formats must produce a list
+ */
+class ChatServiceCapabilitiesTest extends TestCase
+{
+    private function createChatService(ProviderInterface $provider): ChatService
+    {
+        $repository = $this->createMock(ConversationRepository::class);
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+
+        $llmTaskRepository = $this->createMock(LlmTaskRepository::class);
+        $llmTaskRepository->method('resolveModelByTaskUid')->willReturn([
+            'model' => $this->createMock(LlmModel::class),
+            'systemPrompt' => '',
+            'promptTemplate' => '',
+        ]);
+
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
+
+        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class));
+    }
+
+    // -------------------------------------------------------------------------
+    // InstanceOf_ mutation: remove `instanceof VisionCapableInterface` check
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function returnsNoVisionWhenProviderIsNotVisionCapable(): void
+    {
+        $provider = $this->createMock(ProviderInterface::class);
+        $service = $this->createChatService($provider);
+
+        $caps = $service->getProviderCapabilities();
+
+        self::assertFalse($caps['visionSupported']);
+        self::assertSame(0, $caps['maxFileSize']);
+        self::assertSame([], $caps['supportedFormats']);
+    }
+
+    // -------------------------------------------------------------------------
+    // LogicalAnd mutation: remove `&& $provider->supportsVision()` part
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function returnsNoVisionWhenProviderIsVisionCapableButDoesNotSupportVision(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(false);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertFalse($caps['visionSupported']);
+    }
+
+    #[Test]
+    public function returnsVisionSupportedWhenProviderSupportsVision(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getMaxImageSize')->willReturn(5242880);
+        $provider->method('getSupportedImageFormats')->willReturn(['image/jpeg', 'image/png']);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertTrue($caps['visionSupported']);
+        self::assertSame(5242880, $caps['maxFileSize']);
+    }
+
+    // -------------------------------------------------------------------------
+    // UnwrapArrayValues: array_values() must produce a sequential-keyed list
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function supportedFormatsIsSequentiallyIndexedList(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getMaxImageSize')->willReturn(1024);
+        $provider->method('getSupportedImageFormats')->willReturn(['image/jpeg', 'image/png']);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        // array_values() ensures the result is a list (0-indexed), not associative
+        $keys = array_keys($caps['supportedFormats']);
+        self::assertSame(range(0, count($caps['supportedFormats']) - 1), $keys);
+    }
+
+    #[Test]
+    public function documentFormatsAreMergedIntoSupportedFormats(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class, DocumentCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getMaxImageSize')->willReturn(1024);
+        $provider->method('getSupportedImageFormats')->willReturn(['image/jpeg']);
+        $provider->method('supportsDocuments')->willReturn(true);
+        $provider->method('getSupportedDocumentFormats')->willReturn(['application/pdf']);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertContains('image/jpeg', $caps['supportedFormats']);
+        self::assertContains('application/pdf', $caps['supportedFormats']);
+        // Must remain a list even after merge
+        self::assertSame(range(0, 1), array_keys($caps['supportedFormats']));
+    }
+
+    #[Test]
+    public function documentFormatsAreExcludedWhenDocumentSupportDisabled(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class, DocumentCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getMaxImageSize')->willReturn(1024);
+        $provider->method('getSupportedImageFormats')->willReturn(['image/jpeg']);
+        $provider->method('supportsDocuments')->willReturn(false);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertNotContains('application/pdf', $caps['supportedFormats']);
+        self::assertContains('image/jpeg', $caps['supportedFormats']);
+    }
+
+    #[Test]
+    public function returnsNoVisionWhenProviderResolutionFails(): void
+    {
+        $provider = $this->createMock(ProviderInterface::class);
+        $repository = $this->createMock(ConversationRepository::class);
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+
+        $llmTaskRepository = $this->createMock(LlmTaskRepository::class);
+        $llmTaskRepository->method('resolveModelByTaskUid')->willThrowException(new \RuntimeException('Model not found'));
+
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
+
+        $service = new ChatService(
+            $repository,
+            $config,
+            $this->createMock(McpToolProviderInterface::class),
+            $llmTaskRepository,
+            $adapterRegistry,
+            $this->createMock(ResourceFactory::class),
+        );
+
+        $caps = $service->getProviderCapabilities();
+
+        self::assertFalse($caps['visionSupported']);
+        self::assertSame(0, $caps['maxFileSize']);
+        self::assertSame([], $caps['supportedFormats']);
+    }
+}

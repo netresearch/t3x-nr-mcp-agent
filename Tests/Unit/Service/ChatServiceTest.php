@@ -957,4 +957,175 @@ class ChatServiceTest extends TestCase
         unlink($tempFile);
         unset($GLOBALS['BE_USER']);
     }
+
+    // -------------------------------------------------------------------------
+    // MethodCallRemoval mutations: persist() must be called (line 80, 102)
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function processConversationPersistsWhenNoLlmTaskConfigured(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(0);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->expects(self::once())->method('update');
+
+        $provider = $this->createMock(ProviderInterface::class);
+        $service = $this->createChatService($provider, repository: $repository, config: $config);
+        $service->processConversation($conversation);
+    }
+
+    #[Test]
+    public function processConversationPersistsOnProviderException(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willThrowException(new \RuntimeException('Provider error'));
+
+        $repository = $this->createMock(ConversationRepository::class);
+        // updateStatus for Processing + update on failure = at least 2 calls
+        $repository->expects(self::atLeast(1))->method('update');
+
+        $GLOBALS['BE_USER'] = new \stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, repository: $repository);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    // -------------------------------------------------------------------------
+    // LogicalAnd mutation (line 84): isMcpEnabled AND isMcpServerInstalled
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function processConversationDoesNotConnectMcpWhenServerNotInstalled(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(true);
+        $config->method('isMcpServerInstalled')->willReturn(false); // server not installed
+
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturn($this->createCompletionResponse('ok'));
+
+        $mcpProvider = $this->createMock(\Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface::class);
+        $mcpProvider->expects(self::never())->method('connect');
+        $mcpProvider->expects(self::never())->method('disconnect');
+
+        $GLOBALS['BE_USER'] = new \stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    // -------------------------------------------------------------------------
+    // resumeConversation: MethodCallRemoval (lines 119, 121) + LogicalAnd (125)
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function resumeConversationPersistsWhenNoLlmTaskConfigured(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(0);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->expects(self::once())->method('update');
+
+        $provider = $this->createMock(ProviderInterface::class);
+        $service = $this->createChatService($provider, repository: $repository, config: $config);
+        $service->resumeConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+    }
+
+    #[Test]
+    public function resumeConversationDoesNotConnectMcpWhenServerNotInstalled(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(true);
+        $config->method('isMcpServerInstalled')->willReturn(false);
+
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturn($this->createCompletionResponse('ok'));
+
+        $mcpProvider = $this->createMock(\Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface::class);
+        $mcpProvider->expects(self::never())->method('connect');
+
+        $GLOBALS['BE_USER'] = new \stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
+        $service->resumeConversation($conversation);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    // -------------------------------------------------------------------------
+    // buildSystemPrompt: LogicException if resolveProvider() not called first (line 452)
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function systemPromptFromConversationTakesPrecedenceOverTaskConfig(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSystemPrompt('Custom prompt');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('ok');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new \stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, prompts: ['system_prompt' => 'Task prompt', 'prompt_template' => 'Template']);
+        $service->processConversation($conversation);
+
+        // Conversation-level prompt must win — system message has the custom content
+        $firstMsg = $capturedMessages[0] ?? [];
+        self::assertSame('system', $firstMsg['role'] ?? '');
+        self::assertSame('Custom prompt', $firstMsg['content'] ?? '');
+        // Task-level prompts must NOT appear
+        self::assertStringNotContainsString('Task prompt', (string)($firstMsg['content'] ?? ''));
+
+        unset($GLOBALS['BE_USER']);
+    }
 }

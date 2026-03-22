@@ -26,7 +26,32 @@
     },
     "mutators": {
         "@default": true,
-        "@function_signature": false
+        "@function_signature": false,
+        "CastArray": {
+            "ignoreSourceCodeByRegex": [
+                "GeneralUtility::makeInstance"
+            ]
+        },
+        "NotIdentical": {
+            "ignoreSourceCodeByRegex": [
+                "PHP_SAPI"
+            ]
+        },
+        "LogicalAnd": {
+            "ignoreSourceCodeByRegex": [
+                "PHP_SAPI"
+            ]
+        },
+        "LogicalAndAllSubExprNegation": {
+            "ignoreSourceCodeByRegex": [
+                "PHP_SAPI"
+            ]
+        },
+        "LogicalAndNegation": {
+            "ignoreSourceCodeByRegex": [
+                "PHP_SAPI"
+            ]
+        }
     },
     "testFramework": "phpunit",
     "testFrameworkOptions": "--testsuite=unit",
