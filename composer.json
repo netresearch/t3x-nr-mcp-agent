@@ -42,6 +42,7 @@
         "captainhook/captainhook": "^5.0",
         "captainhook/hook-installer": "^1.0",
         "friendsofphp/php-cs-fixer": "^3.0",
+        "infection/infection": "^0.29",
         "phpat/phpat": "^0.11",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^10.5 || ^11.0",
@@ -66,6 +67,7 @@
     "config": {
         "allow-plugins": {
             "captainhook/hook-installer": true,
+            "infection/extension-installer": true,
             "phpstan/extension-installer": true,
             "typo3/class-alias-loader": true,
             "typo3/cms-composer-installers": true
@@ -95,6 +97,8 @@
         "ci:tests:unit": ".Build/bin/phpunit -c Build/phpunit.xml --testsuite unit",
         "ci:tests:functional": ".Build/bin/phpunit -c Build/phpunit.xml --testsuite functional",
         "ci:tests:architecture": ".Build/bin/phpunit -c Build/phpunit.xml --testsuite architecture",
+        "ci:mutation": ".Build/bin/infection --configuration=infection.json.dist --threads=4 --no-progress",
+        "ci:mutation:ci": ".Build/bin/infection --configuration=infection.json.dist --threads=4 --no-progress --logger-github",
         "ci:rector": ".Build/bin/rector process --config Build/rector/rector.php --dry-run",
         "fix:cgl": ".Build/bin/php-cs-fixer fix",
         "rector": ".Build/bin/rector process --config Build/rector/rector.php"
