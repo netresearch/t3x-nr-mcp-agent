@@ -74,7 +74,10 @@
         },
         "bin-dir": ".Build/bin",
         "sort-packages": true,
-        "vendor-dir": ".Build/vendor"
+        "vendor-dir": ".Build/vendor",
+        "platform": {
+            "php": "8.2.0"
+        }
     },
     "extra": {
         "captainhook": {

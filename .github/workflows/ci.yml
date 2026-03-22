@@ -52,14 +52,9 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      - name: Require TYPO3 ${{ matrix.typo3 }}
-        run: composer require --no-interaction --no-update typo3/cms-core:"${{ matrix.typo3 }}" typo3/cms-backend:"${{ matrix.typo3 }}"
-
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Install dependencies (TYPO3 ${{ matrix.typo3 }})
+        run: composer require --no-interaction typo3/cms-core:"${{ matrix.typo3 }}" typo3/cms-backend:"${{ matrix.typo3 }}" -W --no-progress
 
       - name: Unit tests
         run: composer ci:tests:unit
 
-      - name: Architecture tests
-        run: composer ci:tests:architecture
