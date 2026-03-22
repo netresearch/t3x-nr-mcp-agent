@@ -41,7 +41,9 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.2', '8.3', '8.4']
-        typo3: ['^13.4', '^14.0']
+        # TYPO3 ^14.0 is excluded until saschaegerer/phpstan-typo3 and
+        # typo3fluid/fluid release versions that support TYPO3 14.
+        typo3: ['^13.4']
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
@@ -53,14 +55,7 @@ jobs:
           coverage: none
 
       - name: Install dependencies (TYPO3 ${{ matrix.typo3 }})
-        run: |
-          # saschaegerer/phpstan-typo3 does not yet support TYPO3 14; remove it
-          # before the version switch so -W can resolve the dependency graph.
-          # The tests job does not run PHPStan, so this is safe.
-          if [[ "${{ matrix.typo3 }}" == "^14.0" ]]; then
-            composer remove --dev saschaegerer/phpstan-typo3 --no-update --no-interaction
-          fi
-          composer require --no-interaction typo3/cms-core:"${{ matrix.typo3 }}" typo3/cms-backend:"${{ matrix.typo3 }}" -W --no-progress
+        run: composer require --no-interaction typo3/cms-core:"${{ matrix.typo3 }}" typo3/cms-backend:"${{ matrix.typo3 }}" -W --no-progress
 
       - name: Unit tests
         run: composer ci:tests:unit
