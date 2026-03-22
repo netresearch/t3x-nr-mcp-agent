@@ -11,3 +11,4 @@ Developer information
     Architecture
     AgentLoop
     Commands
+    Testing

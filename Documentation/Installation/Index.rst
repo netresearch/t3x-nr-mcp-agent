@@ -77,13 +77,26 @@ Running tests and quality checks:
 
 ..  code-block:: bash
 
-    # All CI checks
+    # All CI checks (PHPStan + CGL + tests)
     ddev composer ci
 
     # Individual checks
-    ddev composer ci:phpstan
-    ddev composer ci:cgl
-    ddev composer ci:tests
+    ddev composer ci:phpstan     # Static analysis + architecture tests
+    ddev composer ci:cgl         # Code style check
+    ddev composer ci:tests:unit  # Unit tests only
+    ddev composer ci:tests       # Unit + functional tests
+    ddev composer ci:mutation    # Mutation testing (Infection)
 
     # Fix code style
     ddev composer fix:cgl
+
+Alternatively, use the Docker-based test runner (works without DDEV):
+
+..  code-block:: bash
+
+    ./Build/Scripts/runTests.sh -s unit        # Unit tests
+    ./Build/Scripts/runTests.sh -s phpstan     # PHPStan
+    ./Build/Scripts/runTests.sh -s cgl         # Code style check
+    ./Build/Scripts/runTests.sh -s mutation    # Mutation testing
+    ./Build/Scripts/runTests.sh -s unit -p 8.3 # Specific PHP version
+    ./Build/Scripts/runTests.sh -h             # Show all options

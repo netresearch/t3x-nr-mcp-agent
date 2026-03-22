@@ -61,11 +61,23 @@ ddev typo3 database:updateschema
 Run quality checks:
 
 ```bash
-ddev composer ci          # All checks
-ddev composer ci:phpstan  # Static analysis
-ddev composer ci:cgl      # Code style check
-ddev composer ci:tests    # PHPUnit tests
-ddev composer fix:cgl     # Fix code style
+ddev composer ci             # All checks (PHPStan + CGL + tests)
+ddev composer ci:phpstan     # Static analysis (includes architecture tests)
+ddev composer ci:cgl         # Code style check
+ddev composer ci:tests:unit  # Unit tests only
+ddev composer ci:tests       # Unit + functional tests
+ddev composer ci:mutation    # Mutation testing (Infection)
+ddev composer fix:cgl        # Fix code style
+```
+
+For Docker-based testing that mirrors CI exactly (no DDEV required):
+
+```bash
+./Build/Scripts/runTests.sh -s unit        # Unit tests
+./Build/Scripts/runTests.sh -s phpstan     # PHPStan
+./Build/Scripts/runTests.sh -s cgl         # Code style check
+./Build/Scripts/runTests.sh -s mutation    # Mutation testing
+./Build/Scripts/runTests.sh -s unit -p 8.3 # Specific PHP version
 ```
 
 ## Configuration
