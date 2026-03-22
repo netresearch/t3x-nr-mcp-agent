@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 
 /**
@@ -159,7 +160,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $config->method('isMcpEnabled')->willReturn(false);
 
         $llmTaskRepository = $this->createMock(LlmTaskRepository::class);
-        $llmTaskRepository->method('resolveModelByTaskUid')->willThrowException(new \RuntimeException('Model not found'));
+        $llmTaskRepository->method('resolveModelByTaskUid')->willThrowException(new RuntimeException('Model not found'));
 
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);

@@ -34,9 +34,9 @@
     ],
     "require": {
         "php": "^8.2",
+        "netresearch/nr-llm": "dev-main",
         "typo3/cms-backend": "^13.4 || ^14.0",
-        "typo3/cms-core": "^13.4 || ^14.0",
-        "netresearch/nr-llm": "dev-main"
+        "typo3/cms-core": "^13.4 || ^14.0"
     },
     "require-dev": {
         "captainhook/captainhook": "^5.0",

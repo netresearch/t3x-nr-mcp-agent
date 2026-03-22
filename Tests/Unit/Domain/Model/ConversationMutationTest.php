@@ -6,9 +6,9 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Domain\Model;
 
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
-use Netresearch\NrMcpAgent\Enum\MessageRole;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 /**
  * Targeted at mutation survivors in Conversation::fromRow(), toRow(),
@@ -340,7 +340,7 @@ class ConversationMutationTest extends TestCase
     #[Test]
     public function fromRowCoercesNonScalarStatusToEmptyString(): void
     {
-        $c = Conversation::fromRow(['uid' => 1, 'be_user' => 1, 'status' => new \stdClass(), 'messages' => '[]', 'message_count' => 0]);
+        $c = Conversation::fromRow(['uid' => 1, 'be_user' => 1, 'status' => new stdClass(), 'messages' => '[]', 'message_count' => 0]);
         // val() returns null → (string)null = '' → no ConversationStatus match → fallback
         self::assertNotNull($c->getStatus());
     }

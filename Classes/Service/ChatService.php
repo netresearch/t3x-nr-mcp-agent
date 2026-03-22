@@ -146,11 +146,7 @@ final class ChatService implements ChatCapabilitiesInterface
                 $this->persist($conversation);
             }
 
-            if ($mcpEnabled) {
-                $tools = $this->mcpToolProvider->getToolDefinitions();
-            } else {
-                $tools = [];
-            }
+            $tools = $mcpEnabled ? $this->mcpToolProvider->getToolDefinitions() : [];
 
             if ($tools !== []) {
                 $this->runAgentLoop($conversation, $tools);

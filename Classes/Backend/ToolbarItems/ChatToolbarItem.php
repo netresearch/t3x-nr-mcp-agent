@@ -11,20 +11,14 @@ use TYPO3\CMS\Backend\Toolbar\ToolbarItemInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Page\PageRenderer;
 
-final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbarItemInterface
+final readonly class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbarItemInterface
 {
-    // @phpstan-ignore property.onlyWritten (required by RequestAwareToolbarItemInterface)
-    private ServerRequestInterface $request;
-
     public function __construct(
-        private readonly ExtensionConfiguration $config,
-        private readonly PageRenderer $pageRenderer,
+        private ExtensionConfiguration $config,
+        private PageRenderer $pageRenderer,
     ) {}
 
-    public function setRequest(ServerRequestInterface $request): void
-    {
-        $this->request = $request;
-    }
+    public function setRequest(ServerRequestInterface $request): void {}
 
     public function checkAccess(): bool
     {
@@ -44,7 +38,7 @@ final class ChatToolbarItem implements ToolbarItemInterface, RequestAwareToolbar
             return true;
         }
         $usergroup = $beUser->user['usergroup'] ?? null;
-        $userGroups = array_map('intval', explode(',', is_string($usergroup) ? $usergroup : ''));
+        $userGroups = array_map(intval(...), explode(',', is_string($usergroup) ? $usergroup : ''));
         return array_intersect($allowed, $userGroups) !== [];
     }
 

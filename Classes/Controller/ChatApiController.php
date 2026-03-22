@@ -36,31 +36,25 @@ final readonly class ChatApiController
     /**
      * GET /ai-chat/status – Check if AI chat is available for current user.
      */
-    public function getStatus(ServerRequestInterface $request): ResponseInterface
+    public function getStatus(): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
         if ($accessDenied !== null) {
             return $accessDenied;
         }
-
         $taskUid = $this->config->getLlmTaskUid();
         $mcpEnabled = $this->config->isMcpEnabled();
         $issues = [];
-
         if ($taskUid === 0) {
             $issues[] = 'No nr-llm Task configured. An admin must create an nr-llm Task record and set its UID in Extension Configuration.';
         }
-
         $mcpServerInstalled = $this->config->isMcpServerInstalled();
-
         if ($mcpEnabled && !$mcpServerInstalled) {
             $issues[] = 'MCP is enabled but hn/typo3-mcp-server is not installed. Install it via: composer require hn/typo3-mcp-server';
         } elseif (!$mcpEnabled && $mcpServerInstalled) {
             $issues[] = 'hn/typo3-mcp-server is installed but MCP is not enabled. Enable MCP in Extension Configuration to allow content actions.';
         }
-
         $capabilities = $this->chatService->getProviderCapabilities();
-
         return new JsonResponse([
             'available' => $taskUid > 0,
             'mcpEnabled' => $mcpEnabled,
@@ -73,15 +67,13 @@ final readonly class ChatApiController
     /**
      * GET /ai-chat/conversations – List conversations for current user.
      */
-    public function listConversations(ServerRequestInterface $request): ResponseInterface
+    public function listConversations(): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
         if ($accessDenied !== null) {
             return $accessDenied;
         }
-
         $conversations = $this->repository->findByBeUser($this->getBeUserUid());
-
         $items = array_map(static fn(Conversation $c): array => [
             'uid' => $c->getUid(),
             'title' => $c->getTitle(),
@@ -92,25 +84,21 @@ final readonly class ChatApiController
             'errorMessage' => $c->getErrorMessage(),
             'tstamp' => $c->getTstamp(),
         ], $conversations);
-
         return new JsonResponse(['conversations' => $items]);
     }
 
     /**
      * POST /ai-chat/conversations/create – Create new conversation.
      */
-    public function createConversation(ServerRequestInterface $request): ResponseInterface
+    public function createConversation(): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
         if ($accessDenied !== null) {
             return $accessDenied;
         }
-
         $conversation = new Conversation();
         $conversation->setBeUser($this->getBeUserUid());
-
         $uid = $this->repository->add($conversation);
-
         return new JsonResponse([
             'uid' => $uid,
         ], 201);
@@ -215,9 +203,7 @@ final readonly class ChatApiController
         }
 
         $currentStatus = $conversation->getStatus();
-        if ($currentStatus === ConversationStatus::Processing
-            || $currentStatus === ConversationStatus::Locked
-            || $currentStatus === ConversationStatus::ToolLoop
+        if (in_array($currentStatus, [ConversationStatus::Processing, ConversationStatus::Locked, ConversationStatus::ToolLoop], true)
         ) {
             return new JsonResponse(['error' => 'Conversation is already processing'], 409);
         }

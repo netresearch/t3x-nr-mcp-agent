@@ -988,13 +988,13 @@ class ChatServiceTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $provider = $this->createMock(ProviderInterface::class);
-        $provider->method('chatCompletion')->willThrowException(new \RuntimeException('Provider error'));
+        $provider->method('chatCompletion')->willThrowException(new RuntimeException('Provider error'));
 
         $repository = $this->createMock(ConversationRepository::class);
         // updateStatus for Processing + update on failure = at least 2 calls
         $repository->expects(self::atLeast(1))->method('update');
 
-        $GLOBALS['BE_USER'] = new \stdClass();
+        $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
         $service = $this->createChatService($provider, repository: $repository);
@@ -1028,7 +1028,7 @@ class ChatServiceTest extends TestCase
         $mcpProvider->expects(self::never())->method('connect');
         $mcpProvider->expects(self::never())->method('disconnect');
 
-        $GLOBALS['BE_USER'] = new \stdClass();
+        $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
         $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
@@ -1083,7 +1083,7 @@ class ChatServiceTest extends TestCase
         $mcpProvider = $this->createMock(\Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface::class);
         $mcpProvider->expects(self::never())->method('connect');
 
-        $GLOBALS['BE_USER'] = new \stdClass();
+        $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
         $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
@@ -1113,7 +1113,7 @@ class ChatServiceTest extends TestCase
             },
         );
 
-        $GLOBALS['BE_USER'] = new \stdClass();
+        $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
         $service = $this->createChatService($provider, prompts: ['system_prompt' => 'Task prompt', 'prompt_template' => 'Template']);
@@ -1124,7 +1124,7 @@ class ChatServiceTest extends TestCase
         self::assertSame('system', $firstMsg['role'] ?? '');
         self::assertSame('Custom prompt', $firstMsg['content'] ?? '');
         // Task-level prompts must NOT appear
-        self::assertStringNotContainsString('Task prompt', (string)($firstMsg['content'] ?? ''));
+        self::assertStringNotContainsString('Task prompt', (string) ($firstMsg['content'] ?? ''));
 
         unset($GLOBALS['BE_USER']);
     }

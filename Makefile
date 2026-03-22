@@ -50,7 +50,7 @@ test-e2e:  ## Run Playwright E2E tests
 	ddev exec -d /var/www/nr_mcp_agent npx playwright test --config=Build/tests/playwright/playwright.config.ts
 
 test-mutation:  ## Run mutation testing (Infection)
-	ddev exec -d /var/www/nr_mcp_agent .Build/bin/infection --min-msi=70 --threads=4
+	ddev composer ci:mutation
 
 test-all: test test-js test-e2e  ## Run entire test pyramid
 
