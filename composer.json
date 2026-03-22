@@ -24,6 +24,14 @@
         "issues": "https://github.com/netresearch/t3x-nr-mcp-agent/issues",
         "source": "https://github.com/netresearch/t3x-nr-mcp-agent"
     },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/netresearch/t3x-nr-llm"
+        }
+    ],
     "require": {
         "php": "^8.2",
         "typo3/cms-backend": "^13.4 || ^14.0",

@@ -1,7 +1,6 @@
 # AI Chat for TYPO3 (`nr_mcp_agent`)
 
-<!-- Badges placeholder -->
-<!-- [![CI](https://github.com/netresearch/t3x-nr-mcp-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-mcp-agent/actions) -->
+[![CI](https://github.com/netresearch/t3x-nr-mcp-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-mcp-agent/actions)
 <!-- [![Latest Stable Version](https://poser.pugx.org/netresearch/nr-mcp-agent/v)](https://packagist.org/packages/netresearch/nr-mcp-agent) -->
 
 AI Chat integrates a conversational AI assistant into the TYPO3 backend.
