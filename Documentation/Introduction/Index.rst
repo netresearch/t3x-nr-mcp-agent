@@ -4,6 +4,17 @@
 Introduction
 ============
 
+..  note::
+
+    **Proof of concept.** This extension explores a concrete question: is
+    agent-like behavior possible within the TYPO3 backend? It is not
+    intended to answer whether this is the right architectural approach —
+    the space is moving fast, and the tradeoffs between MCP, tool-calling,
+    browser-side agents, and custom integrations are far from settled. The
+    goal here is to show that it *works*, and to invite feedback from
+    anyone thinking about the same problem. If you have thoughts,
+    `open an issue <https://github.com/netresearch/t3x-nr-mcp-agent/issues>`__.
+
 What does it do?
 ================
 
