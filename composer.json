@@ -34,7 +34,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "netresearch/nr-llm": "dev-main",
+        "netresearch/nr-llm": "^0.6.0",
         "typo3/cms-backend": "^13.4 || ^14.0",
         "typo3/cms-core": "^13.4 || ^14.0"
     },

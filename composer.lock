@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2ab1cb6892e4a315132c098ac45fd14b",
+    "content-hash": "a3f1705dfa2de23aeb74bffab04f969c",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1204,16 +1204,16 @@
         },
         {
             "name": "netresearch/nr-llm",
-            "version": "dev-main",
+            "version": "v0.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/netresearch/t3x-nr-llm.git",
-                "reference": "ca352e4aed5fda20688064ee36be44b4d226fdbe"
+                "reference": "efd5fff2479a3ba6c38736fb7758e8b1eefc4d59"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/netresearch/t3x-nr-llm/zipball/ca352e4aed5fda20688064ee36be44b4d226fdbe",
-                "reference": "ca352e4aed5fda20688064ee36be44b4d226fdbe",
+                "url": "https://api.github.com/repos/netresearch/t3x-nr-llm/zipball/efd5fff2479a3ba6c38736fb7758e8b1eefc4d59",
+                "reference": "efd5fff2479a3ba6c38736fb7758e8b1eefc4d59",
                 "shasum": ""
             },
             "require": {
@@ -1231,7 +1231,6 @@
                 "netresearch/typo3-ci-workflows": "^1.2",
                 "typo3/cms-install": "^13.4 || ^14.0"
             },
-            "default-branch": true,
             "type": "typo3-cms-extension",
             "extra": {
                 "captainhook": {
@@ -1356,7 +1355,7 @@
                 "issues": "https://github.com/netresearch/t3x-nr-llm/issues",
                 "source": "https://github.com/netresearch/t3x-nr-llm"
             },
-            "time": "2026-03-18T18:32:42+00:00"
+            "time": "2026-03-24T14:38:28+00:00"
         },
         {
             "name": "netresearch/nr-vault",
@@ -10916,9 +10915,7 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {
-        "netresearch/nr-llm": 20
-    },
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
