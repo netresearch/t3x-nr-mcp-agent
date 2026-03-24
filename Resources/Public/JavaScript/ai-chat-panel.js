@@ -619,89 +619,83 @@ export class AiChatPanel extends LitElement {
     }
 
     _onDragStart(e) {
+        if (e.button !== 0) return; // left button only
         if (e.target.closest('button, .btn-icon')) return;
         if (this.state === STATES.COLLAPSED) return;
         e.preventDefault();
+
+        // setPointerCapture ensures pointerup is always received — even when the
+        // mouse moves over TYPO3's content iframes or leaves the browser window.
+        const handle = e.currentTarget;
+        handle.setPointerCapture(e.pointerId);
         this._dragging = true;
 
-        const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-        // Use getBoundingClientRect() for reliable offset — inline style may not be set yet
         const rect = this.getBoundingClientRect();
-        this._dragOffsetX = clientX - rect.left;
-        this._dragOffsetY = clientY - rect.top;
+        this._dragOffsetX = e.clientX - rect.left;
+        this._dragOffsetY = e.clientY - rect.top;
 
-        document.body.style.userSelect = 'none';
         document.body.style.cursor = 'grabbing';
 
         const onMove = (ev) => {
-            ev.preventDefault();
-            const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
-            const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
-            const constrained = this._constrainPosition(cx - this._dragOffsetX, cy - this._dragOffsetY);
+            if (!ev.isPrimary) return;
+            const constrained = this._constrainPosition(ev.clientX - this._dragOffsetX, ev.clientY - this._dragOffsetY);
             this.style.left = constrained.x + 'px';
             this.style.top = constrained.y + 'px';
         };
 
         const onEnd = () => {
             this._dragging = false;
-            document.body.style.userSelect = '';
             document.body.style.cursor = '';
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onEnd);
-            document.removeEventListener('touchmove', onMove);
-            document.removeEventListener('touchend', onEnd);
+            handle.removeEventListener('pointermove', onMove);
+            handle.removeEventListener('pointerup', onEnd);
+            handle.removeEventListener('pointercancel', onEnd);
             this._posX = parseFloat(this.style.left) || 0;
             this._posY = parseFloat(this.style.top) || 0;
             this._saveState();
         };
 
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onEnd);
-        document.addEventListener('touchmove', onMove, {passive: false});
-        document.addEventListener('touchend', onEnd);
+        handle.addEventListener('pointermove', onMove);
+        handle.addEventListener('pointerup', onEnd);
+        handle.addEventListener('pointercancel', onEnd);
     }
 
     // ── Resize (corner grip) ────────────────────────────────────────────
 
     _onResizeStart(e) {
+        if (e.button !== 0) return; // left button only
         e.preventDefault();
         e.stopPropagation();
+
+        const grip = e.currentTarget;
+        grip.setPointerCapture(e.pointerId);
         this._resizing = true;
 
-        const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-        this._startX = clientX;
-        this._startY = clientY;
+        this._startX = e.clientX;
+        this._startY = e.clientY;
         // Use getBoundingClientRect() for actual rendered dimensions and position
         const rect = this.getBoundingClientRect();
         this._startWidth = rect.width;
         this._startHeight = rect.height;
         this._startLeft = rect.left;
 
-        document.body.style.userSelect = 'none';
         document.body.style.cursor = 'nwse-resize';
 
         const onMove = (ev) => {
-            ev.preventDefault();
-            const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
-            const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
+            if (!ev.isPrimary) return;
             // Constrain right edge to viewport, not just a percentage of viewport width
             const maxW = window.innerWidth - this._startLeft;
-            const newW = Math.max(MIN_WIDTH, Math.min(this._startWidth + (cx - this._startX), maxW));
-            const newH = Math.max(MIN_HEIGHT, Math.min(this._startHeight + (cy - this._startY), window.innerHeight));
+            const newW = Math.max(MIN_WIDTH, Math.min(this._startWidth + (ev.clientX - this._startX), maxW));
+            const newH = Math.max(MIN_HEIGHT, Math.min(this._startHeight + (ev.clientY - this._startY), window.innerHeight));
             this.style.width = newW + 'px';
             this.style.height = newH + 'px';
         };
 
         const onEnd = () => {
             this._resizing = false;
-            document.body.style.userSelect = '';
             document.body.style.cursor = '';
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onEnd);
-            document.removeEventListener('touchmove', onMove);
-            document.removeEventListener('touchend', onEnd);
+            grip.removeEventListener('pointermove', onMove);
+            grip.removeEventListener('pointerup', onEnd);
+            grip.removeEventListener('pointercancel', onEnd);
 
             const w = parseFloat(this.style.width) || this._width;
             const h = parseFloat(this.style.height) || this._height;
@@ -721,10 +715,9 @@ export class AiChatPanel extends LitElement {
             this._saveState();
         };
 
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onEnd);
-        document.addEventListener('touchmove', onMove, {passive: false});
-        document.addEventListener('touchend', onEnd);
+        grip.addEventListener('pointermove', onMove);
+        grip.addEventListener('pointerup', onEnd);
+        grip.addEventListener('pointercancel', onEnd);
     }
 
     _onResizeKeydown(e) {
@@ -836,8 +829,7 @@ export class AiChatPanel extends LitElement {
                      aria-orientation="horizontal"
                      aria-label="${lll('panel.resize')}"
                      tabindex="0"
-                     @mousedown=${(e) => this._onResizeStart(e)}
-                     @touchstart=${(e) => this._onResizeStart(e)}
+                     @pointerdown=${(e) => this._onResizeStart(e)}
                      @keydown=${(e) => this._onResizeKeydown(e)}>
                     <svg viewBox="0 0 12 12" fill="currentColor">
                         <circle cx="9" cy="9" r="1.2"/>
@@ -855,8 +847,7 @@ export class AiChatPanel extends LitElement {
 
         return html`
             <div class="panel-header"
-                 @mousedown=${(e) => this._onDragStart(e)}
-                 @touchstart=${(e) => this._onDragStart(e)}
+                 @pointerdown=${(e) => this._onDragStart(e)}
                  @click=${(e) => this._onHeaderClick(e)}
                  @dblclick=${(e) => this._onHeaderDblClick(e)}>
                 <span class="title">${title}</span>
