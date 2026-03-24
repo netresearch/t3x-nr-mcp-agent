@@ -33,6 +33,8 @@ final class BackendUserInitializer
 
         $backendUser->user = $userRecord;
         $backendUser->fetchGroupData();
+        // Intentional: TYPO3 CLI commands require BE_USER in $GLOBALS for the
+        // authentication context. There is no DI-injectable alternative for CLI.
         $GLOBALS['BE_USER'] = $backendUser;
     }
 }

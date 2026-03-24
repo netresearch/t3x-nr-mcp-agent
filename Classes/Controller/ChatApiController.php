@@ -461,6 +461,7 @@ final readonly class ChatApiController
      */
     private function getBackendUser(): array
     {
+        // BE_USER is always set for authenticated backend requests; no DI alternative exists.
         /** @var object{user: array<string, string|int>} $beUser */
         $beUser = $GLOBALS['BE_USER'];
         return $beUser->user;

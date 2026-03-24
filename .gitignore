@@ -4,5 +4,8 @@ playwright-report/
 test-results/
 Build/tests/playwright/.auth/
 .Build/
+vendor/
+.env
+.env.local
 .php-cs-fixer.cache
 Documentation-GENERATED-temp/

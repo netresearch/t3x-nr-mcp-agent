@@ -72,6 +72,7 @@ final class ChatWorkerCommand extends Command
                     $this->repository->update($conversation);
                 }
             } finally {
+                // Clear BE_USER after processing to prevent leaking auth context between jobs.
                 $GLOBALS['BE_USER'] = null;
             }
         }
