@@ -1,6 +1,6 @@
 {
     "config": {
-        "bootstrap": ".Build/vendor/autoload.php",
+        "bootstrap": "../.Build/vendor/autoload.php",
         "verbosity": "normal",
         "fail-on-first-error": true,
         "ansi-colors": true

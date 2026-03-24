@@ -89,6 +89,12 @@
         }
     },
     "scripts": {
+        "post-install-cmd": [
+            "@php .Build/bin/captainhook install --force --skip-existing -c Build/captainhook.json 2>/dev/null || true"
+        ],
+        "post-update-cmd": [
+            "@php .Build/bin/captainhook install --force --skip-existing -c Build/captainhook.json 2>/dev/null || true"
+        ],
         "ci": [
             "@ci:phpstan",
             "@ci:cgl",
