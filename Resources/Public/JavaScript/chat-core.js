@@ -1,5 +1,6 @@
 import {ApiClient} from './api-client.js';
 import {lll} from '@typo3/core/lit-helper.js';
+import {renderMarkdown} from './markdown.js';
 
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
@@ -355,6 +356,11 @@ export class ChatCoreController {
     }
 
     renderMessageContent(msg) {
+        const text = this._extractText(msg);
+        return msg.role === 'assistant' ? renderMarkdown(text) : text;
+    }
+
+    _extractText(msg) {
         if (typeof msg.content === 'string') return msg.content;
         if (Array.isArray(msg.content)) {
             return msg.content.map(p => p.text || '').join('\n');
