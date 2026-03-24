@@ -27,6 +27,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -96,6 +97,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
             $llmTaskRepository,
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),
+            $this->createMock(SiteFinder::class),
         );
     }
 

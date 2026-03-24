@@ -22,6 +22,7 @@ use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Site\SiteFinder;
 
 final class ChatService implements ChatCapabilitiesInterface
 {
@@ -39,6 +40,7 @@ final class ChatService implements ChatCapabilitiesInterface
         private readonly LlmTaskRepository $llmTaskRepository,
         private readonly ProviderAdapterRegistry $adapterRegistry,
         private readonly ResourceFactory $resourceFactory,
+        private readonly SiteFinder $siteFinder,
     ) {}
 
     /**
@@ -437,44 +439,121 @@ final class ChatService implements ChatCapabilitiesInterface
 
     private function buildSystemPrompt(Conversation $conversation): string
     {
+        $parts = [];
+
         // 1. Conversation-level custom prompt (highest priority)
         $custom = $conversation->getSystemPrompt();
         if ($custom !== '') {
-            return $custom;
+            $parts[] = $custom;
+        } else {
+            // 2. Build from nr-llm Task prompt_template + Configuration system_prompt
+            if ($this->resolvedPrompts === null) {
+                throw new LogicException('resolveProvider() must be called before buildSystemPrompt()');
+            }
+
+            $configPrompt = $this->resolvedPrompts['system_prompt'];
+            if ($configPrompt !== '') {
+                $parts[] = $configPrompt;
+            }
+
+            $taskPrompt = $this->resolvedPrompts['prompt_template'];
+            if ($taskPrompt !== '') {
+                $parts[] = $taskPrompt;
+            }
+
+            // 3. Fallback: locale-based default if nothing configured
+            if ($parts === []) {
+                $beUser = $GLOBALS['BE_USER'] ?? null;
+                /** @var array<string, mixed> $uc */
+                $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];
+                $langRaw = $uc['lang'] ?? 'default';
+                $lang = is_string($langRaw) ? $langRaw : 'default';
+
+                $parts[] = match ($lang) {
+                    'de' => 'Du bist ein TYPO3-Assistent. Du hilfst beim Verwalten von Inhalten über die verfügbaren Tools. Antworte auf Deutsch.',
+                    default => 'You are a TYPO3 assistant. You help manage content using the available tools. Respond in English.',
+                };
+            }
         }
 
-        // 2. Build from nr-llm Task prompt_template + Configuration system_prompt
-        if ($this->resolvedPrompts === null) {
-            throw new LogicException('resolveProvider() must be called before buildSystemPrompt()');
-        }
-
-        $parts = [];
-
-        $configPrompt = $this->resolvedPrompts['system_prompt'];
-        if ($configPrompt !== '') {
-            $parts[] = $configPrompt;
-        }
-
-        $taskPrompt = $this->resolvedPrompts['prompt_template'];
-        if ($taskPrompt !== '') {
-            $parts[] = $taskPrompt;
-        }
-
-        // 3. Fallback: locale-based default if nothing configured
-        if ($parts === []) {
-            $beUser = $GLOBALS['BE_USER'] ?? null;
-            /** @var array<string, mixed> $uc */
-            $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];
-            $langRaw = $uc['lang'] ?? 'default';
-            $lang = is_string($langRaw) ? $langRaw : 'default';
-
-            $parts[] = match ($lang) {
-                'de' => 'Du bist ein TYPO3-Assistent. Du hilfst beim Verwalten von Inhalten über die verfügbaren Tools. Antworte auf Deutsch.',
-                default => 'You are a TYPO3 assistant. You help manage content using the available tools. Respond in English.',
-            };
+        // Always append site language context so the LLM knows which
+        // sys_language_uid to use when creating or updating content.
+        $languageContext = $this->buildSiteLanguagesContext();
+        if ($languageContext !== '') {
+            $parts[] = $languageContext;
         }
 
         return implode("\n\n", $parts);
+    }
+
+    /**
+     * Builds a concise site-language block for the system prompt.
+     * Reads all TYPO3 site configurations and lists each language with its
+     * sys_language_uid and ISO code so the LLM can pick the right language
+     * record when creating or updating content.
+     */
+    private function buildSiteLanguagesContext(): string
+    {
+        try {
+            $sites = $this->siteFinder->getAllSites();
+        } catch (Throwable) {
+            return '';
+        }
+
+        if ($sites === []) {
+            return '';
+        }
+
+        /** @var array<int, array{uid: int, title: string, isoCode: string}> $languages */
+        $languages = [];
+
+        foreach ($sites as $site) {
+            foreach ($site->getAllLanguages() as $language) {
+                $uid = $language->getLanguageId();
+                if (isset($languages[$uid])) {
+                    continue;
+                }
+
+                $isoCode = '';
+                try {
+                    $locale = $language->getLocale();
+                    $isoCode = method_exists($locale, 'getLanguageCode') ? strtolower($locale->getLanguageCode()) : '';
+                } catch (Throwable) {
+                }
+
+                if ($isoCode === '') {
+                    $hreflang = $language->getHreflang();
+                    $isoCode = strtolower(explode('-', $hreflang)[0]);
+                }
+
+                $languages[$uid] = [
+                    'uid' => $uid,
+                    'title' => $language->getTitle(),
+                    'isoCode' => $isoCode,
+                ];
+            }
+        }
+
+        if ($languages === []) {
+            return '';
+        }
+
+        ksort($languages);
+
+        $lines = [];
+        foreach ($languages as $lang) {
+            $suffix = $lang['uid'] === 0 ? ' (default)' : '';
+            $lines[] = sprintf(
+                '- %s: sys_language_uid=%d, ISO "%s"%s',
+                $lang['title'],
+                $lang['uid'],
+                $lang['isoCode'],
+                $suffix,
+            );
+        }
+
+        return "Available site languages — always set sys_language_uid when creating or updating content:\n"
+            . implode("\n", $lines);
     }
 
     private function persist(Conversation $conversation): void
