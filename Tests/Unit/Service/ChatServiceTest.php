@@ -457,8 +457,12 @@ class ChatServiceTest extends TestCase
 
         self::assertNotNull($capturedMessages);
         $content = $capturedMessages[0]['content'];
-        self::assertMatchesRegularExpression('/sys_language_uid=0.*\(default\)/s', $content);
-        self::assertStringNotContainsString('sys_language_uid=1.*default', $content);
+        // Split into lines to avoid cross-line regex matching (kills ternary/identical mutations)
+        $lines = explode("\n", $content);
+        $uid0Line = array_values(array_filter($lines, static fn(string $l) => str_contains($l, 'sys_language_uid=0')))[0] ?? '';
+        $uid1Line = array_values(array_filter($lines, static fn(string $l) => str_contains($l, 'sys_language_uid=1')))[0] ?? '';
+        self::assertStringContainsString('(default)', $uid0Line);
+        self::assertStringNotContainsString('(default)', $uid1Line);
 
         unset($GLOBALS['BE_USER']);
     }
@@ -524,6 +528,133 @@ class ChatServiceTest extends TestCase
         self::assertNotNull($capturedMessages);
         $content = $capturedMessages[0]['content'];
         self::assertStringNotContainsString('Available site languages', $content);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function siteLanguagesAreSortedByUidInOutput(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        // Provide languages in reverse uid order — ksort must reorder them
+        $siteFinder = $this->createSiteFinderWithLanguages([
+            ['uid' => 2, 'title' => 'French', 'isoCode' => 'fr'],
+            ['uid' => 1, 'title' => 'German', 'isoCode' => 'de'],
+            ['uid' => 0, 'title' => 'English', 'isoCode' => 'en'],
+        ]);
+
+        $service = $this->createChatService($provider, siteFinder: $siteFinder);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $content = $capturedMessages[0]['content'];
+        $pos0 = strpos($content, 'sys_language_uid=0');
+        $pos1 = strpos($content, 'sys_language_uid=1');
+        $pos2 = strpos($content, 'sys_language_uid=2');
+        self::assertNotFalse($pos0);
+        self::assertNotFalse($pos1);
+        self::assertNotFalse($pos2);
+        self::assertLessThan($pos1, $pos0, 'uid=0 must appear before uid=1');
+        self::assertLessThan($pos2, $pos1, 'uid=1 must appear before uid=2');
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function siteLanguageIsoCodeIsLowercasedFromLocale(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        // Locale returns uppercase 'FR'; hreflang returns 'de-CH' (different fallback)
+        $locale = $this->createMock(Locale::class);
+        $locale->method('getLanguageCode')->willReturn('FR');
+
+        $siteLanguage = $this->createMock(SiteLanguage::class);
+        $siteLanguage->method('getLanguageId')->willReturn(0);
+        $siteLanguage->method('getTitle')->willReturn('French');
+        $siteLanguage->method('getLocale')->willReturn($locale);
+        $siteLanguage->method('getHreflang')->willReturn('de-CH');
+
+        $site = $this->createMock(Site::class);
+        $site->method('getAllLanguages')->willReturn([$siteLanguage]);
+
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn([$site]);
+
+        $service = $this->createChatService($provider, siteFinder: $siteFinder);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $content = $capturedMessages[0]['content'];
+        // Must use strtolower(locale code) = 'fr', not hreflang fallback = 'de'
+        self::assertStringContainsString('ISO "fr"', $content);
+        self::assertStringNotContainsString('ISO "de"', $content);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function siteLanguageHeaderPrecedesLanguageLines(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $siteFinder = $this->createSiteFinderWithLanguages([
+            ['uid' => 0, 'title' => 'English', 'isoCode' => 'en'],
+        ]);
+
+        $service = $this->createChatService($provider, siteFinder: $siteFinder);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $content = $capturedMessages[0]['content'];
+        $headerPos = strpos($content, 'Available site languages');
+        $langLinePos = strpos($content, 'sys_language_uid=0');
+        self::assertNotFalse($headerPos);
+        self::assertNotFalse($langLinePos);
+        self::assertLessThan($langLinePos, $headerPos, 'Header must appear before language lines');
 
         unset($GLOBALS['BE_USER']);
     }
