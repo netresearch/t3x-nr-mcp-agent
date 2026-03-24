@@ -19,3 +19,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sanitized error messages (API keys and URLs are redacted)
 - Transient error retry logic (429, 503, overloaded) with configurable backoff
 - Architecture layer enforcement via phpat tests
+- Markdown rendering for LLM responses in the chat UI: headings, lists, code blocks, tables, blockquotes, and inline formatting are rendered via vendored marked.js v15 and DOMPurify v3 (no build step; XSS-safe)
+- JavaScript unit test suite (Jest) covering markdown rendering and XSS sanitization

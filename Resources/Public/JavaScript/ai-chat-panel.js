@@ -1,6 +1,8 @@
 import {LitElement, html, css, nothing} from 'lit';
+import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
+import {markdownStyles} from './markdown-styles.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const DEFAULT_HEIGHT = 350;
@@ -28,7 +30,7 @@ export class AiChatPanel extends LitElement {
         _posY: {state: true},
     };
 
-    static styles = css`
+    static styles = [markdownStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -428,7 +430,7 @@ export class AiChatPanel extends LitElement {
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-    `;
+    `];
 
     constructor() {
         super();
@@ -1036,7 +1038,10 @@ export class AiChatPanel extends LitElement {
 
         return html`
             <div class="message ${role}">
-                ${this.chat.renderMessageContent(msg)}
+                ${role === 'assistant'
+                    ? unsafeHTML(this.chat.renderMessageContent(msg))
+                    : this.chat.renderMessageContent(msg)
+                }
             </div>
         `;
     }

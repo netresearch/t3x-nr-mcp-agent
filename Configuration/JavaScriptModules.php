@@ -9,5 +9,7 @@ return [
     ],
     'imports' => [
         '@netresearch/nr-mcp-agent/' => 'EXT:nr_mcp_agent/Resources/Public/JavaScript/',
+        'marked' => 'EXT:nr_mcp_agent/Resources/Public/JavaScript/Vendor/marked.esm.js',
+        'dompurify' => 'EXT:nr_mcp_agent/Resources/Public/JavaScript/Vendor/dompurify.esm.js',
     ],
 ];

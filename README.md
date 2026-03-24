@@ -23,8 +23,11 @@ backend users to manage content through natural language.
   `worker` mode), keeping the web server responsive.
 - **Floating chat panel** -- A toolbar-triggered bottom panel that stays visible
   across module navigation, allowing users to chat while working in the page tree.
+- **Markdown rendering** -- LLM responses are rendered as rich Markdown (headings,
+  lists, code blocks, tables) using vendored [marked.js](https://marked.js.org/) v15
+  and [DOMPurify](https://github.com/cure53/DOMPurify) v3. No build step required.
 - **Secure by design** -- Group-based access control, message length limits,
-  concurrency caps, and sanitized error messages.
+  concurrency caps, sanitized error messages, and XSS-safe Markdown rendering.
 
 ## Quick Start
 
@@ -71,6 +74,13 @@ ddev composer ci:tests:unit  # Unit tests only
 ddev composer ci:tests       # Unit + functional tests
 ddev composer ci:mutation    # Mutation testing (Infection)
 ddev composer fix:cgl        # Fix code style
+```
+
+Run JavaScript unit tests (Jest):
+
+```bash
+npm install
+npm run test:js
 ```
 
 For Docker-based testing that mirrors CI exactly (no DDEV required):

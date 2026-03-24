@@ -2,13 +2,18 @@
   "name": "nr_mcp_agent",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "E2E test scaffolding for the nr_mcp_agent TYPO3 extension",
   "scripts": {
+    "test:js": "node --experimental-vm-modules node_modules/.bin/jest",
     "test:e2e": "npx playwright test --config=Build/tests/playwright/playwright.config.ts",
     "test:e2e:headed": "npx playwright test --config=Build/tests/playwright/playwright.config.ts --headed",
     "test:e2e:report": "npx playwright show-report"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2"
+    "@playwright/test": "^1.58.2",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "jest-environment-node": "^30.3.0"
   }
 }

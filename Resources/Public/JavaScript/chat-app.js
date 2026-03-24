@@ -1,6 +1,8 @@
 import {LitElement, html, css, nothing} from 'lit';
+import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
+import {markdownStyles} from './markdown-styles.js';
 
 /**
  * <nr-chat-app> – Main chat application component.
@@ -14,7 +16,7 @@ export class ChatApp extends LitElement {
         _sidebarCollapsed: {state: true},
     };
 
-    static styles = css`
+    static styles = [markdownStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -316,7 +318,7 @@ export class ChatApp extends LitElement {
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-    `;
+    `];
 
     constructor() {
         super();
@@ -617,7 +619,10 @@ export class ChatApp extends LitElement {
 
         return html`
             <div class="message ${role}">
-                ${this.chat.renderMessageContent(msg)}
+                ${role === 'assistant'
+                    ? unsafeHTML(this.chat.renderMessageContent(msg))
+                    : this.chat.renderMessageContent(msg)
+                }
             </div>
         `;
     }
