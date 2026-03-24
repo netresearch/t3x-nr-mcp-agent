@@ -11,12 +11,11 @@
 import {marked} from 'marked';
 import DOMPurify from 'dompurify';
 
-// Configure marked: GFM tables + line breaks, no async
-marked.setOptions({
+const MARKED_OPTIONS = {
     gfm: true,
     breaks: false,
     async: false,
-});
+};
 
 /**
  * Parse a markdown string and return sanitized HTML.
@@ -30,7 +29,7 @@ marked.setOptions({
  */
 export function renderMarkdown(text) {
     if (!text) return '';
-    const raw = /** @type {string} */ (marked.parse(text));
+    const raw = /** @type {string} */ (marked.parse(text, MARKED_OPTIONS));
     return DOMPurify.sanitize(raw, {
         USE_PROFILES: {html: true},
         FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
