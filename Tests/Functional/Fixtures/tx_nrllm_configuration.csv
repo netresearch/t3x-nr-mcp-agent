@@ -1,0 +1,3 @@
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","description","model_uid","model_selection_mode","system_prompt","temperature","max_tokens","top_p","frequency_penalty","presence_penalty","timeout","deleted","hidden","tstamp","crdate"
+,1,0,"test-config","Test Config","",1,"fixed","You are a helpful assistant.",0.70,1000,1.00,0.00,0.00,0,0,0,1710000000,1710000000

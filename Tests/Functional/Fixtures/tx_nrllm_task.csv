@@ -1,0 +1,3 @@
+"tx_nrllm_task"
+,"uid","pid","identifier","name","description","category","configuration_uid","prompt_template","input_type","deleted","hidden","tstamp","crdate"
+,1,0,"test-task","Test Task","","general",1,"Answer: {{input}}","manual",0,0,1710000000,1710000000

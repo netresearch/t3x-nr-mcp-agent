@@ -1,0 +1,3 @@
+"tx_nrllm_model"
+,"uid","pid","identifier","name","description","provider_uid","model_id","capabilities","is_active","is_default","deleted","hidden","tstamp","crdate","context_length","max_output_tokens","default_timeout","cost_input","cost_output","sorting"
+,1,0,"claude-sonnet","Claude Sonnet","Test model",0,"claude-sonnet-4","chat,tools",1,0,0,0,1710000000,1710000000,200000,8192,120,0,0,0
