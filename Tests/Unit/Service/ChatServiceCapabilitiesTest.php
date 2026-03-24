@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
  * Targets mutation survivors in ChatService::getProviderCapabilities() (lines 47-71):
@@ -44,7 +45,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class));
+        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class));
     }
 
     // -------------------------------------------------------------------------
@@ -172,6 +173,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $llmTaskRepository,
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),
+            $this->createMock(SiteFinder::class),
         );
 
         $caps = $service->getProviderCapabilities();

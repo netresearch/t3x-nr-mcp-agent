@@ -23,8 +23,12 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use stdClass;
+use TYPO3\CMS\Core\Localization\Locale;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Site\Entity\Site;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
+use TYPO3\CMS\Core\Site\SiteFinder;
 
 class ChatServiceTest extends TestCase
 {
@@ -48,6 +52,7 @@ class ChatServiceTest extends TestCase
         ?McpToolProviderInterface $mcpProvider = null,
         array $prompts = [],
         ?ResourceFactory $resourceFactory = null,
+        ?SiteFinder $siteFinder = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -57,6 +62,7 @@ class ChatServiceTest extends TestCase
         }
         $mcpProvider ??= $this->createMock(McpToolProviderInterface::class);
         $resourceFactory ??= $this->createMock(ResourceFactory::class);
+        $siteFinder ??= $this->createMock(SiteFinder::class);
 
         $model = $this->createMock(LlmModel::class);
         $llmTaskRepository = $this->createMock(LlmTaskRepository::class);
@@ -69,7 +75,34 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $resourceFactory);
+        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $resourceFactory, $siteFinder);
+    }
+
+    /**
+     * @param list<array{uid: int, title: string, isoCode: string}> $languageData
+     */
+    private function createSiteFinderWithLanguages(array $languageData): SiteFinder
+    {
+        $siteLanguages = [];
+        foreach ($languageData as $data) {
+            $locale = $this->createMock(Locale::class);
+            $locale->method('getLanguageCode')->willReturn($data['isoCode']);
+
+            $siteLanguage = $this->createMock(SiteLanguage::class);
+            $siteLanguage->method('getLanguageId')->willReturn($data['uid']);
+            $siteLanguage->method('getTitle')->willReturn($data['title']);
+            $siteLanguage->method('getLocale')->willReturn($locale);
+            $siteLanguage->method('getHreflang')->willReturn($data['isoCode']);
+            $siteLanguages[] = $siteLanguage;
+        }
+
+        $site = $this->createMock(Site::class);
+        $site->method('getAllLanguages')->willReturn($siteLanguages);
+
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn([$site]);
+
+        return $siteFinder;
     }
 
     private function createMcpEnabledConfig(): ExtensionConfiguration
@@ -358,6 +391,144 @@ class ChatServiceTest extends TestCase
     }
 
     #[Test]
+    public function siteLanguageContextIsAppendedToFallbackSystemPrompt(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $siteFinder = $this->createSiteFinderWithLanguages([
+            ['uid' => 0, 'title' => 'English', 'isoCode' => 'en'],
+            ['uid' => 1, 'title' => 'German', 'isoCode' => 'de'],
+        ]);
+
+        $service = $this->createChatService($provider, siteFinder: $siteFinder);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $content = $capturedMessages[0]['content'];
+        self::assertStringContainsString('Available site languages', $content);
+        self::assertStringContainsString('sys_language_uid=0', $content);
+        self::assertStringContainsString('sys_language_uid=1', $content);
+        self::assertStringContainsString('English', $content);
+        self::assertStringContainsString('German', $content);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function siteLanguageContextMarksDefaultLanguage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $siteFinder = $this->createSiteFinderWithLanguages([
+            ['uid' => 0, 'title' => 'Deutsch', 'isoCode' => 'de'],
+            ['uid' => 1, 'title' => 'English', 'isoCode' => 'en'],
+        ]);
+
+        $service = $this->createChatService($provider, siteFinder: $siteFinder);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $content = $capturedMessages[0]['content'];
+        self::assertMatchesRegularExpression('/sys_language_uid=0.*\(default\)/s', $content);
+        self::assertStringNotContainsString('sys_language_uid=1.*default', $content);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function siteLanguageContextIsAppendedToCustomPrompt(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSystemPrompt('Only custom instructions');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $siteFinder = $this->createSiteFinderWithLanguages([
+            ['uid' => 0, 'title' => 'English', 'isoCode' => 'en'],
+        ]);
+
+        $service = $this->createChatService($provider, siteFinder: $siteFinder);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $content = $capturedMessages[0]['content'];
+        self::assertStringContainsString('Only custom instructions', $content);
+        self::assertStringContainsString('Available site languages', $content);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function siteLanguageContextIsOmittedWhenNoSitesConfigured(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        // Default mock returns [] for getAllSites() → no language context
+        $service = $this->createChatService($provider);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        $content = $capturedMessages[0]['content'];
+        self::assertStringNotContainsString('Available site languages', $content);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
     public function conversationPromptOverridesConfigPrompts(): void
     {
         $conversation = new Conversation();
@@ -526,7 +697,7 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class));
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -556,7 +727,7 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class));
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
