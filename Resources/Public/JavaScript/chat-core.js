@@ -226,7 +226,7 @@ export class ChatCoreController {
             this.hasInput = false;
             this.host.onResetInput();
             // Optimistic: add user message locally
-            const msg = {role: 'user', content};
+            const msg = {role: 'user', content, createdAt: new Date().toISOString()};
             if (this.pendingFile) {
                 msg.fileUid = this.pendingFile.fileUid;
                 msg.fileName = this.pendingFile.name;
@@ -353,6 +353,15 @@ export class ChatCoreController {
     clearPendingFile() {
         this.pendingFile = null;
         this.host.requestUpdate();
+    }
+
+    formatTime(ts) {
+        if (!ts) return '';
+        try {
+            return new Intl.DateTimeFormat(undefined, {hour: '2-digit', minute: '2-digit'}).format(new Date(ts));
+        } catch {
+            return '';
+        }
     }
 
     renderMessageContent(msg) {

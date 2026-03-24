@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Domain\Model;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 
@@ -157,7 +159,7 @@ final class Conversation
     public function appendMessage(MessageRole $role, string|array $content): void
     {
         $messages = $this->getDecodedMessages();
-        $messages[] = ['role' => $role->value, 'content' => $content];
+        $messages[] = ['role' => $role->value, 'content' => $content, 'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM)];
         $this->setMessages($messages); // setMessages already updates messageCount
 
         if ($this->title === '' && $role === MessageRole::User && is_string($content)) {

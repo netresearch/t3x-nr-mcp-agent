@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Controller;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use Exception;
 use finfo;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
@@ -224,6 +226,7 @@ final readonly class ChatApiController
                 'fileUid' => $fileUid,
                 'fileName' => $fileName,
                 'fileMimeType' => $fileMimeType,
+                'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
             ];
             $conversation->setMessages($messages);
             if ($conversation->getTitle() === '') {
