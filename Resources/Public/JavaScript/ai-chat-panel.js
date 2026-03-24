@@ -102,6 +102,7 @@ export class AiChatPanel extends LitElement {
             flex-shrink: 0;
             user-select: none;
             -webkit-user-select: none;
+            touch-action: none;
             border-radius: 12px 12px 0 0;
         }
         :host([state="maximized"]) .panel-header {
@@ -493,7 +494,7 @@ export class AiChatPanel extends LitElement {
         }
 
         if (this.state === STATES.COLLAPSED) {
-            const pos = this._getPosition();
+            const pos = this._constrainPosition(this._getPosition().x, this._getPosition().y);
             this.style.top = pos.y + 'px';
             this.style.left = pos.x + 'px';
             this.style.width = this._width + 'px';
@@ -504,7 +505,7 @@ export class AiChatPanel extends LitElement {
         }
 
         // EXPANDED
-        const pos = this._getPosition();
+        const pos = this._constrainPosition(this._getPosition().x, this._getPosition().y);
         this.style.top = pos.y + 'px';
         this.style.left = pos.x + 'px';
         this.style.width = this._width + 'px';
@@ -625,10 +626,13 @@ export class AiChatPanel extends LitElement {
 
         const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
         const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-        this._dragOffsetX = clientX - (parseFloat(this.style.left) || 0);
-        this._dragOffsetY = clientY - (parseFloat(this.style.top) || 0);
+        // Use getBoundingClientRect() for reliable offset — inline style may not be set yet
+        const rect = this.getBoundingClientRect();
+        this._dragOffsetX = clientX - rect.left;
+        this._dragOffsetY = clientY - rect.top;
 
         document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
 
         const onMove = (ev) => {
             ev.preventDefault();
@@ -642,6 +646,7 @@ export class AiChatPanel extends LitElement {
         const onEnd = () => {
             this._dragging = false;
             document.body.style.userSelect = '';
+            document.body.style.cursor = '';
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
             document.removeEventListener('touchmove', onMove);
@@ -668,16 +673,22 @@ export class AiChatPanel extends LitElement {
         const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
         this._startX = clientX;
         this._startY = clientY;
-        this._startWidth = parseFloat(this.style.width) || this._width;
-        this._startHeight = parseFloat(this.style.height) || this._height;
+        // Use getBoundingClientRect() for actual rendered dimensions and position
+        const rect = this.getBoundingClientRect();
+        this._startWidth = rect.width;
+        this._startHeight = rect.height;
+        this._startLeft = rect.left;
 
         document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'nwse-resize';
 
         const onMove = (ev) => {
             ev.preventDefault();
             const cx = ev.type.startsWith('touch') ? ev.touches[0].clientX : ev.clientX;
             const cy = ev.type.startsWith('touch') ? ev.touches[0].clientY : ev.clientY;
-            const newW = Math.max(MIN_WIDTH, Math.min(this._startWidth + (cx - this._startX), window.innerWidth * 0.9));
+            // Constrain right edge to viewport, not just a percentage of viewport width
+            const maxW = window.innerWidth - this._startLeft;
+            const newW = Math.max(MIN_WIDTH, Math.min(this._startWidth + (cx - this._startX), maxW));
             const newH = Math.max(MIN_HEIGHT, Math.min(this._startHeight + (cy - this._startY), window.innerHeight));
             this.style.width = newW + 'px';
             this.style.height = newH + 'px';
@@ -686,6 +697,7 @@ export class AiChatPanel extends LitElement {
         const onEnd = () => {
             this._resizing = false;
             document.body.style.userSelect = '';
+            document.body.style.cursor = '';
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onEnd);
             document.removeEventListener('touchmove', onMove);
