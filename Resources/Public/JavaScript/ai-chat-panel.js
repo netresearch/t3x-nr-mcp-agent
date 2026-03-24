@@ -3,6 +3,7 @@ import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_CHEVRON_DOWN} from './icons.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const DEFAULT_HEIGHT = 350;
@@ -200,20 +201,44 @@ export class AiChatPanel extends LitElement {
         .compact-switcher {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
+            gap: 6px;
+            padding: 6px 10px;
             border-bottom: 1px solid var(--typo3-list-border-color, #ccc);
             background: var(--typo3-surface-container-low, #f5f5f5);
             flex-shrink: 0;
         }
-        .compact-switcher select {
+        .select-wrap {
             flex: 1;
-            padding: 4px 8px;
+            position: relative;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+        }
+        .select-wrap select {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 100%;
+            padding: 5px 28px 5px 10px;
             border: 1px solid var(--typo3-input-border-color, #ccc);
-            border-radius: 4px;
+            border-radius: 8px;
             font-size: 12px;
             background: var(--typo3-surface-container-lowest, #fff);
+            cursor: pointer;
             min-width: 0;
+            transition: border-color 0.15s;
+        }
+        .select-wrap select:focus {
+            outline: none;
+            border-color: var(--typo3-primary, #0078d4);
+            box-shadow: 0 0 0 1px var(--typo3-primary, #0078d4);
+        }
+        .select-wrap .chevron {
+            position: absolute;
+            right: 8px;
+            pointer-events: none;
+            color: var(--typo3-text-color-variant, #666);
+            display: flex;
+            align-items: center;
         }
 
         /* Messages */
@@ -225,23 +250,49 @@ export class AiChatPanel extends LitElement {
             flex-direction: column;
             gap: 4px;
         }
+        /* Message row layout (avatar + bubble + timestamp) */
+        .message-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+        }
+        .message-row.user { flex-direction: row-reverse; }
+        .message-bubble {
+            display: flex;
+            flex-direction: column;
+            max-width: 78%;
+        }
+        .message-row.user .message-bubble { align-items: flex-end; }
+        .avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .avatar-assistant { background: #0078d4; color: #fff; }
+        .avatar-user { background: var(--typo3-surface-container-high, #e0e0e0); color: #555; }
+        .message-time {
+            font-size: 10px;
+            color: var(--typo3-text-color-variant, #999);
+            margin-top: 2px;
+            padding: 0 2px;
+        }
         .message {
-            max-width: 85%;
             padding: 5px 9px;
             border-radius: 10px;
             font-size: 12.5px;
             line-height: 1.45;
-            white-space: pre-wrap;
             word-break: break-word;
         }
         .message.user {
-            align-self: flex-end;
             background: #0078d4;
             color: #fff;
             border-bottom-right-radius: 3px;
         }
         .message.assistant {
-            align-self: flex-start;
             background: var(--typo3-surface-container-high, #e8e8e8);
             border-bottom-left-radius: 3px;
         }
@@ -281,21 +332,32 @@ export class AiChatPanel extends LitElement {
             font-style: italic;
         }
 
-        /* Attachment menu and file badge */
-        .attachment-menu { position: relative; display: flex; align-items: center; }
-        .attachment-dropdown {
-            position: absolute; bottom: 100%; left: 0; margin-bottom: 4px;
-            background: var(--typo3-surface-container-lowest, #fff);
-            border: 1px solid var(--typo3-list-border-color, #ccc);
-            border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-            padding: 4px; min-width: 180px; z-index: 10;
+        /* Typing indicator — animated dots */
+        .typing-indicator {
+            display: flex;
+            gap: 3px;
+            align-items: center;
+            padding: 7px 10px;
+            background: var(--typo3-surface-container-high, #e8e8e8);
+            border-radius: 10px;
+            border-bottom-left-radius: 3px;
+            width: fit-content;
         }
-        .attachment-dropdown button {
-            display: block; width: 100%; text-align: left;
-            padding: 8px 12px; border: none; background: none;
-            cursor: pointer; font-size: 13px; border-radius: 4px;
+        .typing-indicator span {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #888;
+            animation: typing-bounce 1.2s infinite ease-in-out;
         }
-        .attachment-dropdown button:hover { background: var(--typo3-state-hover, rgba(0,0,0,0.04)); }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing-bounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-4px); opacity: 1; }
+        }
+
+        /* Attachment and file badge */
         .file-badge {
             display: flex; align-items: center; gap: 6px;
             padding: 4px 8px; margin: 4px 12px 0;
@@ -314,31 +376,62 @@ export class AiChatPanel extends LitElement {
         /* Input area */
         .panel-input {
             display: flex;
-            gap: 8px;
-            padding: 8px 12px;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 10px;
             border-top: 1px solid var(--typo3-list-border-color, #ccc);
             background: var(--typo3-surface-container-low, #f5f5f5);
             flex-shrink: 0;
         }
-        .panel-input textarea {
+        .input-wrap {
             flex: 1;
-            resize: none;
+            display: flex;
+            align-items: center;
+            gap: 2px;
             border: 1px solid var(--typo3-input-border-color, #ccc);
-            border-radius: 4px;
-            padding: 6px 10px;
-            font-family: inherit;
-            font-size: 13px;
-            line-height: 1.4;
-            min-height: 34px;
-            max-height: 120px;
-            overflow-y: auto;
+            border-radius: 16px;
+            padding: 3px 3px 3px 10px;
             background: var(--typo3-surface-container-lowest, #fff);
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .panel-input textarea:focus {
-            outline: none;
+        .input-wrap:focus-within {
             border-color: var(--typo3-primary, #0078d4);
             box-shadow: 0 0 0 1px var(--typo3-primary, #0078d4);
         }
+        .input-wrap textarea {
+            flex: 1;
+            resize: none;
+            border: none;
+            outline: none;
+            padding: 4px 0;
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 1.4;
+            min-height: 40px;
+            max-height: 120px;
+            overflow-y: auto;
+            background: transparent;
+        }
+        .btn-send {
+            appearance: none;
+            -webkit-appearance: none;
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: #0078d4;
+            background-image: none;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s, opacity 0.15s;
+            margin: 0 1px 0 0;
+        }
+        .btn-send:hover:not(:disabled) { background: #006abc; background-image: none; }
+        .btn-send:disabled { opacity: 0.35; cursor: not-allowed; }
 
         /* Buttons */
         .btn {
@@ -436,7 +529,6 @@ export class AiChatPanel extends LitElement {
         super();
         this.chat = new ChatCoreController(this);
         this.state = STATES.HIDDEN;
-        this._attachMenuOpen = false;
         this._height = DEFAULT_HEIGHT;
         this._width = DEFAULT_WIDTH;
         this._posX = null;
@@ -579,8 +671,9 @@ export class AiChatPanel extends LitElement {
                     el.scrollTop = el.scrollHeight;
                     return;
                 }
-                // Auto-scroll if user is near the bottom (within 150px)
-                if (el.scrollHeight - el.scrollTop - el.clientHeight < 150) {
+                // Auto-scroll if user is in the lower half of the scrollable area
+                const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                if (distanceFromBottom < el.clientHeight * 0.5) {
                     el.scrollTop = el.scrollHeight;
                 }
             });
@@ -857,14 +950,14 @@ export class AiChatPanel extends LitElement {
                     <span class="status-badge status-${this.chat.status}">${this.chat.status}</span>
                 ` : nothing}
                 <button class="btn-icon" @click=${() => this.collapse()}
-                        title="${lll('panel.collapse')}" aria-label="${lll('panel.collapse')}">&#x2015;</button>
+                        title="${lll('panel.collapse')}" aria-label="${lll('panel.collapse')}">${ICON_MINIMIZE(14)}</button>
                 <button class="btn-icon" @click=${() => this.maximize()}
                         title="${this.state === STATES.MAXIMIZED ? lll('panel.restore') : lll('panel.maximize')}"
                         aria-label="${this.state === STATES.MAXIMIZED ? lll('panel.restore') : lll('panel.maximize')}">
-                    ${this.state === STATES.MAXIMIZED ? '\u2913' : '\u2912'}
+                    ${this.state === STATES.MAXIMIZED ? ICON_RESTORE(14) : ICON_MAXIMIZE(14)}
                 </button>
                 <button class="btn-icon" @click=${() => this.hide()}
-                        title="${lll('panel.close')}" aria-label="${lll('panel.close')}">&times;</button>
+                        title="${lll('panel.close')}" aria-label="${lll('panel.close')}">${ICON_CLOSE(14)}</button>
             </div>
         `;
     }
@@ -895,10 +988,11 @@ export class AiChatPanel extends LitElement {
             <div class="panel-sidebar">
                 <div class="panel-sidebar-header">
                     <h3>${lll('conversations.title')}</h3>
-                    <button class="btn btn-sm btn-primary"
+                    <button class="btn-icon"
                             @click=${() => this.chat.handleNewConversation()}
                             ?disabled=${!this.chat.available}
-                            aria-label="${lll('conversations.new')}">${lll('conversations.new')}</button>
+                            title="${lll('conversations.new')}"
+                            aria-label="${lll('conversations.new')}">${ICON_COMPOSE(14)}</button>
                 </div>
                 <div class="sidebar-list" role="listbox" aria-label="${lll('conversations.title')}">
                     ${this.chat.conversations.length === 0
@@ -948,19 +1042,23 @@ export class AiChatPanel extends LitElement {
     _renderCompactSwitcher() {
         return html`
             <div class="compact-switcher">
-                <select @change=${(e) => this.chat.selectConversation(Number(e.target.value))}
-                        aria-label="${lll('conversations.select')}">
-                    ${!this.chat.activeUid ? html`<option value="" selected disabled>${lll('conversations.select')}</option>` : nothing}
-                    ${this.chat.conversations.map(c => html`
-                        <option value=${c.uid} ?selected=${c.uid === this.chat.activeUid}>
-                            ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
-                        </option>
-                    `)}
-                </select>
-                <button class="btn btn-sm btn-primary"
+                <div class="select-wrap">
+                    <select @change=${(e) => this.chat.selectConversation(Number(e.target.value))}
+                            aria-label="${lll('conversations.select')}">
+                        ${!this.chat.activeUid ? html`<option value="" selected disabled>${lll('conversations.select')}</option>` : nothing}
+                        ${this.chat.conversations.map(c => html`
+                            <option value=${c.uid} ?selected=${c.uid === this.chat.activeUid}>
+                                ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
+                            </option>
+                        `)}
+                    </select>
+                    <span class="chevron">${ICON_CHEVRON_DOWN(12)}</span>
+                </div>
+                <button class="btn-icon"
                         @click=${() => this.chat.handleNewConversation()}
                         ?disabled=${!this.chat.available}
-                        aria-label="${lll('conversations.new')}">${lll('conversations.new')}</button>
+                        title="${lll('conversations.new')}"
+                        aria-label="${lll('conversations.new')}">${ICON_COMPOSE(14)}</button>
             </div>
         `;
     }
@@ -984,7 +1082,10 @@ export class AiChatPanel extends LitElement {
             <div class="panel-messages" aria-live="polite" aria-relevant="additions">
                 ${this.chat.messages.map((msg, idx) => this._renderMessage(msg, idx))}
                 ${this.chat.isProcessing() ? html`
-                    <div class="message system"><span class="spinner"></span> ${lll('chat.processing')}</div>
+                    <div class="message-row assistant" aria-label="${lll('chat.processing')}">
+                        <div class="avatar avatar-assistant">${AVATAR_ASSISTANT(14)}</div>
+                        <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
+                    </div>
                 ` : nothing}
                 ${this.chat.errorMessage ? html`
                     <div class="message system" style="color:#c62828;">
@@ -1006,6 +1107,7 @@ export class AiChatPanel extends LitElement {
         const role = msg.role || 'system';
         if (role === 'assistant' && msg.tool_calls && !msg.content) return nothing;
 
+        // Tool messages — no avatar, collapsible
         if (role === 'tool') {
             const isExpanded = this.chat.expandedTools.has(idx);
             return html`
@@ -1026,22 +1128,26 @@ export class AiChatPanel extends LitElement {
             `;
         }
 
-        if (role === 'user' && msg.fileUid) {
-            const icon = msg.fileMimeType?.startsWith('image/') ? '\u{1F5BC}\uFE0F' : '\u{1F4C4}';
-            return html`
-                <div class="message user">
-                    <div class="message-file-badge">${icon} ${msg.fileName || lll('attachment.file')}</div>
-                    ${this.chat.renderMessageContent(msg)}
-                </div>
-            `;
+        // System messages — centered, no avatar
+        if (role === 'system') {
+            return html`<div class="message system">${this.chat.renderMessageContent(msg)}</div>`;
         }
 
+        // User + assistant — avatar row with timestamp
+        const isUser = role === 'user';
+        const time = this.chat.formatTime(msg.createdAt);
+        const bubbleContent = isUser
+            ? html`${msg.fileUid ? html`<div class="message-file-badge">${msg.fileMimeType?.startsWith('image/') ? '\u{1F5BC}\uFE0F' : '\u{1F4C4}'} ${msg.fileName || lll('attachment.file')}</div>` : nothing}${this.chat.renderMessageContent(msg)}`
+            : unsafeHTML(this.chat.renderMessageContent(msg));
+
         return html`
-            <div class="message ${role}">
-                ${role === 'assistant'
-                    ? unsafeHTML(this.chat.renderMessageContent(msg))
-                    : this.chat.renderMessageContent(msg)
-                }
+            <div class="message-row ${role}">
+                ${isUser ? nothing : html`<div class="avatar avatar-assistant">${AVATAR_ASSISTANT(14)}</div>`}
+                <div class="message-bubble">
+                    <div class="message ${role}">${bubbleContent}</div>
+                    ${time ? html`<div class="message-time">${time}</div>` : nothing}
+                </div>
+                ${isUser ? html`<div class="avatar avatar-user">${AVATAR_USER(14)}</div>` : nothing}
             </div>
         `;
     }
@@ -1065,36 +1171,21 @@ export class AiChatPanel extends LitElement {
     }
 
     _renderAttachmentMenu() {
-        if (!this.chat.visionSupported) {
-            return html`
-                <button class="btn-icon" disabled title="${lll('attachment.notSupported')}"
-                        aria-label="${lll('attachment.notSupported')}">+</button>
-            `;
-        }
+        if (!this.chat.visionSupported) return nothing;
         const canAttach = this.chat.canAttachFile();
         return html`
-            <div class="attachment-menu">
-                <button class="btn-icon"
-                        ?disabled=${!canAttach}
-                        title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
-                        aria-label="${lll('attachment.upload')}"
-                        @click=${() => { this._attachMenuOpen = !this._attachMenuOpen; this.requestUpdate(); }}>+</button>
-                ${this._attachMenuOpen ? html`
-                    <div class="attachment-dropdown">
-                        <button @click=${this._handleUploadClick}>\u{1F4CE} ${lll('attachment.upload')}</button>
-                    </div>
-                ` : nothing}
-            </div>
+            <button class="btn-icon"
+                    ?disabled=${!canAttach}
+                    title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
+                    aria-label="${lll('attachment.upload')}"
+                    @click=${() => this.renderRoot.querySelector('input[type="file"]')?.click()}>
+                ${ICON_PAPERCLIP(14)}
+            </button>
             <input type="file"
                    accept="${(this.chat.supportedFormats || []).map(f => '.' + f).join(',') || '*'}"
                    style="display:none"
                    @change=${this._handleFileSelected}>
         `;
-    }
-
-    _handleUploadClick() {
-        this._attachMenuOpen = false;
-        this.renderRoot.querySelector('input[type="file"]')?.click();
     }
 
     async _handleFileSelected(e) {
@@ -1109,21 +1200,24 @@ export class AiChatPanel extends LitElement {
             ${this._renderFileBadge()}
             <div class="panel-input">
                 ${this._renderAttachmentMenu()}
-                <textarea
-                    .value=${this.chat.inputValue}
-                    @input=${this._handleInput}
-                    @keydown=${this._handleKeydown}
-                    placeholder="${lll('chat.placeholder')}"
-                    aria-label="${lll('chat.placeholder')}"
-                    ?disabled=${!this.chat.available || this.chat.isProcessing()}
-                    rows="1"
-                ></textarea>
-                <button class="btn btn-primary btn-sm"
-                        @click=${() => this.chat.handleSend()}
-                        aria-label="${lll('chat.send')}"
-                        ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isProcessing() || !this.chat.available}>
-                    ${this.chat.sending ? html`<span class="spinner"></span>` : lll('chat.send')}
-                </button>
+                <div class="input-wrap">
+                    <textarea
+                        .value=${this.chat.inputValue}
+                        @input=${this._handleInput}
+                        @keydown=${this._handleKeydown}
+                        placeholder="${lll('chat.placeholder')}"
+                        aria-label="${lll('chat.placeholder')}"
+                        ?disabled=${!this.chat.available || this.chat.isProcessing()}
+                        rows="2"
+                    ></textarea>
+                    <button class="btn-send"
+                            @click=${() => this.chat.handleSend()}
+                            aria-label="${lll('chat.send')}"
+                            title="${lll('chat.send')}"
+                            ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isProcessing() || !this.chat.available}>
+                        ${this.chat.sending ? html`<span class="spinner" style="width:12px;height:12px;border-width:2px;"></span>` : ICON_SEND(14)}
+                    </button>
+                </div>
             </div>
         `;
     }

@@ -355,6 +355,15 @@ export class ChatCoreController {
         this.host.requestUpdate();
     }
 
+    formatTime(ts) {
+        if (!ts) return '';
+        try {
+            return new Intl.DateTimeFormat(undefined, {hour: '2-digit', minute: '2-digit'}).format(new Date(ts));
+        } catch {
+            return '';
+        }
+    }
+
     renderMessageContent(msg) {
         const text = this._extractText(msg);
         return msg.role === 'assistant' ? renderMarkdown(text) : text;

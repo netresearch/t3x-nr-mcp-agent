@@ -3,6 +3,7 @@ import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE} from './icons.js';
 
 /**
  * <nr-chat-app> – Main chat application component.
@@ -121,23 +122,49 @@ export class ChatApp extends LitElement {
             flex-direction: column;
             gap: 12px;
         }
+        /* Message row layout (avatar + bubble + timestamp) */
+        .message-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        .message-row.user { flex-direction: row-reverse; }
+        .message-bubble {
+            display: flex;
+            flex-direction: column;
+            max-width: 78%;
+        }
+        .message-row.user .message-bubble { align-items: flex-end; }
+        .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .avatar-assistant { background: #0078d4; color: #fff; }
+        .avatar-user { background: var(--typo3-surface-container-high, #e0e0e0); color: #555; }
+        .message-time {
+            font-size: 11px;
+            color: var(--typo3-text-color-variant, #999);
+            margin-top: 3px;
+            padding: 0 2px;
+        }
         .message {
-            max-width: 80%;
             padding: 10px 14px;
             border-radius: 8px;
             font-size: 13px;
             line-height: 1.5;
-            white-space: pre-wrap;
             word-break: break-word;
         }
         .message.user {
-            align-self: flex-end;
             background: #0078d4;
             color: #fff;
             border-bottom-right-radius: 2px;
         }
         .message.assistant {
-            align-self: flex-start;
             background: var(--typo3-surface-container-high, #e8e8e8);
             border-bottom-left-radius: 2px;
         }
@@ -176,21 +203,7 @@ export class ChatApp extends LitElement {
             font-style: italic;
         }
 
-        /* Attachment menu and file badge */
-        .attachment-menu { position: relative; display: flex; align-items: center; }
-        .attachment-dropdown {
-            position: absolute; bottom: 100%; left: 0; margin-bottom: 4px;
-            background: var(--typo3-surface-container-lowest, #fff);
-            border: 1px solid var(--typo3-list-border-color, #ccc);
-            border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-            padding: 4px; min-width: 180px; z-index: 10;
-        }
-        .attachment-dropdown button {
-            display: block; width: 100%; text-align: left;
-            padding: 8px 12px; border: none; background: none;
-            cursor: pointer; font-size: 13px; border-radius: 4px;
-        }
-        .attachment-dropdown button:hover { background: var(--typo3-state-hover, rgba(0,0,0,0.04)); }
+        /* Attachment area */
         .file-badge {
             display: flex; align-items: center; gap: 6px;
             padding: 4px 8px; margin: 4px 12px 0;
@@ -209,30 +222,61 @@ export class ChatApp extends LitElement {
         /* Input area */
         .input-area {
             display: flex;
+            align-items: center;
             gap: 8px;
             padding: 12px;
             border-top: 1px solid var(--typo3-list-border-color, #ccc);
             background: var(--typo3-surface-container-low, #f5f5f5);
         }
-        .input-area textarea {
+        .input-wrap {
             flex: 1;
-            resize: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
             border: 1px solid var(--typo3-input-border-color, #ccc);
-            border-radius: 4px;
-            padding: 8px 12px;
-            font-family: inherit;
-            font-size: 13px;
-            line-height: 1.4;
-            min-height: 40px;
-            max-height: 120px;
-            overflow-y: auto;
+            border-radius: 20px;
+            padding: 4px 4px 4px 12px;
             background: var(--typo3-surface-container-lowest, #fff);
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .input-area textarea:focus {
-            outline: none;
+        .input-wrap:focus-within {
             border-color: var(--typo3-primary, #0078d4);
             box-shadow: 0 0 0 1px var(--typo3-primary, #0078d4);
         }
+        .input-wrap textarea {
+            flex: 1;
+            resize: none;
+            border: none;
+            outline: none;
+            padding: 5px 0;
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 1.4;
+            min-height: 44px;
+            max-height: 120px;
+            overflow-y: auto;
+            background: transparent;
+        }
+        .btn-send {
+            appearance: none;
+            -webkit-appearance: none;
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: none;
+            background: #0078d4;
+            background-image: none;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s, opacity 0.15s;
+            margin: 0 2px 0 0;
+        }
+        .btn-send:hover:not(:disabled) { background: #006abc; background-image: none; }
+        .btn-send:disabled { opacity: 0.35; cursor: not-allowed; }
 
         /* Buttons */
         .btn {
@@ -318,13 +362,37 @@ export class ChatApp extends LitElement {
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Typing indicator — animated dots */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--typo3-surface-container-high, #e8e8e8);
+            border-radius: 8px;
+            border-bottom-left-radius: 2px;
+            width: fit-content;
+        }
+        .typing-indicator span {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #888;
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing-bounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
     `];
 
     constructor() {
         super();
         this.maxLength = 0;
         this._sidebarCollapsed = false;
-        this._attachMenuOpen = false;
         this.chat = new ChatCoreController(this);
     }
 
@@ -343,8 +411,8 @@ export class ChatApp extends LitElement {
                 container.scrollTop = container.scrollHeight;
                 return;
             }
-            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-            if (isNearBottom) {
+            const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+            if (distanceFromBottom < container.clientHeight * 0.5) {
                 container.scrollTop = container.scrollHeight;
             }
         };
@@ -411,11 +479,12 @@ export class ChatApp extends LitElement {
         return html`
             <div class="sidebar-header">
                 <h3>${lll('conversations.title')}</h3>
-                <button class="btn btn-sm btn-primary"
+                <button class="btn btn-icon"
                     @click=${() => this.chat.handleNewConversation()}
                     ?disabled=${!this.chat.available}
+                    title="${lll('conversations.new')}"
                     aria-label="${lll('conversations.new')}">
-                    ${lll('conversations.new')}
+                    ${ICON_COMPOSE(16)}
                 </button>
             </div>
             <div class="conversation-list" role="listbox" aria-label="${lll('conversations.title')}">
@@ -491,7 +560,10 @@ export class ChatApp extends LitElement {
             <div class="messages" aria-live="polite" aria-relevant="additions">
                 ${this.chat.messages.map((msg, idx) => this._renderMessage(msg, idx))}
                 ${this.chat.isProcessing() ? html`
-                    <div class="message system"><span class="spinner"></span> ${lll('chat.processing')}</div>
+                    <div class="message-row assistant" aria-label="${lll('chat.processing')}">
+                        <div class="avatar avatar-assistant">${AVATAR_ASSISTANT(16)}</div>
+                        <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
+                    </div>
                 ` : nothing}
                 ${this.chat.errorMessage ? html`
                     <div class="message system" style="color:#c62828;">
@@ -509,22 +581,25 @@ export class ChatApp extends LitElement {
             ${this._renderFileBadge()}
             <div class="input-area">
                 ${this._renderAttachmentMenu()}
-                <textarea
-                    .value=${this.chat.inputValue}
-                    @input=${this._handleInput}
-                    @keydown=${this._handleKeydown}
-                    placeholder="${lll('chat.placeholder')}"
-                    aria-label="${lll('chat.placeholder')}"
-                    ?disabled=${!this.chat.available || this.chat.isProcessing()}
-                    maxlength=${this.maxLength > 0 ? this.maxLength : nothing}
-                    rows="1"
-                ></textarea>
-                <button class="btn btn-primary"
-                    @click=${() => this.chat.handleSend()}
-                    aria-label="${lll('chat.send')}"
-                    ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isProcessing() || !this.chat.available}>
-                    ${this.chat.sending ? html`<span class="spinner"></span>` : lll('chat.send')}
-                </button>
+                <div class="input-wrap">
+                    <textarea
+                        .value=${this.chat.inputValue}
+                        @input=${this._handleInput}
+                        @keydown=${this._handleKeydown}
+                        placeholder="${lll('chat.placeholder')}"
+                        aria-label="${lll('chat.placeholder')}"
+                        ?disabled=${!this.chat.available || this.chat.isProcessing()}
+                        maxlength=${this.maxLength > 0 ? this.maxLength : nothing}
+                        rows="2"
+                    ></textarea>
+                    <button class="btn-send"
+                        @click=${() => this.chat.handleSend()}
+                        aria-label="${lll('chat.send')}"
+                        title="${lll('chat.send')}"
+                        ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isProcessing() || !this.chat.available}>
+                        ${this.chat.sending ? html`<span class="spinner" style="width:14px;height:14px;border-width:2px;"></span>` : ICON_SEND(16)}
+                    </button>
+                </div>
             </div>
         `;
     }
@@ -548,36 +623,21 @@ export class ChatApp extends LitElement {
     }
 
     _renderAttachmentMenu() {
-        if (!this.chat.visionSupported) {
-            return html`
-                <button class="btn btn-icon" disabled title="${lll('attachment.notSupported')}"
-                        aria-label="${lll('attachment.notSupported')}">+</button>
-            `;
-        }
+        if (!this.chat.visionSupported) return nothing;
         const canAttach = this.chat.canAttachFile();
         return html`
-            <div class="attachment-menu">
-                <button class="btn btn-icon"
-                        ?disabled=${!canAttach}
-                        title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
-                        aria-label="${lll('attachment.upload')}"
-                        @click=${() => { this._attachMenuOpen = !this._attachMenuOpen; this.requestUpdate(); }}>+</button>
-                ${this._attachMenuOpen ? html`
-                    <div class="attachment-dropdown">
-                        <button @click=${this._handleUploadClick}>\u{1F4CE} ${lll('attachment.upload')}</button>
-                    </div>
-                ` : nothing}
-            </div>
+            <button class="btn btn-icon"
+                    ?disabled=${!canAttach}
+                    title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
+                    aria-label="${lll('attachment.upload')}"
+                    @click=${() => this.renderRoot.querySelector('input[type="file"]')?.click()}>
+                ${ICON_PAPERCLIP(16)}
+            </button>
             <input type="file"
                    accept="${(this.chat.supportedFormats || []).map(f => '.' + f).join(',') || '*'}"
                    style="display:none"
                    @change=${this._handleFileSelected}>
         `;
-    }
-
-    _handleUploadClick() {
-        this._attachMenuOpen = false;
-        this.renderRoot.querySelector('input[type="file"]')?.click();
     }
 
     async _handleFileSelected(e) {
@@ -589,17 +649,15 @@ export class ChatApp extends LitElement {
 
     _renderMessage(msg, idx) {
         const role = msg.role || 'system';
-        // Skip tool-call assistant messages (just show the tool results)
         if (role === 'assistant' && msg.tool_calls && !msg.content) return nothing;
 
+        // Tool messages — no avatar, collapsible
         if (role === 'tool') {
             const isExpanded = this.chat.expandedTools.has(idx);
             return html`
                 <div class="message tool ${isExpanded ? 'expanded' : ''}"
-                     role="button"
-                     tabindex="0"
-                     aria-label="${lll('tool.output')}"
-                     aria-expanded="${isExpanded}"
+                     role="button" tabindex="0"
+                     aria-label="${lll('tool.output')}" aria-expanded="${isExpanded}"
                      @click=${() => this.chat.handleToolMessageClick(idx)}
                      @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.chat.handleToolMessageClick(idx); } }}>
                     ${this.chat.renderMessageContent(msg)}
@@ -607,22 +665,26 @@ export class ChatApp extends LitElement {
             `;
         }
 
-        if (role === 'user' && msg.fileUid) {
-            const icon = msg.fileMimeType?.startsWith('image/') ? '\u{1F5BC}\uFE0F' : '\u{1F4C4}';
-            return html`
-                <div class="message user">
-                    <div class="message-file-badge">${icon} ${msg.fileName || lll('attachment.file')}</div>
-                    ${this.chat.renderMessageContent(msg)}
-                </div>
-            `;
+        // System messages — centered, no avatar
+        if (role === 'system') {
+            return html`<div class="message system">${this.chat.renderMessageContent(msg)}</div>`;
         }
 
+        // User + assistant — avatar row with timestamp
+        const isUser = role === 'user';
+        const time = this.chat.formatTime(msg.createdAt);
+        const bubbleContent = isUser
+            ? html`${msg.fileUid ? html`<div class="message-file-badge">${msg.fileMimeType?.startsWith('image/') ? '\u{1F5BC}\uFE0F' : '\u{1F4C4}'} ${msg.fileName || lll('attachment.file')}</div>` : nothing}${this.chat.renderMessageContent(msg)}`
+            : unsafeHTML(this.chat.renderMessageContent(msg));
+
         return html`
-            <div class="message ${role}">
-                ${role === 'assistant'
-                    ? unsafeHTML(this.chat.renderMessageContent(msg))
-                    : this.chat.renderMessageContent(msg)
-                }
+            <div class="message-row ${role}">
+                ${isUser ? nothing : html`<div class="avatar avatar-assistant">${AVATAR_ASSISTANT(16)}</div>`}
+                <div class="message-bubble">
+                    <div class="message ${role}">${bubbleContent}</div>
+                    ${time ? html`<div class="message-time">${time}</div>` : nothing}
+                </div>
+                ${isUser ? html`<div class="avatar avatar-user">${AVATAR_USER(16)}</div>` : nothing}
             </div>
         `;
     }
