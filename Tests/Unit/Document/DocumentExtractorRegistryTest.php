@@ -69,6 +69,8 @@ class DocumentExtractorRegistryTest extends TestCase
         $registry = new DocumentExtractorRegistry([]);
 
         $this->expectException(RuntimeException::class);
+        $this->expectExceptionCode(1743000020);
+        $this->expectExceptionMessageMatches('/application\/unknown/');
         $registry->extract('/path', 'application/unknown');
     }
 
@@ -90,6 +92,24 @@ class DocumentExtractorRegistryTest extends TestCase
         $registry = new DocumentExtractorRegistry([]);
 
         $this->expectException(RuntimeException::class);
+        $this->expectExceptionCode(1743000020);
+        $this->expectExceptionMessageMatches('/application\/unknown/');
         $registry->validate('/path', 'application/unknown');
+    }
+
+    #[Test]
+    public function getAvailableMimeTypesDeduplicatesAndReturnsSequentialList(): void
+    {
+        // Two extractors both claim 'text/plain' — result must be deduplicated
+        // and sequentially indexed (array_values after array_unique).
+        $registry = new DocumentExtractorRegistry([
+            $this->makeExtractor(['text/plain', 'application/pdf'], true),
+            $this->makeExtractor(['text/plain'], true),
+        ]);
+
+        $mimes = $registry->getAvailableMimeTypes();
+
+        self::assertSame(1, count(array_filter($mimes, fn($m) => $m === 'text/plain')));
+        self::assertSame(range(0, count($mimes) - 1), array_keys($mimes));
     }
 }

@@ -76,7 +76,7 @@ final class ChatService implements ChatCapabilitiesInterface
         return [
             'visionSupported' => false,
             'maxFileSize' => 0,
-            'supportedFormats' => array_values($extractionFormats),
+            'supportedFormats' => $extractionFormats,
         ];
     }
 

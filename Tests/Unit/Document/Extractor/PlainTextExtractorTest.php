@@ -34,6 +34,8 @@ class PlainTextExtractorTest extends TestCase
     public function validateThrowsForUnreadablePath(): void
     {
         $this->expectException(RuntimeException::class);
+        $this->expectExceptionCode(1743000010);
+        $this->expectExceptionMessageMatches('/nonexistent/');
         $this->subject->validate('/nonexistent/path/file.txt');
     }
 

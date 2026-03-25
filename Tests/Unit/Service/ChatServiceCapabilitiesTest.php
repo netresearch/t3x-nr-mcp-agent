@@ -252,5 +252,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $caps = $service->getProviderCapabilities();
 
         self::assertSame(1, count(array_filter($caps['supportedFormats'], fn($f) => $f === 'image/jpeg')));
+        // array_values() must re-index after deduplication so keys are 0..N-1
+        self::assertSame(range(0, count($caps['supportedFormats']) - 1), array_keys($caps['supportedFormats']));
     }
 }

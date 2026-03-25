@@ -40,6 +40,7 @@ class DocxExtractorTest extends TestCase
     public function validateThrowsForCorruptFile(): void
     {
         $this->expectException(RuntimeException::class);
+        $this->expectExceptionCode(1743000040);
         $this->subject->validate($this->fixtures . '/corrupt.docx');
     }
 
