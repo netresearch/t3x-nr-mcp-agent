@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP (Model Context Protocol) integration for TYPO3 content management tools
 - File/image upload support with per-provider capability detection (PNG, JPEG, WebP)
 - PDF attachment support for providers implementing `DocumentCapableInterface` (Claude, Gemini); file picker accept filter is set dynamically per provider
+- Document text extraction fallback: PDF, DOCX, TXT, and XLSX files can now be uploaded as chat attachments regardless of LLM provider. Text is extracted server-side using smalot/pdfparser (PDF) and phpoffice/phpword (DOCX). XLSX support is optional via phpoffice/phpspreadsheet.
 - Group-based access control and concurrency caps
 - Sanitized error messages (API keys and URLs are redacted)
 - Transient error retry logic (429, 503, overloaded) with configurable backoff

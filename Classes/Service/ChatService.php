@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
@@ -41,6 +42,7 @@ final class ChatService implements ChatCapabilitiesInterface
         private readonly ProviderAdapterRegistry $adapterRegistry,
         private readonly ResourceFactory $resourceFactory,
         private readonly SiteFinder $siteFinder,
+        private readonly DocumentExtractorRegistry $documentExtractorRegistry,
     ) {}
 
     /**
@@ -48,6 +50,8 @@ final class ChatService implements ChatCapabilitiesInterface
      */
     public function getProviderCapabilities(): array
     {
+        $extractionFormats = $this->documentExtractorRegistry->getAvailableExtensions();
+
         try {
             $provider = $this->resolveProvider();
             if ($provider instanceof VisionCapableInterface && $provider->supportsVision()) {
@@ -58,17 +62,21 @@ final class ChatService implements ChatCapabilitiesInterface
                 return [
                     'visionSupported' => true,
                     'maxFileSize' => $provider->getMaxImageSize(),
-                    'supportedFormats' => array_values(array_merge($provider->getSupportedImageFormats(), $documentFormats)),
+                    'supportedFormats' => array_values(array_unique(array_merge(
+                        $provider->getSupportedImageFormats(),
+                        $documentFormats,
+                        $extractionFormats,
+                    ))),
                 ];
             }
         } catch (Throwable) {
-            // Provider resolution failed — no vision support
+            // Provider resolution failed — fall through to extraction-only response
         }
 
         return [
             'visionSupported' => false,
             'maxFileSize' => 0,
-            'supportedFormats' => [],
+            'supportedFormats' => $extractionFormats,
         ];
     }
 
@@ -398,7 +406,7 @@ final class ChatService implements ChatCapabilitiesInterface
                     'role' => is_string($msg['role']) ? $msg['role'] : '',
                     'content' => [
                         ['type' => 'text', 'text' => is_string($msg['content'] ?? null) ? $msg['content'] : ''],
-                        $this->buildFileContentBlock($mimeType, $base64, $provider),
+                        $this->buildFileContentBlock($mimeType, $base64, $localPath, $provider),
                     ],
                 ];
             } catch (Throwable) {
@@ -415,26 +423,38 @@ final class ChatService implements ChatCapabilitiesInterface
 
     /**
      * @return array<string, mixed>
-     * @throws RuntimeException if the file type is not supported by the provider
+     * @throws RuntimeException if the file type is not supported by the provider or any extractor
      */
-    private function buildFileContentBlock(string $mimeType, string $base64, ProviderInterface $provider): array
-    {
+    private function buildFileContentBlock(
+        string $mimeType,
+        string $base64,
+        string $localPath,
+        ProviderInterface $provider,
+    ): array {
         if (str_starts_with($mimeType, 'image/')) {
             return [
                 'type' => 'image_url',
                 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . $base64],
             ];
         }
-        if (!$provider instanceof DocumentCapableInterface || !$provider->supportsDocuments()) {
-            throw new RuntimeException(
-                'Provider "' . $provider->getIdentifier() . '" does not support document uploads (mime type: ' . $mimeType . ')',
-                1742320000,
-            );
+        if ($provider instanceof DocumentCapableInterface && $provider->supportsDocuments()) {
+            return [
+                'type' => 'document',
+                'source' => ['type' => 'base64', 'media_type' => $mimeType, 'data' => $base64],
+            ];
         }
-        return [
-            'type' => 'document',
-            'source' => ['type' => 'base64', 'media_type' => $mimeType, 'data' => $base64],
-        ];
+        if ($this->documentExtractorRegistry->canExtract($mimeType)) {
+            $text = $this->documentExtractorRegistry->extract($localPath, $mimeType);
+            return [
+                'type' => 'text',
+                'text' => '[Extracted from ' . basename($localPath) . ']' . "\n"
+                    . ($text !== '' ? $text : '[File contained no extractable text]'),
+            ];
+        }
+        throw new RuntimeException(
+            'Provider "' . $provider->getIdentifier() . '" does not support document uploads (mime type: ' . $mimeType . ')',
+            1742320000,
+        );
     }
 
     private function buildSystemPrompt(Conversation $conversation): string

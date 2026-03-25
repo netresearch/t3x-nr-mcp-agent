@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Command\ChatWorkerCommand;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
@@ -98,6 +99,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),
             $this->createMock(SiteFinder::class),
+            new DocumentExtractorRegistry([]),
         );
     }
 

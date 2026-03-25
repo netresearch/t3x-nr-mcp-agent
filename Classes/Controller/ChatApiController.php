@@ -9,6 +9,7 @@ use DateTimeInterface;
 use Exception;
 use finfo;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -17,6 +18,7 @@ use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -33,6 +35,7 @@ final readonly class ChatApiController
         private ChatCapabilitiesInterface $chatService,
         private ResourceFactory $resourceFactory,
         private StorageRepository $storageRepository,
+        private DocumentExtractorRegistry $documentExtractorRegistry,
     ) {}
 
     /**
@@ -269,7 +272,11 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => 'No file uploaded'], 400);
         }
 
-        $allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+        $capabilities = $this->chatService->getProviderCapabilities();
+        $allowedMimeTypes = array_values(array_unique(array_merge(
+            $capabilities['supportedFormats'],
+            $this->documentExtractorRegistry->getAvailableMimeTypes(),
+        )));
 
         $maxSize = 20 * 1024 * 1024; // 20 MB
         if ($file->getSize() > $maxSize) {
@@ -282,7 +289,16 @@ final readonly class ChatApiController
         $finfo = new finfo(FILEINFO_MIME_TYPE);
         $detectedMime = $finfo->file($tempPath);
         if (!is_string($detectedMime) || !in_array($detectedMime, $allowedMimeTypes, true)) {
-            return new JsonResponse(['error' => 'File type not supported'], 400);
+            return new JsonResponse(['error' => 'File type not supported'], 422);
+        }
+
+        // For extraction-backed formats, run lightweight validation at upload time
+        if ($this->documentExtractorRegistry->canExtract($detectedMime)) {
+            try {
+                $this->documentExtractorRegistry->validate($tempPath, $detectedMime);
+            } catch (RuntimeException $e) {
+                return new JsonResponse(['error' => 'File could not be processed: ' . $e->getMessage()], 422);
+            }
         }
 
         $storage = $this->storageRepository->getDefaultStorage();

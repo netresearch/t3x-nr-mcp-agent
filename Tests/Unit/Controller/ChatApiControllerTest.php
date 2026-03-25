@@ -6,6 +6,8 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Controller;
 
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorInterface;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -51,7 +53,15 @@ class ChatApiControllerTest extends TestCase
         ]);
         $this->resourceFactory = $this->createMock(ResourceFactory::class);
         $this->storageRepository = $this->createMock(StorageRepository::class);
-        $this->subject = new ChatApiController($this->repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $this->subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $this->config,
+            $this->chatService,
+            $this->resourceFactory,
+            $this->storageRepository,
+            new DocumentExtractorRegistry([]),
+        );
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '1,2'];
@@ -110,7 +120,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getMaxMessageLength')->willReturn(10);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $conversation = new Conversation();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
@@ -167,7 +177,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([99]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -183,7 +193,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -289,7 +299,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(0);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -308,7 +318,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -327,7 +337,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(true);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -344,7 +354,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
         $config->method('isMcpServerInstalled')->willReturn(true);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -420,7 +430,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '', 'admin' => 1];
 
@@ -484,7 +494,7 @@ class ChatApiControllerTest extends TestCase
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
         $response = $subject->sendMessage($request);
@@ -503,7 +513,7 @@ class ChatApiControllerTest extends TestCase
         $conversation->setStatus(ConversationStatus::Failed);
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('POST', '{"conversationUid": 1}');
         $response = $subject->resumeConversation($request);
@@ -542,7 +552,7 @@ class ChatApiControllerTest extends TestCase
         // countActiveByBeUser should never be called when maxActive is 0
         $repository->expects(self::never())->method('countActiveByBeUser');
 
-        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
         $response = $subject->sendMessage($request);
@@ -733,7 +743,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(5);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -753,7 +763,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('isMcpServerInstalled')->willReturn(false);
         $this->repository->method('countActiveByBeUser')->willReturn(2);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -790,7 +800,7 @@ class ChatApiControllerTest extends TestCase
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $longContent = str_repeat('x', 100000);
         $request = $this->createRequest('POST', json_encode(['conversationUid' => 1, 'content' => $longContent]));
@@ -815,7 +825,7 @@ class ChatApiControllerTest extends TestCase
             'supportedFormats' => ['png', 'jpeg', 'webp', 'pdf'],
         ]);
 
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $chatService, $this->resourceFactory, $this->storageRepository);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
 
@@ -935,11 +945,26 @@ class ChatApiControllerTest extends TestCase
 
         $this->storageRepository->method('getDefaultStorage')->willReturn($storage);
 
+        // Build a subject that has application/pdf in the allowlist via registry extractor
+        $pdfExtractor = $this->createMock(DocumentExtractorInterface::class);
+        $pdfExtractor->method('getSupportedMimeTypes')->willReturn(['application/pdf']);
+        $pdfExtractor->method('isAvailable')->willReturn(true);
+
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $this->config,
+            $this->chatService,
+            $this->resourceFactory,
+            $this->storageRepository,
+            new DocumentExtractorRegistry([$pdfExtractor]),
+        );
+
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
 
         try {
-            $response = $this->subject->fileUpload($request);
+            $response = $subject->fileUpload($request);
         } finally {
             @unlink($tmpPath);
         }
@@ -989,7 +1014,7 @@ class ChatApiControllerTest extends TestCase
             @unlink($tmpPath);
         }
 
-        self::assertSame(400, $response->getStatusCode());
+        self::assertSame(422, $response->getStatusCode());
         $data = json_decode((string) $response->getBody(), true);
         self::assertStringContainsString('not supported', $data['error']);
     }
@@ -1024,6 +1049,199 @@ class ChatApiControllerTest extends TestCase
         $response = $this->subject->fileUpload($request);
 
         self::assertSame(400, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function fileUploadAcceptsExtractionBackedMimeType(): void
+    {
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, 'Hello TXT');
+
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
+
+        $uploadedFile = $this->createMock(UploadedFileInterface::class);
+        $uploadedFile->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $uploadedFile->method('getSize')->willReturn(9);
+        $uploadedFile->method('getStream')->willReturn($stream);
+        $uploadedFile->method('getClientFilename')->willReturn('test.txt');
+
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
+        $extractor->method('getSupportedMimeTypes')->willReturn(['text/plain']);
+        $extractor->method('isAvailable')->willReturn(true);
+
+        $falFile = $this->createMock(\TYPO3\CMS\Core\Resource\File::class);
+        $falFile->method('getUid')->willReturn(99);
+        $falFile->method('getName')->willReturn('test.txt');
+        $falFile->method('getMimeType')->willReturn('text/plain');
+        $falFile->method('getSize')->willReturn(9);
+
+        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('addFile')->willReturn($falFile);
+        $storage->method('getFolder')->willReturn($folder);
+        $storage->method('hasFolder')->willReturn(true);
+        $this->storageRepository->method('getDefaultStorage')->willReturn($storage);
+
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $this->config,
+            $this->chatService,
+            $this->resourceFactory,
+            $this->storageRepository,
+            new DocumentExtractorRegistry([$extractor]),
+        );
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
+
+        try {
+            $response = $subject->fileUpload($request);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function fileUploadDoesNotCallRegistryValidateForProviderNativeMimeType(): void
+    {
+        // A JPEG file is provider-native (reported by chatService->getProviderCapabilities()).
+        // The registry has NO image/jpeg extractor — only a PDF extractor.
+        // Therefore canExtract('image/jpeg') returns false and validate() must never be called.
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+
+        // Write a minimal valid JPEG (FFD8FF header)
+        file_put_contents($tmpPath, "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xFF\xD9");
+
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
+
+        $uploadedFile = $this->createMock(UploadedFileInterface::class);
+        $uploadedFile->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $uploadedFile->method('getSize')->willReturn(20);
+        $uploadedFile->method('getStream')->willReturn($stream);
+        $uploadedFile->method('getClientFilename')->willReturn('photo.jpg');
+
+        // Registry only knows about PDF — not JPEG
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
+        $extractor->method('getSupportedMimeTypes')->willReturn(['application/pdf']);
+        $extractor->method('isAvailable')->willReturn(true);
+        $extractor->expects(self::never())->method('validate'); // MUST NOT be called
+
+        $registry = new DocumentExtractorRegistry([$extractor]);
+
+        // chatService reports image/jpeg as provider-native
+        $chatService = $this->createMock(ChatCapabilitiesInterface::class);
+        $chatService->method('getProviderCapabilities')->willReturn([
+            'visionSupported' => true,
+            'maxFileSize' => 0,
+            'supportedFormats' => ['image/jpeg'],
+        ]);
+
+        $falFile = $this->createMock(\TYPO3\CMS\Core\Resource\File::class);
+        $falFile->method('getUid')->willReturn(42);
+        $falFile->method('getName')->willReturn('photo.jpg');
+        $falFile->method('getMimeType')->willReturn('image/jpeg');
+        $falFile->method('getSize')->willReturn(20);
+
+        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('addFile')->willReturn($falFile);
+        $storage->method('getFolder')->willReturn($folder);
+        $storage->method('hasFolder')->willReturn(true);
+        $this->storageRepository->method('getDefaultStorage')->willReturn($storage);
+
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $this->config,
+            $chatService,
+            $this->resourceFactory,
+            $this->storageRepository,
+            $registry,
+        );
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
+
+        try {
+            $response = $subject->fileUpload($request);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function fileUploadReturns422ForUnsupportedMimeType(): void
+    {
+        // Registry with no extractors → all MIME types rejected
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, 'Hello, this is plain text content for mime type test.');
+
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
+
+        $file = $this->createMock(UploadedFileInterface::class);
+        $file->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $file->method('getSize')->willReturn(50);
+        $file->method('getStream')->willReturn($stream);
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $file]);
+
+        try {
+            $response = $this->subject->fileUpload($request);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        self::assertSame(422, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function fileUploadReturns422WhenValidationFails(): void
+    {
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, 'Hello TXT');
+
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
+
+        $uploadedFile = $this->createMock(UploadedFileInterface::class);
+        $uploadedFile->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $uploadedFile->method('getSize')->willReturn(9);
+        $uploadedFile->method('getStream')->willReturn($stream);
+
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
+        $extractor->method('getSupportedMimeTypes')->willReturn(['text/plain']);
+        $extractor->method('isAvailable')->willReturn(true);
+        $extractor->method('validate')->willThrowException(new RuntimeException('corrupt'));
+
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $this->config,
+            $this->chatService,
+            $this->resourceFactory,
+            $this->storageRepository,
+            new DocumentExtractorRegistry([$extractor]),
+        );
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
+
+        try {
+            $response = $subject->fileUpload($request);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        self::assertSame(422, $response->getStatusCode());
     }
 
     /**

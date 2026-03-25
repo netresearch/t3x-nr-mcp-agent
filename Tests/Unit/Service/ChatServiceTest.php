@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
@@ -21,6 +22,7 @@ use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 use RuntimeException;
 use stdClass;
 use TYPO3\CMS\Core\Localization\Locale;
@@ -75,7 +77,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $resourceFactory, $siteFinder);
+        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $resourceFactory, $siteFinder, new DocumentExtractorRegistry([]));
     }
 
     /**
@@ -828,7 +830,7 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class));
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -858,7 +860,7 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class));
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -1392,6 +1394,73 @@ class ChatServiceTest extends TestCase
         $service->resumeConversation($conversation);
 
         unset($GLOBALS['BE_USER']);
+    }
+
+    // -------------------------------------------------------------------------
+    // buildFileContentBlock: extraction fallback via DocumentExtractorRegistry
+    // -------------------------------------------------------------------------
+
+    private function createChatServiceWithRegistry(
+        \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry $registry,
+    ): ChatService {
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturn($this->createCompletionResponse('ok'));
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(false);
+
+        $model = $this->createMock(\Netresearch\NrLlm\Domain\Model\Model::class);
+        $llmTaskRepository = $this->createMock(\Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository::class);
+        $llmTaskRepository->method('resolveModelByTaskUid')->willReturn([
+            'model' => $model,
+            'systemPrompt' => '',
+            'promptTemplate' => '',
+        ]);
+
+        $adapterRegistry = $this->createMock(\Netresearch\NrLlm\Provider\ProviderAdapterRegistry::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
+
+        return new ChatService(
+            $this->createMock(\Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository::class),
+            $config,
+            $this->createMock(\Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface::class),
+            $llmTaskRepository,
+            $adapterRegistry,
+            $this->createMock(\TYPO3\CMS\Core\Resource\ResourceFactory::class),
+            $this->createMock(\TYPO3\CMS\Core\Site\SiteFinder::class),
+            $registry,
+        );
+    }
+
+    #[Test]
+    public function buildFileContentBlockReturnsTextBlockWhenProviderCannotHandleDocument(): void
+    {
+        $provider = $this->createMock(\Netresearch\NrLlm\Provider\Contract\ProviderInterface::class);
+
+        $extractor = $this->createMock(\Netresearch\NrMcpAgent\Document\DocumentExtractorInterface::class);
+        $extractor->method('isAvailable')->willReturn(true);
+        $extractor->method('getSupportedMimeTypes')->willReturn(['text/plain']);
+        $extractor->method('extract')->willReturn('Hello TXT');
+        $registry = new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([$extractor]);
+
+        $service = $this->createChatServiceWithRegistry($registry);
+
+        $method = new ReflectionMethod($service, 'buildFileContentBlock');
+        $method->setAccessible(true);
+
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, 'Hello TXT');
+        try {
+            $block = $method->invoke($service, 'text/plain', base64_encode('Hello TXT'), $tmpPath, $provider);
+        } finally {
+            unlink($tmpPath);
+        }
+
+        self::assertSame('text', $block['type']);
+        self::assertStringStartsWith('[Extracted from ', $block['text']);
+        self::assertStringContainsString(basename($tmpPath), $block['text']);
+        self::assertStringContainsString('Hello TXT', $block['text']);
     }
 
     // -------------------------------------------------------------------------
