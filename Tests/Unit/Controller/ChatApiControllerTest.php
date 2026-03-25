@@ -861,7 +861,7 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
-    public function sendMessageRejects404WhenFileDoesNotBelongToUser(): void
+    public function sendMessageRejects404WhenFileIsNotReadable(): void
     {
         $conversation = new Conversation();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
