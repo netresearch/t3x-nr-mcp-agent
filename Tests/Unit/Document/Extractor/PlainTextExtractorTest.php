@@ -53,6 +53,15 @@ class PlainTextExtractorTest extends TestCase
     }
 
     #[Test]
+    public function extractThrowsWhenFileCannotBeRead(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionCode(1743000011);
+        $this->expectExceptionMessageMatches('/^Failed to read file:.*nonexistent/');
+        $this->subject->extract('/nonexistent/path/file.txt');
+    }
+
+    #[Test]
     public function extractReturnsFileContents(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'nr_test_');
