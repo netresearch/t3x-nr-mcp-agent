@@ -10,6 +10,20 @@ parameters:
     treatPhpDocTypesAsCertain: false
     scanDirectories:
         - ../../Tests/Architecture
+    ignoreErrors:
+        # phpoffice/phpspreadsheet is an optional suggested dependency (not required).
+        # XlsxExtractor guards usage behind isAvailable(), but PHPStan cannot resolve
+        # the classes when the package is not installed.
+        - identifier: class.notFound
+          path: ../../Classes/Document/Extractor/XlsxExtractor.php
+        - identifier: method.nonObject
+          path: ../../Classes/Document/Extractor/XlsxExtractor.php
+        - identifier: foreach.nonIterable
+          path: ../../Classes/Document/Extractor/XlsxExtractor.php
+        - identifier: cast.string
+          path: ../../Classes/Document/Extractor/XlsxExtractor.php
+        - identifier: argument.type
+          path: ../../Classes/Document/Extractor/XlsxExtractor.php
 
 services:
     -
