@@ -8,6 +8,10 @@
  */
 
 import {jest, describe, test, expect, beforeEach, afterEach} from '@jest/globals';
+// @typo3/core/lit-helper.js is not in node_modules; it is stubbed via moduleNameMapper
+// in jest.config.js pointing to Tests/JavaScript/__mocks__/@typo3/core/lit-helper.js.
+// jest.unstable_mockModule cannot be used here because the module is not resolvable
+// without the mapper, and native ESM does not support jest.mock() hoisting.
 import {ChatCoreController} from '../../Resources/Public/JavaScript/chat-core.js';
 
 function makeHost() {
@@ -99,6 +103,7 @@ describe('_openFalPicker', () => {
         ctrl._openFalPicker();
 
         expect(global.open).not.toHaveBeenCalled();
+        expect(ctrl.issues).toHaveLength(0);
     });
 
     test('shows error and cleans up callback when window.open returns null (popup blocked)', () => {
@@ -128,5 +133,21 @@ describe('_openFalPicker', () => {
             expect.any(String),
         );
         expect(typeof global.setFormValueFromBrowseWin).toBe('function');
+    });
+
+    test('registered callback invokes _onFalFileSelected with parsed numeric uid', () => {
+        global.top = {TYPO3: {settings: {ajaxUrls: {'file-browser': '/typo3/record/browse?mode=file'}}}};
+        const popup = {closed: false};
+        global.open = jest.fn().mockReturnValue(popup);
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._onFalFileSelected = jest.fn();
+        ctrl._openFalPicker();
+
+        // Simulate TYPO3 calling the callback after the user selected a file
+        global.setFormValueFromBrowseWin('', '42', '');
+
+        expect(ctrl._onFalFileSelected).toHaveBeenCalledWith(42);
     });
 });

@@ -363,6 +363,8 @@ export class ChatCoreController {
 
     _openFalPicker() {
         // Guard: picker already open
+        // globalThis === window in browser context, but globalThis is also accessible
+        // in the Node.js test environment where window is undefined.
         if (typeof globalThis.setFormValueFromBrowseWin === 'function') {
             return;
         }
@@ -370,7 +372,7 @@ export class ChatCoreController {
         // TYPO3 registers the file browser URL in ajaxUrls under 'file-browser'
         const ajaxUrl = top.TYPO3?.settings?.ajaxUrls?.['file-browser'];
         if (!ajaxUrl) {
-            this._setError('FAL-Picker ist nicht verfügbar');
+            this._setError(lll('fal_picker_unavailable'));
             return;
         }
 
@@ -390,7 +392,7 @@ export class ChatCoreController {
         const popup = globalThis.open(url, 'typo3FileBrowser', 'height=600,width=900,status=0,menubar=0,scrollbars=1');
         if (!popup) {
             delete globalThis.setFormValueFromBrowseWin;
-            this._setError('Popup wurde blockiert. Bitte Popup-Blocker deaktivieren.');
+            this._setError(lll('fal_picker_popup_blocked'));
         }
     }
 
