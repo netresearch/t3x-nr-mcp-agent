@@ -17,7 +17,6 @@ restricted via the ``allowedGroups`` setting).
     :class: with-shadow
 
     The AI Chat module in the TYPO3 backend.
-    *(Screenshot placeholder -- will be added later.)*
 
 Sending messages
 ================
@@ -39,6 +38,13 @@ If MCP is enabled, the assistant may execute multiple
 tool calls (e.g. reading page content, then creating a
 record) before responding. Each tool call iteration is
 visible in the conversation.
+
+..  figure:: /Images/MarkdownResponse.png
+    :alt: AI response rendered as Markdown
+    :class: with-shadow
+
+    AI responses are rendered as rich Markdown — headings,
+    lists, code blocks, and tables.
 
 Conversation management
 =======================
@@ -94,6 +100,12 @@ attachments are available.
 To remove a pending attachment before sending, click the **×** on the
 file badge.
 
+..  figure:: /Images/FileAttachmentBadge.png
+    :alt: File attachment badge above the chat input
+    :class: with-shadow
+
+    A selected file is shown as a badge above the input field.
+
 **Supported file types:**
 
 The following document formats are always available. Text is extracted
@@ -122,6 +134,38 @@ supported by the active provider.
 
 If a file is not accepted (wrong type, too large, or upload error), an
 error message is shown above the input.
+
+Floating chat panel
+===================
+
+A chat button in the TYPO3 toolbar (top right, next to the search and
+user menu) opens a floating bottom panel. The panel stays visible across
+all module navigation -- you can chat with the AI while working in the
+page tree, list module, or any other backend module.
+
+..  figure:: /Images/ToolbarButton.png
+    :alt: Chat toolbar button in the TYPO3 backend header
+    :class: with-shadow
+
+    The chat button in the TYPO3 toolbar. The badge shows the number of
+    active (processing) conversations.
+
+The panel has four states:
+
+*   **Hidden** -- Only the toolbar button is visible.
+*   **Collapsed** -- A minimal bar at the bottom showing the active
+    conversation title.
+*   **Expanded** -- Resizable panel with the full chat interface.
+*   **Maximized** -- Full-height with conversation sidebar.
+
+..  figure:: /Images/ChatPanel.png
+    :alt: Floating chat panel in expanded state
+    :class: with-shadow
+
+    The floating panel in expanded state, overlaying the TYPO3 backend.
+    Drag the top edge to resize.
+
+Panel height and state are stored in ``localStorage`` per user.
 
 Error handling
 ==============

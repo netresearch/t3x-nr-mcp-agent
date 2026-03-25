@@ -29,6 +29,12 @@ records -- using natural language instructions. All
 processing happens server-side via CLI commands, keeping the
 web server responsive.
 
+..  figure:: /Images/ChatModule.png
+    :alt: AI Chat backend module
+    :class: with-shadow
+
+    The AI Chat module in the TYPO3 backend.
+
 Key features
 ============
 
