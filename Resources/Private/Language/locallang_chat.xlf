@@ -127,10 +127,10 @@
 
             <!-- FAL picker -->
             <trans-unit id="fal_picker_unavailable" resname="fal_picker_unavailable">
-                <source>FAL-Picker ist nicht verfügbar</source>
+                <source>FAL picker is not available</source>
             </trans-unit>
             <trans-unit id="fal_picker_popup_blocked" resname="fal_picker_popup_blocked">
-                <source>Popup wurde blockiert. Bitte Popup-Blocker deaktivieren.</source>
+                <source>Popup was blocked. Please disable your popup blocker.</source>
             </trans-unit>
         </body>
     </file>
