@@ -17,6 +17,11 @@ final class XlsxExtractor implements DocumentExtractorInterface
         return ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
     }
 
+    public function getSupportedFileExtensions(): array
+    {
+        return ['xlsx'];
+    }
+
     public function isAvailable(): bool
     {
         return class_exists(Spreadsheet::class);

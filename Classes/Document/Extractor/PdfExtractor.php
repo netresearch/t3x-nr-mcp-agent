@@ -16,6 +16,11 @@ final class PdfExtractor implements DocumentExtractorInterface
         return ['application/pdf'];
     }
 
+    public function getSupportedFileExtensions(): array
+    {
+        return ['pdf'];
+    }
+
     public function isAvailable(): bool
     {
         return class_exists(Parser::class);

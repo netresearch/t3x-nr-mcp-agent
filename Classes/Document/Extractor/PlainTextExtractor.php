@@ -14,6 +14,11 @@ final class PlainTextExtractor implements DocumentExtractorInterface
         return ['text/plain'];
     }
 
+    public function getSupportedFileExtensions(): array
+    {
+        return ['txt'];
+    }
+
     public function isAvailable(): bool
     {
         return true;

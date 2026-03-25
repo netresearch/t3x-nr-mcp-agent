@@ -30,6 +30,12 @@ class XlsxExtractorTest extends TestCase
     }
 
     #[Test]
+    public function returnsXlsxExtension(): void
+    {
+        self::assertContains('xlsx', $this->subject->getSupportedFileExtensions());
+    }
+
+    #[Test]
     public function isAvailableReflectsWhetherLibraryIsInstalled(): void
     {
         $expected = class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class);

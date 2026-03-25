@@ -30,6 +30,12 @@ class DocxExtractorTest extends TestCase
     }
 
     #[Test]
+    public function returnsDocxExtension(): void
+    {
+        self::assertContains('docx', $this->subject->getSupportedFileExtensions());
+    }
+
+    #[Test]
     public function isAvailableWhenLibraryInstalled(): void
     {
         // phpoffice/phpword is a hard dep — always true

@@ -50,7 +50,7 @@ final class ChatService implements ChatCapabilitiesInterface
      */
     public function getProviderCapabilities(): array
     {
-        $extractionFormats = $this->documentExtractorRegistry->getAvailableMimeTypes();
+        $extractionFormats = $this->documentExtractorRegistry->getAvailableExtensions();
 
         try {
             $provider = $this->resolveProvider();

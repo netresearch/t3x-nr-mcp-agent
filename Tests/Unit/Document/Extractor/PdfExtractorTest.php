@@ -27,6 +27,12 @@ class PdfExtractorTest extends TestCase
     }
 
     #[Test]
+    public function returnsPdfExtension(): void
+    {
+        self::assertContains('pdf', $this->subject->getSupportedFileExtensions());
+    }
+
+    #[Test]
     public function isAvailableWhenLibraryInstalled(): void
     {
         // smalot/pdfparser is a hard dep — always true

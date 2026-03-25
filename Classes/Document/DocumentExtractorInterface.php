@@ -8,8 +8,11 @@ use RuntimeException;
 
 interface DocumentExtractorInterface
 {
-    /** @return list<string> */
+    /** @return list<string> MIME types used for dispatch (e.g. 'application/pdf') */
     public function getSupportedMimeTypes(): array;
+
+    /** @return list<string> File extensions without dot, used for UI accept filter (e.g. 'pdf') */
+    public function getSupportedFileExtensions(): array;
 
     /**
      * Returns false when a required optional library is not installed.

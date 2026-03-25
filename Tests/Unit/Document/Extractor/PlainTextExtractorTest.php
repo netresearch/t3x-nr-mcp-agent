@@ -25,6 +25,12 @@ class PlainTextExtractorTest extends TestCase
     }
 
     #[Test]
+    public function returnsTxtExtension(): void
+    {
+        self::assertContains('txt', $this->subject->getSupportedFileExtensions());
+    }
+
+    #[Test]
     public function isAlwaysAvailable(): void
     {
         self::assertTrue($this->subject->isAvailable());

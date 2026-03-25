@@ -31,6 +31,20 @@ final class DocumentExtractorRegistry
         return array_values(array_unique($types));
     }
 
+    /** @return list<string> File extensions without dot, for UI accept filter */
+    public function getAvailableExtensions(): array
+    {
+        $extensions = [];
+        foreach ($this->extractors as $extractor) {
+            if ($extractor->isAvailable()) {
+                foreach ($extractor->getSupportedFileExtensions() as $ext) {
+                    $extensions[] = $ext;
+                }
+            }
+        }
+        return array_values(array_unique($extensions));
+    }
+
     public function canExtract(string $mimeType): bool
     {
         return $this->findExtractor($mimeType) !== null;

@@ -21,6 +21,11 @@ final class DocxExtractor implements DocumentExtractorInterface
         return ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     }
 
+    public function getSupportedFileExtensions(): array
+    {
+        return ['docx'];
+    }
+
     public function isAvailable(): bool
     {
         return class_exists(PhpWord::class);
