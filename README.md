@@ -136,6 +136,8 @@ All settings are in **Admin Tools > Settings > Extension Configuration > nr_mcp_
 For the full documentation, see the [Documentation/](Documentation/) folder or
 the rendered docs on [docs.typo3.org](https://docs.typo3.org/).
 
+Architectural decisions are documented as ADRs in [docs/adr/](docs/adr/).
+
 ## Acknowledgments
 
 - **[hauptsache.net](https://hauptsache.net/)** -- For creating
