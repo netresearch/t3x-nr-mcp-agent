@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use stdClass;
+use TYPO3\CMS\Core\Resource\Exception\FileDoesNotExistException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -92,6 +93,17 @@ class ChatApiControllerFileInfoTest extends TestCase
         $this->resourceFactory
             ->method('getFileObject')
             ->willThrowException(new InvalidArgumentException());
+
+        $response = $this->subject->fileInfo($this->makeRequest(['fileUid' => '99']));
+        self::assertSame(404, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function fileInfoReturnsNotFoundWhenFileDoesNotExist(): void
+    {
+        $this->resourceFactory
+            ->method('getFileObject')
+            ->willThrowException(new FileDoesNotExistException());
 
         $response = $this->subject->fileInfo($this->makeRequest(['fileUid' => '99']));
         self::assertSame(404, $response->getStatusCode());

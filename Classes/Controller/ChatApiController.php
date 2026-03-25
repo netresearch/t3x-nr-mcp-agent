@@ -342,7 +342,7 @@ final readonly class ChatApiController
 
         try {
             $file = $this->resourceFactory->getFileObject((int) $rawUid);
-        } catch (\InvalidArgumentException) {
+        } catch (Exception) {
             return new JsonResponse(['error' => 'File not found'], 404);
         }
 
