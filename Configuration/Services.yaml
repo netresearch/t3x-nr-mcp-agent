@@ -20,3 +20,20 @@ services:
   # MCP Tool Provider interface alias
   Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface:
     class: Netresearch\NrMcpAgent\Mcp\McpToolProvider
+
+  # Document extractors — tagged for DocumentExtractorRegistry
+  Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry:
+    arguments:
+      - !tagged_iterator document.extractor
+
+  Netresearch\NrMcpAgent\Document\Extractor\PdfExtractor:
+    tags: ['document.extractor']
+
+  Netresearch\NrMcpAgent\Document\Extractor\DocxExtractor:
+    tags: ['document.extractor']
+
+  Netresearch\NrMcpAgent\Document\Extractor\XlsxExtractor:
+    tags: ['document.extractor']
+
+  Netresearch\NrMcpAgent\Document\Extractor\PlainTextExtractor:
+    tags: ['document.extractor']
