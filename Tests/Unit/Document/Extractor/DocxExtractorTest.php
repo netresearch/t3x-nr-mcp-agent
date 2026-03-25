@@ -41,6 +41,7 @@ class DocxExtractorTest extends TestCase
     {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionCode(1743000040);
+        $this->expectExceptionMessageMatches('/^DOCX validation failed:/');
         $this->subject->validate($this->fixtures . '/corrupt.docx');
     }
 

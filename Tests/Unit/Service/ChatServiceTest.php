@@ -1458,6 +1458,8 @@ class ChatServiceTest extends TestCase
         }
 
         self::assertSame('text', $block['type']);
+        self::assertStringStartsWith('[Extracted from ', $block['text']);
+        self::assertStringContainsString(basename($tmpPath), $block['text']);
         self::assertStringContainsString('Hello TXT', $block['text']);
     }
 

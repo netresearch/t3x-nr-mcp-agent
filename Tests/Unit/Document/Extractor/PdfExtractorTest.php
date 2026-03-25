@@ -38,6 +38,7 @@ class PdfExtractorTest extends TestCase
     {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionCode(1743000030);
+        $this->expectExceptionMessageMatches('/^PDF validation failed:/');
         $this->subject->validate($this->fixtures . '/corrupt.pdf');
     }
 

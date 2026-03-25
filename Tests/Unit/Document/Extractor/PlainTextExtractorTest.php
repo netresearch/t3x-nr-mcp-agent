@@ -35,7 +35,7 @@ class PlainTextExtractorTest extends TestCase
     {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionCode(1743000010);
-        $this->expectExceptionMessageMatches('/nonexistent/');
+        $this->expectExceptionMessageMatches('/^File is not readable:.*nonexistent/');
         $this->subject->validate('/nonexistent/path/file.txt');
     }
 

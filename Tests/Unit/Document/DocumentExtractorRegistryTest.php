@@ -70,7 +70,7 @@ class DocumentExtractorRegistryTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionCode(1743000020);
-        $this->expectExceptionMessageMatches('/application\/unknown/');
+        $this->expectExceptionMessageMatches('/No extractor available.*application\/unknown/');
         $registry->extract('/path', 'application/unknown');
     }
 
@@ -93,7 +93,7 @@ class DocumentExtractorRegistryTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionCode(1743000020);
-        $this->expectExceptionMessageMatches('/application\/unknown/');
+        $this->expectExceptionMessageMatches('/No extractor available.*application\/unknown/');
         $registry->validate('/path', 'application/unknown');
     }
 
