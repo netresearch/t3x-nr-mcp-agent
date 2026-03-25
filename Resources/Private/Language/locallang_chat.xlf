@@ -94,6 +94,9 @@
             </trans-unit>
 
             <!-- Attachments -->
+            <trans-unit id="attachment.attach" resname="attachment.attach">
+                <source>Attach file</source>
+            </trans-unit>
             <trans-unit id="attachment.upload" resname="attachment.upload">
                 <source>Upload file</source>
             </trans-unit>

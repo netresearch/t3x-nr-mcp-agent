@@ -1211,8 +1211,8 @@ export class AiChatPanel extends LitElement {
             <div class="attach-menu-wrap">
                 <button class="btn-icon"
                         ?disabled=${!canAttach}
-                        title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
-                        aria-label="${lll('attachment.upload')}"
+                        title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.attach')}"
+                        aria-label="${lll('attachment.attach')}"
                         aria-expanded="${String(this._attachMenuOpen)}"
                         aria-haspopup="menu"
                         @click=${(e) => { e.stopPropagation(); this._attachMenuOpen = !this._attachMenuOpen; }}>
@@ -1224,12 +1224,16 @@ export class AiChatPanel extends LitElement {
                         role="menu"
                         @click=${(e) => e.stopPropagation()}>
                         <li role="menuitem"
-                            @click=${() => { this._attachMenuOpen = false; this.renderRoot.querySelector('input[type="file"]')?.click(); }}>
+                            tabindex="0"
+                            @click=${() => { this._attachMenuOpen = false; this.renderRoot.querySelector('input[type="file"]')?.click(); }}
+                            @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._attachMenuOpen = false; this.renderRoot.querySelector('input[type="file"]')?.click(); } }}>
                             ${ICON_UPLOAD(14)}
                             ${lll('attachment.upload')}
                         </li>
                         <li role="menuitem"
-                            @click=${() => { this._attachMenuOpen = false; this.dispatchEvent(new CustomEvent('nr-mcp-open-fal-picker', {bubbles: true, composed: true})); }}>
+                            tabindex="0"
+                            @click=${() => { this._attachMenuOpen = false; this.dispatchEvent(new CustomEvent('nr-mcp-open-fal-picker', {bubbles: true, composed: true})); }}
+                            @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._attachMenuOpen = false; this.dispatchEvent(new CustomEvent('nr-mcp-open-fal-picker', {bubbles: true, composed: true})); } }}>
                             <typo3-icon identifier="apps-filetree-folder-opened" size="small"></typo3-icon>
                             ${lll('attachment.fromFal')}
                         </li>

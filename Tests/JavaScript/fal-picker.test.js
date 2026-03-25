@@ -150,4 +150,20 @@ describe('_openFalPicker', () => {
 
         expect(ctrl._onFalFileSelected).toHaveBeenCalledWith(42);
     });
+
+    test('callback with empty value does not call _onFalFileSelected', () => {
+        global.top = {TYPO3: {settings: {ajaxUrls: {'file-browser': '/typo3/record/browse?mode=file'}}}};
+        const popup = {closed: false};
+        global.open = jest.fn().mockReturnValue(popup);
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._openFalPicker();
+
+        ctrl._onFalFileSelected = jest.fn();
+        // Simulate user cancelling — TYPO3 calls the callback with an empty value
+        global.setFormValueFromBrowseWin('', '', '');
+
+        expect(ctrl._onFalFileSelected).not.toHaveBeenCalled();
+    });
 });
