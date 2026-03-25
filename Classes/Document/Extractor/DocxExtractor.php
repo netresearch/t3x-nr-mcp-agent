@@ -33,20 +33,28 @@ final class DocxExtractor implements DocumentExtractorInterface
 
     public function validate(string $path): void
     {
+        // phpoffice/phpword triggers E_DEPRECATED on PHP 8.x for null XML attributes
+        // (e.g. in Google Docs exports). Suppress during load to avoid false failures.
+        $prev = error_reporting(error_reporting() & ~E_DEPRECATED);
         try {
             IOFactory::load($path);
         } catch (Throwable $e) {
             throw new RuntimeException('DOCX validation failed: ' . $e->getMessage(), 1743000040, $e);
+        } finally {
+            error_reporting($prev);
         }
     }
 
     public function extract(string $path): string
     {
+        $prev = error_reporting(error_reporting() & ~E_DEPRECATED);
         try {
             $phpWord = IOFactory::load($path);
             return $this->extractText($phpWord);
         } catch (Throwable $e) {
             throw new RuntimeException('DOCX extraction failed: ' . $e->getMessage(), 1743000041, $e);
+        } finally {
+            error_reporting($prev);
         }
     }
 
