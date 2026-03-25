@@ -81,8 +81,8 @@ configurable period of inactivity (default: 30 days).
 Attaching files
 ===============
 
-When the active LLM provider supports file attachments, a **+** button
-appears to the left of the input field.
+A **+** button appears to the left of the input field whenever file
+attachments are available.
 
 1.  Click **+** to open the attachment menu.
 2.  Select **Upload file** to open a file picker and choose a file from
@@ -94,12 +94,26 @@ appears to the left of the input field.
 To remove a pending attachment before sending, click the **×** on the
 file badge.
 
-**Supported file types** depend on the active provider:
+**Supported file types:**
 
-*   All vision-capable providers (Claude, Gemini, GPT-4o, etc.) accept
-    images: PNG, JPEG, WebP.
-*   PDF support is available for Claude and Gemini only. The file picker
-    automatically shows only the formats the current provider supports.
+The following document formats are always available. Text is extracted
+server-side before sending to the LLM:
+
+*   PDF (``application/pdf``)
+*   DOCX (``application/vnd.openxmlformats-officedocument.wordprocessingml.document``)
+*   TXT (``text/plain``)
+*   XLSX (``application/vnd.openxmlformats-officedocument.spreadsheetml.sheet``) --
+    requires ``phpoffice/phpspreadsheet`` to be installed
+
+Vision-capable providers (Claude, Gemini, GPT-4o, etc.) additionally
+accept images:
+
+*   PNG, JPEG, WebP
+
+When the provider natively supports a document format (e.g. Claude
+natively handles PDFs), the file is sent as-is instead of being
+extracted. The file picker automatically restricts to the formats
+supported by the active provider.
 
 **Limits:**
 

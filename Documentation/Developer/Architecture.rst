@@ -263,12 +263,13 @@ File attachment flow
         v
     ChatService::buildLlmMessages()
         | reads file from FAL (getForLocalProcessing)
-        | base64-encodes content
-        | builds multimodal content array:
-        |   images  → {type: image_url, image_url: {url: data:...}}
-        |   PDFs    → {type: document, source: {type: base64, ...}}
-        |             (only if provider implements DocumentCapableInterface)
-        |   PDFs on unsupported provider → "[file no longer available]"
+        | for each file attachment:
+        |   images  → base64 data URI (provider must be VisionCapable)
+        |   documents (PDF/DOCX/XLSX/TXT):
+        |     if provider implements DocumentCapableInterface
+        |       → sent as binary (base64-encoded document block)
+        |     else
+        |       → DocumentExtractorRegistry::extract() → plain-text block
         v
     LLM Provider (multimodal chatCompletion call)
 
