@@ -29,6 +29,31 @@ backend users to manage content through natural language.
 - **Secure by design** -- Group-based access control, message length limits,
   concurrency caps, sanitized error messages, and XSS-safe Markdown rendering.
 
+## Supported file formats
+
+The AI chat supports file uploads for use as conversation attachments. Supported formats depend on your configured LLM provider:
+
+| Format | MIME type | Availability |
+|--------|-----------|-------------|
+| PDF | `application/pdf` | Always (text extracted server-side) |
+| DOCX | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | Always (text extracted server-side) |
+| TXT | `text/plain` | Always |
+| XLSX | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | Requires `phpoffice/phpspreadsheet` (see below) |
+| Images (JPEG, PNG, WebP) | various | Requires a vision-capable provider |
+| Native PDF/DOCX | various | Requires a DocumentCapable provider (e.g. Anthropic Claude) |
+
+When a provider natively supports a format (e.g. Claude natively handles PDFs), the file is sent as-is. Otherwise, text is extracted server-side and injected into the prompt.
+
+### XLSX support (optional)
+
+XLSX uploads require the optional `phpoffice/phpspreadsheet` library:
+
+```bash
+composer require phpoffice/phpspreadsheet:^3.0
+```
+
+If not installed, XLSX files will be rejected at upload time with a 422 response.
+
 ## Quick Start
 
 1. Install the extension:
