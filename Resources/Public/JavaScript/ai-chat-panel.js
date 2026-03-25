@@ -1208,13 +1208,13 @@ export class AiChatPanel extends LitElement {
         const canAttach = this.chat.canAttachFile();
 
         return html`
-            <div class="attach-menu-wrap" style="position:relative">
+            <div class="attach-menu-wrap">
                 <button class="btn-icon"
                         ?disabled=${!canAttach}
                         title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
                         aria-label="${lll('attachment.upload')}"
                         aria-expanded="${String(this._attachMenuOpen)}"
-                        aria-haspopup="true"
+                        aria-haspopup="menu"
                         @click=${(e) => { e.stopPropagation(); this._attachMenuOpen = !this._attachMenuOpen; }}>
                     ${ICON_PAPERCLIP(14)}${ICON_CHEVRON_DOWN(10)}
                 </button>
