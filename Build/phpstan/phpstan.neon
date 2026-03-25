@@ -30,3 +30,7 @@ services:
         class: Netresearch\NrMcpAgent\Tests\Architecture\LayerDependencyTest
         tags:
             - phpat.test
+    -
+        class: Netresearch\NrMcpAgent\Tests\Architecture\DocumentExtractorArchitectureTest
+        tags:
+            - phpat.test
