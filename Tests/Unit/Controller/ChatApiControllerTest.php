@@ -1106,6 +1106,77 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function fileUploadDoesNotCallRegistryValidateForProviderNativeMimeType(): void
+    {
+        // A JPEG file is provider-native (reported by chatService->getProviderCapabilities()).
+        // The registry has NO image/jpeg extractor — only a PDF extractor.
+        // Therefore canExtract('image/jpeg') returns false and validate() must never be called.
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+
+        // Write a minimal valid JPEG (FFD8FF header)
+        file_put_contents($tmpPath, "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xFF\xD9");
+
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
+
+        $uploadedFile = $this->createMock(UploadedFileInterface::class);
+        $uploadedFile->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $uploadedFile->method('getSize')->willReturn(20);
+        $uploadedFile->method('getStream')->willReturn($stream);
+        $uploadedFile->method('getClientFilename')->willReturn('photo.jpg');
+
+        // Registry only knows about PDF — not JPEG
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
+        $extractor->method('getSupportedMimeTypes')->willReturn(['application/pdf']);
+        $extractor->method('isAvailable')->willReturn(true);
+        $extractor->expects(self::never())->method('validate'); // MUST NOT be called
+
+        $registry = new DocumentExtractorRegistry([$extractor]);
+
+        // chatService reports image/jpeg as provider-native
+        $chatService = $this->createMock(ChatCapabilitiesInterface::class);
+        $chatService->method('getProviderCapabilities')->willReturn([
+            'visionSupported' => true,
+            'maxFileSize' => 0,
+            'supportedFormats' => ['image/jpeg'],
+        ]);
+
+        $falFile = $this->createMock(\TYPO3\CMS\Core\Resource\File::class);
+        $falFile->method('getUid')->willReturn(42);
+        $falFile->method('getName')->willReturn('photo.jpg');
+        $falFile->method('getMimeType')->willReturn('image/jpeg');
+        $falFile->method('getSize')->willReturn(20);
+
+        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('addFile')->willReturn($falFile);
+        $storage->method('getFolder')->willReturn($folder);
+        $storage->method('hasFolder')->willReturn(true);
+        $this->storageRepository->method('getDefaultStorage')->willReturn($storage);
+
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $this->config,
+            $chatService,
+            $this->resourceFactory,
+            $this->storageRepository,
+            $registry,
+        );
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
+
+        try {
+            $response = $subject->fileUpload($request);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
     public function fileUploadReturns422ForUnsupportedMimeType(): void
     {
         // Registry with no extractors → all MIME types rejected
