@@ -9,3 +9,4 @@ vendor/
 .env.local
 .php-cs-fixer.cache
 Documentation-GENERATED-temp/
+.worktrees/
