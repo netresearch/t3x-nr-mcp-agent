@@ -28,7 +28,7 @@ final class PlainTextExtractor implements DocumentExtractorInterface
 
     public function extract(string $path): string
     {
-        $content = file_get_contents($path);
+        $content = @file_get_contents($path);
         if ($content === false) {
             throw new RuntimeException('Failed to read file: ' . $path, 1743000011);
         }
