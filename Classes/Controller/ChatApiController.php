@@ -195,9 +195,7 @@ final readonly class ChatApiController
 
             try {
                 $file = $this->resourceFactory->getFileObject($fileUid);
-                // Verify that the file belongs to the current user
-                $expectedFolder = '/ai-chat/' . $this->getBeUserUid() . '/';
-                if (!str_starts_with($file->getIdentifier(), $expectedFolder)) {
+                if (!$file->checkActionPermission('read')) {
                     return new JsonResponse(['error' => 'File not found'], 404);
                 }
                 $fileName = $file->getName();

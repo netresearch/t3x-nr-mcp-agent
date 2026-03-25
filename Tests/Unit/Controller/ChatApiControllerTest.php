@@ -844,10 +844,9 @@ class ChatApiControllerTest extends TestCase
         $this->repository->method('countActiveByBeUser')->willReturn(0);
 
         $mockFile = $this->createMock(File::class);
+        $mockFile->method('checkActionPermission')->with('read')->willReturn(true);
         $mockFile->method('getName')->willReturn('photo.png');
         $mockFile->method('getMimeType')->willReturn('image/png');
-        // File must reside in the current user's upload folder (be_user uid=1)
-        $mockFile->method('getIdentifier')->willReturn('/ai-chat/1/photo.png');
         $this->resourceFactory->method('getFileObject')->with(42)->willReturn($mockFile);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Look at this", "fileUid": 42}');
@@ -869,14 +868,32 @@ class ChatApiControllerTest extends TestCase
         $this->repository->method('countActiveByBeUser')->willReturn(0);
 
         $mockFile = $this->createMock(File::class);
-        // File belongs to a different user (uid=99, not the current user uid=1)
-        $mockFile->method('getIdentifier')->willReturn('/ai-chat/99/stolen.png');
+        $mockFile->method('checkActionPermission')->with('read')->willReturn(false);
         $this->resourceFactory->method('getFileObject')->willReturn($mockFile);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hi", "fileUid": 77}');
         $response = $this->subject->sendMessage($request);
 
         self::assertSame(404, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function sendMessageAcceptsFalFileOutsideUploadFolder(): void
+    {
+        $conversation = new Conversation();
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('countActiveByBeUser')->willReturn(0);
+
+        $file = $this->createMock(File::class);
+        $file->method('checkActionPermission')->with('read')->willReturn(true);
+        $file->method('getName')->willReturn('document.pdf');
+        $file->method('getMimeType')->willReturn('application/pdf');
+        $this->resourceFactory->method('getFileObject')->willReturn($file);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Check this", "fileUid": 42}');
+        $response = $this->subject->sendMessage($request);
+
+        self::assertSame(202, $response->getStatusCode());
     }
 
     #[Test]
