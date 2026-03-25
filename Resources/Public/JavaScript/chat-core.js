@@ -65,12 +65,23 @@ export class ChatCoreController {
     hostConnected() {
         this._abortController = new AbortController();
         this._api = new ApiClient(this._abortController.signal);
+        this.host.addEventListener(
+            'nr-mcp-open-fal-picker',
+            () => this._openFalPicker(),
+            {signal: this._abortController.signal},
+        );
         this.init();
     }
 
     hostDisconnected() {
         this._abortController?.abort();
         this.stopPolling();
+    }
+
+    /** @param {string} message */
+    _setError(message) {
+        this.issues = [message];
+        this.host.requestUpdate();
     }
 
     // ── Core logic ─────────────────────────────────────────────────────
@@ -348,6 +359,49 @@ export class ChatCoreController {
     handleFileSelect(fileUid, name, mimeType) {
         this.pendingFile = {fileUid, name, mimeType};
         this.host.requestUpdate();
+    }
+
+    _openFalPicker() {
+        // Guard: picker already open
+        if (typeof globalThis.setFormValueFromBrowseWin === 'function') {
+            return;
+        }
+
+        // TYPO3 registers the file browser URL in ajaxUrls under 'file-browser'
+        const ajaxUrl = top.TYPO3?.settings?.ajaxUrls?.['file-browser'];
+        if (!ajaxUrl) {
+            this._setError('FAL-Picker ist nicht verfügbar');
+            return;
+        }
+
+        const extensions = this.supportedFormats.join(',');
+        // bparams format: fieldName|irreConfig|allowedTables|allowedExtensions
+        // First three segments empty = not bound to any FormEngine field
+        const bparams = encodeURIComponent('|||' + extensions);
+        const url = ajaxUrl + '&bparams=' + bparams;
+
+        globalThis.setFormValueFromBrowseWin = (_fieldName, value, _label) => {
+            delete globalThis.setFormValueFromBrowseWin;
+            if (value) {
+                this._onFalFileSelected(parseInt(value, 10));
+            }
+        };
+
+        const popup = globalThis.open(url, 'typo3FileBrowser', 'height=600,width=900,status=0,menubar=0,scrollbars=1');
+        if (!popup) {
+            delete globalThis.setFormValueFromBrowseWin;
+            this._setError('Popup wurde blockiert. Bitte Popup-Blocker deaktivieren.');
+        }
+    }
+
+    /** @param {number} fileUid */
+    async _onFalFileSelected(fileUid) {
+        try {
+            const result = await this._api.getFileInfo(fileUid);
+            this.handleFileSelect(result.fileUid, result.name, result.mimeType);
+        } catch (e) {
+            this._setError(e.message);
+        }
     }
 
     clearPendingFile() {
