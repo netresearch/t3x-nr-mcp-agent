@@ -454,22 +454,40 @@ export class ChatCoreController {
         this._addFalPickerMessageListeners();
     }
 
-    /** Register the FAL picker message listener on all candidate windows getParent() may resolve to. */
+    /**
+     * Register the FAL picker message listener on all windows that TYPO3's getParent() may resolve to.
+     *
+     * In TYPO3 v14 the backend loads the active module in an iframe named "list_frame".  getParent()
+     * detects this via document.list_frame and — because our overlay contains a .t3js-modal-iframe —
+     * routes the postMessage to that module iframe instead of top.  We therefore register on
+     * globalThis AND on every same-origin frame currently in top.frames.
+     */
     _addFalPickerMessageListeners() {
         const fn = this._falPickerListener;
         globalThis.addEventListener('message', fn);
-        // top and window.parent may differ from globalThis in TYPO3 backend frame layouts.
-        // Both are tried with try/catch in case of cross-origin access restrictions.
-        try { if (top !== globalThis) top.addEventListener('message', fn); } catch { /* cross-origin */ }
-        try { if (parent !== globalThis && parent !== top) parent.addEventListener('message', fn); } catch { /* cross-origin */ }
+        // Register on all same-origin child frames so we catch the message regardless of which
+        // window getParent() resolves to (top, list_frame, or another t3js-modal-iframe frame).
+        this._falPickerExtraWindows = [];
+        try {
+            Array.from(top.frames || []).forEach(frame => {
+                try {
+                    if (frame !== globalThis) {
+                        frame.addEventListener('message', fn);
+                        this._falPickerExtraWindows.push(frame);
+                    }
+                } catch { /* cross-origin frame — skip */ }
+            });
+        } catch { /* cross-origin access to top.frames — skip */ }
     }
 
     _cleanupFalPicker() {
         if (this._falPickerListener) {
             const fn = this._falPickerListener;
             globalThis.removeEventListener('message', fn);
-            try { if (top !== globalThis) top.removeEventListener('message', fn); } catch { /* cross-origin */ }
-            try { if (parent !== globalThis && parent !== top) parent.removeEventListener('message', fn); } catch { /* cross-origin */ }
+            (this._falPickerExtraWindows || []).forEach(w => {
+                try { w.removeEventListener('message', fn); } catch { /* cross-origin */ }
+            });
+            this._falPickerExtraWindows = null;
             this._falPickerListener = null;
         }
         if (this._falPickerOverlay) {
