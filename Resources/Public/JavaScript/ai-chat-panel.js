@@ -311,6 +311,14 @@ export class AiChatPanel extends LitElement {
             background: var(--typo3-danger-bg, #ffebee);
             color: #c62828;
         }
+        .conv-tab-new {
+            flex-shrink: 0;
+            margin-left: auto;
+            padding: 4px 6px;
+            border-radius: 6px;
+            color: var(--typo3-text-color-variant, #666);
+        }
+        .conv-tab-new:hover { color: var(--typo3-text-color, #333); }
 
         /* Messages */
         .panel-messages {
@@ -1081,7 +1089,6 @@ export class AiChatPanel extends LitElement {
             <div class="panel-body">
                 ${this.state === STATES.MAXIMIZED ? this._renderSidebar() : nothing}
                 <div class="panel-content">
-                    ${this.state === STATES.EXPANDED ? this._renderCompactSwitcher() : nothing}
                     ${this.state === STATES.EXPANDED ? this._renderConvTabs() : nothing}
                     ${this._renderChat()}
                 </div>
@@ -1146,7 +1153,6 @@ export class AiChatPanel extends LitElement {
     }
 
     _renderConvTabs() {
-        if (this.chat.conversations.length === 0) return nothing;
         return html`
             <div class="conv-tabs" role="tablist" aria-label="${lll('conversations.title')}">
                 ${this.chat.conversations.map(c => {
@@ -1167,26 +1173,7 @@ export class AiChatPanel extends LitElement {
                         </button>
                     `;
                 })}
-            </div>
-        `;
-    }
-
-    _renderCompactSwitcher() {
-        return html`
-            <div class="compact-switcher">
-                <div class="select-wrap">
-                    <select @change=${(e) => this.chat.selectConversation(Number(e.target.value))}
-                            aria-label="${lll('conversations.select')}">
-                        ${!this.chat.activeUid ? html`<option value="" selected disabled>${lll('conversations.select')}</option>` : nothing}
-                        ${this.chat.conversations.map(c => html`
-                            <option value=${c.uid} ?selected=${c.uid === this.chat.activeUid}>
-                                ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
-                            </option>
-                        `)}
-                    </select>
-                    <span class="chevron">${ICON_CHEVRON_DOWN(12)}</span>
-                </div>
-                <button class="btn-icon"
+                <button class="btn-icon conv-tab-new"
                         @click=${() => this.chat.handleNewConversation()}
                         ?disabled=${!this.chat.available}
                         title="${lll('conversations.new')}"
