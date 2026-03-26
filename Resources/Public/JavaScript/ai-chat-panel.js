@@ -1,5 +1,6 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
+import {ref} from 'lit/directives/ref.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
@@ -31,6 +32,7 @@ export class AiChatPanel extends LitElement {
         _posX: {state: true},
         _posY: {state: true},
         _attachMenuOpen: {type: Boolean, state: true},
+        _renamingUid: {state: true},
     };
 
     static styles = [markdownStyles, css`
@@ -319,6 +321,16 @@ export class AiChatPanel extends LitElement {
             color: var(--typo3-text-color-variant, #666);
         }
         .conv-tab-new:hover { color: var(--typo3-text-color, #333); }
+        .conv-tab .tab-rename-input {
+            width: 90px;
+            padding: 1px 4px;
+            font-size: 12px;
+            border: 1px solid var(--typo3-primary, #0078d4);
+            border-radius: 3px;
+            outline: none;
+            background: var(--typo3-surface-container-lowest, #fff);
+            color: var(--typo3-text-color, #333);
+        }
 
         /* Messages */
         .panel-messages {
@@ -1157,6 +1169,7 @@ export class AiChatPanel extends LitElement {
             <div class="conv-tabs" role="tablist" aria-label="${lll('conversations.title')}">
                 ${this.chat.conversations.map(c => {
                     const isActive = c.uid === this.chat.activeUid;
+                    const isRenaming = this._renamingUid === c.uid;
                     const icon = STATUS_ICONS[c.status] ?? '';
                     const title = c.title || lll('conversations.newConversation');
                     return html`
@@ -1166,7 +1179,23 @@ export class AiChatPanel extends LitElement {
                                 title="${title} (${c.status})"
                                 @click=${() => this.chat.selectConversation(c.uid)}>
                             <span class="tab-icon status-${c.status}">${icon}</span>
-                            <span class="tab-title">${title}</span>
+                            ${isRenaming ? html`
+                                <input class="tab-rename-input"
+                                       .value=${title}
+                                       @click=${(e) => e.stopPropagation()}
+                                       @keydown=${(e) => {
+                                           if (e.key === 'Enter') { e.preventDefault(); this._commitRename(c.uid, e.target.value); }
+                                           if (e.key === 'Escape') { e.stopPropagation(); this._renamingUid = null; }
+                                       }}
+                                       @blur=${(e) => this._commitRename(c.uid, e.target.value)}
+                                       ${ref((el) => el && requestAnimationFrame(() => { el.select(); }))}
+                                />
+                            ` : html`
+                                <span class="tab-title"
+                                      @dblclick=${(e) => { e.stopPropagation(); this._renamingUid = c.uid; }}>
+                                    ${title}
+                                </span>
+                            `}
                             <span class="tab-close"
                                   title="${lll('conversations.archive')}"
                                   @click=${(e) => { e.stopPropagation(); this.chat.handleArchive(c.uid); }}>✕</span>
@@ -1180,6 +1209,11 @@ export class AiChatPanel extends LitElement {
                         aria-label="${lll('conversations.new')}">${ICON_COMPOSE(14)}</button>
             </div>
         `;
+    }
+
+    _commitRename(uid, value) {
+        this._renamingUid = null;
+        this.chat.handleRename(uid, value);
     }
 
     _renderChat() {
