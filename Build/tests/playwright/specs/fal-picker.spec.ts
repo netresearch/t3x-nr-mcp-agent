@@ -206,6 +206,10 @@ test.describe('FAL picker overlay', () => {
     });
 
     test('postMessage received only once even when listener registered on multiple windows', async ({ page }) => {
+        // Register error listener before any actions so it captures all errors
+        const errors: string[] = [];
+        page.on('pageerror', (e) => errors.push(e.message));
+
         await openFalPicker(page);
 
         const overlay = await getOverlay(page);
@@ -223,13 +227,11 @@ test.describe('FAL picker overlay', () => {
             (top ?? window).dispatchEvent(new MessageEvent('message', opts));
         });
 
-        // Overlay must close exactly once — no double-cleanup errors
+        // Overlay must close exactly once — no double-cleanup errors.
+        // Waiting for this condition also gives the JS engine time to surface
+        // any errors that would result from double-cleanup attempts.
         await expect(overlay).not.toBeVisible({ timeout: 3000 });
 
-        // No JS errors should have occurred
-        const errors: string[] = [];
-        page.on('pageerror', (e) => errors.push(e.message));
-        await page.waitForTimeout(300);
         expect(errors).toHaveLength(0);
     });
 
