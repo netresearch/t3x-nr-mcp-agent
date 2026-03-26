@@ -233,6 +233,29 @@ describe('_openFalPicker', () => {
         expect(ctrl._onFalFileSelected).not.toHaveBeenCalled();
     });
 
+    test('guard prevents _onFalFileSelected from being called twice if listener fires on multiple windows', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._onFalFileSelected = jest.fn();
+        ctrl._openFalPicker();
+
+        const eventData = {
+            actionName: 'typo3:elementBrowser:elementAdded',
+            fieldName: 'nr_mcp_agent_fal_picker',
+            value: '42',
+        };
+
+        // First delivery (e.g. via globalThis) — should process normally
+        globalThis.dispatchEvent(new MessageEvent('message', {origin: window.location.origin, data: eventData}));
+        expect(ctrl._onFalFileSelected).toHaveBeenCalledTimes(1);
+
+        // Second delivery (e.g. via top — same object in jsdom) — guard must prevent double-call
+        globalThis.dispatchEvent(new MessageEvent('message', {origin: window.location.origin, data: eventData}));
+        expect(ctrl._onFalFileSelected).toHaveBeenCalledTimes(1); // still 1, not 2
+    });
+
     test('picker can be reopened after cleanup', () => {
         global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
 

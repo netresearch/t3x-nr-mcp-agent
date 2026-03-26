@@ -432,11 +432,17 @@ export class ChatCoreController {
         });
 
         // TYPO3 element browser sends {actionName:'typo3:elementBrowser:elementAdded', fieldName, value, label}
-        // via MessageUtility.send() → postMessage() to the window resolved by getParent() (our window).
+        // via MessageUtility.send() → postMessage() to the window resolved by getParent().
         // value = sys_file UID as a plain string ("42") or in table_uid format ("sys_file_42").
+        //
+        // getParent() resolves via `window.frames.frameElement.contentWindow.parent` (= our window).
+        // However, when `top.frames` contains other t3js-modal-iframe frames (e.g. an open TYPO3 backend
+        // modal), getParent() may return `top` or another window instead.  We register the listener on
+        // all candidate windows to ensure we receive the message regardless of where getParent() resolves.
         this._falPickerListener = (event) => {
             if (event.data?.actionName !== 'typo3:elementBrowser:elementAdded') return;
             if (event.data?.fieldName !== fieldName) return;
+            if (!this._falPickerOverlay) return; // guard against duplicate invocations
             this._cleanupFalPicker();
             // Extract the trailing integer — handles both "42" and "sys_file_42"
             const match = String(event.data.value ?? '').match(/(\d+)$/);
@@ -445,12 +451,25 @@ export class ChatCoreController {
                 this._onFalFileSelected(uid);
             }
         };
-        globalThis.addEventListener('message', this._falPickerListener);
+        this._addFalPickerMessageListeners();
+    }
+
+    /** Register the FAL picker message listener on all candidate windows getParent() may resolve to. */
+    _addFalPickerMessageListeners() {
+        const fn = this._falPickerListener;
+        globalThis.addEventListener('message', fn);
+        // top and window.parent may differ from globalThis in TYPO3 backend frame layouts.
+        // Both are tried with try/catch in case of cross-origin access restrictions.
+        try { if (top !== globalThis) top.addEventListener('message', fn); } catch { /* cross-origin */ }
+        try { if (parent !== globalThis && parent !== top) parent.addEventListener('message', fn); } catch { /* cross-origin */ }
     }
 
     _cleanupFalPicker() {
         if (this._falPickerListener) {
-            globalThis.removeEventListener('message', this._falPickerListener);
+            const fn = this._falPickerListener;
+            globalThis.removeEventListener('message', fn);
+            try { if (top !== globalThis) top.removeEventListener('message', fn); } catch { /* cross-origin */ }
+            try { if (parent !== globalThis && parent !== top) parent.removeEventListener('message', fn); } catch { /* cross-origin */ }
             this._falPickerListener = null;
         }
         if (this._falPickerOverlay) {
