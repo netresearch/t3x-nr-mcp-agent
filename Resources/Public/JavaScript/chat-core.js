@@ -76,6 +76,10 @@ export class ChatCoreController {
     hostDisconnected() {
         this._abortController?.abort();
         this.stopPolling();
+        if (this._falPickerListener) {
+            globalThis.removeEventListener('message', this._falPickerListener);
+            this._falPickerListener = null;
+        }
     }
 
     /** @param {string} message */
@@ -362,36 +366,45 @@ export class ChatCoreController {
     }
 
     _openFalPicker() {
-        // Guard: picker already open
-        // globalThis === window in browser context, but globalThis is also accessible
-        // in the Node.js test environment where window is undefined.
-        if (typeof globalThis.setFormValueFromBrowseWin === 'function') {
+        // Guard: picker already open (message listener active)
+        if (this._falPickerListener) {
             return;
         }
 
-        // TYPO3 registers the file browser URL in ajaxUrls under 'file-browser'
-        const ajaxUrl = top.TYPO3?.settings?.ajaxUrls?.['file-browser'];
-        if (!ajaxUrl) {
+        // TYPO3 registers the element browser URL in settings.Wizards.elementBrowserUrl
+        // (set by BackendController via addInlineSetting for route 'wizard_element_browser')
+        const browserUrl = top.TYPO3?.settings?.Wizards?.elementBrowserUrl;
+        if (!browserUrl) {
             this._setError(lll('fal_picker_unavailable'));
             return;
         }
 
+        // A unique fieldName lets us identify our postMessage response (TYPO3 13/14 both use postMessage)
+        const fieldName = 'nr_mcp_agent_fal_picker';
         const extensions = this.supportedFormats.join(',');
         // bparams format: fieldName|irreConfig|allowedTables|allowedExtensions
-        // First three segments empty = not bound to any FormEngine field
-        const bparams = encodeURIComponent('|||' + extensions);
-        const url = ajaxUrl + '&bparams=' + bparams;
+        const bparams = encodeURIComponent(fieldName + '|||' + extensions);
+        const url = browserUrl + '&mode=file&bparams=' + bparams;
 
-        globalThis.setFormValueFromBrowseWin = (_fieldName, value, _label) => {
-            delete globalThis.setFormValueFromBrowseWin;
-            if (value) {
-                this._onFalFileSelected(parseInt(value, 10));
+        // TYPO3 element browser sends {actionName:'typo3:elementBrowser:elementAdded', fieldName, value, label}
+        // via postMessage to window.opener (our window). value = sys_file UID as string.
+        this._falPickerListener = (event) => {
+            if (event.origin !== globalThis.location?.origin) return;
+            if (event.data?.actionName !== 'typo3:elementBrowser:elementAdded') return;
+            if (event.data?.fieldName !== fieldName) return;
+            globalThis.removeEventListener('message', this._falPickerListener);
+            this._falPickerListener = null;
+            const uid = parseInt(event.data.value, 10);
+            if (uid > 0) {
+                this._onFalFileSelected(uid);
             }
         };
+        globalThis.addEventListener('message', this._falPickerListener);
 
         const popup = globalThis.open(url, 'typo3FileBrowser', 'height=600,width=900,status=0,menubar=0,scrollbars=1');
         if (!popup) {
-            delete globalThis.setFormValueFromBrowseWin;
+            globalThis.removeEventListener('message', this._falPickerListener);
+            this._falPickerListener = null;
             this._setError(lll('fal_picker_popup_blocked'));
         }
     }
