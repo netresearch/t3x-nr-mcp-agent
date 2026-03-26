@@ -18,8 +18,6 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    _attachMenuOpen = false;
-
     static styles = [markdownStyles, css`
         :host {
             display: flex;
@@ -423,6 +421,7 @@ export class ChatApp extends LitElement {
         super();
         this.maxLength = 0;
         this._sidebarCollapsed = false;
+        this._attachMenuOpen = false;
         this.chat = new ChatCoreController(this);
     }
 

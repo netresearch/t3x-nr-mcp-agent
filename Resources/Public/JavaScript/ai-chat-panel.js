@@ -33,8 +33,6 @@ export class AiChatPanel extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    _attachMenuOpen = false;
-
     static styles = [markdownStyles, css`
         :host {
             position: fixed;
@@ -563,6 +561,7 @@ export class AiChatPanel extends LitElement {
         this._width = DEFAULT_WIDTH;
         this._posX = null;
         this._posY = null;
+        this._attachMenuOpen = false;
         this._lastVisibleState = STATES.EXPANDED;
         this._resizing = false;
         this._dragging = false;
