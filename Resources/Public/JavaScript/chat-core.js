@@ -51,6 +51,8 @@ export class ChatCoreController {
     _knownMessageCount = 0;
     /** @type {number} */
     _pollFailures = 0;
+    /** @type {number|null} */
+    _falPickerPollTimer = null;
 
     /**
      * @param {import('lit').ReactiveControllerHost} host
@@ -76,10 +78,7 @@ export class ChatCoreController {
     hostDisconnected() {
         this._abortController?.abort();
         this.stopPolling();
-        if (this._falPickerListener) {
-            globalThis.removeEventListener('message', this._falPickerListener);
-            this._falPickerListener = null;
-        }
+        this._cleanupFalPicker();
     }
 
     /** @param {string} message */
@@ -387,14 +386,15 @@ export class ChatCoreController {
         const url = browserUrl + '&mode=file&bparams=' + bparams;
 
         // TYPO3 element browser sends {actionName:'typo3:elementBrowser:elementAdded', fieldName, value, label}
-        // via postMessage to window.opener (our window). value = sys_file UID as string.
+        // via postMessage to window.opener (our window). value = sys_file UID, either as a plain numeric
+        // string ("42") or in table_uid format ("sys_file_42") depending on the TYPO3 file browser version.
         this._falPickerListener = (event) => {
-            if (event.origin !== globalThis.location?.origin) return;
             if (event.data?.actionName !== 'typo3:elementBrowser:elementAdded') return;
             if (event.data?.fieldName !== fieldName) return;
-            globalThis.removeEventListener('message', this._falPickerListener);
-            this._falPickerListener = null;
-            const uid = parseInt(event.data.value, 10);
+            this._cleanupFalPicker();
+            // Extract the trailing integer — handles both "42" and "sys_file_42"
+            const match = String(event.data.value ?? '').match(/(\d+)$/);
+            const uid = match ? parseInt(match[1], 10) : 0;
             if (uid > 0) {
                 this._onFalFileSelected(uid);
             }
@@ -403,9 +403,29 @@ export class ChatCoreController {
 
         const popup = globalThis.open(url, 'typo3FileBrowser', 'height=600,width=900,status=0,menubar=0,scrollbars=1');
         if (!popup) {
+            this._cleanupFalPicker();
+            this._setError(lll('fal_picker_popup_blocked'));
+            return;
+        }
+
+        // Poll for popup being closed by the user without selecting a file.
+        // Without this, _falPickerListener would stay set and block reopening the picker.
+        this._falPickerPollTimer = setInterval(() => {
+            if (popup.closed) {
+                this._cleanupFalPicker();
+            }
+        }, 500);
+    }
+
+    _cleanupFalPicker() {
+        if (this._falPickerPollTimer) {
+            clearInterval(this._falPickerPollTimer);
+            this._falPickerPollTimer = null;
+        }
+        if (this._falPickerListener) {
             globalThis.removeEventListener('message', this._falPickerListener);
             this._falPickerListener = null;
-            this._setError(lll('fal_picker_popup_blocked'));
+            this.host.requestUpdate();
         }
     }
 

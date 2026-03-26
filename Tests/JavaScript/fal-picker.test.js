@@ -168,6 +168,32 @@ describe('_openFalPicker', () => {
         expect(ctrl._falPickerListener).toBeNull();
     });
 
+    test('postMessage with table_uid format (sys_file_42) extracts numeric uid 42', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
+        const popup = {closed: false};
+        global.open = jest.fn().mockReturnValue(popup);
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._onFalFileSelected = jest.fn();
+        ctrl._openFalPicker();
+
+        // Simulate TYPO3 sending value in table_uid format (sys_file_42)
+        const event = new MessageEvent('message', {
+            origin: window.location.origin,
+            data: {
+                actionName: 'typo3:elementBrowser:elementAdded',
+                fieldName: 'nr_mcp_agent_fal_picker',
+                value: 'sys_file_42',
+                label: 'doc.pdf',
+            },
+        });
+        globalThis.dispatchEvent(event);
+
+        expect(ctrl._onFalFileSelected).toHaveBeenCalledWith(42);
+        expect(ctrl._falPickerListener).toBeNull();
+    });
+
     test('postMessage with non-zero uid does not call _onFalFileSelected for wrong fieldName', () => {
         global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
         const popup = {closed: false};
@@ -214,5 +240,32 @@ describe('_openFalPicker', () => {
         globalThis.dispatchEvent(event);
 
         expect(ctrl._onFalFileSelected).not.toHaveBeenCalled();
+    });
+
+    test('popup closed without selection cleans up listener so picker can be reopened', () => {
+        jest.useFakeTimers();
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
+        const popup = {closed: false};
+        global.open = jest.fn().mockReturnValue(popup);
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._openFalPicker();
+
+        expect(typeof ctrl._falPickerListener).toBe('function');
+
+        // User closes popup without selecting
+        popup.closed = true;
+        jest.advanceTimersByTime(600); // trigger the 500ms interval
+
+        expect(ctrl._falPickerListener).toBeNull();
+        expect(ctrl._falPickerPollTimer).toBeNull();
+
+        // Picker should now be openable again
+        global.open.mockReturnValue({closed: false});
+        ctrl._openFalPicker();
+        expect(global.open).toHaveBeenCalledTimes(2);
+
+        jest.useRealTimers();
     });
 });
