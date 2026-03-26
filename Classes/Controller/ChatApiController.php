@@ -271,8 +271,23 @@ final readonly class ChatApiController
         }
 
         $capabilities = $this->chatService->getProviderCapabilities();
-        $allowedMimeTypes = array_values(array_unique(array_merge(
+        // $capabilities['supportedFormats'] contains file extensions (e.g. 'png', 'jpg') because
+        // the frontend uses them for the <input accept> filter.  finfo returns MIME types, so we
+        // map extensions to MIME types before comparing.
+        $extensionMimeMap = [
+            'png'  => 'image/png',
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif'  => 'image/gif',
+            'webp' => 'image/webp',
+            'pdf'  => 'application/pdf',
+        ];
+        $providerMimeTypes = array_values(array_filter(array_map(
+            static fn(string $ext): ?string => $extensionMimeMap[$ext] ?? null,
             $capabilities['supportedFormats'],
+        )));
+        $allowedMimeTypes = array_values(array_unique(array_merge(
+            $providerMimeTypes,
             $this->documentExtractorRegistry->getAvailableMimeTypes(),
         )));
 
