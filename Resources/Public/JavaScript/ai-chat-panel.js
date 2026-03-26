@@ -243,6 +243,59 @@ export class AiChatPanel extends LitElement {
             align-items: center;
         }
 
+        /* Conversation tab bar (second row in expanded state) */
+        .conv-tabs {
+            display: flex;
+            overflow-x: auto;
+            scrollbar-width: none;
+            gap: 2px;
+            padding: 4px 8px 0;
+            border-bottom: 1px solid var(--typo3-list-border-color, #ccc);
+            background: var(--typo3-surface-container-low, #f5f5f5);
+            flex-shrink: 0;
+        }
+        .conv-tabs::-webkit-scrollbar { display: none; }
+        .conv-tab {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 6px 6px 0 0;
+            border: 1px solid transparent;
+            border-bottom: none;
+            font-size: 11px;
+            cursor: pointer;
+            white-space: nowrap;
+            max-width: 120px;
+            background: transparent;
+            color: var(--typo3-text-color-variant, #666);
+            transition: background 0.1s, color 0.1s;
+            line-height: 1.3;
+        }
+        .conv-tab:hover {
+            background: var(--typo3-surface-container, #e8e8e8);
+            color: var(--typo3-text-color, #333);
+        }
+        .conv-tab.active {
+            background: var(--typo3-surface-container-lowest, #fff);
+            color: var(--typo3-text-color, #333);
+            border-color: var(--typo3-list-border-color, #ccc);
+            font-weight: 500;
+        }
+        .conv-tab .tab-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .conv-tab .tab-icon {
+            flex-shrink: 0;
+            font-size: 10px;
+        }
+        .conv-tab .tab-icon.status-processing,
+        .conv-tab .tab-icon.status-tool_loop,
+        .conv-tab .tab-icon.status-locked { color: #1565c0; }
+        .conv-tab .tab-icon.status-failed  { color: #c62828; }
+        .conv-tab .tab-icon.status-idle    { color: #2e7d32; }
+
         /* Messages */
         .panel-messages {
             flex: 1;
@@ -1013,6 +1066,7 @@ export class AiChatPanel extends LitElement {
                 ${this.state === STATES.MAXIMIZED ? this._renderSidebar() : nothing}
                 <div class="panel-content">
                     ${this.state === STATES.EXPANDED ? this._renderCompactSwitcher() : nothing}
+                    ${this.state === STATES.EXPANDED ? this._renderConvTabs() : nothing}
                     ${this._renderChat()}
                 </div>
             </div>
@@ -1071,6 +1125,29 @@ export class AiChatPanel extends LitElement {
                         </button>
                     </span>
                 ` : nothing}
+            </div>
+        `;
+    }
+
+    _renderConvTabs() {
+        if (this.chat.conversations.length === 0) return nothing;
+        return html`
+            <div class="conv-tabs" role="tablist" aria-label="${lll('conversations.title')}">
+                ${this.chat.conversations.map(c => {
+                    const isActive = c.uid === this.chat.activeUid;
+                    const icon = STATUS_ICONS[c.status] ?? '';
+                    const title = c.title || lll('conversations.newConversation');
+                    return html`
+                        <button class="conv-tab ${isActive ? 'active' : ''}"
+                                role="tab"
+                                aria-selected="${isActive}"
+                                title="${title} (${c.status})"
+                                @click=${() => this.chat.selectConversation(c.uid)}>
+                            <span class="tab-icon status-${c.status}">${icon}</span>
+                            <span class="tab-title">${title}</span>
+                        </button>
+                    `;
+                })}
             </div>
         `;
     }
