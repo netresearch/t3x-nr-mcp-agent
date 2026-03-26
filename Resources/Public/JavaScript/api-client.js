@@ -85,6 +85,10 @@ export class ApiClient {
         return this._post('ai_chat_conversation_archive', {conversationUid});
     }
 
+    async renameConversation(conversationUid, title) {
+        return this._post('ai_chat_conversation_rename', {conversationUid, title});
+    }
+
     /**
      * @param {number} conversationUid
      * @returns {Promise<{pinned: boolean}>}

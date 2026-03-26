@@ -314,6 +314,21 @@ export class ChatCoreController {
         }
     }
 
+    async handleRename(uid, title) {
+        const trimmed = title.trim();
+        if (!trimmed) return;
+        try {
+            await this._api.renameConversation(uid, trimmed);
+            this.conversations = this.conversations.map(c =>
+                c.uid === uid ? {...c, title: trimmed} : c,
+            );
+            this.host.requestUpdate();
+        } catch (e) {
+            this.errorMessage = e.message;
+            this.host.requestUpdate();
+        }
+    }
+
     async handleTogglePin() {
         if (!this.activeUid) return;
         try {
