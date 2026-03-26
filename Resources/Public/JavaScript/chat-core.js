@@ -387,19 +387,16 @@ export class ChatCoreController {
         const bparams = encodeURIComponent(fieldName + '|||' + extensions);
         const url = browserUrl + '&mode=file&bparams=' + bparams;
 
-        // TYPO3's element-browser.js#getParent() looks for [data-formengine-input-name=fieldName] in
-        // the opener window and traverses up to .t3js-formengine-field-item before sending postMessage.
-        // Without a real form field our fieldName is unknown to TYPO3, so getParent() returns null and
-        // addElement() crashes on null.classList. Inject a hidden ghost structure so TYPO3 finds it.
+        // TYPO3's element-browser.js#getParent() does querySelector('[data-formengine-input-name=fieldName]')
+        // in the opener window, then closest('.t3js-formengine-field-item'), before sending postMessage.
+        // Without a matching element getParent() returns null and addElement() crashes on null.classList.
+        // We place the attribute on the div itself (not on an <input>) so password-manager extensions
+        // (Bitwarden, 1Password, etc.) do not scan it — they only observe input/select/textarea nodes.
         this._falPickerGhost = document.createElement('div');
         this._falPickerGhost.className = 't3js-formengine-field-item';
         this._falPickerGhost.setAttribute('aria-hidden', 'true');
+        this._falPickerGhost.setAttribute('data-formengine-input-name', fieldName);
         this._falPickerGhost.style.display = 'none';
-        const ghostInput = document.createElement('input');
-        ghostInput.type = 'hidden';
-        ghostInput.name = fieldName;
-        ghostInput.setAttribute('data-formengine-input-name', fieldName);
-        this._falPickerGhost.appendChild(ghostInput);
         document.body.appendChild(this._falPickerGhost);
 
         // TYPO3 element browser sends {actionName:'typo3:elementBrowser:elementAdded', fieldName, value, label}
