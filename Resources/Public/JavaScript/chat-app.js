@@ -3,7 +3,7 @@ import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
 
 /**
  * <nr-chat-app> – Main chat application component.
@@ -15,7 +15,10 @@ export class ChatApp extends LitElement {
     static properties = {
         maxLength: {type: Number, attribute: 'data-max-length'},
         _sidebarCollapsed: {state: true},
+        _attachMenuOpen: {type: Boolean, state: true},
     };
+
+    _attachMenuOpen = false;
 
     static styles = [markdownStyles, css`
         :host {
@@ -219,6 +222,33 @@ export class ChatApp extends LitElement {
             font-size: 11px; margin-bottom: 3px; opacity: 0.85;
         }
 
+        /* Attach menu */
+        .attach-menu-wrap { position: relative; }
+        .attach-menu {
+            position: absolute;
+            bottom: calc(100% + 4px);
+            left: 0;
+            background: var(--typo3-surface-container-lowest, #fff);
+            border: 1px solid var(--typo3-list-border-color, #ccc);
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            list-style: none;
+            margin: 0;
+            padding: 4px 0;
+            min-width: 160px;
+            z-index: 100;
+        }
+        .attach-menu li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .attach-menu li:hover { background: var(--typo3-surface-container, #f0f0f0); }
+
         /* Input area */
         .input-area {
             display: flex;
@@ -399,6 +429,17 @@ export class ChatApp extends LitElement {
     connectedCallback() {
         super.connectedCallback();
         this.chat.maxLength = this.maxLength || 0;
+        this._closeAttachMenu = (e) => {
+            if (!e.composedPath().includes(this)) {
+                this._attachMenuOpen = false;
+            }
+        };
+        document.addEventListener('click', this._closeAttachMenu);
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        document.removeEventListener('click', this._closeAttachMenu);
     }
 
     // ── Callback hooks for ChatCoreController ──────────────────────────
@@ -626,13 +667,39 @@ export class ChatApp extends LitElement {
         if (!this.chat.visionSupported) return nothing;
         const canAttach = this.chat.canAttachFile();
         return html`
-            <button class="btn btn-icon"
-                    ?disabled=${!canAttach}
-                    title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
-                    aria-label="${lll('attachment.upload')}"
-                    @click=${() => this.renderRoot.querySelector('input[type="file"]')?.click()}>
-                ${ICON_PAPERCLIP(16)}
-            </button>
+            <div class="attach-menu-wrap">
+                <button class="btn btn-icon"
+                        ?disabled=${!canAttach}
+                        title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.attach')}"
+                        aria-label="${lll('attachment.attach')}"
+                        aria-expanded="${String(this._attachMenuOpen)}"
+                        aria-haspopup="menu"
+                        @click=${(e) => { e.stopPropagation(); this._attachMenuOpen = !this._attachMenuOpen; }}>
+                    ${ICON_PAPERCLIP(16)}${ICON_CHEVRON_DOWN(10)}
+                </button>
+
+                ${this._attachMenuOpen ? html`
+                    <ul class="attach-menu"
+                        role="menu"
+                        @click=${(e) => e.stopPropagation()}>
+                        <li role="menuitem"
+                            tabindex="0"
+                            @click=${() => { this._attachMenuOpen = false; this.renderRoot.querySelector('input[type="file"]')?.click(); }}
+                            @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._attachMenuOpen = false; this.renderRoot.querySelector('input[type="file"]')?.click(); } }}>
+                            ${ICON_UPLOAD(14)}
+                            ${lll('attachment.upload')}
+                        </li>
+                        <li role="menuitem"
+                            tabindex="0"
+                            @click=${() => { this._attachMenuOpen = false; this.dispatchEvent(new CustomEvent('nr-mcp-open-fal-picker', {bubbles: true, composed: true})); }}
+                            @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._attachMenuOpen = false; this.dispatchEvent(new CustomEvent('nr-mcp-open-fal-picker', {bubbles: true, composed: true})); } }}>
+                            <typo3-icon identifier="apps-filetree-folder-opened" size="small"></typo3-icon>
+                            ${lll('attachment.fromFal')}
+                        </li>
+                    </ul>
+                ` : nothing}
+            </div>
+
             <input type="file"
                    accept="${(this.chat.supportedFormats || []).map(f => '.' + f).join(',') || '*'}"
                    style="display:none"

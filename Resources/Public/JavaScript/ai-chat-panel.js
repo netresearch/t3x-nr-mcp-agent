@@ -576,7 +576,11 @@ export class AiChatPanel extends LitElement {
         this.setAttribute('tabindex', '-1'); // focusable programmatically but not in tab order
         this._keydownHandler = (e) => this._onKeydown(e);
         document.addEventListener('keydown', this._keydownHandler);
-        this._closeAttachMenu = () => { this._attachMenuOpen = false; };
+        this._closeAttachMenu = (e) => {
+            if (!e.composedPath().includes(this)) {
+                this._attachMenuOpen = false;
+            }
+        };
         document.addEventListener('click', this._closeAttachMenu);
     }
 
