@@ -51,6 +51,8 @@ export class ChatCoreController {
     _knownMessageCount = 0;
     /** @type {number} */
     _pollFailures = 0;
+    /** @type {HTMLElement|null} — overlay wrapping the element-browser iframe */
+    _falPickerOverlay = null;
 
     /**
      * @param {import('lit').ReactiveControllerHost} host
@@ -76,6 +78,7 @@ export class ChatCoreController {
     hostDisconnected() {
         this._abortController?.abort();
         this.stopPolling();
+        this._cleanupFalPicker();
     }
 
     /** @param {string} message */
@@ -362,38 +365,136 @@ export class ChatCoreController {
     }
 
     _openFalPicker() {
-        // Guard: picker already open
-        // globalThis === window in browser context, but globalThis is also accessible
-        // in the Node.js test environment where window is undefined.
-        if (typeof globalThis.setFormValueFromBrowseWin === 'function') {
+        // Guard: picker already open (message listener active)
+        if (this._falPickerListener) {
             return;
         }
 
-        // TYPO3 registers the file browser URL in ajaxUrls under 'file-browser'
-        const ajaxUrl = top.TYPO3?.settings?.ajaxUrls?.['file-browser'];
-        if (!ajaxUrl) {
+        // TYPO3 registers the element browser URL in settings.Wizards.elementBrowserUrl
+        // (set by BackendController via addInlineSetting for route 'wizard_element_browser')
+        const browserUrl = top.TYPO3?.settings?.Wizards?.elementBrowserUrl;
+        if (!browserUrl) {
             this._setError(lll('fal_picker_unavailable'));
             return;
         }
 
+        // A unique fieldName lets us identify our postMessage response (TYPO3 13/14 both use postMessage)
+        const fieldName = 'nr_mcp_agent_fal_picker';
         const extensions = this.supportedFormats.join(',');
         // bparams format: fieldName|irreConfig|allowedTables|allowedExtensions
-        // First three segments empty = not bound to any FormEngine field
-        const bparams = encodeURIComponent('|||' + extensions);
-        const url = ajaxUrl + '&bparams=' + bparams;
+        const bparams = encodeURIComponent(fieldName + '|||' + extensions);
+        const url = browserUrl + '&mode=file&bparams=' + bparams;
 
-        globalThis.setFormValueFromBrowseWin = (_fieldName, value, _label) => {
-            delete globalThis.setFormValueFromBrowseWin;
-            if (value) {
-                this._onFalFileSelected(parseInt(value, 10));
+        // We embed the element browser in an <iframe class="t3js-modal-iframe"> instead of a popup window.
+        //
+        // Root cause of popup approach: TYPO3's element-browser.js#getParent() opens with:
+        //   const e = ... && window.frames.frameElement.classList.contains("t3js-modal-iframe")
+        // In a popup window window.frameElement is null (not undefined), so null.classList throws before
+        // the postMessage is ever sent.
+        //
+        // With an iframe, window.frameElement is the <iframe> element itself (non-null).  TYPO3's
+        // getParent() then hits the branch:
+        //   this.opener = window.frames.frameElement.contentWindow.parent   (= our window)
+        // and MessageUtility.send() delivers the postMessage to us correctly.
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.className = 't3js-modal-iframe'; // required for TYPO3 getParent() to resolve our window
+        iframe.setAttribute('aria-label', lll('fal_picker_label') || 'Select file');
+        Object.assign(iframe.style, {
+            width: '100%', height: '100%', border: 'none', display: 'block',
+        });
+
+        this._falPickerOverlay = document.createElement('div');
+        this._falPickerOverlay.setAttribute('aria-modal', 'true');
+        this._falPickerOverlay.setAttribute('role', 'dialog');
+        Object.assign(this._falPickerOverlay.style, {
+            position: 'fixed', inset: '0', zIndex: '9999',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,.5)',
+        });
+
+        const box = document.createElement('div');
+        Object.assign(box.style, {
+            width: '900px', height: '600px', maxWidth: '95vw', maxHeight: '90vh',
+            background: '#fff', borderRadius: '4px', overflow: 'hidden',
+            display: 'flex', flexDirection: 'column',
+        });
+
+        box.appendChild(iframe);
+        this._falPickerOverlay.appendChild(box);
+        document.body.appendChild(this._falPickerOverlay);
+
+        // Click outside the box to dismiss
+        this._falPickerOverlay.addEventListener('click', (e) => {
+            if (e.target === this._falPickerOverlay) {
+                this._cleanupFalPicker();
+            }
+        });
+
+        // TYPO3 element browser sends {actionName:'typo3:elementBrowser:elementAdded', fieldName, value, label}
+        // via MessageUtility.send() → postMessage() to the window resolved by getParent().
+        // value = sys_file UID as a plain string ("42") or in table_uid format ("sys_file_42").
+        //
+        // getParent() resolves via `window.frames.frameElement.contentWindow.parent` (= our window).
+        // However, when `top.frames` contains other t3js-modal-iframe frames (e.g. an open TYPO3 backend
+        // modal), getParent() may return `top` or another window instead.  We register the listener on
+        // all candidate windows to ensure we receive the message regardless of where getParent() resolves.
+        this._falPickerListener = (event) => {
+            if (event.data?.actionName !== 'typo3:elementBrowser:elementAdded') return;
+            if (event.data?.fieldName !== fieldName) return;
+            if (!this._falPickerOverlay) return; // guard against duplicate invocations
+            this._cleanupFalPicker();
+            // Extract the trailing integer — handles both "42" and "sys_file_42"
+            const match = String(event.data.value ?? '').match(/(\d+)$/);
+            const uid = match ? parseInt(match[1], 10) : 0;
+            if (uid > 0) {
+                this._onFalFileSelected(uid);
             }
         };
+        this._addFalPickerMessageListeners();
+    }
 
-        const popup = globalThis.open(url, 'typo3FileBrowser', 'height=600,width=900,status=0,menubar=0,scrollbars=1');
-        if (!popup) {
-            delete globalThis.setFormValueFromBrowseWin;
-            this._setError(lll('fal_picker_popup_blocked'));
+    /**
+     * Register the FAL picker message listener on all windows that TYPO3's getParent() may resolve to.
+     *
+     * In TYPO3 v14 the backend loads the active module in an iframe named "list_frame".  getParent()
+     * detects this via document.list_frame and — because our overlay contains a .t3js-modal-iframe —
+     * routes the postMessage to that module iframe instead of top.  We therefore register on
+     * globalThis AND on every same-origin frame currently in top.frames.
+     */
+    _addFalPickerMessageListeners() {
+        const fn = this._falPickerListener;
+        globalThis.addEventListener('message', fn);
+        // Register on all same-origin child frames so we catch the message regardless of which
+        // window getParent() resolves to (top, list_frame, or another t3js-modal-iframe frame).
+        this._falPickerExtraWindows = [];
+        try {
+            Array.from(top.frames || []).forEach(frame => {
+                try {
+                    if (frame !== globalThis) {
+                        frame.addEventListener('message', fn);
+                        this._falPickerExtraWindows.push(frame);
+                    }
+                } catch { /* cross-origin frame — skip */ }
+            });
+        } catch { /* cross-origin access to top.frames — skip */ }
+    }
+
+    _cleanupFalPicker() {
+        if (this._falPickerListener) {
+            const fn = this._falPickerListener;
+            globalThis.removeEventListener('message', fn);
+            (this._falPickerExtraWindows || []).forEach(w => {
+                try { w.removeEventListener('message', fn); } catch { /* cross-origin */ }
+            });
+            this._falPickerExtraWindows = null;
+            this._falPickerListener = null;
         }
+        if (this._falPickerOverlay) {
+            this._falPickerOverlay.remove();
+            this._falPickerOverlay = null;
+        }
+        this.host.requestUpdate();
     }
 
     /** @param {number} fileUid */

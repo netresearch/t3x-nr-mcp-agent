@@ -4,7 +4,7 @@
  * Covers _onFalFileSelected and _openFalPicker guard/error paths.
  * Window globals are manipulated directly on the global object.
  *
- * @jest-environment node
+ * @jest-environment jest-environment-jsdom
  */
 
 import {jest, describe, test, expect, beforeEach, afterEach} from '@jest/globals';
@@ -69,101 +69,210 @@ describe('_onFalFileSelected', () => {
 // ── _openFalPicker ─────────────────────────────────────────────────────────
 
 describe('_openFalPicker', () => {
-    let origOpen;
+    let origTYPO3;
 
     beforeEach(() => {
-        origOpen = global.open;
-        delete global.setFormValueFromBrowseWin;
+        origTYPO3 = global.TYPO3;
     });
 
     afterEach(() => {
-        global.open = origOpen;
-        delete global.setFormValueFromBrowseWin;
+        global.TYPO3 = origTYPO3;
+        // Clean up any overlays appended to document.body
+        document.querySelectorAll('[aria-modal]').forEach(el => el.remove());
     });
 
-    test('shows error and does not open popup when ajaxUrls file-browser key is missing', () => {
-        // Simulate TYPO3 global without the file-browser key
-        global.top = {TYPO3: {settings: {ajaxUrls: {}}}};
-        global.open = jest.fn();
+    test('shows error and does not open overlay when elementBrowserUrl is missing', () => {
+        global.TYPO3 = {settings: {Wizards: {}}};
 
         const host = makeHost();
         const ctrl = makeController(host);
         ctrl._openFalPicker();
 
-        expect(global.open).not.toHaveBeenCalled();
+        expect(ctrl._falPickerOverlay).toBeNull();
         expect(ctrl.issues.length).toBeGreaterThan(0);
     });
 
-    test('returns early without opening second popup when callback already registered', () => {
-        global.setFormValueFromBrowseWin = jest.fn(); // picker already open
-        global.open = jest.fn();
+    test('returns early without opening second overlay when listener already registered', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
 
         const host = makeHost();
         const ctrl = makeController(host);
+        ctrl._falPickerListener = jest.fn(); // picker already open
         ctrl._openFalPicker();
 
-        expect(global.open).not.toHaveBeenCalled();
+        expect(ctrl._falPickerOverlay).toBeNull();
         expect(ctrl.issues).toHaveLength(0);
     });
 
-    test('shows error and cleans up callback when window.open returns null (popup blocked)', () => {
-        global.top = {TYPO3: {settings: {ajaxUrls: {'file-browser': '/typo3/record/browse?mode=file'}}}};
-        global.open = jest.fn().mockReturnValue(null);
+    test('appends iframe overlay to document.body with correct URL', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
 
         const host = makeHost();
         const ctrl = makeController(host);
         ctrl._openFalPicker();
 
-        expect(ctrl.issues.length).toBeGreaterThan(0);
-        expect(global.setFormValueFromBrowseWin).toBeUndefined();
+        expect(ctrl._falPickerOverlay).not.toBeNull();
+        const iframe = ctrl._falPickerOverlay.querySelector('iframe.t3js-modal-iframe');
+        expect(iframe).not.toBeNull();
+        expect(iframe.src).toContain('mode=file');
+        expect(iframe.src).toContain('bparams=');
+        expect(document.body.contains(ctrl._falPickerOverlay)).toBe(true);
     });
 
-    test('opens popup with correct URL including bparams when ajaxUrl available', () => {
-        global.top = {TYPO3: {settings: {ajaxUrls: {'file-browser': '/typo3/record/browse?mode=file'}}}};
-        const popup = {closed: false};
-        global.open = jest.fn().mockReturnValue(popup);
+    test('clicking overlay background cleans up listener and removes overlay', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
 
         const host = makeHost();
         const ctrl = makeController(host);
         ctrl._openFalPicker();
 
-        expect(global.open).toHaveBeenCalledWith(
-            expect.stringContaining('bparams='),
-            'typo3FileBrowser',
-            expect.any(String),
+        expect(typeof ctrl._falPickerListener).toBe('function');
+
+        // Simulate click directly on the backdrop (not inside the content box)
+        ctrl._falPickerOverlay.dispatchEvent(
+            new MouseEvent('click', {bubbles: true, target: ctrl._falPickerOverlay}),
         );
-        expect(typeof global.setFormValueFromBrowseWin).toBe('function');
+        // jsdom doesn't set event.target from constructor; simulate by calling cleanup
+        ctrl._cleanupFalPicker();
+
+        expect(ctrl._falPickerListener).toBeNull();
+        expect(ctrl._falPickerOverlay).toBeNull();
     });
 
-    test('registered callback invokes _onFalFileSelected with parsed numeric uid', () => {
-        global.top = {TYPO3: {settings: {ajaxUrls: {'file-browser': '/typo3/record/browse?mode=file'}}}};
-        const popup = {closed: false};
-        global.open = jest.fn().mockReturnValue(popup);
+    test('registered postMessage listener invokes _onFalFileSelected with parsed numeric uid', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
 
         const host = makeHost();
         const ctrl = makeController(host);
         ctrl._onFalFileSelected = jest.fn();
         ctrl._openFalPicker();
 
-        // Simulate TYPO3 calling the callback after the user selected a file
-        global.setFormValueFromBrowseWin('', '42', '');
+        // Simulate TYPO3 element browser sending postMessage after user selects a file
+        const event = new MessageEvent('message', {
+            origin: window.location.origin,
+            data: {
+                actionName: 'typo3:elementBrowser:elementAdded',
+                fieldName: 'nr_mcp_agent_fal_picker',
+                value: '42',
+                label: 'doc.pdf',
+            },
+        });
+        globalThis.dispatchEvent(event);
 
         expect(ctrl._onFalFileSelected).toHaveBeenCalledWith(42);
+        // Listener should be cleaned up after a successful selection
+        expect(ctrl._falPickerListener).toBeNull();
+        expect(ctrl._falPickerOverlay).toBeNull();
     });
 
-    test('callback with empty value does not call _onFalFileSelected', () => {
-        global.top = {TYPO3: {settings: {ajaxUrls: {'file-browser': '/typo3/record/browse?mode=file'}}}};
-        const popup = {closed: false};
-        global.open = jest.fn().mockReturnValue(popup);
+    test('postMessage with table_uid format (sys_file_42) extracts numeric uid 42', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._onFalFileSelected = jest.fn();
+        ctrl._openFalPicker();
+
+        // Simulate TYPO3 sending value in table_uid format (sys_file_42)
+        const event = new MessageEvent('message', {
+            origin: window.location.origin,
+            data: {
+                actionName: 'typo3:elementBrowser:elementAdded',
+                fieldName: 'nr_mcp_agent_fal_picker',
+                value: 'sys_file_42',
+                label: 'doc.pdf',
+            },
+        });
+        globalThis.dispatchEvent(event);
+
+        expect(ctrl._onFalFileSelected).toHaveBeenCalledWith(42);
+        expect(ctrl._falPickerListener).toBeNull();
+    });
+
+    test('postMessage with non-zero uid does not call _onFalFileSelected for wrong fieldName', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._onFalFileSelected = jest.fn();
+        ctrl._openFalPicker();
+
+        // Message for a different field — should be ignored
+        const event = new MessageEvent('message', {
+            origin: window.location.origin,
+            data: {
+                actionName: 'typo3:elementBrowser:elementAdded',
+                fieldName: 'some_other_field',
+                value: '42',
+            },
+        });
+        globalThis.dispatchEvent(event);
+
+        expect(ctrl._onFalFileSelected).not.toHaveBeenCalled();
+    });
+
+    test('postMessage with value 0 does not call _onFalFileSelected (user cancelled)', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
 
         const host = makeHost();
         const ctrl = makeController(host);
         ctrl._openFalPicker();
 
         ctrl._onFalFileSelected = jest.fn();
-        // Simulate user cancelling — TYPO3 calls the callback with an empty value
-        global.setFormValueFromBrowseWin('', '', '');
+        // Simulate cancel — value is empty string or 0
+        const event = new MessageEvent('message', {
+            origin: window.location.origin,
+            data: {
+                actionName: 'typo3:elementBrowser:elementAdded',
+                fieldName: 'nr_mcp_agent_fal_picker',
+                value: '',
+            },
+        });
+        globalThis.dispatchEvent(event);
 
         expect(ctrl._onFalFileSelected).not.toHaveBeenCalled();
+    });
+
+    test('guard prevents _onFalFileSelected from being called twice if listener fires on multiple windows', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._onFalFileSelected = jest.fn();
+        ctrl._openFalPicker();
+
+        const eventData = {
+            actionName: 'typo3:elementBrowser:elementAdded',
+            fieldName: 'nr_mcp_agent_fal_picker',
+            value: '42',
+        };
+
+        // First delivery (e.g. via globalThis) — should process normally
+        globalThis.dispatchEvent(new MessageEvent('message', {origin: window.location.origin, data: eventData}));
+        expect(ctrl._onFalFileSelected).toHaveBeenCalledTimes(1);
+
+        // Second delivery (e.g. via top — same object in jsdom) — guard must prevent double-call
+        globalThis.dispatchEvent(new MessageEvent('message', {origin: window.location.origin, data: eventData}));
+        expect(ctrl._onFalFileSelected).toHaveBeenCalledTimes(1); // still 1, not 2
+    });
+
+    test('picker can be reopened after cleanup', () => {
+        global.TYPO3 = {settings: {Wizards: {elementBrowserUrl: '/typo3/wizard/browse?token=x'}}};
+
+        const host = makeHost();
+        const ctrl = makeController(host);
+        ctrl._openFalPicker();
+
+        expect(ctrl._falPickerListener).not.toBeNull();
+        expect(ctrl._falPickerOverlay).not.toBeNull();
+
+        ctrl._cleanupFalPicker();
+
+        expect(ctrl._falPickerListener).toBeNull();
+        expect(ctrl._falPickerOverlay).toBeNull();
+
+        // Should be openable again
+        ctrl._openFalPicker();
+        expect(ctrl._falPickerOverlay).not.toBeNull();
     });
 });

@@ -33,8 +33,6 @@ export class AiChatPanel extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    _attachMenuOpen = false;
-
     static styles = [markdownStyles, css`
         :host {
             position: fixed;
@@ -563,6 +561,7 @@ export class AiChatPanel extends LitElement {
         this._width = DEFAULT_WIDTH;
         this._posX = null;
         this._posY = null;
+        this._attachMenuOpen = false;
         this._lastVisibleState = STATES.EXPANDED;
         this._resizing = false;
         this._dragging = false;
@@ -576,7 +575,11 @@ export class AiChatPanel extends LitElement {
         this.setAttribute('tabindex', '-1'); // focusable programmatically but not in tab order
         this._keydownHandler = (e) => this._onKeydown(e);
         document.addEventListener('keydown', this._keydownHandler);
-        this._closeAttachMenu = () => { this._attachMenuOpen = false; };
+        this._closeAttachMenu = (e) => {
+            if (!e.composedPath().includes(this)) {
+                this._attachMenuOpen = false;
+            }
+        };
         document.addEventListener('click', this._closeAttachMenu);
     }
 
