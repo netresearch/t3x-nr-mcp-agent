@@ -29,11 +29,12 @@ records -- using natural language instructions. All
 processing happens server-side via CLI commands, keeping the
 web server responsive.
 
-..  figure:: /Images/ChatModule.png
-    :alt: AI Chat backend module
+..  figure:: /Images/AgentDemo.gif
+    :alt: AI agent creating a page, adding content, and optimizing SEO in TYPO3
     :class: with-shadow
 
-    The AI Chat module in the TYPO3 backend.
+    The AI agent creates a page, adds content, optimizes SEO fields, and
+    evaluates the result — all via natural language in the TYPO3 backend.
 
 Key features
 ============
