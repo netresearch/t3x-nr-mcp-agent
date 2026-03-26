@@ -19,6 +19,8 @@
         project-repository="https://github.com/netresearch/t3x-nr-mcp-agent"
         edit-on-github="netresearch/t3x-nr-mcp-agent"
         edit-on-github-branch="main"
+        extension-key="nr_mcp_agent"
+        package-name="netresearch/nr-mcp-agent"
     />
     <inventory
         id="t3coreapi"

@@ -166,22 +166,29 @@ User interface
 File attachments
 ================
 
-When the configured LLM provider supports vision (e.g. Claude 3+, Gemini,
-GPT-4o), users can attach images and PDFs to their messages. The chat
-frontend shows a **+** button next to the input field when vision is
-supported.
+File attachments are always available — no special provider configuration
+required. Text is extracted server-side for document formats, so they
+work with any LLM provider.
 
-**Provider-specific support:** Supported file types are determined at
-runtime by querying the active provider. Image formats (PNG, JPEG, WebP)
-are available for all vision-capable providers. PDF support requires the
-provider to implement ``DocumentCapableInterface`` — currently Claude and
-Gemini support this; OpenAI does not. The file picker in the browser
-automatically shows only the formats supported by the active provider.
+**Always supported (server-side text extraction):**
 
-Supported file types (provider-dependent):
+*   PDF: ``application/pdf`` — requires ``smalot/pdfparser`` (hard dependency)
+*   DOCX: ``application/vnd.openxmlformats-officedocument.wordprocessingml.document``
+    — requires ``phpoffice/phpword`` (hard dependency)
+*   TXT: ``text/plain`` — no dependencies
+*   XLSX: ``application/vnd.openxmlformats-officedocument.spreadsheetml.sheet``
+    — requires ``phpoffice/phpspreadsheet`` (optional; install via
+    ``composer require phpoffice/phpspreadsheet:^3.0``)
+
+**Additionally available for vision-capable providers** (Claude 3+, Gemini,
+GPT-4o, etc.):
 
 *   Images: ``image/png``, ``image/jpeg``, ``image/webp``
-*   Documents: ``application/pdf`` *(Claude and Gemini only)*
+
+When the provider natively handles a document format (e.g. Claude
+natively processes PDFs via ``DocumentCapableInterface``), the file is
+sent as binary instead of being extracted. The file picker automatically
+restricts to formats the active provider can process.
 
 **Storage:** Uploaded files are stored in TYPO3 FAL under
 ``fileadmin/ai-chat/<be_user_uid>/``. They are read at LLM call time and

@@ -29,6 +29,13 @@ records -- using natural language instructions. All
 processing happens server-side via CLI commands, keeping the
 web server responsive.
 
+..  figure:: /Images/AgentDemo.gif
+    :alt: AI agent creating a page, adding content, and optimizing SEO in TYPO3
+    :class: with-shadow
+
+    The AI agent creates a page, adds content, optimizes SEO fields, and
+    evaluates the result — all via natural language in the TYPO3 backend.
+
 Key features
 ============
 
@@ -55,6 +62,27 @@ Key features
         Resume previous chats, pin important ones, or
         let the system auto-archive inactive
         conversations.
+
+    ..  card:: Floating chat panel
+
+        A toolbar button opens a resizable bottom panel
+        that stays visible across all module navigation.
+        Chat while working in the page tree without
+        switching context.
+
+    ..  card:: File attachments
+
+        Attach PDF, DOCX, TXT, and XLSX files to your
+        messages. Text is extracted server-side when
+        needed, so all formats work regardless of the
+        LLM provider. Vision-capable providers also
+        accept images (PNG, JPEG, WebP).
+
+    ..  card:: Markdown rendering
+
+        AI responses are rendered as rich Markdown --
+        headings, lists, code blocks, and tables --
+        using marked.js with DOMPurify for XSS safety.
 
     ..  card:: Secure by design
 

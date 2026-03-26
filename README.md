@@ -11,6 +11,8 @@ Powered by [nr-llm](https://github.com/netresearch/t3x-nr-llm) and the
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), it enables
 backend users to manage content through natural language.
 
+![AI agent creating a page, adding content, and rating it in TYPO3](Documentation/Images/AgentDemo.gif)
+
 ## Features
 
 - **Integrated chat module** -- A dedicated backend module under Admin Tools with

@@ -5,10 +5,10 @@ AI Chat for TYPO3
 ====================
 
 :Extension key:
-    |extension_key|
+    nr_mcp_agent
 
 :Package name:
-    |package_name|
+    netresearch/nr-mcp-agent
 
 :Version:
     |release|
@@ -46,3 +46,4 @@ backend users to manage content through natural language.
     Configuration/Index
     Usage/Index
     Developer/Index
+    Changelog

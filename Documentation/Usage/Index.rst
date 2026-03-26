@@ -17,7 +17,6 @@ restricted via the ``allowedGroups`` setting).
     :class: with-shadow
 
     The AI Chat module in the TYPO3 backend.
-    *(Screenshot placeholder -- will be added later.)*
 
 Sending messages
 ================
@@ -39,6 +38,13 @@ If MCP is enabled, the assistant may execute multiple
 tool calls (e.g. reading page content, then creating a
 record) before responding. Each tool call iteration is
 visible in the conversation.
+
+..  figure:: /Images/MarkdownResponse.png
+    :alt: AI response rendered as Markdown
+    :class: with-shadow
+
+    AI responses are rendered as rich Markdown — headings,
+    lists, code blocks, and tables.
 
 Conversation management
 =======================
@@ -81,8 +87,8 @@ configurable period of inactivity (default: 30 days).
 Attaching files
 ===============
 
-When the active LLM provider supports file attachments, a **+** button
-appears to the left of the input field.
+A **+** button appears to the left of the input field whenever file
+attachments are available.
 
 1.  Click **+** to open the attachment menu.
 2.  Select **Upload file** to open a file picker and choose a file from
@@ -94,12 +100,32 @@ appears to the left of the input field.
 To remove a pending attachment before sending, click the **×** on the
 file badge.
 
-**Supported file types** depend on the active provider:
+..  figure:: /Images/FileAttachmentBadge.png
+    :alt: File attachment badge above the chat input
+    :class: with-shadow
 
-*   All vision-capable providers (Claude, Gemini, GPT-4o, etc.) accept
-    images: PNG, JPEG, WebP.
-*   PDF support is available for Claude and Gemini only. The file picker
-    automatically shows only the formats the current provider supports.
+    A selected file is shown as a badge above the input field.
+
+**Supported file types:**
+
+The following document formats are always available. Text is extracted
+server-side before sending to the LLM:
+
+*   PDF (``application/pdf``)
+*   DOCX (``application/vnd.openxmlformats-officedocument.wordprocessingml.document``)
+*   TXT (``text/plain``)
+*   XLSX (``application/vnd.openxmlformats-officedocument.spreadsheetml.sheet``) --
+    requires ``phpoffice/phpspreadsheet`` to be installed
+
+Vision-capable providers (Claude, Gemini, GPT-4o, etc.) additionally
+accept images:
+
+*   PNG, JPEG, WebP
+
+When the provider natively supports a document format (e.g. Claude
+natively handles PDFs), the file is sent as-is instead of being
+extracted. The file picker automatically restricts to the formats
+supported by the active provider.
 
 **Limits:**
 
@@ -108,6 +134,38 @@ file badge.
 
 If a file is not accepted (wrong type, too large, or upload error), an
 error message is shown above the input.
+
+Floating chat panel
+===================
+
+A chat button in the TYPO3 toolbar (top right, next to the search and
+user menu) opens a floating bottom panel. The panel stays visible across
+all module navigation -- you can chat with the AI while working in the
+page tree, list module, or any other backend module.
+
+..  figure:: /Images/ToolbarButton.png
+    :alt: Chat toolbar button in the TYPO3 backend header
+    :class: with-shadow
+
+    The chat button in the TYPO3 toolbar. The badge shows the number of
+    active (processing) conversations.
+
+The panel has four states:
+
+*   **Hidden** -- Only the toolbar button is visible.
+*   **Collapsed** -- A minimal bar at the bottom showing the active
+    conversation title.
+*   **Expanded** -- Resizable panel with the full chat interface.
+*   **Maximized** -- Full-height with conversation sidebar.
+
+..  figure:: /Images/ChatPanel.png
+    :alt: Floating chat panel in expanded state
+    :class: with-shadow
+
+    The floating panel in expanded state, overlaying the TYPO3 backend.
+    Drag the top edge to resize.
+
+Panel height and state are stored in ``localStorage`` per user.
 
 Error handling
 ==============
