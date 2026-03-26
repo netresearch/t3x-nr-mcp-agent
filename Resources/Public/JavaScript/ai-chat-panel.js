@@ -3,7 +3,7 @@ import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_CHEVRON_DOWN} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', failed: '✕'};
@@ -30,7 +30,10 @@ export class AiChatPanel extends LitElement {
         _width: {state: true},
         _posX: {state: true},
         _posY: {state: true},
+        _attachMenuOpen: {type: Boolean, state: true},
     };
+
+    _attachMenuOpen = false;
 
     static styles = [markdownStyles, css`
         :host {
@@ -479,6 +482,33 @@ export class AiChatPanel extends LitElement {
             background: var(--typo3-state-hover, rgba(0, 0, 0, 0.04));
         }
 
+        .attach-menu-wrap { position: relative; }
+        .attach-menu {
+            position: absolute;
+            bottom: calc(100% + 4px);
+            left: 0;
+            background: var(--typo3-component-background-color, #fff);
+            border: 1px solid var(--typo3-component-border-color, #ccc);
+            border-radius: 4px;
+            padding: 4px 0;
+            margin: 0;
+            list-style: none;
+            white-space: nowrap;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,.15);
+        }
+        .attach-menu li {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .attach-menu li:hover {
+            background: var(--typo3-component-hover-background-color, #f0f0f0);
+        }
+
         /* Status */
         .status-badge {
             display: inline-block;
@@ -546,11 +576,14 @@ export class AiChatPanel extends LitElement {
         this.setAttribute('tabindex', '-1'); // focusable programmatically but not in tab order
         this._keydownHandler = (e) => this._onKeydown(e);
         document.addEventListener('keydown', this._keydownHandler);
+        this._closeAttachMenu = () => { this._attachMenuOpen = false; };
+        document.addEventListener('click', this._closeAttachMenu);
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
         document.removeEventListener('keydown', this._keydownHandler);
+        document.removeEventListener('click', this._closeAttachMenu);
     }
 
     updated(changed) {
@@ -1173,14 +1206,41 @@ export class AiChatPanel extends LitElement {
     _renderAttachmentMenu() {
         if (!this.chat.visionSupported) return nothing;
         const canAttach = this.chat.canAttachFile();
+
         return html`
-            <button class="btn-icon"
-                    ?disabled=${!canAttach}
-                    title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.upload')}"
-                    aria-label="${lll('attachment.upload')}"
-                    @click=${() => this.renderRoot.querySelector('input[type="file"]')?.click()}>
-                ${ICON_PAPERCLIP(14)}
-            </button>
+            <div class="attach-menu-wrap">
+                <button class="btn-icon"
+                        ?disabled=${!canAttach}
+                        title="${!canAttach ? lll('attachment.limitReached') : lll('attachment.attach')}"
+                        aria-label="${lll('attachment.attach')}"
+                        aria-expanded="${String(this._attachMenuOpen)}"
+                        aria-haspopup="menu"
+                        @click=${(e) => { e.stopPropagation(); this._attachMenuOpen = !this._attachMenuOpen; }}>
+                    ${ICON_PAPERCLIP(14)}${ICON_CHEVRON_DOWN(10)}
+                </button>
+
+                ${this._attachMenuOpen ? html`
+                    <ul class="attach-menu"
+                        role="menu"
+                        @click=${(e) => e.stopPropagation()}>
+                        <li role="menuitem"
+                            tabindex="0"
+                            @click=${() => { this._attachMenuOpen = false; this.renderRoot.querySelector('input[type="file"]')?.click(); }}
+                            @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._attachMenuOpen = false; this.renderRoot.querySelector('input[type="file"]')?.click(); } }}>
+                            ${ICON_UPLOAD(14)}
+                            ${lll('attachment.upload')}
+                        </li>
+                        <li role="menuitem"
+                            tabindex="0"
+                            @click=${() => { this._attachMenuOpen = false; this.dispatchEvent(new CustomEvent('nr-mcp-open-fal-picker', {bubbles: true, composed: true})); }}
+                            @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._attachMenuOpen = false; this.dispatchEvent(new CustomEvent('nr-mcp-open-fal-picker', {bubbles: true, composed: true})); } }}>
+                            <typo3-icon identifier="apps-filetree-folder-opened" size="small"></typo3-icon>
+                            ${lll('attachment.fromFal')}
+                        </li>
+                    </ul>
+                ` : nothing}
+            </div>
+
             <input type="file"
                    accept="${(this.chat.supportedFormats || []).map(f => '.' + f).join(',') || '*'}"
                    style="display:none"

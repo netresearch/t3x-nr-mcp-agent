@@ -62,6 +62,14 @@ export class ApiClient {
     }
 
     /**
+     * @param {number} fileUid
+     * @returns {Promise<{fileUid: number, name: string, mimeType: string, size: number}>}
+     */
+    async getFileInfo(fileUid) {
+        return this._get('ai_chat_file_info', {fileUid});
+    }
+
+    /**
      * @param {number} conversationUid
      * @returns {Promise<{status: string}>}
      */

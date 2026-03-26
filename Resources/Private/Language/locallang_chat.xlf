@@ -94,6 +94,9 @@
             </trans-unit>
 
             <!-- Attachments -->
+            <trans-unit id="attachment.attach" resname="attachment.attach">
+                <source>Attach file</source>
+            </trans-unit>
             <trans-unit id="attachment.upload" resname="attachment.upload">
                 <source>Upload file</source>
             </trans-unit>
@@ -123,6 +126,14 @@
             </trans-unit>
             <trans-unit id="attachment.fileMissing" resname="attachment.fileMissing">
                 <source>File no longer available</source>
+            </trans-unit>
+
+            <!-- FAL picker -->
+            <trans-unit id="fal_picker_unavailable" resname="fal_picker_unavailable">
+                <source>FAL picker is not available</source>
+            </trans-unit>
+            <trans-unit id="fal_picker_popup_blocked" resname="fal_picker_popup_blocked">
+                <source>Popup was blocked. Please disable your popup blocker.</source>
             </trans-unit>
         </body>
     </file>

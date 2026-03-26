@@ -195,9 +195,7 @@ final readonly class ChatApiController
 
             try {
                 $file = $this->resourceFactory->getFileObject($fileUid);
-                // Verify that the file belongs to the current user
-                $expectedFolder = '/ai-chat/' . $this->getBeUserUid() . '/';
-                if (!str_starts_with($file->getIdentifier(), $expectedFolder)) {
+                if (!$file->checkActionPermission('read')) {
                     return new JsonResponse(['error' => 'File not found'], 404);
                 }
                 $fileName = $file->getName();
@@ -321,6 +319,46 @@ final readonly class ChatApiController
             'name' => $falFile->getName(),
             'mimeType' => $falFile->getMimeType(),
             'size' => $falFile->getSize(),
+        ]);
+    }
+
+    /**
+     * GET /ai-chat/file-info?fileUid={uid} – Resolve FAL file metadata by UID.
+     */
+    public function fileInfo(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        /** @var array<string, string> $params */
+        $params = $request->getQueryParams();
+        $rawUid = $params['fileUid'] ?? '';
+
+        if ($rawUid === '' || !ctype_digit((string) $rawUid) || (int) $rawUid <= 0) {
+            return new JsonResponse(['error' => 'Invalid fileUid'], 400);
+        }
+
+        try {
+            $file = $this->resourceFactory->getFileObject((int) $rawUid);
+        } catch (Exception) {
+            return new JsonResponse(['error' => 'File not found'], 404);
+        }
+
+        if (!$file->checkActionPermission('read')) {
+            return new JsonResponse(['error' => 'Access denied'], 403);
+        }
+
+        if (!in_array($file->getExtension(), $this->documentExtractorRegistry->getAvailableExtensions(), true)) {
+            return new JsonResponse(['error' => 'Unsupported file type'], 422);
+        }
+
+        return new JsonResponse([
+            'fileUid'  => $file->getUid(),
+            'name'     => $file->getName(),
+            'mimeType' => $file->getMimeType(),
+            'size'     => $file->getSize(),
         ]);
     }
 

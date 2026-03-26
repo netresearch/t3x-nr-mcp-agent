@@ -82,7 +82,7 @@ final class DocxExtractor implements DocumentExtractorInterface
     private function extractFromElement(AbstractElement $element): string
     {
         if ($element instanceof Text) {
-            return $element->getText();
+            return $element->getText() ?? '';
         }
         if ($element instanceof TextRun) {
             $parts = [];

@@ -50,4 +50,9 @@ return [
         'target' => ChatApiController::class . '::fileUpload',
         'methods' => ['POST'],
     ],
+    'ai_chat_file_info' => [
+        'path' => '/ai-chat/file-info',
+        'target' => ChatApiController::class . '::fileInfo',
+        'methods' => ['GET'],
+    ],
 ];
