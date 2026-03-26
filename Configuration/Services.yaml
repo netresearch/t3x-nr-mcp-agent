@@ -21,6 +21,11 @@ services:
   Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface:
     class: Netresearch\NrMcpAgent\Mcp\McpToolProvider
 
+  # Inject the MCP tools cache frontend into McpToolProvider
+  Netresearch\NrMcpAgent\Mcp\McpToolProvider:
+    arguments:
+      $cache: '@cache.nr_mcp_agent_tools'
+
   # Document extractors — tagged for DocumentExtractorRegistry
   Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry:
     arguments:

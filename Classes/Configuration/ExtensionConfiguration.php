@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Configuration;
 
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration as Typo3ExtensionConfiguration;
-use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class ExtensionConfiguration
@@ -46,9 +45,14 @@ class ExtensionConfiguration
         return $this->getString('enableMcp', '0') === '1';
     }
 
-    public function isMcpServerInstalled(): bool
+    /**
+     * Checks whether removed legacy fields (mcpServerCommand, mcpServerArgs) are still
+     * present in the extension configuration. Used to show a migration FlashMessage.
+     */
+    public function hasLegacyMcpFields(): bool
     {
-        return ExtensionManagementUtility::isLoaded('mcp_server');
+        return isset($this->config['mcpServerCommand']) && $this->config['mcpServerCommand'] !== ''
+            || isset($this->config['mcpServerArgs']) && $this->config['mcpServerArgs'] !== '';
     }
 
     public function getMaxConversationsPerUser(): int
@@ -69,21 +73,6 @@ class ExtensionConfiguration
     public function getMaxActiveConversationsPerUser(): int
     {
         return (int) $this->getString('maxActiveConversationsPerUser', '3');
-    }
-
-    public function getMcpServerCommand(): string
-    {
-        return $this->getString('mcpServerCommand', '');
-    }
-
-    /** @return list<string> */
-    public function getMcpServerArgs(): array
-    {
-        $args = $this->getString('mcpServerArgs', '');
-        if ($args === '') {
-            return [];
-        }
-        return array_map(trim(...), explode(',', $args));
     }
 
     private function getString(string $key, string $default): string

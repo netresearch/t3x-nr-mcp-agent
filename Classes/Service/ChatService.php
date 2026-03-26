@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
@@ -43,6 +44,7 @@ final class ChatService implements ChatCapabilitiesInterface
         private readonly ResourceFactory $resourceFactory,
         private readonly SiteFinder $siteFinder,
         private readonly DocumentExtractorRegistry $documentExtractorRegistry,
+        private readonly McpServerRepository $mcpServerRepository,
     ) {}
 
     /**
@@ -91,15 +93,8 @@ final class ChatService implements ChatCapabilitiesInterface
             return;
         }
 
-        $mcpEnabled = $this->config->isMcpEnabled() && $this->config->isMcpServerInstalled();
-
         try {
-            if ($mcpEnabled) {
-                $this->mcpToolProvider->connect();
-                $tools = $this->mcpToolProvider->getToolDefinitions();
-            } else {
-                $tools = [];
-            }
+            $tools = $this->mcpToolProvider->getToolDefinitions();
 
             if ($tools !== []) {
                 $this->runAgentLoop($conversation, $tools);
@@ -111,9 +106,7 @@ final class ChatService implements ChatCapabilitiesInterface
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
             $this->persist($conversation);
         } finally {
-            if ($mcpEnabled) {
-                $this->mcpToolProvider->disconnect();
-            }
+            $this->mcpToolProvider->disconnect();
         }
     }
 
@@ -132,14 +125,8 @@ final class ChatService implements ChatCapabilitiesInterface
             return;
         }
 
-        $mcpEnabled = $this->config->isMcpEnabled() && $this->config->isMcpServerInstalled();
-
         try {
-            if ($mcpEnabled) {
-                $this->mcpToolProvider->connect();
-            }
-
-            if ($mcpEnabled && $conversation->hasPendingToolCalls()) {
+            if ($conversation->hasPendingToolCalls()) {
                 $messages = $conversation->getDecodedMessages();
                 /** @var array{tool_calls: array<mixed>} $lastMessage */
                 $lastMessage = end($messages);
@@ -156,7 +143,7 @@ final class ChatService implements ChatCapabilitiesInterface
                 $this->persist($conversation);
             }
 
-            $tools = $mcpEnabled ? $this->mcpToolProvider->getToolDefinitions() : [];
+            $tools = $this->mcpToolProvider->getToolDefinitions();
 
             if ($tools !== []) {
                 $this->runAgentLoop($conversation, $tools);
@@ -168,9 +155,7 @@ final class ChatService implements ChatCapabilitiesInterface
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
             $this->persist($conversation);
         } finally {
-            if ($mcpEnabled) {
-                $this->mcpToolProvider->disconnect();
-            }
+            $this->mcpToolProvider->disconnect();
         }
     }
 
@@ -503,6 +488,12 @@ final class ChatService implements ChatCapabilitiesInterface
             $parts[] = $languageContext;
         }
 
+        // Append MCP tool namespace hints so the LLM knows which tool family to use
+        $namespaceHint = $this->buildMcpNamespaceHint();
+        if ($namespaceHint !== '') {
+            $parts[] = $namespaceHint;
+        }
+
         return implode("\n\n", $parts);
     }
 
@@ -574,6 +565,36 @@ final class ChatService implements ChatCapabilitiesInterface
 
         return "Available site languages — always set sys_language_uid when creating or updating content:\n"
             . implode("\n", $lines);
+    }
+
+    /**
+     * Builds a namespace hint for the system prompt listing active MCP servers.
+     */
+    private function buildMcpNamespaceHint(): string
+    {
+        if (!$this->config->isMcpEnabled()) {
+            return '';
+        }
+
+        $activeServers = $this->mcpServerRepository->findAllActive();
+        if ($activeServers === []) {
+            return '';
+        }
+
+        $hints = [];
+        foreach ($activeServers as $server) {
+            $key = is_string($server['server_key'] ?? null) ? $server['server_key'] : '';
+            $name = is_string($server['name'] ?? null) ? $server['name'] : '';
+            if ($key !== '') {
+                $hints[] = $key . '__* for ' . $name;
+            }
+        }
+
+        if ($hints === []) {
+            return '';
+        }
+
+        return 'Available tools are namespaced by source: ' . implode(', ', $hints) . '.';
     }
 
     private function persist(Conversation $conversation): void

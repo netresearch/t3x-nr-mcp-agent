@@ -7,14 +7,8 @@ processingStrategy = exec
 # cat=basic/access; type=string; label=Allowed Backend User Groups (comma-separated UIDs, empty = all)
 allowedGroups =
 
-# cat=basic/mcp; type=boolean; label=Enable MCP Server integration (requires hn/typo3-mcp-server)
+# cat=basic/mcp; type=boolean; label=Enable MCP Server integration (MCP servers are configured in the List module on PID 0)
 enableMcp = 0
-
-# cat=basic/mcp; type=string; label=MCP Server Command (path to binary, default: vendor/bin/typo3)
-mcpServerCommand =
-
-# cat=basic/mcp; type=string; label=MCP Server Arguments (comma-separated, default: mcp:server)
-mcpServerArgs =
 
 # cat=basic/ui; type=int; label=Max conversations to keep per user (0 = unlimited)
 maxConversationsPerUser = 50

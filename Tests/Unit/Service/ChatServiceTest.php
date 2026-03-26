@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
@@ -77,7 +78,10 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $resourceFactory, $siteFinder, new DocumentExtractorRegistry([]));
+        $mcpServerRepository = $this->createMock(McpServerRepository::class);
+        $mcpServerRepository->method('findAllActive')->willReturn([]);
+
+        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $resourceFactory, $siteFinder, new DocumentExtractorRegistry([]), $mcpServerRepository);
     }
 
     /**
@@ -112,7 +116,6 @@ class ChatServiceTest extends TestCase
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(true);
         return $config;
     }
 
@@ -830,7 +833,9 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]));
+        $mcpServerRepo = $this->createMock(McpServerRepository::class);
+        $mcpServerRepo->method('findAllActive')->willReturn([]);
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), $mcpServerRepo);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -860,7 +865,9 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]));
+        $mcpServerRepo = $this->createMock(McpServerRepository::class);
+        $mcpServerRepo->method('findAllActive')->willReturn([]);
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), $mcpServerRepo);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -1310,32 +1317,27 @@ class ChatServiceTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // LogicalAnd mutation (line 84): isMcpEnabled AND isMcpServerInstalled
+    // Multi-server: disconnect always called, connect never called (lazy)
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function processConversationDoesNotConnectMcpWhenServerNotInstalled(): void
+    public function processConversationAlwaysCallsDisconnect(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(false); // server not installed
-
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('chatCompletion')->willReturn($this->createCompletionResponse('ok'));
 
         $mcpProvider = $this->createMock(\Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface::class);
-        $mcpProvider->expects(self::never())->method('connect');
-        $mcpProvider->expects(self::never())->method('disconnect');
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->expects(self::once())->method('disconnect');
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
+        $service = $this->createChatService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -1369,28 +1371,24 @@ class ChatServiceTest extends TestCase
     }
 
     #[Test]
-    public function resumeConversationDoesNotConnectMcpWhenServerNotInstalled(): void
+    public function resumeConversationAlwaysCallsDisconnect(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(false);
-
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('chatCompletion')->willReturn($this->createCompletionResponse('ok'));
 
         $mcpProvider = $this->createMock(\Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface::class);
-        $mcpProvider->expects(self::never())->method('connect');
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->expects(self::once())->method('disconnect');
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
+        $service = $this->createChatService($provider, mcpProvider: $mcpProvider);
         $service->resumeConversation($conversation);
 
         unset($GLOBALS['BE_USER']);
@@ -1421,6 +1419,9 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(\Netresearch\NrLlm\Provider\ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
+        $mcpServerRepo = $this->createMock(\Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository::class);
+        $mcpServerRepo->method('findAllActive')->willReturn([]);
+
         return new ChatService(
             $this->createMock(\Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository::class),
             $config,
@@ -1430,6 +1431,7 @@ class ChatServiceTest extends TestCase
             $this->createMock(\TYPO3\CMS\Core\Resource\ResourceFactory::class),
             $this->createMock(\TYPO3\CMS\Core\Site\SiteFinder::class),
             $registry,
+            $mcpServerRepo,
         );
     }
 

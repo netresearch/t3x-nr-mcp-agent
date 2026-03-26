@@ -15,6 +15,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
@@ -76,7 +77,10 @@ class ChatServiceToolLoopTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]));
+        $mcpServerRepository = $this->createMock(McpServerRepository::class);
+        $mcpServerRepository->method('findAllActive')->willReturn([]);
+
+        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), $mcpServerRepository);
     }
 
     private function createMcpEnabledConfig(): ExtensionConfiguration
@@ -84,7 +88,6 @@ class ChatServiceToolLoopTest extends TestCase
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(true);
         return $config;
     }
 
@@ -351,7 +354,7 @@ class ChatServiceToolLoopTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('connect')->willThrowException(new RuntimeException('Connection failed'));
+        $mcpProvider->method('getToolDefinitions')->willThrowException(new RuntimeException('Connection failed'));
 
         $provider = $this->createMock(ToolCapableProviderStub::class);
 
@@ -372,7 +375,7 @@ class ChatServiceToolLoopTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('connect')->willThrowException(new RuntimeException('fail'));
+        $mcpProvider->method('getToolDefinitions')->willThrowException(new RuntimeException('fail'));
         $mcpProvider->expects(self::once())->method('disconnect');
 
         $provider = $this->createMock(ToolCapableProviderStub::class);
@@ -391,7 +394,7 @@ class ChatServiceToolLoopTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('connect')->willThrowException(
+        $mcpProvider->method('getToolDefinitions')->willThrowException(
             new RuntimeException('Auth failed with Bearer sk-abc123def456 at https://api.example.com/v1/chat'),
         );
 
@@ -474,7 +477,10 @@ class ChatServiceToolLoopTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        $service = new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]));
+        $mcpServerRepository = $this->createMock(McpServerRepository::class);
+        $mcpServerRepository->method('findAllActive')->willReturn([]);
+
+        $service = new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), $mcpServerRepository);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());

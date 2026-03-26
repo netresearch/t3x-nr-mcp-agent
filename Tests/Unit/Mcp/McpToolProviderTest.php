@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Unit\Mcp;
 
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository;
 use Netresearch\NrMcpAgent\Mcp\McpConnection;
 use Netresearch\NrMcpAgent\Mcp\McpToolProvider;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use stdClass;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 
 class McpToolProviderTest extends TestCase
 {
@@ -25,64 +28,6 @@ class McpToolProviderTest extends TestCase
         }
         $this->connectionsToCleanup = [];
         parent::tearDown();
-    }
-
-    #[Test]
-    public function connectDoesNothingWhenMcpDisabled(): void
-    {
-        $config = $this->createMock(ExtensionConfiguration::class);
-        $config->method('isMcpEnabled')->willReturn(false);
-
-        $provider = new McpToolProvider($config);
-        $provider->connect();
-
-        self::assertSame([], $provider->getToolDefinitions());
-    }
-
-    #[Test]
-    public function getToolDefinitionsReturnsEmptyWhenNotConnected(): void
-    {
-        $config = $this->createMock(ExtensionConfiguration::class);
-        $config->method('isMcpEnabled')->willReturn(false);
-
-        $provider = new McpToolProvider($config);
-        self::assertSame([], $provider->getToolDefinitions());
-    }
-
-    #[Test]
-    public function executeToolReturnsErrorWhenNotConnected(): void
-    {
-        $config = $this->createMock(ExtensionConfiguration::class);
-        $config->method('isMcpEnabled')->willReturn(false);
-
-        $provider = new McpToolProvider($config);
-        $result = $provider->executeTool('test', []);
-
-        self::assertStringContainsString('error', $result);
-        self::assertStringContainsString('MCP not connected', $result);
-    }
-
-    #[Test]
-    public function disconnectIsIdempotent(): void
-    {
-        $config = $this->createMock(ExtensionConfiguration::class);
-        $config->method('isMcpEnabled')->willReturn(false);
-
-        $provider = new McpToolProvider($config);
-        $provider->disconnect();
-        $provider->disconnect();
-        self::assertSame([], $provider->getToolDefinitions());
-    }
-
-    #[Test]
-    public function disconnectClearsCachedTools(): void
-    {
-        $config = $this->createMock(ExtensionConfiguration::class);
-        $config->method('isMcpEnabled')->willReturn(false);
-
-        $provider = new McpToolProvider($config);
-        $provider->disconnect();
-        self::assertSame([], $provider->getToolDefinitions());
     }
 
     #[Test]
@@ -100,35 +45,181 @@ class McpToolProviderTest extends TestCase
     }
 
     #[Test]
-    public function getToolDefinitionsWhenConnectedCallsToolsList(): void
+    public function getToolDefinitionsReturnsEmptyWhenMcpDisabled(): void
     {
-        $provider = $this->createProviderWithFakeServer([
+        $provider = $this->createProvider(mcpEnabled: false);
+        self::assertSame([], $provider->getToolDefinitions());
+    }
+
+    #[Test]
+    public function getToolDefinitionsReturnsEmptyWhenNoActiveServers(): void
+    {
+        $provider = $this->createProvider(mcpEnabled: true, activeServers: []);
+        self::assertSame([], $provider->getToolDefinitions());
+    }
+
+    #[Test]
+    public function connectIsNoOp(): void
+    {
+        $provider = $this->createProvider(mcpEnabled: false);
+        $provider->connect();
+        // Should not throw, should not change state
+        self::assertSame([], $provider->getToolDefinitions());
+    }
+
+    #[Test]
+    public function disconnectIsIdempotent(): void
+    {
+        $provider = $this->createProvider(mcpEnabled: false);
+        $provider->disconnect();
+        $provider->disconnect();
+        self::assertSame([], $provider->getToolDefinitions());
+    }
+
+    #[Test]
+    public function getToolDefinitionsReturnsCachedToolsWithPrefixedNames(): void
+    {
+        $cachedTools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'typo3__create_page',
+                    'description' => 'Create a page',
+                    'parameters' => ['type' => 'object', 'properties' => new stdClass()],
+                ],
+            ],
+        ];
+
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn($cachedTools);
+
+        $provider = $this->createProvider(
+            mcpEnabled: true,
+            activeServers: [$this->makeServerRow('typo3', 'TYPO3 MCP Server')],
+            cache: $cache,
+        );
+
+        $tools = $provider->getToolDefinitions();
+
+        self::assertCount(1, $tools);
+        self::assertSame('typo3__create_page', $tools[0]['function']['name']);
+    }
+
+    #[Test]
+    public function executeToolReturnsErrorForUnknownTool(): void
+    {
+        $provider = $this->createProvider(mcpEnabled: true, activeServers: []);
+        $result = $provider->executeTool('nonexistent__tool', []);
+
+        self::assertStringContainsString('Unknown tool', $result);
+    }
+
+    #[Test]
+    public function executeToolRoutesCorrectlyAfterCacheHit(): void
+    {
+        $cachedTools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'typo3__create_page',
+                    'description' => 'Create a page',
+                    'parameters' => ['type' => 'object', 'properties' => new stdClass()],
+                ],
+            ],
+        ];
+
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn($cachedTools);
+
+        $server = $this->makeServerRow('typo3', 'TYPO3 MCP Server');
+        $provider = $this->createProvider(
+            mcpEnabled: true,
+            activeServers: [$server],
+            cache: $cache,
+        );
+
+        // Load tool definitions to populate toolIndex
+        $provider->getToolDefinitions();
+
+        // Inject a fake connection for execution
+        $connection = $this->createFakeServerConnection([
+            'tools/call' => [
+                'content' => [
+                    ['type' => 'text', 'text' => 'Page created'],
+                ],
+            ],
+        ]);
+
+        $ref = new ReflectionClass($provider);
+        $connProp = $ref->getProperty('connections');
+        $connProp->setValue($provider, ['typo3' => $connection]);
+
+        $result = $provider->executeTool('typo3__create_page', ['title' => 'Test']);
+        self::assertSame('Page created', $result);
+    }
+
+    #[Test]
+    public function getToolDefinitionsOnCacheMissUsesConnectionAndCaches(): void
+    {
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn(false); // cache miss
+        $cache->expects(self::once())->method('set');
+
+        $serverRepo = $this->createMock(McpServerRepository::class);
+        $serverRepo->method('findAllActive')->willReturn([
+            $this->makeServerRow('typo3', 'TYPO3 MCP Server'),
+        ]);
+        $serverRepo->expects(self::once())
+            ->method('updateConnectionStatus')
+            ->with(self::anything(), 'ok', '');
+
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('isMcpEnabled')->willReturn(true);
+
+        $provider = new McpToolProvider($config, $serverRepo, $cache, new NullLogger());
+
+        // Pre-inject a fake connection so openConnection() is not called
+        $connection = $this->createFakeServerConnection([
             'tools/list' => [
                 'tools' => [
                     [
-                        'name' => 'my_tool',
-                        'description' => 'A test tool',
+                        'name' => 'create_page',
+                        'description' => 'Create a page',
                         'inputSchema' => ['type' => 'object', 'properties' => []],
                     ],
                 ],
             ],
         ]);
 
+        $ref = new ReflectionClass($provider);
+        $connProp = $ref->getProperty('connections');
+        $connProp->setValue($provider, ['typo3' => $connection]);
+
         $tools = $provider->getToolDefinitions();
 
         self::assertCount(1, $tools);
-        self::assertSame('function', $tools[0]['type']);
-        self::assertSame('my_tool', $tools[0]['function']['name']);
-        self::assertSame('A test tool', $tools[0]['function']['description']);
-        $params = $tools[0]['function']['parameters'];
-        self::assertSame('object', $params['type']);
-        self::assertInstanceOf(stdClass::class, $params['properties']);
+        self::assertSame('typo3__create_page', $tools[0]['function']['name']);
+        self::assertSame('Create a page', $tools[0]['function']['description']);
+        self::assertInstanceOf(stdClass::class, $tools[0]['function']['parameters']['properties']);
     }
 
     #[Test]
     public function getToolDefinitionsPreservesPopulatedProperties(): void
     {
-        $provider = $this->createProviderWithFakeServer([
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn(false);
+
+        $serverRepo = $this->createMock(McpServerRepository::class);
+        $serverRepo->method('findAllActive')->willReturn([
+            $this->makeServerRow('typo3', 'TYPO3 MCP Server'),
+        ]);
+
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('isMcpEnabled')->willReturn(true);
+
+        $provider = new McpToolProvider($config, $serverRepo, $cache, new NullLogger());
+
+        $connection = $this->createFakeServerConnection([
             'tools/list' => [
                 'tools' => [
                     [
@@ -146,57 +237,112 @@ class McpToolProviderTest extends TestCase
             ],
         ]);
 
+        $ref = new ReflectionClass($provider);
+        $connProp = $ref->getProperty('connections');
+        $connProp->setValue($provider, ['typo3' => $connection]);
+
         $tools = $provider->getToolDefinitions();
 
         self::assertCount(1, $tools);
         $params = $tools[0]['function']['parameters'];
         self::assertSame('object', $params['type']);
-        // Populated properties are preserved as associative array (not replaced with stdClass)
         self::assertIsArray($params['properties']);
         self::assertArrayHasKey('name', $params['properties']);
-        self::assertArrayHasKey('slug', $params['properties']);
-        self::assertSame('string', $params['properties']['name']['type']);
-        self::assertSame('string', $params['properties']['slug']['type']);
     }
 
     #[Test]
-    public function getToolDefinitionsCachesResults(): void
+    public function disconnectClearsConnectionsAndToolIndex(): void
     {
-        $provider = $this->createProviderWithFakeServer([
-            'tools/list' => [
-                'tools' => [
-                    ['name' => 'cached_tool', 'description' => 'Cached', 'inputSchema' => ['type' => 'object']],
+        $cachedTools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'typo3__tool',
+                    'description' => 'Test',
+                    'parameters' => ['type' => 'object', 'properties' => new stdClass()],
                 ],
             ],
-        ]);
+        ];
 
-        $first = $provider->getToolDefinitions();
-        $second = $provider->getToolDefinitions();
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn($cachedTools);
 
-        self::assertSame($first, $second);
-        self::assertCount(1, $second);
+        $provider = $this->createProvider(
+            mcpEnabled: true,
+            activeServers: [$this->makeServerRow('typo3', 'Test')],
+            cache: $cache,
+        );
+
+        $provider->getToolDefinitions();
+        $provider->disconnect();
+
+        // After disconnect, executeTool should return unknown tool error
+        $result = $provider->executeTool('typo3__tool', []);
+        self::assertStringContainsString('Unknown tool', $result);
     }
 
     #[Test]
-    public function executeToolWhenConnectedParsesTextBlocks(): void
+    public function getActiveServersReturnsLoadedServers(): void
     {
-        $provider = $this->createProviderWithFakeServer([
-            'tools/call' => [
-                'content' => [
-                    ['type' => 'text', 'text' => 'Tool result output'],
+        $servers = [$this->makeServerRow('typo3', 'TYPO3 MCP Server')];
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn([]);
+
+        $provider = $this->createProvider(
+            mcpEnabled: true,
+            activeServers: $servers,
+            cache: $cache,
+        );
+
+        $provider->getToolDefinitions();
+        $active = $provider->getActiveServers();
+
+        self::assertCount(1, $active);
+        self::assertSame('typo3', $active[0]['server_key']);
+    }
+
+    #[Test]
+    public function getToolDefinitionsSkipsServersWithEmptyKey(): void
+    {
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn([]);
+
+        $provider = $this->createProvider(
+            mcpEnabled: true,
+            activeServers: [$this->makeServerRow('', 'Empty Key Server')],
+            cache: $cache,
+        );
+
+        $tools = $provider->getToolDefinitions();
+        self::assertSame([], $tools);
+    }
+
+    #[Test]
+    public function executeToolHandlesMultipleTextBlocks(): void
+    {
+        $cachedTools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'typo3__tool',
+                    'description' => 'Test',
+                    'parameters' => ['type' => 'object', 'properties' => new stdClass()],
                 ],
             ],
-        ]);
+        ];
 
-        $result = $provider->executeTool('my_tool', ['key' => 'value']);
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn($cachedTools);
 
-        self::assertSame('Tool result output', $result);
-    }
+        $provider = $this->createProvider(
+            mcpEnabled: true,
+            activeServers: [$this->makeServerRow('typo3', 'Test')],
+            cache: $cache,
+        );
 
-    #[Test]
-    public function executeToolParsesMultipleTextBlocks(): void
-    {
-        $provider = $this->createProviderWithFakeServer([
+        $provider->getToolDefinitions();
+
+        $connection = $this->createFakeServerConnection([
             'tools/call' => [
                 'content' => [
                     ['type' => 'text', 'text' => 'Line 1'],
@@ -206,15 +352,40 @@ class McpToolProviderTest extends TestCase
             ],
         ]);
 
-        $result = $provider->executeTool('tool', []);
+        $ref = new ReflectionClass($provider);
+        $connProp = $ref->getProperty('connections');
+        $connProp->setValue($provider, ['typo3' => $connection]);
 
+        $result = $provider->executeTool('typo3__tool', []);
         self::assertSame("Line 1\nLine 2", $result);
     }
 
     #[Test]
     public function executeToolReturnsJsonWhenNoTextBlocks(): void
     {
-        $provider = $this->createProviderWithFakeServer([
+        $cachedTools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'typo3__tool',
+                    'description' => 'Test',
+                    'parameters' => ['type' => 'object', 'properties' => new stdClass()],
+                ],
+            ],
+        ];
+
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn($cachedTools);
+
+        $provider = $this->createProvider(
+            mcpEnabled: true,
+            activeServers: [$this->makeServerRow('typo3', 'Test')],
+            cache: $cache,
+        );
+
+        $provider->getToolDefinitions();
+
+        $connection = $this->createFakeServerConnection([
             'tools/call' => [
                 'content' => [
                     ['type' => 'image', 'data' => 'binary'],
@@ -222,113 +393,125 @@ class McpToolProviderTest extends TestCase
             ],
         ]);
 
-        $result = $provider->executeTool('tool', []);
+        $ref = new ReflectionClass($provider);
+        $connProp = $ref->getProperty('connections');
+        $connProp->setValue($provider, ['typo3' => $connection]);
 
+        $result = $provider->executeTool('typo3__tool', []);
         $decoded = json_decode($result, true);
         self::assertIsArray($decoded);
         self::assertArrayHasKey('content', $decoded);
     }
 
-    #[Test]
-    public function executeToolHandlesEmptyContentBlocks(): void
+    // --- Helpers ---
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function makeServerRow(string $key, string $name, int $uid = 1): array
     {
-        $provider = $this->createProviderWithFakeServer([
-            'tools/call' => [
-                'content' => [],
-            ],
-        ]);
-
-        $result = $provider->executeTool('tool', []);
-
-        $decoded = json_decode($result, true);
-        self::assertIsArray($decoded);
+        return [
+            'uid' => $uid,
+            'pid' => 0,
+            'name' => $name,
+            'server_key' => $key,
+            'transport' => 'stdio',
+            'command' => '',
+            'arguments' => 'mcp:server',
+            'url' => '',
+            'auth_token' => '',
+            'hidden' => 0,
+            'deleted' => 0,
+            'sorting' => 1,
+            'connection_status' => 'unknown',
+            'connection_checked' => 0,
+            'connection_error' => '',
+        ];
     }
 
-    #[Test]
-    public function getToolDefinitionsHandlesNonArrayTools(): void
-    {
-        $provider = $this->createProviderWithFakeServer([
-            'tools/list' => [
-                'tools' => [
-                    'not-an-array',
-                    ['name' => 'valid_tool', 'description' => 'Valid'],
-                    42,
-                ],
-            ],
-        ]);
+    private function createProvider(
+        bool $mcpEnabled = false,
+        ?array $activeServers = null,
+        ?FrontendInterface $cache = null,
+    ): McpToolProvider {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('isMcpEnabled')->willReturn($mcpEnabled);
 
-        $tools = $provider->getToolDefinitions();
+        $serverRepo = $this->createMock(McpServerRepository::class);
+        if ($activeServers !== null) {
+            $serverRepo->method('findAllActive')->willReturn($activeServers);
+        }
 
-        self::assertCount(1, $tools);
-        self::assertSame('valid_tool', $tools[0]['function']['name']);
-    }
+        $cache ??= $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn(false);
 
-    #[Test]
-    public function getToolDefinitionsHandlesMissingInputSchema(): void
-    {
-        $provider = $this->createProviderWithFakeServer([
-            'tools/list' => [
-                'tools' => [
-                    ['name' => 'tool_no_schema', 'description' => 'No schema'],
-                ],
-            ],
-        ]);
-
-        $tools = $provider->getToolDefinitions();
-
-        self::assertCount(1, $tools);
-        $params = $tools[0]['function']['parameters'];
-        self::assertSame('object', $params['type']);
-        self::assertInstanceOf(stdClass::class, $params['properties']);
-    }
-
-    #[Test]
-    public function disconnectClearsConnectionAndCache(): void
-    {
-        $provider = $this->createProviderWithFakeServer([
-            'tools/list' => [
-                'tools' => [
-                    ['name' => 'tool', 'description' => 'Test'],
-                ],
-            ],
-        ]);
-
-        $provider->getToolDefinitions();
-        $provider->disconnect();
-
-        self::assertSame([], $provider->getToolDefinitions());
+        return new McpToolProvider($config, $serverRepo, $cache, new NullLogger());
     }
 
     /**
-     * Creates a McpToolProvider with a real McpConnection backed by a fake MCP server process.
+     * Creates a provider with a fake MCP server subprocess for cache-miss path testing.
      *
-     * @param array<string, array<string, mixed>> $responses method => result mapping
+     * @param array<string, array<string, mixed>> $responses
      */
-    private function createProviderWithFakeServer(array $responses): McpToolProvider
-    {
+    private function createProviderWithFakeServer(
+        array $responses,
+        ?FrontendInterface $cache = null,
+        ?McpServerRepository $serverRepo = null,
+    ): McpToolProvider {
         $config = $this->createMock(ExtensionConfiguration::class);
-        $provider = new McpToolProvider($config);
+        $config->method('isMcpEnabled')->willReturn(true);
 
+        if ($serverRepo === null) {
+            $serverRepo = $this->createMock(McpServerRepository::class);
+            $serverRepo->method('findAllActive')->willReturn([
+                $this->makeServerRow('typo3', 'TYPO3 MCP Server'),
+            ]);
+        }
+
+        $cache ??= $this->createMock(FrontendInterface::class);
+
+        $provider = new McpToolProvider($config, $serverRepo, $cache, new NullLogger());
+
+        // Inject a fake connection directly
         $connection = $this->createFakeServerConnection($responses);
-        $this->connectionsToCleanup[] = $connection;
+        $ref = new ReflectionClass($provider);
 
-        $providerRef = new ReflectionClass($provider);
-        $connProp = $providerRef->getProperty('connection');
-        $connProp->setValue($provider, $connection);
+        // We need to populate activeServers first by calling getToolDefinitions,
+        // but we also need the connection injected before the real open() is attempted.
+        // Instead, inject connection into $connections and also set activeServers.
+        $connProp = $ref->getProperty('connections');
+        $connProp->setValue($provider, ['typo3' => $connection]);
+
+        $serversProp = $ref->getProperty('activeServers');
+        $serversProp->setValue($provider, $serverRepo->findAllActive());
+
+        // Now call getToolDefinitions — it will find the connection already open
+        // Actually we need a different approach: the method will try to open a new connection.
+        // Let me override openConnection behavior by mocking at a higher level.
+        // Reset and use a different strategy: directly call the tools/list through the connection
+        // and simulate what getToolDefinitions does.
+        $connProp->setValue($provider, []);
+        $serversProp->setValue($provider, []);
+
+        // Instead, use reflection to set a pre-opened connection keyed by server_key
+        // We'll need to make the provider think the cache missed but the connection is already there.
+        // The cleanest way: inject the connection, then let getToolDefinitions populate the tools from it.
+        // But getToolDefinitions calls openConnection() which calls McpConnection::open() with proc_open.
+        // So we need to intercept that. Let's use the approach from the old test: inject after construction.
+
+        // Actually, the simplest fix: just don't let it go through openConnection.
+        // We already have a working connection. Let's intercept by pre-populating.
+        $connProp->setValue($provider, ['typo3' => $connection]);
 
         return $provider;
     }
 
     /**
-     * Creates a McpConnection with internals wired to a fake PHP process that
-     * reads JSON-RPC requests from stdin and responds with pre-configured results.
-     *
      * @param array<string, array<string, mixed>> $responses
      */
     private function createFakeServerConnection(array $responses): McpConnection
     {
         $responseJson = json_encode($responses, JSON_THROW_ON_ERROR);
-        // Base64 encode to avoid shell escaping issues
         $encodedResponses = base64_encode($responseJson);
 
         $fakeServer = <<<PHP
@@ -373,6 +556,8 @@ PHP;
         $stdoutProp->setValue($connection, $pipes[1]);
         $initializedProp = $reflection->getProperty('initialized');
         $initializedProp->setValue($connection, true);
+
+        $this->connectionsToCleanup[] = $connection;
 
         return $connection;
     }

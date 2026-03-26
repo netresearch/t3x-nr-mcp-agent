@@ -192,7 +192,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([2]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('isMcpServerInstalled')->willReturn(false);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
@@ -298,7 +298,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(0);
         $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('isMcpServerInstalled')->willReturn(false);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
@@ -311,13 +311,13 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
-    public function getStatusReportsMcpEnabledButNotInstalled(): void
+    public function getStatusReturnsNoIssuesWhenMcpEnabledAndNoLegacyFields(): void
     {
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(false);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
@@ -326,24 +326,24 @@ class ChatApiControllerTest extends TestCase
         $data = json_decode((string) $response->getBody(), true);
         self::assertTrue($data['available']);
         self::assertTrue($data['mcpEnabled']);
-        self::assertStringContainsString('not installed', $data['issues'][0]);
+        self::assertSame([], $data['issues']);
     }
 
     #[Test]
-    public function getStatusReportsMcpInstalledButDisabled(): void
+    public function getStatusReportsLegacyMcpFields(): void
     {
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('isMcpServerInstalled')->willReturn(true);
+        $config->method('isMcpEnabled')->willReturn(true);
+        $config->method('hasLegacyMcpFields')->willReturn(true);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
 
         $data = json_decode((string) $response->getBody(), true);
-        self::assertStringContainsString('MCP is not enabled', $data['issues'][0]);
+        self::assertStringContainsString('Legacy MCP fields', $data['issues'][0]);
     }
 
     #[Test]
@@ -353,7 +353,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(true);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
@@ -429,7 +429,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([99]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('isMcpServerInstalled')->willReturn(false);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '', 'admin' => 1];
@@ -785,7 +785,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(5);
         $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('isMcpServerInstalled')->willReturn(false);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
         $request = $this->createRequest('GET', '');
@@ -804,7 +804,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('isMcpServerInstalled')->willReturn(false);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
         $this->repository->method('countActiveByBeUser')->willReturn(2);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
 
@@ -859,7 +859,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('isMcpServerInstalled')->willReturn(false);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
 
         $chatService = $this->createMock(ChatCapabilitiesInterface::class);
         $chatService->method('getProviderCapabilities')->willReturn([

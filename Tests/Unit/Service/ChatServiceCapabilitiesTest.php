@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPUnit\Framework\Attributes\Test;
@@ -49,6 +50,9 @@ class ChatServiceCapabilitiesTest extends TestCase
 
         $registry ??= new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([]);
 
+        $mcpServerRepository = $this->createMock(McpServerRepository::class);
+        $mcpServerRepository->method('findAllActive')->willReturn([]);
+
         return new ChatService(
             $repository,
             $config,
@@ -58,6 +62,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $this->createMock(ResourceFactory::class),
             $this->createMock(SiteFinder::class),
             $registry,
+            $mcpServerRepository,
         );
     }
 
@@ -179,6 +184,9 @@ class ChatServiceCapabilitiesTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
+        $mcpServerRepository = $this->createMock(McpServerRepository::class);
+        $mcpServerRepository->method('findAllActive')->willReturn([]);
+
         $service = new ChatService(
             $repository,
             $config,
@@ -188,6 +196,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $this->createMock(ResourceFactory::class),
             $this->createMock(SiteFinder::class),
             new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([]),
+            $mcpServerRepository,
         );
 
         $caps = $service->getProviderCapabilities();

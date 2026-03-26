@@ -42,7 +42,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('isMcpServerInstalled')->willReturn(false);
+        $config->method('hasLegacyMcpFields')->willReturn(false);
         $config->method('getMaxMessageLength')->willReturn(10000);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
 
