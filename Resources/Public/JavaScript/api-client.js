@@ -87,6 +87,15 @@ export class ApiClient {
 
     /**
      * @param {number} conversationUid
+     * @param {string} title
+     * @returns {Promise<{title: string}>}
+     */
+    async renameConversation(conversationUid, title) {
+        return this._post('ai_chat_conversation_rename', {conversationUid, title});
+    }
+
+    /**
+     * @param {number} conversationUid
      * @returns {Promise<{pinned: boolean}>}
      */
     async togglePin(conversationUid) {

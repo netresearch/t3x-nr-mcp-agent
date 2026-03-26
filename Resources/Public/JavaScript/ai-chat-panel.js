@@ -1,5 +1,6 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
+import {ref} from 'lit/directives/ref.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
@@ -31,6 +32,7 @@ export class AiChatPanel extends LitElement {
         _posX: {state: true},
         _posY: {state: true},
         _attachMenuOpen: {type: Boolean, state: true},
+        _renamingUid: {state: true},
     };
 
     static styles = [markdownStyles, css`
@@ -241,6 +243,93 @@ export class AiChatPanel extends LitElement {
             color: var(--typo3-text-color-variant, #666);
             display: flex;
             align-items: center;
+        }
+
+        /* Conversation tab bar (second row in expanded state) */
+        .conv-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            padding: 4px 8px 0;
+            border-bottom: 1px solid var(--typo3-list-border-color, #ccc);
+            background: var(--typo3-surface-container-low, #f5f5f5);
+            flex-shrink: 0;
+        }
+        .conv-tab {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 6px 6px 0 0;
+            border: 1px solid transparent;
+            border-bottom: none;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            max-width: 140px;
+            background: transparent;
+            color: var(--typo3-text-color-variant, #666);
+            transition: background 0.1s, color 0.1s;
+            line-height: 1.3;
+        }
+        .conv-tab:hover {
+            background: var(--typo3-surface-container, #e8e8e8);
+            color: var(--typo3-text-color, #333);
+        }
+        .conv-tab.active {
+            background: var(--typo3-surface-container-lowest, #fff);
+            color: var(--typo3-text-color, #333);
+            border-color: var(--typo3-list-border-color, #ccc);
+            font-weight: 500;
+        }
+        .conv-tab .tab-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .conv-tab .tab-icon {
+            flex-shrink: 0;
+            font-size: 11px;
+        }
+        .conv-tab .tab-icon.status-processing,
+        .conv-tab .tab-icon.status-tool_loop,
+        .conv-tab .tab-icon.status-locked { color: #1565c0; }
+        .conv-tab .tab-icon.status-failed  { color: #c62828; }
+        .conv-tab .tab-icon.status-idle    { color: #2e7d32; }
+        .conv-tab .tab-close {
+            flex-shrink: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            font-size: 11px;
+            line-height: 1;
+            color: var(--typo3-text-color-variant, #888);
+        }
+        .conv-tab:hover .tab-close,
+        .conv-tab.active .tab-close { display: flex; }
+        .conv-tab .tab-close:hover {
+            background: var(--typo3-danger-bg, #ffebee);
+            color: #c62828;
+        }
+        .conv-tab-new {
+            flex-shrink: 0;
+            margin-left: auto;
+            padding: 4px 6px;
+            border-radius: 6px;
+            color: var(--typo3-text-color-variant, #666);
+        }
+        .conv-tab-new:hover { color: var(--typo3-text-color, #333); }
+        .conv-tab .tab-rename-input {
+            width: 90px;
+            padding: 1px 4px;
+            font-size: 12px;
+            border: 1px solid var(--typo3-primary, #0078d4);
+            border-radius: 3px;
+            outline: none;
+            background: var(--typo3-surface-container-lowest, #fff);
+            color: var(--typo3-text-color, #333);
         }
 
         /* Messages */
@@ -1012,7 +1101,7 @@ export class AiChatPanel extends LitElement {
             <div class="panel-body">
                 ${this.state === STATES.MAXIMIZED ? this._renderSidebar() : nothing}
                 <div class="panel-content">
-                    ${this.state === STATES.EXPANDED ? this._renderCompactSwitcher() : nothing}
+                    ${this.state === STATES.EXPANDED ? this._renderConvTabs() : nothing}
                     ${this._renderChat()}
                 </div>
             </div>
@@ -1075,28 +1164,59 @@ export class AiChatPanel extends LitElement {
         `;
     }
 
-    _renderCompactSwitcher() {
+    _renderConvTabs() {
         return html`
-            <div class="compact-switcher">
-                <div class="select-wrap">
-                    <select @change=${(e) => this.chat.selectConversation(Number(e.target.value))}
-                            aria-label="${lll('conversations.select')}">
-                        ${!this.chat.activeUid ? html`<option value="" selected disabled>${lll('conversations.select')}</option>` : nothing}
-                        ${this.chat.conversations.map(c => html`
-                            <option value=${c.uid} ?selected=${c.uid === this.chat.activeUid}>
-                                ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
-                            </option>
-                        `)}
-                    </select>
-                    <span class="chevron">${ICON_CHEVRON_DOWN(12)}</span>
-                </div>
-                <button class="btn-icon"
+            <div class="conv-tabs" role="tablist" aria-label="${lll('conversations.title')}">
+                ${this.chat.conversations.map(c => {
+                    const isActive = c.uid === this.chat.activeUid;
+                    const isRenaming = this._renamingUid === c.uid;
+                    const icon = STATUS_ICONS[c.status] ?? '';
+                    const title = c.title || lll('conversations.newConversation');
+                    return html`
+                        <button class="conv-tab ${isActive ? 'active' : ''}"
+                                role="tab"
+                                aria-selected="${isActive}"
+                                title="${title} (${c.status})"
+                                @click=${() => this.chat.selectConversation(c.uid)}>
+                            <span class="tab-icon status-${c.status}">${icon}</span>
+                            ${isRenaming ? html`
+                                <input class="tab-rename-input"
+                                       .value=${title}
+                                       @click=${(e) => e.stopPropagation()}
+                                       @keydown=${(e) => {
+                                           if (e.key === 'Enter') { e.preventDefault(); this._commitRename(c.uid, e.target.value); }
+                                           if (e.key === 'Escape') { e.stopPropagation(); this._renamingUid = null; }
+                                       }}
+                                       @blur=${(e) => this._commitRename(c.uid, e.target.value)}
+                                       ${ref((el) => el && requestAnimationFrame(() => { el.select(); }))}
+                                />
+                            ` : html`
+                                <span class="tab-title"
+                                      @dblclick=${(e) => { e.stopPropagation(); this._renamingUid = c.uid; }}>
+                                    ${title}
+                                </span>
+                            `}
+                            <span class="tab-close"
+                                  title="${lll('conversations.archive')}"
+                                  @click=${(e) => { e.stopPropagation(); this.chat.handleArchive(c.uid); }}>✕</span>
+                        </button>
+                    `;
+                })}
+                <button class="btn-icon conv-tab-new"
                         @click=${() => this.chat.handleNewConversation()}
                         ?disabled=${!this.chat.available}
                         title="${lll('conversations.new')}"
                         aria-label="${lll('conversations.new')}">${ICON_COMPOSE(14)}</button>
             </div>
         `;
+    }
+
+    _commitRename(uid, value) {
+        // Guard against double-fire: Enter sets _renamingUid = null → Lit removes the input
+        // from the DOM → blur fires on the detached input → this method is called again.
+        if (this._renamingUid !== uid) return;
+        this._renamingUid = null;
+        this.chat.handleRename(uid, value);
     }
 
     _renderChat() {

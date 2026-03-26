@@ -685,6 +685,49 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function renameConversationCallsUpdateTitleWithCorrectArguments(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 7,
+            'be_user' => 1,
+        ]);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->expects(self::once())
+            ->method('updateTitle')
+            ->with(7, 'My new title', 1);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 7, "title": "My new title"}');
+        $response = $this->subject->renameConversation($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertSame('My new title', $data['title']);
+    }
+
+    #[Test]
+    public function renameConversationReturns404WhenConversationNotFound(): void
+    {
+        $this->repository->method('findOneByUidAndBeUser')->willReturn(null);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 99, "title": "X"}');
+        $response = $this->subject->renameConversation($request);
+
+        self::assertSame(404, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function renameConversationReturns400WhenTitleIsEmpty(): void
+    {
+        $conversation = Conversation::fromRow(['uid' => 7, 'be_user' => 1]);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 7, "title": "   "}');
+        $response = $this->subject->renameConversation($request);
+
+        self::assertSame(400, $response->getStatusCode());
+    }
+
+    #[Test]
     public function listConversationsReturnsAllConversationFields(): void
     {
         $conversation = Conversation::fromRow([
