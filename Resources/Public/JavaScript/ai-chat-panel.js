@@ -6,6 +6,7 @@ import {markdownStyles} from './markdown-styles.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_CHEVRON_DOWN} from './icons.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
+const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', failed: '✕'};
 const DEFAULT_HEIGHT = 350;
 const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 320;
@@ -481,11 +482,10 @@ export class AiChatPanel extends LitElement {
         /* Status */
         .status-badge {
             display: inline-block;
-            padding: 3px 8px;
+            padding: 2px 6px;
             border-radius: 10px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
+            font-size: 12px;
+            line-height: 1.4;
         }
         .status-idle { background: #e8f5e9; color: #2e7d32; }
         .status-processing, .status-locked, .status-tool_loop {
@@ -947,7 +947,7 @@ export class AiChatPanel extends LitElement {
                  @dblclick=${(e) => this._onHeaderDblClick(e)}>
                 <span class="title">${title}</span>
                 ${this.chat.status ? html`
-                    <span class="status-badge status-${this.chat.status}">${this.chat.status}</span>
+                    <span class="status-badge status-${this.chat.status}" title="${this.chat.status}">${STATUS_ICONS[this.chat.status] ?? this.chat.status}</span>
                 ` : nothing}
                 <button class="btn-icon" @click=${() => this.collapse()}
                         title="${lll('panel.collapse')}" aria-label="${lll('panel.collapse')}">${ICON_MINIMIZE(14)}</button>
@@ -1021,7 +1021,7 @@ export class AiChatPanel extends LitElement {
                 <span class="item-title">
                     ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
                 </span>
-                <span class="status-badge status-${c.status}">${c.status}</span>
+                <span class="status-badge status-${c.status}" title="${c.status}">${STATUS_ICONS[c.status] ?? c.status}</span>
                 ${isActive ? html`
                     <span class="sidebar-item-actions">
                         <button class="btn-icon btn-sm" @click=${(e) => { e.stopPropagation(); this.chat.handleTogglePin(); }}

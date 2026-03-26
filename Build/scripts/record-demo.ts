@@ -2,12 +2,12 @@
  * Demo GIF recorder for nr_mcp_agent.
  *
  * Records a real MCP agent session using the floating chat panel:
- *   1. Navigate to the TYPO3 page list (Homepage, id=10)
- *   2. Open & maximize the floating panel
+ *   1. Login → navigate to page content view (Homepage, id=10)
+ *   2. Open floating panel via toolbar button (normal size, not maximized)
  *   3. Create "Getting Started" page under Homepage
- *   4. Minimize panel → navigate to page list → new page appears in tree
- *   5. Re-expand panel → add intro content
- *   6. Rate the page out of 5 stars
+ *   4. Add intro content element
+ *   5. Rate the page out of 5 stars
+ *   6. Minimize panel → page list shows new page in tree
  *
  * Produces: Documentation/Images/AgentDemo.gif
  *
@@ -25,6 +25,7 @@ import fs from 'fs';
 const BASE_URL  = process.env.TYPO3_BASE_URL      || 'https://v14.nr-mcp-agent.ddev.site:33001';
 const USER      = process.env.TYPO3_ADMIN_USER     || 'admin';
 const PASSWORD  = process.env.TYPO3_ADMIN_PASSWORD || 'Joh316!!';
+const PREVIEW   = process.env.PREVIEW === '1'; // headed + slow-mo, no GIF export
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR   = path.resolve(__dirname, '../../Documentation/Images');
@@ -178,13 +179,74 @@ async function waitForPanelResponse(page: Page, maxMs = 180_000): Promise<void> 
 }
 
 /**
- * Navigate to the page list for page 10 (Homepage).
- * This refreshes the tree and shows the newly created subpages.
+ * Refresh the page tree in-place (no navigation, no reload) and expand the
+ * Homepage node so the newly created subpage becomes visible.
+ * The floating panel stays open throughout.
+ */
+async function refreshAndExpandTree(page: Page): Promise<void> {
+    console.log('  → refreshing page tree…');
+    await page.evaluate(`(function() {
+        top.document.dispatchEvent(new CustomEvent('typo3:pagetree:refresh'));
+    })()`);
+    await page.waitForTimeout(2500);
+
+    const expanded = await page.evaluate(`(function() {
+        var nodes = document.querySelectorAll('.node');
+        for (var i = 0; i < nodes.length; i++) {
+            var nameEl = nodes[i].querySelector('.node-name');
+            if (nameEl && nameEl.textContent.trim() === 'Homepage') {
+                var toggle = nodes[i].querySelector('.node-toggle');
+                if (toggle) { toggle.click(); return true; }
+            }
+        }
+        return false;
+    })()`);
+    console.log('  ' + (expanded ? '✓ Homepage expanded — subpage visible' : 'ℹ toggle not found'));
+    await page.waitForTimeout(1500);
+}
+
+/**
+ * Switch the module content iframe to show the layout of the given page.
+ * The main page URL (and therefore the panel) is NOT affected.
+ */
+async function showPageLayoutInIframe(page: Page, pageUid: number): Promise<void> {
+    console.log(`  → switching content view to page ${pageUid}…`);
+    await page.evaluate(`(function(uid) {
+        var base = location.origin;
+        var url = base + '/typo3/module/web/layout?id=' + uid;
+        // Update typo3-iframe-module src attribute
+        var mod = document.querySelector('typo3-iframe-module');
+        if (mod) { mod.setAttribute('endpoint', url); return; }
+        // Fallback: update iframe src directly
+        var iframe = document.querySelector('iframe');
+        if (iframe) iframe.src = url;
+    })(${pageUid})`);
+    await page.waitForTimeout(3000);
+    console.log('  ✓ content view updated');
+}
+
+/** Query the UID of the most recently created "Getting Started" page. */
+function getNewPageUid(): number {
+    try {
+        const result = execSync(
+            `ddev exec -s db -- mariadb -uroot -proot db_v14 -sN -e ` +
+            `"SELECT uid FROM pages WHERE title='Getting Started' ORDER BY crdate DESC LIMIT 1;"`,
+            { encoding: 'utf8' }
+        ).trim();
+        const uid = parseInt(result, 10);
+        if (uid > 0) { console.log(`  ✓ new page uid: ${uid}`); return uid; }
+    } catch { /* ignore */ }
+    console.log('  ℹ could not determine page uid');
+    return 0;
+}
+
+/**
+ * After all messages: navigate to page list to show the new page clearly.
  */
 async function showPageList(page: Page): Promise<void> {
-    console.log('  → navigating to page list to show new page in tree…');
+    console.log('  → navigating to page list to show result…');
     await page.goto(`${BASE_URL}/typo3/module/web/list?id=10`);
-    await page.waitForTimeout(4000); // let tree + list load
+    await page.waitForTimeout(3500);
     console.log('  ✓ page list visible');
 }
 
@@ -198,61 +260,111 @@ async function main(): Promise<void> {
         fs.unlinkSync(path.join(TMP_DIR, f))
     );
 
-    console.log('\nRecording AI agent demo (floating panel)…');
-    console.log(`  Target: ${BASE_URL}`);
-    console.log(`  Output: ${OUT_DIR}/AgentDemo.gif\n`);
+    if (PREVIEW) {
+        console.log('\nPREVIEW mode — headed browser, slow-mo 600ms, no GIF export\n');
+    } else {
+        console.log('\nRecording AI agent demo (floating panel)…');
+        console.log(`  Target: ${BASE_URL}`);
+        console.log(`  Output: ${OUT_DIR}/AgentDemo.gif\n`);
+    }
 
-    const browser = await chromium.launch({ headless: true });
+    // --- Pre-login (headless, not recorded) to obtain session cookies ---
+    console.log('  → pre-login (not recorded)…');
+    const authBrowser = await chromium.launch({ headless: true });
+    const authContext = await authBrowser.newContext({ ignoreHTTPSErrors: true });
+    const authPage = await authContext.newPage();
+    await login(authPage);
+    const storageState = await authContext.storageState();
+    await authBrowser.close();
+
+    // --- Recording browser (already authenticated) ---
+    const browser = await chromium.launch({
+        headless: !PREVIEW,
+        slowMo: PREVIEW ? 600 : 0,
+    });
     const context = await browser.newContext({
         viewport: { width: 1440, height: 900 },
         ignoreHTTPSErrors: true,
-        recordVideo: { dir: TMP_DIR, size: { width: 1440, height: 900 } },
+        storageState,
+        ...(PREVIEW ? {} : { recordVideo: { dir: TMP_DIR, size: { width: 1440, height: 900 } } }),
     });
+
+    // Inject panel size into localStorage before every page load so the
+    // component reads the correct dimensions on connectedCallback.
+    await context.addInitScript(`(function() {
+        var vw = 1440, vh = 900, w = 620, h = 800;
+        localStorage.setItem('ai-chat-panel', JSON.stringify({
+            state: 'expanded',
+            width: w,
+            height: h,
+            x: vw - w - 16,
+            y: vh - h - 52,
+            activeUid: null
+        }));
+    })();`);
     const page = await context.newPage();
 
     try {
-        await login(page);
+        // Start directly on Homepage content view — no login screen
+        await page.goto(`${BASE_URL}/typo3/module/web/layout?id=10`);
+        await page.waitForTimeout(2500);
 
-        // Start on dashboard — clean starting point
-        await page.goto(`${BASE_URL}/typo3/module/dashboard`);
-        await page.waitForTimeout(2000);
-
-        // Open floating panel and start new conversation
+        // Open floating panel (normal size, not maximized)
         await openPanel(page);
-        await maximizePanel(page);
         await page.waitForTimeout(500);
 
         // --- Message 1: Create the page ---
-        console.log('\n[1/3] Creating "Getting Started" page…');
+        console.log('\n[1/4] Creating "Getting Started" page…');
         await sendMessage(page,
-            'Create a new page called "Getting Started" as a subpage of the Homepage (page id 10). Make it visible and published.'
+            'Create a new page called "Getting Started" as a subpage of the Homepage. Make it visible.'
         );
         await waitForPanelResponse(page);
 
+        // Refresh tree in-place + expand Homepage (panel stays open)
+        await refreshAndExpandTree(page);
+
         // --- Message 2: Add content ---
-        console.log('\n[2/3] Adding intro content…');
+        console.log('\n[2/4] Adding intro content…');
         await sendMessage(page,
             'Add a text content element to the "Getting Started" page with an introduction about how AI can automate content creation and SEO in TYPO3.'
         );
         await waitForPanelResponse(page);
 
-        // --- Message 3: Rate the page ---
-        console.log('\n[3/3] Rating the page…');
+        // Switch content iframe to show the new page (panel stays open)
+        const newPageUid = getNewPageUid();
+        if (newPageUid > 0) {
+            await showPageLayoutInIframe(page, newPageUid);
+        }
+
+        // --- Message 3: Optimize SEO fields ---
+        console.log('\n[3/4] Optimizing SEO fields…');
         await sendMessage(page,
-            'Please rate the "Getting Started" page we just created out of 5 stars for content quality and SEO readiness.'
+            'Optimize the SEO fields of the "Getting Started" page: set a concise meta title and a compelling meta description.'
         );
         await waitForPanelResponse(page);
 
-        // Minimize panel and show the new page in the page list
+        // --- Message 4: Show what was set ---
+        console.log('\n[4/4] Showing set content…');
+        await sendMessage(page,
+            'Show me the content and SEO fields you just set for the "Getting Started" page.'
+        );
+        await waitForPanelResponse(page);
+        await page.waitForTimeout(2000);
+
+        // Minimize panel — content view stays on Getting Started page
         await minimizePanel(page);
-        await showPageList(page);
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(2500);
 
         console.log('\n  ✓ recording complete');
     } finally {
         await page.close();
         await context.close();
         await browser.close();
+    }
+
+    if (PREVIEW) {
+        console.log('\n✓ Preview complete — no GIF exported\n');
+        return;
     }
 
     // Find and rename the recorded WebM
