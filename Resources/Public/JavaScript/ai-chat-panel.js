@@ -1212,6 +1212,9 @@ export class AiChatPanel extends LitElement {
     }
 
     _commitRename(uid, value) {
+        // Guard against double-fire: Enter sets _renamingUid = null → Lit removes the input
+        // from the DOM → blur fires on the detached input → this method is called again.
+        if (this._renamingUid !== uid) return;
         this._renamingUid = null;
         this.chat.handleRename(uid, value);
     }
