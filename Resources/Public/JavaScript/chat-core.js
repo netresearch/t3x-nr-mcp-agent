@@ -294,16 +294,19 @@ export class ChatCoreController {
         }
     }
 
-    async handleArchive() {
-        if (!this.activeUid) return;
+    async handleArchive(uid = null) {
+        const targetUid = uid ?? this.activeUid;
+        if (!targetUid) return;
         if (!confirm(lll('conversations.archiveConfirm'))) return;
         try {
-            await this._api.archiveConversation(this.activeUid);
-            this.activeUid = null;
-            this.messages = [];
-            this.status = '';
-            this.errorMessage = '';
-            this.stopPolling();
+            await this._api.archiveConversation(targetUid);
+            if (targetUid === this.activeUid) {
+                this.activeUid = null;
+                this.messages = [];
+                this.status = '';
+                this.errorMessage = '';
+                this.stopPolling();
+            }
             await this.loadConversations();
         } catch (e) {
             this.errorMessage = e.message;
