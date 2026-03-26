@@ -51,10 +51,8 @@ export class ChatCoreController {
     _knownMessageCount = 0;
     /** @type {number} */
     _pollFailures = 0;
-    /** @type {number|null} */
-    _falPickerPollTimer = null;
-    /** @type {HTMLElement|null} — ghost element injected so TYPO3's element browser can find a DOM anchor */
-    _falPickerGhost = null;
+    /** @type {HTMLElement|null} — overlay wrapping the element-browser iframe */
+    _falPickerOverlay = null;
 
     /**
      * @param {import('lit').ReactiveControllerHost} host
@@ -387,21 +385,55 @@ export class ChatCoreController {
         const bparams = encodeURIComponent(fieldName + '|||' + extensions);
         const url = browserUrl + '&mode=file&bparams=' + bparams;
 
-        // TYPO3's element-browser.js#getParent() does querySelector('[data-formengine-input-name=fieldName]')
-        // in the opener window, then closest('.t3js-formengine-field-item'), before sending postMessage.
-        // Without a matching element getParent() returns null and addElement() crashes on null.classList.
-        // We place the attribute on the div itself (not on an <input>) so password-manager extensions
-        // (Bitwarden, 1Password, etc.) do not scan it — they only observe input/select/textarea nodes.
-        this._falPickerGhost = document.createElement('div');
-        this._falPickerGhost.className = 't3js-formengine-field-item';
-        this._falPickerGhost.setAttribute('aria-hidden', 'true');
-        this._falPickerGhost.setAttribute('data-formengine-input-name', fieldName);
-        this._falPickerGhost.style.display = 'none';
-        document.body.appendChild(this._falPickerGhost);
+        // We embed the element browser in an <iframe class="t3js-modal-iframe"> instead of a popup window.
+        //
+        // Root cause of popup approach: TYPO3's element-browser.js#getParent() opens with:
+        //   const e = ... && window.frames.frameElement.classList.contains("t3js-modal-iframe")
+        // In a popup window window.frameElement is null (not undefined), so null.classList throws before
+        // the postMessage is ever sent.
+        //
+        // With an iframe, window.frameElement is the <iframe> element itself (non-null).  TYPO3's
+        // getParent() then hits the branch:
+        //   this.opener = window.frames.frameElement.contentWindow.parent   (= our window)
+        // and MessageUtility.send() delivers the postMessage to us correctly.
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.className = 't3js-modal-iframe'; // required for TYPO3 getParent() to resolve our window
+        iframe.setAttribute('aria-label', lll('fal_picker_label') || 'Select file');
+        Object.assign(iframe.style, {
+            width: '100%', height: '100%', border: 'none', display: 'block',
+        });
+
+        this._falPickerOverlay = document.createElement('div');
+        this._falPickerOverlay.setAttribute('aria-modal', 'true');
+        this._falPickerOverlay.setAttribute('role', 'dialog');
+        Object.assign(this._falPickerOverlay.style, {
+            position: 'fixed', inset: '0', zIndex: '9999',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,.5)',
+        });
+
+        const box = document.createElement('div');
+        Object.assign(box.style, {
+            width: '900px', height: '600px', maxWidth: '95vw', maxHeight: '90vh',
+            background: '#fff', borderRadius: '4px', overflow: 'hidden',
+            display: 'flex', flexDirection: 'column',
+        });
+
+        box.appendChild(iframe);
+        this._falPickerOverlay.appendChild(box);
+        document.body.appendChild(this._falPickerOverlay);
+
+        // Click outside the box to dismiss
+        this._falPickerOverlay.addEventListener('click', (e) => {
+            if (e.target === this._falPickerOverlay) {
+                this._cleanupFalPicker();
+            }
+        });
 
         // TYPO3 element browser sends {actionName:'typo3:elementBrowser:elementAdded', fieldName, value, label}
-        // via postMessage to window.opener (our window). value = sys_file UID, either as a plain numeric
-        // string ("42") or in table_uid format ("sys_file_42") depending on the TYPO3 file browser version.
+        // via MessageUtility.send() → postMessage() to the window resolved by getParent() (our window).
+        // value = sys_file UID as a plain string ("42") or in table_uid format ("sys_file_42").
         this._falPickerListener = (event) => {
             if (event.data?.actionName !== 'typo3:elementBrowser:elementAdded') return;
             if (event.data?.fieldName !== fieldName) return;
@@ -414,37 +446,18 @@ export class ChatCoreController {
             }
         };
         globalThis.addEventListener('message', this._falPickerListener);
-
-        const popup = globalThis.open(url, 'typo3FileBrowser', 'height=600,width=900,status=0,menubar=0,scrollbars=1');
-        if (!popup) {
-            this._cleanupFalPicker();
-            this._setError(lll('fal_picker_popup_blocked'));
-            return;
-        }
-
-        // Poll for popup being closed by the user without selecting a file.
-        // Without this, _falPickerListener would stay set and block reopening the picker.
-        this._falPickerPollTimer = setInterval(() => {
-            if (popup.closed) {
-                this._cleanupFalPicker();
-            }
-        }, 500);
     }
 
     _cleanupFalPicker() {
-        if (this._falPickerPollTimer) {
-            clearInterval(this._falPickerPollTimer);
-            this._falPickerPollTimer = null;
-        }
         if (this._falPickerListener) {
             globalThis.removeEventListener('message', this._falPickerListener);
             this._falPickerListener = null;
-            this.host.requestUpdate();
         }
-        if (this._falPickerGhost) {
-            this._falPickerGhost.remove();
-            this._falPickerGhost = null;
+        if (this._falPickerOverlay) {
+            this._falPickerOverlay.remove();
+            this._falPickerOverlay = null;
         }
+        this.host.requestUpdate();
     }
 
     /** @param {number} fileUid */
