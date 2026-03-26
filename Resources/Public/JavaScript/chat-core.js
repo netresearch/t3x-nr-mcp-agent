@@ -53,6 +53,8 @@ export class ChatCoreController {
     _pollFailures = 0;
     /** @type {number|null} */
     _falPickerPollTimer = null;
+    /** @type {HTMLElement|null} — ghost element injected so TYPO3's element browser can find a DOM anchor */
+    _falPickerGhost = null;
 
     /**
      * @param {import('lit').ReactiveControllerHost} host
@@ -385,6 +387,21 @@ export class ChatCoreController {
         const bparams = encodeURIComponent(fieldName + '|||' + extensions);
         const url = browserUrl + '&mode=file&bparams=' + bparams;
 
+        // TYPO3's element-browser.js#getParent() looks for [data-formengine-input-name=fieldName] in
+        // the opener window and traverses up to .t3js-formengine-field-item before sending postMessage.
+        // Without a real form field our fieldName is unknown to TYPO3, so getParent() returns null and
+        // addElement() crashes on null.classList. Inject a hidden ghost structure so TYPO3 finds it.
+        this._falPickerGhost = document.createElement('div');
+        this._falPickerGhost.className = 't3js-formengine-field-item';
+        this._falPickerGhost.setAttribute('aria-hidden', 'true');
+        this._falPickerGhost.style.display = 'none';
+        const ghostInput = document.createElement('input');
+        ghostInput.type = 'hidden';
+        ghostInput.name = fieldName;
+        ghostInput.setAttribute('data-formengine-input-name', fieldName);
+        this._falPickerGhost.appendChild(ghostInput);
+        document.body.appendChild(this._falPickerGhost);
+
         // TYPO3 element browser sends {actionName:'typo3:elementBrowser:elementAdded', fieldName, value, label}
         // via postMessage to window.opener (our window). value = sys_file UID, either as a plain numeric
         // string ("42") or in table_uid format ("sys_file_42") depending on the TYPO3 file browser version.
@@ -426,6 +443,10 @@ export class ChatCoreController {
             globalThis.removeEventListener('message', this._falPickerListener);
             this._falPickerListener = null;
             this.host.requestUpdate();
+        }
+        if (this._falPickerGhost) {
+            this._falPickerGhost.remove();
+            this._falPickerGhost = null;
         }
     }
 
