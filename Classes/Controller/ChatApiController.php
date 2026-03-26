@@ -454,6 +454,34 @@ final readonly class ChatApiController
     }
 
     /**
+     * POST /ai-chat/conversations/rename
+     */
+    public function renameConversation(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        // Parse body once — PSR-7 streams are one-shot; passing $body to
+        // findConversationOrFail avoids reading the stream a second time.
+        $body = $this->parseBody($request);
+        $conversation = $this->findConversationOrFail($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $title = trim((string) ($body['title'] ?? ''));
+        if ($title === '') {
+            return new JsonResponse(['error' => 'Title must not be empty'], 400);
+        }
+
+        $this->repository->updateTitle($conversation->getUid(), $title, $this->getBeUserUid());
+
+        return new JsonResponse(['title' => $title]);
+    }
+
+    /**
      * @param array<string, string|int>|null $parsedBody
      */
     private function findConversationOrFail(ServerRequestInterface $request, ?array $parsedBody = null): Conversation|ResponseInterface
