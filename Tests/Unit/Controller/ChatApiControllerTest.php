@@ -1150,12 +1150,12 @@ class ChatApiControllerTest extends TestCase
 
         $registry = new DocumentExtractorRegistry([$extractor]);
 
-        // chatService reports image/jpeg as provider-native
+        // chatService reports jpeg as provider-native (supportedFormats contains extensions, not MIME types)
         $chatService = $this->createMock(ChatCapabilitiesInterface::class);
         $chatService->method('getProviderCapabilities')->willReturn([
             'visionSupported' => true,
             'maxFileSize' => 0,
-            'supportedFormats' => ['image/jpeg'],
+            'supportedFormats' => ['jpg', 'jpeg'],
         ]);
 
         $falFile = $this->createMock(\TYPO3\CMS\Core\Resource\File::class);
