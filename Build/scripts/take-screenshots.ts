@@ -60,45 +60,93 @@ async function navigateToChatModule(page: Page): Promise<FrameLocator> {
     return iframe;
 }
 
+/**
+ * Apply cosmetic fixes to the TYPO3 backend toolbar before screenshotting:
+ * - Replace the workspace name with a clean demo name
+ * - Make the chat badge visible with a sensible count
+ * - Hide unrelated notification badges
+ */
+async function mockBackend(page: Page): Promise<void> {
+    await page.evaluate(`(function() {
+        // Replace workspace name
+        document.querySelectorAll(
+            '#typo3-cms-workspaces-backend-toolbaritems-workspaceselectortoolbaritem .toolbar-item-name'
+        ).forEach(function(el) { el.textContent = 'My TYPO3 Site'; });
+
+        // Show chat badge with a sensible count
+        var chatBadge = document.querySelector('.ai-chat-badge');
+        if (chatBadge) {
+            chatBadge.textContent = '2';
+            chatBadge.style.removeProperty('display');
+        }
+
+        // Hide unrelated notification badges (system messages etc.)
+        document.querySelectorAll('.toolbar-item-badge.badge-danger, .toolbar-item-badge.badge-warning:not(.ai-chat-badge)')
+            .forEach(function(el) { el.style.display = 'none'; });
+    })()`);
+}
+
+/** Replace German conversation titles in the sidebar with English demo titles. */
+async function mockConversationTitles(page: Page): Promise<void> {
+    const titles = JSON.stringify([
+        'Create Getting Started page with intro text',
+        'List all pages in the site tree',
+        'Optimize SEO for product pages',
+        'Add news content element to page 15',
+        'How can I improve my homepage content?',
+    ]);
+    await page.evaluate(`(function(titles) {
+        var iframes = document.querySelectorAll('typo3-iframe-module iframe, iframe');
+        for (var i = 0; i < iframes.length; i++) {
+            var doc = iframes[i].contentDocument;
+            if (!doc) continue;
+            var app = doc.querySelector('nr-chat-app');
+            if (!app || !app.shadowRoot) continue;
+            var items = app.shadowRoot.querySelectorAll('.conversation-item .title');
+            items.forEach(function(el, idx) {
+                if (idx < titles.length) el.textContent = titles[idx];
+            });
+            return;
+        }
+    })(${titles})`);
+}
+
 /** Inject a mock Markdown assistant message into the nr-chat-app shadow DOM (inside iframe). */
 async function injectMarkdownMessage(page: Page): Promise<void> {
-    await page.evaluate(() => {
-        // nr-chat-app is inside the module iframe
-        const iframes = document.querySelectorAll('iframe, typo3-iframe-module');
-        let app: Element | null = null;
-        for (const f of iframes) {
-            const doc = (f as HTMLIFrameElement).contentDocument;
-            app = doc?.querySelector('nr-chat-app') ?? null;
+    await page.evaluate(`(function() {
+        var iframes = document.querySelectorAll('typo3-iframe-module iframe, iframe');
+        var app = null;
+        for (var i = 0; i < iframes.length; i++) {
+            var doc = iframes[i].contentDocument;
+            if (!doc) continue;
+            app = doc.querySelector('nr-chat-app');
             if (app) break;
         }
-        if (!app?.shadowRoot) return;
+        if (!app || !app.shadowRoot) return;
 
-        const msgHtml = `
-        <div class="message-row assistant mock-screenshot-msg">
-            <div class="avatar avatar-assistant" style="width:28px;height:28px;border-radius:50%;background:#0078d4;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0">AI</div>
-            <div class="message assistant" style="background:#f0f4ff;border-radius:8px;padding:12px 16px;max-width:600px">
-                <h3 style="font-size:1em;margin:0 0 8px;color:#1a1a2e">Tips for Writing Good TYPO3 Page Titles</h3>
-                <ul style="padding-left:1.3em;margin:0 0 8px">
-                    <li>Keep titles <strong>concise</strong> — aim for under 60 characters</li>
-                    <li>Include the <strong>primary keyword</strong> near the beginning</li>
-                    <li>Avoid duplicate titles across the site tree</li>
-                </ul>
-                <p style="margin:0 0 8px">Check for duplicates with this query:</p>
-                <pre style="background:#1e1e2e;color:#cdd6f4;border-radius:4px;padding:8px 12px;font-size:.82em;overflow:auto;margin:0">SELECT title, COUNT(*) c FROM pages
-GROUP BY title HAVING c &gt; 1;</pre>
-            </div>
-        </div>`;
+        var msgHtml =
+            '<div class="message-row assistant mock-screenshot-msg">' +
+            '<div class="avatar avatar-assistant" style="width:28px;height:28px;border-radius:50%;background:#0078d4;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0">AI</div>' +
+            '<div class="message-bubble"><div class="message assistant" style="background:#f0f4ff;border-radius:8px;padding:12px 16px;max-width:600px">' +
+            '<h3 style="font-size:1em;margin:0 0 8px;color:#1a1a2e">Tips for Writing Good Page Titles</h3>' +
+            '<ul style="padding-left:1.3em;margin:0 0 8px">' +
+            '<li>Keep titles <strong>concise</strong> — aim for under 60 characters</li>' +
+            '<li>Include the <strong>primary keyword</strong> near the beginning</li>' +
+            '<li>Avoid duplicate titles across the site tree</li>' +
+            '</ul>' +
+            '<p style="margin:0 0 8px">Check for duplicates with this SQL query:</p>' +
+            '<pre style="background:#1e1e2e;color:#cdd6f4;border-radius:4px;padding:8px 12px;font-size:.82em;overflow:auto;margin:0">SELECT title, COUNT(*) c FROM pages\nGROUP BY title HAVING c &gt; 1;</pre>' +
+            '</div></div>' +
+            '</div>';
 
-        // The messages container is the direct parent of existing message-row elements
-        const existingRow = app.shadowRoot.querySelector('.message-row');
-        if (existingRow?.parentElement) {
+        var existingRow = app.shadowRoot.querySelector('.message-row');
+        if (existingRow && existingRow.parentElement) {
             existingRow.parentElement.insertAdjacentHTML('beforeend', msgHtml);
         } else {
-            // Fallback: inject anywhere visible
-            const root = app.shadowRoot.querySelector('.messages-wrapper, .scroll-area, div');
-            root?.insertAdjacentHTML('beforeend', msgHtml);
+            var root = app.shadowRoot.querySelector('.messages, .scroll-area, div');
+            if (root) root.insertAdjacentHTML('beforeend', msgHtml);
         }
-    });
+    })()`);
 }
 
 /** Select a conversation in the floating panel using the SELECT dropdown. */
@@ -152,19 +200,23 @@ async function injectFileBadge(page: Page): Promise<void> {
 async function screenshotToolbarButton(page: Page): Promise<void> {
     console.log('\n→ ToolbarButton.png');
 
-    // After login, .scaffold-modulemenu is already visible — just find the btn
     const btn = page.locator('.ai-chat-toolbar-btn');
     await btn.waitFor({ timeout: 10000 });
     const btnBox = await btn.boundingBox();
     if (!btnBox) throw new Error('Chat toolbar button not found');
 
-    // Crop: a ~340px strip on the right side of the toolbar row
+    // Apply cosmetic mocks (workspace name, badge)
+    await mockBackend(page);
+
+    // Crop: wide enough to include the chat icon and all toolbar icons to the right.
+    // Use the chat button's own x-position as the left boundary (with 40px padding).
     const viewportSize = page.viewportSize()!;
     const toolbarHeight = Math.round(btnBox.y + btnBox.height + 8);
+    const clipX = Math.max(0, Math.round(btnBox.x) - 40);
     const clip = {
-        x: Math.max(0, viewportSize.width - 340),
+        x: clipX,
         y: 0,
-        width: 340,
+        width: viewportSize.width - clipX,
         height: toolbarHeight,
     };
 
@@ -177,12 +229,14 @@ async function screenshotToolbarButton(page: Page): Promise<void> {
 
 async function screenshotChatModule(page: Page, iframe: FrameLocator): Promise<void> {
     console.log('\n→ ChatModule.png');
-    // Click first conversation to open it
-    const firstConv = iframe.locator('.conversation-item, .chat-item, li').first();
+    // Click the first conversation to open it
+    const firstConv = iframe.locator('.conversation-item').first();
     if (await firstConv.count() > 0) {
         await firstConv.click();
         await page.waitForTimeout(1000);
     }
+    // Replace German conversation titles with English demo titles
+    await mockConversationTitles(page);
     const iframeEl = page.locator('iframe').first();
     await iframeEl.screenshot({ path: path.join(OUT_DIR, 'ChatModule.png') });
     console.log('  ✓ saved ChatModule.png');
@@ -228,6 +282,9 @@ async function screenshotChatPanel(page: Page): Promise<void> {
 
     // Select a conversation so the panel shows real content
     await selectPanelConversation(page);
+
+    // Apply cosmetic mocks (workspace name, badge)
+    await mockBackend(page);
 
     // Full-page screenshot showing panel overlaying the backend
     await page.screenshot({
