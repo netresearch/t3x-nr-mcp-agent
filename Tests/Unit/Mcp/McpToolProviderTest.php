@@ -449,64 +449,6 @@ class McpToolProviderTest extends TestCase
     }
 
     /**
-     * Creates a provider with a fake MCP server subprocess for cache-miss path testing.
-     *
-     * @param array<string, array<string, mixed>> $responses
-     */
-    private function createProviderWithFakeServer(
-        array $responses,
-        ?FrontendInterface $cache = null,
-        ?McpServerRepository $serverRepo = null,
-    ): McpToolProvider {
-        $config = $this->createMock(ExtensionConfiguration::class);
-        $config->method('isMcpEnabled')->willReturn(true);
-
-        if ($serverRepo === null) {
-            $serverRepo = $this->createMock(McpServerRepository::class);
-            $serverRepo->method('findAllActive')->willReturn([
-                $this->makeServerRow('typo3', 'TYPO3 MCP Server'),
-            ]);
-        }
-
-        $cache ??= $this->createMock(FrontendInterface::class);
-
-        $provider = new McpToolProvider($config, $serverRepo, $cache, new NullLogger());
-
-        // Inject a fake connection directly
-        $connection = $this->createFakeServerConnection($responses);
-        $ref = new ReflectionClass($provider);
-
-        // We need to populate activeServers first by calling getToolDefinitions,
-        // but we also need the connection injected before the real open() is attempted.
-        // Instead, inject connection into $connections and also set activeServers.
-        $connProp = $ref->getProperty('connections');
-        $connProp->setValue($provider, ['typo3' => $connection]);
-
-        $serversProp = $ref->getProperty('activeServers');
-        $serversProp->setValue($provider, $serverRepo->findAllActive());
-
-        // Now call getToolDefinitions — it will find the connection already open
-        // Actually we need a different approach: the method will try to open a new connection.
-        // Let me override openConnection behavior by mocking at a higher level.
-        // Reset and use a different strategy: directly call the tools/list through the connection
-        // and simulate what getToolDefinitions does.
-        $connProp->setValue($provider, []);
-        $serversProp->setValue($provider, []);
-
-        // Instead, use reflection to set a pre-opened connection keyed by server_key
-        // We'll need to make the provider think the cache missed but the connection is already there.
-        // The cleanest way: inject the connection, then let getToolDefinitions populate the tools from it.
-        // But getToolDefinitions calls openConnection() which calls McpConnection::open() with proc_open.
-        // So we need to intercept that. Let's use the approach from the old test: inject after construction.
-
-        // Actually, the simplest fix: just don't let it go through openConnection.
-        // We already have a working connection. Let's intercept by pre-populating.
-        $connProp->setValue($provider, ['typo3' => $connection]);
-
-        return $provider;
-    }
-
-    /**
      * @param array<string, array<string, mixed>> $responses
      */
     private function createFakeServerConnection(array $responses): McpConnection

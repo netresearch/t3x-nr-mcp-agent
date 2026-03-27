@@ -268,9 +268,8 @@ final class McpToolProvider implements McpToolProviderInterface
         $command = is_string($server['command'] ?? null) ? $server['command'] : '';
         $arguments = is_string($server['arguments'] ?? null) ? $server['arguments'] : '';
         $url = is_string($server['url'] ?? null) ? $server['url'] : '';
-        $authToken = is_string($server['auth_token'] ?? null) ? $server['auth_token'] : '';
 
-        return 'mcp_tools_' . $serverKey . '_' . md5($command . '|' . $arguments . '|' . $url . '|' . $authToken);
+        return 'mcp_tools_' . $serverKey . '_' . md5($command . '|' . $arguments . '|' . $url);
     }
 
     /**

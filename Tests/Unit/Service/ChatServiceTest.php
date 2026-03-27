@@ -16,7 +16,6 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
-use Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
@@ -78,10 +77,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        $mcpServerRepository = $this->createMock(McpServerRepository::class);
-        $mcpServerRepository->method('findAllActive')->willReturn([]);
-
-        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $resourceFactory, $siteFinder, new DocumentExtractorRegistry([]), $mcpServerRepository);
+        return new ChatService($repository, $config, $mcpProvider, $llmTaskRepository, $adapterRegistry, $resourceFactory, $siteFinder, new DocumentExtractorRegistry([]));
     }
 
     /**
@@ -833,9 +829,7 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $mcpServerRepo = $this->createMock(McpServerRepository::class);
-        $mcpServerRepo->method('findAllActive')->willReturn([]);
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), $mcpServerRepo);
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -865,9 +859,7 @@ class ChatServiceTest extends TestCase
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $mcpServerRepo = $this->createMock(McpServerRepository::class);
-        $mcpServerRepo->method('findAllActive')->willReturn([]);
-        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), $mcpServerRepo);
+        $service = new ChatService($repository, $config, $this->createMock(McpToolProviderInterface::class), $llmTaskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]));
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -1395,6 +1387,78 @@ class ChatServiceTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
+    // buildMcpNamespaceHint: appended to system prompt when MCP is enabled
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function mcpNamespaceHintIsAppendedToSystemPromptWhenServersActive(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(true);
+
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getActiveServers')->willReturn([
+            ['server_key' => 'typo3', 'name' => 'TYPO3 MCP Server'],
+            ['server_key' => 'custom', 'name' => 'Custom Tools'],
+        ]);
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        self::assertStringContainsString('typo3__* for TYPO3 MCP Server', $capturedMessages[0]['content']);
+        self::assertStringContainsString('custom__* for Custom Tools', $capturedMessages[0]['content']);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function mcpNamespaceHintIsNotAppendedWhenMcpDisabled(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, prompts: ['system_prompt' => 'Base prompt']);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        self::assertStringNotContainsString('__*', $capturedMessages[0]['content']);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    // -------------------------------------------------------------------------
     // buildFileContentBlock: extraction fallback via DocumentExtractorRegistry
     // -------------------------------------------------------------------------
 
@@ -1419,9 +1483,6 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(\Netresearch\NrLlm\Provider\ProviderAdapterRegistry::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        $mcpServerRepo = $this->createMock(\Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository::class);
-        $mcpServerRepo->method('findAllActive')->willReturn([]);
-
         return new ChatService(
             $this->createMock(\Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository::class),
             $config,
@@ -1431,7 +1492,6 @@ class ChatServiceTest extends TestCase
             $this->createMock(\TYPO3\CMS\Core\Resource\ResourceFactory::class),
             $this->createMock(\TYPO3\CMS\Core\Site\SiteFinder::class),
             $registry,
-            $mcpServerRepo,
         );
     }
 

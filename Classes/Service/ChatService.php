@@ -16,7 +16,6 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\LlmTaskRepository;
-use Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface;
@@ -44,7 +43,6 @@ final class ChatService implements ChatCapabilitiesInterface
         private readonly ResourceFactory $resourceFactory,
         private readonly SiteFinder $siteFinder,
         private readonly DocumentExtractorRegistry $documentExtractorRegistry,
-        private readonly McpServerRepository $mcpServerRepository,
     ) {}
 
     /**
@@ -576,7 +574,7 @@ final class ChatService implements ChatCapabilitiesInterface
             return '';
         }
 
-        $activeServers = $this->mcpServerRepository->findAllActive();
+        $activeServers = $this->mcpToolProvider->getActiveServers();
         if ($activeServers === []) {
             return '';
         }
