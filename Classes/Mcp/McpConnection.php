@@ -154,6 +154,15 @@ final class McpConnection
         while (microtime(true) < $deadline) {
             $chunk = fgets($this->stdout);
             if ($chunk === false || $chunk === '') {
+                // If the process has already exited without sending a valid response, fail fast
+                if ($this->process !== null) {
+                    $status = proc_get_status($this->process);
+                    if (!$status['running']) {
+                        throw new RuntimeException(
+                            sprintf('MCP server process exited (code %d) without responding', $status['exitcode']),
+                        );
+                    }
+                }
                 usleep(10_000);
                 continue;
             }
