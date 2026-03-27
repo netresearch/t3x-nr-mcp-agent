@@ -8,15 +8,26 @@ use Netresearch\NrMcpAgent\Domain\Repository\McpServerRepository;
 use Netresearch\NrMcpAgent\Mcp\McpConnection;
 use Throwable;
 use TYPO3\CMS\Core\Core\Environment;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Tests connectivity to a single MCP server record and persists the result.
+ *
+ * Note: designed to be instantiated via GeneralUtility::makeInstance() from hook
+ * contexts where the DI container may not be available, so dependencies are
+ * resolved internally rather than via constructor injection.
  */
 final class McpConnectionChecker
 {
-    public function __construct(
-        private readonly McpServerRepository $serverRepository,
-    ) {}
+    private McpServerRepository $serverRepository;
+
+    public function __construct()
+    {
+        $this->serverRepository = new McpServerRepository(
+            GeneralUtility::makeInstance(ConnectionPool::class),
+        );
+    }
 
     /**
      * Opens a connection to the given server, calls tools/list to verify it works,
