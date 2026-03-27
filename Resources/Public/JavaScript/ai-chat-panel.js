@@ -756,12 +756,11 @@ export class AiChatPanel extends LitElement {
     // ── Public API ──────────────────────────────────────────────────────
 
     toggle() {
-        if (this.state === STATES.HIDDEN) {
-            this.state = this._lastVisibleState || STATES.EXPANDED;
+        if (this.state === STATES.HIDDEN || this.state === STATES.COLLAPSED) {
+            this.state = STATES.EXPANDED;
             this.chat.startPollingIfNeeded();
             this.updateComplete.then(() => this.onFocusInput());
         } else {
-            this._lastVisibleState = this.state;
             this.state = STATES.HIDDEN;
             this.chat.stopPolling();
         }
