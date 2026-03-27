@@ -60,33 +60,57 @@ MCP integration
     :type: boolean
     :default: false
 
-    Enable MCP (Model Context Protocol) server
-    integration. Requires `hn/typo3-mcp-server` to be
-    installed.
+    Enable MCP (Model Context Protocol) server integration.
 
-    When enabled, the AI assistant can use TYPO3 content
-    management tools (create pages, edit records, etc.).
-    When disabled, it works as a plain chat without
-    tool access.
+    When enabled, the AI assistant can call tools exposed
+    by any configured MCP server. When disabled, it works
+    as a plain chat without tool access.
 
-..  confval:: mcpServerCommand
-    :type: string
-    :default: *(empty, auto-detected)*
+    MCP servers are configured as records in the TYPO3
+    List module (see *MCP server records* below).
 
-    Path to the MCP server binary. When empty, defaults
-    to ``vendor/bin/typo3`` in the project root.
+MCP server records
+------------------
 
-    Override this if your TYPO3 CLI binary is at a custom
-    path.
+MCP servers are configured as database records, not via
+extension settings. After enabling MCP:
 
-..  confval:: mcpServerArgs
-    :type: string
-    :default: *(empty, auto-detected)*
+1.  Open the **TYPO3 List module** and navigate to
+    **pid = 0** (the root page).
+2.  Create a new record of type **MCP Server**.
+3.  Fill in the fields:
 
-    Comma-separated arguments passed to the MCP server
-    command. When empty, defaults to ``mcp:server``.
+    ``Name``
+        Human-readable label (e.g. *TYPO3 MCP Server*).
 
-    Example: ``mcp:server,--verbose``
+    ``Server key``
+        Machine identifier used to namespace tools
+        (e.g. ``typo3``). Lowercase letters, digits,
+        and underscores only. Must be unique.
+
+    ``Transport``
+        ``stdio`` (subprocess via stdin/stdout) or
+        ``sse`` (HTTP SSE endpoint — not yet implemented).
+
+    For ``stdio`` transport:
+
+    ``Command``
+        Path to the MCP server binary. Defaults to
+        ``vendor/bin/typo3`` in the project root.
+
+    ``Arguments``
+        One argument per line (e.g. ``mcp:server``).
+
+4.  Save the record. The tool cache is flushed
+    automatically.
+
+Tool names are prefixed with the server key to avoid
+collisions between servers. For example, a tool named
+``ReadTable`` on a server with key ``typo3`` becomes
+``typo3__ReadTable`` in the LLM context.
+
+The connection status fields (read-only) show the
+last known state of each server connection.
 
 Chat panel
 ==========

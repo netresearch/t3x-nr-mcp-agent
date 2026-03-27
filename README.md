@@ -75,11 +75,20 @@ The AI Chat module is now available under **Admin Tools > AI Chat**.
 
 ### Enable MCP (optional)
 
+1. Set `enableMcp = 1` in the extension configuration.
+2. Open the **List module** at pid = 0 and create an **MCP Server** record.
+   Set *Transport* to `stdio`, leave *Command* empty (defaults to `vendor/bin/typo3`),
+   and set *Arguments* to `mcp:server` (one argument per line).
+
+If you use [hn/typo3-mcp-server](https://github.com/hauptsache-net/typo3-mcp-server)
+as the stdio backend, install it first:
+
 ```bash
 composer require hn/typo3-mcp-server
 ```
 
-Then set `enableMcp = 1` in the extension configuration.
+Multiple MCP servers can be configured simultaneously. Tool names are prefixed with
+the server key (e.g. `typo3__ReadTable`) so the LLM knows which server to call.
 
 ## DDEV Development
 
