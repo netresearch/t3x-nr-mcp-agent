@@ -285,6 +285,7 @@ export class AiChatPanel extends LitElement {
         .conv-tab .tab-title {
             overflow: hidden;
             text-overflow: ellipsis;
+            min-width: 20px;
         }
         .conv-tab .tab-icon {
             flex-shrink: 0;
@@ -806,6 +807,7 @@ export class AiChatPanel extends LitElement {
     }
 
     onFocusInput() {
+        if (this._renamingUid) return;
         this.updateComplete.then(() => {
             this.renderRoot?.querySelector('.panel-input textarea')?.focus();
         });
