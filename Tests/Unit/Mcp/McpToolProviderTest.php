@@ -248,6 +248,9 @@ class McpToolProviderTest extends TestCase
         self::assertSame('object', $params['type']);
         self::assertIsArray($params['properties']);
         self::assertArrayHasKey('name', $params['properties']);
+        self::assertArrayHasKey('slug', $params['properties']);
+        self::assertSame(['type' => 'string'], $params['properties']['name']);
+        self::assertSame(['type' => 'string'], $params['properties']['slug']);
     }
 
     #[Test]

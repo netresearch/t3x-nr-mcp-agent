@@ -156,8 +156,10 @@ final class McpToolProvider implements McpToolProviderInterface
             try {
                 $this->connections[$serverKey] = $this->openConnection($server);
                 $uidRaw = $server['uid'] ?? 0;
-                $uid = is_int($uidRaw) ? $uidRaw : (is_string($uidRaw) || is_float($uidRaw) ? (int) $uidRaw : 0);
-                $this->serverRepository->updateConnectionStatus($uid, 'ok');
+                $this->serverRepository->updateConnectionStatus(
+                    is_int($uidRaw) ? $uidRaw : (is_string($uidRaw) || is_float($uidRaw) ? (int) $uidRaw : 0),
+                    'ok',
+                );
             } catch (Throwable $e) {
                 $this->logger->error('MCP server connection failed during executeTool', [
                     'server_key' => $serverKey,
