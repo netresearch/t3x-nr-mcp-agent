@@ -21,6 +21,13 @@ services:
   Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface:
     class: Netresearch\NrMcpAgent\Mcp\McpToolProvider
 
+  # Register nr_mcp_agent_tools cache as a DI service via CacheManager factory
+  cache.nr_mcp_agent_tools:
+    class: 'TYPO3\CMS\Core\Cache\Frontend\FrontendInterface'
+    factory: ['@TYPO3\CMS\Core\Cache\CacheManager', 'getCache']
+    arguments:
+      $identifier: 'nr_mcp_agent_tools'
+
   # Inject the MCP tools cache frontend into McpToolProvider
   Netresearch\NrMcpAgent\Mcp\McpToolProvider:
     arguments:
