@@ -93,6 +93,7 @@ final class McpServerCacheFlushHook
                 'The MCP server connected successfully and returned its tool list.',
                 'MCP connection OK',
                 ContextualFeedbackSeverity::OK,
+                true,
             ));
         } else {
             $queue->addMessage(GeneralUtility::makeInstance(
@@ -100,6 +101,7 @@ final class McpServerCacheFlushHook
                 'Could not connect to the MCP server: ' . $error,
                 'MCP connection failed',
                 ContextualFeedbackSeverity::ERROR,
+                true,
             ));
         }
     }
