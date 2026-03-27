@@ -17,10 +17,6 @@ services:
   Netresearch\NrMcpAgent\Service\ChatProcessorInterface:
     class: Netresearch\NrMcpAgent\Service\ExecChatProcessor
 
-  # MCP Tool Provider interface alias
-  Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface:
-    class: Netresearch\NrMcpAgent\Mcp\McpToolProvider
-
   # Register nr_mcp_agent_tools cache as a DI service via CacheManager factory
   cache.nr_mcp_agent_tools:
     class: 'TYPO3\CMS\Core\Cache\Frontend\FrontendInterface'
@@ -28,7 +24,12 @@ services:
     arguments:
       $identifier: 'nr_mcp_agent_tools'
 
-  # Inject the MCP tools cache frontend into McpToolProvider
+  # MCP Tool Provider: interface alias with explicit cache argument to avoid ambiguous autowiring
+  Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface:
+    class: Netresearch\NrMcpAgent\Mcp\McpToolProvider
+    arguments:
+      $cache: '@cache.nr_mcp_agent_tools'
+
   Netresearch\NrMcpAgent\Mcp\McpToolProvider:
     arguments:
       $cache: '@cache.nr_mcp_agent_tools'
