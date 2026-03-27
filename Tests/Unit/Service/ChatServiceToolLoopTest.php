@@ -84,7 +84,6 @@ class ChatServiceToolLoopTest extends TestCase
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(true);
         return $config;
     }
 
@@ -92,6 +91,7 @@ class ChatServiceToolLoopTest extends TestCase
     {
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
         $mcpProvider->method('getToolDefinitions')->willReturn($this->dummyTools);
+        $mcpProvider->method('getActiveServers')->willReturn([]);
         return $mcpProvider;
     }
 
@@ -351,7 +351,7 @@ class ChatServiceToolLoopTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('connect')->willThrowException(new RuntimeException('Connection failed'));
+        $mcpProvider->method('getToolDefinitions')->willThrowException(new RuntimeException('Connection failed'));
 
         $provider = $this->createMock(ToolCapableProviderStub::class);
 
@@ -372,7 +372,7 @@ class ChatServiceToolLoopTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('connect')->willThrowException(new RuntimeException('fail'));
+        $mcpProvider->method('getToolDefinitions')->willThrowException(new RuntimeException('fail'));
         $mcpProvider->expects(self::once())->method('disconnect');
 
         $provider = $this->createMock(ToolCapableProviderStub::class);
@@ -391,7 +391,7 @@ class ChatServiceToolLoopTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $mcpProvider = $this->createMock(McpToolProviderInterface::class);
-        $mcpProvider->method('connect')->willThrowException(
+        $mcpProvider->method('getToolDefinitions')->willThrowException(
             new RuntimeException('Auth failed with Bearer sk-abc123def456 at https://api.example.com/v1/chat'),
         );
 

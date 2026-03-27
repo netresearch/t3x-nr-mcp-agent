@@ -26,7 +26,7 @@ class ExtensionConfigurationTest extends TestCase
             'maxMessageLength' => '5000',
             'maxActiveConversationsPerUser' => '2',
             'mcpServerCommand' => '/usr/bin/typo3',
-            'mcpServerArgs' => 'mcp:server,--verbose',
+            'mcpServerArgs' => 'mcp:server',
         ]);
         GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
     }
@@ -46,26 +46,26 @@ class ExtensionConfigurationTest extends TestCase
     }
 
     #[Test]
-    public function getMcpServerArgsSplitsCommaList(): void
+    public function hasLegacyMcpFieldsReturnsTrueWhenCommandSet(): void
     {
         $config = new ExtensionConfiguration();
-        self::assertSame(['mcp:server', '--verbose'], $config->getMcpServerArgs());
+        self::assertTrue($config->hasLegacyMcpFields());
     }
 
     #[Test]
-    public function getMcpServerArgsTrimsWhitespace(): void
+    public function hasLegacyMcpFieldsReturnsFalseWhenFieldsEmpty(): void
     {
         // Consume the setUp mock first (FIFO queue)
         new ExtensionConfiguration();
 
         $mock = $this->createMock(Typo3ExtensionConfiguration::class);
         $mock->method('get')->with('nr_mcp_agent')->willReturn([
-            'mcpServerArgs' => 'mcp:server , --verbose , --debug',
+            'enableMcp' => '1',
         ]);
         GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
 
         $config = new ExtensionConfiguration();
-        self::assertSame(['mcp:server', '--verbose', '--debug'], $config->getMcpServerArgs());
+        self::assertFalse($config->hasLegacyMcpFields());
     }
 
     #[Test]
@@ -145,10 +145,19 @@ class ExtensionConfigurationTest extends TestCase
     }
 
     #[Test]
-    public function getMcpServerCommandReturnsConfiguredPath(): void
+    public function hasLegacyMcpFieldsReturnsTrueWhenArgsSet(): void
     {
+        // Consume the setUp mock first
+        new ExtensionConfiguration();
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'mcpServerArgs' => 'mcp:server',
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
         $config = new ExtensionConfiguration();
-        self::assertSame('/usr/bin/typo3', $config->getMcpServerCommand());
+        self::assertTrue($config->hasLegacyMcpFields());
     }
 
     #[Test]
@@ -215,33 +224,20 @@ class ExtensionConfigurationTest extends TestCase
     }
 
     #[Test]
-    public function getMcpServerArgsReturnsEmptyArrayWhenEmpty(): void
+    public function hasLegacyMcpFieldsReturnsFalseWhenEmptyStringValues(): void
     {
         // Consume the setUp mock first
         new ExtensionConfiguration();
 
         $mock = $this->createMock(Typo3ExtensionConfiguration::class);
         $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'mcpServerCommand' => '',
             'mcpServerArgs' => '',
         ]);
         GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
 
         $config = new ExtensionConfiguration();
-        self::assertSame([], $config->getMcpServerArgs());
-    }
-
-    #[Test]
-    public function getMcpServerCommandReturnsEmptyDefault(): void
-    {
-        // Consume the setUp mock first
-        new ExtensionConfiguration();
-
-        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
-        $mock->method('get')->with('nr_mcp_agent')->willReturn([]);
-        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
-
-        $config = new ExtensionConfiguration();
-        self::assertSame('', $config->getMcpServerCommand());
+        self::assertFalse($config->hasLegacyMcpFields());
     }
 
     #[Test]

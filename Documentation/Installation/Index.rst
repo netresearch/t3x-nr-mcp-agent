@@ -49,11 +49,19 @@ After installation, run the database migrations:
 
 To enable MCP integration (content management tools):
 
-..  code-block:: bash
+1.  Set ``enableMcp = 1`` in the extension configuration.
+2.  Open the **List module** at pid = 0 and create an
+    **MCP Server** record. For the built-in TYPO3 MCP
+    server, set *Transport* to ``stdio``, leave *Command*
+    empty (defaults to ``vendor/bin/typo3``), and set
+    *Arguments* to ``mcp:server`` (one argument per line).
+3.  If you use `hn/typo3-mcp-server
+    <https://github.com/hauptsache-net/typo3-mcp-server>`__
+    as the stdio backend, install it first::
 
-    composer require hn/typo3-mcp-server
+        composer require hn/typo3-mcp-server
 
-Then set ``enableMcp = 1`` in the extension configuration.
+    Then configure the server record as described above.
 
 DDEV development setup
 ======================

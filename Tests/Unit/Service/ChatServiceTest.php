@@ -112,7 +112,6 @@ class ChatServiceTest extends TestCase
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(true);
         return $config;
     }
 
@@ -1310,32 +1309,27 @@ class ChatServiceTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // LogicalAnd mutation (line 84): isMcpEnabled AND isMcpServerInstalled
+    // Multi-server: disconnect always called, connect never called (lazy)
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function processConversationDoesNotConnectMcpWhenServerNotInstalled(): void
+    public function processConversationAlwaysCallsDisconnect(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(false); // server not installed
-
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('chatCompletion')->willReturn($this->createCompletionResponse('ok'));
 
         $mcpProvider = $this->createMock(\Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface::class);
-        $mcpProvider->expects(self::never())->method('connect');
-        $mcpProvider->expects(self::never())->method('disconnect');
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->expects(self::once())->method('disconnect');
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
-        $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
+        $service = $this->createChatService($provider, mcpProvider: $mcpProvider);
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -1369,29 +1363,97 @@ class ChatServiceTest extends TestCase
     }
 
     #[Test]
-    public function resumeConversationDoesNotConnectMcpWhenServerNotInstalled(): void
+    public function resumeConversationAlwaysCallsDisconnect(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $config = $this->createStub(ExtensionConfiguration::class);
-        $config->method('getLlmTaskUid')->willReturn(1);
-        $config->method('isMcpEnabled')->willReturn(true);
-        $config->method('isMcpServerInstalled')->willReturn(false);
-
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('chatCompletion')->willReturn($this->createCompletionResponse('ok'));
 
         $mcpProvider = $this->createMock(\Netresearch\NrMcpAgent\Mcp\McpToolProviderInterface::class);
-        $mcpProvider->expects(self::never())->method('connect');
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->expects(self::once())->method('disconnect');
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, mcpProvider: $mcpProvider);
+        $service->resumeConversation($conversation);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    // -------------------------------------------------------------------------
+    // buildMcpNamespaceHint: appended to system prompt when MCP is enabled
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function mcpNamespaceHintIsAppendedToSystemPromptWhenServersActive(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('isMcpEnabled')->willReturn(true);
+
+        $mcpProvider = $this->createMock(McpToolProviderInterface::class);
+        $mcpProvider->method('getToolDefinitions')->willReturn([]);
+        $mcpProvider->method('getActiveServers')->willReturn([
+            ['server_key' => 'typo3', 'name' => 'TYPO3 MCP Server'],
+            ['server_key' => 'custom', 'name' => 'Custom Tools'],
+        ]);
 
         $GLOBALS['BE_USER'] = new stdClass();
         $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
 
         $service = $this->createChatService($provider, config: $config, mcpProvider: $mcpProvider);
-        $service->resumeConversation($conversation);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        self::assertStringContainsString('typo3__* for TYPO3 MCP Server', $capturedMessages[0]['content']);
+        self::assertStringContainsString('custom__* for Custom Tools', $capturedMessages[0]['content']);
+
+        unset($GLOBALS['BE_USER']);
+    }
+
+    #[Test]
+    public function mcpNamespaceHintIsNotAppendedWhenMcpDisabled(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $capturedMessages = null;
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$capturedMessages) {
+                $capturedMessages = $messages;
+                return $this->createCompletionResponse('Hi!');
+            },
+        );
+
+        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']->uc = ['lang' => 'default'];
+
+        $service = $this->createChatService($provider, prompts: ['system_prompt' => 'Base prompt']);
+        $service->processConversation($conversation);
+
+        self::assertNotNull($capturedMessages);
+        self::assertStringNotContainsString('__*', $capturedMessages[0]['content']);
 
         unset($GLOBALS['BE_USER']);
     }

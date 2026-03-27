@@ -40,4 +40,17 @@ final class LayerDependencyTest
             ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Mcp'))
             ->because('Controllers must not depend on MCP layer directly');
     }
+
+    public function testHookDoesNotDependOnController(): BuildStep
+    {
+        return PHPat::rule()
+            ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Hook'))
+            ->shouldNotDependOn()
+            ->classes(
+                Selector::inNamespace('Netresearch\NrMcpAgent\Controller'),
+                Selector::inNamespace('Netresearch\NrMcpAgent\Mcp'),
+                Selector::inNamespace('Netresearch\NrMcpAgent\Service'),
+            )
+            ->because('Hook layer must not depend on Controller, Mcp, or Service layers');
+    }
 }

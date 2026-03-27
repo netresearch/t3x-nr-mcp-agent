@@ -53,11 +53,8 @@ final readonly class ChatApiController
         if ($taskUid === 0) {
             $issues[] = 'No nr-llm Task configured. An admin must create an nr-llm Task record and set its UID in Extension Configuration.';
         }
-        $mcpServerInstalled = $this->config->isMcpServerInstalled();
-        if ($mcpEnabled && !$mcpServerInstalled) {
-            $issues[] = 'MCP is enabled but hn/typo3-mcp-server is not installed. Install it via: composer require hn/typo3-mcp-server';
-        } elseif (!$mcpEnabled && $mcpServerInstalled) {
-            $issues[] = 'hn/typo3-mcp-server is installed but MCP is not enabled. Enable MCP in Extension Configuration to allow content actions.';
+        if ($this->config->hasLegacyMcpFields()) {
+            $issues[] = 'Legacy MCP fields (mcpServerCommand/mcpServerArgs) are still set in Extension Configuration. These fields are no longer used. MCP servers are now configured in the List module on PID 0.';
         }
         $capabilities = $this->chatService->getProviderCapabilities();
         return new JsonResponse([
