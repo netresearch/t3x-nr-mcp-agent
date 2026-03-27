@@ -19,8 +19,8 @@ backend users to manage content through natural language.
   a modern chat interface built as a Lit web component.
 - **Content management via MCP** -- Connect to hn/typo3-mcp-server to give the AI
   access to TYPO3 content operations (pages, records, content elements).
-- **Conversation history** -- Persistent conversations with resume, pin, and
-  auto-archive support.
+- **Conversation history** -- Persistent conversations with resume, rename,
+  pin, and auto-archive support.
 - **Background processing** -- Messages are processed via CLI commands (`exec` or
   `worker` mode), keeping the web server responsive.
 - **Floating chat panel** -- A toolbar-triggered bottom panel that stays visible
@@ -76,9 +76,9 @@ The AI Chat module is now available under **Admin Tools > AI Chat**.
 ### Enable MCP (optional)
 
 1. Set `enableMcp = 1` in the extension configuration.
-2. Open the **List module** at pid = 0 and create an **MCP Server** record.
-   Set *Transport* to `stdio`, leave *Command* empty (defaults to `vendor/bin/typo3`),
-   and set *Arguments* to `mcp:server` (one argument per line).
+2. A default **MCP Server** record (`server_key=typo3`, `transport=stdio`,
+   `arguments=mcp:server`) is created automatically on the first chat request.
+   To customise or add additional servers, open the **List module** at pid = 0.
 
 If you use [hn/typo3-mcp-server](https://github.com/hauptsache-net/typo3-mcp-server)
 as the stdio backend, install it first:
