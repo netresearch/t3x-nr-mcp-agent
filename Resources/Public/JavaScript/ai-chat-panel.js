@@ -1185,11 +1185,12 @@ export class AiChatPanel extends LitElement {
                                        .value=${title}
                                        @click=${(e) => e.stopPropagation()}
                                        @keydown=${(e) => {
+                                           e.stopPropagation();
                                            if (e.key === 'Enter') { e.preventDefault(); this._commitRename(c.uid, e.target.value); }
-                                           if (e.key === 'Escape') { e.stopPropagation(); this._renamingUid = null; }
+                                           if (e.key === 'Escape') { this._renamingUid = null; }
                                        }}
                                        @blur=${(e) => this._commitRename(c.uid, e.target.value)}
-                                       ${ref((el) => el && requestAnimationFrame(() => { el.select(); }))}
+                                       ${ref(this._renameInputRef)}
                                 />
                             ` : html`
                                 <span class="tab-title"
@@ -1210,6 +1211,12 @@ export class AiChatPanel extends LitElement {
                         aria-label="${lll('conversations.new')}">${ICON_COMPOSE(14)}</button>
             </div>
         `;
+    }
+
+    // Stable function reference so Lit's ref directive only fires on mount/unmount,
+    // not on every re-render (an inline arrow would be a new reference each render).
+    _renameInputRef(el) {
+        if (el) requestAnimationFrame(() => { el.focus(); el.select(); });
     }
 
     _commitRename(uid, value) {
