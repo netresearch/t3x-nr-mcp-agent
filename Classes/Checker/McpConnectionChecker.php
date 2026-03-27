@@ -59,8 +59,8 @@ final class McpConnectionChecker
 
         try {
             $connection = new McpConnection();
-            $connection->open($command, $args, Environment::getProjectPath());
-            $connection->call('tools/list');
+            $connection->open($command, $args, Environment::getProjectPath(), 5.0);
+            $connection->call('tools/list', [], 5.0);
             $connection->close();
             $this->serverRepository->updateConnectionStatus($uid, 'ok');
             return null;

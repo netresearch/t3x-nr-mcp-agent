@@ -21,7 +21,7 @@ final class McpConnection
     /**
      * @param list<string> $args
      */
-    public function open(string $command, array $args = [], string $cwd = ''): void
+    public function open(string $command, array $args = [], string $cwd = '', float $timeoutSeconds = 30.0): void
     {
         if ($this->process !== null) {
             $this->close();
@@ -59,7 +59,7 @@ final class McpConnection
                 'name' => 'nr-mcp-agent',
                 'version' => '0.1.0',
             ],
-        ]);
+        ], $timeoutSeconds);
 
         $this->notify('notifications/initialized');
         $this->initialized = true;
@@ -74,7 +74,7 @@ final class McpConnection
      * @param array<string, mixed> $params
      * @return array<string, mixed>
      */
-    public function call(string $method, array $params = []): array
+    public function call(string $method, array $params = [], float $timeoutSeconds = 30.0): array
     {
         $id = ++$this->requestId;
 
@@ -87,7 +87,7 @@ final class McpConnection
 
         $this->write($request);
 
-        return $this->readResponse($id);
+        return $this->readResponse($id, $timeoutSeconds);
     }
 
     /**

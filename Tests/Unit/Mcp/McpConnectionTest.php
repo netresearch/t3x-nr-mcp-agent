@@ -112,11 +112,13 @@ class McpConnectionTest extends TestCase
         $method = $reflection->getMethod('open');
 
         $params = $method->getParameters();
-        self::assertCount(3, $params);
+        self::assertCount(4, $params);
         self::assertSame('command', $params[0]->getName());
         self::assertSame('args', $params[1]->getName());
         self::assertSame('cwd', $params[2]->getName());
         self::assertSame('', $params[2]->getDefaultValue());
+        self::assertSame('timeoutSeconds', $params[3]->getName());
+        self::assertSame(30.0, $params[3]->getDefaultValue());
     }
 
     #[Test]
