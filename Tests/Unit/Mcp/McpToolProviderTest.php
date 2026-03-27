@@ -305,6 +305,31 @@ class McpToolProviderTest extends TestCase
     }
 
     #[Test]
+    public function getToolDefinitionsCreatesDefaultRecordWhenNoServersExist(): void
+    {
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->method('get')->willReturn([]);
+
+        $defaultServer = $this->makeServerRow('typo3', 'TYPO3 MCP Server');
+
+        $serverRepo = $this->createMock(McpServerRepository::class);
+        $serverRepo->expects(self::once())->method('initDefault');
+        // First call returns empty, second call returns the default record
+        $serverRepo->method('findAllActive')
+            ->willReturnOnConsecutiveCalls([], [$defaultServer]);
+
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('isMcpEnabled')->willReturn(true);
+
+        $provider = new McpToolProvider($config, $serverRepo, $cache, new NullLogger());
+        $tools = $provider->getToolDefinitions();
+
+        // Default server was loaded; getActiveServers returns it
+        self::assertCount(1, $provider->getActiveServers());
+        self::assertSame('typo3', $provider->getActiveServers()[0]['server_key']);
+    }
+
+    #[Test]
     public function getToolDefinitionsSkipsServersWithEmptyKey(): void
     {
         $cache = $this->createMock(FrontendInterface::class);

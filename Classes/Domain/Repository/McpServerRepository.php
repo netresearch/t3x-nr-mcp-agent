@@ -41,6 +41,26 @@ readonly class McpServerRepository
     }
 
     /**
+     * Creates a default TYPO3 MCP server record if the table is empty.
+     *
+     * Called automatically by McpToolProvider when no server records exist,
+     * covering both UI-based and deployment-based extension configuration.
+     */
+    public function initDefault(): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->insert(self::TABLE, [
+            'pid' => 0,
+            'name' => 'TYPO3 MCP Server',
+            'server_key' => 'typo3',
+            'transport' => 'stdio',
+            'command' => '',
+            'arguments' => 'mcp:server',
+            'sorting' => 1,
+        ]);
+    }
+
+    /**
      * Updates the connection status fields for a given server record.
      */
     public function updateConnectionStatus(int $uid, string $status, string $error = ''): void

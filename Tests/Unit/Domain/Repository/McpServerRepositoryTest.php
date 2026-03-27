@@ -75,6 +75,29 @@ class McpServerRepositoryTest extends TestCase
     }
 
     #[Test]
+    public function initDefaultInsertsDefaultServerRecord(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->expects(self::once())
+            ->method('insert')
+            ->with(
+                'tx_nrmcpagent_mcp_server',
+                self::callback(static function (array $data): bool {
+                    return $data['server_key'] === 'typo3'
+                        && $data['transport'] === 'stdio'
+                        && $data['arguments'] === 'mcp:server'
+                        && $data['pid'] === 0;
+                }),
+            );
+
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getConnectionForTable')->willReturn($connection);
+
+        $repo = new McpServerRepository($connectionPool);
+        $repo->initDefault();
+    }
+
+    #[Test]
     public function updateConnectionStatusWritesStatusAndTimestamp(): void
     {
         $connection = $this->createMock(Connection::class);

@@ -52,6 +52,10 @@ final class McpToolProvider implements McpToolProviderInterface
 
         $this->activeServers = $this->serverRepository->findAllActive();
         if ($this->activeServers === []) {
+            $this->serverRepository->initDefault();
+            $this->activeServers = $this->serverRepository->findAllActive();
+        }
+        if ($this->activeServers === []) {
             return [];
         }
 
