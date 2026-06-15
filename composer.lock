@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "23b2e8d48d59703632dcfeb7264109c3",
+    "content-hash": "b76112b4c098f5c8d60409b261b14801",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -8281,26 +8281,27 @@
         },
         {
             "name": "phpat/phpat",
-            "version": "0.11.10",
+            "version": "0.12.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/carlosas/phpat.git",
-                "reference": "b49a03b5094e72317845286b05c31cfee8a9b8b9"
+                "reference": "5319264270c335f548451209bb0f32b55aa59924"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/carlosas/phpat/zipball/b49a03b5094e72317845286b05c31cfee8a9b8b9",
-                "reference": "b49a03b5094e72317845286b05c31cfee8a9b8b9",
+                "url": "https://api.github.com/repos/carlosas/phpat/zipball/5319264270c335f548451209bb0f32b55aa59924",
+                "reference": "5319264270c335f548451209bb0f32b55aa59924",
                 "shasum": ""
             },
             "require": {
-                "php": "^7.4 || ^8.0",
-                "phpstan/phpstan": "^2.0"
+                "php": "^8.1",
+                "phpstan/phpstan": "^2.1"
             },
             "require-dev": {
-                "friendsofphp/php-cs-fixer": "^3.60",
-                "kubawerlos/php-cs-fixer-custom-fixers": "3.18.*",
-                "phpunit/phpunit": "^9.0 || 10.5.*"
+                "friendsofphp/php-cs-fixer": "^3.87",
+                "kubawerlos/php-cs-fixer-custom-fixers": "3.32.*",
+                "phpunit/phpunit": "^10.5",
+                "vimeo/psalm": "^6.13"
             },
             "type": "phpstan-extension",
             "extra": {
@@ -8331,9 +8332,9 @@
             "description": "PHP Architecture Tester",
             "support": {
                 "issues": "https://github.com/carlosas/phpat/issues",
-                "source": "https://github.com/carlosas/phpat/tree/0.11.10"
+                "source": "https://github.com/carlosas/phpat/tree/0.12.4"
             },
-            "time": "2025-09-10T21:49:39+00:00"
+            "time": "2026-03-17T16:47:43+00:00"
         },
         {
             "name": "phpstan/phpstan",
