@@ -38,7 +38,7 @@
         "captainhook/captainhook": "^5.0",
         "captainhook/hook-installer": "^1.0",
         "friendsofphp/php-cs-fixer": "^3.0",
-        "infection/infection": "^0.29",
+        "infection/infection": "^0.29 || ^0.34",
         "phpat/phpat": "^0.12",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^10.5 || ^11.0",
