@@ -1,9 +1,8 @@
 name: Mutation Testing
 
-# Infection mutation testing is not part of the shared typo3-ci-workflows
-# template (checks.yml / ci.yml), so it lives here as an extra, repo-specific
-# workflow. It preserves the mutation coverage this extension had before the
-# migration to the centralized CI template.
+# Infection mutation testing is not part of the shared typo3-ci-workflows CI
+# matrix (it needs coverage and runs on a single PHP version), so it runs via
+# the dedicated php-mutation reusable instead of an inline job.
 on:
   push:
     branches: [main]
@@ -15,30 +14,8 @@ permissions:
 
 jobs:
   mutation:
-    name: Mutation Testing (PHP 8.3)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920  # v2.20.0
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
-        with:
-          persist-credentials: false
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240  # v2
-        with:
-          php-version: '8.3'
-          tools: composer:v2
-          coverage: xdebug
-
-      - name: Install dependencies
-        run: |
-          composer config --no-plugins audit.block-insecure false
-          composer install --no-interaction --prefer-dist --no-progress
-
-      - name: Mutation testing
-        run: composer ci:mutation:ci
+    uses: netresearch/.github/.github/workflows/php-mutation.yml@main
+    permissions:
+      contents: read
+    with:
+      php-version: '8.3'
