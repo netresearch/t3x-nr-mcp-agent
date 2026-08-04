@@ -28,18 +28,22 @@ final readonly class ChatToolbarItem implements ToolbarItemInterface, RequestAwa
         if ($this->config->getLlmTaskUid() === 0) {
             return false;
         }
+
         $allowed = $this->config->getAllowedGroupIds();
         if ($allowed === []) {
             return true;
         }
+
         $beUser = $this->getBackendUser();
         if ($beUser === null) {
             return false;
         }
+
         // Admin users always have access (consistent with ChatApiController)
         if ($beUser->isAdmin()) {
             return true;
         }
+
         return $this->userIsInAllowedGroup($beUser, $allowed);
     }
 

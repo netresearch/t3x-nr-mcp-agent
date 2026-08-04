@@ -16,17 +16,29 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
 final class Conversation
 {
     private int $uid = 0;
+
     private int $beUser = 0;
+
     private string $title = '';
+
     private string $messages = '';
+
     private int $messageCount = 0;
+
     private string $status = 'idle';
+
     private string $currentRequestId = '';
+
     private string $systemPrompt = '';
+
     private bool $archived = false;
+
     private bool $pinned = false;
+
     private string $errorMessage = '';
+
     private int $tstamp = 0;
+
     /** @phpstan-ignore-next-line property.onlyWritten */
     private int $crdate = 0;
 
@@ -122,23 +134,40 @@ final class Conversation
         if ($this->messages === '') {
             return [];
         }
+
         /** @var list<array<string, mixed>> $decoded */
         $decoded = json_decode($this->messages, true, 512, JSON_THROW_ON_ERROR);
 
         // Normalize tool_calls: OpenAI requires arguments as JSON string, not object.
         // json_decode turns the stored string into an array — re-encode it.
         foreach ($decoded as &$msg) {
-            if (!isset($msg['tool_calls']) || !is_array($msg['tool_calls'])) {
+            if (!isset($msg['tool_calls'])) {
                 continue;
             }
+
+            if (!is_array($msg['tool_calls'])) {
+                continue;
+            }
+
             foreach ($msg['tool_calls'] as &$call) {
-                if (!is_array($call) || !is_array($call['function'] ?? null) || !is_array($call['function']['arguments'] ?? null)) {
+                if (!is_array($call)) {
                     continue;
                 }
+
+                if (!is_array($call['function'] ?? null)) {
+                    continue;
+                }
+
+                if (!is_array($call['function']['arguments'] ?? null)) {
+                    continue;
+                }
+
                 $call['function']['arguments'] = json_encode($call['function']['arguments'], JSON_THROW_ON_ERROR);
             }
+
             unset($call);
         }
+
         unset($msg);
 
         return $decoded;

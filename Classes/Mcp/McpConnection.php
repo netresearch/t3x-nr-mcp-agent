@@ -11,11 +11,15 @@ final class McpConnection
 {
     /** @var resource|null */
     private $process;
+
     /** @var resource|null */
     private $stdin;
+
     /** @var resource|null */
     private $stdout;
+
     private int $requestId = 0;
+
     private bool $initialized = false;
 
     /**
@@ -110,18 +114,22 @@ final class McpConnection
             fclose($this->stdin);
             $this->stdin = null;
         }
+
         if ($this->stdout !== null) {
             fclose($this->stdout);
             $this->stdout = null;
         }
+
         if ($this->process !== null) {
             $status = proc_get_status($this->process);
             if ($status['running']) {
                 proc_terminate($this->process);
             }
+
             @proc_close($this->process);
             $this->process = null;
         }
+
         $this->initialized = false;
     }
 
@@ -135,6 +143,7 @@ final class McpConnection
         if ($this->stdin === null) {
             throw new McpException('MCP connection not open');
         }
+
         fwrite($this->stdin, $data . "\n");
         fflush($this->stdin);
     }
@@ -189,6 +198,7 @@ final class McpConnection
         if ($this->process === null) {
             return;
         }
+
         $status = proc_get_status($this->process);
         if (!$status['running']) {
             throw new McpException(

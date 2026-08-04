@@ -18,6 +18,7 @@ use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Resource\Folder;
@@ -29,6 +30,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class ChatApiController
 {
     private const ERROR_FILE_NOT_FOUND = 'File not found';
+
     private const ERROR_CONVERSATION_PROCESSING = 'Conversation is already processing';
 
     public function __construct(
@@ -50,15 +52,18 @@ final readonly class ChatApiController
         if ($accessDenied !== null) {
             return $accessDenied;
         }
+
         $taskUid = $this->config->getLlmTaskUid();
         $mcpEnabled = $this->config->isMcpEnabled();
         $issues = [];
         if ($taskUid === 0) {
             $issues[] = 'No nr-llm Task configured. An admin must create an nr-llm Task record and set its UID in Extension Configuration.';
         }
+
         if ($this->config->hasLegacyMcpFields()) {
             $issues[] = 'Legacy MCP fields (mcpServerCommand/mcpServerArgs) are still set in Extension Configuration. These fields are no longer used. MCP servers are now configured in the List module on PID 0.';
         }
+
         $capabilities = $this->chatService->getProviderCapabilities();
         return new JsonResponse([
             'available' => $taskUid > 0,
@@ -78,6 +83,7 @@ final readonly class ChatApiController
         if ($accessDenied !== null) {
             return $accessDenied;
         }
+
         $conversations = $this->repository->findByBeUser($this->getBeUserUid());
         $items = array_map(static fn(Conversation $c): array => [
             'uid' => $c->getUid(),
@@ -101,8 +107,10 @@ final readonly class ChatApiController
         if ($accessDenied !== null) {
             return $accessDenied;
         }
+
         $conversation = new Conversation();
         $conversation->setBeUser($this->getBeUserUid());
+
         $uid = $this->repository->add($conversation);
         return new JsonResponse([
             'uid' => $uid,
@@ -130,6 +138,7 @@ final readonly class ChatApiController
             if ($meta === null) {
                 return new JsonResponse(['error' => 'Conversation not found'], 404);
             }
+
             if ($meta['message_count'] <= $afterIndex) {
                 return new JsonResponse([
                     'status' => $meta['status'],
@@ -198,6 +207,7 @@ final readonly class ChatApiController
                 if (!$file->checkActionPermission('read')) {
                     return new JsonResponse(['error' => self::ERROR_FILE_NOT_FOUND], 404);
                 }
+
                 $fileName = $file->getName();
                 $fileMimeType = $file->getMimeType();
             } catch (Exception) {
@@ -262,7 +272,7 @@ final readonly class ChatApiController
             return $accessDenied;
         }
 
-        /** @var array<string, \Psr\Http\Message\UploadedFileInterface> $uploadedFiles */
+        /** @var array<string, UploadedFileInterface> $uploadedFiles */
         $uploadedFiles = $request->getUploadedFiles();
         $file = $uploadedFiles['file'] ?? null;
 
@@ -553,6 +563,7 @@ final readonly class ChatApiController
         if (!$storage->hasFolder($basePath)) {
             return $storage->createFolder($basePath);
         }
+
         return $storage->getFolder($basePath);
     }
 

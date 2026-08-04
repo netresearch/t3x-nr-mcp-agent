@@ -55,6 +55,7 @@ final class McpToolProvider implements McpToolProviderInterface
             $this->serverRepository->initDefault();
             $this->activeServers = $this->serverRepository->findAllActive();
         }
+
         if ($this->activeServers === []) {
             return [];
         }
@@ -79,6 +80,7 @@ final class McpToolProvider implements McpToolProviderInterface
                     $prefixedName = $tool['function']['name'];
                     $this->toolIndex[$prefixedName] = $serverKey;
                 }
+
                 $allTools = array_merge($allTools, $cached);
                 continue;
             }
@@ -97,6 +99,7 @@ final class McpToolProvider implements McpToolProviderInterface
                     if (!is_array($tool)) {
                         continue;
                     }
+
                     /** @var array<string, mixed> $toolData */
                     $toolData = $tool;
                     $originalName = is_string($toolData['name'] ?? null) ? $toolData['name'] : '';
@@ -184,6 +187,7 @@ final class McpToolProvider implements McpToolProviderInterface
             if (!is_array($block)) {
                 continue;
             }
+
             /** @var array<string, mixed> $blockData */
             $blockData = $block;
             if (($blockData['type'] ?? '') === 'text') {
@@ -199,6 +203,7 @@ final class McpToolProvider implements McpToolProviderInterface
         foreach ($this->connections as $connection) {
             $connection->close();
         }
+
         $this->connections = [];
         $this->toolIndex = [];
         $this->activeServers = [];
@@ -258,6 +263,7 @@ final class McpToolProvider implements McpToolProviderInterface
                 return $server;
             }
         }
+
         return null;
     }
 
@@ -300,6 +306,7 @@ final class McpToolProvider implements McpToolProviderInterface
         if (is_int($value)) {
             return $value;
         }
+
         return is_string($value) || is_float($value) ? (int) $value : 0;
     }
 }

@@ -94,6 +94,7 @@ readonly class ConversationRepository
         if (is_int($fetchResult)) {
             return $fetchResult;
         }
+
         return is_string($fetchResult) ? (int) $fetchResult : 0;
     }
 
@@ -221,6 +222,7 @@ readonly class ConversationRepository
             $columns[] = $col . ' = ?';
             $params[] = $val;
         }
+
         // WHERE uid = ? AND status = ? AND deleted = 0
         $params[] = $conversation->getUid();
         $params[] = $expectedStatus->value;

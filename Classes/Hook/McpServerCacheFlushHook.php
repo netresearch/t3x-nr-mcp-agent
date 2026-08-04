@@ -61,6 +61,7 @@ final class McpServerCacheFlushHook
         } else {
             $uid = is_string($resolvedId) || is_float($resolvedId) ? (int) $resolvedId : 0;
         }
+
         if ($uid === 0) {
             return;
         }

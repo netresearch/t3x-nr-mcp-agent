@@ -17,7 +17,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 final class CleanupCommand extends Command
 {
     private const TABLE = 'tx_nrmcpagent_conversation';
+
     private const STUCK_TIMEOUT_SECONDS = 300;
+
     private const DEFAULT_DELETE_AFTER_DAYS = 90;
 
     public function __construct(
