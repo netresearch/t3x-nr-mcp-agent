@@ -1,6 +1,6 @@
 # nr-mcp-agent
 
-<!-- Last Updated: 2026-03-24 -->
+<!-- Last Updated: 2026-08-04 -->
 
 ## Overview
 
@@ -70,3 +70,7 @@ make ci                          # lint + phpstan + test + test-js
 - [Full Documentation](Documentation/) — RST docs (docs.typo3.org)
 - [Testing Guide](Documentation/Developer/Testing.rst) — test pyramid details
 - [CI Workflow](.github/workflows/ci.yml) — matrix build configuration
+
+## Commit Signing
+
+Signed commits are required: `git commit -S --signoff`. The `require-signed-commits` ruleset on the default branch rejects unsigned commits at merge time, and the DCO check additionally requires the `Signed-off-by` trailer. Quickest setup is SSH signing — register your SSH key as a *signing key* on your GitHub account, then `git config --global gpg.format ssh && git config --global user.signingkey ~/.ssh/<key>.pub`.
