@@ -163,6 +163,7 @@ final class ChatService implements ChatCapabilitiesInterface
         if ($systemPrompt !== '') {
             $messages[] = ChatMessage::system($systemPrompt);
         }
+
         foreach ($this->buildLlmMessages($conversation->getDecodedMessages(), $provider) as $message) {
             $messages[] = $message;
         }
@@ -315,6 +316,7 @@ final class ChatService implements ChatCapabilitiesInterface
                 } else {
                     $fileUid = is_numeric($msg['fileUid']) ? (int) $msg['fileUid'] : 0;
                 }
+
                 $file = $this->resourceFactory->getFileObject($fileUid);
                 $localPath = $file->getForLocalProcessing(false);
                 $base64 = base64_encode((string) file_get_contents($localPath));
@@ -336,6 +338,7 @@ final class ChatService implements ChatCapabilitiesInterface
                 ];
             }
         }
+
         return $result;
     }
 
@@ -355,12 +358,14 @@ final class ChatService implements ChatCapabilitiesInterface
                 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . $base64],
             ];
         }
+
         if ($provider instanceof DocumentCapableInterface && $provider->supportsDocuments()) {
             return [
                 'type' => 'document',
                 'source' => ['type' => 'base64', 'media_type' => $mimeType, 'data' => $base64],
             ];
         }
+
         if ($this->documentExtractorRegistry->canExtract($mimeType)) {
             $text = $this->documentExtractorRegistry->extract($localPath, $mimeType);
             return [
@@ -369,6 +374,7 @@ final class ChatService implements ChatCapabilitiesInterface
                     . ($text !== '' ? $text : '[File contained no extractable text]'),
             ];
         }
+
         throw new ChatException(
             'Provider "' . $provider->getIdentifier() . '" does not support document uploads (mime type: ' . $mimeType . ')',
             1742320000,

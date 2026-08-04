@@ -37,6 +37,7 @@ final class PlainTextExtractor implements DocumentExtractorInterface
         if ($content === false) {
             throw new DocumentExtractionException('Failed to read file: ' . $path, 1743000011);
         }
+
         return $content;
     }
 }

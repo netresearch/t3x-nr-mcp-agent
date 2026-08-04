@@ -75,6 +75,7 @@ final readonly class McpConnectionChecker
         if (is_int($value)) {
             return $value;
         }
+
         return is_string($value) || is_float($value) ? (int) $value : 0;
     }
 }

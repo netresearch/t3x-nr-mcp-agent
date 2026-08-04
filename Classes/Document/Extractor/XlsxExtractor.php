@@ -53,11 +53,13 @@ final class XlsxExtractor implements DocumentExtractorInterface
                             $cells[] = (string) $value;
                         }
                     }
+
                     if ($cells !== []) {
                         $parts[] = implode("\t", $cells);
                     }
                 }
             }
+
             return trim(implode("\n", $parts));
         } catch (Throwable $e) {
             throw new DocumentExtractionException('XLSX extraction failed: ' . $e->getMessage(), 1743000051, $e);

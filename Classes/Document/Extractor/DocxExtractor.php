@@ -64,6 +64,7 @@ final class DocxExtractor implements DocumentExtractorInterface
         foreach ($phpWord->getSections() as $section) {
             $parts[] = $this->extractFromSection($section);
         }
+
         return trim(implode("\n", array_filter($parts)));
     }
 
@@ -76,6 +77,7 @@ final class DocxExtractor implements DocumentExtractorInterface
                 $parts[] = $text;
             }
         }
+
         return implode("\n", $parts);
     }
 
@@ -84,6 +86,7 @@ final class DocxExtractor implements DocumentExtractorInterface
         if ($element instanceof Text) {
             return $element->getText() ?? '';
         }
+
         if ($element instanceof TextRun) {
             $parts = [];
             foreach ($element->getElements() as $child) {
@@ -92,8 +95,10 @@ final class DocxExtractor implements DocumentExtractorInterface
                     $parts[] = $text;
                 }
             }
+
             return implode('', $parts);
         }
+
         return '';
     }
 }

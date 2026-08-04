@@ -28,6 +28,7 @@ final readonly class DocumentExtractorRegistry
                 }
             }
         }
+
         return array_values(array_unique($types));
     }
 
@@ -42,6 +43,7 @@ final readonly class DocumentExtractorRegistry
                 }
             }
         }
+
         return array_values(array_unique($extensions));
     }
 
@@ -67,6 +69,7 @@ final readonly class DocumentExtractorRegistry
                 return $extractor;
             }
         }
+
         return null;
     }
 
@@ -76,6 +79,7 @@ final readonly class DocumentExtractorRegistry
         if ($extractor === null) {
             throw new DocumentExtractionException('No extractor available for MIME type: ' . $mimeType, 1743000020);
         }
+
         return $extractor;
     }
 }

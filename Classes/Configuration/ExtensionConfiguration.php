@@ -37,6 +37,7 @@ class ExtensionConfiguration
         if ($groups === '') {
             return [];
         }
+
         return array_map(intval(...), explode(',', $groups));
     }
 

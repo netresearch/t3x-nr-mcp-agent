@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrMcpAgent\Controller\ChatModuleController;
+
 return [
     'nr_mcp_agent_chat' => [
         'parent' => 'tools',
@@ -11,7 +13,7 @@ return [
         'labels' => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_mod.xlf',
         'routes' => [
             '_default' => [
-                'target' => \Netresearch\NrMcpAgent\Controller\ChatModuleController::class . '::indexAction',
+                'target' => ChatModuleController::class . '::indexAction',
             ],
         ],
     ],
