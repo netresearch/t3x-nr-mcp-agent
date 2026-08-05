@@ -24,8 +24,6 @@
         "issues": "https://github.com/netresearch/t3x-nr-mcp-agent/issues",
         "source": "https://github.com/netresearch/t3x-nr-mcp-agent"
     },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
     "require": {
         "php": "^8.2",
         "netresearch/nr-llm": "^0.25",
@@ -35,17 +33,8 @@
         "typo3/cms-core": "^13.4 || ^14.0"
     },
     "require-dev": {
-        "captainhook/captainhook": "^5.0",
-        "captainhook/hook-installer": "^1.0",
-        "friendsofphp/php-cs-fixer": "^3.0",
-        "infection/infection": "^0.29 || ^0.34",
         "netresearch/typo3-ci-workflows": "^1.3",
-        "phpat/phpat": "^0.12",
-        "phpstan/phpstan": "^2.0",
-        "phpunit/phpunit": "^10.5 || ^11.0",
-        "rector/rector": "^2.0",
-        "saschaegerer/phpstan-typo3": "^3.0",
-        "typo3/testing-framework": "^8.0 || ^9.0"
+        "phpunit/phpunit": "^10.5 || ^11.0"
     },
     "suggest": {
         "netresearch/nr-vault": "For secure API key storage (^0.4)",
@@ -66,6 +55,7 @@
         "allow-plugins": {
             "a9f/fractor-extension-installer": true,
             "captainhook/hook-installer": true,
+            "ergebnis/composer-normalize": true,
             "infection/extension-installer": true,
             "phpstan/extension-installer": false,
             "typo3/class-alias-loader": true,
