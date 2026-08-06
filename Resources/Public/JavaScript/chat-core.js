@@ -458,6 +458,12 @@ export class ChatCoreController {
         // modal), getParent() may return `top` or another window instead.  We register the listener on
         // all candidate windows to ensure we receive the message regardless of where getParent() resolves.
         this._falPickerListener = (event) => {
+            // The element browser is part of the backend and always same-origin. Registration
+            // below is already restricted to same-origin frames, but a window holding a handle
+            // to ours — an embedder, or whoever opened us — can post here regardless of where
+            // the listener sits. Without this check such a window could forge an
+            // `elementAdded` message and make the chat attach any sys_file UID it names.
+            if (event.origin !== globalThis.location.origin) return;
             if (event.data?.actionName !== 'typo3:elementBrowser:elementAdded') return;
             if (event.data?.fieldName !== fieldName) return;
             if (!this._falPickerOverlay) return; // guard against duplicate invocations

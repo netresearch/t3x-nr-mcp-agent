@@ -3,6 +3,19 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 
+/**
+ * A private temporary directory for one test.
+ *
+ * `mkdtemp` creates it with mode 0700 under a randomised name. A fixed path
+ * under `os.tmpdir()` is world-writable and predictable, so another user on the
+ * machine can pre-create or symlink it before the test writes — which is what
+ * CodeQL's js/insecure-temporary-file reports. Callers remove the whole
+ * directory in their `finally`.
+ */
+function makeTempDir(): string {
+    return fs.mkdtempSync(path.join(os.tmpdir(), 'nr-mcp-agent-e2e-'));
+}
+
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
 const TYPO3_PASSWORD = process.env.TYPO3_ADMIN_PASSWORD || 'Joh316!!';
 
@@ -99,7 +112,7 @@ test.describe('Chat File Upload', () => {
         await openChatWithConversation(page);
 
         // Create a small temp PNG file for upload
-        const tmpDir = os.tmpdir();
+        const tmpDir = makeTempDir();
         const tmpFile = path.join(tmpDir, 'test-upload.png');
         // Minimal 1x1 white PNG (67 bytes)
         const pngBytes = Buffer.from(
@@ -150,14 +163,14 @@ test.describe('Chat File Upload', () => {
                 expect(badgeVisible).toBe(true);
             }
         } finally {
-            fs.unlinkSync(tmpFile);
+            fs.rmSync(tmpDir, { recursive: true, force: true });
         }
     });
 
     test('file badge shows filename', async ({ page }) => {
         await openChatWithConversation(page);
 
-        const tmpDir = os.tmpdir();
+        const tmpDir = makeTempDir();
         const tmpFile = path.join(tmpDir, 'my-image.png');
         const pngBytes = Buffer.from(
             '89504e470d0a1a0a0000000d49484452000000010000000108020000009001' +
@@ -199,14 +212,14 @@ test.describe('Chat File Upload', () => {
                 expect(badgeText).toContain('my-image.png');
             }
         } finally {
-            fs.unlinkSync(tmpFile);
+            fs.rmSync(tmpDir, { recursive: true, force: true });
         }
     });
 
     test('remove button on file badge clears the attachment', async ({ page }) => {
         await openChatWithConversation(page);
 
-        const tmpDir = os.tmpdir();
+        const tmpDir = makeTempDir();
         const tmpFile = path.join(tmpDir, 'removable.png');
         const pngBytes = Buffer.from(
             '89504e470d0a1a0a0000000d49484452000000010000000108020000009001' +
@@ -264,7 +277,7 @@ test.describe('Chat File Upload', () => {
             });
             expect(badgeGone).toBe(true);
         } finally {
-            fs.unlinkSync(tmpFile);
+            fs.rmSync(tmpDir, { recursive: true, force: true });
         }
     });
 
@@ -275,7 +288,7 @@ test.describe('Chat File Upload', () => {
         // the file icon/badge appears in the chat history above the message.
         // We can test this without a real API by checking the optimistic UI update.
 
-        const tmpDir = os.tmpdir();
+        const tmpDir = makeTempDir();
         const tmpFile = path.join(tmpDir, 'chat-attachment.png');
         const pngBytes = Buffer.from(
             '89504e470d0a1a0a0000000d49484452000000010000000108020000009001' +
@@ -336,7 +349,7 @@ test.describe('Chat File Upload', () => {
             });
             expect(hasFileBadgeInHistory).toBe(true);
         } finally {
-            fs.unlinkSync(tmpFile);
+            fs.rmSync(tmpDir, { recursive: true, force: true });
         }
     });
 });
