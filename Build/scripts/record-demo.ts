@@ -19,7 +19,7 @@
 import { chromium, Page } from 'playwright';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 
@@ -33,6 +33,29 @@ const OUT_DIR   = path.resolve(__dirname, '../../Documentation/Images');
 // Local developer-only demo recorder; writes throwaway video frames to the
 // system temp dir (cross-platform, no hardcoded /tmp).
 const TMP_DIR   = path.join(os.tmpdir(), 'nr-mcp-demo');
+
+// Standard install locations for the docker CLI, in lookup order.
+//
+// Passing the bare name "docker" to execFileSync resolves it through PATH, so
+// whichever directory happens to come first there decides which binary runs
+// (Sonar typescript:S4036). Restricting the lookup to these paths makes the
+// choice independent of the caller's environment.
+const DOCKER_CANDIDATES = [
+    '/usr/bin/docker',
+    '/usr/local/bin/docker',
+    '/opt/homebrew/bin/docker',
+];
+
+function resolveDockerBinary(): string {
+    const found = DOCKER_CANDIDATES.find(candidate => fs.existsSync(candidate));
+    if (found === undefined) {
+        throw new Error(
+            'docker CLI not found in ' + DOCKER_CANDIDATES.join(', ')
+            + ' — install Docker, or add its location to DOCKER_CANDIDATES.',
+        );
+    }
+    return found;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -381,15 +404,26 @@ async function main(): Promise<void> {
     // 2.5× speed-up (setpts=0.4), 12 fps, 1200px wide, optimised palette
     const gifPath = path.join(OUT_DIR, 'AgentDemo.gif');
     console.log('\n→ converting to GIF via Docker…');
-    execSync(
-        `docker run --rm ` +
-        `-v "${TMP_DIR}:/input" ` +
-        `-v "${OUT_DIR}:/output" ` +
-        `jrottenberg/ffmpeg:4.3-alpine ` +
-        `-y -i /input/demo.webm ` +
-        `-vf "setpts=0.4*PTS,fps=12,scale=1200:-1:flags=lanczos,` +
-        `split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3" ` +
-        `-loop 0 /output/AgentDemo.gif`,
+    // execFileSync, not execSync: the two mount paths are interpolated, and
+    // neither is under our control. TMP_DIR derives from os.tmpdir(), which
+    // reads TMPDIR/TEMP from the environment, and OUT_DIR from __dirname, so
+    // it carries whatever the checkout path happens to be. In a shell string a
+    // metacharacter in either one escapes the command; passed as argv elements
+    // they are inert.
+    execFileSync(
+        resolveDockerBinary(),
+        [
+            'run', '--rm',
+            '-v', `${TMP_DIR}:/input`,
+            '-v', `${OUT_DIR}:/output`,
+            'jrottenberg/ffmpeg:4.3-alpine',
+            '-y', '-i', '/input/demo.webm',
+            // 2.5× speed-up (setpts=0.4), 12 fps, 1200px wide, optimised palette.
+            '-vf', 'setpts=0.4*PTS,fps=12,scale=1200:-1:flags=lanczos,'
+                + 'split[s0][s1];[s0]palettegen=max_colors=128[p];'
+                + '[s1][p]paletteuse=dither=bayer:bayer_scale=3',
+            '-loop', '0', '/output/AgentDemo.gif',
+        ],
         { stdio: 'inherit' }
     );
 
