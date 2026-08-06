@@ -10,7 +10,7 @@ Requirements
 *   TYPO3 v13.4+ or v14.x
 *   PHP 8.2+
 *   `netresearch/nr-llm <https://github.com/netresearch/
-    t3x-nr-llm>`__ (^0.22) -- LLM abstraction layer
+    t3x-nr-llm>`__ (^0.26) -- LLM abstraction layer
 
 Optional:
 
