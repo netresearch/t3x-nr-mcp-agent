@@ -34,6 +34,29 @@ const OUT_DIR   = path.resolve(__dirname, '../../Documentation/Images');
 // system temp dir (cross-platform, no hardcoded /tmp).
 const TMP_DIR   = path.join(os.tmpdir(), 'nr-mcp-demo');
 
+// Standard install locations for the docker CLI, in lookup order.
+//
+// Passing the bare name "docker" to execFileSync resolves it through PATH, so
+// whichever directory happens to come first there decides which binary runs
+// (Sonar typescript:S4036). Restricting the lookup to these paths makes the
+// choice independent of the caller's environment.
+const DOCKER_CANDIDATES = [
+    '/usr/bin/docker',
+    '/usr/local/bin/docker',
+    '/opt/homebrew/bin/docker',
+];
+
+function resolveDockerBinary(): string {
+    const found = DOCKER_CANDIDATES.find(candidate => fs.existsSync(candidate));
+    if (found === undefined) {
+        throw new Error(
+            'docker CLI not found in ' + DOCKER_CANDIDATES.join(', ')
+            + ' — install Docker, or add its location to DOCKER_CANDIDATES.',
+        );
+    }
+    return found;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -388,7 +411,7 @@ async function main(): Promise<void> {
     // metacharacter in either one escapes the command; passed as argv elements
     // they are inert.
     execFileSync(
-        'docker',
+        resolveDockerBinary(),
         [
             'run', '--rm',
             '-v', `${TMP_DIR}:/input`,
