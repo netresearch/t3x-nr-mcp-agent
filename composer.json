@@ -37,7 +37,7 @@
         "phpunit/phpunit": "^10.5 || ^11.0"
     },
     "suggest": {
-        "netresearch/nr-vault": "For secure API key storage (^0.13)",
+        "netresearch/nr-vault": "For secure API key storage (^0.14)",
         "hn/typo3-mcp-server": "For TYPO3 content management tools (^1.0)",
         "phpoffice/phpspreadsheet": "^3.0 — Required for XLSX upload support"
     },

@@ -18,7 +18,7 @@ Optional:
     hauptsache-net/typo3-mcp-server>`__ (^1.0) --
     for TYPO3 content management tools
 *   `netresearch/nr-vault <https://github.com/netresearch/
-    t3x-nr-vault>`__ (^0.13) -- for secure API key storage
+    t3x-nr-vault>`__ (^0.14) -- for secure API key storage
 
 Quick start
 ===========
