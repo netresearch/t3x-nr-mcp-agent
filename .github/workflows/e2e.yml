@@ -1,7 +1,7 @@
 name: E2E Tests
 
 # E2E tests require a running TYPO3 instance.
-# Triggered manually via workflow_dispatch or automatically on pushes to main.
+# Triggered manually via workflow_dispatch; there is no automatic trigger.
 # For local runs: make test-e2e (requires DDEV)
 on:
   workflow_dispatch:
