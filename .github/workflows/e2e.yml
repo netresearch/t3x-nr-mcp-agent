@@ -11,6 +11,12 @@ on:
         required: false
         default: 'https://v13.nr-mcp-agent.ddev.site:33001'
 
+# The job only reads the repository and uploads an artifact; neither needs
+# more than read access to contents. Without this block the job receives the
+# repository's default token scope, which is broader than it uses.
+permissions:
+  contents: read
+
 jobs:
   e2e:
     name: Playwright E2E
