@@ -19,7 +19,7 @@
 import { chromium, Page } from 'playwright';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 
@@ -381,15 +381,26 @@ async function main(): Promise<void> {
     // 2.5× speed-up (setpts=0.4), 12 fps, 1200px wide, optimised palette
     const gifPath = path.join(OUT_DIR, 'AgentDemo.gif');
     console.log('\n→ converting to GIF via Docker…');
-    execSync(
-        `docker run --rm ` +
-        `-v "${TMP_DIR}:/input" ` +
-        `-v "${OUT_DIR}:/output" ` +
-        `jrottenberg/ffmpeg:4.3-alpine ` +
-        `-y -i /input/demo.webm ` +
-        `-vf "setpts=0.4*PTS,fps=12,scale=1200:-1:flags=lanczos,` +
-        `split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3" ` +
-        `-loop 0 /output/AgentDemo.gif`,
+    // execFileSync, not execSync: the two mount paths are interpolated, and
+    // neither is under our control. TMP_DIR derives from os.tmpdir(), which
+    // reads TMPDIR/TEMP from the environment, and OUT_DIR from __dirname, so
+    // it carries whatever the checkout path happens to be. In a shell string a
+    // metacharacter in either one escapes the command; passed as argv elements
+    // they are inert.
+    execFileSync(
+        'docker',
+        [
+            'run', '--rm',
+            '-v', `${TMP_DIR}:/input`,
+            '-v', `${OUT_DIR}:/output`,
+            'jrottenberg/ffmpeg:4.3-alpine',
+            '-y', '-i', '/input/demo.webm',
+            // 2.5× speed-up (setpts=0.4), 12 fps, 1200px wide, optimised palette.
+            '-vf', 'setpts=0.4*PTS,fps=12,scale=1200:-1:flags=lanczos,'
+                + 'split[s0][s1];[s0]palettegen=max_colors=128[p];'
+                + '[s1][p]paletteuse=dither=bayer:bayer_scale=3',
+            '-loop', '0', '/output/AgentDemo.gif',
+        ],
         { stdio: 'inherit' }
     );
 
