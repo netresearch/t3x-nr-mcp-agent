@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-07
+
+### Changed
+
+- Require `netresearch/nr-llm` `^0.26.0` (was `^0.25`), and suggest
+  `netresearch/nr-vault` `^0.14` (was `^0.4`). nr-llm 0.26 is the first release
+  requiring nr-vault `^0.14`, so the suggested version is only installable from
+  this release on. The installation requirements named nr-llm `^0.22` against a
+  `^0.25` constraint; both now state `^0.26` (#92).
+
+  Operator note: nr-vault 0.14 replaces its admin-only model with grantable
+  operation permissions. Backend users who reach an API key through nr-llm need
+  `tx_nrvault:secret.use`, and `secret.create` to store one.
+
+### Fixed
+
+- The chat iframe's `postMessage` handler did not check the message origin, so
+  any framing page could post to it. Each E2E test also now gets a private temp
+  directory instead of sharing one (#93).
+- The ffmpeg container runs without a shell, removing the shell-interpretation
+  step from a path that handles user-supplied filenames (#94).
+
 ## [0.7.0] - 2026-07-24
 
 ### Changed
