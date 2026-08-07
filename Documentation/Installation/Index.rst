@@ -10,7 +10,7 @@ Requirements
 *   TYPO3 v13.4+ or v14.x
 *   PHP 8.2+
 *   `netresearch/nr-llm <https://github.com/netresearch/
-    t3x-nr-llm>`__ (^0.22) -- LLM abstraction layer
+    t3x-nr-llm>`__ (^0.26) -- LLM abstraction layer
 
 Optional:
 
@@ -18,7 +18,7 @@ Optional:
     hauptsache-net/typo3-mcp-server>`__ (^1.0) --
     for TYPO3 content management tools
 *   `netresearch/nr-vault <https://github.com/netresearch/
-    t3x-nr-vault>`__ (^0.4) -- for secure API key storage
+    t3x-nr-vault>`__ (^0.14) -- for secure API key storage
 
 Quick start
 ===========
