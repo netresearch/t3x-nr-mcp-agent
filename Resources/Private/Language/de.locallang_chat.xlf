@@ -81,6 +81,18 @@
                 <source>Select or start a chat</source>
                 <target>Chat auswählen oder neuen starten</target>
             </trans-unit>
+            <trans-unit id="chat.empty.title" resname="chat.empty.title" approved="yes">
+                <source>Ask about this TYPO3 installation</source>
+                <target>Frag zu dieser TYPO3-Installation</target>
+            </trans-unit>
+            <trans-unit id="chat.empty.body" resname="chat.empty.body" approved="yes">
+                <source>The assistant can look things up in this installation and act on them — find pages and content, explain how something is configured, and prepare changes for you to review.</source>
+                <target>Der Assistent kann in dieser Installation nachsehen und darin arbeiten: Seiten und Inhalte finden, erklären wie etwas konfiguriert ist, und Änderungen vorbereiten, die du prüfen kannst.</target>
+            </trans-unit>
+            <trans-unit id="chat.empty.hint" resname="chat.empty.hint" approved="yes">
+                <source>Earlier conversations stay in the list on the left.</source>
+                <target>Frühere Unterhaltungen bleiben links in der Liste.</target>
+            </trans-unit>
             <trans-unit id="chat.notAvailable" resname="chat.notAvailable">
                 <source>Chat not available. Please contact your administrator.</source>
                 <target>Chat nicht verfügbar. Bitte kontaktiere deinen Administrator.</target>

@@ -63,6 +63,15 @@
             <trans-unit id="chat.selectOrCreate" resname="chat.selectOrCreate">
                 <source>Select or start a chat</source>
             </trans-unit>
+            <trans-unit id="chat.empty.title" resname="chat.empty.title">
+                <source>Ask about this TYPO3 installation</source>
+            </trans-unit>
+            <trans-unit id="chat.empty.body" resname="chat.empty.body">
+                <source>The assistant can look things up in this installation and act on them — find pages and content, explain how something is configured, and prepare changes for you to review.</source>
+            </trans-unit>
+            <trans-unit id="chat.empty.hint" resname="chat.empty.hint">
+                <source>Earlier conversations stay in the list on the left.</source>
+            </trans-unit>
             <trans-unit id="chat.notAvailable" resname="chat.notAvailable">
                 <source>Chat not available. Please contact your administrator.</source>
             </trans-unit>
