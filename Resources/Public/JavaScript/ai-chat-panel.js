@@ -14,6 +14,9 @@ const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 320;
 const MIN_HEIGHT = 120;
 const COLLAPSED_HEIGHT = 36;
+// How much of the panel must stay on screen when it is pushed off an edge —
+// enough of the header to grab and drag it back.
+const MIN_VISIBLE = 64;
 const STORAGE_KEY = 'ai-chat-panel';
 
 /**
@@ -769,14 +772,37 @@ export class AiChatPanel extends LitElement {
         return this._defaultPosition();
     }
 
-    /** Constrain position so the panel stays within the viewport */
+    /**
+     * Constrain position so the panel stays REACHABLE — not so it stays whole.
+     *
+     * Keeping it entirely inside the viewport meant it always covered part of
+     * whatever was underneath, and the only ways out were collapsing it or
+     * closing it. It may now hang off the left, right or bottom edge, down to a
+     * MIN_VISIBLE margin that is still large enough to grab and pull back.
+     *
+     * The top edge is the exception and stays closed: dragging happens by the
+     * header, so a panel allowed above y=0 loses its own handle and cannot be
+     * recovered at all. A loosened clamp that lets the panel be lost is a worse
+     * bug than the one this fixes.
+     */
     _constrainPosition(x, y) {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
         const w = this._width;
         const h = this.state === STATES.COLLAPSED ? COLLAPSED_HEIGHT : this._height;
-        x = Math.max(0, Math.min(x, vw - w));
-        y = Math.max(0, Math.min(y, vh - h));
+
+        x = Math.max(MIN_VISIBLE - w, Math.min(x, vw - MIN_VISIBLE));
+        y = Math.max(0, Math.min(y, vh - MIN_VISIBLE));
+
+        // A panel narrower or shorter than the margin would otherwise be pushed
+        // further out than its own size allows.
+        if (w < MIN_VISIBLE) {
+            x = Math.max(0, Math.min(x, vw - w));
+        }
+        if (h < MIN_VISIBLE) {
+            y = Math.max(0, Math.min(y, vh - h));
+        }
+
         return {x, y};
     }
 
