@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-10
+
+### Added
+
+- The chat empty state carries the primary action and an explanation instead of
+  the bare sentence "Select or start a chat". The only way to start one was an
+  icon-only button in the sidebar header, so the screen named a choice and hid
+  both of its options. Both surfaces get it, the full-page module and the popup.
+- The panel can be detached into a window of its own via Document
+  Picture-in-Picture — a chrome-less window that floats above other
+  applications and can be dragged anywhere, second monitor included. A DOM
+  element cannot leave the browser window, so this is the only way to put the
+  chat "next to the browser". Chromium only; the button is absent elsewhere
+  rather than failing, because window.open() yields a window with browser
+  chrome that cannot float above other applications.
+
+### Changed
+
+- The panel may now be pushed off the left, right or bottom edge, down to a
+  64px margin. It was clamped entirely inside the viewport, so it always
+  covered part of what was underneath and the only ways out were collapsing or
+  closing it. The top edge stays closed: dragging happens by the header, so a
+  panel above y=0 loses its own handle.
+- Requires nr-llm ^0.28.
+
+### Fixed
+
+- A detached panel fills its window instead of keeping the main window's
+  position:fixed coordinates, which placed it outside a window a fraction of
+  that size — it opened empty while every DOM assertion passed.
+
+### Tests
+
+- The Lit components render under Jest now instead of being checked by source
+  analysis. `lit` resolves through the TYPO3 importmap at runtime, which the
+  suites read as "cannot be tested"; it is a plain npm package, so mapping the
+  specifier makes them render under jsdom. A grep cannot tell whether a button
+  is reachable or what it does when clicked, which is exactly what was wrong.
+
 ## [0.8.0] - 2026-08-07
 
 ### Changed
