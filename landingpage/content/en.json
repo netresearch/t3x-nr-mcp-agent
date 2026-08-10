@@ -1,0 +1,218 @@
+{
+  "lang": "en",
+  "htmlLang": "en",
+  "ogLocale": "en_GB",
+  "otherLang": "de",
+  "otherLabel": "Deutsch",
+  "skipToContent": "Skip to content",
+
+  "meta": {
+    "title": "nr-mcp-agent — a controlled AI assistant for the TYPO3 backend",
+    "description": "A backend assistant that reads by default and asks for a human approval before it writes. Alpha: for controlled evaluation, not for unattended production use.",
+    "ogImageAlt": "nr-mcp-agent — a controlled AI assistant for the TYPO3 backend"
+  },
+
+  "nav": {
+    "label": "Sections",
+    "items": [
+      { "href": "#works", "label": "What works" },
+      { "href": "#not-promised", "label": "What is not promised" },
+      { "href": "#scenarios", "label": "Scenarios" },
+      { "href": "#permissions", "label": "Permissions" },
+      { "href": "#security", "label": "Security" }
+    ],
+    "docs": "Documentation",
+    "repo": "GitHub"
+  },
+
+  "hero": {
+    "eyebrow": "TYPO3 extension · nr_mcp_agent",
+    "title": "A controlled AI assistant for the TYPO3 backend.",
+    "lead": "Editors ask in the backend they already work in. The assistant reads what they may already see, and asks for an explicit approval before it changes anything.",
+    "alphaLabel": "Alpha",
+    "alphaNote": "For controlled evaluation, not for unattended production use. Interfaces, tool contracts and configuration can still change between releases.",
+    "ctaBusiness": "Evaluate a backend agent under control",
+    "ctaTechnical": "Read the documentation"
+  },
+
+  "status": {
+    "heading": "Status",
+    "stageLabel": "Maturity",
+    "releaseLabel": "Latest release",
+    "mainLabel": "Main branch",
+    "verifiedLabel": "Page last reviewed",
+    "requirementsLabel": "Requires",
+    "note": "Latest release and main branch are different values, and the review date is a third. A difference between them is not a contradiction.",
+    "stages": {
+      "concept": "Concept",
+      "poc": "Proof of concept",
+      "alpha": "Alpha",
+      "beta": "Beta",
+      "stable": "Stable",
+      "maintenance": "Maintenance"
+    }
+  },
+
+  "answers": {
+    "heading": "What you can tell in ten seconds",
+    "lead": "The six questions an evaluator asks first, answered before you scroll.",
+    "items": [
+      { "q": "Alpha or stable?", "a": "Alpha. Evaluate it with someone watching." },
+      { "q": "Read only, or write too?", "a": "Read by default. Writing tools ship disabled." },
+      { "q": "Where is a human required?", "a": "Before every write. The run suspends until someone approves or rejects." },
+      { "q": "What risks remain?", "a": "Prompt injection, a wrong proposal approved without reading it, and too large a tool set." },
+      { "q": "How is use limited?", "a": "Per-group tool release, TYPO3 permissions, and nr-llm's budgets." },
+      { "q": "How do I try it?", "a": "Install it, point it at an nr-llm configuration, release a read-only tool group." }
+    ]
+  },
+
+  "works": {
+    "heading": "What works today",
+    "lead": "Stated as what it does, not as what it will do.",
+    "items": [
+      { "title": "Backend chat", "body": "A conversation in the TYPO3 backend, for the user who is signed in. No separate tool, no separate login." },
+      { "title": "Retrieving information", "body": "The assistant can look things up through the tools an administrator released, and summarise what it found." },
+      { "title": "Released MCP tools only", "body": "Tools are configured per server and per permission. Nothing is available by default; the empty set is the starting point." },
+      { "title": "Conversation history", "body": "A run can be re-read afterwards. Without that there is nothing to review." },
+      { "title": "Known content operations", "body": "The content operations documented for the current release, each one either read-only or approval-gated. The documentation lists them; this page does not restate the list, because a list restated is a list that goes stale." }
+    ]
+  },
+
+  "notPromised": {
+    "heading": "What is not promised",
+    "lead": "Five things the extension does not do. If you need one of them, this is the wrong tool today.",
+    "items": [
+      "Autonomous CMS operation. It has no schedule, no trigger and no unattended mode.",
+      "Unrestricted write access. Writing tools are released per group and gated per call.",
+      "Automatic approval. There is no timeout that approves on your behalf.",
+      "A faultless substitute for an editor. It proposes; a person decides.",
+      "Unreviewed actions. Everything that changes something leaves an audit record with the approver's decision."
+    ]
+  },
+
+  "scenarios": {
+    "heading": "Three controlled scenarios",
+    "lead": "In order of how much trust each one needs.",
+    "items": [
+      { "step": "1", "title": "Find and summarise", "body": "Ask where a topic is covered across the pages the acting user may see, and get a summary with the records it came from.", "control": "Read-only tools. No approval needed, because nothing changes." },
+      { "step": "2", "title": "Prepare a change", "body": "Ask for a proposed rewrite, a translation or a set of alt texts. The result is a proposal in the conversation, not an edit.", "control": "Still read-only. The editor copies what they want, or asks for another version." },
+      { "step": "3", "title": "Execute an approved change", "body": "With a writing tool released, the assistant proposes the exact change and waits. On approval it executes; on rejection it stops.", "control": "Approval gate, audit record, TYPO3 permissions. The approver reads the proposal — that is the control, and skipping it removes it." }
+    ]
+  },
+
+  "permissions": {
+    "heading": "Who may do what",
+    "lead": "Six layers, each of which can stop a run on its own.",
+    "columns": { "layer": "Layer", "effect": "What it decides" },
+    "rows": [
+      { "layer": "Backend user role", "effect": "Whether the person may use the assistant at all." },
+      { "layer": "Released tools", "effect": "Which MCP tools exist for that group. The default is none." },
+      { "layer": "Read or write", "effect": "Whether a tool changes anything. Writing tools ship disabled." },
+      { "layer": "Explicit approval", "effect": "Whether a specific write actually happens, decided by a person, per call." },
+      { "layer": "TYPO3 permissions", "effect": "Whether the record is reachable for the acting user. Not bypassed." },
+      { "layer": "Audit record", "effect": "What happened afterwards: tool, user, arguments, decision." }
+    ],
+    "cancelHeading": "Cancellation and failure",
+    "cancel": "A rejected approval stops the run and records the rejection. A failing tool call surfaces the error rather than retrying silently, and a run that exceeds its nr-llm budget stops with an explicit reason."
+  },
+
+  "stack": {
+    "heading": "How it relates to nr-llm",
+    "lead": "This extension is the agent interface. nr-llm is the controlled AI base underneath it.",
+    "items": [
+      { "title": "Provider and model", "body": "Chosen in nr-llm. This extension holds no key and talks to no provider directly." },
+      { "title": "Budgets", "body": "nr-llm's per-user request, token and cost limits apply to agent runs like any other AI use." },
+      { "title": "Cost analytics", "body": "Agent usage shows up in the same analytics as every other AI feature on the site." },
+      { "title": "Fallbacks", "body": "Provider fallback chains are configured once in nr-llm and apply here too." },
+      { "title": "Where the boundary is", "body": "nr-mcp-agent decides what the agent may attempt. nr-llm decides which model answers, at what cost, for whom." }
+    ],
+    "linkLabel": "nr-llm — the AI control plane",
+    "linkHref": "https://netresearch.github.io/t3x-nr-llm/"
+  },
+
+  "security": {
+    "heading": "Security",
+    "lead": "The risks an agent brings, named rather than implied.",
+    "items": [
+      { "title": "Excessive agency", "body": "The most common failure of an agent is being allowed to do too much. Release the smallest useful tool set; the default of none exists for that reason." },
+      { "title": "Prompt injection", "body": "Content the agent reads can contain instructions. The tool release list and the approval gate bound the damage; they do not prevent the attempt." },
+      { "title": "Tool poisoning", "body": "A tool description is part of the model's input. Release tools from sources you control, and read what a tool declares before releasing it." },
+      { "title": "Data disclosure", "body": "The agent can only reach what the acting user may reach. That makes the acting user's permissions the disclosure boundary — review them before you widen access." },
+      { "title": "Permission escalation", "body": "Approval is per call and cannot be delegated to the agent. An approver who approves without reading is the escalation path that remains." },
+      { "title": "Cost and resource limits", "body": "nr-llm's budgets apply. A run that exceeds them stops with an explicit reason rather than continuing quietly." },
+      { "title": "Logging and traceability", "body": "Tool, user, arguments and decision are recorded for every call, which is what makes an after-the-fact review possible." }
+    ]
+  },
+
+  "evidence": {
+    "heading": "Evidence",
+    "lead": "What backs the statements above.",
+    "items": [
+      { "title": "Source code", "body": "Public, with its release history and changelog.", "label": "Repository" },
+      { "title": "Technical documentation", "body": "Installation, configuration, MCP server setup, the tool contracts and the developer reference.", "label": "Documentation" },
+      { "title": "Releases", "body": "Every release with its notes, so a change in behaviour is traceable to a version.", "label": "Releases" }
+    ],
+    "limitsHeading": "What is not claimed",
+    "limits": [
+      "No conformity claim for the EU AI Act, the NIST AI Risk Management Framework or ISO/IEC 42001. The extension supports controls; whether an organisation is conformant is a legal and organisational assessment.",
+      "No productivity or savings figure. We do not know your editorial volumes.",
+      "No guarantee about model behaviour. The controls bound what the agent may do, not what the model may say."
+    ]
+  },
+
+  "capabilityCard": {
+    "heading": "AI capability card",
+    "intro": "The same fields on every Netresearch AI product, so they can be compared rather than admired.",
+    "labels": {
+      "intended_purpose": "Intended purpose",
+      "excluded_uses": "Excluded uses",
+      "stage": "Maturity",
+      "models": "Models and providers",
+      "data": "Data processed",
+      "processing_location": "Processing location",
+      "human_oversight": "Human oversight",
+      "permissions": "Permissions",
+      "logging": "Logging",
+      "retention": "Retention",
+      "cost_control": "Cost control",
+      "security_controls": "Security controls",
+      "known_limitations": "Known limitations",
+      "last_verified": "Last reviewed"
+    },
+    "locations": {
+      "browser": "In the browser",
+      "own-server": "Your own server",
+      "external-provider": "An external provider"
+    }
+  },
+
+  "install": {
+    "heading": "Trying it out",
+    "lead": "Four steps. Stop after the third if you only want to see what it reads.",
+    "steps": [
+      { "title": "Install", "body": "composer require netresearch/nr-mcp-agent" },
+      { "title": "Point it at nr-llm", "body": "Choose an existing nr-llm configuration. Provider, model and budget come from there." },
+      { "title": "Release a read-only tool group", "body": "Start with the smallest set that makes the assistant useful for one task." },
+      { "title": "Only then consider a writing tool", "body": "Release it for one group, on one kind of record, and read what it proposes before approving." }
+    ]
+  },
+
+  "cta": {
+    "heading": "Evaluate a backend agent under control",
+    "body": "We work through which tools to release, who approves what, and what an alpha evaluation has to produce before it can become anything more.",
+    "business": "Evaluate a backend agent under control",
+    "technical": "Read the documentation",
+    "source": "View the source"
+  },
+
+  "footer": {
+    "company": "Netresearch DTT GmbH",
+    "source": "Source on GitHub",
+    "docs": "Documentation",
+    "contact": "Contact",
+    "imprint": "Imprint",
+    "privacy": "Privacy",
+    "reviewed": "Page last reviewed",
+    "licence": "Licensed GPL-2.0-or-later."
+  }
+}

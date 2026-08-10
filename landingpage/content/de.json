@@ -1,0 +1,218 @@
+{
+  "lang": "de",
+  "htmlLang": "de",
+  "ogLocale": "de_DE",
+  "otherLang": "en",
+  "otherLabel": "English",
+  "skipToContent": "Zum Inhalt springen",
+
+  "meta": {
+    "title": "nr-mcp-agent — ein kontrollierter KI-Assistent für das TYPO3-Backend",
+    "description": "Ein Backend-Assistent, der standardmäßig liest und vor jedem Schreibvorgang eine menschliche Freigabe einholt. Alpha: für kontrollierte Evaluierung, nicht für unbeaufsichtigten Produktivbetrieb.",
+    "ogImageAlt": "nr-mcp-agent — ein kontrollierter KI-Assistent für das TYPO3-Backend"
+  },
+
+  "nav": {
+    "label": "Abschnitte",
+    "items": [
+      { "href": "#works", "label": "Was funktioniert" },
+      { "href": "#not-promised", "label": "Nicht versprochen" },
+      { "href": "#scenarios", "label": "Szenarien" },
+      { "href": "#permissions", "label": "Berechtigungen" },
+      { "href": "#security", "label": "Sicherheit" }
+    ],
+    "docs": "Dokumentation",
+    "repo": "GitHub"
+  },
+
+  "hero": {
+    "eyebrow": "TYPO3-Extension · nr_mcp_agent",
+    "title": "Ein kontrollierter KI-Assistent für das TYPO3-Backend.",
+    "lead": "Redaktionen fragen in dem Backend, in dem sie ohnehin arbeiten. Der Assistent liest, was sie ohnehin sehen dürfen, und holt vor jeder Änderung eine ausdrückliche Freigabe ein.",
+    "alphaLabel": "Alpha",
+    "alphaNote": "Für kontrollierte Evaluierung, nicht für unbeaufsichtigten Produktivbetrieb. Schnittstellen, Werkzeugverträge und Konfiguration können sich zwischen Releases noch ändern.",
+    "ctaBusiness": "Backend-Agent kontrolliert evaluieren",
+    "ctaTechnical": "Dokumentation lesen"
+  },
+
+  "status": {
+    "heading": "Status",
+    "stageLabel": "Reifegrad",
+    "releaseLabel": "Letzter Release",
+    "mainLabel": "Hauptzweig",
+    "verifiedLabel": "Seite zuletzt geprüft",
+    "requirementsLabel": "Voraussetzungen",
+    "note": "Letzter Release und Hauptzweig sind verschiedene Werte, das Prüfdatum ist ein dritter. Ein Unterschied zwischen ihnen ist kein Widerspruch.",
+    "stages": {
+      "concept": "Konzept",
+      "poc": "Machbarkeitsnachweis",
+      "alpha": "Alpha",
+      "beta": "Beta",
+      "stable": "Stabil",
+      "maintenance": "Wartung"
+    }
+  },
+
+  "answers": {
+    "heading": "Was in zehn Sekunden klar ist",
+    "lead": "Die sechs Fragen, die zuerst kommen – beantwortet, bevor Sie scrollen.",
+    "items": [
+      { "q": "Alpha oder stabil?", "a": "Alpha. Evaluieren Sie mit jemandem, der zusieht." },
+      { "q": "Nur lesen oder auch schreiben?", "a": "Standardmäßig lesen. Schreibende Werkzeuge sind ab Werk deaktiviert." },
+      { "q": "Wo braucht es einen Menschen?", "a": "Vor jedem Schreibvorgang. Der Lauf hält an, bis jemand freigibt oder ablehnt." },
+      { "q": "Welche Risiken bleiben?", "a": "Prompt Injection, ein ungelesen freigegebener Vorschlag und ein zu großer Werkzeugumfang." },
+      { "q": "Wie wird die Nutzung begrenzt?", "a": "Werkzeugfreigabe je Gruppe, TYPO3-Berechtigungen und die Budgets aus nr-llm." },
+      { "q": "Wie probiere ich es aus?", "a": "Installieren, auf eine nr-llm-Konfiguration zeigen lassen, eine lesende Werkzeuggruppe freigeben." }
+    ]
+  },
+
+  "works": {
+    "heading": "Was heute funktioniert",
+    "lead": "Beschrieben als das, was es tut – nicht als das, was es können wird.",
+    "items": [
+      { "title": "Backend-Chat", "body": "Eine Unterhaltung im TYPO3-Backend, für die angemeldete Person. Kein separates Werkzeug, keine separate Anmeldung." },
+      { "title": "Informationen abrufen", "body": "Der Assistent kann über die freigegebenen Werkzeuge nachschlagen und zusammenfassen, was er gefunden hat." },
+      { "title": "Nur freigegebene MCP-Werkzeuge", "body": "Werkzeuge werden je Server und je Berechtigung konfiguriert. Nichts ist standardmäßig verfügbar; der Ausgangspunkt ist die leere Menge." },
+      { "title": "Konversationshistorie", "body": "Ein Lauf lässt sich danach nachlesen. Ohne das gäbe es nichts zu prüfen." },
+      { "title": "Bekannte Content-Operationen", "body": "Die für den aktuellen Release dokumentierten Content-Operationen, jede entweder lesend oder freigabepflichtig. Die Dokumentation führt sie auf; diese Seite wiederholt die Liste nicht – eine wiederholte Liste ist eine Liste, die veraltet." }
+    ]
+  },
+
+  "notPromised": {
+    "heading": "Was nicht versprochen wird",
+    "lead": "Fünf Dinge, die die Extension nicht tut. Wenn Sie eines davon brauchen, ist das heute das falsche Werkzeug.",
+    "items": [
+      "Autonomer CMS-Betrieb. Es gibt keinen Zeitplan, keinen Auslöser und keinen unbeaufsichtigten Modus.",
+      "Uneingeschränkte Schreibrechte. Schreibende Werkzeuge werden je Gruppe freigegeben und je Aufruf zusätzlich abgefragt.",
+      "Automatische Freigabe. Es gibt keine Zeitschranke, die an Ihrer Stelle zustimmt.",
+      "Ein fehlerfreier Ersatz für Redaktion. Er schlägt vor, ein Mensch entscheidet.",
+      "Ungeprüfte Aktionen. Alles, was etwas ändert, hinterlässt einen Audit-Eintrag mit der Entscheidung der freigebenden Person."
+    ]
+  },
+
+  "scenarios": {
+    "heading": "Drei kontrollierte Szenarien",
+    "lead": "Geordnet danach, wie viel Vertrauen jedes braucht.",
+    "items": [
+      { "step": "1", "title": "Finden und zusammenfassen", "body": "Fragen, wo ein Thema über die Seiten hinweg behandelt wird, die die handelnde Person sehen darf – und eine Zusammenfassung mit den Datensätzen bekommen, aus denen sie stammt.", "control": "Lesende Werkzeuge. Keine Freigabe nötig, weil sich nichts ändert." },
+      { "step": "2", "title": "Eine Änderung vorbereiten", "body": "Eine Umformulierung, eine Übersetzung oder einen Satz Alternativtexte vorschlagen lassen. Das Ergebnis ist ein Vorschlag in der Unterhaltung, keine Änderung.", "control": "Weiterhin nur lesend. Die Redaktion übernimmt, was sie will, oder fragt nach einer anderen Fassung." },
+      { "step": "3", "title": "Eine freigegebene Änderung ausführen", "body": "Ist ein schreibendes Werkzeug freigegeben, schlägt der Assistent die genaue Änderung vor und wartet. Bei Freigabe führt er sie aus, bei Ablehnung stoppt er.", "control": "Freigabe, Audit-Eintrag, TYPO3-Berechtigungen. Die freigebende Person liest den Vorschlag – das ist die Kontrolle, und wer sie überspringt, hebt sie auf." }
+    ]
+  },
+
+  "permissions": {
+    "heading": "Wer was darf",
+    "lead": "Sechs Ebenen, von denen jede einen Lauf für sich stoppen kann.",
+    "columns": { "layer": "Ebene", "effect": "Worüber sie entscheidet" },
+    "rows": [
+      { "layer": "Backend-Rolle", "effect": "Ob die Person den Assistenten überhaupt nutzen darf." },
+      { "layer": "Freigegebene Werkzeuge", "effect": "Welche MCP-Werkzeuge es für diese Gruppe gibt. Standard: keine." },
+      { "layer": "Lesend oder schreibend", "effect": "Ob ein Werkzeug etwas ändert. Schreibende sind ab Werk deaktiviert." },
+      { "layer": "Ausdrückliche Freigabe", "effect": "Ob ein konkreter Schreibvorgang tatsächlich stattfindet – entschieden von einem Menschen, je Aufruf." },
+      { "layer": "TYPO3-Berechtigungen", "effect": "Ob der Datensatz für die handelnde Person überhaupt erreichbar ist. Wird nicht umgangen." },
+      { "layer": "Audit-Eintrag", "effect": "Was hinterher nachvollziehbar ist: Werkzeug, Person, Argumente, Entscheidung." }
+    ],
+    "cancelHeading": "Abbruch und Fehlerfall",
+    "cancel": "Eine abgelehnte Freigabe stoppt den Lauf und hält die Ablehnung fest. Ein fehlschlagender Werkzeugaufruf meldet den Fehler, statt still zu wiederholen, und ein Lauf, der das nr-llm-Budget überschreitet, endet mit einer ausdrücklichen Begründung."
+  },
+
+  "stack": {
+    "heading": "Das Verhältnis zu nr-llm",
+    "lead": "Diese Extension ist die Agentenoberfläche. nr-llm ist die kontrollierte KI-Basis darunter.",
+    "items": [
+      { "title": "Provider und Modell", "body": "Werden in nr-llm gewählt. Diese Extension hält keinen Schlüssel und spricht keinen Provider direkt an." },
+      { "title": "Budgets", "body": "Die Grenzen aus nr-llm für Anfragen, Tokens und Kosten je Nutzer gelten für Agentenläufe wie für jede andere KI-Nutzung." },
+      { "title": "Kostenauswertung", "body": "Agentennutzung taucht in derselben Auswertung auf wie jede andere KI-Funktion der Seite." },
+      { "title": "Rückfälle", "body": "Provider-Rückfallketten werden einmal in nr-llm konfiguriert und gelten auch hier." },
+      { "title": "Wo die Grenze liegt", "body": "nr-mcp-agent entscheidet, was der Agent versuchen darf. nr-llm entscheidet, welches Modell antwortet, zu welchen Kosten und für wen." }
+    ],
+    "linkLabel": "nr-llm – die KI-Control-Plane",
+    "linkHref": "https://netresearch.github.io/t3x-nr-llm/"
+  },
+
+  "security": {
+    "heading": "Sicherheit",
+    "lead": "Die Risiken eines Agenten – benannt statt angedeutet.",
+    "items": [
+      { "title": "Zu weit reichende Handlungsmacht", "body": "Der häufigste Fehlschlag eines Agenten ist, zu viel zu dürfen. Geben Sie den kleinsten sinnvollen Werkzeugsatz frei; genau deshalb ist der Standard „keine“." },
+      { "title": "Prompt Injection", "body": "Inhalte, die der Agent liest, können Anweisungen enthalten. Die Freigabeliste und die Freigabepflicht begrenzen den Schaden; den Versuch verhindern sie nicht." },
+      { "title": "Tool Poisoning", "body": "Eine Werkzeugbeschreibung ist Teil der Modelleingabe. Geben Sie nur Werkzeuge aus Quellen frei, die Sie kontrollieren – und lesen Sie, was ein Werkzeug deklariert, bevor Sie es freigeben." },
+      { "title": "Unzulässige Datenoffenlegung", "body": "Der Agent erreicht nur, was die handelnde Person erreichen darf. Damit sind deren Berechtigungen die Offenlegungsgrenze – prüfen Sie sie, bevor Sie den Zugriff erweitern." },
+      { "title": "Berechtigungsausweitung", "body": "Die Freigabe gilt je Aufruf und lässt sich nicht an den Agenten delegieren. Wer ungelesen freigibt, ist der Ausweitungsweg, der bleibt." },
+      { "title": "Kosten- und Ressourcengrenzen", "body": "Die Budgets aus nr-llm gelten. Ein Lauf, der sie überschreitet, endet mit einer ausdrücklichen Begründung, statt still weiterzulaufen." },
+      { "title": "Protokollierung und Nachvollziehbarkeit", "body": "Werkzeug, Person, Argumente und Entscheidung werden je Aufruf festgehalten – erst das macht eine nachträgliche Prüfung möglich." }
+    ]
+  },
+
+  "evidence": {
+    "heading": "Nachweise",
+    "lead": "Was die Aussagen oben belegt.",
+    "items": [
+      { "title": "Quellcode", "body": "Öffentlich, mit Release-Verlauf und Änderungsprotokoll.", "label": "Repository" },
+      { "title": "Technische Dokumentation", "body": "Installation, Konfiguration, MCP-Server-Einrichtung, Werkzeugverträge und Entwicklerreferenz.", "label": "Dokumentation" },
+      { "title": "Releases", "body": "Jeder Release mit seinen Notizen, damit eine Verhaltensänderung einer Version zuzuordnen ist.", "label": "Releases" }
+    ],
+    "limitsHeading": "Was nicht behauptet wird",
+    "limits": [
+      "Keine Konformitätsaussage zum EU-KI-Gesetz, zum NIST-Rahmenwerk oder zu ISO/IEC 42001. Die Extension unterstützt Kontrollen; ob eine Organisation konform ist, ist eine rechtliche und organisatorische Bewertung.",
+      "Keine Produktivitäts- oder Einsparungszahl. Wir kennen Ihre redaktionellen Mengen nicht.",
+      "Keine Zusage zum Modellverhalten. Die Kontrollen begrenzen, was der Agent tun darf – nicht, was das Modell sagt."
+    ]
+  },
+
+  "capabilityCard": {
+    "heading": "KI-Faktenkarte",
+    "intro": "Auf jedem KI-Produkt von Netresearch dieselben Felder – damit sie vergleichbar sind und nicht nur beeindruckend.",
+    "labels": {
+      "intended_purpose": "Vorgesehener Zweck",
+      "excluded_uses": "Ausdrücklich nicht dafür",
+      "stage": "Reifegrad",
+      "models": "Modelle und Anbieter",
+      "data": "Verarbeitete Daten",
+      "processing_location": "Verarbeitungsort",
+      "human_oversight": "Menschliche Aufsicht",
+      "permissions": "Berechtigungen",
+      "logging": "Protokollierung",
+      "retention": "Aufbewahrung",
+      "cost_control": "Kostenkontrolle",
+      "security_controls": "Sicherheitskontrollen",
+      "known_limitations": "Bekannte Grenzen",
+      "last_verified": "Zuletzt geprüft"
+    },
+    "locations": {
+      "browser": "Im Browser",
+      "own-server": "Eigener Server",
+      "external-provider": "Externer Anbieter"
+    }
+  },
+
+  "install": {
+    "heading": "Ausprobieren",
+    "lead": "Vier Schritte. Hören Sie nach dem dritten auf, wenn Sie nur sehen wollen, was er liest.",
+    "steps": [
+      { "title": "Installieren", "body": "composer require netresearch/nr-mcp-agent" },
+      { "title": "Auf nr-llm zeigen lassen", "body": "Eine bestehende nr-llm-Konfiguration wählen. Provider, Modell und Budget kommen von dort." },
+      { "title": "Eine lesende Werkzeuggruppe freigeben", "body": "Mit dem kleinsten Satz anfangen, der den Assistenten für eine Aufgabe brauchbar macht." },
+      { "title": "Erst danach ein schreibendes Werkzeug erwägen", "body": "Für eine Gruppe freigeben, für eine Art von Datensatz – und lesen, was vorgeschlagen wird, bevor Sie freigeben." }
+    ]
+  },
+
+  "cta": {
+    "heading": "Backend-Agent kontrolliert evaluieren",
+    "body": "Wir klären, welche Werkzeuge freigegeben werden, wer was freigibt und was eine Alpha-Evaluierung liefern muss, bevor daraus mehr werden kann.",
+    "business": "Backend-Agent kontrolliert evaluieren",
+    "technical": "Dokumentation lesen",
+    "source": "Quellcode ansehen"
+  },
+
+  "footer": {
+    "company": "Netresearch DTT GmbH",
+    "source": "Quellcode auf GitHub",
+    "docs": "Dokumentation",
+    "contact": "Kontakt",
+    "imprint": "Impressum",
+    "privacy": "Datenschutz",
+    "reviewed": "Seite zuletzt geprüft",
+    "licence": "Lizenziert unter GPL-2.0-or-later."
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "_comment": [
+    "Editorial half of the project manifest. The mechanical half — main_version,",
+    "latest_release, supported TYPO3 and PHP versions — is derived by",
+    "landingpage/render.mjs from ext_emconf.php and composer.json and must not be",
+    "written here.",
+    "",
+    "The build publishes the merged result at <site>/project-manifest.json, which",
+    "the portfolio site aggregates into https://netresearch.github.io/projects.json.",
+    "",
+    "stage is 'alpha' and every page states it above the fold. Changing it here",
+    "changes it everywhere — which is the point, and the reason it is not written",
+    "into any page."
+  ],
+  "stage": "alpha",
+  "owner": "Netresearch DTT GmbH — nr-mcp-agent maintainers",
+  "last_verified": "2026-08-11",
+  "license": "GPL-2.0-or-later",
+  "repository": "https://github.com/netresearch/t3x-nr-mcp-agent",
+  "documentation": "https://netresearch.github.io/t3x-nr-mcp-agent/docs/",
+  "demo": null,
+  "support": "https://www.netresearch.de/kontakt/",
+  "providers": [
+    "Whatever nr-llm is configured with — this extension has no provider of its own."
+  ],
+  "capabilities": [
+    {
+      "id": "backend-chat",
+      "label": "A chat assistant inside the TYPO3 backend",
+      "detail": "Editors ask in the backend they already work in; no separate tool and no separate login.",
+      "state": "implemented"
+    },
+    {
+      "id": "released-tools",
+      "label": "Calls only the MCP tools an administrator released",
+      "detail": "Tools are configured per server and per permission; nothing is available by default.",
+      "state": "implemented"
+    },
+    {
+      "id": "conversation-history",
+      "label": "Conversation history per backend user",
+      "detail": "A run can be re-read afterwards, which is what makes a review possible at all.",
+      "state": "implemented"
+    },
+    {
+      "id": "approval-gate",
+      "label": "Approval before anything is written",
+      "detail": "A run that reaches a writing tool suspends and waits for a person. There is no timeout that approves.",
+      "state": "implemented"
+    }
+  ],
+  "security_controls": [
+    {
+      "id": "inherits-nr-llm",
+      "label": "Provider, budget and permission controls come from nr-llm",
+      "detail": "This extension adds an interface; it does not add a second key store, a second budget or a second permission model.",
+      "state": "implemented"
+    },
+    {
+      "id": "read-default",
+      "label": "Read-only by default",
+      "detail": "Writing tools ship disabled and stay disabled until an administrator turns them on for a specific group.",
+      "state": "implemented"
+    },
+    {
+      "id": "audit-trail",
+      "label": "Every tool call is recorded",
+      "detail": "Which tool, which user, which arguments, and what the approval decision was.",
+      "state": "implemented"
+    },
+    {
+      "id": "backend-permissions",
+      "label": "Backend-group permissions apply",
+      "detail": "The agent cannot reach what the acting user cannot reach; TYPO3's own access rules are not bypassed.",
+      "state": "implemented"
+    }
+  ],
+  "cost_controls": [
+    {
+      "id": "nr-llm-budgets",
+      "label": "Budgets and analytics from nr-llm",
+      "detail": "Per-user request, token and cost limits apply to agent runs like any other AI use on the site.",
+      "state": "implemented"
+    }
+  ],
+  "evidence": [
+    { "type": "code", "label": "Source", "url": "https://github.com/netresearch/t3x-nr-mcp-agent" },
+    { "type": "docs", "label": "Technical documentation", "url": "https://netresearch.github.io/t3x-nr-mcp-agent/docs/" },
+    { "type": "release", "label": "Releases", "url": "https://github.com/netresearch/t3x-nr-mcp-agent/releases" }
+  ],
+  "ai": {
+    "intended_purpose": "A controlled assistant in the TYPO3 backend: finding and summarising content an editor may already see, preparing changes, and executing a released change after an explicit human approval.",
+    "excluded_uses": [
+      "Unattended operation. Alpha means evaluate it with someone watching.",
+      "Autonomous content changes. Every write goes through an approval.",
+      "Replacing an editor's judgement. It drafts; a person decides.",
+      "Bypassing TYPO3 permissions. It cannot reach what the acting user cannot reach.",
+      "Anything with a legal, financial or personnel consequence."
+    ],
+    "models": [
+      "Whatever nr-llm is configured with. This extension chooses no provider and holds no key."
+    ],
+    "data": [
+      "The editor's question, the conversation history of that run, and whatever a released tool returns.",
+      "Tool calls and their arguments, for the audit trail."
+    ],
+    "processing_location": ["own-server", "external-provider"],
+    "human_oversight": "Reading needs no approval. Every writing tool suspends the run until a person approves or rejects it, and the decision is recorded.",
+    "permissions": "Administrators release MCP servers and tools per backend group. TYPO3's own access rules apply on top and are not bypassed.",
+    "logging": "Every tool call is recorded with tool, user, arguments and approval decision. Model usage is recorded by nr-llm.",
+    "retention": "Conversations and audit records live in the site's database and follow the site's own retention rules.",
+    "cost_control": "Inherited from nr-llm: per-user budgets on requests, tokens or estimated cost.",
+    "security_controls": [
+      "Read-only by default; writing tools ship disabled",
+      "Approval gate with a recorded decision",
+      "Per-group tool release",
+      "TYPO3 backend permissions enforced, not bypassed",
+      "Provider keys and budgets stay in nr-llm"
+    ],
+    "known_limitations": [
+      "Alpha. Interfaces, tool contracts and configuration can still change between releases.",
+      "Prompt injection through content the agent reads is possible. The tool release list and the approval gate are the mitigation, not immunity.",
+      "The model can misread an instruction and propose the wrong change. That is what the approval is for — an approver who does not read the proposal removes the control.",
+      "Excessive agency is a design risk of any agent. Release the smallest useful tool set, not the largest available one.",
+      "It is only as reliable as the model behind it, and that model is configured elsewhere."
+    ]
+  }
+}
