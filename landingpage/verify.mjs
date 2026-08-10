@@ -93,11 +93,19 @@ if (!await exists(manifestPath)) {
 }
 
 const pages = await htmlFiles(output);
-if (pages.length !== 2) fail(`expected 2 rendered pages, found ${pages.length}`);
+let stubs = 0;
 
 for (const page of pages) {
     const name = relative(output, page);
     const html = await readFile(page, 'utf8');
+
+    // Redirect stubs keep the old documentation paths working. They are
+    // meta-refresh only and carry no content of their own.
+    if (/<meta[^>]+http-equiv=["']refresh["']/i.test(html)) {
+        stubs += 1;
+        continue;
+    }
+
     const text = stripMarkup(html);
 
     for (const placeholder of PLACEHOLDERS) {
@@ -173,6 +181,11 @@ if (!await exists(resolve(output, 'docs/index.html'))) {
     fail('missing .Build/site/docs/index.html — the documentation did not render');
 }
 
+const productPages = pages.length - stubs;
+if (productPages !== 2) fail(`expected 2 product pages, found ${productPages}`);
+
 for (const message of errors) process.stderr.write(`ERROR ${message}\n`);
-process.stdout.write(`\nverify: ${pages.length} pages checked, ${errors.length} errors\n`);
+process.stdout.write(
+    `\nverify: ${productPages} product pages and ${stubs} redirect stubs checked, ${errors.length} errors\n`,
+);
 process.exit(errors.length > 0 ? 1 : 0);

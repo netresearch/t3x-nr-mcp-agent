@@ -14,10 +14,22 @@ someone deciding whether to evaluate it — and it never said anywhere that this
 is alpha software.
 
 ```bash
-node landingpage/render.mjs   # render both product pages into .Build/site/
-node landingpage/verify.mjs   # gate the result
-uv run landingpage/render_og.py   # social cards, after a headline change
+node landingpage/render.mjs          # render both product pages into .Build/site/
+node landingpage/redirect-stubs.mjs  # keep old documentation links working
+node landingpage/verify.mjs          # gate the result
+uv run landingpage/render_og.py      # social cards, after a headline change
 ```
+
+## Old documentation links
+
+Every inbound link to the old documentation root points at a path like
+`/Configuration/Index.html`. GitHub Pages has no server-side redirects, so
+`redirect-stubs.mjs` writes a meta-refresh stub at each of those paths pointing
+into `/docs/`. The stubs carry `noindex, follow` and a canonical to the new
+location.
+
+The root is the deliberate exception: `/` is the product page now, and that is
+the point of the split.
 
 ## Where the facts come from
 

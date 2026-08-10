@@ -68,6 +68,14 @@ jobs:
         # index.html for the directory root, so copy it to avoid a 404 at /docs/.
         run: cp .Build/site/docs/Index.html .Build/site/docs/index.html
 
+      # Every inbound link to the old documentation root points at a path like
+      # /Configuration/Index.html. Pages has no server-side redirects, so each
+      # one gets a meta-refresh stub. The root is the deliberate exception.
+      - name: Keep old documentation links working
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: node landingpage/redirect-stubs.mjs
+
       # Gates the product pages: a manifest that disagrees with ext_emconf.php, a
       # version the manifest does not know, a missing alpha notice, missing
       # metadata, an untagged contact link, a missing "what is not claimed"
