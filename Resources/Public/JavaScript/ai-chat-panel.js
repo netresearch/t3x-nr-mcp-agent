@@ -5,7 +5,7 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', failed: '✕'};
@@ -14,6 +14,9 @@ const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 320;
 const MIN_HEIGHT = 120;
 const COLLAPSED_HEIGHT = 36;
+// How much of the panel must stay on screen when it is pushed off an edge —
+// enough of the header to grab and drag it back.
+const MIN_VISIBLE = 64;
 const STORAGE_KEY = 'ai-chat-panel';
 
 /**
@@ -678,6 +681,8 @@ export class AiChatPanel extends LitElement {
         this._width = DEFAULT_WIDTH;
         this._posX = null;
         this._posY = null;
+        this._pipWindow = null;
+        this._pipHome = null;
         this._attachMenuOpen = false;
         this._lastVisibleState = STATES.EXPANDED;
         this._resizing = false;
@@ -730,6 +735,20 @@ export class AiChatPanel extends LitElement {
         // Don't override styles during active drag or resize — we write directly to this.style
         if (this._dragging || this._resizing) return;
 
+        // Detached: the panel IS the window, so it fills it. Keeping the
+        // position:fixed coordinates would place it at the main window's
+        // left/top inside a window a fraction of that size — off screen, so the
+        // detached window opens empty while every DOM assertion still passes.
+        if (this._pipWindow) {
+            this.style.top = '0';
+            this.style.left = '0';
+            this.style.width = '100%';
+            this.style.height = '100%';
+            this.style.right = '';
+            this.style.bottom = '';
+            return;
+        }
+
         if (this.state === STATES.MAXIMIZED) {
             this.style.top = '0';
             this.style.left = '0';
@@ -769,14 +788,110 @@ export class AiChatPanel extends LitElement {
         return this._defaultPosition();
     }
 
-    /** Constrain position so the panel stays within the viewport */
+
+    /**
+     * Can this browser detach the panel into its own window?
+     *
+     * Document Picture-in-Picture is Chromium-only. Where it is missing the
+     * button must not appear at all — one that throws on click is worse than
+     * none, and there is nothing to degrade to: window.open() yields a window
+     * with browser chrome that cannot float above other applications, which is
+     * the entire point of detaching.
+     */
+    _canPopOut() {
+        return typeof window !== 'undefined' && 'documentPictureInPicture' in window;
+    }
+
+    /**
+     * Move the panel into a separate, always-on-top window.
+     *
+     * A DOM element cannot leave the browser window — a browser boundary, not a
+     * limitation of this code — so "put it next to the browser" means putting it
+     * in a window the operating system owns, which the user can drag anywhere,
+     * second monitor included.
+     *
+     * The element is MOVED rather than re-rendered into the new document: the
+     * conversation lives on the controller attached to this instance, and a copy
+     * would start empty. Lit keeps its styles on the shadow root so they travel
+     * with it, and the --nr-chat-* properties fall back to their literals once
+     * the backend's --typo3-* are out of reach.
+     *
+     * @return {Promise<boolean>} whether the panel is now detached
+     */
+    async popOut() {
+        if (!this._canPopOut() || this._pipWindow) {
+            return false;
+        }
+
+        let pipWindow;
+        try {
+            pipWindow = await window.documentPictureInPicture.requestWindow({
+                width: this._width,
+                height: this._height,
+            });
+        } catch {
+            // Chromium refuses without a user gesture, and refuses a second
+            // window while one is open. Neither may lose the panel.
+            return false;
+        }
+
+        this._pipHome = this.parentNode;
+        this._pipWindow = pipWindow;
+
+        pipWindow.addEventListener('pagehide', () => this._returnFromPopOut());
+        pipWindow.document.body.append(this);
+        this._applySize();
+
+        return true;
+    }
+
+    /** Put the panel back where it came from when its window goes away. */
+    _returnFromPopOut() {
+        const home = this._pipHome;
+        this._pipWindow = null;
+        this._pipHome = null;
+
+        if (home) {
+            home.append(this);
+        }
+
+        // _applySize() only runs on a reactive property change, and returning
+        // home is not one — without this the panel would keep the 100% sizing
+        // it wore inside the detached window.
+        this._applySize();
+    }
+
+    /**
+     * Constrain position so the panel stays REACHABLE — not so it stays whole.
+     *
+     * Keeping it entirely inside the viewport meant it always covered part of
+     * whatever was underneath, and the only ways out were collapsing it or
+     * closing it. It may now hang off the left, right or bottom edge, down to a
+     * MIN_VISIBLE margin that is still large enough to grab and pull back.
+     *
+     * The top edge is the exception and stays closed: dragging happens by the
+     * header, so a panel allowed above y=0 loses its own handle and cannot be
+     * recovered at all. A loosened clamp that lets the panel be lost is a worse
+     * bug than the one this fixes.
+     */
     _constrainPosition(x, y) {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
         const w = this._width;
         const h = this.state === STATES.COLLAPSED ? COLLAPSED_HEIGHT : this._height;
-        x = Math.max(0, Math.min(x, vw - w));
-        y = Math.max(0, Math.min(y, vh - h));
+
+        x = Math.max(MIN_VISIBLE - w, Math.min(x, vw - MIN_VISIBLE));
+        y = Math.max(0, Math.min(y, vh - MIN_VISIBLE));
+
+        // A panel narrower or shorter than the margin would otherwise be pushed
+        // further out than its own size allows.
+        if (w < MIN_VISIBLE) {
+            x = Math.max(0, Math.min(x, vw - w));
+        }
+        if (h < MIN_VISIBLE) {
+            y = Math.max(0, Math.min(y, vh - h));
+        }
+
         return {x, y};
     }
 
@@ -1109,6 +1224,10 @@ export class AiChatPanel extends LitElement {
                         aria-label="${this.state === STATES.MAXIMIZED ? lll('panel.restore') : lll('panel.maximize')}">
                     ${this.state === STATES.MAXIMIZED ? ICON_RESTORE(14) : ICON_MAXIMIZE(14)}
                 </button>
+                ${this._canPopOut() ? html`
+                    <button class="btn-icon" data-action="popout" @click=${() => this.popOut()}
+                            title="${lll('panel.popOut')}" aria-label="${lll('panel.popOut')}">${ICON_POPOUT(14)}</button>
+                ` : nothing}
                 <button class="btn-icon" @click=${() => this.hide()}
                         title="${lll('panel.close')}" aria-label="${lll('panel.close')}">${ICON_CLOSE(14)}</button>
             </div>
