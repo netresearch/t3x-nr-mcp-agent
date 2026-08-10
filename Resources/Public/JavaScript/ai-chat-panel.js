@@ -548,6 +548,32 @@ export class AiChatPanel extends LitElement {
             opacity: 0.5;
             cursor: not-allowed;
         }
+        .empty-state-guidance {
+            max-width: 30em;
+        }
+
+        .empty-state-guidance h2 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: var(--nr-chat-text);
+        }
+
+        .empty-state-guidance p {
+            margin: 0 0 12px;
+        }
+
+        .empty-state-guidance .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .empty-state-hint {
+            margin: 12px 0 0 !important;
+            font-size: 12px;
+            opacity: 0.85;
+        }
+
         .btn-primary {
             background: var(--nr-chat-accent);
             color: var(--nr-chat-on-accent);
@@ -1228,12 +1254,31 @@ export class AiChatPanel extends LitElement {
         this.chat.handleRename(uid, value);
     }
 
+    /**
+     * See chat-app.js: the bare sentence named a choice and hid both of its
+     * options — the only way to act on it was an icon button in the header.
+     */
+    _renderEmptyStateGuidance() {
+        return html`
+            <div class="empty-state-guidance">
+                <h2>${lll('chat.empty.title')}</h2>
+                <p>${lll('chat.empty.body')}</p>
+                <button class="btn btn-primary"
+                    @click=${() => this.chat.handleNewConversation()}
+                    ?disabled=${!this.chat.available}>
+                    ${ICON_COMPOSE(14)} ${lll('conversations.new')}
+                </button>
+                <p class="empty-state-hint">${lll('chat.empty.hint')}</p>
+            </div>
+        `;
+    }
+
     _renderChat() {
         if (!this.chat.activeUid) {
             return html`
                 <div class="empty-state">
                     ${this.chat.available
-                        ? lll('chat.selectOrCreate')
+                        ? this._renderEmptyStateGuidance()
                         : lll('chat.notAvailable')
                     }
                 </div>

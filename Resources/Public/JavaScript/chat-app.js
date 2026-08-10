@@ -373,6 +373,32 @@ export class ChatApp extends LitElement {
             padding: 24px;
         }
 
+        .empty-state-guidance {
+            max-width: 34em;
+        }
+
+        .empty-state-guidance h2 {
+            margin: 0 0 8px;
+            font-size: 18px;
+            color: var(--nr-chat-text);
+        }
+
+        .empty-state-guidance p {
+            margin: 0 0 16px;
+        }
+
+        .empty-state-guidance .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .empty-state-hint {
+            margin: 16px 0 0 !important;
+            font-size: 13px;
+            opacity: 0.85;
+        }
+
         .issues-banner {
             padding: 8px 12px;
             background: var(--nr-chat-warning-bg);
@@ -567,6 +593,31 @@ export class ChatApp extends LitElement {
         `;
     }
 
+    /**
+     * The empty state used to be the sentence "Select or start a chat" and
+     * nothing else. The only way to act on it was an icon-only button in the
+     * sidebar header, which people have to find first — so the screen named a
+     * choice and hid both of its options.
+     *
+     * This puts the primary action where the sentence is, and says what the
+     * assistant can actually do here, because "start a chat" answers neither
+     * "about what?" nor "why here rather than anywhere else?".
+     */
+    _renderEmptyStateGuidance() {
+        return html`
+            <div class="empty-state-guidance">
+                <h2>${lll('chat.empty.title')}</h2>
+                <p>${lll('chat.empty.body')}</p>
+                <button class="btn btn-primary"
+                    @click=${() => this.chat.handleNewConversation()}
+                    ?disabled=${!this.chat.available}>
+                    ${ICON_COMPOSE(16)} ${lll('conversations.new')}
+                </button>
+                <p class="empty-state-hint">${lll('chat.empty.hint')}</p>
+            </div>
+        `;
+    }
+
     _renderMain() {
         if (!this.chat.activeUid) {
             return html`
@@ -575,7 +626,7 @@ export class ChatApp extends LitElement {
                 </div>
                 <div class="empty-state">
                     ${this.chat.available
-                        ? lll('chat.selectOrCreate')
+                        ? this._renderEmptyStateGuidance()
                         : lll('chat.notAvailable')
                     }
                 </div>
