@@ -45,6 +45,14 @@ function contactUrl(position) {
     return `${CONTACT_BASE}?${params}`;
 }
 
+/**
+ * A release tag from the API is network data. It ends up in the manifest, in the
+ * page and in a file path, so it is validated rather than trusted: anything that
+ * is not a plain semantic-version tag is treated as no release at all.
+ */
+const TAG_PATTERN = /^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 const ESCAPES = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
 const e = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
@@ -72,8 +80,13 @@ async function buildManifest() {
         );
         if (response.ok) {
             const payload = await response.json();
-            latestRelease = payload.tag_name ?? null;
-            releaseDate = payload.published_at ? payload.published_at.slice(0, 10) : null;
+            const tag = String(payload.tag_name ?? '');
+            const published = String(payload.published_at ?? '').slice(0, 10);
+            latestRelease = TAG_PATTERN.test(tag) ? tag : null;
+            releaseDate = latestRelease && DATE_PATTERN.test(published) ? published : null;
+            if (tag && !latestRelease) {
+                process.stderr.write(`render: ignoring release tag that is not a version: ${JSON.stringify(tag)}\n`);
+            }
         }
     } catch (error) {
         process.stderr.write(`render: latest release unavailable (${error.message})\n`);
@@ -163,6 +176,15 @@ function page(c, manifest, lang) {
 
     const cards = (items) => items
         .map((item) => `<article class="card"><h3>${e(item.title)}</h3><p>${e(item.body)}</p></article>`)
+        .join('\n        ');
+
+    // Each item carries its own href; the link used to be picked out of a
+    // positional array, so a fourth evidence entry would have rendered
+    // href="undefined".
+    const cardLinks = (items) => items
+        .map((item) => `<a class="card card--link" href="${e(item.href)}">`
+            + `<h3>${e(item.title)}</h3><p>${e(item.body)}</p>`
+            + `<span class="card__meta">${e(item.label)}</span></a>`)
         .join('\n        ');
 
     return `<!doctype html>
@@ -348,10 +370,7 @@ function page(c, manifest, lang) {
       <h2>${e(c.evidence.heading)}</h2>
       <p class="section__lead">${e(c.evidence.lead)}</p>
       <div class="cards">
-        ${c.evidence.items.map((item, index) => {
-        const href = [manifest.repository, docsUrl, `${manifest.repository}/releases`][index];
-        return `<a class="card card--link" href="${e(href)}"><h3>${e(item.title)}</h3><p>${e(item.body)}</p><span class="card__meta">${e(item.label)}</span></a>`;
-    }).join('\n        ')}
+        ${cardLinks(c.evidence.items)}
       </div>
       <div class="limits" id="not-claimed">
         <h3>${e(c.evidence.limitsHeading)}</h3>
