@@ -5,7 +5,7 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', failed: '✕'};
@@ -681,6 +681,8 @@ export class AiChatPanel extends LitElement {
         this._width = DEFAULT_WIDTH;
         this._posX = null;
         this._posY = null;
+        this._pipWindow = null;
+        this._pipHome = null;
         this._attachMenuOpen = false;
         this._lastVisibleState = STATES.EXPANDED;
         this._resizing = false;
@@ -770,6 +772,73 @@ export class AiChatPanel extends LitElement {
             return {x: this._posX, y: this._posY};
         }
         return this._defaultPosition();
+    }
+
+
+    /**
+     * Can this browser detach the panel into its own window?
+     *
+     * Document Picture-in-Picture is Chromium-only. Where it is missing the
+     * button must not appear at all — one that throws on click is worse than
+     * none, and there is nothing to degrade to: window.open() yields a window
+     * with browser chrome that cannot float above other applications, which is
+     * the entire point of detaching.
+     */
+    _canPopOut() {
+        return typeof window !== 'undefined' && 'documentPictureInPicture' in window;
+    }
+
+    /**
+     * Move the panel into a separate, always-on-top window.
+     *
+     * A DOM element cannot leave the browser window — a browser boundary, not a
+     * limitation of this code — so "put it next to the browser" means putting it
+     * in a window the operating system owns, which the user can drag anywhere,
+     * second monitor included.
+     *
+     * The element is MOVED rather than re-rendered into the new document: the
+     * conversation lives on the controller attached to this instance, and a copy
+     * would start empty. Lit keeps its styles on the shadow root so they travel
+     * with it, and the --nr-chat-* properties fall back to their literals once
+     * the backend's --typo3-* are out of reach.
+     *
+     * @return {Promise<boolean>} whether the panel is now detached
+     */
+    async popOut() {
+        if (!this._canPopOut() || this._pipWindow) {
+            return false;
+        }
+
+        let pipWindow;
+        try {
+            pipWindow = await window.documentPictureInPicture.requestWindow({
+                width: this._width,
+                height: this._height,
+            });
+        } catch {
+            // Chromium refuses without a user gesture, and refuses a second
+            // window while one is open. Neither may lose the panel.
+            return false;
+        }
+
+        this._pipHome = this.parentNode;
+        this._pipWindow = pipWindow;
+
+        pipWindow.addEventListener('pagehide', () => this._returnFromPopOut());
+        pipWindow.document.body.append(this);
+
+        return true;
+    }
+
+    /** Put the panel back where it came from when its window goes away. */
+    _returnFromPopOut() {
+        const home = this._pipHome;
+        this._pipWindow = null;
+        this._pipHome = null;
+
+        if (home) {
+            home.append(this);
+        }
     }
 
     /**
@@ -1135,6 +1204,10 @@ export class AiChatPanel extends LitElement {
                         aria-label="${this.state === STATES.MAXIMIZED ? lll('panel.restore') : lll('panel.maximize')}">
                     ${this.state === STATES.MAXIMIZED ? ICON_RESTORE(14) : ICON_MAXIMIZE(14)}
                 </button>
+                ${this._canPopOut() ? html`
+                    <button class="btn-icon" data-action="popout" @click=${() => this.popOut()}
+                            title="${lll('panel.popOut')}" aria-label="${lll('panel.popOut')}">${ICON_POPOUT(14)}</button>
+                ` : nothing}
                 <button class="btn-icon" @click=${() => this.hide()}
                         title="${lll('panel.close')}" aria-label="${lll('panel.close')}">${ICON_CLOSE(14)}</button>
             </div>

@@ -15,6 +15,9 @@
             <trans-unit id="panel.restore" resname="panel.restore">
                 <source>Restore</source>
             </trans-unit>
+            <trans-unit id="panel.popOut" resname="panel.popOut">
+                <source>Open in a separate window</source>
+            </trans-unit>
             <trans-unit id="panel.close" resname="panel.close">
                 <source>Close</source>
             </trans-unit>

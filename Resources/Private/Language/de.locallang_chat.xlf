@@ -19,6 +19,10 @@
                 <source>Restore</source>
                 <target>Wiederherstellen</target>
             </trans-unit>
+            <trans-unit id="panel.popOut" resname="panel.popOut" approved="yes">
+                <source>Open in a separate window</source>
+                <target>In eigenem Fenster öffnen</target>
+            </trans-unit>
             <trans-unit id="panel.close" resname="panel.close">
                 <source>Close</source>
                 <target>Schließen</target>
