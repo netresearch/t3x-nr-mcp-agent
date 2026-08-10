@@ -735,6 +735,20 @@ export class AiChatPanel extends LitElement {
         // Don't override styles during active drag or resize — we write directly to this.style
         if (this._dragging || this._resizing) return;
 
+        // Detached: the panel IS the window, so it fills it. Keeping the
+        // position:fixed coordinates would place it at the main window's
+        // left/top inside a window a fraction of that size — off screen, so the
+        // detached window opens empty while every DOM assertion still passes.
+        if (this._pipWindow) {
+            this.style.top = '0';
+            this.style.left = '0';
+            this.style.width = '100%';
+            this.style.height = '100%';
+            this.style.right = '';
+            this.style.bottom = '';
+            return;
+        }
+
         if (this.state === STATES.MAXIMIZED) {
             this.style.top = '0';
             this.style.left = '0';
@@ -826,6 +840,7 @@ export class AiChatPanel extends LitElement {
 
         pipWindow.addEventListener('pagehide', () => this._returnFromPopOut());
         pipWindow.document.body.append(this);
+        this._applySize();
 
         return true;
     }
@@ -839,6 +854,11 @@ export class AiChatPanel extends LitElement {
         if (home) {
             home.append(this);
         }
+
+        // _applySize() only runs on a reactive property change, and returning
+        // home is not one — without this the panel would keep the 100% sizing
+        // it wore inside the detached window.
+        this._applySize();
     }
 
     /**

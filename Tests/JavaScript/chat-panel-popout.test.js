@@ -108,6 +108,44 @@ describe('panel pop-out', () => {
         expect(host.contains(panel)).toBe(true);
     });
 
+    test('fills its own window instead of keeping main-window coordinates', async () => {
+        installPictureInPictureStub();
+        const {panel} = await mountPanel();
+
+        // The panel positions itself with position:fixed and left/top computed
+        // against the MAIN window. Carried into a 480px-wide detached window,
+        // a left of ~1200px puts it outside — the window opens empty and the
+        // feature looks broken while every DOM assertion still passes.
+        panel._posX = 1200;
+        panel._posY = 700;
+        await panel.updateComplete;
+
+        await panel.popOut();
+        await panel.updateComplete;
+
+        expect(panel.style.left).toBe('0px');
+        expect(panel.style.top).toBe('0px');
+        expect(panel.style.width).toBe('100%');
+        expect(panel.style.height).toBe('100%');
+    });
+
+    test('takes its old position back when it returns', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const {panel} = await mountPanel();
+
+        panel._posX = 300;
+        panel._posY = 200;
+        await panel.updateComplete;
+
+        await panel.popOut();
+        const [, handler] = pipWindow.addEventListener.mock.calls.find(([name]) => name === 'pagehide');
+        handler();
+        await panel.updateComplete;
+
+        expect(panel.style.left).toBe('300px');
+        expect(panel.style.top).toBe('200px');
+    });
+
     test('a failed request leaves the panel where it was', async () => {
         const {requestWindow} = installPictureInPictureStub();
         requestWindow.mockRejectedValue(new Error('denied'));
