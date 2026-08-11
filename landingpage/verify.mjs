@@ -11,6 +11,8 @@ import {readFile, readdir, stat} from 'node:fs/promises';
 import {dirname, relative, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+import {checkAccessibility} from './check-accessibility.mjs';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, '.Build/site');
 
@@ -137,6 +139,9 @@ for (const page of pages) {
 
     const logos = html.match(/<title>Netresearch DTT GmbH<\/title>/g) ?? [];
     if (logos.length !== 1) fail(`${name}: the logo appears ${logos.length} times, expected exactly once`);
+
+    // Accessibility and semantics decidable from the markup alone.
+    for (const problem of checkAccessibility(html)) fail(`${name}: ${problem}`);
 
     // The three things this page must never lose.
     if (!html.includes('class="status-facts"')) fail(`${name}: no status block`);
