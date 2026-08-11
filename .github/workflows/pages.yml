@@ -83,6 +83,17 @@ jobs:
       - name: Verify the rendered site
         run: node landingpage/verify.mjs
 
+      # Contrast and anything else that depends on resolved CSS is not decidable
+      # from markup, so verify.mjs cannot see it. axe found four contrast
+      # failures on a page that gate passed.
+      # `npm install`, not `npm ci`: .gitignore excludes package-lock.json,
+      # because a TYPO3 extension is a library and pins nothing for consumers.
+      - name: Audit accessibility with axe
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npx playwright install chromium
+          node landingpage/axe-audit.mjs
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
