@@ -15,7 +15,10 @@
  *
  * Teal #2F99A4 reaches only 3.38:1 on white, so it is used for large text, fills
  * and borders only. Body-size teal text uses #15585E (8.1:1) and teal fills
- * carrying normal-size white text use #257880 (5.2:1).
+ * carrying normal-size white text use #257880 (5.2:1). The accent #FF4D00 is
+ * 3.32:1 on white and 3.12:1 on the alpha banner's tint, so accent-coloured
+ * text uses #9A2E00 (7.1:1 and 7.6:1). Same hues throughout; only the
+ * luminance changes.
  */
 
 @font-face {
@@ -52,6 +55,7 @@
     --nr-primary-dark: #257880;
     --nr-primary-text: #15585E;
     --nr-accent: #FF4D00;
+    --nr-accent-text: #9A2E00;
     --nr-text: #585961;
     --nr-text-strong: #3F4046;
     --nr-border: #CCCDCC;
@@ -256,7 +260,7 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
     left: 1rem;
     top: 1rem;
     z-index: 100;
-    background: var(--nr-primary);
+    background: var(--nr-primary-dark);
     color: #fff;
     padding: .5rem 1rem;
     border-radius: 6px;
@@ -277,11 +281,11 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
 }
 .btn:hover { border-color: var(--nr-primary); color: var(--nr-primary-text); }
 .btn--primary {
-    background: var(--nr-primary);
-    border-color: var(--nr-primary);
+    background: var(--nr-primary-dark);
+    border-color: var(--nr-primary-dark);
     color: #fff;
 }
-.btn--primary:hover { background: var(--nr-primary-dark); border-color: var(--nr-primary-dark); color: #fff; }
+.btn--primary:hover { background: var(--nr-primary-text); border-color: var(--nr-primary-text); color: #fff; }
 
 .hero__cta { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }
 
@@ -325,7 +329,7 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
 /* Orange is the accent and stays reserved for the stages that carry a warning. */
 .status-pill--concept,
 .status-pill--poc,
-.status-pill--alpha { color: var(--nr-accent); }
+.status-pill--alpha { color: var(--nr-accent-text); }
 .status-pill--beta,
 .status-pill--stable { color: var(--nr-primary-text); }
 .status-pill--maintenance { color: var(--nr-text); }

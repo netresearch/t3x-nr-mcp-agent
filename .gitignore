@@ -1,6 +1,9 @@
 .claude/
 node_modules/
-package-lock.json
+# package-lock.json is committed: it pins the *development* toolchain —
+# Playwright, axe, the test runner. Consumers of this extension resolve PHP
+# through composer and never read it, so the library argument that keeps
+# composer.lock out does not apply. Without it `npm ci` cannot run at all.
 playwright-report/
 test-results/
 Build/tests/playwright/.auth/

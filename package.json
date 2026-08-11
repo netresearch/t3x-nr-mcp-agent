@@ -8,10 +8,12 @@
     "test:js": "node --experimental-vm-modules node_modules/.bin/jest",
     "test:e2e": "npx playwright test --config=Build/tests/playwright/playwright.config.ts",
     "test:e2e:headed": "npx playwright test --config=Build/tests/playwright/playwright.config.ts --headed",
-    "test:e2e:report": "npx playwright show-report"
+    "test:e2e:report": "npx playwright show-report",
+    "axe": "node landingpage/axe-audit.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "axe-core": "^4.13.0",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "jest-environment-node": "^30.3.0",
