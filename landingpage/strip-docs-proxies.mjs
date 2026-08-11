@@ -56,18 +56,24 @@ const ELEMENTS = [
   /<select\b[^>]*\bid="versionSelect"[^>]*>[\s\S]*?<\/select\b[^>]*>/gi,
 ];
 
-function htmlFiles(dir) {
-  return readdirSync(dir).flatMap((entry) => {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) return htmlFiles(full);
-    return full.endsWith('.html') ? [full] : [];
-  });
+/**
+ * Every .html file below the validated docs directory.
+ *
+ * One recursive readdirSync on the constant, rather than a function that walks
+ * whatever path it is handed: there is no parameter here for a caller to pass
+ * an unchecked directory into.
+ */
+function htmlFiles() {
+  return readdirSync(DOCS, { recursive: true, encoding: 'utf-8' })
+    .filter((entry) => entry.endsWith('.html'))
+    .map((entry) => join(DOCS, entry))
+    .filter((full) => statSync(full).isFile());
 }
 
 let changedFiles = 0;
 let removed = 0;
 
-for (const file of htmlFiles(DOCS)) {
+for (const file of htmlFiles()) {
   const original = readFileSync(file, 'utf-8');
   let html = original;
   for (const pattern of ELEMENTS) {
@@ -84,7 +90,7 @@ for (const file of htmlFiles(DOCS)) {
 
 // The removal is only as good as its own check: a pattern that silently stops
 // matching would leave the 404s in place and still print a success line.
-const leftover = htmlFiles(DOCS).filter((file) =>
+const leftover = htmlFiles().filter((file) =>
   /-proxy\.php/.test(readFileSync(file, 'utf-8')),
 );
 if (leftover.length) {
