@@ -8,7 +8,7 @@
  *   - a version <select>, which fetches `_resources/js/versions-proxy.php` and
  *     carries a hardcoded fallback URL into an unrelated TYPO3 manual.
  *
- * Neither endpoint exists here, so every one of the 28 docs pages issues a
+ * Neither endpoint exists here, so every one of the 27 docs pages issues a
  * request that 404s — confirmed against the live site, not inferred. Neither
  * control has anything to show either: this site hosts one project at one
  * version.
@@ -42,13 +42,7 @@ const ELEMENTS = [
   /<select\b[^>]*\bid="versionSelect"[^>]*>[\s\S]*?<\/select\b[^>]*>/gi,
 ];
 
-/**
- * Every .html file below the validated docs directory.
- *
- * One recursive readdirSync on the constant, rather than a function that walks
- * whatever path it is handed: there is no parameter here for a caller to pass
- * an unchecked directory into.
- */
+/** Every .html file below the docs directory, in one recursive read. */
 function htmlFiles() {
   return readdirSync(DOCS, { recursive: true, encoding: 'utf-8' })
     .filter((entry) => entry.endsWith('.html'))
