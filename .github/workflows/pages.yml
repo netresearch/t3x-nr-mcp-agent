@@ -68,7 +68,7 @@ jobs:
       # *-proxy.php endpoint that does not exist here, so every docs page issued
       # a 404 — found by the axe step's asset check, confirmed on the live site.
       - name: Remove the docs.typo3.org proxy controls
-        run: node landingpage/strip-docs-proxies.mjs .Build/site/docs
+        run: node landingpage/strip-docs-proxies.mjs
 
       - name: Provide lowercase index.html for the docs root
         # render-guides emits Index.html (capital I); GitHub Pages serves

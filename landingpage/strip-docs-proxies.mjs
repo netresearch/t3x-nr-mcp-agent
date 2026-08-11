@@ -17,32 +17,18 @@
  * an override the scripts fall back to their own origin, and this site's gate
  * forbids third-party requests.
  *
- *   node landingpage/strip-docs-proxies.mjs [docs-dir]
+ *   node landingpage/strip-docs-proxies.mjs
+ *
+ * The directory is fixed rather than an argument. It has exactly one caller,
+ * which always passes the same path, and a build script that walks whatever
+ * directory it is handed is a knob with no consumer and a taint source with no
+ * purpose.
  */
 
 import { readdirSync, statSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve, relative, isAbsolute } from 'node:path';
+import { join } from 'node:path';
 
-/**
- * The directory to walk, confined to the working tree.
- *
- * This runs in CI against a path the workflow supplies, and a build script has
- * no business writing outside its own checkout. The confined path is derived
- * here and nothing else reads process.argv, so no later call can be handed the
- * unvalidated value by accident.
- */
-function docsDirectory(argument) {
-  const root = process.cwd();
-  const candidate = resolve(root, argument);
-  const inside = relative(root, candidate);
-  if (inside === '' || inside.startsWith('..') || isAbsolute(inside)) {
-    console.error(`strip-docs-proxies: refusing to walk ${candidate}, which is not below ${root}`);
-    process.exit(1);
-  }
-  return join(root, inside);
-}
-
-const DOCS = docsDirectory(process.argv[2] ?? '.Build/site/docs');
+const DOCS = join(process.cwd(), '.Build', 'site', 'docs');
 
 // The mobile variant is matched first: its name has the plain name as a prefix,
 // so a plain-name pattern would otherwise match its opening tag. End tags are
