@@ -311,10 +311,10 @@ function page(c, manifest, lang) {
 
   <section id="permissions" class="section section--alt">
     <div class="wrap">
-      <h2>${e(c.permissions.heading)}</h2>
+      <h2 id="permissions-heading">${e(c.permissions.heading)}</h2>
       <p class="section__lead">${e(c.permissions.lead)}</p>
       <div class="table-scroll" tabindex="0">
-        <table class="data-table">
+        <table class="data-table" aria-labelledby="permissions-heading">
           <thead><tr><th scope="col">${e(c.permissions.columns.layer)}</th><th scope="col">${e(c.permissions.columns.effect)}</th></tr></thead>
           <tbody>
           ${c.permissions.rows.map((row) => `<tr><th scope="row">${e(row.layer)}</th><td>${e(row.effect)}</td></tr>`).join('\n          ')}
