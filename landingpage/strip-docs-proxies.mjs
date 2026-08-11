@@ -23,14 +23,26 @@
 import { readdirSync, statSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute } from 'node:path';
 
-// Resolved and confined to the working tree: this runs in CI against a path the
-// workflow supplies, and a build script has no business writing outside it.
-const DOCS = resolve(process.argv[2] ?? '.Build/site/docs');
-const outside = relative(process.cwd(), DOCS);
-if (outside.startsWith('..') || isAbsolute(outside)) {
-  console.error(`strip-docs-proxies: refusing to walk ${DOCS}, which is outside ${process.cwd()}`);
-  process.exit(1);
+/**
+ * The directory to walk, confined to the working tree.
+ *
+ * This runs in CI against a path the workflow supplies, and a build script has
+ * no business writing outside its own checkout. The confined path is derived
+ * here and nothing else reads process.argv, so no later call can be handed the
+ * unvalidated value by accident.
+ */
+function docsDirectory(argument) {
+  const root = process.cwd();
+  const candidate = resolve(root, argument);
+  const inside = relative(root, candidate);
+  if (inside === '' || inside.startsWith('..') || isAbsolute(inside)) {
+    console.error(`strip-docs-proxies: refusing to walk ${candidate}, which is not below ${root}`);
+    process.exit(1);
+  }
+  return join(root, inside);
 }
+
+const DOCS = docsDirectory(process.argv[2] ?? '.Build/site/docs');
 
 // The mobile variant is matched first: its name has the plain name as a prefix,
 // so a plain-name pattern would otherwise match its opening tag. End tags are
