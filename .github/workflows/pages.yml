@@ -63,6 +63,13 @@ jobs:
             ghcr.io/typo3-documentation/render-guides@sha256:6080cbe815ae702e11a932924cdbcf6ec934fbdf9568931a5ed6bafc4b69959c \
             render --config=Documentation --output=.Build/site/docs Documentation
 
+      # render-guides emits two controls that only work on docs.typo3.org: the
+      # cross-documentation menu and the version switcher. Both fetch a
+      # *-proxy.php endpoint that does not exist here, so every docs page issued
+      # a 404 — found by the axe step's asset check, confirmed on the live site.
+      - name: Remove the docs.typo3.org proxy controls
+        run: node landingpage/strip-docs-proxies.mjs .Build/site/docs
+
       - name: Provide lowercase index.html for the docs root
         # render-guides emits Index.html (capital I); GitHub Pages serves
         # index.html for the directory root, so copy it to avoid a 404 at /docs/.
