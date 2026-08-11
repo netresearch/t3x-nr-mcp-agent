@@ -21,9 +21,16 @@
  */
 
 import { readdirSync, statSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, relative, isAbsolute } from 'node:path';
 
-const DOCS = process.argv[2] ?? '.Build/site/docs';
+// Resolved and confined to the working tree: this runs in CI against a path the
+// workflow supplies, and a build script has no business writing outside it.
+const DOCS = resolve(process.argv[2] ?? '.Build/site/docs');
+const outside = relative(process.cwd(), DOCS);
+if (outside.startsWith('..') || isAbsolute(outside)) {
+  console.error(`strip-docs-proxies: refusing to walk ${DOCS}, which is outside ${process.cwd()}`);
+  process.exit(1);
+}
 
 // The mobile variant is matched first: its name has the plain name as a prefix,
 // so a plain-name pattern would otherwise match its opening tag. End tags are

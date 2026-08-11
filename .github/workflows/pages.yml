@@ -98,7 +98,7 @@ jobs:
       - name: Audit accessibility with axe
         run: |
           npm install --no-audit --no-fund --ignore-scripts
-          npx playwright install chromium
+          ./node_modules/.bin/playwright install chromium
           node landingpage/axe-audit.mjs
 
       - name: Upload Pages artifact
