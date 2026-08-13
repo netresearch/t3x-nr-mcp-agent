@@ -8,7 +8,7 @@ import {themeStyles} from './theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
-const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', failed: '✕'};
+const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', awaiting_approval: '⏸', failed: '✕'};
 const DEFAULT_HEIGHT = 350;
 const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 320;
@@ -297,6 +297,7 @@ export class AiChatPanel extends LitElement {
         }
         .conv-tab .tab-icon.status-processing,
         .conv-tab .tab-icon.status-tool_loop,
+        .conv-tab .tab-icon.status-awaiting_approval,
         .conv-tab .tab-icon.status-locked { color: var(--nr-chat-status-info); }
         .conv-tab .tab-icon.status-failed  { color: var(--nr-chat-status-danger); }
         .conv-tab .tab-icon.status-idle    { color: var(--nr-chat-status-success); }
@@ -1416,7 +1417,13 @@ export class AiChatPanel extends LitElement {
                         <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
                     </div>
                 ` : nothing}
-                ${this.chat.errorMessage ? html`
+                ${this.chat.status === 'awaiting_approval' && this.chat.errorMessage ? html`
+                    <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
+                        ${lll('chat.approvalPending')}: ${this.chat.errorMessage}
+                        <button class="btn btn-sm btn-icon" @click=${() => { this.chat.errorMessage = ''; this.requestUpdate(); }}
+                                style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
+                    </div>
+                ` : this.chat.errorMessage ? html`
                     <div class="message system" style="color:var(--nr-chat-status-danger, #c62828);">
                         Error: ${this.chat.errorMessage}
                         ${isResumable ? html`

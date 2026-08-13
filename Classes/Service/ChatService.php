@@ -224,14 +224,44 @@ final class ChatService implements ChatCapabilitiesInterface
             return;
         }
 
+        // A pending approval is not a failure. The run did exactly what it is
+        // supposed to do: it stopped before a write and is waiting for a human.
+        // Reporting it as Failed made the safeguard look like a crash.
+        if ($result->outcome === AgentRunOutcome::AWAITING_APPROVAL) {
+            $conversation->setStatus(ConversationStatus::AwaitingApproval);
+            $conversation->setErrorMessage($this->describeAwaitingApproval($result));
+            $this->persist($conversation);
+            return;
+        }
+
         $conversation->setStatus(ConversationStatus::Failed);
         $conversation->setErrorMessage($this->describeFailure($result));
         $this->persist($conversation);
     }
 
     /**
-     * Turn a non-completed run outcome into a human-readable message. A default
-     * arm is mandatory: AgentRunOutcome gains cases in nr-llm minor releases.
+     * Say what is pending and where it is granted.
+     *
+     * The run uuid is included because the approvals inbox lists runs and the
+     * user has to find the right one; it is empty when the run could not be
+     * persisted (the persister is fail-soft), and then it is simply left out
+     * rather than shown as an empty reference.
+     */
+    private function describeAwaitingApproval(AgentRunResult $result): string
+    {
+        $message = 'This step writes data, so it is waiting for your approval.'
+            . ' Grant it under Web > AI Tasks > Approvals, then the run continues on its own.';
+
+        return $result->runUuid !== ''
+            ? $message . ' Run: ' . $result->runUuid
+            : $message;
+    }
+
+    /**
+     * Turn a failed run outcome into a human-readable message. A default arm is
+     * mandatory: AgentRunOutcome gains cases in nr-llm minor releases.
+     *
+     * AWAITING_APPROVAL is handled before this is reached — see applyResult().
      */
     private function describeFailure(AgentRunResult $result): string
     {
@@ -242,7 +272,6 @@ final class ChatService implements ChatCapabilitiesInterface
         // Only reference AgentRunOutcome cases guaranteed by the minimum
         // supported nr-llm (^0.23.1); newer cases fall through to the default.
         return match ($result->outcome) {
-            AgentRunOutcome::AWAITING_APPROVAL => 'The assistant needs additional confirmation before it can continue, which this chat cannot handle yet.',
             AgentRunOutcome::GUARDRAIL_BLOCKED,
             AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED => 'The request was blocked by a safety guardrail.',
             default => sprintf('The assistant run did not complete (%s).', $result->outcome->value),
