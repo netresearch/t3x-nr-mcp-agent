@@ -657,7 +657,13 @@ export class ChatApp extends LitElement {
                         <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
                     </div>
                 ` : nothing}
-                ${this.chat.errorMessage ? html`
+                ${this.chat.status === 'awaiting_approval' && this.chat.errorMessage ? html`
+                    <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
+                        ${lll('chat.approvalPending')}: ${this.chat.errorMessage}
+                        <button class="btn btn-sm btn-icon" @click=${() => { this.chat.errorMessage = ''; this.requestUpdate(); }}
+                            style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
+                    </div>
+                ` : this.chat.errorMessage ? html`
                     <div class="message system" style="color:var(--nr-chat-status-danger, #c62828);">
                         Error: ${this.chat.errorMessage}
                         ${isResumable ? html`
