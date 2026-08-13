@@ -83,7 +83,8 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
     test('approving reaches the API with the digest the card carried', async () => {
         const el = await renderPending(modulePath, tag, open);
-        const decide = jest.fn().mockResolvedValue({status: 'idle'});
+        // 202: recorded, not carried out. The outcome arrives through the poll.
+        const decide = jest.fn().mockResolvedValue({status: 'processing'});
         // Through the real chain: the button calls the controller, which calls
         // the API client. Stubbing the controller method would assert nothing.
         el.chat._api.decideApproval = decide;
@@ -99,7 +100,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
     test('denying sends the opposite decision, not a second approval', async () => {
         const el = await renderPending(modulePath, tag, open);
-        const decide = jest.fn().mockResolvedValue({status: 'idle'});
+        const decide = jest.fn().mockResolvedValue({status: 'processing'});
         // Through the real chain: the button calls the controller, which calls
         // the API client. Stubbing the controller method would assert nothing.
         el.chat._api.decideApproval = decide;
@@ -109,6 +110,22 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         await el.updateComplete;
 
         expect(decide).toHaveBeenCalledWith(1, false, 'digest-abc');
+    });
+
+    test('after deciding, the conversation is followed rather than awaited', async () => {
+        // The endpoint answers 202 and a worker carries the decision out, so the
+        // outcome arrives the way a sent message's answer arrives: by polling.
+        const el = await renderPending(modulePath, tag, open);
+        el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
+        el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
+        const poll = jest.spyOn(el.chat, 'startPollingIfNeeded');
+
+        el.shadowRoot.querySelectorAll('.approval-actions button')[0].click();
+        // The click handler is async and updateComplete does not await its
+        // chain; let the pending promises settle first.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(poll).toHaveBeenCalled();
     });
 
     test('a run whose state cannot be read says so instead of offering a decision', async () => {

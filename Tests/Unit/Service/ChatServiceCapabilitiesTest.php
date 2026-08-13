@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatService;
@@ -47,6 +48,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $config,
             $this->createMock(AgentRuntimeInterface::class),
             $this->createMock(PendingApprovalReaderInterface::class),
+            $this->createMock(AgentRunRepositoryInterface::class),
             $this->makeTaskRepository($this->createMock(LlmModel::class)),
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),
@@ -195,6 +197,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $config,
             $this->createMock(AgentRuntimeInterface::class),
             $this->createMock(PendingApprovalReaderInterface::class),
+            $this->createMock(AgentRunRepositoryInterface::class),
             $taskRepository,
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),

@@ -13,6 +13,8 @@ CREATE TABLE tx_nrmcpagent_conversation (
     pinned tinyint(1) unsigned DEFAULT 0 NOT NULL,
     error_message text,
     approval_run_uuid varchar(64) DEFAULT '' NOT NULL,
+    approval_decision varchar(8) DEFAULT '' NOT NULL,
+    approval_turn_digest varchar(64) DEFAULT '' NOT NULL,
     tstamp int(11) unsigned DEFAULT 0 NOT NULL,
     crdate int(11) unsigned DEFAULT 0 NOT NULL,
 

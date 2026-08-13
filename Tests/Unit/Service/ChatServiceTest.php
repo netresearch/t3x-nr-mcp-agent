@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -107,7 +108,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry);
+        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry);
     }
 
     /**
@@ -461,34 +462,67 @@ class ChatServiceTest extends TestCase
     }
 
     /**
-     * A conversation that no longer waits has no approval to grant, and a link
-     * to a decision already made invites a click that lands nowhere.
+     * A conversation that has settled has no approval to grant, and a link to a
+     * decision already made invites a click that lands nowhere.
      *
-     * The clearing lives in setStatus() rather than at each caller, so this
-     * covers every exit from the waiting state at once — including the two
-     * failure arms of processConversation() and the two in the commands, which
-     * never reach applyResult() where it used to be done.
+     * The clearing lives in setStatus() rather than at each caller: the paths
+     * that settle a conversation are spread across the service and both
+     * commands, and one of them would have been forgotten.
      */
     #[Test]
-    #[DataProvider('statusesThatEndTheWaitProvider')]
-    public function leavingTheWaitingStateDropsTheRunReference(ConversationStatus $status): void
+    #[DataProvider('settlingStatusesProvider')]
+    public function settlingDropsTheRunReference(ConversationStatus $status): void
     {
         $conversation = new Conversation();
         $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->recordApprovalDecision(true, 'digest-abc');
 
         $conversation->setStatus($status);
 
         self::assertSame('', $conversation->getApprovalRunUuid());
+        self::assertSame('', $conversation->getApprovalDecision());
+        self::assertSame('', $conversation->getApprovalTurnDigest());
     }
 
     /**
      * @return iterable<string, array{ConversationStatus}>
      */
-    public static function statusesThatEndTheWaitProvider(): iterable
+    public static function settlingStatusesProvider(): iterable
     {
         yield 'completed' => [ConversationStatus::Idle];
         yield 'failed' => [ConversationStatus::Failed];
-        yield 'user typed again' => [ConversationStatus::Processing];
+    }
+
+    /**
+     * The busy states deliberately KEEP it. A decision recorded in the request
+     * is carried by the row until the worker executes it, and the run uuid is
+     * what lets a conversation whose worker never came be reconciled against
+     * its run. Clearing here would drop the work on the way to the worker.
+     *
+     * Nothing renders from a surviving reference: the card's gate is the
+     * waiting status, not the uuid.
+     */
+    #[Test]
+    #[DataProvider('busyStatusesProvider')]
+    public function theBusyStatesCarryTheDecisionToTheWorker(ConversationStatus $status): void
+    {
+        $conversation = new Conversation();
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->recordApprovalDecision(true, 'digest-abc');
+
+        $conversation->setStatus($status);
+
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+        self::assertSame('approve', $conversation->getApprovalDecision());
+        self::assertSame('digest-abc', $conversation->getApprovalTurnDigest());
+    }
+
+    /**
+     * @return iterable<string, array{ConversationStatus}>
+     */
+    public static function busyStatusesProvider(): iterable
+    {
+        yield 'claimed for the decision' => [ConversationStatus::Processing];
         yield 'claimed by a worker' => [ConversationStatus::Locked];
         yield 'back in the tool loop' => [ConversationStatus::ToolLoop];
     }

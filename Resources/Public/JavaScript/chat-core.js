@@ -138,11 +138,18 @@ export class ChatCoreController {
     }
 
     /**
-     * Decide the pending tool call and reload the conversation.
+     * Send the decision and start following the conversation.
+     *
+     * The endpoint records the decision and answers 202 — a worker carries it
+     * out, exactly as a sent message is carried out. So the outcome arrives the
+     * way every other outcome here arrives: through the poll. Reloading right
+     * away puts the conversation into its processing state, which is what
+     * starts that poll.
      *
      * The digest travels back exactly as it arrived. The runtime verifies it
      * against the state it claims, so a decision made on a card that has since
-     * been superseded is refused there rather than applied here.
+     * been superseded is refused there rather than applied here — and that
+     * refusal comes back as the card, with the reason on it.
      */
     async decideApproval(approve) {
         if (!this.pendingApproval || this.approvalBusy || !this.activeUid) {
@@ -154,6 +161,7 @@ export class ChatCoreController {
         try {
             await this._api.decideApproval(this.activeUid, approve, this.pendingApproval.turnDigest || '');
             await this.loadMessages();
+            this.startPollingIfNeeded();
         } catch (e) {
             this.errorMessage = e.message;
         } finally {

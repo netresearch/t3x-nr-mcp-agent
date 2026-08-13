@@ -46,6 +46,18 @@ final class Conversation
      */
     private string $approvalRunUuid = '';
 
+    /**
+     * The decision a user made in the request, waiting for the worker to carry
+     * it out: 'approve', 'deny', or empty when nothing is pending.
+     */
+    private string $approvalDecision = '';
+
+    /**
+     * The turn digest the card carried, kept with the decision so the worker
+     * hands the runtime exactly what the reader saw (ADR-132).
+     */
+    private string $approvalTurnDigest = '';
+
     private int $tstamp = 0;
 
     /** @phpstan-ignore-next-line property.onlyWritten */
@@ -71,6 +83,8 @@ final class Conversation
         $conversation->pinned = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage = (string) self::val($row, 'error_message', '');
         $conversation->approvalRunUuid = (string) self::val($row, 'approval_run_uuid', '');
+        $conversation->approvalDecision = (string) self::val($row, 'approval_decision', '');
+        $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
         $conversation->tstamp = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate = (int) self::val($row, 'crdate', 0);
         return $conversation;
@@ -104,6 +118,8 @@ final class Conversation
             'pinned' => (int) $this->pinned,
             'error_message' => $this->errorMessage,
             'approval_run_uuid' => $this->approvalRunUuid,
+            'approval_decision' => $this->approvalDecision,
+            'approval_turn_digest' => $this->approvalTurnDigest,
         ];
     }
 
@@ -221,14 +237,20 @@ final class Conversation
     {
         $this->status = $status->value;
 
-        // A run reference exists only while the conversation waits for an
-        // approval. Clearing it here rather than at each caller: six paths
-        // leave the waiting state (completion, two failure arms in the
-        // service, two in the commands, and a user simply typing again), and
-        // the seventh would have been forgotten. Set the uuid AFTER the
-        // status, which is what applyResult() does.
-        if ($status !== ConversationStatus::AwaitingApproval) {
+        // The approval fields survive the busy states and are cleared once the
+        // conversation settles. Clearing them here rather than at each caller:
+        // the paths that settle a conversation are spread across the service
+        // and both commands, and one of them would have been forgotten.
+        //
+        // Processing deliberately keeps them: a decision recorded in the
+        // request is carried by the row until the worker executes it, and the
+        // run uuid is what lets a stuck conversation be reconciled against its
+        // run afterwards. Only the card's own render gate reads the waiting
+        // status, so a reference surviving into Processing shows nothing.
+        if ($status === ConversationStatus::Idle || $status === ConversationStatus::Failed) {
             $this->approvalRunUuid = '';
+            $this->approvalDecision = '';
+            $this->approvalTurnDigest = '';
         }
     }
 
@@ -285,6 +307,41 @@ final class Conversation
     public function setApprovalRunUuid(string $runUuid): void
     {
         $this->approvalRunUuid = $runUuid;
+    }
+
+    public function getApprovalDecision(): string
+    {
+        return $this->approvalDecision;
+    }
+
+    public function getApprovalTurnDigest(): string
+    {
+        return $this->approvalTurnDigest;
+    }
+
+    /**
+     * Record what the user decided, for the worker to carry out.
+     *
+     * Both values travel together: a digest without a decision means nothing,
+     * and a decision without the digest the card carried would be verified
+     * against whatever the turn looks like by then.
+     */
+    public function recordApprovalDecision(bool $approve, string $turnDigest): void
+    {
+        $this->approvalDecision = $approve ? 'approve' : 'deny';
+        $this->approvalTurnDigest = $turnDigest;
+    }
+
+    public function clearApprovalDecision(): void
+    {
+        $this->approvalDecision = '';
+        $this->approvalTurnDigest = '';
+    }
+
+    /** Whether a decision is recorded and still waiting to be carried out. */
+    public function hasPendingApprovalDecision(): bool
+    {
+        return $this->approvalDecision !== '' && $this->approvalRunUuid !== '';
     }
 
     public function setErrorMessage(string $message): void

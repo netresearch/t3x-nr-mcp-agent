@@ -37,7 +37,8 @@ readonly class ConversationRepository
 
     private const LIST_COLUMNS = [
         'uid', 'be_user', 'title', 'status', 'message_count',
-        'pinned', 'archived', 'error_message', 'approval_run_uuid', 'tstamp', 'crdate',
+        'pinned', 'archived', 'error_message', 'approval_run_uuid',
+        'approval_decision', 'approval_turn_digest', 'tstamp', 'crdate',
     ];
 
     /** @return list<Conversation> */
@@ -167,12 +168,12 @@ readonly class ConversationRepository
     /**
      * Lightweight poll check — returns status metadata without loading messages.
      *
-     * @return array{status: string, message_count: int, error_message: string, approval_run_uuid: string}|null
+     * @return array{status: string, message_count: int, error_message: string, approval_run_uuid: string, tstamp: int}|null
      */
     public function findPollStatus(int $uid, int $beUserUid): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $qb->select('status', 'message_count', 'error_message', 'approval_run_uuid')
+        $row = $qb->select('status', 'message_count', 'error_message', 'approval_run_uuid', 'tstamp')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -190,6 +191,7 @@ readonly class ConversationRepository
         $messageCount = $row['message_count'] ?? 0;
         $errorMessage = $row['error_message'] ?? '';
         $approvalRunUuid = $row['approval_run_uuid'] ?? '';
+        $tstamp = $row['tstamp'] ?? 0;
 
         if (is_int($messageCount)) {
             $messageCountInt = $messageCount;
@@ -202,6 +204,7 @@ readonly class ConversationRepository
             'message_count' => $messageCountInt,
             'error_message' => is_string($errorMessage) ? $errorMessage : '',
             'approval_run_uuid' => is_string($approvalRunUuid) ? $approvalRunUuid : '',
+            'tstamp' => is_numeric($tstamp) ? (int) $tstamp : 0,
         ];
     }
 
