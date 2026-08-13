@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -45,6 +46,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $repository,
             $config,
             $this->createMock(AgentRuntimeInterface::class),
+            $this->createMock(PendingApprovalReaderInterface::class),
             $this->makeTaskRepository($this->createMock(LlmModel::class)),
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),
@@ -192,6 +194,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $repository,
             $config,
             $this->createMock(AgentRuntimeInterface::class),
+            $this->createMock(PendingApprovalReaderInterface::class),
             $taskRepository,
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),

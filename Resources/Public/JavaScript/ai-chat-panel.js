@@ -297,6 +297,13 @@ export class AiChatPanel extends LitElement {
         }
         .conv-tab .tab-icon.status-processing,
         .conv-tab .tab-icon.status-tool_loop,
+        .approval-card { margin-top: 8px; }
+        .approval-call { margin-bottom: 8px; }
+        .approval-call code { font-size: .9em; }
+        .approval-preview ul { margin: 4px 0 0; padding-left: 1.2em; }
+        .approval-warning { color: var(--nr-chat-status-warning, #ef6c00); margin-left: 6px; }
+        .approval-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+        .approval-card pre { margin: 4px 0 0; max-height: 12em; overflow: auto; }
         .conv-tab .tab-icon.status-awaiting_approval,
         .conv-tab .tab-icon.status-locked { color: var(--nr-chat-status-info); }
         .conv-tab .tab-icon.status-failed  { color: var(--nr-chat-status-danger); }
@@ -1498,7 +1505,7 @@ export class AiChatPanel extends LitElement {
             return html`
                 <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
                     ${lll('chat.approvalPending')}: ${this.chat.errorMessage}
-                    ${this._renderApprovalLink()}
+                    ${this._renderApprovalCard()}
                     <button class="btn btn-sm btn-icon" @click=${dismiss}
                         style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
                 </div>
@@ -1514,6 +1521,63 @@ export class AiChatPanel extends LitElement {
                 ` : nothing}
                 <button class="btn btn-sm btn-icon" @click=${dismiss}
                     style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
+            </div>
+        `;
+    }
+
+    /**
+     * The pending tool call, with the decision on it.
+     *
+     * Rendered inside the notice rather than as a link away from it: the run is
+     * this conversation's, the decision goes through the same per-run
+     * authorisation as the approvals module, and the answer arrives here. The
+     * link to the module stays, as the way to see the whole run.
+     */
+    _renderApprovalCard() {
+        const pending = this.chat.pendingApproval;
+        if (!pending) {
+            return this._renderApprovalLink();
+        }
+
+        if (pending.unreadableReason) {
+            // An empty card would look decidable. Say why it is not.
+            return html`
+                <div class="approval-card">
+                    <em>${lll('chat.approvalUnreadable')}</em>
+                    ${this._renderApprovalLink()}
+                </div>
+            `;
+        }
+
+        return html`
+            <div class="approval-card">
+                ${pending.calls.map((call) => html`
+                    <div class="approval-call">
+                        <code>${call.name}</code>
+                        ${call.toolStillRegistered ? nothing : html`
+                            <span class="approval-warning">${lll('chat.approvalToolGone')}</span>
+                        `}
+                        ${call.previewLines && call.previewLines.length ? html`
+                            <div class="approval-preview">
+                                <strong>${call.previewFailed
+                                    ? lll('chat.approvalPreviewUnavailable')
+                                    : lll('chat.approvalPreview')}</strong>
+                                <ul>${call.previewLines.map((line) => html`<li>${line}</li>`)}</ul>
+                            </div>
+                        ` : nothing}
+                        <details>
+                            <summary>${lll('chat.approvalArguments')}</summary>
+                            <pre><code>${call.argumentsJson}</code></pre>
+                        </details>
+                    </div>
+                `)}
+                <div class="approval-actions">
+                    <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
+                        @click=${() => this.chat.decideApproval(true)}>${lll('chat.approvalApprove')}</button>
+                    <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
+                        @click=${() => this.chat.decideApproval(false)}>${lll('chat.approvalDeny')}</button>
+                    ${this._renderApprovalLink()}
+                </div>
             </div>
         `;
     }

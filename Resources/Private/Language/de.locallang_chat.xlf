@@ -113,6 +113,34 @@
                 <source>Grant approval</source>
                 <target>Freigabe erteilen</target>
             </trans-unit>
+            <trans-unit id="chat.approvalApprove" resname="chat.approvalApprove">
+                <source>Approve</source>
+                <target>Freigeben</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalDeny" resname="chat.approvalDeny">
+                <source>Deny</source>
+                <target>Ablehnen</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalPreview" resname="chat.approvalPreview">
+                <source>What this call would do</source>
+                <target>Was dieser Aufruf tun würde</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalPreviewUnavailable" resname="chat.approvalPreviewUnavailable">
+                <source>No preview — you are deciding without one</source>
+                <target>Keine Vorschau — die Entscheidung fällt ohne</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalArguments" resname="chat.approvalArguments">
+                <source>Arguments</source>
+                <target>Argumente</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalToolGone" resname="chat.approvalToolGone">
+                <source>The tool for this call is no longer registered.</source>
+                <target>Das Werkzeug für diesen Aufruf ist nicht mehr registriert.</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalUnreadable" resname="chat.approvalUnreadable">
+                <source>This run cannot be read here. Open it in AI Tasks.</source>
+                <target>Dieser Lauf lässt sich hier nicht lesen. Im Modul AI Tasks öffnen.</target>
+            </trans-unit>
             <trans-unit id="chat.retry" resname="chat.retry">
                 <source>Retry</source>
                 <target>Erneut versuchen</target>

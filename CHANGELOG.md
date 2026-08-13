@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The pending tool call can be approved or denied in the chat itself, with what
+  it would do, its arguments and both decisions on the card. Until now the chat
+  could only point at the AI Tasks module, and a run approved there continued
+  where the chat could not see it — the conversation stayed parked forever with
+  a button offering a decision that had already been made.
+  The decision goes through nr-llm's own `approve()`, so it passes the same
+  per-run authorisation as the module and carries the same turn digest; a
+  decision made on a card that has since been superseded is refused by the
+  runtime rather than applied. The link to the module stays, as the way to see
+  the whole run.
+
 ## [0.10.1] - 2026-08-13
 
 ### Fixed

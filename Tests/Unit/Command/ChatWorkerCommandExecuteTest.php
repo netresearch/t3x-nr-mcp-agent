@@ -19,6 +19,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -96,6 +97,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
             $this->createMock(ConversationRepository::class),
             $config,
             $this->createMock(AgentRuntimeInterface::class),
+            $this->createMock(PendingApprovalReaderInterface::class),
             $taskRepository,
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),

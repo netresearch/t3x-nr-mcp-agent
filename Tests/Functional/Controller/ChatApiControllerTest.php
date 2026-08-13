@@ -8,6 +8,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\Test;
@@ -59,6 +60,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->createMock(ChatProcessorInterface::class),
             $config,
             $capabilities,
+            GeneralUtility::makeInstance(ChatApprovalInterface::class),
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
@@ -199,6 +201,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $mockProcessor,
             $config,
             $this->createMock(ChatCapabilitiesInterface::class),
+            GeneralUtility::makeInstance(ChatApprovalInterface::class),
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
@@ -260,6 +263,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->createMock(ChatProcessorInterface::class),
             $config,
             $this->createMock(ChatCapabilitiesInterface::class),
+            GeneralUtility::makeInstance(ChatApprovalInterface::class),
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),

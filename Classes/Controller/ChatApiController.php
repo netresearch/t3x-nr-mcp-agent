@@ -15,6 +15,8 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
+use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -41,6 +43,7 @@ final readonly class ChatApiController
         private ChatProcessorInterface $processor,
         private ExtensionConfiguration $config,
         private ChatCapabilitiesInterface $chatService,
+        private ChatApprovalInterface $chatApproval,
         private ResourceFactory $resourceFactory,
         private StorageRepository $storageRepository,
         private DocumentExtractorRegistry $documentExtractorRegistry,
@@ -211,6 +214,7 @@ final readonly class ChatApiController
             'totalCount' => count($messages),
             'errorMessage' => $conversation->getErrorMessage(),
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
+            'pendingApproval' => $this->buildPendingApproval($conversation),
         ]);
     }
 
@@ -434,6 +438,79 @@ final readonly class ChatApiController
             'mimeType' => $file->getMimeType(),
             'size'     => $file->getSize(),
         ]);
+    }
+
+    /**
+     * The pending approval as the chat renders it: what the call would do, its
+     * arguments, and the digest the decision has to carry back.
+     *
+     * Null whenever there is nothing to decide. `unreadableReason` is passed
+     * through rather than swallowed — a run whose suspended state cannot be read
+     * must say so instead of showing an empty card that looks decidable.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildPendingApproval(Conversation $conversation): ?array
+    {
+        $view = $this->chatApproval->pendingApproval($conversation);
+        if ($view === null) {
+            return null;
+        }
+
+        return [
+            'runUuid'          => $view->runUuid,
+            'turnDigest'       => $view->turnDigest ?? '',
+            'configLabel'      => $view->configLabel,
+            'unreadableReason' => $view->unreadableReason,
+            'calls'            => array_map(
+                static fn(PendingCallView $call): array => [
+                    'name'                => $call->name,
+                    'toolStillRegistered' => $call->toolStillRegistered,
+                    'previewLines'        => $call->previewLines,
+                    'previewFailed'       => $call->previewFailed,
+                    'argumentsJson'       => $call->argumentsJson,
+                ],
+                $view->pendingCalls,
+            ),
+        ];
+    }
+
+    /**
+     * POST /ai-chat/conversations/approve
+     *
+     * Runs the decision inline rather than dispatching it, which is what
+     * nr-llm's own approvals module does: approve() drives the continuation and
+     * returns the settled result, and splitting that across a queue would leave
+     * the conversation parked with no way to tell a slow continuation from a
+     * lost one.
+     */
+    public function decideApproval(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $conversation = $this->findConversationOrFail($request);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        if ($conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
+            return new JsonResponse(['error' => 'Conversation is not waiting for an approval'], 409);
+        }
+
+        $body = $this->parseBody($request);
+        $approve = (bool) ($body['approve'] ?? false);
+        $digest = $body['turnDigest'] ?? '';
+        $turnDigest = is_string($digest) ? $digest : '';
+
+        $this->chatApproval->decideApproval($conversation, $approve, $turnDigest);
+
+        return new JsonResponse([
+            'status'       => $conversation->getStatus()->value,
+            'errorMessage' => $conversation->getErrorMessage(),
+        ], 200);
     }
 
     /**
