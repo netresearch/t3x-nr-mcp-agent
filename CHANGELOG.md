@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-08-13
+
+### Fixed
+
+- The approval card now arrives on the poll that first sees the pause. A run
+  that pauses writes no message, so the client polled with `after` already at
+  the message count and landed on the metadata fast path — which answered
+  without card data. Polling then stopped, because awaiting approval is not a
+  processing status, so nothing fetched it afterwards: the user was left with
+  the notice and the module link until they reloaded the conversation. That is
+  most of what the in-chat approval was built to replace.
+- The panel keeps its styling when it pops out into its own window. Lit applies
+  `static styles` through `adoptedStyleSheets`, and a constructed stylesheet
+  belongs to the document that made it, so moving the element left the shadow
+  root holding sheets the new document ignores — the chat rendered as bare
+  serif HTML. The sheets are rebuilt for whichever window the panel lands in,
+  going out and coming back, and the detached document gets a margin reset and
+  the backend's background as a resolved value.
+
 ## [0.11.0] - 2026-08-13
 
 ### Added
