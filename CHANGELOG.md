@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-08-13
+
+### Fixed
+
+- Supports nr-llm 0.28 again. 0.10.0 raised the floor to ^0.29 because the run
+  detail the approval link points at arrived there, which made this extension
+  uninstallable next to every other one that still asks for ^0.28 — and with it
+  the fix that stops a pending approval reading as a crash. The link is now
+  checked instead of required: on 0.29 it is offered, on 0.28 the notice
+  carries none, which is what it did before the link existed.
+
 ## [0.10.0] - 2026-08-13
 
 ### Added

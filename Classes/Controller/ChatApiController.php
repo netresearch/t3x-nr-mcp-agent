@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use Exception;
 use finfo;
+use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -53,13 +54,27 @@ final readonly class ChatApiController
      * the module alone still leaves them searching. The read-only run detail
      * takes the uuid directly.
      *
-     * Returns an empty string when there is nothing pending, and also when the
-     * route is unknown: nr-llm owns that module, and a chat that throws because
-     * a link cannot be built is worse than a chat without the link.
+     * The detail arrived in nr-llm 0.29 (ADR-153) and this extension supports
+     * 0.28 as well, so the action has to be checked rather than assumed. It
+     * cannot be caught either: a backend module route resolves whether or not
+     * the action behind it is registered, so the URI would build and the
+     * failure would appear only on click, as an exception page. That is the
+     * impression this whole notice exists to remove. On 0.28 the notice simply
+     * carries no link, which is what it did before the link existed.
+     *
+     * Returns an empty string when there is nothing pending, and when the
+     * route is unknown: a chat that throws because a link cannot be built is
+     * worse than a chat without the link.
      */
     private function buildApprovalUrl(string $runUuid): string
     {
-        if ($runUuid === '') {
+        // PHPStan sees whichever nr-llm composer resolved and calls the check
+        // constant. composer.json permits 0.28 and 0.29, and the method exists
+        // in only one of them, so the condition is undecidable at analysis time
+        // and load-bearing at runtime — ApprovalLinkTargetTest asserts both
+        // answers against the installed version.
+        // @phpstan-ignore function.alreadyNarrowedType
+        if ($runUuid === '' || !method_exists(AgentRunController::class, 'showAction')) {
             return '';
         }
 
