@@ -8,7 +8,9 @@ use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -59,13 +61,23 @@ final class ApprovalLinkTargetTest extends TestCase
     #[Test]
     public function theLinkIsOfferedExactlyWhenNrLlmHasTheRunDetail(): void
     {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->setErrorMessage('This step writes data.');
+
         $repository = $this->createMock(ConversationRepository::class);
         $repository->method('findPollStatus')->willReturn([
             'status' => 'awaiting_approval',
             'message_count' => 5,
             'error_message' => 'This step writes data.',
             'approval_run_uuid' => 'run-uuid-1234',
+            'tstamp' => 1710000000,
         ]);
+        // A parked conversation no longer answers from the poll fast path — it
+        // falls through so the approval card can be built, and the link comes
+        // from the full response.
+        $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
         $uriBuilder = $this->createMock(UriBuilder::class);
         $uriBuilder->method('buildUriFromRoute')->willReturn('/typo3/module/web/nrllm-aitasks?runUuid=run-uuid-1234');
