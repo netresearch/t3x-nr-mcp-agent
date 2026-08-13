@@ -199,7 +199,16 @@ final readonly class ChatApiController
                 && $meta['approval_run_uuid'] !== ''
                 && $meta['tstamp'] > 0;
 
-            if ($meta['message_count'] <= $afterIndex && !$mayNeedRepair) {
+            // A run that pauses for approval writes no message either, so the
+            // poll that first sees the pause takes this path too — and the fast
+            // response has no pendingApproval, which the client reads as "no
+            // card". The user would be left with the notice and the deep link
+            // until they reload. Polling has already stopped by then
+            // (awaiting_approval is not a processing status), so nothing repairs
+            // it. Fall through once and answer with the card.
+            $isAwaitingApproval = $meta['status'] === ConversationStatus::AwaitingApproval->value;
+
+            if ($meta['message_count'] <= $afterIndex && !$mayNeedRepair && !$isAwaitingApproval) {
                 return new JsonResponse([
                     'status' => $meta['status'],
                     'messages' => [],
