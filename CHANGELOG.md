@@ -7,17 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-13
+
 ### Added
 
 - The pending-approval notice in the chat links to the run that is waiting.
   Naming the module was not enough: the approvals inbox lists every run the
   user may act on, so finding the right one was still their job.
+- The LICENSE file composer.json has always named.
 
 ### Changed
 
 - Requires nr-llm ^0.29. The run detail the approval link points at was added
   there; on 0.28 the route resolves but the action does not exist, so the link
   would have answered with an exception page.
+
+### Fixed
+
+- A tool that waits for an approval is shown as a state of its own instead of
+  an error. The chat reported the pause as FAILED with "the assistant needs
+  additional confirmation ... which this chat cannot handle yet", which made a
+  safeguard working as designed look like a crash. There is no Retry button on
+  that state: restarting would step past a decision that is still pending.
+- The lint suite in runTests.sh excludes .Build again. The exclusion was
+  written so that find looked for a literal asterisk and never matched, so the
+  suite linted the vendor tree and died on a template file that is deliberately
+  not valid PHP.
 
 ## [0.9.0] - 2026-08-10
 
