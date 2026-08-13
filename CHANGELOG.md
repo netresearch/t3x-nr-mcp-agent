@@ -7,18 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- The approval decision is carried out by the worker instead of the web
-  request. `approve()` drives the whole continuation — up to twenty further
-  provider round-trips — which a gateway timeout would kill with the write
-  already done and nothing written back. The request now records the decision,
-  claims the conversation and answers 202, exactly as sending a message does;
-  the outcome arrives through the poll.
-- A conversation whose worker never took the decision is reconciled against the
-  run itself rather than a timeout: still waiting means the card comes back,
-  still running means it is left alone, and settled means the chat says the run
-  finished where it cannot see it instead of showing a spinner forever.
+## [0.11.0] - 2026-08-13
 
 ### Added
 
@@ -32,6 +21,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   decision made on a card that has since been superseded is refused by the
   runtime rather than applied. The link to the module stays, as the way to see
   the whole run.
+
+### Changed
+
+- The approval decision is carried out by the worker instead of the web
+  request. `approve()` drives the whole continuation — up to twenty further
+  provider round-trips — which a gateway timeout would kill with the write
+  already done and nothing written back. The request now records the decision,
+  claims the conversation and answers 202, exactly as sending a message does;
+  the outcome arrives through the poll.
+- A conversation whose worker never took the decision is reconciled against the
+  run itself rather than a timeout: still waiting means the card comes back,
+  still running means it is left alone, and settled means the chat says the run
+  finished where it cannot see it instead of showing a spinner forever.
+
+### Database
+
+- `tx_nrmcpagent_conversation` gains `approval_run_uuid`, `approval_decision`
+  and `approval_turn_digest`. Run the database compare (or
+  `typo3 extension:setup`) after updating; without the columns the approval
+  card cannot be shown and no decision can be recorded.
 
 ## [0.10.1] - 2026-08-13
 
