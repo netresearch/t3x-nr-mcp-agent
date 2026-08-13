@@ -6,8 +6,11 @@ namespace Netresearch\NrMcpAgent\Service;
 
 use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
@@ -23,6 +26,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
+use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -49,6 +53,8 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  */
 final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface
 {
+    private const DECISION_APPROVE = 'approve';
+
     /**
      * Base identity and behaviour contract, prepended to every system prompt so
      * the assistant states who it is, is steered to use its tools instead of
@@ -71,6 +77,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ExtensionConfiguration $config,
         private readonly AgentRuntimeInterface $agentRuntime,
         private readonly PendingApprovalReaderInterface $pendingApprovalReader,
+        private readonly AgentRunRepositoryInterface $agentRunRepository,
         private readonly TaskRepository $taskRepository,
         private readonly ProviderAdapterRegistryInterface $adapterRegistry,
         private readonly ResourceFactory $resourceFactory,
@@ -117,6 +124,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     public function processConversation(Conversation $conversation): void
     {
         $this->resolvedPrompts = null;
+
+        // A recorded decision is the other kind of work a claimed conversation
+        // can carry. It is not a turn over the transcript, so it never reaches
+        // runAgentTurn().
+        if ($conversation->hasPendingApprovalDecision()) {
+            $this->performRecordedDecision($conversation);
+
+            return;
+        }
 
         if ($this->config->getLlmTaskUid() === 0) {
             $conversation->setStatus(ConversationStatus::Failed);
@@ -200,6 +216,69 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * absent (isolation / misuse) — ownership still holds through the uid.
      */
     /**
+     * Put a conversation back in step with the run it is waiting on.
+     *
+     * The reason this exists: the decision is carried out by a worker now, and
+     * a worker can fail to start — a wedged queue, a failed fork — leaving the
+     * conversation claimed as Processing with nobody working on it. Without
+     * this the reader would see a spinner forever and could not tell whether
+     * their approval did anything.
+     *
+     * The run itself is the authority, not a timer: a timeout guess would
+     * either fire on a slow but healthy continuation or wait far too long.
+     *
+     *   run still waiting  -> nobody consumed the decision; hand the card back
+     *   run still running  -> a worker has it; leave it alone
+     *   run settled        -> the continuation happened somewhere this
+     *                         conversation cannot see, so say that plainly
+     *                         instead of spinning
+     *
+     * Returns true when the conversation was changed.
+     */
+    public function reconcile(Conversation $conversation): bool
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+        if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::Processing) {
+            return false;
+        }
+
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        if (!$run instanceof AgentRun
+            || !$this->resolveActor($conversation->getBeUser())->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
+        ) {
+            return false;
+        }
+
+        $status = AgentRunStatus::tryFrom($run->status);
+
+        if ($status === AgentRunStatus::WAITING_FOR_APPROVAL) {
+            $conversation->clearApprovalDecision();
+            $conversation->setStatus(ConversationStatus::AwaitingApproval);
+            $conversation->setApprovalRunUuid($runUuid);
+            $this->persist($conversation);
+
+            return true;
+        }
+
+        if ($status === AgentRunStatus::RUNNING || $status === AgentRunStatus::QUEUED) {
+            return false;
+        }
+
+        // Settled: completed, failed, cancelled, or waiting for an input this
+        // chat does not handle. The answer, if there was one, went to the run
+        // and not to this transcript — say so rather than leave a spinner.
+        $conversation->clearApprovalDecision();
+        $conversation->setStatus(ConversationStatus::Failed);
+        $conversation->setErrorMessage(
+            'This run finished outside the chat, so its answer is not in this conversation.'
+            . ' Open it under Web > AI Tasks to see what happened.',
+        );
+        $this->persist($conversation);
+
+        return true;
+    }
+
+    /**
      * The pending tool call of a parked conversation, as the approvals inbox
      * would show it.
      *
@@ -238,41 +317,59 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * here: a check before the claim can pass on a turn a concurrent approval
      * has already replaced.
      */
-    public function decideApproval(Conversation $conversation, bool $approve, string $turnDigest): void
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest): bool
+    {
+        if ($conversation->getApprovalRunUuid() === ''
+            || $conversation->getStatus() !== ConversationStatus::AwaitingApproval
+        ) {
+            return false;
+        }
+
+        // Claim the conversation and record the decision in one write. The CAS
+        // is what stops a follow-up message from racing this: sendMessage does
+        // not treat AwaitingApproval as busy, so without it both writers would
+        // think they own the row.
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->recordApprovalDecision($approve, $turnDigest);
+
+        return $this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval);
+    }
+
+    /**
+     * Carry out a decision the request recorded.
+     *
+     * approve() drives the whole continuation, which is why it runs here and
+     * not in the web request: up to MAX_ITERATIONS provider round-trips inside
+     * PHP-FPM would be killed by a gateway timeout with the write already done
+     * and nothing written back.
+     *
+     * The digest travels exactly as the card carried it. The runtime verifies
+     * it against the state it claims (ADR-132), so a decision recorded before
+     * the turn moved on is refused there rather than applied here — which is
+     * the whole reason the digest is stored with the decision instead of being
+     * recomputed now.
+     */
+    private function performRecordedDecision(Conversation $conversation): void
     {
         $runUuid = $conversation->getApprovalRunUuid();
-        if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
-            return;
-        }
-
-        // Claim the conversation for the duration of the inline continuation.
-        // Without it a follow-up message can be accepted while approve() runs —
-        // sendMessage does not treat AwaitingApproval as busy — and the full-row
-        // write at the end would then erase that message together with the
-        // claim it made. Processing is the busy state every other path uses.
-        $conversation->setStatus(ConversationStatus::Processing);
-        if (!$this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval)) {
-            // Someone else moved the conversation on between the controller's
-            // read and here. Their state wins; do not decide on top of it.
-            $conversation->setStatus(ConversationStatus::AwaitingApproval);
-            $conversation->setApprovalRunUuid($runUuid);
-
-            return;
-        }
 
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
                 $runUuid,
-                new ApprovalDecision($approve, $conversation->getBeUser(), $turnDigest),
+                new ApprovalDecision(
+                    $conversation->getApprovalDecision() === self::DECISION_APPROVE,
+                    $conversation->getBeUser(),
+                    $conversation->getApprovalTurnDigest(),
+                ),
             );
         } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException $e) {
             // These four RELEASE the run rather than consume it: it is still
-            // pending and still decidable. Marking the conversation Failed would
-            // be wrong twice — the card would vanish, and Failed is resumable,
-            // so the UI would offer a Retry that starts a SECOND run over the
-            // same transcript while the first is still waiting for its
-            // approval. Put it back where it was and say what happened.
+            // pending and still decidable. Put the conversation back where it
+            // was, with the reason, so the card returns and the reader can
+            // decide again. Marking it Failed would hide the card AND offer a
+            // Retry that starts a second run over the same transcript.
+            $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
@@ -280,6 +377,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
             return;
         } catch (Throwable $e) {
+            $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
             $this->persist($conversation);
@@ -287,6 +385,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return;
         }
 
+        $conversation->clearApprovalDecision();
         $this->applyResult($conversation, $result);
     }
 

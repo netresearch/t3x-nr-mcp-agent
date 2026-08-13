@@ -207,6 +207,10 @@ final readonly class ChatApiController
             return $conversation;
         }
 
+        // A claimed conversation whose worker never took the decision would spin
+        // forever; the run itself says whether that happened.
+        $this->chatApproval->reconcile($conversation);
+
         $messages = $conversation->getDecodedMessages();
         $newMessages = array_slice($messages, $afterIndex);
 
@@ -516,11 +520,16 @@ final readonly class ChatApiController
     /**
      * POST /ai-chat/conversations/approve
      *
-     * Runs the decision inline rather than dispatching it, which is what
-     * nr-llm's own approvals module does: approve() drives the continuation and
-     * returns the settled result, and splitting that across a queue would leave
-     * the conversation parked with no way to tell a slow continuation from a
-     * lost one.
+     * Records the decision and hands it to the worker, like every other path
+     * here. approve() drives the whole continuation — up to MAX_ITERATIONS
+     * provider round-trips — which a gateway timeout would kill with the write
+     * already done and nothing written back.
+     *
+     * The objection to doing it this way is that the click no longer gets its
+     * answer in the response. It gets it from the poll instead, which is where
+     * every other outcome in this chat already arrives; and the case the
+     * objection actually points at — a worker that never starts — is what
+     * reconcile() answers, using the run's own status rather than a timer.
      */
     public function decideApproval(ServerRequestInterface $request): ResponseInterface
     {
@@ -547,12 +556,16 @@ final readonly class ChatApiController
         $digest = $body['turnDigest'] ?? '';
         $turnDigest = is_string($digest) ? $digest : '';
 
-        $this->chatApproval->decideApproval($conversation, $approve, $turnDigest);
+        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest)) {
+            return new JsonResponse(['error' => self::ERROR_CONVERSATION_PROCESSING], 409);
+        }
 
-        return new JsonResponse([
-            'status'       => $conversation->getStatus()->value,
-            'errorMessage' => $conversation->getErrorMessage(),
-        ], 200);
+        $this->processor->dispatch($conversation->getUid());
+
+        // 202, like every other path that hands work to the worker. The decision
+        // is recorded, not yet carried out; the chat's poll reports the outcome,
+        // and reconciles the conversation if the worker never takes it.
+        return new JsonResponse(['status' => $conversation->getStatus()->value], 202);
     }
 
     /**

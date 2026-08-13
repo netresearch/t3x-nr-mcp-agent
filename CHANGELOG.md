@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The approval decision is carried out by the worker instead of the web
+  request. `approve()` drives the whole continuation — up to twenty further
+  provider round-trips — which a gateway timeout would kill with the write
+  already done and nothing written back. The request now records the decision,
+  claims the conversation and answers 202, exactly as sending a message does;
+  the outcome arrives through the poll.
+- A conversation whose worker never took the decision is reconciled against the
+  run itself rather than a timeout: still waiting means the card comes back,
+  still running means it is left alone, and settled means the chat says the run
+  finished where it cannot see it instead of showing a spinner forever.
+
 ### Added
 
 - The pending tool call can be approved or denied in the chat itself, with what

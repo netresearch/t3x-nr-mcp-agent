@@ -622,7 +622,7 @@ class ChatApiControllerTest extends TestCase
         $conversation->setApprovalRunUuid('run-uuid-1234');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $this->chatApproval->expects(self::never())->method('decideApproval');
+        $this->chatApproval->expects(self::never())->method('recordDecision');
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "approve": true, "turnDigest": "d"}');
 

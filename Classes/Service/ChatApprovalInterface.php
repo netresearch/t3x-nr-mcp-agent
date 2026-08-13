@@ -23,12 +23,22 @@ interface ChatApprovalInterface
     public function pendingApproval(Conversation $conversation): ?WaitingRunView;
 
     /**
-     * Decide the pending call and carry the run to its end, writing the outcome
-     * onto the conversation.
+     * Record what the user decided and claim the conversation for the worker.
      *
-     * A no-op when the conversation is not waiting: a decision on a run that has
-     * already moved on is not an error to report, it is a click that arrived
-     * late.
+     * The decision is not carried out here: approve() drives the whole
+     * continuation, and doing that in a web request means a gateway timeout can
+     * kill it with the write already done and nothing written back.
+     *
+     * Returns false when there was nothing to decide or the claim was lost to
+     * another writer — a click that arrived late is not an error to report.
      */
-    public function decideApproval(Conversation $conversation, bool $approve, string $turnDigest): void;
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest): bool;
+
+    /**
+     * Put a claimed conversation back in step with the run it waits on, for the
+     * case where the worker never picked the decision up.
+     *
+     * Returns true when the conversation was changed.
+     */
+    public function reconcile(Conversation $conversation): bool;
 }
