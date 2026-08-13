@@ -81,6 +81,9 @@
             <trans-unit id="chat.processing" resname="chat.processing">
                 <source>Processing...</source>
             </trans-unit>
+            <trans-unit id="chat.approvalPending" resname="chat.approvalPending">
+                <source>Waiting for approval</source>
+            </trans-unit>
             <trans-unit id="chat.retry" resname="chat.retry">
                 <source>Retry</source>
             </trans-unit>

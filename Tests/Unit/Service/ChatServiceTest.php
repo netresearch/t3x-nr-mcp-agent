@@ -376,8 +376,13 @@ class ChatServiceTest extends TestCase
         self::assertStringContainsString('guardrail', $conversation->getErrorMessage());
     }
 
+    /**
+     * A pending approval is the safeguard working, not a crash. Reporting it as
+     * Failed made a correct pause look like a broken feature to anyone using
+     * the chat.
+     */
     #[Test]
-    public function processConversationSetsFailedWhenAwaitingApproval(): void
+    public function processConversationDoesNotFailWhenAwaitingApproval(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
@@ -388,8 +393,50 @@ class ChatServiceTest extends TestCase
         $service = $this->createChatService($result);
         $service->processConversation($conversation);
 
-        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
-        self::assertStringContainsString('confirmation', $conversation->getErrorMessage());
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertNotSame(ConversationStatus::Failed, $conversation->getStatus());
+    }
+
+    /**
+     * The message has to say where the approval is granted, otherwise the pause
+     * is merely less alarming without being more actionable.
+     */
+    #[Test]
+    public function awaitingApprovalMessageNamesWhereToApproveAndWhichRun(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $service = $this->createChatService(
+            new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid-1234', []),
+        );
+        $service->processConversation($conversation);
+
+        $message = $conversation->getErrorMessage();
+        self::assertStringContainsString('approval', $message);
+        self::assertStringContainsString('AI Tasks', $message);
+        self::assertStringContainsString('run-uuid-1234', $message);
+    }
+
+    /**
+     * The run uuid is empty when the run could not be persisted (fail-soft
+     * persister). An empty reference helps nobody, so it is left out entirely.
+     */
+    #[Test]
+    public function awaitingApprovalMessageOmitsAnEmptyRunReference(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $service = $this->createChatService(
+            new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, '', []),
+        );
+        $service->processConversation($conversation);
+
+        self::assertStringNotContainsString('Run: ', $conversation->getErrorMessage());
+        self::assertStringContainsString('AI Tasks', $conversation->getErrorMessage());
     }
 
     #[Test]
