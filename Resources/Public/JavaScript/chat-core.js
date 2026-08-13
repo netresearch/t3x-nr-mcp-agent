@@ -27,6 +27,12 @@ export class ChatCoreController {
 
     /** Link to the run waiting for an approval; empty when nothing is pending. */
     approvalUrl = '';
+
+    /** True while a decision is in flight, so the buttons cannot be pressed twice. */
+    approvalBusy = false;
+
+    /** The pending tool call as the approvals inbox describes it; null when nothing is pending. */
+    pendingApproval = null;
     inputValue = '';
     hasInput = false;
     loading = true;
@@ -131,6 +137,31 @@ export class ChatCoreController {
         this.host.onFocusInput();
     }
 
+    /**
+     * Decide the pending tool call and reload the conversation.
+     *
+     * The digest travels back exactly as it arrived. The runtime verifies it
+     * against the state it claims, so a decision made on a card that has since
+     * been superseded is refused there rather than applied here.
+     */
+    async decideApproval(approve) {
+        if (!this.pendingApproval || this.approvalBusy || !this.activeUid) {
+            return;
+        }
+
+        this.approvalBusy = true;
+        this.host.requestUpdate();
+        try {
+            await this._api.decideApproval(this.activeUid, approve, this.pendingApproval.turnDigest || '');
+            await this.loadMessages();
+        } catch (e) {
+            this.errorMessage = e.message;
+        } finally {
+            this.approvalBusy = false;
+            this.host.requestUpdate();
+        }
+    }
+
     async loadMessages() {
         if (!this.activeUid) return;
         try {
@@ -139,6 +170,7 @@ export class ChatCoreController {
             this.status = data.status;
             this.errorMessage = data.errorMessage || '';
             this.approvalUrl = data.approvalUrl || '';
+            this.pendingApproval = data.pendingApproval || null;
             this._knownMessageCount = data.totalCount;
             this.host.requestUpdate();
             this.host.onScrollToBottom(true);
@@ -164,6 +196,7 @@ export class ChatCoreController {
                 this.status = data.status;
                 this.errorMessage = data.errorMessage || '';
                 this.approvalUrl = data.approvalUrl || '';
+                this.pendingApproval = data.pendingApproval || null;
                 this._knownMessageCount = data.totalCount;
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>

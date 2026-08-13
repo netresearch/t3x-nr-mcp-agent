@@ -9,6 +9,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -77,6 +78,7 @@ final class ApprovalLinkTargetTest extends TestCase
             $this->createMock(ChatProcessorInterface::class),
             $config,
             $this->createMock(ChatCapabilitiesInterface::class),
+            $this->createMock(ChatApprovalInterface::class),
             $this->createMock(ResourceFactory::class),
             $this->createMock(StorageRepository::class),
             new DocumentExtractorRegistry([]),

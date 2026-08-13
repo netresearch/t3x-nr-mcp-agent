@@ -9,12 +9,15 @@ use DateTimeInterface;
 use Exception;
 use finfo;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
+use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
+use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -23,6 +26,7 @@ use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -41,6 +45,7 @@ final readonly class ChatApiController
         private ChatProcessorInterface $processor,
         private ExtensionConfiguration $config,
         private ChatCapabilitiesInterface $chatService,
+        private ChatApprovalInterface $chatApproval,
         private ResourceFactory $resourceFactory,
         private StorageRepository $storageRepository,
         private DocumentExtractorRegistry $documentExtractorRegistry,
@@ -211,6 +216,7 @@ final readonly class ChatApiController
             'totalCount' => count($messages),
             'errorMessage' => $conversation->getErrorMessage(),
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
+            'pendingApproval' => $this->buildPendingApproval($conversation),
         ]);
     }
 
@@ -434,6 +440,119 @@ final readonly class ChatApiController
             'mimeType' => $file->getMimeType(),
             'size'     => $file->getSize(),
         ]);
+    }
+
+    /**
+     * Whether this user may decide an approval at all.
+     *
+     * The same module the AI Tasks inbox lives in — `nrllm_aitasks` is
+     * `access: user`, so it can be withheld from a group. Without this check the
+     * chat would be a second, unscoped way to release the write fence: a group
+     * given the chat but not the module could decide runs it previously could
+     * only start. The write itself stays inside what the approver may do either
+     * way (nr-llm re-evaluates the tool policy against them), but who may
+     * release the fence is not something this extension gets to widen on its own.
+     */
+    private function mayDecideApprovals(): bool
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication) {
+            return false;
+        }
+
+        return $backendUser->isAdmin() || (bool) $backendUser->check('modules', 'nrllm_aitasks');
+    }
+
+    /**
+     * The pending approval as the chat renders it: what the call would do, its
+     * arguments, and the digest the decision has to carry back.
+     *
+     * Null whenever there is nothing to decide. `unreadableReason` is passed
+     * through rather than swallowed — a run whose suspended state cannot be read
+     * must say so instead of showing an empty card that looks decidable.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildPendingApproval(Conversation $conversation): ?array
+    {
+        if (!$this->mayDecideApprovals()) {
+            // No card for someone who cannot decide: buttons they may not press
+            // are worse than the prose alone.
+            return null;
+        }
+
+        $view = $this->chatApproval->pendingApproval($conversation);
+        if ($view === null) {
+            return null;
+        }
+
+        // A run waiting for INPUT reaches this while the conversation row still
+        // says AwaitingApproval, and its view carries no calls — which would
+        // render as two enabled buttons over an empty card. The input pause
+        // belongs to the module. An unreadable run does pass, so the card can
+        // say why there is nothing to decide instead of silently vanishing.
+        if ($view->mode === WaitingRunView::MODE_INPUT) {
+            return null;
+        }
+
+        return [
+            'runUuid'          => $view->runUuid,
+            'turnDigest'       => $view->turnDigest ?? '',
+            'configLabel'      => $view->configLabel,
+            'unreadableReason' => $view->unreadableReason,
+            'calls'            => array_map(
+                static fn(PendingCallView $call): array => [
+                    'name'                => $call->name,
+                    'toolStillRegistered' => $call->toolStillRegistered,
+                    'previewLines'        => $call->previewLines,
+                    'previewFailed'       => $call->previewFailed,
+                    'argumentsJson'       => $call->argumentsJson,
+                ],
+                $view->pendingCalls,
+            ),
+        ];
+    }
+
+    /**
+     * POST /ai-chat/conversations/approve
+     *
+     * Runs the decision inline rather than dispatching it, which is what
+     * nr-llm's own approvals module does: approve() drives the continuation and
+     * returns the settled result, and splitting that across a queue would leave
+     * the conversation parked with no way to tell a slow continuation from a
+     * lost one.
+     */
+    public function decideApproval(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $conversation = $this->findConversationOrFail($request);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        if (!$this->mayDecideApprovals()) {
+            return new JsonResponse(['error' => 'Not allowed to decide approvals'], 403);
+        }
+
+        if ($conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
+            return new JsonResponse(['error' => 'Conversation is not waiting for an approval'], 409);
+        }
+
+        $body = $this->parseBody($request);
+        $approve = (bool) ($body['approve'] ?? false);
+        $digest = $body['turnDigest'] ?? '';
+        $turnDigest = is_string($digest) ? $digest : '';
+
+        $this->chatApproval->decideApproval($conversation, $approve, $turnDigest);
+
+        return new JsonResponse([
+            'status'       => $conversation->getStatus()->value,
+            'errorMessage' => $conversation->getErrorMessage(),
+        ], 200);
     }
 
     /**

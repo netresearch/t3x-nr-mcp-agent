@@ -17,6 +17,12 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -41,7 +47,7 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * strong TYPO3-backend identity system prompt), and maps the run outcome back
  * onto the conversation. Tools are no longer sourced from MCP servers here.
  */
-final class ChatService implements ChatCapabilitiesInterface
+final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface
 {
     /**
      * Base identity and behaviour contract, prepended to every system prompt so
@@ -64,6 +70,7 @@ final class ChatService implements ChatCapabilitiesInterface
         private readonly ConversationRepository $repository,
         private readonly ExtensionConfiguration $config,
         private readonly AgentRuntimeInterface $agentRuntime,
+        private readonly PendingApprovalReaderInterface $pendingApprovalReader,
         private readonly TaskRepository $taskRepository,
         private readonly ProviderAdapterRegistryInterface $adapterRegistry,
         private readonly ResourceFactory $resourceFactory,
@@ -192,6 +199,97 @@ final class ChatService implements ChatCapabilitiesInterface
      * fallback keeps the class testable and never hard-crashes if the global is
      * absent (isolation / misuse) — ownership still holds through the uid.
      */
+    /**
+     * The pending tool call of a parked conversation, as the approvals inbox
+     * would show it.
+     *
+     * Reuses nr-llm's own view factory rather than decoding the suspended state
+     * here: the digest it puts on the view is the one ResumeCoordinator verifies
+     * (ADR-132), and a second implementation of that would drift.
+     *
+     * Null when nothing is pending, when the run is gone, or when the actor may
+     * not read it — status() answers per run, so an unreadable run and one that
+     * does not exist are indistinguishable from here, which is the point.
+     */
+    public function pendingApproval(Conversation $conversation): ?WaitingRunView
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+        if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
+            return null;
+        }
+
+        return $this->pendingApprovalReader->read(
+            $this->resolveActor($conversation->getBeUser()),
+            $runUuid,
+        );
+    }
+
+    /**
+     * Decide the pending tool call from the chat and carry the run to its end.
+     *
+     * approve() authorises per run through mayActOnRun() and drives the
+     * continuation itself, returning the settled result — so the decision made
+     * here goes through exactly the gate the AI Tasks module goes through, and
+     * the answer lands in this conversation instead of being lost to a module
+     * the chat cannot see.
+     *
+     * The digest travels with the decision and is verified against the freshly
+     * claimed state inside the runtime (ADR-132). It is deliberately not checked
+     * here: a check before the claim can pass on a turn a concurrent approval
+     * has already replaced.
+     */
+    public function decideApproval(Conversation $conversation, bool $approve, string $turnDigest): void
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+        if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
+            return;
+        }
+
+        // Claim the conversation for the duration of the inline continuation.
+        // Without it a follow-up message can be accepted while approve() runs —
+        // sendMessage does not treat AwaitingApproval as busy — and the full-row
+        // write at the end would then erase that message together with the
+        // claim it made. Processing is the busy state every other path uses.
+        $conversation->setStatus(ConversationStatus::Processing);
+        if (!$this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval)) {
+            // Someone else moved the conversation on between the controller's
+            // read and here. Their state wins; do not decide on top of it.
+            $conversation->setStatus(ConversationStatus::AwaitingApproval);
+            $conversation->setApprovalRunUuid($runUuid);
+
+            return;
+        }
+
+        try {
+            $result = $this->agentRuntime->approve(
+                $this->resolveActor($conversation->getBeUser()),
+                $runUuid,
+                new ApprovalDecision($approve, $conversation->getBeUser(), $turnDigest),
+            );
+        } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException $e) {
+            // These four RELEASE the run rather than consume it: it is still
+            // pending and still decidable. Marking the conversation Failed would
+            // be wrong twice — the card would vanish, and Failed is resumable,
+            // so the UI would offer a Retry that starts a SECOND run over the
+            // same transcript while the first is still waiting for its
+            // approval. Put it back where it was and say what happened.
+            $conversation->setStatus(ConversationStatus::AwaitingApproval);
+            $conversation->setApprovalRunUuid($runUuid);
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
+            $this->persist($conversation);
+
+            return;
+        } catch (Throwable $e) {
+            $conversation->setStatus(ConversationStatus::Failed);
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
+            $this->persist($conversation);
+
+            return;
+        }
+
+        $this->applyResult($conversation, $result);
+    }
+
     private function resolveActor(int $beUserUid): AiActorContext
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;

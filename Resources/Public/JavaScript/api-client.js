@@ -73,6 +73,17 @@ export class ApiClient {
      * @param {number} conversationUid
      * @returns {Promise<{status: string}>}
      */
+    /**
+     * Decide the tool call a conversation is parked on.
+     *
+     * The digest is the one the card carried; the runtime verifies it against
+     * the state it claims, so a decision made on a stale card is refused rather
+     * than applied to a turn that has since been replaced.
+     */
+    async decideApproval(conversationUid, approve, turnDigest) {
+        return this._post('ai_chat_conversation_approve', {conversationUid, approve, turnDigest});
+    }
+
     async resumeConversation(conversationUid) {
         return this._post('ai_chat_conversation_resume', {conversationUid});
     }
