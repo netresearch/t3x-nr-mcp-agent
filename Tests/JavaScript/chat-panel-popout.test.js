@@ -224,6 +224,7 @@ describe('panel pop-out', () => {
      */
     test('gives the detached window a reset and a background', async () => {
         const {pipWindow} = installPictureInPictureStub();
+        document.documentElement.style.setProperty('--typo3-component-bg', 'rgb(1, 2, 3)');
         const {panel} = await mountPanel();
 
         await panel.popOut();
@@ -231,6 +232,8 @@ describe('panel pop-out', () => {
         const style = pipWindow.document.head.querySelector('style');
         expect(style).not.toBeNull();
         expect(style.textContent).toContain('margin:0');
+        // Resolved, not a var() reference the new document cannot look up.
+        expect(pipWindow.document.documentElement.style.background).toBe('rgb(1, 2, 3)');
     });
 
     test('a failed request leaves the panel where it was', async () => {

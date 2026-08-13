@@ -907,8 +907,14 @@ export class AiChatPanel extends LitElement {
      *
      * A picture-in-picture document starts empty: no reset, no background. The
      * panel is `position: fixed` and sized to fill, so the default body margin
-     * shows as a white frame and the page behind it is the browser's blank
-     * white regardless of theme.
+     * shows as a white frame, and until it has painted the window is the
+     * browser's blank white whatever theme the backend is in.
+     *
+     * The background is carried over as a resolved value: --typo3-component-bg
+     * is declared on the BACKEND document's root, so a var() reference in the
+     * new document could only ever produce its fallback. If it does not resolve,
+     * nothing is set — the reset alone already removes the frame, and a literal
+     * here would be the hardcoded colour the colour-scheme guard forbids.
      *
      * @param {Window} targetWindow
      */
@@ -919,9 +925,15 @@ export class AiChatPanel extends LitElement {
         }
 
         const style = doc.createElement('style');
-        style.textContent = 'html,body{margin:0;padding:0;height:100%;overflow:hidden;'
-            + 'background:var(--typo3-component-bg,#fff);}';
+        style.textContent = 'html,body{margin:0;padding:0;height:100%;overflow:hidden;}';
         doc.head.append(style);
+
+        const background = getComputedStyle(document.documentElement)
+            .getPropertyValue('--typo3-component-bg')
+            .trim();
+        if (background !== '') {
+            doc.documentElement.style.background = background;
+        }
     }
 
     /** Put the panel back where it came from when its window goes away. */
