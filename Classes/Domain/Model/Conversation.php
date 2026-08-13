@@ -220,6 +220,16 @@ final class Conversation
     public function setStatus(ConversationStatus $status): void
     {
         $this->status = $status->value;
+
+        // A run reference exists only while the conversation waits for an
+        // approval. Clearing it here rather than at each caller: six paths
+        // leave the waiting state (completion, two failure arms in the
+        // service, two in the commands, and a user simply typing again), and
+        // the seventh would have been forgotten. Set the uuid AFTER the
+        // status, which is what applyResult() does.
+        if ($status !== ConversationStatus::AwaitingApproval) {
+            $this->approvalRunUuid = '';
+        }
     }
 
     public function getCurrentRequestId(): string

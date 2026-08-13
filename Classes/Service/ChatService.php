@@ -220,7 +220,6 @@ final class ChatService implements ChatCapabilitiesInterface
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
             $conversation->appendMessage(MessageRole::Assistant, $result->loopResult->finalContent);
             $conversation->setStatus(ConversationStatus::Idle);
-            $conversation->setApprovalRunUuid('');
             $this->persist($conversation);
             return;
         }
@@ -240,7 +239,6 @@ final class ChatService implements ChatCapabilitiesInterface
 
         $conversation->setStatus(ConversationStatus::Failed);
         $conversation->setErrorMessage($this->describeFailure($result));
-        $conversation->setApprovalRunUuid('');
         $this->persist($conversation);
     }
 
