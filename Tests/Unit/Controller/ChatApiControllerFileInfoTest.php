@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use stdClass;
+use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Resource\Exception\FileDoesNotExistException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -54,6 +55,7 @@ class ChatApiControllerFileInfoTest extends TestCase
             $this->resourceFactory,
             $this->createMock(StorageRepository::class),
             new DocumentExtractorRegistry([$extractor]),
+            $this->createMock(UriBuilder::class),
         );
 
         $GLOBALS['BE_USER'] = new stdClass();

@@ -84,6 +84,9 @@
             <trans-unit id="chat.approvalPending" resname="chat.approvalPending">
                 <source>Waiting for approval</source>
             </trans-unit>
+            <trans-unit id="chat.approvalOpen" resname="chat.approvalOpen">
+                <source>Grant approval</source>
+            </trans-unit>
             <trans-unit id="chat.retry" resname="chat.retry">
                 <source>Retry</source>
             </trans-unit>

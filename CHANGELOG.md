@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The pending-approval notice in the chat links to the run that is waiting.
+  Naming the module was not enough: the approvals inbox lists every run the
+  user may act on, so finding the right one was still their job.
+
+### Changed
+
+- Requires nr-llm ^0.29. The run detail the approval link points at was added
+  there; on 0.28 the route resolves but the action does not exist, so the link
+  would have answered with an exception page.
+
 ## [0.9.0] - 2026-08-10
 
 ### Added

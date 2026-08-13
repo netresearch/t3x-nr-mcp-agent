@@ -1417,23 +1417,7 @@ export class AiChatPanel extends LitElement {
                         <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
                     </div>
                 ` : nothing}
-                ${this.chat.status === 'awaiting_approval' && this.chat.errorMessage ? html`
-                    <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
-                        ${lll('chat.approvalPending')}: ${this.chat.errorMessage}
-                        <button class="btn btn-sm btn-icon" @click=${() => { this.chat.errorMessage = ''; this.requestUpdate(); }}
-                                style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
-                    </div>
-                ` : this.chat.errorMessage ? html`
-                    <div class="message system" style="color:var(--nr-chat-status-danger, #c62828);">
-                        Error: ${this.chat.errorMessage}
-                        ${isResumable ? html`
-                            <button class="btn btn-sm" @click=${() => this.chat.handleResume()}
-                                    style="margin-left:8px;">${lll('chat.retry')}</button>
-                        ` : nothing}
-                        <button class="btn btn-sm btn-icon" @click=${() => { this.chat.errorMessage = ''; this.requestUpdate(); }}
-                                style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
-                    </div>
-                ` : nothing}
+                ${this._renderStatusNotice(isResumable)}
             </div>
             ${this._renderInput()}
         `;
@@ -1489,6 +1473,60 @@ export class AiChatPanel extends LitElement {
                 </div>
                 ${isUser ? html`<div class="avatar avatar-user">${AVATAR_USER(14)}</div>` : nothing}
             </div>
+        `;
+    }
+
+    /**
+     * The status notice under the transcript: a pending approval, or an error.
+     *
+     * Extracted from render() because the two are one chained conditional with
+     * a further one inside it, which is hard to read and pushed render() past
+     * its complexity budget. The branches are unchanged.
+     *
+     * @param {boolean} isResumable
+     */
+    _renderStatusNotice(isResumable) {
+        const dismiss = () => { this.chat.errorMessage = ''; this.requestUpdate(); };
+
+        if (!this.chat.errorMessage) {
+            return nothing;
+        }
+
+        if (this.chat.status === 'awaiting_approval') {
+            // No Retry here: restarting would step past an approval that is
+            // still pending.
+            return html`
+                <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
+                    ${lll('chat.approvalPending')}: ${this.chat.errorMessage}
+                    ${this._renderApprovalLink()}
+                    <button class="btn btn-sm btn-icon" @click=${dismiss}
+                        style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
+                </div>
+            `;
+        }
+
+        return html`
+            <div class="message system" style="color:var(--nr-chat-status-danger, #c62828);">
+                Error: ${this.chat.errorMessage}
+                ${isResumable ? html`
+                    <button class="btn btn-sm" @click=${() => this.chat.handleResume()}
+                        style="margin-left:8px;">${lll('chat.retry')}</button>
+                ` : nothing}
+                <button class="btn btn-sm btn-icon" @click=${dismiss}
+                    style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
+            </div>
+        `;
+    }
+
+    /** Link to the run waiting for an approval; absent when there is none. */
+    _renderApprovalLink() {
+        if (!this.chat.approvalUrl) {
+            return nothing;
+        }
+
+        return html`
+            <a class="btn btn-sm" href="${this.chat.approvalUrl}"
+                style="margin-left:8px;">${lll('chat.approvalOpen')}</a>
         `;
     }
 

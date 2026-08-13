@@ -26,6 +26,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
@@ -437,6 +438,99 @@ class ChatServiceTest extends TestCase
 
         self::assertStringNotContainsString('Run: ', $conversation->getErrorMessage());
         self::assertStringContainsString('AI Tasks', $conversation->getErrorMessage());
+    }
+
+    /**
+     * The uuid is carried in a field of its own so the chat can build a link to
+     * the pending run. In the message it is prose, and prose is not a link.
+     */
+    #[Test]
+    public function awaitingApprovalRecordsTheRunForLinking(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $service = $this->createChatService(
+            new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid-1234', []),
+        );
+        $service->processConversation($conversation);
+
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+    }
+
+    /**
+     * A conversation that no longer waits has no approval to grant, and a link
+     * to a decision already made invites a click that lands nowhere.
+     *
+     * The clearing lives in setStatus() rather than at each caller, so this
+     * covers every exit from the waiting state at once — including the two
+     * failure arms of processConversation() and the two in the commands, which
+     * never reach applyResult() where it used to be done.
+     */
+    #[Test]
+    #[DataProvider('statusesThatEndTheWaitProvider')]
+    public function leavingTheWaitingStateDropsTheRunReference(ConversationStatus $status): void
+    {
+        $conversation = new Conversation();
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+
+        $conversation->setStatus($status);
+
+        self::assertSame('', $conversation->getApprovalRunUuid());
+    }
+
+    /**
+     * @return iterable<string, array{ConversationStatus}>
+     */
+    public static function statusesThatEndTheWaitProvider(): iterable
+    {
+        yield 'completed' => [ConversationStatus::Idle];
+        yield 'failed' => [ConversationStatus::Failed];
+        yield 'user typed again' => [ConversationStatus::Processing];
+        yield 'claimed by a worker' => [ConversationStatus::Locked];
+        yield 'back in the tool loop' => [ConversationStatus::ToolLoop];
+    }
+
+    /**
+     * The whole run, not the setter on its own: a completed turn leaves no
+     * reference behind. The previous version of this test named completion and
+     * asserted a failure instead, so the completion arm was never covered.
+     */
+    #[Test]
+    public function completingAfterAnApprovalClearsTheRunReference(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $conversation->setApprovalRunUuid('stale-run-uuid');
+
+        $service = $this->createChatService($this->completedResult());
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+        self::assertSame('', $conversation->getApprovalRunUuid());
+    }
+
+    /**
+     * A turn that fails before the runtime returns never reaches applyResult().
+     */
+    #[Test]
+    public function aTurnThatFailsBeforeTheRuntimeClearsTheRunReference(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $conversation->setApprovalRunUuid('stale-run-uuid');
+
+        $config = $this->createStub(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(0);
+
+        $service = $this->createChatService(null, null, $config);
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertSame('', $conversation->getApprovalRunUuid());
     }
 
     #[Test]

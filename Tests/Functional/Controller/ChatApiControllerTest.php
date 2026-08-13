@@ -11,9 +11,11 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 class ChatApiControllerTest extends FunctionalTestCase
@@ -60,6 +62,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
+            GeneralUtility::makeInstance(UriBuilder::class),
         );
     }
 
@@ -199,6 +202,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
+            GeneralUtility::makeInstance(UriBuilder::class),
         );
 
         $request = (new ServerRequest('/', 'POST'))
@@ -259,6 +263,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
+            GeneralUtility::makeInstance(UriBuilder::class),
         );
 
         $response = $controller->listConversations();
