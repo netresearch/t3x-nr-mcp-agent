@@ -9,13 +9,14 @@ use DateTimeInterface;
 use Exception;
 use finfo;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
+use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
+use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
-use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -25,6 +26,7 @@ use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -441,6 +443,27 @@ final readonly class ChatApiController
     }
 
     /**
+     * Whether this user may decide an approval at all.
+     *
+     * The same module the AI Tasks inbox lives in — `nrllm_aitasks` is
+     * `access: user`, so it can be withheld from a group. Without this check the
+     * chat would be a second, unscoped way to release the write fence: a group
+     * given the chat but not the module could decide runs it previously could
+     * only start. The write itself stays inside what the approver may do either
+     * way (nr-llm re-evaluates the tool policy against them), but who may
+     * release the fence is not something this extension gets to widen on its own.
+     */
+    private function mayDecideApprovals(): bool
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication) {
+            return false;
+        }
+
+        return $backendUser->isAdmin() || (bool) $backendUser->check('modules', 'nrllm_aitasks');
+    }
+
+    /**
      * The pending approval as the chat renders it: what the call would do, its
      * arguments, and the digest the decision has to carry back.
      *
@@ -452,8 +475,23 @@ final readonly class ChatApiController
      */
     private function buildPendingApproval(Conversation $conversation): ?array
     {
+        if (!$this->mayDecideApprovals()) {
+            // No card for someone who cannot decide: buttons they may not press
+            // are worse than the prose alone.
+            return null;
+        }
+
         $view = $this->chatApproval->pendingApproval($conversation);
         if ($view === null) {
+            return null;
+        }
+
+        // A run waiting for INPUT reaches this while the conversation row still
+        // says AwaitingApproval, and its view carries no calls — which would
+        // render as two enabled buttons over an empty card. The input pause
+        // belongs to the module. An unreadable run does pass, so the card can
+        // say why there is nothing to decide instead of silently vanishing.
+        if ($view->mode === WaitingRunView::MODE_INPUT) {
             return null;
         }
 
@@ -494,6 +532,10 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        if (!$this->mayDecideApprovals()) {
+            return new JsonResponse(['error' => 'Not allowed to decide approvals'], 403);
         }
 
         if ($conversation->getStatus() !== ConversationStatus::AwaitingApproval) {

@@ -22,6 +22,7 @@ use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 use stdClass;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -599,6 +600,33 @@ class ChatApiControllerTest extends TestCase
         $response = $this->subject->resumeConversation($request);
 
         self::assertSame(202, $response->getStatusCode());
+    }
+
+    /**
+     * The chat must not become a second, unscoped way to release the write
+     * fence. nrllm_aitasks is `access: user`, so a group can be given the chat
+     * without it — and such a user could previously start a run that suspends
+     * on a write but never decide it.
+     */
+    #[Test]
+    public function decidingAnApprovalRequiresTheModuleTheInboxLivesIn(): void
+    {
+        $backendUser = $this->createMock(BackendUserAuthentication::class);
+        $backendUser->user = ['uid' => 1, 'usergroup' => '1,2'];
+        $backendUser->method('isAdmin')->willReturn(false);
+        $backendUser->method('check')->with('modules', 'nrllm_aitasks')->willReturn(false);
+        $GLOBALS['BE_USER'] = $backendUser;
+
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $this->chatApproval->expects(self::never())->method('decideApproval');
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "approve": true, "turnDigest": "d"}');
+
+        self::assertSame(403, $this->subject->decideApproval($request)->getStatusCode());
     }
 
     #[Test]

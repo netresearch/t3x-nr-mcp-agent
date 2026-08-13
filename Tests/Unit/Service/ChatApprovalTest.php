@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
@@ -57,7 +58,11 @@ final class ChatApprovalTest extends TestCase
     private function createChatService(
         AgentRunResult|RuntimeException $approveAnswer,
         ?PendingApprovalReaderInterface $reader = null,
+        bool $claimSucceeds = true,
     ): ChatService {
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateIf')->willReturn($claimSucceeds);
+
         $agentRuntime = $this->createMock(AgentRuntimeInterface::class);
         $agentRuntime->method('approve')->willReturnCallback(
             function (mixed $actor, string $runUuid, ApprovalDecision $decision) use ($approveAnswer): AgentRunResult {
@@ -75,7 +80,7 @@ final class ChatApprovalTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
 
         return new ChatService(
-            $this->createMock(ConversationRepository::class),
+            $repository,
             $config,
             $agentRuntime,
             $reader ?? $this->createMock(PendingApprovalReaderInterface::class),
@@ -186,6 +191,65 @@ final class ChatApprovalTest extends TestCase
 
         self::assertNull($this->capturedDecision);
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+    }
+
+    /**
+     * Four of the runtime's refusals RELEASE the run instead of consuming it —
+     * a stale digest, an already-resuming run, an approver who may not decide,
+     * a run that is no longer waiting. The run is still pending afterwards, so
+     * the conversation must stay parked.
+     *
+     * Marking it Failed would be wrong twice: the card vanishes, and Failed is
+     * resumable, so the UI offers a Retry that starts a SECOND run over the
+     * same transcript while the first still waits for its approval.
+     */
+    #[Test]
+    public function aReleasingRefusalLeavesTheConversationDecidable(): void
+    {
+        $conversation = $this->parkedConversation();
+
+        $this->createChatService(new StaleApprovalTurnException('run-uuid-1234', 'The review is stale'))
+            ->decideApproval($conversation, true, 'digest-stale');
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+        self::assertFalse($conversation->isResumable(), 'a parked conversation must not offer Retry');
+        self::assertStringContainsString('stale', $conversation->getErrorMessage());
+    }
+
+    /**
+     * A refusal that is not one of the four release cases is a real failure.
+     */
+    #[Test]
+    public function anUnexpectedErrorStillFailsTheConversation(): void
+    {
+        $conversation = $this->parkedConversation();
+
+        $this->createChatService(new RuntimeException('the database went away'))
+            ->decideApproval($conversation, true, 'digest-abc');
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertSame('', $conversation->getApprovalRunUuid());
+    }
+
+    /**
+     * The claim is what stops a follow-up message from being erased: while
+     * approve() runs inline, sendMessage may still accept a message, because
+     * AwaitingApproval is not one of its busy states. If the claim is lost, the
+     * other writer owns the conversation and this path must not decide on top
+     * of it — nor reach the runtime at all.
+     */
+    #[Test]
+    public function aLostClaimDecidesNothing(): void
+    {
+        $conversation = $this->parkedConversation();
+
+        $this->createChatService($this->completed(), null, false)
+            ->decideApproval($conversation, true, 'digest-abc');
+
+        self::assertNull($this->capturedDecision);
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
     }
 
     /**
