@@ -18,9 +18,26 @@ const PANEL_TAG = 'ai-chat-panel';
 
 /** Minimal stand-in for the API: jsdom ships no picture-in-picture. */
 function installPictureInPictureStub() {
+    // Constructed stylesheets belong to the document that made them, so the
+    // stub needs its own CSSStyleSheet — that binding is the whole defect the
+    // adoption tests below are about.
+    const adopted = [];
+    class PipStyleSheet {
+        constructor() {
+            this.cssText = '';
+            adopted.push(this);
+        }
+
+        replaceSync(text) {
+            this.cssText = text;
+        }
+    }
+
     const pipWindow = {
         document: document.implementation.createHTMLDocument('pip'),
         addEventListener: jest.fn(),
+        CSSStyleSheet: PipStyleSheet,
+        constructedSheets: adopted,
     };
     const requestWindow = jest.fn().mockResolvedValue(pipWindow);
 
@@ -144,6 +161,76 @@ describe('panel pop-out', () => {
 
         expect(panel.style.left).toBe('300px');
         expect(panel.style.top).toBe('200px');
+    });
+
+    /**
+     * The defect this guards: the panel arrived in its own window rendering as
+     * bare serif HTML — no layout, no colours, plain buttons. Lit applies
+     * `static styles` through `adoptedStyleSheets`, and a constructed sheet
+     * belongs to the document that made it, so the move left the shadow root
+     * holding sheets the new document ignores. The docblock claimed the styles
+     * travel with the element; they do not.
+     */
+    test('rebuilds its styles for the window it moves into', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const {panel} = await mountPanel();
+
+        await panel.popOut();
+
+        const sheets = panel.shadowRoot.adoptedStyleSheets;
+        expect(sheets.length).toBeGreaterThan(0);
+        // Built by the target document, not carried over from this one.
+        expect(sheets.every((sheet) => sheet instanceof pipWindow.CSSStyleSheet)).toBe(true);
+        expect(sheets.some((sheet) => sheet.cssText.includes(':host'))).toBe(true);
+    });
+
+    test('rebuilds them again when it comes home', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        // jsdom has no constructible CSSStyleSheet, so the main window needs the
+        // same stand-in the detached one has — otherwise the return path cannot
+        // rebuild anything and the test would be measuring jsdom, not the panel.
+        class HomeStyleSheet {
+            constructor() {
+                this.cssText = '';
+            }
+
+            replaceSync(text) {
+                this.cssText = text;
+            }
+        }
+        const previous = window.CSSStyleSheet;
+        window.CSSStyleSheet = HomeStyleSheet;
+
+        try {
+            const {panel} = await mountPanel();
+            await panel.popOut();
+
+            const [, handler] = pipWindow.addEventListener.mock.calls.find(([type]) => type === 'pagehide');
+            handler();
+
+            const sheets = panel.shadowRoot.adoptedStyleSheets;
+            expect(sheets.length).toBeGreaterThan(0);
+            expect(sheets.every((sheet) => sheet instanceof HomeStyleSheet)).toBe(true);
+            expect(sheets.some((sheet) => sheet instanceof pipWindow.CSSStyleSheet)).toBe(false);
+        } finally {
+            window.CSSStyleSheet = previous;
+        }
+    });
+
+    /**
+     * A picture-in-picture document starts empty: no reset, no background. The
+     * panel is position: fixed and sized to fill, so without this the default
+     * body margin shows as a white frame around it.
+     */
+    test('gives the detached window a reset and a background', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const {panel} = await mountPanel();
+
+        await panel.popOut();
+
+        const style = pipWindow.document.head.querySelector('style');
+        expect(style).not.toBeNull();
+        expect(style.textContent).toContain('margin:0');
     });
 
     test('a failed request leaves the panel where it was', async () => {
