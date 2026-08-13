@@ -820,9 +820,15 @@ export class AiChatPanel extends LitElement {
      *
      * The element is MOVED rather than re-rendered into the new document: the
      * conversation lives on the controller attached to this instance, and a copy
-     * would start empty. Lit keeps its styles on the shadow root so they travel
-     * with it, and the --nr-chat-* properties fall back to their literals once
-     * the backend's --typo3-* are out of reach.
+     * would start empty. The --nr-chat-* properties fall back to their literals
+     * once the backend's --typo3-* are out of reach.
+     *
+     * The styles do NOT travel with the element, which this comment used to
+     * claim. Lit applies `static styles` through `adoptedStyleSheets`, and a
+     * constructed stylesheet belongs to the document that made it — so after the
+     * move the shadow root holds sheets the new document will not apply, and the
+     * panel renders as bare serif HTML. They are rebuilt for the target document
+     * instead, on the way out and on the way back.
      *
      * @return {Promise<boolean>} whether the panel is now detached
      */
@@ -848,9 +854,86 @@ export class AiChatPanel extends LitElement {
 
         pipWindow.addEventListener('pagehide', () => this._returnFromPopOut());
         pipWindow.document.body.append(this);
+        this._adoptStylesInto(pipWindow);
+        this._dressWindow(pipWindow);
         this._applySize();
 
         return true;
+    }
+
+    /**
+     * Rebuild the shadow root's stylesheets for a given document.
+     *
+     * `adoptedStyleSheets` only accepts sheets constructed by the same document
+     * as the node, so moving the host between documents silently drops them.
+     * The rules are re-created from the same `static styles` Lit used, which
+     * keeps one source for them.
+     *
+     * Guarded end to end: a window without constructible stylesheets, or a rule
+     * the target rejects, must leave the panel where it is rather than take the
+     * conversation down with it.
+     *
+     * @param {Window} targetWindow
+     */
+    _adoptStylesInto(targetWindow) {
+        const root = this.shadowRoot;
+        if (!root || typeof targetWindow?.CSSStyleSheet !== 'function') {
+            return;
+        }
+
+        const sheets = [];
+        for (const style of (this.constructor.styles ?? []).flat(Infinity)) {
+            const text = style?.cssText;
+            if (typeof text !== 'string') {
+                continue;
+            }
+
+            try {
+                const sheet = new targetWindow.CSSStyleSheet();
+                sheet.replaceSync(text);
+                sheets.push(sheet);
+            } catch {
+                // One unusable rule set must not cost the others.
+            }
+        }
+
+        if (sheets.length > 0) {
+            root.adoptedStyleSheets = sheets;
+        }
+    }
+
+    /**
+     * Give the detached window the little it needs around the panel.
+     *
+     * A picture-in-picture document starts empty: no reset, no background. The
+     * panel is `position: fixed` and sized to fill, so the default body margin
+     * shows as a white frame, and until it has painted the window is the
+     * browser's blank white whatever theme the backend is in.
+     *
+     * The background is carried over as a resolved value: --typo3-component-bg
+     * is declared on the BACKEND document's root, so a var() reference in the
+     * new document could only ever produce its fallback. If it does not resolve,
+     * nothing is set — the reset alone already removes the frame, and a literal
+     * here would be the hardcoded colour the colour-scheme guard forbids.
+     *
+     * @param {Window} targetWindow
+     */
+    _dressWindow(targetWindow) {
+        const doc = targetWindow?.document;
+        if (!doc?.head) {
+            return;
+        }
+
+        const style = doc.createElement('style');
+        style.textContent = 'html,body{margin:0;padding:0;height:100%;overflow:hidden;}';
+        doc.head.append(style);
+
+        const background = getComputedStyle(document.documentElement)
+            .getPropertyValue('--typo3-component-bg')
+            .trim();
+        if (background !== '') {
+            doc.documentElement.style.background = background;
+        }
     }
 
     /** Put the panel back where it came from when its window goes away. */
@@ -861,6 +944,7 @@ export class AiChatPanel extends LitElement {
 
         if (home) {
             home.append(this);
+            this._adoptStylesInto(window);
         }
 
         // _applySize() only runs on a reactive property change, and returning
