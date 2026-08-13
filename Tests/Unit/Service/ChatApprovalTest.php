@@ -111,6 +111,18 @@ final class ChatApprovalTest extends TestCase
         );
     }
 
+    /**
+     * A conversation whose row was last written long enough ago that the grace
+     * period has passed — i.e. one where no worker showed up.
+     */
+    private function staleClaim(Conversation $conversation): Conversation
+    {
+        $reflection = new ReflectionClass($conversation);
+        $reflection->getProperty('tstamp')->setValue($conversation, time() - 600);
+
+        return $conversation;
+    }
+
     private function runWith(AgentRunStatus $status, int $beUser = 1): AgentRun
     {
         $run = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
@@ -290,11 +302,37 @@ final class ChatApprovalTest extends TestCase
 
         $service = $this->createChatService(null, null, true, $runRepository);
         $service->recordDecision($conversation, true, 'digest-abc');
+        $this->staleClaim($conversation);
 
         self::assertTrue($service->reconcile($conversation));
         self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
         self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
         self::assertSame('', $conversation->getApprovalDecision());
+    }
+
+    /**
+     * The defect this guard exists for: ExecChatProcessor returns as soon as the
+     * shell forks, so the poll that follows the decision by milliseconds sees a
+     * run that still waits — because nr-llm only leaves WAITING_FOR_APPROVAL
+     * when the continuation claims it. Reverting there would take the decision
+     * away from a worker that is merely still booting, and the worker would then
+     * find a conversation that is no longer claimed and do nothing at all.
+     */
+    #[Test]
+    public function aFreshlyClaimedConversationIsNotReverted(): void
+    {
+        $conversation = $this->parkedConversation();
+        $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
+        $runRepository->expects(self::never())->method('findByUuid');
+
+        $service = $this->createChatService(null, null, true, $runRepository);
+        $service->recordDecision($conversation, true, 'digest-abc');
+        // A row written just now — which is what the claim leaves behind.
+        (new ReflectionClass($conversation))->getProperty('tstamp')->setValue($conversation, time());
+
+        self::assertFalse($service->reconcile($conversation));
+        self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
+        self::assertSame('approve', $conversation->getApprovalDecision());
     }
 
     /**
@@ -310,6 +348,7 @@ final class ChatApprovalTest extends TestCase
 
         $service = $this->createChatService(null, null, true, $runRepository);
         $service->recordDecision($conversation, true, 'digest-abc');
+        $this->staleClaim($conversation);
 
         self::assertFalse($service->reconcile($conversation));
         self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
@@ -330,6 +369,7 @@ final class ChatApprovalTest extends TestCase
 
         $service = $this->createChatService(null, null, true, $runRepository);
         $service->recordDecision($conversation, true, 'digest-abc');
+        $this->staleClaim($conversation);
 
         self::assertTrue($service->reconcile($conversation));
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
@@ -349,6 +389,7 @@ final class ChatApprovalTest extends TestCase
 
         $service = $this->createChatService(null, null, true, $runRepository);
         $service->recordDecision($conversation, true, 'digest-abc');
+        $this->staleClaim($conversation);
 
         self::assertFalse($service->reconcile($conversation));
         self::assertSame(ConversationStatus::Processing, $conversation->getStatus());

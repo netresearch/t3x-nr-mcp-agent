@@ -56,6 +56,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private const DECISION_APPROVE = 'approve';
 
     /**
+     * How long a claimed conversation is left alone before it is repaired.
+     *
+     * Long enough for a cold CLI bootstrap plus nr-llm resolving the run, the
+     * actor and the configuration; short enough that a wedged queue is not a
+     * spinner anyone sits through. A continuation that legitimately runs longer
+     * is protected by the run's own status, not by this.
+     */
+    private const RECONCILE_GRACE_SECONDS = 45;
+
+    /**
      * Base identity and behaviour contract, prepended to every system prompt so
      * the assistant states who it is, is steered to use its tools instead of
      * asking the user to paste data, and never claims to be ChatGPT/OpenAI —
@@ -242,6 +252,25 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return false;
         }
 
+        // A worker that has not booted yet looks exactly like a worker that will
+        // never come: in both cases the row is claimed and the run still waits,
+        // because nr-llm only leaves WAITING_FOR_APPROVAL when the continuation
+        // claims it. ExecChatProcessor returns as soon as the shell forks, so
+        // without this the poll that follows the decision by milliseconds would
+        // revert it — and the worker would then find a conversation that is no
+        // longer claimed and exit without doing anything.
+        //
+        // The row's own timestamp separates the two. Every write touches it, so
+        // "claimed a while ago and nothing has happened since" is the only state
+        // worth repairing.
+        $tstamp = $conversation->getTstamp();
+        if ($tstamp === 0 || $tstamp > time() - self::RECONCILE_GRACE_SECONDS) {
+            // A zero timestamp means the row was never written, so there is
+            // nothing to repair and no way to tell how long it has been that
+            // way. Only a row that has demonstrably sat still qualifies.
+            return false;
+        }
+
         $run = $this->agentRunRepository->findByUuid($runUuid);
         if (!$run instanceof AgentRun
             || !$this->resolveActor($conversation->getBeUser())->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
@@ -255,9 +284,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
-            $this->persist($conversation);
 
-            return true;
+            // Compare-and-swap, not a plain write: this runs on a poll, from a
+            // snapshot read moments earlier, while a worker may be writing the
+            // same row. A full-row write would put that snapshot back and lose
+            // whatever the worker had just appended.
+            return $this->repository->updateIf($conversation, ConversationStatus::Processing);
         }
 
         if ($status === AgentRunStatus::RUNNING || $status === AgentRunStatus::QUEUED) {
@@ -273,9 +305,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             'This run finished outside the chat, so its answer is not in this conversation.'
             . ' Open it under Web > AI Tasks to see what happened.',
         );
-        $this->persist($conversation);
 
-        return true;
+        // Same reason as above, and it matters more here: the worker settling
+        // the run and writing its answer is precisely what makes this branch
+        // reachable, so a plain write would delete the answer and then claim the
+        // run finished elsewhere.
+        return $this->repository->updateIf($conversation, ConversationStatus::Processing);
     }
 
     /**

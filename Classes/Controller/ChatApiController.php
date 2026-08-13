@@ -191,7 +191,15 @@ final readonly class ChatApiController
                 return new JsonResponse(['error' => 'Conversation not found'], 404);
             }
 
-            if ($meta['message_count'] <= $afterIndex) {
+            // The stuck case writes no message, so the fast path is exactly where
+            // a conversation that needs repairing lives. Falling through loads
+            // the row so reconcile() can look at it; the condition is narrow
+            // enough that an ordinary poll never pays for it.
+            $mayNeedRepair = $meta['status'] === ConversationStatus::Processing->value
+                && $meta['approval_run_uuid'] !== ''
+                && $meta['tstamp'] > 0;
+
+            if ($meta['message_count'] <= $afterIndex && !$mayNeedRepair) {
                 return new JsonResponse([
                     'status' => $meta['status'],
                     'messages' => [],
@@ -308,6 +316,11 @@ final readonly class ChatApiController
 
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->setErrorMessage('');
+        // A new turn abandons a pending approval: the reference would otherwise
+        // survive into Processing, where the approval link still reads it and
+        // reconcile() would hand the card back in the middle of the new turn.
+        $conversation->setApprovalRunUuid('');
+        $conversation->clearApprovalDecision();
 
         // Atomic CAS: write full row only if status still matches,
         // preventing race conditions with concurrent requests or worker dequeue.
@@ -591,6 +604,11 @@ final readonly class ChatApiController
 
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->setErrorMessage('');
+        // Retry re-runs the turn; it does not carry out a decision recorded
+        // earlier. Without this the worker would find one and execute the write
+        // from a click labelled "Retry".
+        $conversation->setApprovalRunUuid('');
+        $conversation->clearApprovalDecision();
 
         // Atomic CAS: write full row only if status still matches.
         $claimed = $this->repository->updateIf($conversation, $currentStatus);

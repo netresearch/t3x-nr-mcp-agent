@@ -72,6 +72,13 @@ final class CleanupCommand extends Command
             ->update(self::TABLE)
             ->set('status', 'failed')
             ->set('error_message', 'Timed out after 5 minutes without completion')
+            // Drop the approval fields with the status. failed is resumable, so
+            // a decision left on the row would be carried out by the worker the
+            // Retry button dispatches — a write the user approved days earlier,
+            // from a click that says "Retry".
+            ->set('approval_run_uuid', '')
+            ->set('approval_decision', '')
+            ->set('approval_turn_digest', '')
             ->where(
                 $queryBuilder->expr()->in('status', $queryBuilder->createNamedParameter(
                     ['processing', 'locked', 'tool_loop'],

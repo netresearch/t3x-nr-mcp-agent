@@ -629,6 +629,76 @@ class ChatApiControllerTest extends TestCase
         self::assertSame(403, $this->subject->decideApproval($request)->getStatusCode());
     }
 
+    /**
+     * The stuck case writes no message, so it lives in exactly the branch that
+     * used to return before the repair could run: every poll asks with
+     * `after > 0`, sees no new messages, and answers. A conversation whose
+     * worker never came would have spun there forever.
+     */
+    #[Test]
+    public function aPollOverAClaimedApprovalStillReachesTheRepair(): void
+    {
+        $this->repository->method('findPollStatus')->willReturn([
+            'status' => 'processing',
+            'message_count' => 2,
+            'error_message' => '',
+            'approval_run_uuid' => 'run-uuid-1234',
+            'tstamp' => time() - 600,
+        ]);
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $this->chatApproval->expects(self::once())->method('reconcile');
+
+        $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '2']);
+        $this->subject->getMessages($request);
+    }
+
+    /**
+     * And an ordinary poll must not pay for it: without an approval on the row
+     * the fast path still answers from the metadata alone.
+     */
+    #[Test]
+    public function anOrdinaryPollDoesNotLoadTheConversation(): void
+    {
+        $this->repository->method('findPollStatus')->willReturn([
+            'status' => 'processing',
+            'message_count' => 2,
+            'error_message' => '',
+            'approval_run_uuid' => '',
+            'tstamp' => time() - 600,
+        ]);
+        $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
+        $this->chatApproval->expects(self::never())->method('reconcile');
+
+        $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '2']);
+
+        self::assertSame(200, $this->subject->getMessages($request)->getStatusCode());
+    }
+
+    /**
+     * A new turn abandons a pending approval. Otherwise the reference survives
+     * into Processing, where the approval link still reads it and the repair
+     * would hand the card back in the middle of the new turn.
+     */
+    #[Test]
+    public function sendingAMessageAbandonsAPendingApproval(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->recordApprovalDecision(true, 'digest-abc');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "never mind, do something else"}');
+        $this->subject->sendMessage($request);
+
+        self::assertSame('', $conversation->getApprovalRunUuid());
+        self::assertSame('', $conversation->getApprovalDecision());
+    }
+
     #[Test]
     public function getMessagesFastPathReturnsEarlyWhenNoNewMessages(): void
     {
