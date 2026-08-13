@@ -21,6 +21,7 @@ use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 use stdClass;
+use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -34,6 +35,7 @@ class ChatApiControllerTest extends TestCase
     private ChatCapabilitiesInterface $chatService;
     private ResourceFactory $resourceFactory;
     private StorageRepository $storageRepository;
+    private UriBuilder $uriBuilder;
 
     protected function setUp(): void
     {
@@ -53,6 +55,7 @@ class ChatApiControllerTest extends TestCase
         ]);
         $this->resourceFactory = $this->createMock(ResourceFactory::class);
         $this->storageRepository = $this->createMock(StorageRepository::class);
+        $this->uriBuilder = $this->createMock(UriBuilder::class);
         $this->subject = new ChatApiController(
             $this->repository,
             $this->processor,
@@ -61,6 +64,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             new DocumentExtractorRegistry([]),
+            $this->uriBuilder,
         );
 
         $GLOBALS['BE_USER'] = new stdClass();
@@ -120,7 +124,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getMaxMessageLength')->willReturn(10);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $conversation = new Conversation();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
@@ -177,7 +181,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([99]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -193,7 +197,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('hasLegacyMcpFields')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -214,6 +218,7 @@ class ChatApiControllerTest extends TestCase
             'status' => 'idle',
             'message_count' => 3,
             'error_message' => '',
+            'approval_run_uuid' => '',
         ]);
 
         $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '1']);
@@ -299,7 +304,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(0);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('hasLegacyMcpFields')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -318,7 +323,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
         $config->method('hasLegacyMcpFields')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -337,7 +342,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
         $config->method('hasLegacyMcpFields')->willReturn(true);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -354,7 +359,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(true);
         $config->method('hasLegacyMcpFields')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -430,7 +435,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('hasLegacyMcpFields')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '', 'admin' => 1];
 
@@ -494,7 +499,7 @@ class ChatApiControllerTest extends TestCase
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
         $response = $subject->sendMessage($request);
@@ -513,7 +518,7 @@ class ChatApiControllerTest extends TestCase
         $conversation->setStatus(ConversationStatus::Failed);
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1}');
         $response = $subject->resumeConversation($request);
@@ -552,7 +557,7 @@ class ChatApiControllerTest extends TestCase
         // countActiveByBeUser should never be called when maxActive is 0
         $repository->expects(self::never())->method('countActiveByBeUser');
 
-        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
         $response = $subject->sendMessage($request);
@@ -599,6 +604,7 @@ class ChatApiControllerTest extends TestCase
             'status' => 'idle',
             'message_count' => 2,
             'error_message' => '',
+            'approval_run_uuid' => '',
         ]);
         // findOneByUidAndBeUser should never be called in the fast path
         $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
@@ -786,7 +792,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(5);
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('hasLegacyMcpFields')->willReturn(false);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -806,7 +812,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('isMcpEnabled')->willReturn(false);
         $config->method('hasLegacyMcpFields')->willReturn(false);
         $this->repository->method('countActiveByBeUser')->willReturn(2);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -843,7 +849,7 @@ class ChatApiControllerTest extends TestCase
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
 
         $longContent = str_repeat('x', 100000);
         $request = $this->createRequest('POST', json_encode(['conversationUid' => 1, 'content' => $longContent]));
@@ -868,7 +874,7 @@ class ChatApiControllerTest extends TestCase
             'supportedFormats' => ['png', 'jpeg', 'webp', 'pdf'],
         ]);
 
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]));
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $chatService, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
 
@@ -1018,6 +1024,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             new DocumentExtractorRegistry([$pdfExtractor]),
+            $this->uriBuilder,
         );
 
         $request = $this->createMock(ServerRequestInterface::class);
@@ -1151,6 +1158,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             new DocumentExtractorRegistry([$extractor]),
+            $this->uriBuilder,
         );
 
         $request = $this->createMock(ServerRequestInterface::class);
@@ -1222,6 +1230,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             $registry,
+            $this->uriBuilder,
         );
 
         $request = $this->createMock(ServerRequestInterface::class);
@@ -1290,6 +1299,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             new DocumentExtractorRegistry([$extractor]),
+            $this->uriBuilder,
         );
 
         $request = $this->createMock(ServerRequestInterface::class);

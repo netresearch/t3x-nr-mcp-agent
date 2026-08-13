@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The pending-approval notice in the chat links to the run that is waiting.
+  Naming the module was not enough: the approvals inbox lists every run the
+  user may act on, so finding the right one was still their job.
+
 ## [0.9.0] - 2026-08-10
 
 ### Added

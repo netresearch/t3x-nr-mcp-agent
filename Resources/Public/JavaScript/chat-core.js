@@ -24,6 +24,9 @@ export class ChatCoreController {
     messages = [];
     status = '';
     errorMessage = '';
+
+    /** Link to the run waiting for an approval; empty when nothing is pending. */
+    approvalUrl = '';
     inputValue = '';
     hasInput = false;
     loading = true;
@@ -135,6 +138,7 @@ export class ChatCoreController {
             this.messages = data.messages || [];
             this.status = data.status;
             this.errorMessage = data.errorMessage || '';
+            this.approvalUrl = data.approvalUrl || '';
             this._knownMessageCount = data.totalCount;
             this.host.requestUpdate();
             this.host.onScrollToBottom(true);
@@ -159,6 +163,7 @@ export class ChatCoreController {
                 }
                 this.status = data.status;
                 this.errorMessage = data.errorMessage || '';
+                this.approvalUrl = data.approvalUrl || '';
                 this._knownMessageCount = data.totalCount;
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>

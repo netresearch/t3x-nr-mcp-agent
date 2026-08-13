@@ -109,6 +109,10 @@
                 <source>Waiting for approval</source>
                 <target>Freigabe ausstehend</target>
             </trans-unit>
+            <trans-unit id="chat.approvalOpen" resname="chat.approvalOpen">
+                <source>Grant approval</source>
+                <target>Freigabe erteilen</target>
+            </trans-unit>
             <trans-unit id="chat.retry" resname="chat.retry">
                 <source>Retry</source>
                 <target>Erneut versuchen</target>

@@ -37,6 +37,15 @@ final class Conversation
 
     private string $errorMessage = '';
 
+    /**
+     * The run that is waiting for an approval, so the chat can link to it.
+     *
+     * Empty whenever nothing is pending. It is a separate column rather than
+     * a part of the message because the message is prose and a link needs an
+     * identifier the template can put into a URL.
+     */
+    private string $approvalRunUuid = '';
+
     private int $tstamp = 0;
 
     /** @phpstan-ignore-next-line property.onlyWritten */
@@ -61,6 +70,7 @@ final class Conversation
         $conversation->archived = (bool) self::val($row, 'archived', false);
         $conversation->pinned = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage = (string) self::val($row, 'error_message', '');
+        $conversation->approvalRunUuid = (string) self::val($row, 'approval_run_uuid', '');
         $conversation->tstamp = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate = (int) self::val($row, 'crdate', 0);
         return $conversation;
@@ -93,6 +103,7 @@ final class Conversation
             'archived' => (int) $this->archived,
             'pinned' => (int) $this->pinned,
             'error_message' => $this->errorMessage,
+            'approval_run_uuid' => $this->approvalRunUuid,
         ];
     }
 
@@ -254,6 +265,16 @@ final class Conversation
     public function getErrorMessage(): string
     {
         return $this->errorMessage;
+    }
+
+    public function getApprovalRunUuid(): string
+    {
+        return $this->approvalRunUuid;
+    }
+
+    public function setApprovalRunUuid(string $runUuid): void
+    {
+        $this->approvalRunUuid = $runUuid;
     }
 
     public function setErrorMessage(string $message): void

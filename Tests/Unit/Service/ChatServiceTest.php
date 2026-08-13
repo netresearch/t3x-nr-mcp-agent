@@ -439,6 +439,56 @@ class ChatServiceTest extends TestCase
         self::assertStringContainsString('AI Tasks', $conversation->getErrorMessage());
     }
 
+    /**
+     * The uuid is carried in a field of its own so the chat can build a link to
+     * the pending run. In the message it is prose, and prose is not a link.
+     */
+    #[Test]
+    public function awaitingApprovalRecordsTheRunForLinking(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $service = $this->createChatService(
+            new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid-1234', []),
+        );
+        $service->processConversation($conversation);
+
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+    }
+
+    /**
+     * A run that finished leaves no approval to grant. Keeping the uuid would
+     * leave a link to a decision nobody has to make any more.
+     */
+    #[Test]
+    public function completingAfterAnApprovalClearsTheRunReference(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $conversation->setApprovalRunUuid('stale-run-uuid');
+
+        $service = $this->createChatService(
+            new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid-1234', []),
+        );
+        $service->processConversation($conversation);
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+
+        $conversation2 = new Conversation();
+        $conversation2->setBeUser(1);
+        $conversation2->appendMessage(MessageRole::User, 'Hello');
+        $conversation2->setApprovalRunUuid('stale-run-uuid');
+
+        $failing = $this->createChatService(
+            new AgentRunResult(AgentRunOutcome::FAILED, 'run-uuid-9999', []),
+        );
+        $failing->processConversation($conversation2);
+
+        self::assertSame('', $conversation2->getApprovalRunUuid());
+    }
+
     #[Test]
     public function processConversationPersistsWhenNoLlmTaskConfigured(): void
     {

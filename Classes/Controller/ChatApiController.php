@@ -20,6 +20,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
+use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
+use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -41,7 +43,36 @@ final readonly class ChatApiController
         private ResourceFactory $resourceFactory,
         private StorageRepository $storageRepository,
         private DocumentExtractorRegistry $documentExtractorRegistry,
+        private UriBuilder $uriBuilder,
     ) {}
+
+    /**
+     * Link to the run that is waiting for an approval.
+     *
+     * The approvals inbox lists every run the user may act on, so pointing at
+     * the module alone still leaves them searching. The read-only run detail
+     * takes the uuid directly.
+     *
+     * Returns an empty string when there is nothing pending, and also when the
+     * route is unknown: nr-llm owns that module, and a chat that throws because
+     * a link cannot be built is worse than a chat without the link.
+     */
+    private function buildApprovalUrl(string $runUuid): string
+    {
+        if ($runUuid === '') {
+            return '';
+        }
+
+        try {
+            return (string) $this->uriBuilder->buildUriFromRoute('nrllm_aitasks', [
+                'controller' => 'Backend\\AgentRun',
+                'action' => 'show',
+                'runUuid' => $runUuid,
+            ]);
+        } catch (RouteNotFoundException) {
+            return '';
+        }
+    }
 
     /**
      * GET /ai-chat/status – Check if AI chat is available for current user.
@@ -85,7 +116,7 @@ final readonly class ChatApiController
         }
 
         $conversations = $this->repository->findByBeUser($this->getBeUserUid());
-        $items = array_map(static fn(Conversation $c): array => [
+        $items = array_map(fn(Conversation $c): array => [
             'uid' => $c->getUid(),
             'title' => $c->getTitle(),
             'status' => $c->getStatus()->value,
@@ -93,6 +124,7 @@ final readonly class ChatApiController
             'pinned' => $c->isPinned(),
             'resumable' => $c->isResumable(),
             'errorMessage' => $c->getErrorMessage(),
+            'approvalUrl' => $this->buildApprovalUrl($c->getApprovalRunUuid()),
             'tstamp' => $c->getTstamp(),
         ], $conversations);
         return new JsonResponse(['conversations' => $items]);
@@ -145,6 +177,7 @@ final readonly class ChatApiController
                     'messages' => [],
                     'totalCount' => $meta['message_count'],
                     'errorMessage' => $meta['error_message'],
+                    'approvalUrl' => $this->buildApprovalUrl($meta['approval_run_uuid']),
                 ]);
             }
         }
@@ -162,6 +195,7 @@ final readonly class ChatApiController
             'messages' => $newMessages,
             'totalCount' => count($messages),
             'errorMessage' => $conversation->getErrorMessage(),
+            'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
         ]);
     }
 

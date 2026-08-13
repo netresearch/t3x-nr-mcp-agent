@@ -220,6 +220,7 @@ final class ChatService implements ChatCapabilitiesInterface
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
             $conversation->appendMessage(MessageRole::Assistant, $result->loopResult->finalContent);
             $conversation->setStatus(ConversationStatus::Idle);
+            $conversation->setApprovalRunUuid('');
             $this->persist($conversation);
             return;
         }
@@ -230,12 +231,16 @@ final class ChatService implements ChatCapabilitiesInterface
         if ($result->outcome === AgentRunOutcome::AWAITING_APPROVAL) {
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setErrorMessage($this->describeAwaitingApproval($result));
+            // Kept separately from the message so the chat can build a link to
+            // this run instead of asking the user to find it in a list.
+            $conversation->setApprovalRunUuid($result->runUuid);
             $this->persist($conversation);
             return;
         }
 
         $conversation->setStatus(ConversationStatus::Failed);
         $conversation->setErrorMessage($this->describeFailure($result));
+        $conversation->setApprovalRunUuid('');
         $this->persist($conversation);
     }
 

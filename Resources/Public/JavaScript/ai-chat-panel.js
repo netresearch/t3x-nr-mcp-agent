@@ -1420,6 +1420,10 @@ export class AiChatPanel extends LitElement {
                 ${this.chat.status === 'awaiting_approval' && this.chat.errorMessage ? html`
                     <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
                         ${lll('chat.approvalPending')}: ${this.chat.errorMessage}
+                        ${this.chat.approvalUrl ? html`
+                            <a class="btn btn-sm" href="${this.chat.approvalUrl}"
+                                style="margin-left:8px;">${lll('chat.approvalOpen')}</a>
+                        ` : nothing}
                         <button class="btn btn-sm btn-icon" @click=${() => { this.chat.errorMessage = ''; this.requestUpdate(); }}
                                 style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
                     </div>
