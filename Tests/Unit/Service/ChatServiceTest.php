@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
@@ -657,6 +658,75 @@ class ChatServiceTest extends TestCase
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
         self::assertStringContainsString('nr-llm Task', $conversation->getErrorMessage());
+    }
+
+    // -------------------------------------------------------------------------
+    // Caller-source annotation (nr-llm ADR-177 / issue #134)
+    // -------------------------------------------------------------------------
+
+    /**
+     * The ToolOptions the AgentRuntime was invoked with — the object that carries
+     * the caller source into nr-llm's telemetry.
+     */
+    private function capturedOptions(): ToolOptions
+    {
+        self::assertNotNull($this->capturedRequest);
+        $options = $this->capturedRequest->options;
+        self::assertInstanceOf(ToolOptions::class, $options);
+
+        return $options;
+    }
+
+    #[Test]
+    public function chatTurnNamesThisExtensionAsTheCaller(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $service = $this->createChatService();
+        $service->processConversation($conversation);
+
+        $options = $this->capturedOptions();
+        self::assertSame('nr_mcp_agent', $options->getCallerSourceExtension());
+        self::assertSame('chatTurn', $options->getCallerSourceOperation());
+    }
+
+    #[Test]
+    public function resumedTurnIsReportedUnderItsOwnOperation(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 7,
+            'be_user' => 1,
+            'status' => 'failed',
+            'messages' => json_encode([['role' => 'user', 'content' => 'Hi again']]),
+            'message_count' => 1,
+        ]);
+
+        $service = $this->createChatService();
+        $service->resumeConversation($conversation);
+
+        $options = $this->capturedOptions();
+        self::assertSame('nr_mcp_agent', $options->getCallerSourceExtension());
+        self::assertSame('resumeChatTurn', $options->getCallerSourceOperation());
+    }
+
+    /**
+     * The options object exists only to carry the caller source. Everything the
+     * model runs on stays on the LlmConfiguration, so nothing here may reach the
+     * provider as an option override.
+     */
+    #[Test]
+    public function callerSourceOptionsOverrideNoProviderOption(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $service = $this->createChatService();
+        $service->processConversation($conversation);
+
+        self::assertSame([], $this->capturedOptions()->toArray());
     }
 
     // -------------------------------------------------------------------------

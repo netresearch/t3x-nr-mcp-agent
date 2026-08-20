@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The chat turn names this extension on its nr-llm call (`withCallerSource`,
+  nr-llm ADR-177), so nr-llm's Analytics module lists its usage and cost under
+  `nr_mcp_agent` instead of grouping it as *Unattributed*. Two operations are
+  reported: `chatTurn` for a queued turn and `resumeChatTurn` for a turn re-run
+  over an existing transcript. The identity is call metadata and never reaches
+  the provider. The approval continuation stays unattributed —
+  `AgentRuntimeInterface::approve()` has no caller-source channel (#134).
+
 ## [0.12.0] - 2026-08-20
 
 ### Removed

@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
@@ -54,6 +55,25 @@ use TYPO3\CMS\Core\Site\SiteFinder;
 final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface
 {
     private const DECISION_APPROVE = 'approve';
+
+    /**
+     * This extension's key, named on every nr-llm call that offers a caller-source
+     * channel (nr-llm ADR-177). Without it the Analytics module cannot tell this
+     * extension's usage and cost apart from any other consumer's and groups it as
+     * "Unattributed". The value never reaches the provider — it is call metadata
+     * persisted on the telemetry row.
+     */
+    private const CALLER_SOURCE_EXTENSION = 'nr_mcp_agent';
+
+    /** A turn taken on a queued conversation — the ordinary chat request. */
+    private const OPERATION_CHAT_TURN = 'chatTurn';
+
+    /**
+     * The same turn re-run over an existing transcript after the conversation was
+     * left Processing/ToolLoop/Failed. Separated from {@see self::OPERATION_CHAT_TURN}
+     * because it is the retry, and its cost is worth reading on its own.
+     */
+    private const OPERATION_RESUME_TURN = 'resumeChatTurn';
 
     /**
      * How long a claimed conversation is left alone before it is repaired.
@@ -133,6 +153,28 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
     public function processConversation(Conversation $conversation): void
     {
+        $this->processTurn($conversation, self::OPERATION_CHAT_TURN);
+    }
+
+    public function resumeConversation(Conversation $conversation): void
+    {
+        if (!$conversation->isResumable()) {
+            return;
+        }
+
+        // The AgentRuntime drives the entire tool loop synchronously, so a turn
+        // never leaves persisted pending tool calls to replay. Resuming a
+        // Processing/ToolLoop/Failed conversation therefore simply re-runs the
+        // turn over the existing transcript.
+        $this->processTurn($conversation, self::OPERATION_RESUME_TURN);
+    }
+
+    /**
+     * @param string $operation what this turn is, reported to nr-llm as the
+     *                          caller-source operation next to the extension key
+     */
+    private function processTurn(Conversation $conversation, string $operation): void
+    {
         $this->resolvedPrompts = null;
 
         // A recorded decision is the other kind of work a claimed conversation
@@ -153,7 +195,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         try {
             $configuration = $this->resolveConfiguration();
-            $this->runAgentTurn($conversation, $configuration);
+            $this->runAgentTurn($conversation, $configuration, $operation);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
@@ -161,24 +203,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
     }
 
-    public function resumeConversation(Conversation $conversation): void
-    {
-        if (!$conversation->isResumable()) {
-            return;
-        }
-
-        // The AgentRuntime drives the entire tool loop synchronously, so a turn
-        // never leaves persisted pending tool calls to replay. Resuming a
-        // Processing/ToolLoop/Failed conversation therefore simply re-runs the
-        // turn over the existing transcript.
-        $this->processConversation($conversation);
-    }
-
     /**
      * Build the transcript and hand the whole turn to nr-llm's AgentRuntime,
      * which runs the tool loop over nr-llm's ToolRegistry and settles the result.
      */
-    private function runAgentTurn(Conversation $conversation, LlmConfiguration $configuration): void
+    private function runAgentTurn(Conversation $conversation, LlmConfiguration $configuration, string $operation): void
     {
         $conversation->setStatus(ConversationStatus::Processing);
         $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Processing, $conversation->getBeUser());
@@ -203,10 +232,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         // allowedToolNames is left at its null default: offer the whole
         // globally-enabled tool set (the runtime's own gate is authoritative).
+        //
+        // The options object carries nothing but the caller source: every model
+        // parameter stays on the LlmConfiguration, so toArray() is empty and no
+        // provider option is overridden by naming ourselves here.
         $result = $this->agentRuntime->run(new AgentRunRequest(
             configuration: $configuration,
             messages: $messages,
             actor: $this->resolveActor($conversation->getBeUser()),
+            options: (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
         ));
 
         $this->applyResult($conversation, $result);
@@ -388,6 +422,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         $runUuid = $conversation->getApprovalRunUuid();
 
+        // No caller source is named here: approve() takes no options object, and
+        // the caller source is deliberately not part of the persisted options
+        // either, so the continuation's provider calls stay unattributed.
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
