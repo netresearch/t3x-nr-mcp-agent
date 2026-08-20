@@ -36,9 +36,6 @@ fi
 # Require the extension
 composer require "netresearch/nr-mcp-agent:@dev" --no-interaction
 
-# Require MCP server (from Packagist)
-composer require "hn/typo3-mcp-server:^0.2" --no-interaction || echo "  ⚠ hn/typo3-mcp-server not available, skipping"
-
 # Require nr-vault if not already added via path
 if ! composer show netresearch/nr-vault 2>/dev/null; then
     composer require "netresearch/nr-vault:^0.4" --no-interaction || echo "  ⚠ nr-vault not available, skipping"
@@ -78,8 +75,6 @@ if (getenv('NR_MCP_AGENT_LLM_TASK_UID')) {
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['llmTaskUid'] = (int)getenv('NR_MCP_AGENT_LLM_TASK_UID');
 }
 
-// AI Chat: Enable MCP (typo3-mcp-server installed via composer)
-$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['enableMcp'] = '1';
 PHPSETTINGS
 
 # Run extension setup and flush caches

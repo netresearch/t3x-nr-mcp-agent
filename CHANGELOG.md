@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- The extension's own MCP client — `McpToolProvider`, `McpConnection`, the
+  `tx_nrmcpagent_mcp_server` table and TCA, the `enableMcp` setting, the
+  `nr_mcp_agent_tools` cache and the record-save cache-flush hook. None of it
+  had been used since 0.11 moved the chat turn onto nr-llm's AgentRuntime
+  (nr-llm ADR-116); the documentation still described it as the way to get
+  writing tools, which sent operators down a dead path (NEXT-153). External
+  MCP servers are configured in nr-llm's *MCP Servers* module and reach the
+  chat through the same registry as the builtin tools. ADR-003 and ADR-014
+  are marked superseded. The `tx_nrmcpagent_mcp_server` table stays in the
+  database until a DB compare removes it; nothing reads it.
+- `ChatApiController::getStatus()` no longer reports `mcpEnabled` or the
+  legacy `mcpServerCommand`/`mcpServerArgs` migration hint; the JS client's
+  doc comment follows.
+
 ## [0.11.3] - 2026-08-20
 
 ### Changed

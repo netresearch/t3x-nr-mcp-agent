@@ -14,9 +14,6 @@ Requirements
 
 Optional:
 
-*   `hn/typo3-mcp-server <https://github.com/
-    hauptsache-net/typo3-mcp-server>`__ (^1.0) --
-    for TYPO3 content management tools
 *   `netresearch/nr-vault <https://github.com/netresearch/
     t3x-nr-vault>`__ (^0.14) -- for secure API key storage
 
@@ -46,22 +43,6 @@ After installation, run the database migrations:
 ..  code-block:: bash
 
     vendor/bin/typo3 database:updateschema
-
-To enable MCP integration (content management tools):
-
-1.  Set ``enableMcp = 1`` in the extension configuration.
-2.  Open the **List module** at pid = 0 and create an
-    **MCP Server** record. For the built-in TYPO3 MCP
-    server, set *Transport* to ``stdio``, leave *Command*
-    empty (defaults to ``vendor/bin/typo3``), and set
-    *Arguments* to ``mcp:server`` (one argument per line).
-3.  If you use `hn/typo3-mcp-server
-    <https://github.com/hauptsache-net/typo3-mcp-server>`__
-    as the stdio backend, install it first::
-
-        composer require hn/typo3-mcp-server
-
-    Then configure the server record as described above.
 
 DDEV development setup
 ======================

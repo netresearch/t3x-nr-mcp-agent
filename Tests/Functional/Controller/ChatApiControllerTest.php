@@ -48,8 +48,6 @@ class ChatApiControllerTest extends FunctionalTestCase
         $config = $this->config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $config->method('isMcpEnabled')->willReturn(false);
-        $config->method('hasLegacyMcpFields')->willReturn(false);
         $config->method('getMaxMessageLength')->willReturn(10000);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
 
@@ -106,7 +104,6 @@ class ChatApiControllerTest extends FunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         $body = json_decode((string) $response->getBody(), true);
         self::assertTrue($body['available']);
-        self::assertFalse($body['mcpEnabled']);
         self::assertArrayHasKey('activeConversationCount', $body);
     }
 

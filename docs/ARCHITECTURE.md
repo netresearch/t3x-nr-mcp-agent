@@ -17,7 +17,6 @@ A Lit-based chat UI in the TYPO3 backend polls `ChatApiController` via AJAX. Mes
 | Processors | Dispatch a turn to CLI: fork (`exec`) or queue (worker) | `Classes/Service/ExecChatProcessor.php`, `Classes/Service/WorkerChatProcessor.php`, `Classes/Service/ChatProcessorInterface.php` |
 | CLI commands | `ai-chat:process`, `ai-chat:worker`, `ai-chat:cleanup` | `Classes/Command/ProcessChatCommand.php`, `Classes/Command/ChatWorkerCommand.php`, `Classes/Command/CleanupCommand.php` |
 | Conversation store | Persistence, state machine, auto-archive | `Classes/Domain/Model/Conversation.php`, `Classes/Domain/Repository/ConversationRepository.php` |
-| MCP client | Spawns MCP servers as stdio subprocesses, exposes their tools | `Classes/Mcp/McpConnection.php`, `Classes/Mcp/McpToolProvider.php`, `Classes/Domain/Repository/McpServerRepository.php` |
 | Document extraction | Text extraction from uploaded PDF/DOCX/XLSX/TXT | `Classes/Document/DocumentExtractorRegistry.php`, `Classes/Document/Extractor/` |
 | Frontend | Lit web components, polling API client, sanitized markdown | `Resources/Public/JavaScript/` (`chat-app.js`, `chat-core.js`, `api-client.js`, `markdown.js`) |
 
@@ -41,4 +40,4 @@ Enforced by phpat; the rules run as part of PHPStan (`Build/phpstan/phpstan.neon
 
 ## Key decisions
 
-Recorded as ADRs in `Documentation/Developer/ADR/` (ADR-001 … ADR-014). Most load-bearing for code changes: CLI-based processing (ADR-002), MCP via stdio subprocess (ADR-003), nr-llm as abstraction layer (ADR-004), conversation state machine (ADR-005), phpat-enforced layering (ADR-006), polling over WebSockets/SSE (ADR-007), Lit without build step (ADR-008), group-based access control (ADR-009), error-message sanitization (ADR-010).
+Recorded as ADRs in `Documentation/Developer/ADR/` (ADR-001 … ADR-014). Most load-bearing for code changes: CLI-based processing (ADR-002), nr-llm as abstraction layer (ADR-004), conversation state machine (ADR-005), phpat-enforced layering (ADR-006), polling over WebSockets/SSE (ADR-007), Lit without build step (ADR-008), group-based access control (ADR-009), error-message sanitization (ADR-010).

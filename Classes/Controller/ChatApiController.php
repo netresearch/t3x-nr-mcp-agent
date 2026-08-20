@@ -105,20 +105,15 @@ final readonly class ChatApiController
         }
 
         $taskUid = $this->config->getLlmTaskUid();
-        $mcpEnabled = $this->config->isMcpEnabled();
         $issues = [];
         if ($taskUid === 0) {
             $issues[] = 'No nr-llm Task configured. An admin must create an nr-llm Task record and set its UID in Extension Configuration.';
         }
 
-        if ($this->config->hasLegacyMcpFields()) {
-            $issues[] = 'Legacy MCP fields (mcpServerCommand/mcpServerArgs) are still set in Extension Configuration. These fields are no longer used. MCP servers are now configured in the List module on PID 0.';
-        }
 
         $capabilities = $this->chatService->getProviderCapabilities();
         return new JsonResponse([
             'available' => $taskUid > 0,
-            'mcpEnabled' => $mcpEnabled,
             'activeConversationCount' => $this->repository->countActiveByBeUser($this->getBeUserUid()),
             'issues' => $issues,
             ...$capabilities,

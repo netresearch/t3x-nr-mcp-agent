@@ -49,12 +49,12 @@ Key features
         view responses, and manage conversations without
         leaving TYPO3.
 
-    ..  card:: Content management via MCP
+    ..  card:: Tools from nr-llm
 
-        Connect to hn/typo3-mcp-server to give the AI
-        access to TYPO3 content operations -- creating
-        pages, editing records, reading site structure,
-        and more.
+        The chat runs on nr-llm's agent runtime and tool
+        registry: builtin read and write tools, plus any
+        MCP server configured in nr-llm's *MCP Servers*
+        module.
 
     ..  card:: Conversation history
 
@@ -112,12 +112,6 @@ Acknowledgments
 ===============
 
 This extension builds on the work of others:
-
-`hauptsache.net <https://hauptsache.net/>`__
-    For creating `hn/typo3-mcp-server
-    <https://github.com/hauptsache-net/typo3-mcp-server>`__,
-    the MCP server that exposes TYPO3 content operations
-    as tools.
 
 `nr-llm <https://github.com/netresearch/t3x-nr-llm>`__
     The Netresearch LLM abstraction layer for TYPO3 that

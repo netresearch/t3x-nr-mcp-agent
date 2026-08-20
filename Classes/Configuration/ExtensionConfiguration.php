@@ -41,20 +41,7 @@ class ExtensionConfiguration
         return array_map(intval(...), explode(',', $groups));
     }
 
-    public function isMcpEnabled(): bool
-    {
-        return $this->getString('enableMcp', '0') === '1';
-    }
 
-    /**
-     * Checks whether removed legacy fields (mcpServerCommand, mcpServerArgs) are still
-     * present in the extension configuration. Used to show a migration FlashMessage.
-     */
-    public function hasLegacyMcpFields(): bool
-    {
-        return isset($this->config['mcpServerCommand']) && $this->config['mcpServerCommand'] !== ''
-            || isset($this->config['mcpServerArgs']) && $this->config['mcpServerArgs'] !== '';
-    }
 
     public function getMaxConversationsPerUser(): int
     {
