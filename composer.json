@@ -26,7 +26,7 @@
     },
     "require": {
         "php": "^8.2",
-        "netresearch/nr-llm": "^0.30",
+        "netresearch/nr-llm": "^0.31",
         "phpoffice/phpword": "^1.0",
         "smalot/pdfparser": "^2.0",
         "typo3/cms-backend": "^13.4 || ^14.0",
