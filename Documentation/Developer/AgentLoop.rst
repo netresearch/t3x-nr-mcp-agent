@@ -31,7 +31,29 @@ Processing a turn
     uid. ``allowedToolNames`` is left at ``null`` so the run is offered the
     whole globally-enabled tool set; nr-llm's own tool gate (RBAC,
     global enable cascade, per-configuration groups) stays authoritative.
+    The request carries a ``ToolOptions`` object whose only content is the
+    caller source (see below).
 6.  Map the returned ``AgentRunResult`` onto the conversation.
+
+Caller-source attribution
+=========================
+
+Every run started here is tagged with ``withCallerSource()`` so nr-llm's
+Analytics module lists this extension's usage and cost under
+``nr_mcp_agent`` instead of grouping it as *Unattributed*. The operation
+names the turn:
+
+*   ``chatTurn`` -- a turn on a queued conversation.
+*   ``resumeChatTurn`` -- the same turn re-run over an existing transcript
+    by ``resumeConversation()``.
+
+The tag is call metadata persisted on nr-llm's telemetry row; it is never
+sent to the provider, and the ``ToolOptions`` object carries nothing else,
+so no provider option is overridden by it.
+
+The approval continuation (``AgentRuntimeInterface::approve()``) is not
+tagged: it takes no options object, and nr-llm keeps the caller source out
+of the persisted run state, so those provider calls stay unattributed.
 
 Outcome mapping
 ===============
