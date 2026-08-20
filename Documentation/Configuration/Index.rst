@@ -53,65 +53,6 @@ Access control
     are allowed to use the AI Chat module. Leave empty
     to allow all backend users with module access.
 
-MCP integration
-===============
-
-..  confval:: enableMcp
-    :type: boolean
-    :default: false
-
-    Enable MCP (Model Context Protocol) server integration.
-
-    When enabled, the AI assistant can call tools exposed
-    by any configured MCP server. When disabled, it works
-    as a plain chat without tool access.
-
-    MCP servers are configured as records in the TYPO3
-    List module (see *MCP server records* below).
-
-MCP server records
-------------------
-
-MCP servers are configured as database records, not via
-extension settings. After enabling MCP:
-
-1.  Open the **TYPO3 List module** and navigate to
-    **pid = 0** (the root page).
-2.  Create a new record of type **MCP Server**.
-3.  Fill in the fields:
-
-    ``Name``
-        Human-readable label (e.g. *TYPO3 MCP Server*).
-
-    ``Server key``
-        Machine identifier used to namespace tools
-        (e.g. ``typo3``). Lowercase letters, digits,
-        and underscores only. Must be unique.
-
-    ``Transport``
-        ``stdio`` (subprocess via stdin/stdout) or
-        ``sse`` (HTTP SSE endpoint — not yet implemented).
-
-    For ``stdio`` transport:
-
-    ``Command``
-        Path to the MCP server binary. Defaults to
-        ``vendor/bin/typo3`` in the project root.
-
-    ``Arguments``
-        One argument per line (e.g. ``mcp:server``).
-
-4.  Save the record. The tool cache is flushed
-    automatically.
-
-Tool names are prefixed with the server key to avoid
-collisions between servers. For example, a tool named
-``ReadTable`` on a server with key ``typo3`` becomes
-``typo3__ReadTable`` in the LLM context.
-
-The connection status fields (read-only) show the
-last known state of each server connection.
-
 Chat panel
 ==========
 

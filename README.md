@@ -17,8 +17,9 @@ backend users to manage content through natural language.
 
 - **Integrated chat module** -- A dedicated backend module under Admin Tools with
   a modern chat interface built as a Lit web component.
-- **Content management via MCP** -- Connect to hn/typo3-mcp-server to give the AI
-  access to TYPO3 content operations (pages, records, content elements).
+- **Tools from nr-llm** -- The chat runs on nr-llm's agent runtime and tool
+  registry: its builtin read and write tools, and any MCP server configured in
+  nr-llm's *MCP Servers* module.
 - **Conversation history** -- Persistent conversations with resume, rename,
   pin, and auto-archive support.
 - **Background processing** -- Messages are processed via CLI commands (`exec` or
@@ -73,23 +74,6 @@ If not installed, XLSX files will be rejected at upload time with a 422 response
 
 The AI Chat module is now available under **Admin Tools > AI Chat**.
 
-### Enable MCP (optional)
-
-1. Set `enableMcp = 1` in the extension configuration.
-2. A default **MCP Server** record (`server_key=typo3`, `transport=stdio`,
-   `arguments=mcp:server`) is created automatically on the first chat request.
-   To customise or add additional servers, open the **List module** at pid = 0.
-
-If you use [hn/typo3-mcp-server](https://github.com/hauptsache-net/typo3-mcp-server)
-as the stdio backend, install it first:
-
-```bash
-composer require hn/typo3-mcp-server
-```
-
-Multiple MCP servers can be configured simultaneously. Tool names are prefixed with
-the server key (e.g. `typo3__ReadTable`) so the LLM knows which server to call.
-
 ## DDEV Development
 
 ```bash
@@ -138,7 +122,6 @@ All settings are in **Admin Tools > Settings > Extension Configuration > nr_mcp_
 | `llmTaskUid` | `0` | UID of the nr-llm Task record **(required)** |
 | `processingStrategy` | `exec` | `exec` (fork per request) or `worker` (long-running) |
 | `allowedGroups` | *(empty)* | Comma-separated group UIDs (empty = all) |
-| `enableMcp` | `false` | Enable MCP server integration |
 | `maxMessageLength` | `10000` | Max characters per message |
 | `maxActiveConversationsPerUser` | `3` | Max concurrent processing conversations |
 | `maxConversationsPerUser` | `50` | Max conversations kept per user |
@@ -151,9 +134,6 @@ Architectural decisions are documented as ADRs in [Documentation/Developer/ADR/]
 
 ## Acknowledgments
 
-- **[hauptsache.net](https://hauptsache.net/)** -- For creating
-  [hn/typo3-mcp-server](https://github.com/hauptsache-net/typo3-mcp-server),
-  the MCP server that exposes TYPO3 content operations as tools.
 - **[nr-llm](https://github.com/netresearch/t3x-nr-llm)** -- The Netresearch
   LLM abstraction layer for TYPO3.
 - **[nr-vault](https://github.com/netresearch/t3x-nr-vault)** -- Secure

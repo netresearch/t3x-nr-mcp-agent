@@ -6,7 +6,7 @@
 ADR-003: MCP Integration via stdio Subprocess
 =============================================
 
-**Status:** Accepted
+**Status:** Superseded (2026-08-20) — the chat turn runs on nr-llm's AgentRuntime since 0.11 (nr-llm ADR-116); the stdio MCP client, the ``tx_nrmcpagent_mcp_server`` table and ``enableMcp`` were removed in 0.12.0. External MCP servers are configured in nr-llm's *MCP Servers* module.
 
 **Date:** 2026-03-14
 

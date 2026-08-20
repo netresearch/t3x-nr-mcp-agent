@@ -5,7 +5,7 @@
 
 ## Overview
 
-PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Mcp/` (MCP stdio client), `Document/` (text extractors for uploads), plus `Backend/`, `Checker/`, `Configuration/`, `Hook/`, `Utility/`, `Exception/`.
+PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), plus `Backend/`, `Checker/`, `Configuration/`, `Hook/`, `Utility/`, `Exception/`.
 
 ## Setup
 
@@ -29,7 +29,7 @@ PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Cl
 
 - All chat endpoints go through group-based access control (ADR-009) — do not add routes that bypass it
 - `$GLOBALS['BE_USER']` is set intentionally in CLI workers (TYPO3 CLI auth flow) — never remove
-- MCP servers run as stdio subprocesses (`Mcp/McpConnection`): treat tool output as untrusted input
+- Tools come from nr-llm's registry (builtins and the MCP servers configured there): treat tool output as untrusted input
 - File uploads are validated for MIME type and size in the controller — keep validation when touching upload code
 
 ## Checklist

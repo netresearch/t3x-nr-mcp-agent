@@ -63,10 +63,10 @@ for a resumable conversation (``processing``, ``tool_loop`` or
 ``failed``), which is used to recover a conversation left ``processing``
 by a crashed worker.
 
-MCP tool provider
-=================
+MCP servers
+===========
 
-The ``McpToolProvider`` / ``McpConnection`` classes remain in the
-codebase but are no longer used by the chat turn. Direct MCP-server
-tooling for the backend is superseded by nr-llm's builtin tool registry;
-the MCP integration is retained for the planned move into nr-llm.
+External MCP servers are configured in nr-llm (module *MCP Servers*), which
+imports their tools into the same registry and agent loop the chat runs on.
+The stdio MCP client this extension once shipped was removed in 0.12.0; it
+had not been used by the chat turn since 0.11.
