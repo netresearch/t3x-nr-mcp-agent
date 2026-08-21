@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.12.2] - 2026-08-21
 
+### Fixed
+
+- **The worker dequeue runs on the databases this extension is actually installed on.** `dequeueForWorker` built `UPDATE … ORDER BY tstamp ASC LIMIT 1`, which is MySQL syntax that SQLite accepts only when compiled with `SQLITE_ENABLE_UPDATE_DELETE_LIMIT` — a flag most builds do not set. Where it is missing the statement fails with `near "ORDER": syntax error` and no queued conversation is ever picked up, in production and not only in tests. CI could not show it because both environments are called "sqlite" and are not the same build (#138).
+
 ### Changed
 
 - Requires `netresearch/nr-llm` `^0.33`. The floor rises because 0.33.0 removes a regression 0.32.0 introduced: `vision()` and `embed()` handed the provider registry the `tx_nrllm_provider` row's identifier where it is keyed by the adapter's own name, so a call that names no provider — which is what this extension makes — failed with "Provider … not found" on an installation that has a perfectly good default configuration. 0.32.0 did not fix the failure it was written for, it renamed it.
