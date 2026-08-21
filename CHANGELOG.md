@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-08-21
+
+### Changed
+
+- Requires `netresearch/nr-llm` `^0.32`. The floor rises because 0.32.0 is what
+  makes the annotation below arrive: until then three feature services rebuilt
+  the options object and dropped the caller source before dispatch. 0.32.0 also
+  gives `vision()` and `embed()` the default-configuration fallback `chat()`
+  already had, which is what made an image upload in the chat answer HTTP 500
+  on an installation that had a perfectly good default configuration.
+
 ### Added
 
 - The chat turn names this extension on its nr-llm call (`withCallerSource`,
@@ -15,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reported: `chatTurn` for a queued turn and `resumeChatTurn` for a turn re-run
   over an existing transcript. The identity is call metadata and never reaches
   the provider. The approval continuation stays unattributed —
-  `AgentRuntimeInterface::approve()` has no caller-source channel (#134).
+  `AgentRuntimeInterface::approve()` has no caller-source channel (#134,
+  upstream [nr-llm#847](https://github.com/netresearch/t3x-nr-llm/issues/847)).
 
 ## [0.12.0] - 2026-08-20
 
