@@ -250,12 +250,41 @@ readonly class ConversationRepository
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
 
+        // One statement, because two workers must not be able to claim the same
+        // row: the WHERE clause re-checks the status the subquery selected on,
+        // so a loser updates zero rows instead of stealing a claimed one.
+        //
+        // The inner query is wrapped in a derived table on purpose. Measured
+        // against every database this extension can run on:
+        //
+        //   form                     SQLite 3.45  SQLite 3.51  MariaDB 11.8  MySQL 8.4
+        //   UPDATE … ORDER BY LIMIT  ok           SYNTAX ERROR ok            ok
+        //   … uid = (SELECT … )      ok           ok           ok            ERROR 1093
+        //   … uid = (SELECT (SELECT  ok           ok           ok            ok
+        //
+        // UPDATE … ORDER BY … LIMIT needs SQLITE_ENABLE_UPDATE_DELETE_LIMIT,
+        // which most builds do not set; the single-level subquery hits MySQL's
+        // "can't specify target table for update in FROM clause". PostgreSQL 16
+        // accepts the third form too.
         $affected = $conn->executeStatement(
             'UPDATE ' . self::TABLE . '
              SET status = ?, current_request_id = ?
-             WHERE status = ? AND deleted = ?
-             ORDER BY tstamp ASC LIMIT 1',
-            [ConversationStatus::Locked->value, $workerId, ConversationStatus::Processing->value, 0],
+             WHERE status = ? AND deleted = ? AND uid = (
+                 SELECT uid FROM (
+                     SELECT uid FROM ' . self::TABLE . '
+                     WHERE status = ? AND deleted = ?
+                     ORDER BY tstamp ASC
+                     LIMIT 1
+                 ) AS oldest
+             )',
+            [
+                ConversationStatus::Locked->value,
+                $workerId,
+                ConversationStatus::Processing->value,
+                0,
+                ConversationStatus::Processing->value,
+                0,
+            ],
         );
 
         if ($affected === 0) {
