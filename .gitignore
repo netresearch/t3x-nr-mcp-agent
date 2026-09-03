@@ -9,6 +9,10 @@ test-results/
 Build/tests/playwright/.auth/
 .Build/
 vendor/
+# The Docker test runner writes the container's HOME and TYPO3's var/ into
+# the working tree, so `runTests.sh` leaves both behind on every local run.
+/home/
+/var/
 # TYPO3 extensions (libraries) must not commit composer.lock — each consumer
 # and CI leg resolves dependencies for its own PHP/TYPO3 version.
 composer.lock
