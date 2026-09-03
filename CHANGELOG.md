@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.3] - 2026-09-03
+
 ### Changed
 
 - Requires `netresearch/nr-llm` `^0.34`. The floor rises because 0.34.0 is where the demo instance and every sibling extension are going, and staying on `^0.33` would keep an installation from taking both. 0.34.0's one breaking change is the backend module move (nr-llm ADR-183): the modules left Administration for a shared `AI` section and the container URL `/module/nrllm` is gone. Nothing here registers a module under that container or links to that URL, so nothing else changes.
