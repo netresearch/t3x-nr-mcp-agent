@@ -40,6 +40,7 @@ use Netresearch\NrMcpAgent\Exception\Exception as NrMcpAgentException;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
@@ -97,7 +98,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         You have direct access to tools that inspect and act on THIS TYPO3 system — for example reading the system log and last exceptions, checking system status, listing deprecations, reading or searching content records, and reading or searching the project source code. When a source-reading tool is available, the entire project source is readable, including installed packages under vendor/ (pass a vendor-relative path such as vendor/<vendor>/<package>/... to read a file, or scope a code search to a vendor package path); never claim that vendor/ or other project sources are outside your reach. Whenever a question can be answered by looking something up or by performing an action, USE the appropriate tool and work from its result. Do not ask the user to paste logs, copy data, or describe what they see when a tool can retrieve it for you.
 
-        Never claim to be ChatGPT or GPT, and never claim to be made by OpenAI or any other vendor: you are the Netresearch TYPO3 Backend AI Chat. Always answer in the same language the user writes in.
+        A file the user attaches to a message is NOT a loose copy: it is uploaded into this installation's file storage first, so by the time you see it, it is a managed TYPO3 file (a sys_file record) sitting in the configured chat attachment folder. Each attachment is announced to you with its sys_file uid and its path. You therefore never have to upload, import or ask the user to place it — it is already there, and the uid is what every file tool takes. Where a file tool is available, use that uid to reference the attachment from a content element or to describe it; only if no such tool is offered to you, say plainly which step is missing instead of claiming the file is out of reach. When a file tool lets you choose the field, put an image in an image field and a PDF or other document in a file or asset field — a document referenced as an image renders as a broken picture.
+
+        Never claim to be ChatGPT or GPT, and never claim to be made by OpenAI or any other vendor: you are the Netresearch TYPO3 Backend AI Chat. Always answer in the same language the user writes in. Content you write INTO this TYPO3 installation follows a different rule: keep the language of the material you took it from, and match it to the sys_language_uid you are writing to. A German document stays German when you turn it into a page or a content element, whatever language the conversation itself is in — translate only when the user asks you to.
         PROMPT;
 
     /** @var array{system_prompt: string, prompt_template: string}|null */
@@ -659,7 +662,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 $result[] = [
                     'role' => is_string($msg['role']) ? $msg['role'] : '',
                     'content' => [
-                        ['type' => 'text', 'text' => is_string($msg['content'] ?? null) ? $msg['content'] : ''],
+                        [
+                            'type' => 'text',
+                            'text' => (is_string($msg['content'] ?? null) ? $msg['content'] : '')
+                                . "\n\n" . $this->describeAttachment($file),
+                        ],
                         $this->buildFileContentBlock($mimeType, $base64, $localPath, $provider),
                     ],
                 ];
@@ -674,6 +681,36 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return $result;
+    }
+
+    /**
+     * Name the attachment as what it is: a managed file, with the uid every file
+     * tool takes.
+     *
+     * The upload endpoint has already put it in the storage and indexed it, so
+     * the file exists in `fileadmin` before the model ever sees it. Without this
+     * line the model has no way of knowing that — it sees pixels or extracted
+     * text and nothing else — and it answered accordingly: asked to place an
+     * attached image in `fileadmin` and reference it from a content element, it
+     * said no upload or import tool for chat attachments was available to it
+     * (NEXT-155, UAT-A04/A05). Both halves of that were wrong: the file was
+     * already in `fileadmin`, and referencing an existing one is exactly what
+     * nr-llm's file tools do.
+     *
+     * Kept out of the persisted transcript on purpose: it is derived from the
+     * file record, which can be renamed or moved after the message was written,
+     * and the expansion runs per turn anyway.
+     */
+    private function describeAttachment(File $file): string
+    {
+        return sprintf(
+            '[The attached file is a managed TYPO3 file that is already stored in this installation:'
+            . ' sys_file uid %d, name "%s", path %s. Use that uid with the file tools;'
+            . ' it does not need to be uploaded or imported first.]',
+            $file->getUid(),
+            $file->getName(),
+            $file->getCombinedIdentifier(),
+        );
     }
 
     /**

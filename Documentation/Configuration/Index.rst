@@ -163,11 +163,30 @@ natively processes PDFs via ``DocumentCapableInterface``), the file is
 sent as binary instead of being extracted. The file picker automatically
 restricts to formats the active provider can process.
 
-**Storage:** Uploaded files are stored in TYPO3 FAL under
-``fileadmin/ai-chat/<be_user_uid>/``. They are read at LLM call time and
-sent as Base64-encoded multimodal content. Each file is stored in a
-user-specific subfolder; the API enforces that users can only attach their
-own files (cross-user access attempts return 404).
+**Storage:** An uploaded file is a managed TYPO3 file from the moment it
+arrives: it is written into the default storage, indexed in ``sys_file``
+and given a ``sys_file_metadata`` record, like any other file in the file
+module. It is then read at LLM call time and sent as Base64-encoded
+multimodal content, and the assistant is told its ``sys_file`` uid and
+path — so it can reference the attachment from a content element with
+nr-llm's file tools instead of asking for it to be uploaded again.
+
+Nothing is ever overwritten or deleted. A name already taken in the folder
+yields ``report_01.pdf``; if the file of that name has identical content,
+the existing one is returned instead of a copy. Where the user may not
+write, the upload is refused with ``403`` rather than failing as a server
+error — the file mounts and permissions of the logged-in backend user
+apply throughout.
+
+..  confval:: attachmentFolder
+    :type: string
+    :default: ai-chat
+
+    Folder for chat attachments in the default storage, relative to its
+    root — ``ai-chat`` means ``fileadmin/ai-chat/``. A per-user subfolder
+    (``<be_user_uid>``) is created inside it and is not configurable: it
+    is what keeps one user's attachments out of another's. An empty value
+    falls back to the default rather than writing into the storage root.
 
 **Limits:**
 
@@ -176,14 +195,26 @@ own files (cross-user access attempts return 404).
 *   File count is enforced both in the frontend (before upload) and in the
     backend API.
 
-**Security:** The ``fileadmin/ai-chat/`` directory should be protected
-from direct HTTP access. Add the following to your web server configuration
-or deploy a ``.htaccess`` file to ``fileadmin/ai-chat/``:
+**Security:** Decide deliberately whether the attachment folder is
+publicly readable, because the two things it is used for pull in opposite
+directions.
+
+An attachment is material a backend user hands to the assistant, and it is
+stored under a path that is guessable by name. Where attachments are only
+ever read by the assistant, deny direct HTTP access to the folder:
 
 ..  code-block:: apache
 
     # fileadmin/ai-chat/.htaccess
     Require all denied
+
+Where editors are meant to place an attached image or PDF into a content
+element — the file is already in FAL, so this needs no second upload — the
+folder must stay publicly readable, or the reference renders as a broken
+image in the frontend. Denying access to the folder and referencing files
+out of it is a contradiction, not a hardened setup. Point
+:confval:`attachmentFolder` at a folder your editors publish from in that
+case, and treat what is uploaded through the chat as publishable.
 
 Security
 ========

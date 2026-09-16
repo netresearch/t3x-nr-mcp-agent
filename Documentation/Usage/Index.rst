@@ -135,7 +135,26 @@ supported by the active provider.
 *   Maximum file size: 20 MB per file.
 
 If a file is not accepted (wrong type, too large, or upload error), an
-error message is shown above the input.
+error message is shown above the input. A file the logged-in user may not
+store in the attachment folder is refused as well — the file mounts and
+permissions that apply in the file module apply here too.
+
+**What happens to an attached file:** it is not a throwaway copy. The
+upload puts it straight into the file storage — ``fileadmin/ai-chat/``
+by default, see :confval:`attachmentFolder` — where it is indexed like
+any other file, and the assistant is told its file uid and path. So you
+can ask it to reference the attachment from a content element in the same
+breath as you attach it, without uploading the file a second time through
+the file module, and you can ask it to describe the image for the
+alternative text. Which of those it can actually carry out depends on the
+file tools enabled in nr-llm, and every write waits for your approval.
+Placing a file in a *different* folder afterwards is not something the
+assistant can do — there is no tool for moving a file — so choose the
+attachment folder to suit where those files belong.
+
+Nothing is overwritten: a name already taken produces ``photo_01.jpg``,
+and re-attaching a file that is byte-identical to the one already there
+reuses it instead of making a copy.
 
 Floating chat panel
 ===================

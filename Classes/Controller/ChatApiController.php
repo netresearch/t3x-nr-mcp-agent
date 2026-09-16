@@ -29,6 +29,11 @@ use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
+use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderAccessPermissionsException;
+use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
+use TYPO3\CMS\Core\Resource\Exception\InsufficientUserPermissionsException;
+use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
@@ -397,14 +402,16 @@ final readonly class ChatApiController
         }
 
         $beUserUid = $this->getBeUserUid();
-        $targetFolder = $this->getOrCreateUploadFolder($storage, $beUserUid);
 
-        $clientFilename = $file->getClientFilename() ?? 'upload';
-        $falFile = $storage->addFile(
-            $tempPath,
-            $targetFolder,
-            $clientFilename,
-        );
+        try {
+            $targetFolder = $this->getOrCreateUploadFolder($storage, $beUserUid);
+            $falFile = $this->storeAttachment($storage, $targetFolder, $tempPath, $file->getClientFilename() ?? 'upload');
+        } catch (InsufficientFolderAccessPermissionsException|InsufficientFolderWritePermissionsException|InsufficientUserPermissionsException) {
+            // The user's file mounts and permissions decide this, and core makes
+            // the decision inside addFile()/createFolder(). Answer it as the
+            // refusal it is instead of letting it surface as a 500.
+            return new JsonResponse(['error' => 'Not allowed to store files in the chat attachment folder'], 403);
+        }
 
         return new JsonResponse([
             'fileUid' => $falFile->getUid(),
@@ -765,12 +772,54 @@ final readonly class ChatApiController
 
     private function getOrCreateUploadFolder(ResourceStorage $storage, int $beUserUid): Folder
     {
-        $basePath = 'ai-chat/' . $beUserUid;
+        $basePath = $this->config->getAttachmentFolder() . '/' . $beUserUid;
         if (!$storage->hasFolder($basePath)) {
             return $storage->createFolder($basePath);
         }
 
         return $storage->getFolder($basePath);
+    }
+
+    /**
+     * Put the upload in the attachment folder as a managed file, without ever
+     * replacing one that is already there.
+     *
+     * `addFile()` is called with `RENAME` explicitly rather than by default:
+     * this is the one place in the extension that writes into someone's
+     * `fileadmin`, and "the default happens to be the safe one" is not a thing a
+     * reader of this method should have to go and check. A name that is taken
+     * therefore yields `image_01.png`; nothing is overwritten and nothing is
+     * deleted (NEXT-157).
+     *
+     * Renaming alone would litter the folder, though: attaching the same picture
+     * to three conversations is an ordinary thing to do, and it would leave
+     * `image.png`, `image_01.png` and `image_02.png`, three `sys_file` rows and
+     * three sets of metadata to maintain for one picture. So when the name is
+     * taken by a file with the same content, that file is returned as it stands.
+     * The comparison is `sha1`, which is what FAL itself indexes files by; it is
+     * deliberately scoped to the same name in the same folder rather than a
+     * storage-wide content search, because the answer has to be a file this user
+     * put here, and because a hash query over `sys_file` is not free.
+     */
+    private function storeAttachment(
+        ResourceStorage $storage,
+        Folder $targetFolder,
+        string $tempPath,
+        string $clientFilename,
+    ): File {
+        $targetName = $storage->sanitizeFileName($clientFilename, $targetFolder);
+
+        if ($storage->hasFileInFolder($targetName, $targetFolder)) {
+            $existing = $storage->getFileInFolder($targetName, $targetFolder);
+            // A ProcessedFile cannot occur in an attachment folder, but the
+            // signature allows one and a processed file is not a file anybody
+            // may reference — so only a real one short-circuits.
+            if ($existing instanceof File && $existing->getSha1() === sha1_file($tempPath)) {
+                return $existing;
+            }
+        }
+
+        return $storage->addFile($tempPath, $targetFolder, $targetName, DuplicationBehavior::RENAME);
     }
 
     /**

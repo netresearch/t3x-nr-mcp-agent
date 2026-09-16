@@ -45,6 +45,79 @@ class ExtensionConfigurationTest extends TestCase
 
 
 
+    /**
+     * The default is what every installation that has never seen the setting
+     * gets, so it is also the proof that the folder chat attachments have always
+     * been written to does not move under them.
+     */
+    #[Test]
+    public function getAttachmentFolderFallsBackToTheDefault(): void
+    {
+        $config = new ExtensionConfiguration();
+        self::assertSame('ai-chat', $config->getAttachmentFolder());
+    }
+
+    /**
+     * The value is joined with the per-user subfolder, so a leading or trailing
+     * slash would produce `//press/uploads//1`.
+     */
+    #[Test]
+    public function getAttachmentFolderStripsSurroundingSlashes(): void
+    {
+        self::assertSame('press/uploads', $this->configuredWith('/press/uploads/')->getAttachmentFolder());
+    }
+
+    /**
+     * A folder that is nothing but slashes would put every attachment in the
+     * root of the storage. Fall back rather than scatter uploads across the top
+     * of somebody's fileadmin.
+     */
+    #[Test]
+    public function getAttachmentFolderRefusesTheStorageRoot(): void
+    {
+        self::assertSame('ai-chat', $this->configuredWith('/')->getAttachmentFolder());
+    }
+
+    /**
+     * FAL refuses such an identifier outright — `InvalidPathException`, and
+     * `createFolder()` sanitizes every segment on top — so nothing escapes the
+     * storage either way. What the fallback prevents is the shape of the
+     * failure: a typo in a setting only an admin can see, reaching the person
+     * uploading as a 500.
+     */
+    #[Test]
+    public function getAttachmentFolderRefusesTraversalSegments(): void
+    {
+        self::assertSame('ai-chat', $this->configuredWith('../../etc')->getAttachmentFolder());
+        self::assertSame('ai-chat', $this->configuredWith('press/../../etc')->getAttachmentFolder());
+        self::assertSame('ai-chat', $this->configuredWith('press//uploads')->getAttachmentFolder());
+        self::assertSame('ai-chat', $this->configuredWith('./press')->getAttachmentFolder());
+    }
+
+    /** A nested folder is a legitimate value and stays one. */
+    #[Test]
+    public function getAttachmentFolderKeepsANestedPath(): void
+    {
+        self::assertSame('press/ai-uploads', $this->configuredWith('press/ai-uploads')->getAttachmentFolder());
+    }
+
+    /**
+     * One configuration whose attachment folder is the given value. Consumes the
+     * setUp mock first — makeInstance() takes the queued instances in order.
+     */
+    private function configuredWith(string $attachmentFolder): ExtensionConfiguration
+    {
+        GeneralUtility::makeInstance(Typo3ExtensionConfiguration::class);
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn([
+            'attachmentFolder' => $attachmentFolder,
+        ]);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        return new ExtensionConfiguration();
+    }
+
     #[Test]
     public function getMaxConversationsPerUserReturnsConfiguredValue(): void
     {
