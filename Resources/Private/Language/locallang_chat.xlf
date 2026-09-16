@@ -90,6 +90,12 @@
             <trans-unit id="chat.approvalApprove" resname="chat.approvalApprove">
                 <source>Approve</source>
             </trans-unit>
+            <trans-unit id="chat.approvalGranted" resname="chat.approvalGranted">
+                <source>Approval granted — the assistant is carrying the step out.</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
+                <source>Approval denied — the step was not carried out.</source>
+            </trans-unit>
             <trans-unit id="chat.approvalDeny" resname="chat.approvalDeny">
                 <source>Deny</source>
             </trans-unit>

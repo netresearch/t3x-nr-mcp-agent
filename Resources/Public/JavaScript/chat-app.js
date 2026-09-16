@@ -694,16 +694,32 @@ export class ChatApp extends LitElement {
     }
 
     /**
-     * The status notice under the transcript: a pending approval, or an error.
+     * The status notice under the transcript: a decision just taken, a pending
+     * approval, or an error.
      *
-     * Extracted from render() because the two are one chained conditional with
-     * a further one inside it, which is hard to read and pushed render() past
-     * its complexity budget. The branches are unchanged.
+     * Extracted from render() because these are one chained conditional with a
+     * further one inside it, which is hard to read and pushed render() past its
+     * complexity budget.
+     *
+     * The decision state comes FIRST and returns on its own: it is the answer to
+     * a click the reader has just made, and it is shown while the conversation is
+     * Processing — the same state an ordinary turn is in, where a notice would
+     * otherwise be silent (NEXT-156).
      *
      * @param {boolean} isResumable
      */
     _renderStatusNotice(isResumable) {
         const dismiss = () => { this.chat.errorMessage = ''; this.requestUpdate(); };
+
+        if (this.chat.approvalDecisionTaken) {
+            const granted = this.chat.approvalDecisionTaken === 'approved';
+            return html`
+                <div class="message system" role="status"
+                    style="color:${granted ? 'var(--nr-chat-status-success, #2e7d32)' : 'var(--nr-chat-status-info, #0277bd)'};">
+                    ${granted ? lll('chat.approvalGranted') : lll('chat.approvalDenied')}
+                </div>
+            `;
+        }
 
         if (!this.chat.errorMessage) {
             return nothing;

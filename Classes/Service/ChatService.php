@@ -347,7 +347,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $conversation->setStatus(ConversationStatus::Failed);
         $conversation->setErrorMessage(
             'This run finished outside the chat, so its answer is not in this conversation.'
-            . ' Open it under Web > AI Tasks to see what happened.',
+            . ' Open it under AI > AI Tasks to see what happened.',
         );
 
         // Same reason as above, and it matters more here: the worker settling
@@ -410,6 +410,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // think they own the row.
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->recordApprovalDecision($approve, $turnDigest);
+
+        // The notice that the run is waiting stops being true the moment the
+        // decision is recorded, and it is carried in the same field a failure
+        // is carried in. Left standing it renders as "Error: ... waiting for
+        // your approval" over a conversation that is Processing — which is also
+        // a resumable status, so the chat offered a Retry next to it. Pressing
+        // that started a SECOND run over the same transcript while the first
+        // was carrying out the approved write: the duplicated pages and content
+        // elements in NEXT-153/NEXT-156 came from exactly there.
+        $conversation->setErrorMessage('');
 
         return $this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval);
     }
@@ -499,6 +509,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
             $conversation->appendMessage(MessageRole::Assistant, $result->loopResult->finalContent);
             $conversation->setStatus(ConversationStatus::Idle);
+            // Success leaves nothing to report. persist() writes the whole row,
+            // so a message from an earlier state of this turn — the approval
+            // notice above all — would otherwise survive the run that resolved
+            // it and keep the finished conversation looking failed.
+            $conversation->setErrorMessage('');
             $this->persist($conversation);
             return;
         }
@@ -522,17 +537,25 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
-     * Say what is pending and where it is granted.
+     * Say what is pending.
      *
-     * The run uuid is included because the approvals inbox lists runs and the
-     * user has to find the right one; it is empty when the run could not be
-     * persisted (the persister is fail-soft), and then it is simply left out
-     * rather than shown as an empty reference.
+     * It deliberately does NOT say where the approval is granted any more. It
+     * used to read "Grant it under Web > AI Tasks > Approvals", which sent the
+     * reader to the second approval place while the card carrying the two
+     * buttons sat directly beneath the very sentence — and a decision taken
+     * there after one taken here is answered with "The run could not be
+     * resumed", because the first one consumed the run. Deciding twice is how
+     * the duplicated pages in NEXT-156 came about. The way to the module stays
+     * as a LINK the card renders, which is inert when there is nothing to open.
+     *
+     * The run uuid is still included, because the approvals inbox lists runs and
+     * whoever does open it has to find the right one; it is empty when the run
+     * could not be persisted (the persister is fail-soft), and then it is simply
+     * left out rather than shown as an empty reference.
      */
     private function describeAwaitingApproval(AgentRunResult $result): string
     {
-        $message = 'This step writes data, so it is waiting for your approval.'
-            . ' Grant it under Web > AI Tasks > Approvals, then the run continues on its own.';
+        $message = 'This step writes data and needs an approval before it runs.';
 
         return $result->runUuid !== ''
             ? $message . ' Run: ' . $result->runUuid
