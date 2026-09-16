@@ -128,6 +128,76 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         expect(poll).toHaveBeenCalled();
     });
 
+    /**
+     * NEXT-156. The click used to be answered with a red "Error: ... waiting for
+     * your approval": the notice the pause had written stayed in the field the
+     * chat renders as an error, and the conversation moved to Processing, which
+     * is resumable — so a Retry button appeared beside it. Pressing that started
+     * a second run over the same transcript and created the record twice.
+     *
+     * The server clears the notice when it records the decision; this asserts
+     * the chat is right even if it did not, because the confirmation is what the
+     * reader sees either way.
+     */
+    test('deciding answers with a confirmation, never an error or a retry', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
+        // What the poll returned before the fix: the stale notice on a Processing
+        // conversation. loadMessages is the only thing that writes it, so it is
+        // stubbed to put exactly that on screen.
+        el.chat.loadMessages = jest.fn().mockImplementation(async () => {
+            el.chat.status = 'processing';
+            el.chat.errorMessage = 'This step writes data and needs an approval before it runs.';
+            el.requestUpdate();
+        });
+
+        el.shadowRoot.querySelectorAll('.approval-actions button')[0].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        const notice = el.shadowRoot.querySelector('.message.system');
+        expect(notice.textContent).toContain('chat.approvalGranted');
+        expect(notice.textContent).not.toContain('Error:');
+        expect(notice.textContent).not.toContain('chat.retry');
+        expect(el.shadowRoot.querySelector('.approval-actions')).toBeNull();
+    });
+
+    test('denying says the step was not carried out', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
+        el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
+
+        el.shadowRoot.querySelectorAll('.approval-actions button')[1].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        expect(el.shadowRoot.querySelector('.message.system').textContent)
+            .toContain('chat.approvalDenied');
+    });
+
+    /**
+     * A refusal hands the run back: what is on screen is a question again, so the
+     * confirmation must give way to the card rather than sit above it.
+     */
+    test('a card handed back after a refusal replaces the confirmation', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
+        el.chat.loadMessages = jest.fn().mockImplementation(async () => {
+            el.chat.status = 'awaiting_approval';
+            el.chat.errorMessage = 'The turn moved on — decide again.';
+            el.chat.pendingApproval = PENDING;
+            el.chat.approvalDecisionTaken = null;
+            el.requestUpdate();
+        });
+
+        el.shadowRoot.querySelectorAll('.approval-actions button')[0].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        expect(el.chat.approvalDecisionTaken).toBeNull();
+        expect(el.shadowRoot.querySelector('.approval-actions')).not.toBeNull();
+    });
+
     test('a run whose state cannot be read says so instead of offering a decision', async () => {
         const el = await renderPending(modulePath, tag, open, {...PENDING, unreadableReason: 'state-unreadable', calls: []});
 

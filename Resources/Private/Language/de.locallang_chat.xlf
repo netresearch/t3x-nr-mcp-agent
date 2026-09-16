@@ -117,6 +117,14 @@
                 <source>Approve</source>
                 <target>Freigeben</target>
             </trans-unit>
+            <trans-unit id="chat.approvalGranted" resname="chat.approvalGranted">
+                <source>Approval granted — the assistant is carrying the step out.</source>
+                <target>Freigabe erteilt — der Assistent führt den Schritt aus.</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
+                <source>Approval denied — the step was not carried out.</source>
+                <target>Freigabe abgelehnt — der Schritt wurde nicht ausgeführt.</target>
+            </trans-unit>
             <trans-unit id="chat.approvalDeny" resname="chat.approvalDeny">
                 <source>Deny</source>
                 <target>Ablehnen</target>

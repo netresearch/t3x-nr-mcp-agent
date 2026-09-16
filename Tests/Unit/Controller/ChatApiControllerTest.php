@@ -547,6 +547,38 @@ class ChatApiControllerTest extends TestCase
         self::assertSame(202, $response->getStatusCode());
     }
 
+    /**
+     * Retry is offered on a Processing conversation because a worker can fail to
+     * start. A conversation carrying a recorded approval decision is not that
+     * case: the worker holds the decision from the moment the request writes it
+     * until the continuation settles, and resume() clears the decision and runs
+     * the turn again — so a Retry landing in that window creates a second run
+     * over the same transcript while the first is carrying out the approved
+     * write. That is the duplicated page and content element in NEXT-156.
+     *
+     * A decision no worker ever picked up is not stranded by this: reconcile()
+     * reads the run, sees it still waiting, clears the decision and hands the
+     * card back — and then Retry is available again.
+     */
+    #[Test]
+    public function resumeConversationRefusesWhileAnApprovalDecisionIsInFlight(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->recordApprovalDecision(true, 'digest-abc');
+        self::assertTrue($conversation->isResumable(), 'precondition: Processing is resumable');
+
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->processor->expects(self::never())->method('dispatch');
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('approve', $conversation->getApprovalDecision(), 'the decision must survive the refusal');
+    }
+
     #[Test]
     public function resumeConversationDispatchesForToolLoopStatus(): void
     {

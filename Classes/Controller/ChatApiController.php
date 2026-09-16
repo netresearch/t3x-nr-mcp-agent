@@ -595,6 +595,18 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => 'Conversation is not resumable'], 400);
         }
 
+        // A recorded decision is work in flight, not a stuck turn. Processing is
+        // resumable, and the worker holds the decision from the moment it is
+        // recorded until the continuation settles — so a Retry arriving in that
+        // window would clear the decision and start a second turn over the same
+        // transcript while the first is still carrying out the approved write.
+        // That is the double-creation NEXT-156 describes; refuse it rather than
+        // race it. The escape hatch stays open: a decision no worker ever picked
+        // up is handed back as the card by reconcile(), which clears it.
+        if ($conversation->hasPendingApprovalDecision()) {
+            return new JsonResponse(['error' => 'An approval decision for this conversation is still being carried out'], 409);
+        }
+
         $currentStatus = $conversation->getStatus();
 
         $conversation->setStatus(ConversationStatus::Processing);

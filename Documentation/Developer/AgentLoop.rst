@@ -62,12 +62,22 @@ Outcome mapping
 settled ``AgentRunResult``. ``ChatService`` maps it as follows:
 
 *   ``COMPLETED`` -- append the final assistant answer
-    (``ToolLoopResult::$finalContent``) and set status ``idle``.
-*   any other outcome (``FAILED``, ``GUARDRAIL_BLOCKED``,
-    ``AWAITING_APPROVAL``, …) -- set status ``failed`` with a sanitized
-    reason taken from ``AgentRunResult::$error`` or derived from the
-    outcome. The mapping keeps a default arm because ``AgentRunOutcome``
-    gains cases in nr-llm minor releases.
+    (``ToolLoopResult::$finalContent``), set status ``idle`` and clear the
+    error message. The clearing matters because the row is written whole:
+    without it the notice an earlier state of the same turn wrote -- the
+    pending-approval one above all -- survives the run that resolved it,
+    and a finished conversation goes on looking failed.
+*   ``AWAITING_APPROVAL`` -- set status ``awaiting_approval``, store the
+    run uuid for the link, and put a notice in the error-message field
+    saying an approval is pending. Not a failure: the run stopped before a
+    write and is waiting for a human. The notice says what is pending, not
+    where to grant it -- the decision is offered on the card directly
+    beneath it, and pointing past that into the AI Tasks module is what
+    led to the same write being approved twice.
+*   any other outcome (``FAILED``, ``GUARDRAIL_BLOCKED``, …) -- set status
+    ``failed`` with a sanitized reason taken from ``AgentRunResult::$error``
+    or derived from the outcome. The mapping keeps a default arm because
+    ``AgentRunOutcome`` gains cases in nr-llm minor releases.
 
 The tools the model can call, their execution, retry/back-off on
 transient provider errors, budget enforcement and the iteration cap all
@@ -84,6 +94,16 @@ therefore always calls ``processConversation()``.
 for a resumable conversation (``processing``, ``tool_loop`` or
 ``failed``), which is used to recover a conversation left ``processing``
 by a crashed worker.
+
+It refuses with ``409`` while an approval decision recorded by
+``recordDecision()`` has not been carried out yet
+(``Conversation::hasPendingApprovalDecision()``). Resuming clears the
+decision and starts the turn again, so a retry arriving in that window
+would run a second turn over the same transcript while the first is still
+performing the approved write -- which is how a page and its content
+element came to exist twice. A decision no worker ever picked up is not
+stranded by the refusal: ``reconcile()`` reads the run, sees it still
+waiting, clears the decision and hands the card back.
 
 MCP servers
 ===========

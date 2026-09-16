@@ -403,11 +403,13 @@ class ChatServiceTest extends TestCase
     }
 
     /**
-     * The message has to say where the approval is granted, otherwise the pause
-     * is merely less alarming without being more actionable.
+     * The message says what is pending and which run it belongs to — and, since
+     * NEXT-156, no longer where to grant it: the decision is offered on the card
+     * right below this sentence, and the sentence used to point past it into the
+     * AI Tasks module. Whoever decided in both places got the write twice.
      */
     #[Test]
-    public function awaitingApprovalMessageNamesWhereToApproveAndWhichRun(): void
+    public function awaitingApprovalMessageNamesWhatIsPendingAndWhichRun(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
@@ -420,8 +422,8 @@ class ChatServiceTest extends TestCase
 
         $message = $conversation->getErrorMessage();
         self::assertStringContainsString('approval', $message);
-        self::assertStringContainsString('AI Tasks', $message);
         self::assertStringContainsString('run-uuid-1234', $message);
+        self::assertStringNotContainsStringIgnoringCase('AI Tasks', $message, 'the notice must not route past the card');
     }
 
     /**
@@ -441,7 +443,7 @@ class ChatServiceTest extends TestCase
         $service->processConversation($conversation);
 
         self::assertStringNotContainsString('Run: ', $conversation->getErrorMessage());
-        self::assertStringContainsString('AI Tasks', $conversation->getErrorMessage());
+        self::assertStringContainsString('approval', $conversation->getErrorMessage());
     }
 
     /**

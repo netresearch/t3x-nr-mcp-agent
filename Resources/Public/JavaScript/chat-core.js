@@ -33,6 +33,21 @@ export class ChatCoreController {
 
     /** The pending tool call as the approvals inbox describes it; null when nothing is pending. */
     pendingApproval = null;
+
+    /**
+     * What was just decided here: 'approved', 'denied', or null when no decision
+     * of this reader's is in flight.
+     *
+     * The chat used to answer a decision with nothing of its own: the card
+     * vanished, the spinner came back, and the only durable confirmation was the
+     * assistant's reply at the end of the continuation. Between the two there
+     * was no visible difference between "your approval is being carried out" and
+     * "nothing happened", which is what sent readers to decide a second time in
+     * AI Tasks (NEXT-156). Held locally on purpose: the durable record of the
+     * outcome is the assistant's answer, and this state is cleared the moment it
+     * arrives.
+     */
+    approvalDecisionTaken = null;
     inputValue = '';
     hasInput = false;
     loading = true;
@@ -131,6 +146,7 @@ export class ChatCoreController {
         this._knownMessageCount = 0;
         this.expandedTools = new Set();
         this.pendingFile = null;
+        this.approvalDecisionTaken = null;
         this.host.requestUpdate();
         await this.loadMessages();
         this.startPollingIfNeeded();
@@ -160,9 +176,17 @@ export class ChatCoreController {
         this.host.requestUpdate();
         try {
             await this._api.decideApproval(this.activeUid, approve, this.pendingApproval.turnDigest || '');
+            // Say what happened before the reload, and drop the card and the
+            // notice that asked for the decision: both describe a state this
+            // click has just left, and the server has cleared the notice too.
+            this.approvalDecisionTaken = approve ? 'approved' : 'denied';
+            this.errorMessage = '';
+            this.pendingApproval = null;
+            this.host.requestUpdate();
             await this.loadMessages();
             this.startPollingIfNeeded();
         } catch (e) {
+            this.approvalDecisionTaken = null;
             this.errorMessage = e.message;
         } finally {
             this.approvalBusy = false;
@@ -179,6 +203,11 @@ export class ChatCoreController {
             this.errorMessage = data.errorMessage || '';
             this.approvalUrl = data.approvalUrl || '';
             this.pendingApproval = data.pendingApproval || null;
+            if (data.pendingApproval) {
+                // The decision was refused and the run handed back: what is on
+                // screen is a question again, not a confirmation.
+                this.approvalDecisionTaken = null;
+            }
             this._knownMessageCount = data.totalCount;
             this.host.requestUpdate();
             this.host.onScrollToBottom(true);
@@ -200,6 +229,12 @@ export class ChatCoreController {
             if (newMessages.length > 0 || statusChanged) {
                 if (newMessages.length > 0) {
                     this.messages = [...this.messages, ...newMessages];
+                    // The continuation answered. Its answer is the outcome, and
+                    // it outlives a reload; the transient line does not.
+                    this.approvalDecisionTaken = null;
+                }
+                if (data.pendingApproval) {
+                    this.approvalDecisionTaken = null;
                 }
                 this.status = data.status;
                 this.errorMessage = data.errorMessage || '';
