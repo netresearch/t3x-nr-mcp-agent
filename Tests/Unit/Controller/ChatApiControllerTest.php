@@ -1165,7 +1165,11 @@ class ChatApiControllerTest extends TestCase
         file_put_contents($tmpPath, '%PDF-1.4 fake content');
 
         $existing = $this->createMock(File::class);
-        $existing->method('getSha1')->willReturn(sha1('something else entirely'));
+        // Any digest that is not the upload's. Written as a literal rather than
+        // computed: the test needs a value that differs, and hashing something
+        // here only raises a weak-hash finding over a line that hashes nothing
+        // anybody relies on.
+        $existing->method('getSha1')->willReturn('da39a3ee5e6b4b0d3255bfef95601890afd80709');
 
         $stored = $this->createMock(File::class);
         $stored->method('getUid')->willReturn(78);
