@@ -178,24 +178,55 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
     /**
      * A refusal hands the run back: what is on screen is a question again, so the
      * confirmation must give way to the card rather than sit above it.
+     *
+     * loadMessages() is the real one here, over a stubbed transport. Stubbing
+     * loadMessages itself — and having the stub clear the confirmation — would
+     * pass even if the controller stopped clearing it, which is the only thing
+     * this case is about.
      */
     test('a card handed back after a refusal replaces the confirmation', async () => {
         const el = await renderPending(modulePath, tag, open);
         el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
-        el.chat.loadMessages = jest.fn().mockImplementation(async () => {
-            el.chat.status = 'awaiting_approval';
-            el.chat.errorMessage = 'The turn moved on — decide again.';
-            el.chat.pendingApproval = PENDING;
-            el.chat.approvalDecisionTaken = null;
-            el.requestUpdate();
+        el.chat._api.getMessages = jest.fn().mockResolvedValue({
+            status: 'awaiting_approval',
+            messages: [{role: 'user', content: 'Set the meta description'}],
+            totalCount: 1,
+            errorMessage: 'The turn moved on — decide again.',
+            approvalUrl: '/typo3/module/web/nrllm-aitasks?runUuid=run-uuid-1234',
+            pendingApproval: PENDING,
         });
 
         el.shadowRoot.querySelectorAll('.approval-actions button')[0].click();
         await new Promise((resolve) => setTimeout(resolve, 0));
         await el.updateComplete;
 
+        expect(el.chat._api.getMessages).toHaveBeenCalled();
         expect(el.chat.approvalDecisionTaken).toBeNull();
         expect(el.shadowRoot.querySelector('.approval-actions')).not.toBeNull();
+    });
+
+    /**
+     * The reader can switch conversations while the decision is in flight. The
+     * answer belongs to the conversation the click happened in — a confirmation
+     * appearing over someone else's transcript is a claim about work that was
+     * never done there.
+     */
+    test('a decision that lands after a conversation switch is discarded', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat._api.decideApproval = jest.fn().mockImplementation(async () => {
+            // The switch happens while the request is in flight.
+            el.chat.activeUid = 2;
+            return {status: 'processing'};
+        });
+        el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
+
+        el.shadowRoot.querySelectorAll('.approval-actions button')[0].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        expect(el.chat.approvalDecisionTaken).toBeNull();
+        expect(el.chat.loadMessages).not.toHaveBeenCalled();
+        expect(el.chat._api.decideApproval).toHaveBeenCalledWith(1, true, 'digest-abc');
     });
 
     test('a run whose state cannot be read says so instead of offering a decision', async () => {

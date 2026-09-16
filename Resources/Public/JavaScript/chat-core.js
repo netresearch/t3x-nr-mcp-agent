@@ -166,16 +166,27 @@ export class ChatCoreController {
      * against the state it claims, so a decision made on a card that has since
      * been superseded is refused there rather than applied here — and that
      * refusal comes back as the card, with the reason on it.
+     *
+     * Everything is bound to the conversation the click happened in, captured
+     * before the await: the reader can switch conversations while the request is
+     * in flight, and the answer must not land on whichever one they moved to —
+     * neither the confirmation nor, on the error path, the reason. Same guard
+     * pollMessages() uses on its own response.
      */
     async decideApproval(approve) {
-        if (!this.pendingApproval || this.approvalBusy || !this.activeUid) {
+        const uid = this.activeUid;
+        if (!this.pendingApproval || this.approvalBusy || !uid) {
             return;
         }
 
         this.approvalBusy = true;
         this.host.requestUpdate();
         try {
-            await this._api.decideApproval(this.activeUid, approve, this.pendingApproval.turnDigest || '');
+            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '');
+            if (uid !== this.activeUid) {
+                return;
+            }
+
             // Say what happened before the reload, and drop the card and the
             // notice that asked for the decision: both describe a state this
             // click has just left, and the server has cleared the notice too.
@@ -186,6 +197,10 @@ export class ChatCoreController {
             await this.loadMessages();
             this.startPollingIfNeeded();
         } catch (e) {
+            if (uid !== this.activeUid) {
+                return;
+            }
+
             this.approvalDecisionTaken = null;
             this.errorMessage = e.message;
         } finally {
