@@ -11,7 +11,8 @@ use PHPat\Test\PHPat;
 final class LayerDependencyTest
 {
     private const CONTROLLER_NAMESPACE = 'Netresearch\NrMcpAgent\Controller';
-    private const MCP_NAMESPACE = 'Netresearch\NrMcpAgent\Mcp';
+
+    private const COMMAND_NAMESPACE = 'Netresearch\NrMcpAgent\Command';
 
     public function testDomainDoesNotDependOnInfrastructure(): BuildStep
     {
@@ -20,10 +21,9 @@ final class LayerDependencyTest
             ->shouldNotDependOn()
             ->classes(
                 Selector::inNamespace(self::CONTROLLER_NAMESPACE),
-                Selector::inNamespace('Netresearch\NrMcpAgent\Command'),
-                Selector::inNamespace(self::MCP_NAMESPACE),
+                Selector::inNamespace(self::COMMAND_NAMESPACE),
             )
-            ->because('Domain layer must not depend on infrastructure (Controller, Command, Mcp)');
+            ->because('Domain layer must not depend on infrastructure (Controller, Command)');
     }
 
     public function testServicesDoNotAccessDatabaseDirectly(): BuildStep
@@ -35,25 +35,21 @@ final class LayerDependencyTest
             ->because('Services must use repositories instead of accessing the database directly');
     }
 
-    public function testControllerDoesNotExecuteProcesses(): BuildStep
+    public function testServicesDoNotDependOnControllers(): BuildStep
+    {
+        return PHPat::rule()
+            ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Service'))
+            ->shouldNotDependOn()
+            ->classes(Selector::inNamespace(self::CONTROLLER_NAMESPACE))
+            ->because('Service layer must not depend on the HTTP layer');
+    }
+
+    public function testControllersDoNotInvokeCommandClasses(): BuildStep
     {
         return PHPat::rule()
             ->classes(Selector::inNamespace(self::CONTROLLER_NAMESPACE))
             ->shouldNotDependOn()
-            ->classes(Selector::inNamespace(self::MCP_NAMESPACE))
-            ->because('Controllers must not depend on MCP layer directly');
-    }
-
-    public function testHookDoesNotDependOnController(): BuildStep
-    {
-        return PHPat::rule()
-            ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Hook'))
-            ->shouldNotDependOn()
-            ->classes(
-                Selector::inNamespace(self::CONTROLLER_NAMESPACE),
-                Selector::inNamespace(self::MCP_NAMESPACE),
-                Selector::inNamespace('Netresearch\NrMcpAgent\Service'),
-            )
-            ->because('Hook layer must not depend on Controller, Mcp, or Service layers');
+            ->classes(Selector::inNamespace(self::COMMAND_NAMESPACE))
+            ->because('Controllers reach background processing through ChatProcessorInterface, never by invoking a CLI command class');
     }
 }

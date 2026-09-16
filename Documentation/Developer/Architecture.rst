@@ -304,11 +304,8 @@ Component map
      - Toolbar chat widget, persistent across navigation
      - ``Resources/Public/JavaScript/`` (Lit)
    * - **Agent Loop**
-     - LLM call → tool use → reply, with retry logic
-     - ``Classes/Service/AgentLoopService.php``
-   * - **MCP Client**
-     - Spawns ``typo3-mcp-server``, handles stdio protocol
-     - ``Classes/Mcp/``
+     - LLM call → tool use → reply; owned by nr-llm's ``AgentRuntime``
+     - ``Classes/Service/ChatService.php``
    * - **Conversation Store**
      - Persists messages, pins, auto-archive
      - ``Classes/Domain/Repository/``
@@ -317,7 +314,8 @@ Component map
      - ``Classes/Command/``
    * - **Access Control**
      - Group-based access, concurrency caps, length limits
-     - ``Classes/Service/AccessControlService.php``
+     - ``Classes/Controller/ChatApiController.php`` (``checkAccess()``),
+       ``Classes/Configuration/ExtensionConfiguration.php``
 
 Dependency rules
 ================
@@ -328,8 +326,13 @@ with PHPStan:
 -   ``Domain`` MUST NOT depend on ``Controller`` or ``Command``
 -   ``Controller`` may depend on ``Domain`` and ``Service``
 -   ``Service`` may depend on ``Domain``; MUST NOT depend on ``Controller``
--   ``Mcp`` may depend on ``Domain`` and ``Service``; MUST NOT depend on
-    ``Controller``
+-   ``Controller`` MUST NOT depend on ``Command`` — background processing is
+    reached through ``ChatProcessorInterface``, never by invoking a CLI
+    command class
+-   ``Document`` MUST NOT depend on ``ChatService`` or ``Controller``
+-   ``Service`` MUST NOT depend on ``ConnectionPool`` — repositories own
+    database access
 -   ``Tests`` may depend on anything
 
-Architecture tests: ``Tests/Architecture/LayerDependencyTest.php``
+Architecture tests: ``Tests/Architecture/LayerDependencyTest.php`` and
+``Tests/Architecture/DocumentExtractorArchitectureTest.php``

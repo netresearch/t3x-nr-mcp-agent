@@ -93,9 +93,9 @@ They are implemented using `PHPAt <https://github.com/carlosas/phpat>`__
 and registered as a PHPStan extension — they run automatically as part of
 ``ci:phpstan``, not as a separate PHPUnit testsuite.
 
-The rules are defined in ``Tests/Architecture/LayerDependencyTest.php``.
-They ensure, for example, that Domain classes do not depend on Controller
-classes.
+The rules are defined in ``Tests/Architecture/LayerDependencyTest.php`` and
+``Tests/Architecture/DocumentExtractorArchitectureTest.php``. They ensure, for
+example, that Domain classes do not depend on Controller classes.
 
 Mutation testing
 ================

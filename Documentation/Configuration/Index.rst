@@ -83,18 +83,26 @@ extension configuration itself, but in the **nr-llm records**:
 **Configuration record** (``tx_nrllm_configuration.system_prompt``)
     The primary system prompt. Set this to define the AI
     assistant's persona, language, and behavior. Also use
-    this field for tool usage instructions when MCP is
-    enabled.
+    this field for instructions on how the tools registered
+    in nr-llm are to be used.
 
-    Example for MCP usage::
+    Example::
 
         Du bist ein TYPO3-Assistent.
 
         ## Tool-Nutzung
-        - Bei WriteTable gehören Record-Felder IMMER in den
-          "data" Parameter als Objekt.
-        - Beispiel: {"action": "create", "table": "pages",
-          "pid": 1, "data": {"title": "Meine Seite"}}
+        - Vor jeder Aussage über den Seitenbaum erst
+          get_pagetree aufrufen, nie aus dem Verlauf raten.
+        - Datensatzfelder über read_records lesen, nicht aus
+          einer früheren Antwort zitieren.
+        - create_content_element_draft legt ein verstecktes
+          Element an; sag danach, wo es liegt und dass es
+          noch freigeschaltet werden muss.
+
+    Name the tools your installation actually has --
+    **AI > Operation > Tools** in nr-llm lists them, and
+    **AI > Operation > MCP Servers** is where an external
+    server's tools come from.
 
 **Task record** (``tx_nrllm_task.prompt_template``)
     Additional instructions appended after the Configuration

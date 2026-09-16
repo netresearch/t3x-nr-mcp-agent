@@ -36,18 +36,27 @@ tests, which run as part of the PHPStan pass in CI:
      - ``Controller``, ``Command``
    * - ``Service``
      - ``Domain``
-     - ``Controller``
+     - ``Controller``, ``ConnectionPool``
    * - ``Controller``
      - ``Domain``, ``Service``
-     - —
-   * - ``Mcp``
-     - ``Domain``, ``Service``
-     - ``Controller``
+     - ``Command``
+   * - ``Document``
+     - ``Domain``
+     - ``ChatService``, ``Controller``
    * - ``Command``
      - ``Domain``, ``Service``
      - ``Controller``
 
-Architecture tests live in ``Tests/Architecture/LayerDependencyTest.php``.
+Architecture tests live in ``Tests/Architecture/LayerDependencyTest.php`` and
+``Tests/Architecture/DocumentExtractorArchitectureTest.php``.
+
+..  note::
+
+    The ``Mcp`` layer this table once listed was removed with the extension's
+    own MCP client in 0.12.0 (see :ref:`adr-003`). Its rules were left behind
+    selecting an empty namespace, where they passed without ever checking
+    anything; they have since been replaced by rules that bind to namespaces
+    that exist (see the changelog).
 
 Consequences
 ============

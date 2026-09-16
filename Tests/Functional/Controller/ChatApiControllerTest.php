@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
@@ -66,6 +67,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
         );
     }
@@ -92,6 +94,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
         );
     }
@@ -288,6 +291,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
         );
 
@@ -350,6 +354,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             $this->get(ResourceFactory::class),
             $this->get(StorageRepository::class),
             new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
         );
 

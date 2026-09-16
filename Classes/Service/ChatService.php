@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -113,6 +114,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ResourceFactory $resourceFactory,
         private readonly SiteFinder $siteFinder,
         private readonly DocumentExtractorRegistry $documentExtractorRegistry,
+        private readonly UploadMimeTypeMap $uploadMimeTypeMap,
     ) {}
 
     /**
@@ -130,12 +132,20 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     ? $provider->getSupportedDocumentFormats()
                     : [];
 
+                // Only advertise provider formats the upload endpoint can also
+                // validate — it matches on the MIME type finfo detects, so an
+                // extension UploadMimeTypeMap cannot translate would reach the
+                // file picker and then be rejected with 422 (Gemini's heic/heif).
+                $providerFormats = $this->uploadMimeTypeMap->knownExtensions([
+                    ...$provider->getSupportedImageFormats(),
+                    ...$documentFormats,
+                ]);
+
                 return [
                     'visionSupported' => true,
                     'maxFileSize' => $provider->getMaxImageSize(),
                     'supportedFormats' => array_values(array_unique(array_merge(
-                        $provider->getSupportedImageFormats(),
-                        $documentFormats,
+                        $providerFormats,
                         $extractionFormats,
                     ))),
                 ];

@@ -6,10 +6,11 @@
 > [!NOTE]
 > **Proof of concept.** This extension explores a concrete question: is agent-like behavior possible within the TYPO3 backend? It is not intended to answer whether this is the right architectural approach — the space is moving fast, and the tradeoffs between MCP, tool-calling, browser-side agents, and custom integrations are far from settled. The goal here is to show that it *works*, and to invite feedback from anyone thinking about the same problem. If you have thoughts, [open an issue](https://github.com/netresearch/t3x-nr-mcp-agent/issues).
 
-AI Chat integrates a conversational AI assistant into the TYPO3 backend.
-Powered by [nr-llm](https://github.com/netresearch/t3x-nr-llm) and the
-[Model Context Protocol (MCP)](https://modelcontextprotocol.io/), it enables
-backend users to manage content through natural language.
+AI Chat integrates a conversational AI assistant into the TYPO3 backend. It runs on
+[nr-llm](https://github.com/netresearch/t3x-nr-llm)'s agent runtime and works through the
+tools nr-llm registers: its builtin set, plus any
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server configured there.
+Backend users manage content through natural language.
 
 ![AI agent creating a page, adding content, and rating it in TYPO3](Documentation/Images/AgentDemo.gif)
 
@@ -42,7 +43,7 @@ The AI chat supports file uploads for use as conversation attachments. Supported
 | DOCX | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | Always (text extracted server-side) |
 | TXT | `text/plain` | Always |
 | XLSX | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | Requires `phpoffice/phpspreadsheet` (see below) |
-| Images (JPEG, PNG, WebP) | various | Requires a vision-capable provider |
+| Images (JPEG, PNG, GIF, WebP; HEIC/HEIF on Gemini) | various | Requires a vision-capable provider; the exact set is whatever the provider advertises |
 | Native PDF/DOCX | various | Requires a DocumentCapable provider (e.g. Anthropic Claude) |
 
 When a provider natively supports a format (e.g. Claude natively handles PDFs), the file is sent as-is. Otherwise, text is extracted server-side and injected into the prompt.

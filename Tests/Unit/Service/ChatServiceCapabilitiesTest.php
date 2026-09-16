@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
@@ -54,6 +55,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $this->createMock(ResourceFactory::class),
             $this->createMock(SiteFinder::class),
             $registry,
+            new UploadMimeTypeMap(),
         );
     }
 
@@ -116,7 +118,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
         $provider->method('supportsVision')->willReturn(true);
         $provider->method('getMaxImageSize')->willReturn(5242880);
-        $provider->method('getSupportedImageFormats')->willReturn(['image/jpeg', 'image/png']);
+        $provider->method('getSupportedImageFormats')->willReturn(['jpeg', 'png']);
 
         $service = $this->createChatService($provider);
         $caps = $service->getProviderCapabilities();
@@ -135,7 +137,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
         $provider->method('supportsVision')->willReturn(true);
         $provider->method('getMaxImageSize')->willReturn(1024);
-        $provider->method('getSupportedImageFormats')->willReturn(['image/jpeg', 'image/png']);
+        $provider->method('getSupportedImageFormats')->willReturn(['jpeg', 'png']);
 
         $service = $this->createChatService($provider);
         $caps = $service->getProviderCapabilities();
@@ -151,15 +153,15 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class, DocumentCapableInterface::class]);
         $provider->method('supportsVision')->willReturn(true);
         $provider->method('getMaxImageSize')->willReturn(1024);
-        $provider->method('getSupportedImageFormats')->willReturn(['image/jpeg']);
+        $provider->method('getSupportedImageFormats')->willReturn(['jpeg']);
         $provider->method('supportsDocuments')->willReturn(true);
-        $provider->method('getSupportedDocumentFormats')->willReturn(['application/pdf']);
+        $provider->method('getSupportedDocumentFormats')->willReturn(['pdf']);
 
         $service = $this->createChatService($provider);
         $caps = $service->getProviderCapabilities();
 
-        self::assertContains('image/jpeg', $caps['supportedFormats']);
-        self::assertContains('application/pdf', $caps['supportedFormats']);
+        self::assertContains('jpeg', $caps['supportedFormats']);
+        self::assertContains('pdf', $caps['supportedFormats']);
         // Must remain a list even after merge
         self::assertSame(range(0, 1), array_keys($caps['supportedFormats']));
     }
@@ -170,14 +172,14 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class, DocumentCapableInterface::class]);
         $provider->method('supportsVision')->willReturn(true);
         $provider->method('getMaxImageSize')->willReturn(1024);
-        $provider->method('getSupportedImageFormats')->willReturn(['image/jpeg']);
+        $provider->method('getSupportedImageFormats')->willReturn(['jpeg']);
         $provider->method('supportsDocuments')->willReturn(false);
 
         $service = $this->createChatService($provider);
         $caps = $service->getProviderCapabilities();
 
-        self::assertNotContains('application/pdf', $caps['supportedFormats']);
-        self::assertContains('image/jpeg', $caps['supportedFormats']);
+        self::assertNotContains('pdf', $caps['supportedFormats']);
+        self::assertContains('jpeg', $caps['supportedFormats']);
     }
 
     #[Test]
@@ -203,6 +205,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $this->createMock(ResourceFactory::class),
             $this->createMock(SiteFinder::class),
             new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
         );
 
         $caps = $service->getProviderCapabilities();
@@ -252,6 +255,51 @@ class ChatServiceCapabilitiesTest extends TestCase
         // Provider formats (extensions) and registry extensions are both present
         self::assertContains('jpeg', $caps['supportedFormats']);
         self::assertContains('pdf', $caps['supportedFormats']);
+    }
+
+    // -------------------------------------------------------------------------
+    // The picker and the upload endpoint must agree on the format list.
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function advertisesHeicWhenTheProviderDoesBecauseTheUploadEndpointAcceptsIt(): void
+    {
+        // Gemini announces heic/heif. While the controller kept its own
+        // extension→MIME map without them, the picker offered .heic and the
+        // upload answered 422 "File type not supported".
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getMaxImageSize')->willReturn(1024);
+        $provider->method('getSupportedImageFormats')->willReturn(['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic', 'heif']);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertContains('heic', $caps['supportedFormats']);
+        self::assertContains('heif', $caps['supportedFormats']);
+        self::assertSame(
+            ['image/heic', 'image/heif'],
+            (new UploadMimeTypeMap())->toMimeTypes(['heic', 'heif']),
+            'the upload endpoint derives its allow-list from the same map',
+        );
+    }
+
+    #[Test]
+    public function dropsAnAdvertisedFormatTheUploadEndpointCouldNotValidate(): void
+    {
+        // An extension UploadMimeTypeMap cannot translate has no MIME type to
+        // match finfo against, so offering it in the picker would only produce
+        // a 422. It is dropped instead of guessed at.
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getMaxImageSize')->willReturn(1024);
+        $provider->method('getSupportedImageFormats')->willReturn(['png', 'avif']);
+
+        $service = $this->createChatService($provider);
+        $caps = $service->getProviderCapabilities();
+
+        self::assertContains('png', $caps['supportedFormats']);
+        self::assertNotContains('avif', $caps['supportedFormats']);
     }
 
     #[Test]

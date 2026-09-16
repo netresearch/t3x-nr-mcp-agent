@@ -31,13 +31,15 @@ Sending messages
 
 While the assistant is processing, you will see a loading
 indicator. Processing typically takes a few seconds,
-depending on the LLM provider and whether MCP tools
-are invoked.
+depending on the LLM provider and whether tools are
+invoked.
 
-If MCP is enabled, the assistant may execute multiple
-tool calls (e.g. reading page content, then creating a
-record) before responding. Each tool call iteration is
-visible in the conversation.
+The assistant may execute several tool calls (e.g. reading
+page content, then creating a record) before responding.
+Each tool call iteration is visible in the conversation.
+Which tools it has comes from nr-llm — its builtin set plus
+any MCP server registered under **AI > Operation > MCP
+Servers**; this extension registers none of its own.
 
 ..  figure:: /Images/MarkdownResponse.png
     :alt: AI response rendered as Markdown

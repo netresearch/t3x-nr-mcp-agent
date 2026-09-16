@@ -5,11 +5,11 @@
 
 ## Overview
 
-PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), plus `Backend/`, `Checker/`, `Configuration/`, `Hook/`, `Utility/`, `Exception/`.
+PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), plus `Backend/`, `Configuration/`, `Utility/`, `Exception/`.
 
 ## Setup
 
-- Dependency injection via `../Configuration/Services.yaml` — namespace-wide autowiring plus explicit per-service overrides (processor default, tool-provider cache, tagged document extractors); no `GeneralUtility::makeInstance()` for own services
+- Dependency injection via `../Configuration/Services.yaml` — namespace-wide autowiring plus explicit per-service overrides (public controllers, processor default, tagged document extractors); no `GeneralUtility::makeInstance()` for own services
 - AJAX routes live in `../Configuration/Backend/AjaxRoutes.php`, backend modules in `../Configuration/Backend/Modules.php`
 - `declare(strict_types=1)` in every file
 
@@ -22,7 +22,7 @@ PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Cl
 ## Code style
 
 - PHPStan level 10 — narrow `mixed` with `is_string()`/`is_array()` instead of casting; fix types, do not suppress
-- Layering enforced by phpat (runs with PHPStan): Domain must not depend on Controller/Command/Mcp; Services must not use `ConnectionPool` directly (use repositories); Controllers and Hooks must not depend on Mcp; see `../docs/ARCHITECTURE.md`
+- Layering enforced by phpat (runs with PHPStan): Domain must not depend on Controller/Command; Service must not depend on Controller nor use `ConnectionPool` directly (use repositories); Controller must not depend on Command (go through `ChatProcessorInterface`); Document must not depend on `ChatService` or Controller; see `../docs/ARCHITECTURE.md`
 - LLM error messages are sanitized before persisting (`error_message` must never contain API keys — ADR-010)
 
 ## Security

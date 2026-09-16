@@ -30,10 +30,13 @@ AI Chat for TYPO3
 ----
 
 AI Chat integrates a conversational AI assistant into the
-TYPO3 backend. Powered by `nr-llm <https://github.com/
-netresearch/t3x-nr-llm>`__ and the `Model Context Protocol
-(MCP) <https://modelcontextprotocol.io/>`__, it enables
-backend users to manage content through natural language.
+TYPO3 backend. It runs on the agent runtime of `nr-llm
+<https://github.com/netresearch/t3x-nr-llm>`__ and works
+through the tools nr-llm registers: its builtin set, plus
+any `Model Context Protocol (MCP)
+<https://modelcontextprotocol.io/>`__ server configured
+there. Backend users manage content through natural
+language.
 
 ----
 

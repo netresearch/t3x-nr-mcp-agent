@@ -9,6 +9,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorInterface;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
@@ -57,6 +58,7 @@ class ChatApiControllerFileInfoTest extends TestCase
             $this->resourceFactory,
             $this->createMock(StorageRepository::class),
             new DocumentExtractorRegistry([$extractor]),
+            new UploadMimeTypeMap(),
             $this->createMock(UriBuilder::class),
         );
 

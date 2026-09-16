@@ -24,10 +24,10 @@ A Lit-based chat UI in the TYPO3 backend polls `ChatApiController` via AJAX. Mes
 
 Enforced by phpat; the rules run as part of PHPStan (`Build/phpstan/phpstan.neon` registers the test classes as `phpat.test` services), so `make phpstan` fails on violations. Rule sources: `Tests/Architecture/LayerDependencyTest.php` and `Tests/Architecture/DocumentExtractorArchitectureTest.php`.
 
-- `Domain` MUST NOT depend on `Controller`, `Command`, or `Mcp` (infrastructure)
+- `Domain` MUST NOT depend on `Controller` or `Command` (infrastructure)
 - `Service` MUST NOT depend on `TYPO3\CMS\Core\Database\ConnectionPool` — use repositories
-- `Controller` MUST NOT depend on `Mcp`
-- `Hook` MUST NOT depend on `Controller`, `Mcp`, or `Service`
+- `Service` MUST NOT depend on `Controller`
+- `Controller` MUST NOT depend on `Command` — background processing is reached through `ChatProcessorInterface`
 - `Document` MUST NOT depend on `Service\ChatService` or `Controller` — extractors stay pure, reusable utilities
 
 ## Data flow

@@ -6,7 +6,7 @@
 ADR-001: Embedded MCP Client in TYPO3 Backend
 =============================================
 
-**Status:** Accepted
+**Status:** Accepted — partially superseded (2026-08-20). The decision to run the chat inside the TYPO3 backend stands. The embedded MCP *client* named here does not: the chat turn runs on nr-llm's ``AgentRuntime`` and takes its tools from nr-llm's registry since 0.11, and the client was removed in 0.12.0 (see :ref:`adr-003`, :ref:`adr-004`). External MCP servers are configured in nr-llm's *MCP Servers* module.
 
 **Date:** 2026-03-14
 
