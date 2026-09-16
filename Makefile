@@ -1,4 +1,4 @@
-.PHONY: up start down restart install install-all install-v13 install-v14 sync test test-unit test-func test-arch test-js test-e2e test-mutation test-all coverage lint lint-fix phpstan ci docs
+.PHONY: up start down restart install install-all install-v13 install-v14 sync test test-unit test-func test-js test-e2e test-mutation test-all coverage lint lint-fix phpstan ci docs
 
 # === Environment ===
 up: start install-all docs  ## Full setup: DDEV + all TYPO3 versions + docs
@@ -32,16 +32,13 @@ sync:  ## Re-sync extension after code changes
 	ddev exec -d /var/www/html/v14 vendor/bin/typo3 cache:flush
 
 # === Testing (full pyramid) ===
-test: test-unit test-func test-arch  ## Run all PHP tests
+test: test-unit test-func  ## Run all PHP tests (the phpat layer rules run in `make phpstan`)
 
 test-unit:  ## Run unit tests
 	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c Build/phpunit.xml --testsuite unit
 
 test-func:  ## Run functional tests
 	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c Build/phpunit.xml --testsuite functional
-
-test-arch:  ## Run architecture tests (phpat)
-	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpunit -c Build/phpunit.xml --testsuite architecture
 
 test-js:  ## Run Jest tests (Lit Elements)
 	ddev exec -d /var/www/nr_mcp_agent npx jest --coverage
