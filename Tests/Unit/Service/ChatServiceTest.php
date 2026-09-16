@@ -1008,9 +1008,64 @@ class ChatServiceTest extends TestCase
         self::assertSame('user', $userMsg['role']);
         self::assertIsArray($userMsg['content']);
         self::assertSame('text', $userMsg['content'][0]['type']);
-        self::assertSame('What is in this image?', $userMsg['content'][0]['text']);
+        self::assertStringStartsWith('What is in this image?', $userMsg['content'][0]['text']);
         self::assertSame('image_url', $userMsg['content'][1]['type']);
         self::assertStringStartsWith('data:image/jpeg;base64,', $userMsg['content'][1]['image_url']['url']);
+
+        unlink($tempFile);
+    }
+
+    /**
+     * The upload endpoint stores an attachment in the storage and indexes it
+     * before the model ever sees it, so the file is in fileadmin from the first
+     * turn. The model cannot tell: it sees pixels, or extracted text. Asked to
+     * place an attached image in fileadmin and reference it from a content
+     * element, it answered that it had no upload or import tool for chat
+     * attachments — both halves wrong (NEXT-155 UAT-A04/A05, NEXT-157). The uid
+     * is the load-bearing part: it is what nr-llm's file tools take.
+     */
+    #[Test]
+    public function buildLlmMessagesAnnouncesTheAttachmentAsAManagedFile(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'chat_test_');
+        file_put_contents($tempFile, 'fake-image-data');
+
+        $mockFile = $this->createMock(File::class);
+        $mockFile->method('getForLocalProcessing')->willReturn($tempFile);
+        $mockFile->method('getMimeType')->willReturn('image/jpeg');
+        $mockFile->method('getUid')->willReturn(42);
+        $mockFile->method('getName')->willReturn('photo.jpg');
+        $mockFile->method('getCombinedIdentifier')->willReturn('1:/ai-chat/1/photo.jpg');
+
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->method('getFileObject')->with(42)->willReturn($mockFile);
+
+        $conversation = Conversation::fromRow([
+            'uid' => 1,
+            'be_user' => 1,
+            'status' => 'idle',
+            'messages' => json_encode([[
+                'role' => 'user',
+                'content' => 'Put this in a content element',
+                'fileUid' => 42,
+                'fileName' => 'photo.jpg',
+                'fileMimeType' => 'image/jpeg',
+            ]]),
+            'message_count' => 1,
+        ]);
+
+        $service = $this->createChatService(resourceFactory: $resourceFactory);
+        $service->processConversation($conversation);
+
+        $text = $this->capturedUserMessage()['content'][0]['text'];
+        self::assertStringContainsString('Put this in a content element', $text, 'the user keeps their own words');
+        self::assertStringContainsString('sys_file uid 42', $text);
+        self::assertStringContainsString('1:/ai-chat/1/photo.jpg', $text);
+
+        // The announcement is derived per turn, never written into the stored
+        // transcript — the record it describes can be renamed or moved.
+        $stored = $conversation->getDecodedMessages()[0];
+        self::assertSame('Put this in a content element', $stored['content']);
 
         unlink($tempFile);
     }

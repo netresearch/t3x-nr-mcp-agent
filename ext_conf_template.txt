@@ -18,3 +18,6 @@ maxMessageLength = 10000
 
 # cat=basic/security; type=int; label=Maximum active (processing) conversations per user (0 = unlimited)
 maxActiveConversationsPerUser = 3
+
+# cat=basic/files; type=string; label=Folder for chat attachments in the default storage, relative to its root. A per-user subfolder is created inside it, so one user's attachments are never mixed with another's.
+attachmentFolder = ai-chat

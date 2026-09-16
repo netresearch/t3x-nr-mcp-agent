@@ -25,6 +25,8 @@ use RuntimeException;
 use stdClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
+use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -51,6 +53,7 @@ class ChatApiControllerTest extends TestCase
         $this->config->method('getAllowedGroupIds')->willReturn([]);
         $this->config->method('getMaxMessageLength')->willReturn(10000);
         $this->config->method('getMaxActiveConversationsPerUser')->willReturn(3);
+        $this->config->method('getAttachmentFolder')->willReturn('ai-chat');
         $this->chatService = $this->createMock(ChatCapabilitiesInterface::class);
         $this->chatService->method('getProviderCapabilities')->willReturn([
             'visionSupported' => false,
@@ -1115,6 +1118,186 @@ class ChatApiControllerTest extends TestCase
         self::assertSame('report.pdf', $data['name']);
         self::assertSame('application/pdf', $data['mimeType']);
         self::assertSame(1024, $data['size']);
+    }
+
+    /**
+     * Attaching the same picture to a second conversation is an ordinary thing
+     * to do. RENAME alone would answer it with report_01.pdf, a second sys_file
+     * row and a second set of metadata for one document; the folder fills up
+     * with copies nobody asked for and the alternative text has to be written
+     * again for each. Same name, same sha1 — hand back the file that is there.
+     */
+    #[Test]
+    public function fileUploadReturnsTheFileAlreadyThereWhenTheContentIsIdentical(): void
+    {
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, '%PDF-1.4 fake content');
+
+        $existing = $this->createMock(File::class);
+        $existing->method('getUid')->willReturn(42);
+        $existing->method('getName')->willReturn('report.pdf');
+        $existing->method('getMimeType')->willReturn('application/pdf');
+        $existing->method('getSha1')->willReturn(sha1_file($tmpPath));
+
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('hasFolder')->willReturn(true);
+        $storage->method('getFolder')->willReturn($this->createMock(\TYPO3\CMS\Core\Resource\Folder::class));
+        $storage->method('sanitizeFileName')->willReturn('report.pdf');
+        $storage->method('hasFileInFolder')->willReturn(true);
+        $storage->method('getFileInFolder')->willReturn($existing);
+        $storage->expects(self::never())->method('addFile');
+
+        $response = $this->uploadPdf($storage, $tmpPath);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(42, json_decode((string) $response->getBody(), true)['fileUid']);
+    }
+
+    /**
+     * Same name, different content is a different file and must not be silently
+     * treated as the one that is there — nor may it replace it. RENAME keeps
+     * both.
+     */
+    #[Test]
+    public function fileUploadKeepsBothWhenTheNameCollidesWithOtherContent(): void
+    {
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, '%PDF-1.4 fake content');
+
+        $existing = $this->createMock(File::class);
+        $existing->method('getSha1')->willReturn(sha1('something else entirely'));
+
+        $stored = $this->createMock(File::class);
+        $stored->method('getUid')->willReturn(78);
+        $stored->method('getName')->willReturn('report_01.pdf');
+        $stored->method('getMimeType')->willReturn('application/pdf');
+
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('hasFolder')->willReturn(true);
+        $storage->method('getFolder')->willReturn($this->createMock(\TYPO3\CMS\Core\Resource\Folder::class));
+        $storage->method('sanitizeFileName')->willReturn('report.pdf');
+        $storage->method('hasFileInFolder')->willReturn(true);
+        $storage->method('getFileInFolder')->willReturn($existing);
+        $storage->expects(self::once())->method('addFile')->with(
+            self::anything(),
+            self::anything(),
+            'report.pdf',
+            DuplicationBehavior::RENAME,
+        )->willReturn($stored);
+
+        $response = $this->uploadPdf($storage, $tmpPath);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(78, json_decode((string) $response->getBody(), true)['fileUid']);
+    }
+
+    /**
+     * The file mounts and permissions of the logged-in user decide where the
+     * chat may write, and core makes that decision inside addFile(). Without
+     * catching it the refusal reached the browser as a 500 and read like a
+     * broken chat rather than a missing permission.
+     */
+    #[Test]
+    public function fileUploadAnswers403WhenTheUserMayNotWriteThere(): void
+    {
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, '%PDF-1.4 fake content');
+
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('hasFolder')->willReturn(true);
+        $storage->method('getFolder')->willReturn($this->createMock(\TYPO3\CMS\Core\Resource\Folder::class));
+        $storage->method('sanitizeFileName')->willReturn('report.pdf');
+        $storage->method('hasFileInFolder')->willReturn(false);
+        $storage->method('addFile')->willThrowException(
+            new InsufficientFolderWritePermissionsException('no write permission', 1234567890),
+        );
+
+        $response = $this->uploadPdf($storage, $tmpPath);
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    /**
+     * The attachment folder is a setting, because an attachment is a managed
+     * file in someone's fileadmin from the moment it is uploaded. The per-user
+     * subfolder below it is not configurable: it is what keeps one user's
+     * attachments out of another's.
+     */
+    #[Test]
+    public function fileUploadCreatesTheConfiguredFolderPerUser(): void
+    {
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        file_put_contents($tmpPath, '%PDF-1.4 fake content');
+
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getAttachmentFolder')->willReturn('agent-uploads');
+
+        $stored = $this->createMock(File::class);
+        $stored->method('getUid')->willReturn(5);
+        $stored->method('getName')->willReturn('report.pdf');
+        $stored->method('getMimeType')->willReturn('application/pdf');
+
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('hasFolder')->with('agent-uploads/1')->willReturn(false);
+        $storage->expects(self::once())->method('createFolder')->with('agent-uploads/1')
+            ->willReturn($this->createMock(\TYPO3\CMS\Core\Resource\Folder::class));
+        $storage->method('sanitizeFileName')->willReturn('report.pdf');
+        $storage->method('hasFileInFolder')->willReturn(false);
+        $storage->method('addFile')->willReturn($stored);
+
+        $response = $this->uploadPdf($storage, $tmpPath, $config);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    /**
+     * One PDF upload against a given storage. The allowlist comes from a
+     * registered extractor, as it does in an installation without a
+     * document-capable provider.
+     */
+    private function uploadPdf(
+        \TYPO3\CMS\Core\Resource\ResourceStorage $storage,
+        string $tmpPath,
+        ?ExtensionConfiguration $config = null,
+    ): \Psr\Http\Message\ResponseInterface {
+        $stream = $this->createMock(StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
+
+        $uploadedFile = $this->createMock(UploadedFileInterface::class);
+        $uploadedFile->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $uploadedFile->method('getSize')->willReturn(1024);
+        $uploadedFile->method('getStream')->willReturn($stream);
+        $uploadedFile->method('getClientFilename')->willReturn('report.pdf');
+
+        $storageRepository = $this->createMock(StorageRepository::class);
+        $storageRepository->method('getDefaultStorage')->willReturn($storage);
+
+        $pdfExtractor = $this->createMock(DocumentExtractorInterface::class);
+        $pdfExtractor->method('getSupportedMimeTypes')->willReturn(['application/pdf']);
+        $pdfExtractor->method('isAvailable')->willReturn(true);
+
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $config ?? $this->config,
+            $this->chatService,
+            $this->chatApproval,
+            $this->resourceFactory,
+            $storageRepository,
+            new DocumentExtractorRegistry([$pdfExtractor]),
+            new UploadMimeTypeMap(),
+            $this->uriBuilder,
+        );
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
+
+        try {
+            return $subject->fileUpload($request);
+        } finally {
+            @unlink($tmpPath);
+        }
     }
 
     #[Test]
