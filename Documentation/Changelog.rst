@@ -6,40 +6,23 @@
 Changelog
 =========
 
-All notable changes to this extension are documented here.
+The changelog is maintained in the repository, not here.
 
-The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
-the project adheres to `Semantic Versioning <https://semver.org/>`_.
+*  `CHANGELOG.md <https://github.com/netresearch/t3x-nr-mcp-agent/blob/main/CHANGELOG.md>`__
+   — 0.5.0 onwards, in `Keep a Changelog <https://keepachangelog.com/>`__
+   format. This is the file the release flow writes.
+*  `Releases <https://github.com/netresearch/t3x-nr-mcp-agent/releases>`__
+   — one entry per tag, back to 0.1.0, each with its diff. The releases before
+   0.5.0 are only here.
 
-.. _version-0-1-0:
+The project follows `Semantic Versioning <https://semver.org/>`__. Until 1.0.0
+a minor bump may carry a breaking change; ``CHANGELOG.md`` marks those.
 
-Version 0.1.0 (2026-03-24)
-===========================
+..  note::
 
-Initial alpha release.
-
-Added
------
-
-- AI chat panel in the TYPO3 backend powered by ``netresearch/nr-llm``.
-- Persistent conversation management: create, list, archive, pin conversations.
-- Asynchronous processing via ``ai-chat:worker`` CLI command with
-  atomic compare-and-swap queue dequeue.
-- MCP (Model Context Protocol) integration via ``hn/typo3-mcp-server``:
-  agent loop with tool call execution and resume support.
-- File upload support (PDF, PNG, JPEG, WebP — max 20 MB) stored in
-  FAL under per-user ``ai-chat/{uid}/`` folder; passed as multimodal
-  content to the LLM provider.
-- ``DocumentCapableInterface`` detection: PDF uploads only offered
-  when the active provider advertises document support.
-- Configurable access control: restrict chat to specific backend
-  user groups.
-- Extension configuration: LLM Task UID, max message length, max
-  active conversations per user, MCP toggle.
-- Lit-based web component frontend (``<nr-chat-app>``) with
-  conversation list, message polling, file attachment UI.
-- PHPStan Level 10, PHP-CS-Fixer, Rector, Infection mutation
-  testing (≥70% MSI) — full CI pipeline on PHP 8.2–8.4 × TYPO3
-  13.4/14.0 matrix.
-- Architecture tests (phpat) enforcing domain/controller layer
-  separation.
+    This page used to carry a second, hand-written copy of the changelog. It
+    was never part of the release flow — that flow bumps ``ext_emconf.php``,
+    ``composer.json``, ``Documentation/guides.xml`` and ``CHANGELOG.md``, and
+    nothing wrote here — so it stopped at 0.1.0 while the extension went on to
+    0.12.3, thirty tags later. A page that is wrong is worse than a page that
+    points somewhere right, so it points.
