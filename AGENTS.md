@@ -21,7 +21,7 @@ AI Chat for TYPO3 — integrates a conversational AI assistant into the TYPO3 ba
 
 | Path | Purpose |
 |------|---------|
-| `Classes/` | PHP source (Domain, Controller, Service, Command, Mcp, Document) |
+| `Classes/` | PHP source (Domain, Controller, Service, Command, Document) |
 | `Tests/` | Unit, Functional, Architecture, JavaScript tests |
 | `Build/` | PHPUnit config, PHPStan config, `runTests.sh`, Playwright config |
 | `Configuration/` | TYPO3 TCA, backend routes/modules, Services.yaml |
@@ -70,7 +70,7 @@ make ci                          # lint + phpstan + test + test-js
 ## Constraints
 
 - **No `cd` in compound commands** — use absolute paths instead
-- **Layering (phpat-enforced):** Domain must not depend on Controller, Command, or Mcp; full rule set in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Layering (phpat-enforced):** Domain must not depend on Controller or Command; full rule set in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **`$GLOBALS['BE_USER']`** is set intentionally in CLI workers; do not remove without understanding the TYPO3 CLI authentication flow
 - **Proof of concept:** Not production-ready — avoid adding features that assume production stability
 

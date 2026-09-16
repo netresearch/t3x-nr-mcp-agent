@@ -22,7 +22,7 @@ PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Cl
 ## Code style
 
 - PHPStan level 10 — narrow `mixed` with `is_string()`/`is_array()` instead of casting; fix types, do not suppress
-- Layering enforced by phpat (runs with PHPStan): Domain must not depend on Controller/Command/Mcp; Services must not use `ConnectionPool` directly (use repositories); Controllers and Hooks must not depend on Mcp; see `../docs/ARCHITECTURE.md`
+- Layering enforced by phpat (runs with PHPStan): Domain must not depend on Controller/Command; Service must not depend on Controller nor use `ConnectionPool` directly (use repositories); Controller must not depend on Command (go through `ChatProcessorInterface`); Document must not depend on `ChatService` or Controller; see `../docs/ARCHITECTURE.md`
 - LLM error messages are sanitized before persisting (`error_message` must never contain API keys — ADR-010)
 
 ## Security
