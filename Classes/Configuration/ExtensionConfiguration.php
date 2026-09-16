@@ -90,7 +90,7 @@ class ExtensionConfiguration
         $segments = explode('/', $folder);
 
         foreach ($segments as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
+            if (in_array($segment, ['', '.', '..'], true)) {
                 return 'ai-chat';
             }
         }
