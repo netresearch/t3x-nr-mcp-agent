@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A file the picker offered could come back rejected.** `getProviderCapabilities()` advertises the formats the active provider names, and the frontend puts them straight into the file input's `accept` attribute; the upload endpoint then validates the MIME type `finfo` detects, against a private extension→MIME table that listed png, jpg, jpeg, gif, webp and pdf. Gemini also announces `heic` and `heif`, so on a Gemini installation the picker offered `.heic`, the table could not translate it, and the upload answered `422 File type not supported`. Both sides now read one `UploadMimeTypeMap`: it covers every extension a provider currently announces, and an extension it cannot translate is dropped from the advertised list rather than guessed at — guessing would widen what the endpoint accepts, and that list is a security boundary.
+
+### Changed
+
+- **Two architecture rules were passing without checking anything.** `testControllerDoesNotExecuteProcesses` and `testHookDoesNotDependOnController` selected the `Mcp` and `Hook` namespaces, both of which 0.12.0 deleted along with the MCP client. A phpat rule over an empty namespace is vacuously true, so the two had been green and empty ever since. They are replaced by rules that bind to namespaces that exist: `Controller` must not depend on `Command` (background processing is reached through `ChatProcessorInterface`), and `Service` must not depend on `Controller`. The `Mcp` selector is gone from the `Domain` rule for the same reason.
+- Documentation caught up with what 0.12.0 removed: the component map no longer lists an *MCP Client* row pointing at `Classes/Mcp/`, nor `AgentLoopService.php` and `AccessControlService.php`, neither of which exists; the dependency-rule lists in `Architecture.rst`, `docs/ARCHITECTURE.md` and ADR-006 match the tests again; `Classes/AGENTS.md` no longer names the deleted `Checker/` and `Hook/` directories or the removed tool-provider cache; ADR-001 carries a status amendment saying which half of it still holds. Usage and Introduction no longer speak of MCP being "enabled", which was the `enableMcp` setting, and the system-prompt example in the configuration reference no longer instructs the model about `WriteTable` — a tool from the MCP server this extension no longer talks to — but about tools nr-llm actually registers.
+
+
 ## [0.12.3] - 2026-09-03
 
 ### Changed

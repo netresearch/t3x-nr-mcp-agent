@@ -5,11 +5,11 @@
 
 ## Overview
 
-PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), plus `Backend/`, `Checker/`, `Configuration/`, `Hook/`, `Utility/`, `Exception/`.
+PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), plus `Backend/`, `Configuration/`, `Utility/`, `Exception/`.
 
 ## Setup
 
-- Dependency injection via `../Configuration/Services.yaml` — namespace-wide autowiring plus explicit per-service overrides (processor default, tool-provider cache, tagged document extractors); no `GeneralUtility::makeInstance()` for own services
+- Dependency injection via `../Configuration/Services.yaml` — namespace-wide autowiring plus explicit per-service overrides (public controllers, processor default, tagged document extractors); no `GeneralUtility::makeInstance()` for own services
 - AJAX routes live in `../Configuration/Backend/AjaxRoutes.php`, backend modules in `../Configuration/Backend/Modules.php`
 - `declare(strict_types=1)` in every file
 

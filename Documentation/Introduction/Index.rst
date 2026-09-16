@@ -23,11 +23,11 @@ administrators and editors interact with an AI assistant
 directly from the TYPO3 backend. The module is available
 under **Admin Tools > AI Chat**.
 
-Through the Model Context Protocol (MCP), the assistant can
-read and modify TYPO3 content -- pages, content elements,
-records -- using natural language instructions. All
-processing happens server-side via CLI commands, keeping the
-web server responsive.
+Using the tools nr-llm registers, the assistant can read and
+modify TYPO3 content -- pages, content elements, records --
+from natural language instructions. All processing happens
+server-side via CLI commands, keeping the web server
+responsive.
 
 ..  figure:: /Images/AgentDemo.gif
     :alt: AI agent creating a page, adding content, and optimizing SEO in TYPO3
@@ -76,7 +76,9 @@ Key features
         messages. Text is extracted server-side when
         needed, so all formats work regardless of the
         LLM provider. Vision-capable providers also
-        accept images (PNG, JPEG, WebP).
+        accept images -- which ones depends on the
+        provider (PNG, JPEG, GIF and WebP everywhere,
+        HEIC and HEIF on Gemini).
 
     ..  card:: Markdown rendering
 
@@ -94,8 +96,8 @@ Key features
 Example interactions
 ====================
 
-Once configured with MCP enabled, you can ask the assistant
-to perform tasks like:
+Once a provider is configured in nr-llm, you can ask the
+assistant to perform tasks like:
 
 *   "Show me all pages under the homepage"
 *   "Create a new text content element on page 42 with
@@ -104,9 +106,14 @@ to perform tasks like:
 *   "Move the news page to be a subpage of 'About Us'"
 *   "List all hidden pages in the site"
 
-Without MCP, the assistant works as a general-purpose
-AI chat (using the configured LLM provider from nr-llm),
-but cannot interact with TYPO3 content.
+What it can actually do depends on which tools nr-llm makes
+available: its builtin set reads the installation and makes
+bounded editorial writes (new pages and content elements
+arrive hidden, as drafts), and an MCP server registered
+under **AI > Operation > MCP Servers** adds whatever tools
+that server offers. With every tool switched off, the chat
+still works as a general-purpose assistant on the configured
+LLM provider, but cannot see or change TYPO3 content.
 
 Acknowledgments
 ===============
