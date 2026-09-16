@@ -1,4 +1,4 @@
-.PHONY: up start down restart install install-all install-v13 install-v14 sync test test-unit test-func test-js test-e2e test-mutation test-all coverage lint lint-fix phpstan ci docs
+.PHONY: up start down restart install install-all install-v13 install-v14 sync test test-unit test-func test-js test-e2e test-mutation test-all coverage lint lint-fix phpstan rector ci docs
 
 # === Environment ===
 up: start install-all docs  ## Full setup: DDEV + all TYPO3 versions + docs
@@ -64,7 +64,10 @@ lint-fix:  ## Fix code style
 phpstan:  ## Static analysis
 	ddev exec -d /var/www/nr_mcp_agent .Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon
 
-ci: lint phpstan test test-js  ## Run CI checks (without E2E — those run separately)
+rector:  ## Rector dry-run — the check CI runs, not the rewrite
+	ddev exec -d /var/www/nr_mcp_agent .Build/bin/rector process --config Build/rector/rector.php --dry-run
+
+ci: lint phpstan rector test test-js  ## Run CI checks (without E2E — those run separately)
 
 # === Documentation ===
 docs:  ## Render documentation
