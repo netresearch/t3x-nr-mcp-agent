@@ -127,6 +127,7 @@ All settings are in **Admin Tools > Settings > Extension Configuration > nr_mcp_
 | `maxActiveConversationsPerUser` | `3` | Max concurrent processing conversations |
 | `maxConversationsPerUser` | `50` | Max conversations kept per user |
 | `autoArchiveDays` | `30` | Auto-archive after N days of inactivity |
+| `attachmentFolder` | `ai-chat` | Folder for chat attachments in the default storage; a per-user subfolder is created inside it |
 
 For the full documentation, see the [Documentation/](Documentation/) folder or
 the rendered docs on [docs.typo3.org](https://docs.typo3.org/).
