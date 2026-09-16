@@ -8,6 +8,7 @@ use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -94,6 +95,7 @@ final class ApprovalLinkTargetTest extends TestCase
             $this->createMock(ResourceFactory::class),
             $this->createMock(StorageRepository::class),
             new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
             $uriBuilder,
         );
 

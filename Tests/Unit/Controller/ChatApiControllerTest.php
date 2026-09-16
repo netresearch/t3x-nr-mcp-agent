@@ -8,6 +8,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorInterface;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -69,6 +70,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
             $this->uriBuilder,
         );
 
@@ -129,7 +131,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getMaxMessageLength')->willReturn(10);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $conversation = new Conversation();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
@@ -186,7 +188,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([99]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -200,7 +202,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([2]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -305,7 +307,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(0);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -324,7 +326,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -397,7 +399,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([99]);
         $config->method('getLlmTaskUid')->willReturn(1);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '', 'admin' => 1];
 
@@ -461,7 +463,7 @@ class ChatApiControllerTest extends TestCase
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
         $response = $subject->sendMessage($request);
@@ -480,7 +482,7 @@ class ChatApiControllerTest extends TestCase
         $conversation->setStatus(ConversationStatus::Failed);
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1}');
         $response = $subject->resumeConversation($request);
@@ -519,7 +521,7 @@ class ChatApiControllerTest extends TestCase
         // countActiveByBeUser should never be called when maxActive is 0
         $repository->expects(self::never())->method('countActiveByBeUser');
 
-        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "Hello"}');
         $response = $subject->sendMessage($request);
@@ -851,7 +853,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $this->repository->method('countActiveByBeUser')->willReturn(2);
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
@@ -888,7 +890,7 @@ class ChatApiControllerTest extends TestCase
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 
-        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
         $longContent = str_repeat('x', 100000);
         $request = $this->createRequest('POST', json_encode(['conversationUid' => 1, 'content' => $longContent]));
@@ -911,7 +913,7 @@ class ChatApiControllerTest extends TestCase
             'supportedFormats' => ['png', 'jpeg', 'webp', 'pdf'],
         ]);
 
-        $subject = new ChatApiController($this->repository, $this->processor, $config, $chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), $this->uriBuilder);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
         $request = $this->createRequest('GET', '');
         $response = $subject->getStatus($request);
 
@@ -1062,6 +1064,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             new DocumentExtractorRegistry([$pdfExtractor]),
+            new UploadMimeTypeMap(),
             $this->uriBuilder,
         );
 
@@ -1197,6 +1200,77 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             new DocumentExtractorRegistry([$extractor]),
+            new UploadMimeTypeMap(),
+            $this->uriBuilder,
+        );
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
+
+        try {
+            $response = $subject->fileUpload($request);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function fileUploadAcceptsHeicWhenTheProviderAdvertisesIt(): void
+    {
+        // The regression this guards: getProviderCapabilities() put Gemini's
+        // heic/heif into supportedFormats, so the picker offered .heic — but the
+        // endpoint's own extension→MIME map listed neither, so the detected
+        // image/heic missed the allow-list and the upload came back 422. Both
+        // sides now read UploadMimeTypeMap, so the picker cannot offer a type
+        // this check rejects.
+        $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
+        // A minimal ISO-BMFF box with the `heic` brand — finfo reports image/heic.
+        file_put_contents($tmpPath, "\x00\x00\x00\x18ftypheic\x00\x00\x00\x00heicmif1" . str_repeat("\x00", 64));
+
+        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
+
+        $uploadedFile = $this->createMock(UploadedFileInterface::class);
+        $uploadedFile->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $uploadedFile->method('getSize')->willReturn(88);
+        $uploadedFile->method('getStream')->willReturn($stream);
+        $uploadedFile->method('getClientFilename')->willReturn('photo.heic');
+
+        // No extractor handles image/heic — it can only pass through the provider path.
+        $registry = new DocumentExtractorRegistry([]);
+
+        $chatService = $this->createMock(ChatCapabilitiesInterface::class);
+        $chatService->method('getProviderCapabilities')->willReturn([
+            'visionSupported' => true,
+            'maxFileSize' => 0,
+            'supportedFormats' => ['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic', 'heif'],
+        ]);
+
+        $falFile = $this->createMock(\TYPO3\CMS\Core\Resource\File::class);
+        $falFile->method('getUid')->willReturn(43);
+        $falFile->method('getName')->willReturn('photo.heic');
+        $falFile->method('getMimeType')->willReturn('image/heic');
+        $falFile->method('getSize')->willReturn(88);
+
+        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
+        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage->method('addFile')->willReturn($falFile);
+        $storage->method('getFolder')->willReturn($folder);
+        $storage->method('hasFolder')->willReturn(true);
+        $this->storageRepository->method('getDefaultStorage')->willReturn($storage);
+
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $this->config,
+            $chatService,
+            $this->chatApproval,
+            $this->resourceFactory,
+            $this->storageRepository,
+            $registry,
+            new UploadMimeTypeMap(),
             $this->uriBuilder,
         );
 
@@ -1270,6 +1344,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             $registry,
+            new UploadMimeTypeMap(),
             $this->uriBuilder,
         );
 
@@ -1340,6 +1415,7 @@ class ChatApiControllerTest extends TestCase
             $this->resourceFactory,
             $this->storageRepository,
             new DocumentExtractorRegistry([$extractor]),
+            new UploadMimeTypeMap(),
             $this->uriBuilder,
         );
 

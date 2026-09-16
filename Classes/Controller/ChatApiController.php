@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -49,6 +50,7 @@ final readonly class ChatApiController
         private ResourceFactory $resourceFactory,
         private StorageRepository $storageRepository,
         private DocumentExtractorRegistry $documentExtractorRegistry,
+        private UploadMimeTypeMap $uploadMimeTypeMap,
         private UriBuilder $uriBuilder,
     ) {}
 
@@ -359,21 +361,10 @@ final readonly class ChatApiController
         $capabilities = $this->chatService->getProviderCapabilities();
         // $capabilities['supportedFormats'] contains file extensions (e.g. 'png', 'jpg') because
         // the frontend uses them for the <input accept> filter.  finfo returns MIME types, so we
-        // map extensions to MIME types before comparing.
-        $extensionMimeMap = [
-            'png'  => 'image/png',
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'gif'  => 'image/gif',
-            'webp' => 'image/webp',
-            'pdf'  => 'application/pdf',
-        ];
-        $providerMimeTypes = array_values(array_filter(array_map(
-            static fn(string $ext): ?string => $extensionMimeMap[$ext] ?? null,
-            $capabilities['supportedFormats'],
-        )));
+        // map extensions to MIME types before comparing — through the same UploadMimeTypeMap
+        // getProviderCapabilities() filters with, so the picker and this check cannot disagree.
         $allowedMimeTypes = array_values(array_unique(array_merge(
-            $providerMimeTypes,
+            $this->uploadMimeTypeMap->toMimeTypes($capabilities['supportedFormats']),
             $this->documentExtractorRegistry->getAvailableMimeTypes(),
         )));
 

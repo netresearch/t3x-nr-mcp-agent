@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -98,6 +99,7 @@ final class ChatApprovalTest extends TestCase
             $this->createMock(ResourceFactory::class),
             $this->createMock(SiteFinder::class),
             new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
         );
     }
 
