@@ -79,6 +79,29 @@ class ExtensionConfigurationTest extends TestCase
     }
 
     /**
+     * FAL refuses such an identifier outright — `InvalidPathException`, and
+     * `createFolder()` sanitizes every segment on top — so nothing escapes the
+     * storage either way. What the fallback prevents is the shape of the
+     * failure: a typo in a setting only an admin can see, reaching the person
+     * uploading as a 500.
+     */
+    #[Test]
+    public function getAttachmentFolderRefusesTraversalSegments(): void
+    {
+        self::assertSame('ai-chat', $this->configuredWith('../../etc')->getAttachmentFolder());
+        self::assertSame('ai-chat', $this->configuredWith('press/../../etc')->getAttachmentFolder());
+        self::assertSame('ai-chat', $this->configuredWith('press//uploads')->getAttachmentFolder());
+        self::assertSame('ai-chat', $this->configuredWith('./press')->getAttachmentFolder());
+    }
+
+    /** A nested folder is a legitimate value and stays one. */
+    #[Test]
+    public function getAttachmentFolderKeepsANestedPath(): void
+    {
+        self::assertSame('press/ai-uploads', $this->configuredWith('press/ai-uploads')->getAttachmentFolder());
+    }
+
+    /**
      * One configuration whose attachment folder is the given value. Consumes the
      * setUp mock first — makeInstance() takes the queued instances in order.
      */

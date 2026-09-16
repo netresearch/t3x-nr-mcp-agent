@@ -76,12 +76,26 @@ class ExtensionConfiguration
      * An empty or slash-only value falls back to the default rather than writing
      * into the storage root: a chat that scatters uploads across the top of
      * `fileadmin` is worse than one that ignores a broken setting.
+     *
+     * A value carrying `.` or `..` segments falls back for the same reason. It
+     * cannot escape the storage either way — FAL refuses such an identifier with
+     * `InvalidPathException`, and `createFolder()` sanitizes each segment on top
+     * — but that refusal reaches the person uploading as a 500 from a setting
+     * they cannot see. Falling back keeps a typo in the configuration from
+     * looking like a broken chat.
      */
     public function getAttachmentFolder(): string
     {
         $folder = trim($this->getString('attachmentFolder', 'ai-chat'), " \t\n\r/");
+        $segments = explode('/', $folder);
 
-        return $folder !== '' ? $folder : 'ai-chat';
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return 'ai-chat';
+            }
+        }
+
+        return $folder;
     }
 
     private function getString(string $key, string $default): string
