@@ -50,7 +50,8 @@ make test-all                    # Full test pyramid
 make lint                        # PHP-CS-Fixer dry-run
 make lint-fix                    # PHP-CS-Fixer fix
 make phpstan                     # PHPStan static analysis
-make ci                          # lint + phpstan + test + test-js
+make rector                      # Rector dry-run (CI runs this too)
+make ci                          # lint + phpstan + rector + test + test-js
 
 # Without DDEV (Docker-based, mirrors CI exactly)
 ./Build/Scripts/runTests.sh -s unit
