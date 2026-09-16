@@ -418,9 +418,6 @@ final readonly class ChatApiController
             'name' => $falFile->getName(),
             'mimeType' => $falFile->getMimeType(),
             'size' => $falFile->getSize(),
-            // Where it landed. The agent is told the same thing through the
-            // transcript; the picker shows it to the user (NEXT-157).
-            'identifier' => $falFile->getCombinedIdentifier(),
         ]);
     }
 
