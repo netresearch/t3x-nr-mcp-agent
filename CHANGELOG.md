@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **A test target that ran no tests.** `Build/phpunit.xml` defines the suites `unit` and `functional` and nothing else, so `--testsuite architecture` matched an empty set: PHPUnit printed `No tests executed!` and exited 0. Three places called it — `composer ci:tests:architecture`, `make test-arch`, and `make test`, which lists `test-arch` among its prerequisites. `make test` is the command the pull-request template's checklist names, so every PR has been ticking a box over a step that did nothing. All three are gone; the phpat layer rules are registered in `Build/phpstan/phpstan.neon` as `phpat.test` services and run with `make phpstan` / `composer ci:phpstan`, which is what `Documentation/Developer/Testing.rst` already said.
+
+### Changed
+
+- **`Documentation/Changelog.rst` points at the changelog instead of copying it.** The page carried a second, hand-written changelog that the release flow never wrote to — that flow bumps `ext_emconf.php`, `composer.json`, `Documentation/guides.xml` and `CHANGELOG.md` — so it stopped at 0.1.0 while the extension went on to 0.12.3, thirty tags later. Backfilling would only restart the drift at the next release, so the page now links `CHANGELOG.md` and the releases list on GitHub, as absolute URLs that work for a reader on docs.typo3.org. It names which covers what: this file starts at 0.5.0, and the releases list is the only place the earlier tags are described — the GitHub release for 0.1.0 carries the deleted section verbatim. The `changelog` anchor and the `Index.rst` toctree entry are unchanged, and the page still renders.
+
+
 ### Fixed
 
 - **A file the picker offered could come back rejected.** `getProviderCapabilities()` advertises the formats the active provider names, and the frontend puts them straight into the file input's `accept` attribute; the upload endpoint then validates the MIME type `finfo` detects, against a private extension→MIME table that listed png, jpg, jpeg, gif, webp and pdf. Gemini also announces `heic` and `heif`, so on a Gemini installation the picker offered `.heic`, the table could not translate it, and the upload answered `422 File type not supported`. Both sides now read one `UploadMimeTypeMap`: it covers every extension a provider currently announces, and an extension it cannot translate is dropped from the advertised list rather than guessed at — guessing would widen what the endpoint accepts, and that list is a security boundary.
