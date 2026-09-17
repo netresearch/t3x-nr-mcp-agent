@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-09-17
+
+### Changed
+
+- **`netresearch/nr-llm` is accepted at `^0.34 || ^0.35`.** nr-llm 0.35.0 is released and on a 0.x `^0.34` does not admit it, so this extension pinned every installation it is part of to nr-llm 0.34. The constraint is declared in `composer.json` and in `ext_emconf.php`, and both now carry the wider range. Source compatibility was measured rather than assumed: of nr-llm 0.35's three breaking changes, `ToolResult::withWriteTarget()` affects only extensions that register tools, `ConversationService::startSession()` is not called here, and the `ModelResolution` added to `chatForConfiguration()`/`chatWithConfiguration()` is nullable and last, so existing call sites are unchanged.
+
 ## [0.13.0] - 2026-09-16
 
 ### Fixed
