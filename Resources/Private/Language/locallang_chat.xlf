@@ -183,6 +183,9 @@
             </trans-unit>
 
             <!-- FAL picker -->
+            <trans-unit id="fal_picker_label" resname="fal_picker_label">
+                <source>Select file</source>
+            </trans-unit>
             <trans-unit id="fal_picker_unavailable" resname="fal_picker_unavailable">
                 <source>FAL picker is not available</source>
             </trans-unit>

@@ -193,6 +193,10 @@
             </trans-unit>
 
             <!-- Attachments -->
+            <trans-unit id="attachment.attach" resname="attachment.attach">
+                <source>Attach file</source>
+                <target>Datei anhängen</target>
+            </trans-unit>
             <trans-unit id="attachment.upload" resname="attachment.upload">
                 <source>Upload file</source>
                 <target>Datei hochladen</target>
@@ -232,6 +236,20 @@
             <trans-unit id="attachment.fileMissing" resname="attachment.fileMissing">
                 <source>File no longer available</source>
                 <target>Datei nicht mehr verfügbar</target>
+            </trans-unit>
+
+            <!-- FAL picker -->
+            <trans-unit id="fal_picker_label" resname="fal_picker_label">
+                <source>Select file</source>
+                <target>Datei auswählen</target>
+            </trans-unit>
+            <trans-unit id="fal_picker_unavailable" resname="fal_picker_unavailable">
+                <source>FAL picker is not available</source>
+                <target>Die Dateiauswahl ist nicht verfügbar</target>
+            </trans-unit>
+            <trans-unit id="fal_picker_popup_blocked" resname="fal_picker_popup_blocked">
+                <source>Popup was blocked. Please disable your popup blocker.</source>
+                <target>Das Popup wurde blockiert. Bitte deaktiviere deinen Popup-Blocker.</target>
             </trans-unit>
         </body>
     </file>
