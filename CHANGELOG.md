@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Approve and Deny are the only actions of the approval card.** A link sat beside them, styled like a third button and labelled *Grant approval* — but it opens the run's timeline in AI Tasks, a read-only view where nothing can be granted, so the card offered two ways to one decision and one of them led nowhere (NEXT-162). The link is gone from a card that shows a preview. Where a call has no usable preview — it failed, it was withheld, or the tool offers none — the card keeps the link as plain text below the buttons, because the card itself then cannot show what is being decided. Its label now says what it opens: *Open the run in AI Tasks*. The notices without a decidable card (an input pause, an unreadable run, a user who may not decide) keep the link as before, under the new label.
+
+### Added
+
+- **The card says when a call came back because its record changed.** nr-llm refuses an approved write whose record no longer matches the preview and hands the run back with `previewStale` set. The chat dropped that field, so the card reappeared looking exactly as it had before the click; only the approvals module explained it. The flag now reaches the card and renders as a warning above the fresh preview.
+
 ## [0.13.1] - 2026-09-17
 
 ### Changed

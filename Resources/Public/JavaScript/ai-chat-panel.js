@@ -303,6 +303,8 @@ export class AiChatPanel extends LitElement {
         .approval-preview ul { margin: 4px 0 0; padding-left: 1.2em; }
         .approval-warning { color: var(--nr-chat-status-warning, #ef6c00); margin-left: 6px; }
         .approval-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+        .approval-run-link { display: inline-block; margin-top: 6px; font-size: 12px; }
+        .approval-stale { margin: 4px 0; }
         .approval-card pre { margin: 4px 0 0; max-height: 12em; overflow: auto; }
         .conv-tab .tab-icon.status-awaiting_approval,
         .conv-tab .tab-icon.status-locked { color: var(--nr-chat-status-info); }
@@ -1630,8 +1632,14 @@ export class AiChatPanel extends LitElement {
      *
      * Rendered inside the notice rather than as a link away from it: the run is
      * this conversation's, the decision goes through the same per-run
-     * authorisation as the approvals module, and the answer arrives here. The
-     * link to the module stays, as the way to see the whole run.
+     * authorisation as the approvals module, and the answer arrives here.
+     *
+     * Approve and Deny are the only actions of a decidable card. The link to
+     * the run used to sit beside them, styled like a third button and labelled
+     * "Grant approval", although it opens the run's timeline, where nothing can
+     * be granted (NEXT-162). It is now a plain text link, and it is offered on
+     * a decidable card only when a call has no usable preview — the one case in
+     * which the card itself cannot show what the reader is deciding on.
      */
     _renderApprovalCard() {
         const pending = this.chat.pendingApproval;
@@ -1657,6 +1665,9 @@ export class AiChatPanel extends LitElement {
                         ${call.toolStillRegistered ? nothing : html`
                             <span class="approval-warning">${lll('chat.approvalToolGone')}</span>
                         `}
+                        ${call.previewStale ? html`
+                            <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
+                        ` : nothing}
                         ${call.previewLines && call.previewLines.length ? html`
                             <div class="approval-preview">
                                 <strong>${call.previewFailed
@@ -1676,13 +1687,27 @@ export class AiChatPanel extends LitElement {
                         @click=${() => this.chat.decideApproval(true)}>${lll('chat.approvalApprove')}</button>
                     <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
                         @click=${() => this.chat.decideApproval(false)}>${lll('chat.approvalDeny')}</button>
-                    ${this._renderApprovalLink()}
                 </div>
+                ${this._lacksPreview(pending) ? this._renderRunDetailsLink() : nothing}
             </div>
         `;
     }
 
-    /** Link to the run waiting for an approval; absent when there is none. */
+    /**
+     * True when at least one pending call shows the reader nothing to decide
+     * on: its preview failed or was withheld (`previewFailed`, the lines then
+     * carry the reason), or the tool offers no preview at all (no lines).
+     */
+    _lacksPreview(pending) {
+        return pending.calls.some(
+            (call) => call.previewFailed || !(call.previewLines && call.previewLines.length),
+        );
+    }
+
+    /**
+     * Link to the run waiting for an approval, where it is the only thing the
+     * notice can offer — no decidable card; absent when there is no run.
+     */
     _renderApprovalLink() {
         if (!this.chat.approvalUrl) {
             return nothing;
@@ -1691,6 +1716,17 @@ export class AiChatPanel extends LitElement {
         return html`
             <a class="btn btn-sm" href="${this.chat.approvalUrl}"
                 style="margin-left:8px;">${lll('chat.approvalOpen')}</a>
+        `;
+    }
+
+    /** The same link on a decidable card: secondary, so never button-shaped. */
+    _renderRunDetailsLink() {
+        if (!this.chat.approvalUrl) {
+            return nothing;
+        }
+
+        return html`
+            <a class="approval-run-link" href="${this.chat.approvalUrl}">${lll('chat.approvalOpen')}</a>
         `;
     }
 

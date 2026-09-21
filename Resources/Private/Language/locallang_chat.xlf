@@ -85,7 +85,7 @@
                 <source>Waiting for approval</source>
             </trans-unit>
             <trans-unit id="chat.approvalOpen" resname="chat.approvalOpen">
-                <source>Grant approval</source>
+                <source>Open the run in AI Tasks</source>
             </trans-unit>
             <trans-unit id="chat.approvalApprove" resname="chat.approvalApprove">
                 <source>Approve</source>
@@ -104,6 +104,9 @@
             </trans-unit>
             <trans-unit id="chat.approvalPreviewUnavailable" resname="chat.approvalPreviewUnavailable">
                 <source>No preview — you are deciding without one</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalPreviewStale" resname="chat.approvalPreviewStale">
+                <source>This record changed after the preview you approved, so nothing was written. The preview shows its current state — please check it and decide again.</source>
             </trans-unit>
             <trans-unit id="chat.approvalArguments" resname="chat.approvalArguments">
                 <source>Arguments</source>

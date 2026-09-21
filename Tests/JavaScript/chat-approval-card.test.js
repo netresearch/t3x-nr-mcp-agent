@@ -245,4 +245,53 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         expect(el.shadowRoot.querySelector('.approval-card')).toBeNull();
         expect(el.shadowRoot.querySelector('.message.system a')).not.toBeNull();
     });
+
+    // NEXT-162. The link used to sit in the action row, button-shaped and
+    // labelled "Grant approval", beside the two buttons that actually grant
+    // it — and it opens the run's timeline, where nothing can be decided.
+    test('a card with a preview offers Approve and Deny and no link at all', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(2);
+        expect(card.querySelector('a')).toBeNull();
+    });
+
+    test.each([
+        ['a preview that failed or was withheld', {previewLines: ['The preview for this call failed.'], previewFailed: true}],
+        ['a tool that offers no preview', {previewLines: [], previewFailed: false}],
+    ])('with %s the run is one plain link away, outside the action row', async (_case, preview) => {
+        const pending = {...PENDING, calls: [{...PENDING.calls[0], ...preview}]};
+        const el = await renderPending(modulePath, tag, open, pending);
+        const card = el.shadowRoot.querySelector('.approval-card');
+        const links = [...card.querySelectorAll('a')];
+
+        expect(links).toHaveLength(1);
+        expect(links[0].getAttribute('href')).toBe('/typo3/module/web/nrllm-aitasks?runUuid=run-uuid-1234');
+        expect(links[0].textContent).toContain('chat.approvalOpen');
+        // Secondary: a second button-shaped element is what made it compete.
+        expect(links[0].classList.contains('btn')).toBe(false);
+        expect(card.querySelector('.approval-actions a')).toBeNull();
+        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(2);
+    });
+
+    test('one call without a preview is enough, even beside one that has it', async () => {
+        const pending = {...PENDING, calls: [PENDING.calls[0], {...PENDING.calls[0], name: 'remote_tool', previewLines: []}]};
+        const el = await renderPending(modulePath, tag, open, pending);
+
+        expect(el.shadowRoot.querySelectorAll('.approval-card a')).toHaveLength(1);
+    });
+
+    test('a call handed back because its record changed says so on the card', async () => {
+        const pending = {...PENDING, calls: [{...PENDING.calls[0], previewStale: true}]};
+        const el = await renderPending(modulePath, tag, open, pending);
+
+        expect(el.shadowRoot.querySelector('.approval-card').textContent).toContain('chat.approvalPreviewStale');
+    });
+
+    test('a call whose preview still holds carries no stale warning', async () => {
+        const el = await renderPending(modulePath, tag, open);
+
+        expect(el.shadowRoot.querySelector('.approval-card').textContent).not.toContain('chat.approvalPreviewStale');
+    });
 });
