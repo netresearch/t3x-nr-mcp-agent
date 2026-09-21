@@ -21,6 +21,11 @@ final readonly class ChatModuleController
     public function indexAction(ServerRequestInterface $request): ResponseInterface
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-mcp-agent/chat-app.js');
+        // The module page registers the labels itself. lll() falls back to
+        // top.TYPO3.lang, where the toolbar item puts them, but a user for whom
+        // ChatToolbarItem::checkAccess() fails has no toolbar item and would see
+        // raw keys here.
+        $this->pageRenderer->addInlineLanguageLabelFile('EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf');
         $this->pageRenderer->addCssFile('EXT:nr_mcp_agent/Resources/Public/Css/chat.css');
 
         $view = $this->moduleTemplateFactory->create($request);

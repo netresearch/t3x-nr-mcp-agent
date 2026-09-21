@@ -6,6 +6,7 @@ namespace Netresearch\NrMcpAgent\Tests\Functional\Controller;
 
 use Netresearch\NrMcpAgent\Controller\ChatModuleController;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
@@ -48,6 +49,33 @@ class ChatModuleControllerTest extends FunctionalTestCase
     #[Test]
     public function indexActionRendersResponseWithChatAppElement(): void
     {
+        $response = $this->renderModulePage();
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = (string) $response->getBody();
+        self::assertStringContainsString('<nr-chat-app', $body);
+        self::assertStringContainsString('data-max-length=', $body);
+    }
+
+    /**
+     * The module used to rely on the toolbar item's registration of the label
+     * file: lll() falls back to top.TYPO3.lang, and the toolbar had put the
+     * labels there. A user for whom ChatToolbarItem::checkAccess() fails — the
+     * chat restricted to groups they are not in — saw raw keys in the module
+     * (NEXT-159). The module page carries the labels itself.
+     */
+    #[Test]
+    public function indexActionRegistersTheChatLabelsOnTheModulePage(): void
+    {
+        $body = (string) $this->renderModulePage()->getBody();
+
+        self::assertStringContainsString('"chat.approvalPending":"Waiting for approval"', $body);
+        self::assertStringContainsString('"chat.approvalPendingDetail":"This step writes data and needs an approval before it runs."', $body);
+    }
+
+    private function renderModulePage(): ResponseInterface
+    {
         $moduleProvider = $this->get(ModuleProvider::class);
         $module = $moduleProvider->getModule('nr_mcp_agent_chat');
         self::assertNotNull($module);
@@ -67,12 +95,7 @@ class ChatModuleControllerTest extends FunctionalTestCase
         $GLOBALS['TYPO3_REQUEST'] = $request;
 
         $controller = $this->get(ChatModuleController::class);
-        $response = $controller->indexAction($request);
 
-        self::assertSame(200, $response->getStatusCode());
-
-        $body = (string) $response->getBody();
-        self::assertStringContainsString('<nr-chat-app', $body);
-        self::assertStringContainsString('data-max-length=', $body);
+        return $controller->indexAction($request);
     }
 }

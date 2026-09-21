@@ -16,7 +16,9 @@ use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -409,6 +411,57 @@ class ChatApiControllerTest extends FunctionalTestCase
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string) $response->getBody(), true);
         self::assertStringContainsString('not resumable', $body['error']);
+    }
+
+    /**
+     * The chat shows this string verbatim behind its error prefix, so it has to
+     * arrive in the user's language. BackendUserAuthenticator creates
+     * $GLOBALS['LANG'] from the user's preferences for every backend request;
+     * this sets it up the same way for a user who reads German (NEXT-159).
+     */
+    #[Test]
+    public function decideApprovalRefusesAnIdleConversationInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceFor('de');
+        // Conv 1 is 'idle' — there is nothing to decide on it.
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 1, 'approve' => true, 'turnDigest' => 'd'])));
+
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Der Chat wartet nicht auf eine Freigabe'], $body);
+    }
+
+    /**
+     * The other direction: for a user without a language preference the
+     * response reads exactly as it did before the label file was involved.
+     */
+    #[Test]
+    public function decideApprovalRefusesAnIdleConversationInEnglishByDefault(): void
+    {
+        $this->setUpLanguageServiceFor('default');
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 1, 'approve' => true, 'turnDigest' => 'd'])));
+
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Conversation is not waiting for an approval'], $body);
+    }
+
+    /**
+     * What BackendUserAuthenticator does for a backend request whose user has
+     * this language in be_users.lang.
+     */
+    private function setUpLanguageServiceFor(string $language): void
+    {
+        $backendUser = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $backendUser);
+        $backendUser->user['lang'] = $language;
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
     }
 
     /**

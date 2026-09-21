@@ -29,6 +29,7 @@ use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderAccessPermissionsException;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
@@ -45,6 +46,8 @@ final readonly class ChatApiController
     private const ERROR_FILE_NOT_FOUND = 'File not found';
 
     private const ERROR_CONVERSATION_PROCESSING = 'Conversation is already processing';
+
+    private const LANGUAGE_FILE = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf';
 
     public function __construct(
         private ConversationRepository $repository,
@@ -483,6 +486,29 @@ final readonly class ChatApiController
     }
 
     /**
+     * A label from the chat's language file, for the refusals the chat shows
+     * verbatim behind its error prefix (NEXT-159).
+     *
+     * $GLOBALS['LANG'] is the LanguageService BackendUserAuthenticator creates
+     * from the user's preferences for every backend request, AJAX routes
+     * included — the same source nr-llm's ModuleChromeTrait reads its labels
+     * from. Without one, outside a backend request, the key is returned: sL()
+     * answers an empty string for a key it cannot resolve, and an empty error
+     * explains nothing.
+     */
+    private function translate(string $key): string
+    {
+        $languageService = $GLOBALS['LANG'] ?? null;
+        if (!$languageService instanceof LanguageService) {
+            return $key;
+        }
+
+        $label = $languageService->sL(self::LANGUAGE_FILE . ':' . $key);
+
+        return $label !== '' ? $label : $key;
+    }
+
+    /**
      * The pending approval as the chat renders it: what the call would do, its
      * arguments, and the digest the decision has to carry back.
      *
@@ -564,11 +590,11 @@ final readonly class ChatApiController
         }
 
         if (!$this->mayDecideApprovals()) {
-            return new JsonResponse(['error' => 'Not allowed to decide approvals'], 403);
+            return new JsonResponse(['error' => $this->translate('error.approvalNotAllowed')], 403);
         }
 
         if ($conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
-            return new JsonResponse(['error' => 'Conversation is not waiting for an approval'], 409);
+            return new JsonResponse(['error' => $this->translate('error.notAwaitingApproval')], 409);
         }
 
         $body = $this->parseBody($request);
@@ -616,7 +642,7 @@ final readonly class ChatApiController
         // race it. The escape hatch stays open: a decision no worker ever picked
         // up is handed back as the card by reconcile(), which clears it.
         if ($conversation->hasPendingApprovalDecision()) {
-            return new JsonResponse(['error' => 'An approval decision for this conversation is still being carried out'], 409);
+            return new JsonResponse(['error' => $this->translate('error.decisionInFlight')], 409);
         }
 
         $currentStatus = $conversation->getStatus();

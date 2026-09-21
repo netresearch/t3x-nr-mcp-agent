@@ -25,6 +25,7 @@ use RuntimeException;
 use stdClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
 use TYPO3\CMS\Core\Resource\File;
@@ -83,7 +84,7 @@ class ChatApiControllerTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($GLOBALS['BE_USER']);
+        unset($GLOBALS['BE_USER'], $GLOBALS['LANG']);
         parent::tearDown();
     }
 
@@ -621,6 +622,91 @@ class ChatApiControllerTest extends TestCase
         $request = $this->createRequest('POST', '{"conversationUid": 1, "approve": true, "turnDigest": "d"}');
 
         self::assertSame(403, $this->subject->decideApproval($request)->getStatusCode());
+    }
+
+    /**
+     * The refusals of the approval endpoints reach the chat notice verbatim, so
+     * they are labels resolved with the request's LanguageService — the one
+     * BackendUserAuthenticator creates from the user's preferences (NEXT-159).
+     * The stub answers per label reference, so what is asserted is which unit
+     * of which file each refusal asks for. The functional test does the real
+     * round trip through the XLF.
+     */
+    #[Test]
+    public function decidingWithoutTheModuleIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.approvalNotAllowed' => 'Keine Berechtigung, Freigaben zu entscheiden',
+        ]);
+        $backendUser = $this->createMock(BackendUserAuthentication::class);
+        $backendUser->user = ['uid' => 1, 'usergroup' => '1,2'];
+        $backendUser->method('isAdmin')->willReturn(false);
+        $backendUser->method('check')->with('modules', 'nrllm_aitasks')->willReturn(false);
+        $GLOBALS['BE_USER'] = $backendUser;
+
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "approve": true, "turnDigest": "d"}');
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame(['error' => 'Keine Berechtigung, Freigaben zu entscheiden'], json_decode((string) $response->getBody(), true));
+    }
+
+    #[Test]
+    public function decidingOnAConversationThatIsNotWaitingIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.notAwaitingApproval' => 'Der Chat wartet nicht auf eine Freigabe',
+        ]);
+        $backendUser = $this->createMock(BackendUserAuthentication::class);
+        $backendUser->user = ['uid' => 1, 'usergroup' => '1,2'];
+        $backendUser->method('isAdmin')->willReturn(true);
+        $GLOBALS['BE_USER'] = $backendUser;
+
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Idle);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "approve": true, "turnDigest": "d"}');
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['error' => 'Der Chat wartet nicht auf eine Freigabe'], json_decode((string) $response->getBody(), true));
+    }
+
+    #[Test]
+    public function retryingWhileADecisionIsInFlightIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.decisionInFlight' => 'Eine Freigabeentscheidung für diesen Chat wird noch ausgeführt',
+        ]);
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->recordApprovalDecision(true, 'digest-abc');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['error' => 'Eine Freigabeentscheidung für diesen Chat wird noch ausgeführt'], json_decode((string) $response->getBody(), true));
+    }
+
+    /**
+     * @param array<string, string> $labels translation per full LLL reference
+     */
+    private function setUpLanguageServiceAnswering(array $labels): void
+    {
+        $languageService = $this->createStub(LanguageService::class);
+        $languageService->method('sL')->willReturnCallback(
+            static fn(mixed $input): string => $labels[is_string($input) ? $input : ''] ?? '',
+        );
+        $GLOBALS['LANG'] = $languageService;
     }
 
     /**

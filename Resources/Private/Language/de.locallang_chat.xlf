@@ -192,6 +192,20 @@
                 <target>Tool-Ergebnis (klicken zum Aufklappen)</target>
             </trans-unit>
 
+            <!-- API refusals shown in the chat notice -->
+            <trans-unit id="error.approvalNotAllowed" resname="error.approvalNotAllowed">
+                <source>Not allowed to decide approvals</source>
+                <target>Keine Berechtigung, Freigaben zu entscheiden</target>
+            </trans-unit>
+            <trans-unit id="error.notAwaitingApproval" resname="error.notAwaitingApproval">
+                <source>Conversation is not waiting for an approval</source>
+                <target>Der Chat wartet nicht auf eine Freigabe</target>
+            </trans-unit>
+            <trans-unit id="error.decisionInFlight" resname="error.decisionInFlight">
+                <source>An approval decision for this conversation is still being carried out</source>
+                <target>Eine Freigabeentscheidung für diesen Chat wird noch ausgeführt</target>
+            </trans-unit>
+
             <!-- Attachments -->
             <trans-unit id="attachment.attach" resname="attachment.attach">
                 <source>Attach file</source>

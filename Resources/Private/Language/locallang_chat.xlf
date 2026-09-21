@@ -147,6 +147,17 @@
                 <source>Tool result (click to expand)</source>
             </trans-unit>
 
+            <!-- API refusals shown in the chat notice -->
+            <trans-unit id="error.approvalNotAllowed" resname="error.approvalNotAllowed">
+                <source>Not allowed to decide approvals</source>
+            </trans-unit>
+            <trans-unit id="error.notAwaitingApproval" resname="error.notAwaitingApproval">
+                <source>Conversation is not waiting for an approval</source>
+            </trans-unit>
+            <trans-unit id="error.decisionInFlight" resname="error.decisionInFlight">
+                <source>An approval decision for this conversation is still being carried out</source>
+            </trans-unit>
+
             <!-- Attachments -->
             <trans-unit id="attachment.attach" resname="attachment.attach">
                 <source>Attach file</source>
