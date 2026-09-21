@@ -165,7 +165,7 @@ final class LocallangChatParityTest extends TestCase
             }
             $source = file_get_contents($file->getPathname());
             self::assertNotFalse($source);
-            preg_match_all('/->translate\(\s*\'([^\']+)\'\s*\)/', $source, $matches);
+            preg_match_all('/->translate\(\s*[\'"]([^\'"]+)[\'"]\s*\)/', $source, $matches);
             $keys = [...$keys, ...$matches[1]];
         }
 
