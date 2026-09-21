@@ -187,6 +187,38 @@ class ChatApiControllerTest extends FunctionalTestCase
     }
 
     /**
+     * nr-llm refuses an approved write whose record changed after the preview
+     * and hands the run back with previewStale set. The card looks the same as
+     * before the click unless the flag reaches it — and with the link to the
+     * run gone from a card that has a preview (NEXT-162), the approvals module
+     * is no longer one click away to explain it.
+     */
+    #[Test]
+    public function getMessagesTellsTheCardWhichCallWasHandedBackAsStale(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/conversation_awaiting_approval.csv');
+
+        $this->subject = $this->subjectWithPendingApproval(new WaitingRunView(
+            runUuid: 'run-uuid-6',
+            mode: WaitingRunView::MODE_APPROVAL,
+            createdAt: 1710000000,
+            configLabel: 'Demo',
+            turnDigest: 'digest-6',
+            pendingCalls: [
+                new PendingCallView('update_page_metadata', '{"uid":10002}', true, ['Page [10002] …'], previewStale: true),
+                new PendingCallView('create_page_draft', '{"parent":1}', true, ['New page …']),
+            ],
+        ));
+
+        $request = (new ServerRequest())->withQueryParams(['conversationUid' => 6, 'after' => 1]);
+
+        $body = json_decode((string) $this->subject->getMessages($request)->getBody(), true);
+
+        self::assertTrue($body['pendingApproval']['calls'][0]['previewStale']);
+        self::assertFalse($body['pendingApproval']['calls'][1]['previewStale']);
+    }
+
+    /**
      * The fast path is what keeps an ordinary poll cheap, so it has to stay in
      * place for every conversation that is not parked.
      */

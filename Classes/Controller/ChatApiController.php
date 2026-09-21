@@ -525,6 +525,11 @@ final readonly class ChatApiController
                     'toolStillRegistered' => $call->toolStillRegistered,
                     'previewLines'        => $call->previewLines,
                     'previewFailed'       => $call->previewFailed,
+                    // nr-llm refuses an approved write whose record changed after
+                    // the preview and hands the run back with this flag. Without
+                    // it the card returns looking exactly as it did before the
+                    // click, and only the approvals module said why.
+                    'previewStale'        => $call->previewStale,
                     'argumentsJson'       => $call->argumentsJson,
                 ],
                 $view->pendingCalls,
