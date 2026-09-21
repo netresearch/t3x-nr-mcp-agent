@@ -52,7 +52,9 @@ async function renderPending(modulePath, tag, open, pendingApproval = PENDING) {
         conversations: [{uid: 1, title: 'A chat', status: 'awaiting_approval', messageCount: 1, pinned: false}],
         messages: [{role: 'user', content: 'Set the meta description'}],
         status: 'awaiting_approval',
-        errorMessage: 'This step writes data, so it is waiting for your approval.',
+        // What the server stores when a run parks: nothing. The notice is
+        // rendered from the status, in the reader's language (NEXT-159).
+        errorMessage: '',
         approvalUrl: '/typo3/module/web/nrllm-aitasks?runUuid=run-uuid-1234',
         pendingApproval,
     });
@@ -147,7 +149,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         // stubbed to put exactly that on screen.
         el.chat.loadMessages = jest.fn().mockImplementation(async () => {
             el.chat.status = 'processing';
-            el.chat.errorMessage = 'This step writes data and needs an approval before it runs.';
+            el.chat.errorMessage = 'a notice the claim did not clear';
             el.requestUpdate();
         });
 
@@ -157,7 +159,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
         const notice = el.shadowRoot.querySelector('.message.system');
         expect(notice.textContent).toContain('chat.approvalGranted');
-        expect(notice.textContent).not.toContain('Error:');
+        expect(notice.textContent).not.toContain('chat.errorPrefix');
         expect(notice.textContent).not.toContain('chat.retry');
         expect(el.shadowRoot.querySelector('.approval-actions')).toBeNull();
     });
@@ -293,5 +295,84 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         const el = await renderPending(modulePath, tag, open);
 
         expect(el.shadowRoot.querySelector('.approval-card').textContent).not.toContain('chat.approvalPreviewStale');
+    });
+
+    /**
+     * NEXT-159. The pause used to write "This step writes data and needs an
+     * approval before it runs." into the conversation, and the chat rendered
+     * that field verbatim — so the sentence stayed English after the backend
+     * was switched to German, and a stored sentence is frozen in the language
+     * of the moment it was written anyway. The server stores nothing now; the
+     * notice is a label, resolved in the reader's language, and the state
+     * alone is what shows it. The card (the fixture has status
+     * awaiting_approval and an empty field) is the proof that the empty field
+     * no longer hides the notice.
+     */
+    test('the pending notice is a label resolved on the client, not a stored sentence', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const notice = el.shadowRoot.querySelector('.message.system');
+
+        expect(notice).not.toBeNull();
+        expect(notice.textContent).toContain('chat.approvalPending');
+        expect(notice.textContent).toContain('chat.approvalPendingDetail');
+        expect(notice.textContent).not.toContain('chat.errorPrefix');
+        expect(notice.querySelector('.approval-actions')).not.toBeNull();
+    });
+
+    /**
+     * A decision refused by the runtime hands the run back with the reason in
+     * the same field — "The turn moved on", a stale digest. That reason is the
+     * detail then, not the generic sentence beside it.
+     */
+    test('a reason handed back with the run replaces the generic sentence', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat.errorMessage = 'The turn moved on — decide again.';
+        el.requestUpdate();
+        await el.updateComplete;
+        const notice = el.shadowRoot.querySelector('.message.system');
+
+        expect(notice.textContent).toContain('chat.approvalPending');
+        expect(notice.textContent).toContain('The turn moved on — decide again.');
+        expect(notice.textContent).not.toContain('chat.approvalPendingDetail');
+    });
+
+    /**
+     * The other direction of the same gate: an error is still announced, with
+     * the prefix from the label file instead of a hardcoded "Error:", and the
+     * pending sentence stays out of it.
+     */
+    test('a failure is announced with the translated prefix and no pending sentence', async () => {
+        const el = await renderPending(modulePath, tag, open, null);
+        Object.assign(el.chat, {status: 'failed', errorMessage: 'provider exploded', approvalUrl: ''});
+        el.requestUpdate();
+        await el.updateComplete;
+        const notice = el.shadowRoot.querySelector('.message.system');
+
+        expect(notice.textContent).toContain('chat.errorPrefix');
+        expect(notice.textContent).toContain('provider exploded');
+        expect(notice.textContent).not.toContain('chat.approvalPendingDetail');
+        expect(notice.textContent).not.toContain('Error:');
+        expect(notice.querySelector('.btn-icon')).not.toBeNull();
+    });
+
+    /**
+     * The notice is derived from the status, so clearing the field would not
+     * hide it — a Dismiss that does nothing is worse than none. The card it
+     * carries is where the decision is taken; the error notice keeps its
+     * Dismiss (asserted above).
+     */
+    test('the pending notice offers no dismiss', async () => {
+        const el = await renderPending(modulePath, tag, open);
+
+        expect(el.shadowRoot.querySelector('.message.system .btn-icon')).toBeNull();
+    });
+
+    test('an idle conversation without an error shows no notice', async () => {
+        const el = await renderPending(modulePath, tag, open, null);
+        Object.assign(el.chat, {status: 'idle', errorMessage: '', approvalUrl: ''});
+        el.requestUpdate();
+        await el.updateComplete;
+
+        expect(el.shadowRoot.querySelector('.message.system')).toBeNull();
     });
 });

@@ -414,11 +414,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->recordApprovalDecision($approve, $turnDigest);
 
-        // The notice that the run is waiting stops being true the moment the
-        // decision is recorded, and it is carried in the same field a failure
-        // is carried in. Left standing it renders as "Error: ... waiting for
-        // your approval" over a conversation that is Processing — which is also
-        // a resumable status, so the chat offered a Retry next to it. Pressing
+        // Whatever the field says about the waiting run — the reason a refused
+        // decision wrote back, or the notice the pause used to write before
+        // NEXT-159 — stops being true the moment the decision is recorded, and
+        // it is the same field a failure is carried in. Left standing it renders
+        // as an error over a conversation that is Processing — which is also a
+        // resumable status, so the chat offered a Retry next to it. Pressing
         // that started a SECOND run over the same transcript while the first
         // was carrying out the approved write: the duplicated pages and content
         // elements in NEXT-153/NEXT-156 came from exactly there.
@@ -513,9 +514,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->appendMessage(MessageRole::Assistant, $result->loopResult->finalContent);
             $conversation->setStatus(ConversationStatus::Idle);
             // Success leaves nothing to report. persist() writes the whole row,
-            // so a message from an earlier state of this turn — the approval
-            // notice above all — would otherwise survive the run that resolved
-            // it and keep the finished conversation looking failed.
+            // so a message from an earlier state of this turn — the reason a
+            // refused decision wrote back above all — would otherwise survive
+            // the run that resolved it and keep the finished conversation
+            // looking failed.
             $conversation->setErrorMessage('');
             $this->persist($conversation);
             return;
@@ -524,11 +526,23 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // A pending approval is not a failure. The run did exactly what it is
         // supposed to do: it stopped before a write and is waiting for a human.
         // Reporting it as Failed made the safeguard look like a crash.
+        //
+        // No sentence is stored for it. The chat renders the notice from the
+        // status, as a label in the reader's language; a sentence written here
+        // would be frozen in the language of the moment it was written, and it
+        // stayed English after the backend was switched to German (NEXT-159).
+        // The field is cleared all the same: persist() writes the whole row,
+        // and a failure from an earlier state of this turn would otherwise
+        // render beside the card. It used to say where the approval is granted
+        // as well ("Grant it under Web > AI Tasks > Approvals"), which sent the
+        // reader to the second approval place while the card with the two
+        // buttons sat directly beneath — deciding twice is how the duplicated
+        // pages in NEXT-156 came about. The way to the module is the LINK the
+        // card builds from the uuid, which is inert when there is nothing to
+        // open.
         if ($result->outcome === AgentRunOutcome::AWAITING_APPROVAL) {
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
-            $conversation->setErrorMessage($this->describeAwaitingApproval($result));
-            // Kept separately from the message so the chat can build a link to
-            // this run instead of asking the user to find it in a list.
+            $conversation->setErrorMessage('');
             $conversation->setApprovalRunUuid($result->runUuid);
             $this->persist($conversation);
             return;
@@ -537,32 +551,6 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $conversation->setStatus(ConversationStatus::Failed);
         $conversation->setErrorMessage($this->describeFailure($result));
         $this->persist($conversation);
-    }
-
-    /**
-     * Say what is pending.
-     *
-     * It deliberately does NOT say where the approval is granted any more. It
-     * used to read "Grant it under Web > AI Tasks > Approvals", which sent the
-     * reader to the second approval place while the card carrying the two
-     * buttons sat directly beneath the very sentence — and a decision taken
-     * there after one taken here is answered with "The run could not be
-     * resumed", because the first one consumed the run. Deciding twice is how
-     * the duplicated pages in NEXT-156 came about. The way to the module stays
-     * as a LINK the card renders, which is inert when there is nothing to open.
-     *
-     * The run uuid is still included, because the approvals inbox lists runs and
-     * whoever does open it has to find the right one; it is empty when the run
-     * could not be persisted (the persister is fail-soft), and then it is simply
-     * left out rather than shown as an empty reference.
-     */
-    private function describeAwaitingApproval(AgentRunResult $result): string
-    {
-        $message = 'This step writes data and needs an approval before it runs.';
-
-        return $result->runUuid !== ''
-            ? $message . ' Run: ' . $result->runUuid
-            : $message;
     }
 
     /**

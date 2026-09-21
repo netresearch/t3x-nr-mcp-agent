@@ -403,35 +403,41 @@ class ChatServiceTest extends TestCase
     }
 
     /**
-     * The message says what is pending and which run it belongs to — and, since
-     * NEXT-156, no longer where to grant it: the decision is offered on the card
-     * right below this sentence, and the sentence used to point past it into the
-     * AI Tasks module. Whoever decided in both places got the write twice.
+     * The pause stores no sentence. It used to write "This step writes data and
+     * needs an approval before it runs." into the field the chat renders
+     * verbatim, so the notice stayed English after the backend was switched to
+     * German — and a stored sentence is frozen in the language of the moment it
+     * was written anyway (NEXT-159). The chat renders the notice from the
+     * status, in the reader's language; the run reaches it through the uuid
+     * field. The field is cleared explicitly, because persist() writes the
+     * whole row and a failure from an earlier state of the turn would
+     * otherwise render beside the card.
      */
     #[Test]
-    public function awaitingApprovalMessageNamesWhatIsPendingAndWhichRun(): void
+    public function awaitingApprovalStoresNoSentenceAndClearsAnEarlierFailure(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
+        $conversation->setErrorMessage('provider exploded on the previous turn');
 
         $service = $this->createChatService(
             new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid-1234', []),
         );
         $service->processConversation($conversation);
 
-        $message = $conversation->getErrorMessage();
-        self::assertStringContainsString('approval', $message);
-        self::assertStringContainsString('run-uuid-1234', $message);
-        self::assertStringNotContainsStringIgnoringCase('AI Tasks', $message, 'the notice must not route past the card');
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame('', $conversation->getErrorMessage());
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
     }
 
     /**
      * The run uuid is empty when the run could not be persisted (fail-soft
-     * persister). An empty reference helps nobody, so it is left out entirely.
+     * persister). Nothing is stored in either field then: the chat still shows
+     * the pending notice from the status, without a card or a link.
      */
     #[Test]
-    public function awaitingApprovalMessageOmitsAnEmptyRunReference(): void
+    public function awaitingApprovalWithoutAPersistedRunStoresNothing(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
@@ -442,8 +448,9 @@ class ChatServiceTest extends TestCase
         );
         $service->processConversation($conversation);
 
-        self::assertStringNotContainsString('Run: ', $conversation->getErrorMessage());
-        self::assertStringContainsString('approval', $conversation->getErrorMessage());
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame('', $conversation->getErrorMessage());
+        self::assertSame('', $conversation->getApprovalRunUuid());
     }
 
     /**

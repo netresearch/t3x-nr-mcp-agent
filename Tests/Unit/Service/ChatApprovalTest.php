@@ -57,9 +57,12 @@ final class ChatApprovalTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Set the meta description');
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid($runUuid);
-        // What applyResult() writes when a run parks. It lives in the same field
-        // a failure lives in, which is the whole of NEXT-156.
-        $conversation->setErrorMessage('This step writes data, so it is waiting for your approval.');
+        // What performRecordedDecision() writes back when the runtime refuses a
+        // decision and hands the run back: the reason, in the same field a
+        // failure lives in, which is the whole of NEXT-156. (The pause itself
+        // stores nothing since NEXT-159; the chat renders that notice from the
+        // status.)
+        $conversation->setErrorMessage('The turn moved on — decide again.');
 
         return $conversation;
     }
@@ -161,12 +164,12 @@ final class ChatApprovalTest extends TestCase
     }
 
     /**
-     * The notice says the run is waiting. One click later that is no longer
+     * The field says why the run is waiting. One click later that is no longer
      * true, and the field it sits in is the one the chat renders as an error —
      * over a Processing conversation, which is resumable, so a Retry button
      * appeared next to it. Pressing it started a second run over the same
      * transcript while the first was carrying out the approved write: the
-     * duplicated pages in NEXT-156. The claim has to take the notice with it.
+     * duplicated pages in NEXT-156. The claim has to take the reason with it.
      */
     #[Test]
     public function recordingClearsTheNoticeItSupersedes(): void
@@ -180,10 +183,10 @@ final class ChatApprovalTest extends TestCase
     }
 
     /**
-     * persist() writes the whole row, so a notice from an earlier state of this
+     * persist() writes the whole row, so a message from an earlier state of this
      * turn survives the run that resolved it unless success clears it. It then
-     * renders as "Error: ... waiting for your approval" over a conversation that
-     * finished successfully — the state the demo was in when NEXT-155 was run.
+     * renders as an error over a conversation that finished successfully — the
+     * state the demo was in when NEXT-155 was run.
      */
     #[Test]
     public function aCompletedContinuationLeavesNoError(): void
@@ -191,9 +194,9 @@ final class ChatApprovalTest extends TestCase
         $conversation = $this->parkedConversation();
         $service = $this->createChatService($this->completed('Done — the page is created.'));
         $service->recordDecision($conversation, true, 'digest-abc');
-        // Whatever the claim did, put the notice back: this asserts about the
+        // Whatever the claim did, put a reason back: this asserts about the
         // completion, not about recordDecision().
-        $conversation->setErrorMessage('This step writes data, so it is waiting for your approval.');
+        $conversation->setErrorMessage('The turn moved on — decide again.');
 
         $service->processConversation($conversation);
 

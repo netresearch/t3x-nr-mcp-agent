@@ -40,7 +40,8 @@ async function renderAwaitingApproval(modulePath, tag, open, approvalUrl) {
         conversations: [{uid: 1, title: 'A chat', status: 'awaiting_approval', messageCount: 1, pinned: false}],
         messages: [{role: 'user', content: 'Set the meta description'}],
         status: 'awaiting_approval',
-        errorMessage: 'This step writes data, so it is waiting for your approval.',
+        // What the server stores when a run parks: nothing (NEXT-159).
+        errorMessage: '',
         approvalUrl,
     });
 
