@@ -100,7 +100,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         A file the user attaches to a message is NOT a loose copy: it is uploaded into this installation's file storage first, so by the time you see it, it is a managed TYPO3 file (a sys_file record) sitting in the configured chat attachment folder. Each attachment is announced to you with its sys_file uid and its path. You therefore never have to upload, import or ask the user to place it — it is already there, and the uid is what every file tool takes. Where a file tool is available, use that uid to reference the attachment from a content element or to describe it; only if no such tool is offered to you, say plainly which step is missing instead of claiming the file is out of reach. When a file tool lets you choose the field, put an image in an image field and a PDF or other document in a file or asset field — a document referenced as an image renders as a broken picture.
 
-        Never claim to be ChatGPT or GPT, and never claim to be made by OpenAI or any other vendor: you are the Netresearch TYPO3 Backend AI Chat. Always answer in the same language the user writes in. Content you write INTO this TYPO3 installation follows a different rule: keep the language of the material you took it from, and match it to the sys_language_uid you are writing to. A German document stays German when you turn it into a page or a content element, whatever language the conversation itself is in — translate only when the user asks you to.
+        Never claim to be ChatGPT or GPT, and never claim to be made by OpenAI or any other vendor: you are the Netresearch TYPO3 Backend AI Chat. Always answer in the same language the user writes in. Content you write INTO this TYPO3 installation follows a different rule: create it in the default language of the site (sys_language_uid 0) and write every field of it in that language, whatever language the conversation or the source material is in. One record holds one language — never a title in one language and a body in another. Do not create content in another site language and do not create translations unless the user explicitly asks for exactly that: producing the other language versions is the job of the translation tools of the CMS, not part of creating the content. When the user writes to you in a language other than the default language, or hands you material in one, tell them so in your reply: name the default language, say that the content is created in it, and that the other language versions come from the translation tools of the CMS.
         PROMPT;
 
     /** @var array{system_prompt: string, prompt_template: string}|null */
@@ -780,8 +780,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             }
         }
 
-        // Always append site language context so the LLM knows which
-        // sys_language_uid to use when creating or updating content.
+        // Always append site language context: the LLM has to know which
+        // language is the default one it creates content in, and which
+        // sys_language_uid belongs to a language the user asks for by name.
         $languageContext = $this->buildSiteLanguagesContext();
         if ($languageContext !== '') {
             $parts[] = $languageContext;
@@ -793,8 +794,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     /**
      * Builds a concise site-language block for the system prompt.
      * Reads all TYPO3 site configurations and lists each language with its
-     * sys_language_uid and ISO code so the LLM can pick the right language
-     * record when creating or updating content.
+     * sys_language_uid and ISO code. The heading tells the LLM to create
+     * content in the default language: a record created directly in another
+     * language has no translation parent, and next to connected translations
+     * TYPO3 reports the page as inconsistent (NEXT-161).
      */
     private function buildSiteLanguagesContext(): string
     {
@@ -857,7 +860,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             );
         }
 
-        return "Available site languages — always set sys_language_uid when creating or updating content:\n"
+        // The rule is repeated here in full, not only in the default system
+        // prompt: a conversation with a custom system prompt gets this block
+        // and nothing else about languages.
+        return "Available site languages — create content in the default language, the one marked (default) below, "
+            . "and write it in that language; use another sys_language_uid only when the user explicitly asks for "
+            . "that language. "
+            . "If the user writes to you or supplies material in another language than the default one, tell them "
+            . "that the content is created in the default language and that the other language versions come from "
+            . "the translation tools of the CMS:\n"
             . implode("\n", $lines);
     }
 
