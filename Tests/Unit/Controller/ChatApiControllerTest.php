@@ -698,6 +698,28 @@ class ChatApiControllerTest extends TestCase
     }
 
     /**
+     * sL() answers an empty string for a unit it cannot resolve, and an empty
+     * error explains nothing: the key is returned in its place, so the notice
+     * at least names what was asked for.
+     */
+    #[Test]
+    public function aRefusalWhoseLabelCannotBeResolvedCarriesTheKey(): void
+    {
+        $this->setUpLanguageServiceAnswering([]);
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->recordApprovalDecision(true, 'digest-abc');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['error' => 'error.decisionInFlight'], json_decode((string) $response->getBody(), true));
+    }
+
+    /**
      * @param array<string, string> $labels translation per full LLL reference
      */
     private function setUpLanguageServiceAnswering(array $labels): void

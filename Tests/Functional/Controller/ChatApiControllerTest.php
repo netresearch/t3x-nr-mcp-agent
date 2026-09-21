@@ -463,6 +463,55 @@ class ChatApiControllerTest extends FunctionalTestCase
     }
 
     /**
+     * The other two refusals through the real XLF as well. The unit tests stub
+     * the LanguageService per label reference, so a unit renamed in both files
+     * passes them and reaches the notice as the raw key; this is the case that
+     * opens the file for error.approvalNotAllowed. User 2 is not an admin and
+     * has no group, so the nrllm_aitasks module check answers false.
+     */
+    #[Test]
+    public function decideApprovalRefusesAUserWithoutTheModuleInTheUsersLanguage(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
+        $this->setUpLanguageServiceFor('de');
+        // Conv 3 belongs to user 2.
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 3, 'approve' => true, 'turnDigest' => 'd'])));
+
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(403, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Keine Berechtigung, Freigaben zu entscheiden'], $body);
+    }
+
+    /**
+     * Same for error.decisionInFlight: the one refusal the chat renders behind
+     * its error prefix, because Retry is offered in the error branch only.
+     */
+    #[Test]
+    public function resumeConversationRefusesWhileADecisionIsInFlightInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceFor('de');
+        // Conv 2 is 'processing' — resumable — and gets a recorded decision the
+        // worker has not carried out yet.
+        $conversation = $this->repository->findOneByUidAndBeUser(2, 1);
+        self::assertNotNull($conversation);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->recordApprovalDecision(true, 'digest-abc');
+        $this->repository->update($conversation);
+
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 2])));
+
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Eine Freigabeentscheidung für diesen Chat wird noch ausgeführt'], $body);
+    }
+
+    /**
      * What BackendUserAuthenticator does for a backend request whose user has
      * this language in be_users.lang.
      */
