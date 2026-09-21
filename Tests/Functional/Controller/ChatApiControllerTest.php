@@ -74,6 +74,14 @@ class ChatApiControllerTest extends FunctionalTestCase
         );
     }
 
+    protected function tearDown(): void
+    {
+        // setUpLanguageServiceFor() installs a LanguageService the framework
+        // does not reset; a German one must not outlive the case that asked.
+        unset($GLOBALS['LANG']);
+        parent::tearDown();
+    }
+
     /**
      * The controller under test with the approval source replaced.
      *

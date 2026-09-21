@@ -106,9 +106,11 @@ final class LocallangChatParityTest extends TestCase
     private function keysUsedInJavaScript(): array
     {
         $keys = [];
-        $files = glob(self::JAVASCRIPT_DIR . '{*.js,toolbar/*.js}', GLOB_BRACE);
-        self::assertNotFalse($files);
-        foreach ($files as $file) {
+        $modules = glob(self::JAVASCRIPT_DIR . '*.js');
+        $toolbar = glob(self::JAVASCRIPT_DIR . 'toolbar/*.js');
+        self::assertNotFalse($modules);
+        self::assertNotFalse($toolbar);
+        foreach ([...$modules, ...$toolbar] as $file) {
             $source = file_get_contents($file);
             self::assertNotFalse($source);
             preg_match_all('/\blll\(\s*[\'"]([^\'"]+)[\'"]/', $source, $matches);
