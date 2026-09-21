@@ -487,7 +487,11 @@ final readonly class ChatApiController
 
     /**
      * A label from the chat's language file, for the refusals the chat shows
-     * verbatim behind its error prefix (NEXT-159).
+     * verbatim in its status notice (NEXT-159): the two decide refusals under
+     * the pending label while the card is still on screen — chat-core.js keeps
+     * the status at awaiting_approval when decideApproval() fails — and the
+     * resume refusal behind the error prefix, because Retry is offered in the
+     * error branch only.
      *
      * $GLOBALS['LANG'] is the LanguageService BackendUserAuthenticator creates
      * from the user's preferences for every backend request, AJAX routes

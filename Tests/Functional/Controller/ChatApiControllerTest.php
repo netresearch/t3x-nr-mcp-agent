@@ -422,10 +422,12 @@ class ChatApiControllerTest extends FunctionalTestCase
     }
 
     /**
-     * The chat shows this string verbatim behind its error prefix, so it has to
-     * arrive in the user's language. BackendUserAuthenticator creates
-     * $GLOBALS['LANG'] from the user's preferences for every backend request;
-     * this sets it up the same way for a user who reads German (NEXT-159).
+     * The chat shows this string verbatim in its status notice — under the
+     * pending label, since a failed decideApproval() leaves the status at
+     * awaiting_approval — so it has to arrive in the user's language.
+     * BackendUserAuthenticator creates $GLOBALS['LANG'] from the user's
+     * preferences for every backend request; this sets it up the same way for
+     * a user who reads German (NEXT-159).
      */
     #[Test]
     public function decideApprovalRefusesAnIdleConversationInTheUsersLanguage(): void
