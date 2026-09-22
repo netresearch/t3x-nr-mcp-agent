@@ -867,6 +867,59 @@ class ChatServiceTest extends TestCase
         self::assertStringContainsString('Available site languages', $system);
     }
 
+    /**
+     * NEXT-161: elements created directly in language 1 have no translation
+     * parent and made TYPO3 report the page as inconsistent. The custom prompt
+     * is deliberate — it removes the default system prompt, so only the
+     * language block can carry the rule.
+     */
+    #[Test]
+    public function siteLanguageContextTellsTheModelToCreateInTheDefaultLanguage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSystemPrompt('Only custom instructions');
+        $conversation->appendMessage(MessageRole::User, 'Hallo');
+
+        $siteFinder = $this->createSiteFinderWithLanguages([
+            ['uid' => 0, 'title' => 'English', 'isoCode' => 'en'],
+            ['uid' => 1, 'title' => 'German', 'isoCode' => 'de'],
+        ]);
+
+        $service = $this->createChatService(siteFinder: $siteFinder);
+        $service->processConversation($conversation);
+
+        $system = $this->capturedSystemPrompt();
+        self::assertStringContainsString('create content in the default language, the one marked (default) below', $system);
+        self::assertStringContainsString('only when the user explicitly asks for that language', $system);
+        self::assertStringContainsString('tell them that the content is created in the default language', $system);
+        self::assertStringContainsString('translation tools of the CMS', $system);
+        self::assertStringNotContainsString('always set sys_language_uid', $system);
+    }
+
+    /**
+     * The rule from NEXT-155 — a record follows the language of its source
+     * material — is what put German material into language 1. One record in
+     * one language stays; which language it is, changed.
+     */
+    #[Test]
+    public function defaultPromptCreatesContentInTheDefaultLanguageAndLeavesTranslationToTheCms(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hallo');
+
+        $service = $this->createChatService();
+        $service->processConversation($conversation);
+
+        $system = $this->capturedSystemPrompt();
+        self::assertStringContainsString('create it in the default language of the site (sys_language_uid 0)', $system);
+        self::assertStringContainsString('One record holds one language', $system);
+        self::assertStringContainsString('do not create translations unless the user explicitly asks', $system);
+        self::assertStringContainsString('name the default language', $system);
+        self::assertStringNotContainsString('keep the language of the material', $system);
+    }
+
     #[Test]
     public function siteLanguageContextIsOmittedWhenNoSitesConfigured(): void
     {
