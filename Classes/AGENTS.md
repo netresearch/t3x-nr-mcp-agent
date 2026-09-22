@@ -5,7 +5,7 @@
 
 ## Overview
 
-PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), plus `Backend/`, `Configuration/`, `Utility/`, `Exception/`.
+PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), `Updates/` (upgrade wizards: one-off corrections of stored rows after a release), plus `Backend/`, `Configuration/`, `Utility/`, `Exception/`.
 
 ## Setup
 
