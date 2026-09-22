@@ -18,6 +18,7 @@ A Lit-based chat UI in the TYPO3 backend polls `ChatApiController` via AJAX. Mes
 | CLI commands | `ai-chat:process`, `ai-chat:worker`, `ai-chat:cleanup` | `Classes/Command/ProcessChatCommand.php`, `Classes/Command/ChatWorkerCommand.php`, `Classes/Command/CleanupCommand.php` |
 | Conversation store | Persistence, state machine, auto-archive | `Classes/Domain/Model/Conversation.php`, `Classes/Domain/Repository/ConversationRepository.php` |
 | Document extraction | Text extraction from uploaded PDF/DOCX/XLSX/TXT | `Classes/Document/DocumentExtractorRegistry.php`, `Classes/Document/Extractor/` |
+| Upgrade wizards | One-off corrections of stored rows after a release, run from the Install Tool or `typo3 upgrade:run` | `Classes/Updates/` |
 | Frontend | Lit web components, polling API client, sanitized markdown | `Resources/Public/JavaScript/` (`chat-app.js`, `chat-core.js`, `api-client.js`, `markdown.js`) |
 
 ## Dependency rules

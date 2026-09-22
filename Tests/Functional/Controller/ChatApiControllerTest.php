@@ -16,7 +16,9 @@ use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -70,6 +72,14 @@ class ChatApiControllerTest extends FunctionalTestCase
             new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
         );
+    }
+
+    protected function tearDown(): void
+    {
+        // setUpLanguageServiceFor() installs a LanguageService the framework
+        // does not reset; a German one must not outlive the case that asked.
+        unset($GLOBALS['LANG']);
+        parent::tearDown();
     }
 
     /**
@@ -400,6 +410,7 @@ class ChatApiControllerTest extends FunctionalTestCase
     #[Test]
     public function resumeConversationReturns400WhenNotResumable(): void
     {
+        $this->setUpLanguageServiceFor('default');
         // Conv 1 is 'idle' — not resumable (only error/timeout states are resumable)
         $request = (new ServerRequest('/', 'POST'))
             ->withBody($this->streamFor(json_encode(['conversationUid' => 1])));
@@ -408,7 +419,129 @@ class ChatApiControllerTest extends FunctionalTestCase
 
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string) $response->getBody(), true);
-        self::assertStringContainsString('not resumable', $body['error']);
+        self::assertSame(['error' => 'Conversation is not resumable'], $body);
+    }
+
+    /**
+     * The chat shows this string verbatim in its status notice — under the
+     * pending label, since a failed decideApproval() leaves the status at
+     * awaiting_approval — so it has to arrive in the user's language.
+     * BackendUserAuthenticator creates $GLOBALS['LANG'] from the user's
+     * preferences for every backend request; this sets it up the same way for
+     * a user who reads German (NEXT-159).
+     */
+    #[Test]
+    public function decideApprovalRefusesAnIdleConversationInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceFor('de');
+        // Conv 1 is 'idle' — there is nothing to decide on it.
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 1, 'approve' => true, 'turnDigest' => 'd'])));
+
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Der Chat wartet nicht auf eine Freigabe'], $body);
+    }
+
+    /**
+     * The other direction: for a user without a language preference the
+     * response reads exactly as it did before the label file was involved.
+     */
+    #[Test]
+    public function decideApprovalRefusesAnIdleConversationInEnglishByDefault(): void
+    {
+        $this->setUpLanguageServiceFor('default');
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 1, 'approve' => true, 'turnDigest' => 'd'])));
+
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Conversation is not waiting for an approval'], $body);
+    }
+
+    /**
+     * The other two refusals through the real XLF as well. The unit tests stub
+     * the LanguageService per label reference, so a unit renamed in both files
+     * passes them and reaches the notice as the raw key; this is the case that
+     * opens the file for error.approvalNotAllowed. User 2 is not an admin and
+     * has no group, so the nrllm_aitasks module check answers false.
+     */
+    #[Test]
+    public function decideApprovalRefusesAUserWithoutTheModuleInTheUsersLanguage(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
+        $this->setUpLanguageServiceFor('de');
+        // Conv 3 belongs to user 2.
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 3, 'approve' => true, 'turnDigest' => 'd'])));
+
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(403, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Keine Berechtigung, Freigaben zu entscheiden'], $body);
+    }
+
+    /**
+     * Same for error.decisionInFlight: the one refusal the chat renders behind
+     * its error prefix, because Retry is offered in the error branch only.
+     */
+    #[Test]
+    public function resumeConversationRefusesWhileADecisionIsInFlightInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceFor('de');
+        // Conv 2 is 'processing' — resumable — and gets a recorded decision the
+        // worker has not carried out yet.
+        $conversation = $this->repository->findOneByUidAndBeUser(2, 1);
+        self::assertNotNull($conversation);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $conversation->recordApprovalDecision(true, 'digest-abc');
+        $this->repository->update($conversation);
+
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 2])));
+
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Eine Freigabeentscheidung für diesen Chat wird noch ausgeführt'], $body);
+    }
+
+    /**
+     * The refusal a Retry from a stale card hits: the other refusals of the
+     * approval endpoints are pinned to the file by LocallangChatParityTest's
+     * scan of the translate() keys, so one real round trip stands for them.
+     */
+    #[Test]
+    public function resumeConversationRefusesAnIdleConversationInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceFor('de');
+        // Conv 1 is 'idle' — not resumable.
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 1])));
+
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Der Chat lässt sich nicht fortsetzen'], $body);
+    }
+
+    /**
+     * What BackendUserAuthenticator does for a backend request whose user has
+     * this language in be_users.lang.
+     */
+    private function setUpLanguageServiceFor(string $language): void
+    {
+        $backendUser = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $backendUser);
+        $backendUser->user['lang'] = $language;
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
     }
 
     /**

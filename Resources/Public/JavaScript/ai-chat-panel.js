@@ -1597,26 +1597,32 @@ export class AiChatPanel extends LitElement {
             `;
         }
 
-        if (!this.chat.errorMessage) {
+        // The pending state is gated by the status, not by the field: the pause
+        // stores no sentence (NEXT-159 — a stored one is frozen in the language
+        // of the moment it was written), and a run handed back by reconcile()
+        // carries an empty field too.
+        if (!this.chat.errorMessage && this.chat.status !== 'awaiting_approval') {
             return nothing;
         }
 
         if (this.chat.status === 'awaiting_approval') {
+            // The field holds a reason only when the runtime refused a decision
+            // and handed the run back; otherwise the label says what is pending.
             // No Retry here: restarting would step past an approval that is
-            // still pending.
+            // still pending. No Dismiss either: the notice follows the status,
+            // so clearing the field would not hide it, and the card it carries
+            // is where the decision is taken.
             return html`
                 <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
-                    ${lll('chat.approvalPending')}: ${this.chat.errorMessage}
+                    ${lll('chat.approvalPending')}: ${this.chat.errorMessage || lll('chat.approvalPendingDetail')}
                     ${this._renderApprovalCard()}
-                    <button class="btn btn-sm btn-icon" @click=${dismiss}
-                        style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
                 </div>
             `;
         }
 
         return html`
             <div class="message system" style="color:var(--nr-chat-status-danger, #c62828);">
-                Error: ${this.chat.errorMessage}
+                ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
                 ${isResumable ? html`
                     <button class="btn btn-sm" @click=${() => this.chat.handleResume()}
                         style="margin-left:8px;">${lll('chat.retry')}</button>

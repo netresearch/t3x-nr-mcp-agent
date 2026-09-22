@@ -64,16 +64,22 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
 *   ``COMPLETED`` -- append the final assistant answer
     (``ToolLoopResult::$finalContent``), set status ``idle`` and clear the
     error message. The clearing matters because the row is written whole:
-    without it the notice an earlier state of the same turn wrote -- the
-    pending-approval one above all -- survives the run that resolved it,
-    and a finished conversation goes on looking failed.
+    without it a message an earlier state of the same turn wrote -- the
+    reason a refused decision wrote back, above all -- survives the run
+    that resolved it, and a finished conversation goes on looking failed.
 *   ``AWAITING_APPROVAL`` -- set status ``awaiting_approval``, store the
-    run uuid for the link, and put a notice in the error-message field
-    saying an approval is pending. Not a failure: the run stopped before a
-    write and is waiting for a human. The notice says what is pending, not
-    where to grant it -- the decision is offered on the card directly
-    beneath it, and pointing past that into the AI Tasks module is what
-    led to the same write being approved twice.
+    run uuid for the link, and clear the error-message field. Not a
+    failure: the run stopped before a write and is waiting for a human.
+    No sentence is stored for the pause: the chat renders the notice from
+    the status, as the label ``chat.approvalPendingDetail`` in the
+    reader's language -- a stored sentence is frozen in the language of
+    the moment it was written (NEXT-159). The field is not always empty
+    in this state: when nr-llm refuses a recorded decision and hands the
+    run back still pending, the reason is written there and shown in
+    place of the label. The notice says what is pending, not where to
+    grant it -- the decision is offered on the card directly beneath it,
+    and pointing past that into the AI Tasks module is what led to the
+    same write being approved twice.
 *   any other outcome (``FAILED``, ``GUARDRAIL_BLOCKED``, …) -- set status
     ``failed`` with a sanitized reason taken from ``AgentRunResult::$error``
     or derived from the outcome. The mapping keeps a default arm because

@@ -109,6 +109,10 @@
                 <source>Waiting for approval</source>
                 <target>Freigabe ausstehend</target>
             </trans-unit>
+            <trans-unit id="chat.approvalPendingDetail" resname="chat.approvalPendingDetail">
+                <source>This step writes data and needs an approval before it runs.</source>
+                <target>Dieser Schritt schreibt Daten und braucht eine Freigabe, bevor er ausgeführt wird.</target>
+            </trans-unit>
             <trans-unit id="chat.approvalOpen" resname="chat.approvalOpen">
                 <source>Open the run in AI Tasks</source>
                 <target>Lauf in AI Tasks öffnen</target>
@@ -153,6 +157,10 @@
                 <source>This run cannot be read here. Open it in AI Tasks.</source>
                 <target>Dieser Lauf lässt sich hier nicht lesen. Im Modul AI Tasks öffnen.</target>
             </trans-unit>
+            <trans-unit id="chat.errorPrefix" resname="chat.errorPrefix">
+                <source>Error:</source>
+                <target>Fehler:</target>
+            </trans-unit>
             <trans-unit id="chat.retry" resname="chat.retry">
                 <source>Retry</source>
                 <target>Erneut versuchen</target>
@@ -184,7 +192,41 @@
                 <target>Tool-Ergebnis (klicken zum Aufklappen)</target>
             </trans-unit>
 
+            <!-- API refusals shown in the chat notice -->
+            <trans-unit id="error.approvalNotAllowed" resname="error.approvalNotAllowed">
+                <source>Not allowed to decide approvals</source>
+                <target>Keine Berechtigung, Freigaben zu entscheiden</target>
+            </trans-unit>
+            <trans-unit id="error.notAwaitingApproval" resname="error.notAwaitingApproval">
+                <source>Conversation is not waiting for an approval</source>
+                <target>Der Chat wartet nicht auf eine Freigabe</target>
+            </trans-unit>
+            <trans-unit id="error.decisionInFlight" resname="error.decisionInFlight">
+                <source>An approval decision for this conversation is still being carried out</source>
+                <target>Eine Freigabeentscheidung für diesen Chat wird noch ausgeführt</target>
+            </trans-unit>
+            <trans-unit id="error.conversationProcessing" resname="error.conversationProcessing">
+                <source>Conversation is already processing</source>
+                <target>Der Chat wird bereits verarbeitet</target>
+            </trans-unit>
+            <trans-unit id="error.notResumable" resname="error.notResumable">
+                <source>Conversation is not resumable</source>
+                <target>Der Chat lässt sich nicht fortsetzen</target>
+            </trans-unit>
+            <trans-unit id="error.conversationNotFound" resname="error.conversationNotFound">
+                <source>Conversation not found</source>
+                <target>Chat nicht gefunden</target>
+            </trans-unit>
+            <trans-unit id="error.accessDenied" resname="error.accessDenied">
+                <source>Access denied</source>
+                <target>Zugriff verweigert</target>
+            </trans-unit>
+
             <!-- Attachments -->
+            <trans-unit id="attachment.attach" resname="attachment.attach">
+                <source>Attach file</source>
+                <target>Datei anhängen</target>
+            </trans-unit>
             <trans-unit id="attachment.upload" resname="attachment.upload">
                 <source>Upload file</source>
                 <target>Datei hochladen</target>
@@ -224,6 +266,20 @@
             <trans-unit id="attachment.fileMissing" resname="attachment.fileMissing">
                 <source>File no longer available</source>
                 <target>Datei nicht mehr verfügbar</target>
+            </trans-unit>
+
+            <!-- FAL picker -->
+            <trans-unit id="fal_picker_label" resname="fal_picker_label">
+                <source>Select file</source>
+                <target>Datei auswählen</target>
+            </trans-unit>
+            <trans-unit id="fal_picker_unavailable" resname="fal_picker_unavailable">
+                <source>FAL picker is not available</source>
+                <target>Die Dateiauswahl ist nicht verfügbar</target>
+            </trans-unit>
+            <trans-unit id="fal_picker_popup_blocked" resname="fal_picker_popup_blocked">
+                <source>Popup was blocked. Please disable your popup blocker.</source>
+                <target>Das Popup wurde blockiert. Bitte deaktiviere deinen Popup-Blocker.</target>
             </trans-unit>
         </body>
     </file>

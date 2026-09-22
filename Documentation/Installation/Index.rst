@@ -44,6 +44,19 @@ After installation, run the database migrations:
 
     vendor/bin/typo3 database:updateschema
 
+Upgrading
+=========
+
+After updating the extension, run the schema update and the
+upgrade wizards. A release that has to correct stored rows
+ships a wizard and names it in the changelog:
+
+..  code-block:: bash
+
+    vendor/bin/typo3 database:updateschema
+    vendor/bin/typo3 upgrade:list
+    vendor/bin/typo3 upgrade:run
+
 DDEV development setup
 ======================
 
