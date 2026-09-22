@@ -45,8 +45,6 @@ final readonly class ChatApiController
 {
     private const ERROR_FILE_NOT_FOUND = 'File not found';
 
-    private const ERROR_CONVERSATION_PROCESSING = 'Conversation is already processing';
-
     private const LANGUAGE_FILE = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf';
 
     public function __construct(
@@ -193,7 +191,7 @@ final readonly class ChatApiController
         if ($afterIndex > 0) {
             $meta = $this->repository->findPollStatus($uid, $this->getBeUserUid());
             if ($meta === null) {
-                return new JsonResponse(['error' => 'Conversation not found'], 404);
+                return new JsonResponse(['error' => $this->translate('error.conversationNotFound')], 404);
             }
 
             // The stuck case writes no message, so the fast path is exactly where
@@ -299,7 +297,7 @@ final readonly class ChatApiController
         $currentStatus = $conversation->getStatus();
         if (in_array($currentStatus, [ConversationStatus::Processing, ConversationStatus::Locked, ConversationStatus::ToolLoop], true)
         ) {
-            return new JsonResponse(['error' => self::ERROR_CONVERSATION_PROCESSING], 409);
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
         $maxActive = $this->config->getMaxActiveConversationsPerUser();
@@ -340,7 +338,7 @@ final readonly class ChatApiController
         // preventing race conditions with concurrent requests or worker dequeue.
         $claimed = $this->repository->updateIf($conversation, $currentStatus);
         if (!$claimed) {
-            return new JsonResponse(['error' => self::ERROR_CONVERSATION_PROCESSING], 409);
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
         $this->processor->dispatch($conversation->getUid());
@@ -487,11 +485,14 @@ final readonly class ChatApiController
 
     /**
      * A label from the chat's language file, for the refusals the chat shows
-     * verbatim in its status notice (NEXT-159): the two decide refusals under
-     * the pending label while the card is still on screen — chat-core.js keeps
-     * the status at awaiting_approval when decideApproval() fails — and the
-     * resume refusal behind the error prefix, because Retry is offered in the
-     * error branch only.
+     * verbatim in its status notice (NEXT-159): every refusal decideApproval()
+     * and resumeConversation() can return, the shared checkAccess() and
+     * findConversationOrFail() included. The decide refusals render under the
+     * pending label while the card is still on screen — chat-core.js keeps the
+     * status at awaiting_approval when decideApproval() fails — and the resume
+     * refusals behind the error prefix, because Retry is offered in the error
+     * branch only. The processing 409 is one unit on every endpoint that
+     * claims the row, so sendMessage() shares it.
      *
      * $GLOBALS['LANG'] is the LanguageService BackendUserAuthenticator creates
      * from the user's preferences for every backend request, AJAX routes
@@ -607,7 +608,7 @@ final readonly class ChatApiController
         $turnDigest = is_string($digest) ? $digest : '';
 
         if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest)) {
-            return new JsonResponse(['error' => self::ERROR_CONVERSATION_PROCESSING], 409);
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
         $this->processor->dispatch($conversation->getUid());
@@ -634,7 +635,7 @@ final readonly class ChatApiController
         }
 
         if (!$conversation->isResumable()) {
-            return new JsonResponse(['error' => 'Conversation is not resumable'], 400);
+            return new JsonResponse(['error' => $this->translate('error.notResumable')], 400);
         }
 
         // A recorded decision is work in flight, not a stuck turn. Processing is
@@ -662,7 +663,7 @@ final readonly class ChatApiController
         // Atomic CAS: write full row only if status still matches.
         $claimed = $this->repository->updateIf($conversation, $currentStatus);
         if (!$claimed) {
-            return new JsonResponse(['error' => self::ERROR_CONVERSATION_PROCESSING], 409);
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
         $this->processor->dispatch($conversation->getUid());
@@ -752,7 +753,7 @@ final readonly class ChatApiController
         $conversation = $this->repository->findOneByUidAndBeUser($uid, $this->getBeUserUid());
 
         if ($conversation === null) {
-            return new JsonResponse(['error' => 'Conversation not found'], 404);
+            return new JsonResponse(['error' => $this->translate('error.conversationNotFound')], 404);
         }
 
         return $conversation;
@@ -781,7 +782,7 @@ final readonly class ChatApiController
             return null;
         }
 
-        return new JsonResponse(['error' => 'Access denied'], 403);
+        return new JsonResponse(['error' => $this->translate('error.accessDenied')], 403);
     }
 
     /**

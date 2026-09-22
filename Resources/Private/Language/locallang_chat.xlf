@@ -157,6 +157,18 @@
             <trans-unit id="error.decisionInFlight" resname="error.decisionInFlight">
                 <source>An approval decision for this conversation is still being carried out</source>
             </trans-unit>
+            <trans-unit id="error.conversationProcessing" resname="error.conversationProcessing">
+                <source>Conversation is already processing</source>
+            </trans-unit>
+            <trans-unit id="error.notResumable" resname="error.notResumable">
+                <source>Conversation is not resumable</source>
+            </trans-unit>
+            <trans-unit id="error.conversationNotFound" resname="error.conversationNotFound">
+                <source>Conversation not found</source>
+            </trans-unit>
+            <trans-unit id="error.accessDenied" resname="error.accessDenied">
+                <source>Access denied</source>
+            </trans-unit>
 
             <!-- Attachments -->
             <trans-unit id="attachment.attach" resname="attachment.attach">

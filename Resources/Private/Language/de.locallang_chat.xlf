@@ -205,6 +205,22 @@
                 <source>An approval decision for this conversation is still being carried out</source>
                 <target>Eine Freigabeentscheidung für diesen Chat wird noch ausgeführt</target>
             </trans-unit>
+            <trans-unit id="error.conversationProcessing" resname="error.conversationProcessing">
+                <source>Conversation is already processing</source>
+                <target>Der Chat wird bereits verarbeitet</target>
+            </trans-unit>
+            <trans-unit id="error.notResumable" resname="error.notResumable">
+                <source>Conversation is not resumable</source>
+                <target>Der Chat lässt sich nicht fortsetzen</target>
+            </trans-unit>
+            <trans-unit id="error.conversationNotFound" resname="error.conversationNotFound">
+                <source>Conversation not found</source>
+                <target>Chat nicht gefunden</target>
+            </trans-unit>
+            <trans-unit id="error.accessDenied" resname="error.accessDenied">
+                <source>Access denied</source>
+                <target>Zugriff verweigert</target>
+            </trans-unit>
 
             <!-- Attachments -->
             <trans-unit id="attachment.attach" resname="attachment.attach">

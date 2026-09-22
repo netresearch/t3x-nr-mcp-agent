@@ -149,6 +149,9 @@ class ChatApiControllerTest extends TestCase
     #[Test]
     public function sendMessageRejectsAlreadyProcessingConversation(): void
     {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationProcessing' => 'Der Chat wird bereits verarbeitet',
+        ]);
         $conversation = new Conversation();
         $conversation->setStatus(ConversationStatus::Processing);
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
@@ -157,6 +160,7 @@ class ChatApiControllerTest extends TestCase
         $response = $this->subject->sendMessage($request);
 
         self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['error' => 'Der Chat wird bereits verarbeitet'], json_decode((string) $response->getBody(), true));
     }
 
     #[Test]
@@ -458,9 +462,17 @@ class ChatApiControllerTest extends TestCase
         self::assertSame('LLM timeout', $data['errorMessage']);
     }
 
+    /**
+     * The same 409 reason on every endpoint that claims the row: one unit
+     * (NEXT-159). The stub answers German so the case tells the label apart
+     * from the English literal it replaced.
+     */
     #[Test]
     public function sendMessageReturnsConflictWhenCasFails(): void
     {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationProcessing' => 'Der Chat wird bereits verarbeitet',
+        ]);
         $repository = $this->createMock(ConversationRepository::class);
         $repository->method('updateIf')->willReturn(false);
         $repository->method('countActiveByBeUser')->willReturn(0);
@@ -473,8 +485,7 @@ class ChatApiControllerTest extends TestCase
         $response = $subject->sendMessage($request);
 
         self::assertSame(409, $response->getStatusCode());
-        $data = json_decode((string) $response->getBody(), true);
-        self::assertStringContainsString('already processing', $data['error']);
+        self::assertSame(['error' => 'Der Chat wird bereits verarbeitet'], json_decode((string) $response->getBody(), true));
     }
 
     #[Test]
@@ -720,6 +731,107 @@ class ChatApiControllerTest extends TestCase
     }
 
     /**
+     * The other refusals the two approval endpoints can return reach the same
+     * notice by the same path: a decision that lost the race against a second
+     * approver's click, a Retry on a conversation that is not resumable or
+     * whose claim lost the race, a conversation deleted between poll and
+     * click, and a user outside the allowed groups.
+     */
+    #[Test]
+    public function decidingWhenTheDecisionLostTheRaceIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationProcessing' => 'Der Chat wird bereits verarbeitet',
+        ]);
+        $backendUser = $this->createMock(BackendUserAuthentication::class);
+        $backendUser->user = ['uid' => 1, 'usergroup' => '1,2'];
+        $backendUser->method('isAdmin')->willReturn(true);
+        $GLOBALS['BE_USER'] = $backendUser;
+
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->method('recordDecision')->willReturn(false);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "approve": true, "turnDigest": "d"}');
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['error' => 'Der Chat wird bereits verarbeitet'], json_decode((string) $response->getBody(), true));
+    }
+
+    #[Test]
+    public function retryingAConversationThatIsNotResumableIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.notResumable' => 'Der Chat lässt sich nicht fortsetzen',
+        ]);
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Idle);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertSame(['error' => 'Der Chat lässt sich nicht fortsetzen'], json_decode((string) $response->getBody(), true));
+    }
+
+    #[Test]
+    public function retryingWhenTheClaimLostTheRaceIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationProcessing' => 'Der Chat wird bereits verarbeitet',
+        ]);
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateIf')->willReturn(false);
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Failed);
+        $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $subject = new ChatApiController($repository, $this->processor, $this->config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $subject->resumeConversation($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['error' => 'Der Chat wird bereits verarbeitet'], json_decode((string) $response->getBody(), true));
+    }
+
+    #[Test]
+    public function decidingOnAnUnknownConversationIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationNotFound' => 'Chat nicht gefunden',
+        ]);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn(null);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 999, "approve": true, "turnDigest": "d"}');
+        $response = $this->subject->decideApproval($request);
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertSame(['error' => 'Chat nicht gefunden'], json_decode((string) $response->getBody(), true));
+    }
+
+    #[Test]
+    public function decidingOutsideTheAllowedGroupsIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.accessDenied' => 'Zugriff verweigert',
+        ]);
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([99]);
+        $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1, "approve": true, "turnDigest": "d"}');
+        $response = $subject->decideApproval($request);
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame(['error' => 'Zugriff verweigert'], json_decode((string) $response->getBody(), true));
+    }
+
+    /**
      * @param array<string, string> $labels translation per full LLL reference
      */
     private function setUpLanguageServiceAnswering(array $labels): void
@@ -826,12 +938,16 @@ class ChatApiControllerTest extends TestCase
     #[Test]
     public function getMessagesFastPathReturns404WhenPollStatusNull(): void
     {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationNotFound' => 'Chat nicht gefunden',
+        ]);
         $this->repository->method('findPollStatus')->willReturn(null);
 
         $request = $this->createRequest('GET', '', ['conversationUid' => '999', 'after' => '1']);
         $response = $this->subject->getMessages($request);
 
         self::assertSame(404, $response->getStatusCode());
+        self::assertSame(['error' => 'Chat nicht gefunden'], json_decode((string) $response->getBody(), true));
     }
 
     #[Test]
@@ -1010,14 +1126,16 @@ class ChatApiControllerTest extends TestCase
     #[Test]
     public function sendMessageReturns404WhenConversationNotFound(): void
     {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationNotFound' => 'Chat nicht gefunden',
+        ]);
         $this->repository->method('findOneByUidAndBeUser')->willReturn(null);
 
         $request = $this->createRequest('POST', '{"conversationUid": 999, "content": "Hello"}');
         $response = $this->subject->sendMessage($request);
 
         self::assertSame(404, $response->getStatusCode());
-        $data = json_decode((string) $response->getBody(), true);
-        self::assertStringContainsString('not found', $data['error']);
+        self::assertSame(['error' => 'Chat nicht gefunden'], json_decode((string) $response->getBody(), true));
     }
 
     #[Test]

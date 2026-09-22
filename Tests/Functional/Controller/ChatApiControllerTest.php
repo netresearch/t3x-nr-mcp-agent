@@ -410,6 +410,7 @@ class ChatApiControllerTest extends FunctionalTestCase
     #[Test]
     public function resumeConversationReturns400WhenNotResumable(): void
     {
+        $this->setUpLanguageServiceFor('default');
         // Conv 1 is 'idle' — not resumable (only error/timeout states are resumable)
         $request = (new ServerRequest('/', 'POST'))
             ->withBody($this->streamFor(json_encode(['conversationUid' => 1])));
@@ -418,7 +419,7 @@ class ChatApiControllerTest extends FunctionalTestCase
 
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string) $response->getBody(), true);
-        self::assertStringContainsString('not resumable', $body['error']);
+        self::assertSame(['error' => 'Conversation is not resumable'], $body);
     }
 
     /**
@@ -509,6 +510,26 @@ class ChatApiControllerTest extends FunctionalTestCase
         self::assertSame(409, $response->getStatusCode());
         $body = json_decode((string) $response->getBody(), true);
         self::assertSame(['error' => 'Eine Freigabeentscheidung für diesen Chat wird noch ausgeführt'], $body);
+    }
+
+    /**
+     * The refusal a Retry from a stale card hits: the other refusals of the
+     * approval endpoints are pinned to the file by LocallangChatParityTest's
+     * scan of the translate() keys, so one real round trip stands for them.
+     */
+    #[Test]
+    public function resumeConversationRefusesAnIdleConversationInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceFor('de');
+        // Conv 1 is 'idle' — not resumable.
+        $request = (new ServerRequest('/', 'POST'))
+            ->withBody($this->streamFor(json_encode(['conversationUid' => 1])));
+
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertSame(['error' => 'Der Chat lässt sich nicht fortsetzen'], $body);
     }
 
     /**
