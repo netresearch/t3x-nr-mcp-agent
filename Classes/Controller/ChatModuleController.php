@@ -24,7 +24,8 @@ final readonly class ChatModuleController
         // The module page registers the labels itself. lll() falls back to
         // top.TYPO3.lang, where the toolbar item puts them, but a user for whom
         // ChatToolbarItem::checkAccess() fails has no toolbar item and would see
-        // raw keys here.
+        // empty labels here: lll() answers an empty string for a key neither
+        // frame carries.
         $this->pageRenderer->addInlineLanguageLabelFile('EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf');
         $this->pageRenderer->addCssFile('EXT:nr_mcp_agent/Resources/Public/Css/chat.css');
 

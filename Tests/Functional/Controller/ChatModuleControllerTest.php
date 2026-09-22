@@ -62,8 +62,9 @@ class ChatModuleControllerTest extends FunctionalTestCase
      * The module used to rely on the toolbar item's registration of the label
      * file: lll() falls back to top.TYPO3.lang, and the toolbar had put the
      * labels there. A user for whom ChatToolbarItem::checkAccess() fails — the
-     * chat restricted to groups they are not in — saw raw keys in the module
-     * (NEXT-159). The module page carries the labels itself.
+     * chat restricted to groups they are not in — saw empty labels in the
+     * module (NEXT-159): lll() answers an empty string for a key neither frame
+     * carries. The module page carries the labels itself.
      */
     #[Test]
     public function indexActionRegistersTheChatLabelsOnTheModulePage(): void
