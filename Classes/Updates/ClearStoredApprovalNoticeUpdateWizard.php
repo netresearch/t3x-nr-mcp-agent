@@ -33,8 +33,13 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * these words. The necessity check and the update share one predicate, so
  * the wizard reports done exactly when it has nothing left to clear.
  *
- * The TYPO3\CMS\Install namespace is the one v13 has; on v14 it is a working
- * alias of the core classes, deprecated for removal in v15.
+ * The TYPO3\CMS\Install namespace is the one v13 has. On v14 the three names
+ * are deprecated subclasses (the interface a sub-interface) of the core
+ * classes, shipped under cms-core/DeprecatedClasses and removed in v15; the
+ * attribute is recognised by Symfony's attribute autoconfiguration through
+ * its parent class, which is what tags the wizard. A class_alias would not
+ * be: the autoconfiguration matches the literal attribute name and then
+ * walks the parent chain, and an alias has no parent of its own.
  */
 #[UpgradeWizard('nrMcpAgent_clearStoredApprovalNotice')]
 final readonly class ClearStoredApprovalNoticeUpdateWizard implements UpgradeWizardInterface
