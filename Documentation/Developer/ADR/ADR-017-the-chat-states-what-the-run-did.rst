@@ -77,7 +77,8 @@ waits for an approval and the whole message is one of a short, explicit list of
 before anything is written:
 
 -   still waiting: nothing is stored and no run starts; the reader is told
-    that the decision is taken on the card;
+    that the decision is taken on the card — or in AI Tasks, for a reader who
+    may not decide in the chat and therefore gets no card;
 -   decided elsewhere and still running: the same answer as any busy
     conversation;
 -   decided elsewhere and finished: the message is stored together with a note

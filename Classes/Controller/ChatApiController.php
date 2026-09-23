@@ -517,7 +517,11 @@ final readonly class ChatApiController
         $pending = $this->chatApproval->inspectPendingRun($conversation);
 
         if ($pending['state'] === ChatApprovalInterface::PENDING_RUN_WAITING) {
-            return new JsonResponse(['error' => $this->translate('error.approvalStillPending')], 409);
+            // Only a reader who may decide gets the card (buildPendingApproval),
+            // so only they are sent to it.
+            return new JsonResponse([
+                'error' => $this->translate($this->mayDecideApprovals() ? 'error.approvalStillPending' : 'error.approvalStillPendingElsewhere'),
+            ], 409);
         }
 
         if ($pending['state'] === ChatApprovalInterface::PENDING_RUN_BUSY) {

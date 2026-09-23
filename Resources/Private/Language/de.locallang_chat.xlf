@@ -277,6 +277,10 @@
                 <source>This step is still waiting for a decision. Approve or deny it on the card — a message does not approve it.</source>
                 <target>Dieser Schritt wartet noch auf eine Entscheidung. Bitte auf der Karte freigeben oder ablehnen – eine Nachricht erteilt keine Freigabe.</target>
             </trans-unit>
+            <trans-unit id="error.approvalStillPendingElsewhere" resname="error.approvalStillPendingElsewhere">
+                <source>This step is still waiting for an approval in AI Tasks — a message does not approve it.</source>
+                <target>Dieser Schritt wartet noch auf eine Freigabe in AI Tasks – eine Nachricht erteilt keine Freigabe.</target>
+            </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
                 <target>Der KI-Anbieter ist nicht eingerichtet. Bitte an die Administration wenden.</target>

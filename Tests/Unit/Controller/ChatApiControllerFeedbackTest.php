@@ -238,6 +238,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
     #[Test]
     public function goingOnWhileTheRunStillWaitsStartsNoRunAndKeepsTheCard(): void
     {
+        $this->setUpBackendUser(isAdmin: true);
         $conversation = $this->parked();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
         $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_WAITING, 'writes' => []]);
@@ -280,6 +281,22 @@ final class ChatApiControllerFeedbackTest extends TestCase
         self::assertSame(['user', 'habe alles freigegeben'], [$messages[1]['role'], $messages[1]['content']]);
         self::assertSame('assistant', $messages[2]['role']);
         self::assertSame('chat.runFinishedOutside pages:10073, tt_content:10077', $messages[2]['content']);
+    }
+
+    /**
+     * A reader who may not decide approvals gets no card, so the hint cannot
+     * send them to one.
+     */
+    #[Test]
+    public function aReaderWithoutTheCardIsSentToAiTasksInstead(): void
+    {
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($this->parked());
+        $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_WAITING, 'writes' => []]);
+
+        $response = $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "weiter"}'));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('error.approvalStillPendingElsewhere', $this->json($response)['error']);
     }
 
     #[Test]
