@@ -179,18 +179,19 @@ The system prompt is composed in this order:
     combined (separated by a blank line). Configure these in
     the TYPO3 backend to provide tool usage instructions or
     persona definitions. Always included.
-3.  **Conversation-level prompt** -- If a conversation has a
-    custom ``system_prompt`` set, it is appended after the
-    Configuration/Task prompts, labelled as the user's and
-    ranked below them: the administrator's instructions stay
-    in force (NEXT-172).
-
-4.  **Site-language context** -- appended in every case.
-5.  **User context** (``UserContextPrompt``) -- appended in every
+3.  **Site-language context** -- appended in every case.
+4.  **User context** (``UserContextPrompt``) -- appended in every
     case: the answer language (the backend user's ``lang``; a
     language the message explicitly asks for wins), the open
     module and the selected page with uid and title, the page
     only if the user may show it.
+5.  **Conversation-level prompt** -- If a conversation has a
+    custom ``system_prompt`` set, it comes last, between
+    ``<user_instructions>`` markers (which are stripped from the
+    text itself), and the model is told to follow it only where
+    it does not contradict the rest of the prompt: the
+    administrator's instructions and the language rules stay in
+    force (NEXT-172).
 
 Configuration resolution
 -------------------------
