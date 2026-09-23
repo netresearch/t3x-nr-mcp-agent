@@ -13,6 +13,7 @@ use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Localization\Locale;
 use TYPO3\CMS\Core\Localization\Locales;
 
 /**
@@ -44,7 +45,7 @@ final class UserContextPromptTest extends TestCase
         return $conversation;
     }
 
-    private function subject(?ModuleProvider $moduleProvider = null): UserContextPrompt
+    private function subject(?ModuleProvider $moduleProvider = null, ?Locales $locales = null): UserContextPrompt
     {
         $languageService = $this->createStub(LanguageService::class);
         $languageService->method('sL')->willReturnCallback(
@@ -53,7 +54,7 @@ final class UserContextPromptTest extends TestCase
         $factory = $this->createStub(LanguageServiceFactory::class);
         $factory->method('createFromUserPreferences')->willReturn($languageService);
 
-        return new UserContextPrompt(new Locales(), $moduleProvider ?? $this->createStub(ModuleProvider::class), $factory);
+        return new UserContextPrompt($locales ?? new Locales(), $moduleProvider ?? $this->createStub(ModuleProvider::class), $factory);
     }
 
     #[Test]
@@ -73,7 +74,22 @@ final class UserContextPromptTest extends TestCase
     {
         $this->actingAs(1, '');
 
-        self::assertStringContainsString('(en)', $this->subject()->build($this->conversationOf(1)));
+        self::assertStringContainsString('backend is set to English (en)', $this->subject()->build($this->conversationOf(1)));
+    }
+
+    /**
+     * TYPO3 13 keys English as "default" in its language list, 14 as "en";
+     * the prompt must name it either way instead of saying "en (en)".
+     */
+    #[Test]
+    public function englishIsNamedWhereTheLanguageListKeysItAsDefault(): void
+    {
+        $this->actingAs(1, '');
+        $locales = $this->createStub(Locales::class);
+        $locales->method('createLocaleFromUserPreferences')->willReturn(new Locale('en'));
+        $locales->method('getLanguages')->willReturn(['default' => 'English', 'de' => 'German']);
+
+        self::assertStringContainsString('backend is set to English (en)', $this->subject(locales: $locales)->build($this->conversationOf(1)));
     }
 
     #[Test]

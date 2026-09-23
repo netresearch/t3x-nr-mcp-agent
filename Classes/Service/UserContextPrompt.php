@@ -62,7 +62,9 @@ readonly class UserContextPrompt
     {
         $locale = $this->locales->createLocaleFromUserPreferences($user);
         $code = strtolower($locale->getLanguageCode());
-        $name = $this->locales->getLanguages()[$code] ?? $code;
+        $languages = $this->locales->getLanguages();
+        // TYPO3 13 keys English as "default", 14 as "en".
+        $name = $languages[$code] ?? ($code === 'en' ? ($languages['default'] ?? 'English') : $code);
 
         return sprintf(
             "Answer language: the user's TYPO3 backend is set to %s (%s). Write your replies in %s, whatever"
