@@ -83,10 +83,20 @@ Consequences
     repository's part.
 -   A legacy value that is not a JSON list — such a conversation could not
     be opened before either — is not destroyed by the wizard: it stays in
-    the column behind the prefix ``!undecodable:``, which the wizard skips.
--   Both tables must live on the same database connection for the
-    transaction to cover them — the TYPO3 default. An installation that maps
-    ``tx_nrmcpagent_message`` to another connection loses the atomicity.
+    the column behind the prefix ``!undecodable:``, which the wizard skips
+    and no later save clears. The conversation is marked failed and
+    archived and opens with an empty transcript instead of erroring.
+-   The wizard selects uids only and moves each transcript in its own
+    transaction. Its claim is a conditional write (``WHERE messages =`` the
+    value it read), taken before anything else, so a chat save that
+    happened after the read is never overwritten by the older value.
+-   Both tables must live on the same database connection. The repository
+    writes both through the conversation table's connection, and the
+    orphan sweep and the migration query them together; mapping
+    ``tx_nrmcpagent_message`` to another connection in
+    ``$GLOBALS['TYPO3_CONF_VARS']['DB']['TableMapping']`` breaks reads and
+    writes of the transcript, not only their atomicity. It is not
+    supported.
 -   The ``messages`` column stays in the schema, empty after the wizard; it
     can be dropped in a later release once no installation needs the
     fallback.

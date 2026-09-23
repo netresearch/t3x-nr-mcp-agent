@@ -257,6 +257,57 @@ final class MessageTableTest extends FunctionalTestCase
         self::assertFalse($wizard->updateNecessary());
         self::assertSame(ConversationRepository::UNDECODABLE_MARKER . '[{"role":"user"', $this->legacyColumn($uid));
         self::assertSame([], $this->messageRows($uid));
+
+        // It opens (empty, failed, archived) instead of erroring on every request.
+        $conversation = $this->subject->findByUid($uid);
+        self::assertNotNull($conversation);
+        self::assertSame([], $conversation->getDecodedMessages());
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertTrue($conversation->isArchived());
+
+        // And a later save keeps the preserved value.
+        $conversation->appendMessage(MessageRole::User, 'new start');
+        $this->subject->update($conversation);
+        self::assertSame(ConversationRepository::UNDECODABLE_MARKER . '[{"role":"user"', $this->legacyColumn($uid));
+        self::assertCount(1, $this->messageRows($uid));
+    }
+
+    /**
+     * The wizard read a value, and the column changed before it moved it.
+     * Moving the value it read would replace the newer transcript.
+     */
+    #[Test]
+    public function aTranscriptThatChangedAfterItWasReadIsNotMoved(): void
+    {
+        $uid = $this->legacyConversation([['role' => 'user', 'content' => 'current']]);
+        $stale = json_encode([['role' => 'user', 'content' => 'stale']], JSON_THROW_ON_ERROR);
+
+        self::assertFalse($this->subject->moveLegacyTranscript($uid, $stale));
+
+        self::assertSame([], $this->messageRows($uid));
+        self::assertStringContainsString('current', $this->legacyColumn($uid));
+    }
+
+    /**
+     * The chat saved the conversation between the wizard reading its value
+     * and moving it: the save's rows stand, the wizard does nothing.
+     */
+    #[Test]
+    public function aTranscriptSavedByTheChatMeanwhileIsLeftAlone(): void
+    {
+        $uid = $this->legacyConversation([['role' => 'user', 'content' => 'old']]);
+        $readByTheWizard = $this->legacyColumn($uid);
+
+        $conversation = $this->subject->findByUid($uid);
+        self::assertNotNull($conversation);
+        $conversation->appendMessage(MessageRole::User, 'saved meanwhile');
+        $this->subject->update($conversation);
+
+        self::assertFalse($this->subject->moveLegacyTranscript($uid, $readByTheWizard));
+        self::assertSame(['old', 'saved meanwhile'], array_map(
+            static fn(array $row): mixed => json_decode((string) $row['payload'], true)['content'] ?? null,
+            $this->messageRows($uid),
+        ));
     }
 
     #[Test]

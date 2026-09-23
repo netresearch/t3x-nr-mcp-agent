@@ -36,7 +36,7 @@ readonly class ConversationRepository
     private const TRANSACTION_ATTEMPTS = 3;
 
     /** Prefix of a legacy transcript the upgrade wizard could not decode and left in place. */
-    public const UNDECODABLE_MARKER = '!undecodable:';
+    public const UNDECODABLE_MARKER = Conversation::UNDECODABLE_MARKER;
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -125,6 +125,7 @@ readonly class ConversationRepository
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $data = $this->rowData($conversation);
+        $data['messages'] = '';
         $data['crdate'] = $data['tstamp'];
         $data['pid'] = 0;
         // A new row races nobody, so the instructions are written with it;
@@ -147,6 +148,7 @@ readonly class ConversationRepository
         $this->transactional($conn, function () use ($conn, $conversation): void {
             $conn->update(self::TABLE, $this->rowData($conversation), ['uid' => $conversation->getUid()]);
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
+            $this->clearLegacyColumn($conn, $conversation->getUid());
         });
     }
 
@@ -306,6 +308,7 @@ readonly class ConversationRepository
             }
 
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
+            $this->clearLegacyColumn($conn, $conversation->getUid());
 
             return true;
         });
@@ -483,6 +486,10 @@ readonly class ConversationRepository
                 if ($attempt >= $attempts) {
                     throw $e;
                 }
+
+                // A short, growing, jittered pause: restarting at once tends
+                // to meet the other transaction again.
+                usleep(random_int(5, 25) * 1000 * $attempt);
             } catch (Throwable $e) {
                 $this->rollBackIfActive($conn);
                 throw $e;
@@ -527,6 +534,19 @@ readonly class ConversationRepository
     }
 
     /**
+     * Empty the legacy column once the transcript is in the message table —
+     * unless it holds a value the wizard could not decode, which is kept for
+     * inspection behind its marker.
+     */
+    private function clearLegacyColumn(Connection $conn, int $uid): void
+    {
+        $conn->executeStatement(
+            'UPDATE ' . self::TABLE . " SET messages = '' WHERE uid = ? AND messages <> '' AND messages NOT LIKE ?",
+            [$uid, self::UNDECODABLE_MARKER . '%'],
+        );
+    }
+
+    /**
      * The conversation row as written: everything the model serialises, the
      * transcript excepted — that goes to the message table, and the legacy
      * column is emptied so it can never be read in place of the rows.
@@ -536,7 +556,9 @@ readonly class ConversationRepository
     private function rowData(Conversation $conversation): array
     {
         $data = $conversation->toRow();
-        $data['messages'] = '';
+        // The transcript goes to the message table; the legacy column is
+        // cleared by clearLegacyColumn(), which leaves a marked value alone.
+        unset($data['messages']);
         $data['tstamp'] = time();
 
         return $data;
@@ -563,16 +585,17 @@ readonly class ConversationRepository
     }
 
     /**
-     * Move up to $limit legacy transcripts into the message table, one
-     * conversation per transaction. A conversation that already has message
-     * rows keeps them — they were written later than the column — and only
-     * loses the stale copy. Returns the number of conversations handled.
+     * Move up to $limit legacy transcripts into the message table. Only the
+     * uids are selected here; each transcript is read and moved in its own
+     * transaction (moveLegacyTranscript()), so a batch never holds more than
+     * one mediumtext value in memory. Returns the number of conversations
+     * handled.
      */
     public function migrateLegacyTranscripts(int $limit): int
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->getRestrictions()->removeAll();
-        $rows = $qb->select('uid', 'messages')
+        $uids = $qb->select('uid')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->neq('messages', $qb->createNamedParameter('')),
@@ -581,33 +604,79 @@ readonly class ConversationRepository
             ->orderBy('uid')
             ->setMaxResults($limit)
             ->executeQuery()
-            ->fetchAllAssociative();
+            ->fetchFirstColumn();
 
-        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
-        foreach ($rows as $row) {
-            $uid = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
-            $blob = is_string($row['messages'] ?? null) ? $row['messages'] : '';
-
-            $this->transactional($conn, function () use ($conn, $uid, $blob): void {
-                if ($this->loadMessages($uid) === []) {
-                    $messages = $this->decodeLegacyTranscript($blob);
-                    if ($messages === null) {
-                        // Not a JSON list: the conversation could not be
-                        // opened before either. Keep the value, marked, so
-                        // nothing is lost and the wizard does not pick it up
-                        // again.
-                        $conn->update(self::TABLE, ['messages' => self::UNDECODABLE_MARKER . $blob], ['uid' => $uid]);
-
-                        return;
-                    }
-
-                    $this->writeMessages($conn, $uid, $messages);
-                }
-
-                $conn->update(self::TABLE, ['messages' => ''], ['uid' => $uid]);
-            });
+        foreach ($uids as $uid) {
+            $uid = is_numeric($uid) ? (int) $uid : 0;
+            $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+            $qb->getRestrictions()->removeAll();
+            $blob = $qb->select('messages')
+                ->from(self::TABLE)
+                ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)))
+                ->executeQuery()
+                ->fetchOne();
+            // False when the chat saved it in the meantime, which moved it
+            // already; either way the row no longer qualifies.
+            $this->moveLegacyTranscript($uid, is_string($blob) ? $blob : '');
         }
 
-        return count($rows);
+        return count($uids);
+    }
+
+    /**
+     * Move one legacy transcript, $blob being the value read for it.
+     *
+     * The claim is a conditional write: the column is cleared (or marked)
+     * only if it still holds exactly $blob, and that write takes the row
+     * lock before anything else happens. A chat save that got there first
+     * has emptied the column, so the claim matches nothing and the save's
+     * rows are left alone; a save that comes later waits for this
+     * transaction. Without it, rows written by a save between reading $blob
+     * and writing the table would be replaced by the older transcript.
+     *
+     * Returns false when the value had changed and nothing was done.
+     *
+     * @internal public for the tests that interleave it with a save
+     */
+    public function moveLegacyTranscript(int $uid, string $blob): bool
+    {
+        if ($blob === '' || str_starts_with($blob, self::UNDECODABLE_MARKER)) {
+            return false;
+        }
+
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+
+        return $this->transactional($conn, function () use ($conn, $uid, $blob): bool {
+            $messages = $this->decodeLegacyTranscript($blob);
+            $claim = $messages === null
+                // Not a JSON list: the conversation could not be opened
+                // before either. The value is kept behind the marker, the
+                // conversation shows as failed and archived instead of
+                // erroring, and the wizard does not pick it up again.
+                ? [
+                    'messages' => self::UNDECODABLE_MARKER . $blob,
+                    'status' => ConversationStatus::Failed->value,
+                    'error_message' => 'The stored transcript of this conversation could not be read. It is kept unchanged for inspection.',
+                    'archived' => 1,
+                ]
+                : ['messages' => ''];
+
+            $affected = $conn->executeStatement(
+                'UPDATE ' . self::TABLE . ' SET ' . implode(', ', array_map(static fn(string $c): string => $c . ' = ?', array_keys($claim)))
+                . ' WHERE uid = ? AND messages = ?',
+                [...array_values($claim), $uid, $blob],
+            );
+            if ($affected === 0) {
+                return false;
+            }
+
+            // Rows the chat wrote later than the column are the newer
+            // transcript; they win over the legacy value.
+            if ($messages !== null && $this->loadMessages($uid) === []) {
+                $this->writeMessages($conn, $uid, $messages);
+            }
+
+            return true;
+        });
     }
 }

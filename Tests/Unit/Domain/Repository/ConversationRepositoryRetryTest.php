@@ -49,7 +49,10 @@ final class ConversationRepositoryRetryTest extends TestCase
         $level = 0;
         $connection = $this->trackingConnection($level);
         $calls = 0;
-        $connection->method('executeStatement')->willReturnCallback(function () use (&$calls): int {
+        $connection->method('executeStatement')->willReturnCallback(function (string $sql) use (&$calls): int {
+            if (!str_contains($sql, 'AND status = ?')) {
+                return 0; // clearing the legacy column
+            }
             if (++$calls === 1) {
                 throw $this->deadlock();
             }

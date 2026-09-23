@@ -15,6 +15,9 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
  */
 final class Conversation
 {
+    /** Prefix of a legacy transcript the upgrade wizard could not decode and left in place. */
+    public const UNDECODABLE_MARKER = '!undecodable:';
+
     private int $uid = 0;
 
     private int $beUser = 0;
@@ -186,7 +189,10 @@ final class Conversation
      */
     public function getDecodedMessages(): array
     {
-        if ($this->messages === '') {
+        // A legacy transcript the upgrade wizard could not decode is kept
+        // behind this marker (ADR-016); the conversation opens empty instead
+        // of failing on every request.
+        if ($this->messages === '' || str_starts_with($this->messages, self::UNDECODABLE_MARKER)) {
             return [];
         }
 
