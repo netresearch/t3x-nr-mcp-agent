@@ -79,6 +79,42 @@
                 <source>Archive this chat? You can find it later in the full chat module.</source>
                 <target>Diesen Chat archivieren? Du findest ihn später im Chat-Modul.</target>
             </trans-unit>
+            <trans-unit id="conversations.more" resname="conversations.more">
+                <source>More (%d)</source>
+                <target>Weitere (%d)</target>
+            </trans-unit>
+            <trans-unit id="conversations.moreTitle" resname="conversations.moreTitle">
+                <source>Show the conversations that do not fit in the row</source>
+                <target>Unterhaltungen anzeigen, die nicht in die Leiste passen</target>
+            </trans-unit>
+            <trans-unit id="conversations.search" resname="conversations.search">
+                <source>Search conversations</source>
+                <target>Unterhaltungen durchsuchen</target>
+            </trans-unit>
+            <trans-unit id="conversations.noMatch" resname="conversations.noMatch">
+                <source>No conversation matches</source>
+                <target>Keine Unterhaltung gefunden</target>
+            </trans-unit>
+            <trans-unit id="conversations.export" resname="conversations.export">
+                <source>Export conversation as Markdown</source>
+                <target>Unterhaltung als Markdown exportieren</target>
+            </trans-unit>
+            <trans-unit id="conversations.exportShort" resname="conversations.exportShort">
+                <source>Export</source>
+                <target>Exportieren</target>
+            </trans-unit>
+            <trans-unit id="export.roleUser" resname="export.roleUser">
+                <source>You</source>
+                <target>Du</target>
+            </trans-unit>
+            <trans-unit id="export.roleAssistant" resname="export.roleAssistant">
+                <source>Assistant</source>
+                <target>Assistent</target>
+            </trans-unit>
+            <trans-unit id="export.attachment" resname="export.attachment">
+                <source>Attachment</source>
+                <target>Anhang</target>
+            </trans-unit>
 
             <!-- Chat -->
             <trans-unit id="chat.selectOrCreate" resname="chat.selectOrCreate">
@@ -96,6 +132,10 @@
             <trans-unit id="chat.empty.hint" resname="chat.empty.hint" approved="yes">
                 <source>Earlier conversations stay in the list on the left.</source>
                 <target>Frühere Unterhaltungen bleiben links in der Liste.</target>
+            </trans-unit>
+            <trans-unit id="chat.empty.hintTabs" resname="chat.empty.hintTabs">
+                <source>Earlier conversations are in the row above; the ones that do not fit in it are under “More”.</source>
+                <target>Frühere Unterhaltungen stehen in der Leiste darüber; was dort keinen Platz hat, findest du unter „Weitere“.</target>
             </trans-unit>
             <trans-unit id="chat.notAvailable" resname="chat.notAvailable">
                 <source>Chat not available. Please contact your administrator.</source>

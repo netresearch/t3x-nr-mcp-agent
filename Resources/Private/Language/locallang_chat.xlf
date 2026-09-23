@@ -61,6 +61,33 @@
             <trans-unit id="conversations.archiveConfirm" resname="conversations.archiveConfirm">
                 <source>Archive this chat? You can find it later in the full chat module.</source>
             </trans-unit>
+            <trans-unit id="conversations.more" resname="conversations.more">
+                <source>More (%d)</source>
+            </trans-unit>
+            <trans-unit id="conversations.moreTitle" resname="conversations.moreTitle">
+                <source>Show the conversations that do not fit in the row</source>
+            </trans-unit>
+            <trans-unit id="conversations.search" resname="conversations.search">
+                <source>Search conversations</source>
+            </trans-unit>
+            <trans-unit id="conversations.noMatch" resname="conversations.noMatch">
+                <source>No conversation matches</source>
+            </trans-unit>
+            <trans-unit id="conversations.export" resname="conversations.export">
+                <source>Export conversation as Markdown</source>
+            </trans-unit>
+            <trans-unit id="conversations.exportShort" resname="conversations.exportShort">
+                <source>Export</source>
+            </trans-unit>
+            <trans-unit id="export.roleUser" resname="export.roleUser">
+                <source>You</source>
+            </trans-unit>
+            <trans-unit id="export.roleAssistant" resname="export.roleAssistant">
+                <source>Assistant</source>
+            </trans-unit>
+            <trans-unit id="export.attachment" resname="export.attachment">
+                <source>Attachment</source>
+            </trans-unit>
 
             <!-- Chat -->
             <trans-unit id="chat.selectOrCreate" resname="chat.selectOrCreate">
@@ -74,6 +101,9 @@
             </trans-unit>
             <trans-unit id="chat.empty.hint" resname="chat.empty.hint">
                 <source>Earlier conversations stay in the list on the left.</source>
+            </trans-unit>
+            <trans-unit id="chat.empty.hintTabs" resname="chat.empty.hintTabs">
+                <source>Earlier conversations are in the row above; the ones that do not fit in it are under “More”.</source>
             </trans-unit>
             <trans-unit id="chat.notAvailable" resname="chat.notAvailable">
                 <source>Chat not available. Please contact your administrator.</source>

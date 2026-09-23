@@ -1,10 +1,10 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
-import {ChatCoreController} from './chat-core.js';
+import {ChatCoreController, downloadTextFile} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD} from './icons.js';
 
 /**
  * <nr-chat-app> – Main chat application component.
@@ -654,6 +654,12 @@ export class ChatApp extends LitElement {
                 <button class="btn btn-sm" @click=${() => this.chat.handleTogglePin()}
                     title="${conv?.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                     ${conv?.pinned ? '\u{1F4CC}' : lll('conversations.pin')}
+                </button>
+                <button class="btn btn-sm" data-action="export"
+                    ?disabled=${!this.chat.canExport()}
+                    @click=${() => this.chat.canExport() && downloadTextFile(this.ownerDocument || document, this.chat.exportFileName(), this.chat.buildMarkdownExport())}
+                    title="${lll('conversations.export')}">
+                    ${ICON_DOWNLOAD(14)} ${lll('conversations.exportShort')}
                 </button>
                 <button class="btn btn-sm" @click=${() => this.chat.handleArchive()}>${lll('conversations.archive')}</button>
             </div>

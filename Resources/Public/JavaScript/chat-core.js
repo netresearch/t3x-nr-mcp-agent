@@ -5,6 +5,34 @@ import {renderMarkdown} from './markdown.js';
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
 /**
+ * Offer text to the reader as a file download.
+ *
+ * The anchor is created in the document the component lives in: a panel moved
+ * into its own window (popOut()) belongs to that window's document, and an
+ * anchor clicked in the other one would download nothing visible to the
+ * reader.
+ *
+ * @param {Document} doc
+ * @param {string} fileName
+ * @param {string} text
+ * @param {string} [type]
+ */
+export function downloadTextFile(doc, fileName, text, type = 'text/markdown;charset=utf-8') {
+    const view = doc.defaultView || globalThis;
+    const url = view.URL.createObjectURL(new view.Blob([text], {type}));
+    const a = doc.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    doc.body.append(a);
+    a.click();
+    a.remove();
+    // Revoked on the next task: revoking synchronously can cancel the
+    // download before the browser has started reading the blob.
+    view.setTimeout(() => view.URL.revokeObjectURL(url), 0);
+}
+
+/**
  * ChatCoreController – Lit ReactiveController that encapsulates all chat
  * business logic. The host component creates an instance via
  * `new ChatCoreController(this)` in its constructor.
@@ -22,6 +50,12 @@ export class ChatCoreController {
     conversations = [];
     activeUid = null;
     messages = [];
+    /**
+     * The conversation `messages` belongs to. Differs from activeUid while a
+     * switch is loading: the list still holds the previous conversation, and
+     * anything built from it (the export) must wait.
+     */
+    messagesUid = null;
     status = '';
     errorMessage = '';
 
@@ -210,10 +244,15 @@ export class ChatCoreController {
     }
 
     async loadMessages() {
-        if (!this.activeUid) return;
+        const uid = this.activeUid;
+        if (!uid) return;
         try {
-            const data = await this._api.getMessages(this.activeUid, 0);
+            const data = await this._api.getMessages(uid, 0);
+            // Switched away while this was loading: the answer is for a
+            // conversation no longer on screen.
+            if (uid !== this.activeUid) return;
             this.messages = data.messages || [];
+            this.messagesUid = uid;
             this.status = data.status;
             this.errorMessage = data.errorMessage || '';
             this.approvalUrl = data.approvalUrl || '';
@@ -637,6 +676,87 @@ export class ChatCoreController {
         if (!ts) return '';
         try {
             return new Intl.DateTimeFormat(undefined, {hour: '2-digit', minute: '2-digit'}).format(new Date(ts));
+        } catch {
+            return '';
+        }
+    }
+
+    /**
+     * The active conversation as a Markdown document.
+     *
+     * Built from the transcript the chat already holds — loadMessages() reads
+     * it from the start — so there is no export endpoint and nothing the reader
+     * could not already see. What goes in is what the chat shows as the
+     * conversation: user and assistant turns, with the name of an attached
+     * file. Tool results and assistant turns that only request a tool are left
+     * out, as are system notices; the chat collapses or hides those too, and
+     * in a document they would be noise rather than the conversation.
+     *
+     * @returns {string}
+     */
+    /** Whether the transcript on screen belongs to the active conversation. */
+    canExport() {
+        return this.activeUid !== null && this.messagesUid === this.activeUid;
+    }
+
+    buildMarkdownExport() {
+        if (!this.canExport()) return '';
+        const conv = this.getActiveConversation();
+        const title = conv?.title || lll('conversations.newConversation');
+        const parts = [`# ${title}`];
+
+        for (const msg of this.messages) {
+            const role = msg.role;
+            if (role !== 'user' && role !== 'assistant') continue;
+            if (role === 'assistant' && msg.tool_calls && !msg.content) continue;
+
+            const label = role === 'user' ? lll('export.roleUser') : lll('export.roleAssistant');
+            const time = this._formatExportTime(msg.createdAt);
+            parts.push(time ? `## ${label} · ${time}` : `## ${label}`);
+            if (msg.fileName) {
+                parts.push(`*${lll('export.attachment')}: ${msg.fileName}*`);
+            }
+            parts.push(this._extractText(msg).trim());
+        }
+
+        return parts.join('\n\n') + '\n';
+    }
+
+    /**
+     * File name for the export: the title reduced to a safe slug, plus the date.
+     *
+     * @param {Date} [now]
+     * @returns {string}
+     */
+    exportFileName(now = new Date()) {
+        const title = this.getActiveConversation()?.title || '';
+        // Words of ASCII letters and digits, joined by single dashes: split
+        // and join rather than trimming dashes with a regular expression.
+        const words = title
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .filter(Boolean);
+        let slug = '';
+        for (const word of words) {
+            const next = slug === '' ? word : `${slug}-${word}`;
+            if (next.length > 50) {
+                slug ||= word.slice(0, 50);
+                break;
+            }
+            slug = next;
+        }
+        slug ||= 'conversation';
+        const pad = (n) => String(n).padStart(2, '0');
+        const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        return `ai-chat-${slug}-${date}.md`;
+    }
+
+    _formatExportTime(ts) {
+        if (!ts) return '';
+        try {
+            return new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'short'}).format(new Date(ts));
         } catch {
             return '';
         }

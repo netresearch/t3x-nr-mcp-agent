@@ -108,6 +108,19 @@ describe('panel pop-out', () => {
         expect(pipWindow.document.body.contains(panel)).toBe(true);
     });
 
+    test('a click elsewhere in the detached window closes the open menus', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const {panel} = await mountPanel();
+        await panel.popOut();
+        panel._attachMenuOpen = true;
+        panel._moreOpen = true;
+
+        pipWindow.document.body.dispatchEvent(new MouseEvent('click', {bubbles: true, composed: true}));
+
+        expect(panel._attachMenuOpen).toBe(false);
+        expect(panel._moreOpen).toBe(false);
+    });
+
     test('comes back to where it was when the window closes', async () => {
         const {pipWindow} = installPictureInPictureStub();
         const {panel, host} = await mountPanel();
