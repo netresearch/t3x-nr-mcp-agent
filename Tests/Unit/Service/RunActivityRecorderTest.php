@@ -10,6 +10,8 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 /**
  * The activity of the running turn, written step by step (NEXT-172).
@@ -147,5 +149,26 @@ final class RunActivityRecorderTest extends TestCase
     {
         self::assertSame([], Conversation::decodeActivity('not json'));
         self::assertSame([['kind' => 'tool']], Conversation::decodeActivity('[{"kind":"tool","args":{"a":1}}, 5]'));
+    }
+
+    /**
+     * nr-llm calls the callback before it persists the step. An exception
+     * from here would abort the run after the tool had run.
+     */
+    #[Test]
+    public function aFailedWriteNeverReachesTheRuntime(): void
+    {
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateActivity')->willThrowException(new RuntimeException('Lock wait timeout exceeded'));
+        $recorder = new RunActivityRecorder($repository);
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning');
+        $recorder->setLogger($logger);
+        $conversation = $this->conversation();
+
+        $recorder->onStep($conversation)(new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1, toolName: 'create_page'));
+
+        // Still in memory: the next successful write carries it.
+        self::assertSame('create_page', $conversation->getActivity()[1]['tool'] ?? null);
     }
 }

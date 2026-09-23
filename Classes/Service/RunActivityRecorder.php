@@ -8,6 +8,9 @@ use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Throwable;
 
 /**
  * Writes what the agent is doing in the current turn onto the conversation,
@@ -27,9 +30,16 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
  * Every write is a single-column update, never the whole row: the turn's own
  * persist() at the end writes the transcript, and a full-row write from here
  * would race it.
+ *
+ * A failed write is logged and dropped. nr-llm calls onStep before it
+ * persists the step, and an exception from here would abort the run after a
+ * tool — possibly a write — has already run, and cost that step its record
+ * in the run. A list that misses an entry is the lesser harm.
  */
-readonly class RunActivityRecorder
+class RunActivityRecorder implements LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     /** Older entries are dropped beyond this; a turn rarely comes near it. */
     public const MAX_ENTRIES = 100;
 
@@ -37,7 +47,7 @@ readonly class RunActivityRecorder
     private const SHOWN_KINDS = [RunStep::KIND_LLM, RunStep::KIND_TOOL];
 
     public function __construct(
-        private ConversationRepository $repository,
+        private readonly ConversationRepository $repository,
     ) {}
 
     /** A new turn: the previous turn's activity no longer describes anything. */
@@ -94,8 +104,17 @@ readonly class RunActivityRecorder
 
     private function write(Conversation $conversation): void
     {
-        if ($conversation->getUid() > 0) {
+        if ($conversation->getUid() <= 0) {
+            return;
+        }
+
+        try {
             $this->repository->updateActivity($conversation->getUid(), $conversation->getActivityJson());
+        } catch (Throwable $e) {
+            $this->logger?->warning('Could not record the chat activity of conversation {uid}: {message}', [
+                'uid' => $conversation->getUid(),
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 }
