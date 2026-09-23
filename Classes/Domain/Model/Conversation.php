@@ -114,6 +114,12 @@ final class Conversation
     /**
      * Serialize back to a DB-compatible array (for INSERT/UPDATE).
      *
+     * `system_prompt` is not part of it: the user sets it on its own
+     * (ConversationRepository::updateSystemPrompt()), and every full-row write
+     * — the claim of a new turn, the worker's final save — carries the value it
+     * loaded. Written from here, a save that races the user's edit would put
+     * the old instructions back without anyone noticing (NEXT-172).
+     *
      * @return array<string, int|string>
      */
     public function toRow(): array
@@ -125,7 +131,6 @@ final class Conversation
             'message_count' => $this->messageCount,
             'status' => $this->status,
             'current_request_id' => $this->currentRequestId,
-            'system_prompt' => $this->systemPrompt,
             'view_context' => $this->viewContext,
             'archived' => (int) $this->archived,
             'pinned' => (int) $this->pinned,

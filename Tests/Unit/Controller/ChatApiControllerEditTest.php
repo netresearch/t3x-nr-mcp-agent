@@ -308,4 +308,94 @@ final class ChatApiControllerEditTest extends TestCase
         self::assertIsArray($data);
         self::assertSame('Answer briefly.', $data['systemPrompt']);
     }
+
+    private function subjectWithAllowedGroups(): ChatApiController
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([99]);
+        $config->method('getMaxMessageLength')->willReturn(50);
+        $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
+
+        return new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $config,
+            $this->createMock(ChatCapabilitiesInterface::class),
+            $this->createMock(ChatApprovalInterface::class),
+            $this->createMock(ResourceFactory::class),
+            $this->createMock(StorageRepository::class),
+            new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
+            $this->createMock(UriBuilder::class),
+        );
+    }
+
+    #[Test]
+    public function bothEndpointsRefuseAUserOutsideTheAllowedGroups(): void
+    {
+        $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
+        $this->repository->expects(self::never())->method('updateSystemPrompt');
+        $subject = $this->subjectWithAllowedGroups();
+
+        self::assertSame(403, $subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']))->getStatusCode());
+        self::assertSame(403, $subject->updateSystemPrompt($this->request(['conversationUid' => 1, 'systemPrompt' => 'x']))->getStatusCode());
+        self::assertNull($this->claimed);
+    }
+
+    #[Test]
+    public function bothEndpointsAnswerNotFoundForAnotherUsersConversation(): void
+    {
+        // The repository only finds conversations of the requesting user.
+        $this->repository->method('findOneByUidAndBeUser')->willReturn(null);
+        $this->repository->expects(self::never())->method('updateSystemPrompt');
+
+        self::assertSame(404, $this->subject->editMessage($this->request(['conversationUid' => 7, 'index' => 0, 'content' => 'x']))->getStatusCode());
+        self::assertSame(404, $this->subject->updateSystemPrompt($this->request(['conversationUid' => 7, 'systemPrompt' => 'x']))->getStatusCode());
+        self::assertNull($this->claimed);
+    }
+
+    #[Test]
+    public function editingRespectsTheLimitOfActiveConversations(): void
+    {
+        $this->conversation($this->transcript());
+        $this->repository->method('countActiveByBeUser')->willReturn(3);
+        $this->processor->expects(self::never())->method('dispatch');
+
+        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']));
+
+        self::assertSame(429, $response->getStatusCode());
+        self::assertNull($this->claimed);
+    }
+
+    #[Test]
+    public function anEditThatLosesTheClaimIsNotDispatched(): void
+    {
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('updateIf')->willReturn(false);
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setMessages($this->transcript());
+        $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository = $repository;
+        $this->processor->expects(self::never())->method('dispatch');
+
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getMaxMessageLength')->willReturn(50);
+        $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
+        $subject = new ChatApiController(
+            $repository,
+            $this->processor,
+            $config,
+            $this->createMock(ChatCapabilitiesInterface::class),
+            $this->createMock(ChatApprovalInterface::class),
+            $this->createMock(ResourceFactory::class),
+            $this->createMock(StorageRepository::class),
+            new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
+            $this->createMock(UriBuilder::class),
+        );
+
+        self::assertSame(409, $subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']))->getStatusCode());
+    }
 }

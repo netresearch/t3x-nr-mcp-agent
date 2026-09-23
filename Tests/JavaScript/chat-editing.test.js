@@ -97,6 +97,22 @@ describe('editing a sent message', () => {
     });
 });
 
+describe('a transcript cut elsewhere', () => {
+    test('a poll that reports fewer messages reloads the transcript', async () => {
+        const chat = controller({status: 'processing'});
+        chat._knownMessageCount = 3;
+        chat._api.getMessages = jest.fn()
+            .mockResolvedValueOnce({status: 'processing', messages: [], totalCount: 1})
+            .mockResolvedValueOnce({status: 'processing', messages: [{role: 'user', content: 'edited'}], totalCount: 1});
+
+        await chat.pollMessages();
+        chat.stopPolling();
+
+        expect(chat._api.getMessages).toHaveBeenLastCalledWith(7, 0);
+        expect(chat.messages).toEqual([{role: 'user', content: 'edited'}]);
+    });
+});
+
 describe('a new message carries the backend context', () => {
     test('handleSend passes the context to the API', async () => {
         const chat = controller();

@@ -88,7 +88,8 @@ class ConversationMutationTest extends TestCase
         self::assertArrayHasKey('message_count', $row);
         self::assertArrayHasKey('status', $row);
         self::assertArrayHasKey('current_request_id', $row);
-        self::assertArrayHasKey('system_prompt', $row);
+        // Written only by ConversationRepository::updateSystemPrompt() (NEXT-172).
+        self::assertArrayNotHasKey('system_prompt', $row);
         self::assertArrayHasKey('archived', $row);
         self::assertArrayHasKey('pinned', $row);
         self::assertArrayHasKey('error_message', $row);

@@ -331,6 +331,15 @@ export class ChatCoreController {
         try {
             const data = await this._api.getMessages(uid, this._knownMessageCount);
             if (uid !== this.activeUid) return; // stale response, discard
+            // Fewer messages than this view holds: the transcript was cut
+            // elsewhere — an edit in another tab or in the other surface.
+            // Appending to the old list would never show the new answer.
+            if (typeof data.totalCount === 'number' && data.totalCount < this._knownMessageCount) {
+                await this.loadMessages();
+                if (!this.isProcessing()) this.stopPolling();
+                return;
+            }
+
             const newMessages = data.messages || [];
             const statusChanged = data.status !== this.status;
 

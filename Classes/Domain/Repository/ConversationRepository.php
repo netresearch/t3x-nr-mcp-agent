@@ -105,6 +105,9 @@ readonly class ConversationRepository
         $data = $conversation->toRow();
         $data['crdate'] = $data['tstamp'] = time();
         $data['pid'] = 0;
+        // A new row races nobody, so the instructions are written with it;
+        // later only updateSystemPrompt() writes them (see toRow()).
+        $data['system_prompt'] = $conversation->getSystemPrompt();
         $conn->insert(self::TABLE, $data);
         return (int) $conn->lastInsertId();
     }

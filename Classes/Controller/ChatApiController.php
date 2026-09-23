@@ -388,8 +388,10 @@ final readonly class ChatApiController
      * POST /ai-chat/conversations/system-prompt – Set the conversation's own
      * instructions; an empty value removes them.
      *
-     * Refused while a turn is running: the worker writes the whole row when it
-     * settles, and would put back the prompt it started with.
+     * Written as a column of its own, which no full-row write touches, so a
+     * turn that settles later cannot put the old value back. Refused while a
+     * turn is running all the same: that turn already runs with the old
+     * instructions, and saying "saved" would suggest otherwise.
      */
     public function updateSystemPrompt(ServerRequestInterface $request): ResponseInterface
     {
