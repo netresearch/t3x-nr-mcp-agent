@@ -86,6 +86,17 @@ sidebar view but can still be accessed.
 Conversations are also auto-archived after a
 configurable period of inactivity (default: 30 days).
 
+Exporting a conversation
+------------------------
+
+The **Export** button (a downward arrow in the floating panel) downloads the
+open conversation as a Markdown file named after its title and the date. The
+file holds what the chat shows as the conversation: your messages and the
+assistant's answers with their time, and the name of any attached file. Tool
+results and system notices are left out. The file is built in the browser
+from the conversation already on screen; nothing is sent to the server for
+it.
+
 Attaching files
 ===============
 
@@ -185,6 +196,15 @@ The panel has four states:
 
     The floating panel in expanded state, overlaying the TYPO3 backend.
     Drag the top edge to resize.
+
+In the expanded state the conversations sit in one row of tabs above the
+chat. The row holds four of them: pinned conversations first, then the most
+recently active ones, and always the one that is open. The others are
+behind **More (n)** at the end of the row, which opens a list with a search
+field: type to filter by title, move with the arrow keys, open one with
+:kbd:`Enter`, close the list with :kbd:`Escape`. However many conversations
+you keep, the row stays one line high and the chat keeps its space.
+Maximized, the panel lists every conversation in the sidebar instead.
 
 Panel height and state are stored in ``localStorage`` per user.
 

@@ -2,10 +2,11 @@ import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {ref} from 'lit/directives/ref.js';
 import {lll} from '@typo3/core/lit-helper.js';
-import {ChatCoreController} from './chat-core.js';
+import {ChatCoreController, downloadTextFile} from './chat-core.js';
+import {splitConversationTabs, filterConversations} from './conversation-tabs.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD} from './icons.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', awaiting_approval: '⏸', failed: '✕'};
@@ -37,6 +38,9 @@ export class AiChatPanel extends LitElement {
         _posY: {state: true},
         _attachMenuOpen: {type: Boolean, state: true},
         _renamingUid: {state: true},
+        _moreOpen: {state: true},
+        _moreQuery: {state: true},
+        _moreIndex: {state: true},
     };
 
     static styles = [themeStyles, markdownStyles, css`
@@ -249,17 +253,39 @@ export class AiChatPanel extends LitElement {
             align-items: center;
         }
 
-        /* Conversation tab bar (second row in expanded state) */
+        /*
+         * Conversation tab bar (second row in expanded state).
+         *
+         * One row, never wrapped: it holds the active conversation and the
+         * most recent ones, the rest are behind the "more" button. Wrapping
+         * grew one row per handful of conversations until the chat area
+         * below had no height left (NEXT-172).
+         */
+        .conv-tabs-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
         .conv-tabs {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            align-items: flex-end;
             gap: 2px;
             padding: 4px 8px 0;
             border-bottom: 1px solid var(--nr-chat-border);
             background: var(--nr-chat-surface-low);
-            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .conv-tablist {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 2px;
+            flex: 0 1 auto;
+            min-width: 0;
+            overflow: hidden;
         }
         .conv-tab {
+            flex: 0 1 auto;
+            min-width: 0;
             display: flex;
             align-items: center;
             gap: 4px;
@@ -336,6 +362,94 @@ export class AiChatPanel extends LitElement {
             color: var(--nr-chat-text-variant);
         }
         .conv-tab-new:hover { color: var(--nr-chat-text); }
+        .conv-tab-action {
+            flex-shrink: 0;
+            padding: 4px 6px;
+            border-radius: 6px;
+            color: var(--nr-chat-text-variant);
+        }
+        .conv-tab-action:hover { color: var(--nr-chat-text); }
+        .conv-tab-more {
+            flex-shrink: 0;
+            max-width: none;
+            border-radius: 6px 6px 0 0;
+        }
+        .conv-tab-more[aria-expanded="true"] {
+            background: var(--nr-chat-surface);
+            color: var(--nr-chat-text);
+            border-color: var(--nr-chat-border);
+        }
+        .conv-tab-more:focus-visible,
+        .conv-tab:focus-visible {
+            outline: 2px solid var(--nr-chat-focus-ring);
+            outline-offset: -2px;
+        }
+
+        /* "More" popover: search field + listbox (combobox pattern) */
+        .conv-more-popover {
+            position: absolute;
+            top: 100%;
+            left: 8px;
+            right: 8px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 6px;
+            background: var(--nr-chat-surface);
+            border: 1px solid var(--nr-chat-border);
+            border-radius: 8px;
+            box-shadow: var(--typo3-component-box-shadow-flyout, 0 2px 8px rgba(0,0,0,.15));
+        }
+        .conv-more-search {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 5px 8px;
+            font-size: 12px;
+            border: 1px solid var(--nr-chat-input-border);
+            border-radius: 6px;
+            background: var(--nr-chat-surface);
+            color: var(--nr-chat-text);
+        }
+        .conv-more-search:focus {
+            outline: none;
+            border-color: var(--nr-chat-focus-ring);
+            box-shadow: 0 0 0 1px var(--nr-chat-focus-ring);
+        }
+        .conv-more-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .conv-more-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--nr-chat-text);
+        }
+        .conv-more-option .option-title {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .conv-more-option.highlighted {
+            background: var(--nr-chat-hover);
+            outline: 1px solid var(--nr-chat-focus-ring);
+            outline-offset: -1px;
+        }
+        .conv-more-empty {
+            padding: 5px 8px;
+            font-size: 12px;
+            color: var(--nr-chat-text-variant);
+        }
         .conv-tab .tab-rename-input {
             width: 90px;
             padding: 1px 4px;
@@ -694,6 +808,9 @@ export class AiChatPanel extends LitElement {
         this._pipWindow = null;
         this._pipHome = null;
         this._attachMenuOpen = false;
+        this._moreOpen = false;
+        this._moreQuery = '';
+        this._moreIndex = 0;
         this._lastVisibleState = STATES.EXPANDED;
         this._resizing = false;
         this._dragging = false;
@@ -711,6 +828,9 @@ export class AiChatPanel extends LitElement {
             if (!e.composedPath().includes(this)) {
                 this._attachMenuOpen = false;
             }
+            // The popover and its button stop their own clicks, so any click
+            // that reaches the document happened outside both.
+            this._moreOpen = false;
         };
         document.addEventListener('click', this._closeAttachMenu);
     }
@@ -727,6 +847,19 @@ export class AiChatPanel extends LitElement {
         }
         if (changed.has('state')) {
             this.setAttribute('aria-expanded', String(this.state !== STATES.HIDDEN));
+        }
+        // Focus moves into the search field in the same update that opens the
+        // list — not a frame later, where keys typed right after opening would
+        // still reach the button, and a space there closes the list again.
+        // Not from a ref callback either: Lit calls those before a new
+        // template is attached, when focus() does nothing.
+        if (changed.has('_moreOpen') && this._moreOpen) {
+            this.renderRoot?.querySelector('.conv-more-search')?.focus();
+        }
+        // The highlighted option follows the arrow keys out of the visible
+        // part of the list; keep it in view.
+        if (changed.has('_moreIndex') && this._moreOpen) {
+            this.renderRoot?.querySelector('.conv-more-option.highlighted')?.scrollIntoView?.({block: 'nearest'});
         }
     }
 
@@ -1395,6 +1528,10 @@ export class AiChatPanel extends LitElement {
                                 aria-label="${c.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                             ${'\u{1F4CC}'}
                         </button>
+                        <button class="btn-icon btn-sm" data-action="export" @click=${(e) => { e.stopPropagation(); this._exportConversation(); }}
+                                title="${lll('conversations.export')}" aria-label="${lll('conversations.export')}">
+                            ${ICON_DOWNLOAD(12)}
+                        </button>
                         <button class="btn-icon btn-sm" @click=${(e) => { e.stopPropagation(); this.chat.handleArchive(); }}
                                 title="${lll('conversations.archive')}" aria-label="${lll('conversations.archive')}">
                             \u{1F5C4}
@@ -1406,50 +1543,169 @@ export class AiChatPanel extends LitElement {
     }
 
     _renderConvTabs() {
+        const {visible, overflow} = splitConversationTabs(this.chat.conversations, this.chat.activeUid);
         return html`
-            <div class="conv-tabs" role="tablist" aria-label="${lll('conversations.title')}">
-                ${this.chat.conversations.map(c => {
-                    const isActive = c.uid === this.chat.activeUid;
-                    const isRenaming = this._renamingUid === c.uid;
-                    const icon = STATUS_ICONS[c.status] ?? '';
-                    const title = c.title || lll('conversations.newConversation');
-                    return html`
-                        <button class="conv-tab ${isActive ? 'active' : ''}"
-                                role="tab"
-                                aria-selected="${isActive}"
-                                title="${title} (${c.status})"
-                                @click=${() => this.chat.selectConversation(c.uid)}>
-                            <span class="tab-icon status-${c.status}">${icon}</span>
-                            ${isRenaming ? html`
-                                <input class="tab-rename-input"
-                                       .value=${title}
-                                       @click=${(e) => e.stopPropagation()}
-                                       @keydown=${(e) => {
-                                           e.stopPropagation();
-                                           if (e.key === 'Enter') { e.preventDefault(); this._commitRename(c.uid, e.target.value); }
-                                           if (e.key === 'Escape') { this._renamingUid = null; }
-                                       }}
-                                       @blur=${(e) => this._commitRename(c.uid, e.target.value)}
-                                       ${ref(this._renameInputRef)}
-                                />
-                            ` : html`
-                                <span class="tab-title"
-                                      @dblclick=${(e) => { e.stopPropagation(); this._renamingUid = c.uid; }}>
-                                    ${title}
-                                </span>
-                            `}
-                            <span class="tab-close"
-                                  title="${lll('conversations.archive')}"
-                                  @click=${(e) => { e.stopPropagation(); this.chat.handleArchive(c.uid); }}>✕</span>
+            <div class="conv-tabs-wrap">
+                <div class="conv-tabs">
+                    <div class="conv-tablist" role="tablist" aria-label="${lll('conversations.title')}">
+                        ${visible.map(c => this._renderConvTab(c))}
+                    </div>
+                    ${overflow.length > 0 ? html`
+                        <button class="conv-tab conv-tab-more"
+                                aria-haspopup="listbox"
+                                aria-expanded="${String(this._moreOpen)}"
+                                title="${lll('conversations.moreTitle')}"
+                                @click=${(e) => { e.stopPropagation(); this._toggleMore(); }}>
+                            ${lll('conversations.more', overflow.length)}
                         </button>
-                    `;
-                })}
-                <button class="btn-icon conv-tab-new"
-                        @click=${() => this.chat.handleNewConversation()}
-                        ?disabled=${!this.chat.available}
-                        title="${lll('conversations.new')}"
-                        aria-label="${lll('conversations.new')}">${ICON_COMPOSE(14)}</button>
+                    ` : nothing}
+                    ${this.chat.activeUid ? html`
+                        <button class="btn-icon conv-tab-action"
+                                data-action="export"
+                                @click=${() => this._exportConversation()}
+                                title="${lll('conversations.export')}"
+                                aria-label="${lll('conversations.export')}">${ICON_DOWNLOAD(14)}</button>
+                    ` : nothing}
+                    <button class="btn-icon conv-tab-new"
+                            @click=${() => this.chat.handleNewConversation()}
+                            ?disabled=${!this.chat.available}
+                            title="${lll('conversations.new')}"
+                            aria-label="${lll('conversations.new')}">${ICON_COMPOSE(14)}</button>
+                </div>
+                ${this._moreOpen && overflow.length > 0 ? this._renderMorePopover(overflow) : nothing}
             </div>
+        `;
+    }
+
+    /**
+     * The conversations that do not fit the tab row, as a searchable list.
+     *
+     * ARIA combobox pattern: focus stays in the search field, the arrow keys
+     * move the highlighted option (aria-activedescendant), Enter opens it,
+     * Escape closes the list and returns focus to the button that opened it.
+     */
+    _renderMorePopover(overflow) {
+        const untitled = lll('conversations.newConversation');
+        const items = filterConversations(overflow, this._moreQuery, untitled);
+        const index = items.length === 0 ? -1 : Math.min(Math.max(this._moreIndex, 0), items.length - 1);
+        const activeId = index >= 0 ? `conv-more-option-${items[index].uid}` : null;
+
+        return html`
+            <div class="conv-more-popover" @click=${(e) => e.stopPropagation()}>
+                <input type="search"
+                       class="conv-more-search"
+                       role="combobox"
+                       aria-expanded="true"
+                       aria-autocomplete="list"
+                       aria-controls="conv-more-list"
+                       aria-activedescendant="${activeId ?? nothing}"
+                       aria-label="${lll('conversations.search')}"
+                       placeholder="${lll('conversations.search')}"
+                       .value=${this._moreQuery}
+                       @input=${(e) => { this._moreQuery = e.target.value; this._moreIndex = 0; }}
+                       @keydown=${(e) => this._onMoreKeydown(e, items, index)}>
+                <ul id="conv-more-list" class="conv-more-list" role="listbox" aria-label="${lll('conversations.title')}">
+                    ${items.length === 0
+                        ? html`<li class="conv-more-empty" role="presentation">${lll('conversations.noMatch')}</li>`
+                        : items.map((c, i) => html`
+                            <li id="conv-more-option-${c.uid}"
+                                class="conv-more-option ${i === index ? 'highlighted' : ''}"
+                                role="option"
+                                aria-selected="${i === index}"
+                                @mousemove=${() => { if (this._moreIndex !== i) this._moreIndex = i; }}
+                                @click=${() => this._pickMore(c.uid)}>
+                                <span class="tab-icon status-${c.status}" aria-hidden="true">${STATUS_ICONS[c.status] ?? ''}</span>
+                                <span class="option-title">${c.pinned ? '\u{1F4CC} ' : ''}${c.title || untitled}</span>
+                            </li>
+                        `)}
+                </ul>
+            </div>
+        `;
+    }
+
+    _toggleMore() {
+        if (this._moreOpen) {
+            this._closeMore(false);
+            return;
+        }
+        this._moreQuery = '';
+        this._moreIndex = 0;
+        this._moreOpen = true;
+    }
+
+    _closeMore(returnFocus) {
+        this._moreOpen = false;
+        if (returnFocus) {
+            this.updateComplete.then(() => this.renderRoot?.querySelector('.conv-tab-more')?.focus());
+        }
+    }
+
+    _pickMore(uid) {
+        this._closeMore(false);
+        this.chat.selectConversation(uid);
+    }
+
+    _onMoreKeydown(e, items, index) {
+        // Keys handled here must not reach the document handler: Escape there
+        // collapses the whole panel.
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (items.length === 0) return;
+            const step = e.key === 'ArrowDown' ? 1 : -1;
+            this._moreIndex = (index + step + items.length) % items.length;
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (index >= 0) this._pickMore(items[index].uid);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            this._closeMore(true);
+        } else if (e.key === 'Tab') {
+            this._closeMore(false);
+        }
+    }
+
+    _exportConversation() {
+        const doc = this.ownerDocument || document;
+        downloadTextFile(doc, this.chat.exportFileName(), this.chat.buildMarkdownExport());
+    }
+
+    _renderConvTab(c) {
+        const isActive = c.uid === this.chat.activeUid;
+        const isRenaming = this._renamingUid === c.uid;
+        const icon = STATUS_ICONS[c.status] ?? '';
+        const title = c.title || lll('conversations.newConversation');
+        return html`
+            <button class="conv-tab ${isActive ? 'active' : ''}"
+                    role="tab"
+                    aria-selected="${isActive}"
+                    title="${title} (${c.status})"
+                    @click=${() => this.chat.selectConversation(c.uid)}>
+                <span class="tab-icon status-${c.status}">${icon}</span>
+                ${isRenaming ? html`
+                    <input class="tab-rename-input"
+                           .value=${title}
+                           @click=${(e) => e.stopPropagation()}
+                           @keydown=${(e) => {
+                               e.stopPropagation();
+                               if (e.key === 'Enter') { e.preventDefault(); this._commitRename(c.uid, e.target.value); }
+                               if (e.key === 'Escape') { this._renamingUid = null; }
+                           }}
+                           @blur=${(e) => this._commitRename(c.uid, e.target.value)}
+                           ${ref(this._renameInputRef)}
+                    />
+                ` : html`
+                    <span class="tab-title"
+                          @dblclick=${(e) => { e.stopPropagation(); this._renamingUid = c.uid; }}>
+                        ${title}
+                    </span>
+                `}
+                <span class="tab-close"
+                      title="${lll('conversations.archive')}"
+                      @click=${(e) => { e.stopPropagation(); this.chat.handleArchive(c.uid); }}>✕</span>
+            </button>
         `;
     }
 
@@ -1470,6 +1726,10 @@ export class AiChatPanel extends LitElement {
     /**
      * See chat-app.js: the bare sentence named a choice and hid both of its
      * options — the only way to act on it was an icon button in the header.
+     *
+     * The hint says where earlier conversations are, and that depends on the
+     * layout: the tab row above the chat when expanded, the sidebar on the
+     * left when maximized. It used to say "on the left" in both (NEXT-172).
      */
     _renderEmptyStateGuidance() {
         return html`
@@ -1481,7 +1741,7 @@ export class AiChatPanel extends LitElement {
                     ?disabled=${!this.chat.available}>
                     ${ICON_COMPOSE(14)} ${lll('conversations.new')}
                 </button>
-                <p class="empty-state-hint">${lll('chat.empty.hint')}</p>
+                <p class="empty-state-hint">${this.state === STATES.EXPANDED ? lll('chat.empty.hintTabs') : lll('chat.empty.hint')}</p>
             </div>
         `;
     }

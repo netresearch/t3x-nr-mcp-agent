@@ -5,7 +5,7 @@
 
 ## Overview
 
-Frontend assets of the backend module and toolbar panel. `Private/`: Fluid layout (`Layouts/Default.html`), template (`Templates/Chat/Index.html`), XLIFF translations (`Language/locallang_chat.xlf`, `locallang_mod.xlf`, `de.` prefix for German). `Public/`: Lit web components in `JavaScript/` (`chat-app.js`, `chat-core.js`, `ai-chat-panel.js`, `api-client.js`, `markdown.js`, `theme.js`, `icons.js`, `toolbar/chat-panel.js`, vendored libs in `Vendor/`), styles in `Css/chat.css`, icons in `Icons/`.
+Frontend assets of the backend module and toolbar panel. `Private/`: Fluid layout (`Layouts/Default.html`), template (`Templates/Chat/Index.html`), XLIFF translations (`Language/locallang_chat.xlf`, `locallang_mod.xlf`, `de.` prefix for German). `Public/`: Lit web components in `JavaScript/` (`chat-app.js`, `chat-core.js`, `ai-chat-panel.js`, `api-client.js`, `conversation-tabs.js`, `markdown.js`, `theme.js`, `icons.js`, `toolbar/chat-panel.js`, vendored libs in `Vendor/`), styles in `Css/chat.css`, icons in `Icons/`.
 
 ## Setup
 
