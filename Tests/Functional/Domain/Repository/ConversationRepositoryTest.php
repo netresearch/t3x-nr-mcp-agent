@@ -399,6 +399,9 @@ class ConversationRepositoryTest extends FunctionalTestCase
 
         $snapshot->setStatus(ConversationStatus::Failed);
         $this->subject->update($snapshot);
+        // A claim changes the status; MySQL/MariaDB report an UPDATE that
+        // changes nothing as zero affected rows, which would read as a lost claim.
+        $snapshot->setStatus(ConversationStatus::Processing);
         self::assertTrue($this->subject->updateIf($snapshot, ConversationStatus::Failed));
 
         $reloaded = $this->subject->findByUid(1);
