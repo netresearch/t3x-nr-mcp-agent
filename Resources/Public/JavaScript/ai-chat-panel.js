@@ -1836,6 +1836,7 @@ export class AiChatPanel extends LitElement {
                 ${isUser ? nothing : html`<div class="avatar avatar-assistant">${AVATAR_ASSISTANT(14)}</div>`}
                 <div class="message-bubble">
                     <div class="message ${role}">${bubbleContent}</div>
+                    ${this._renderMessageNotice(msg)}
                     ${time ? html`<div class="message-time">${time}</div>` : nothing}
                 </div>
                 ${isUser ? html`<div class="avatar avatar-user">${AVATAR_USER(14)}</div>` : nothing}
@@ -1897,12 +1898,48 @@ export class AiChatPanel extends LitElement {
         return html`
             <div class="message system" style="color:var(--nr-chat-status-danger, #c62828);">
                 ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
+                ${this._renderErrorLink()}
                 ${isResumable ? html`
                     <button class="btn btn-sm" @click=${() => this.chat.handleResume()}
                         style="margin-left:8px;">${lll('chat.retry')}</button>
                 ` : nothing}
                 <button class="btn btn-sm btn-icon" @click=${dismiss}
                     style="margin-left:4px;" title="${lll('chat.dismiss')}" aria-label="${lll('chat.dismiss')}">&times;</button>
+            </div>
+        `;
+    }
+
+    /**
+     * Where an administrator fixes a configuration failure (ADR-017). Only
+     * present when the server sent one, which it does for administrators only.
+     */
+    _renderErrorLink() {
+        const link = this.chat.currentErrorLink();
+        if (!link) {
+            return nothing;
+        }
+
+        return html`
+            <a class="btn btn-sm" href="${link.href}" style="margin-left:8px;">${link.label}</a>
+        `;
+    }
+
+    /**
+     * The label an assistant message carries when it reads like a finished
+     * change and the run wrote nothing (ADR-017). The server stores the code,
+     * the label is rendered in the reader's language.
+     *
+     * @param {{notice?: string}} msg
+     */
+    _renderMessageNotice(msg) {
+        if (msg.notice !== 'nothingSaved') {
+            return nothing;
+        }
+
+        return html`
+            <div class="message-notice" role="note"
+                style="color:var(--nr-chat-status-warning, #8a5300);font-size:12px;margin-top:4px;">
+                \u26A0\uFE0F ${lll('chat.nothingSaved')}
             </div>
         `;
     }

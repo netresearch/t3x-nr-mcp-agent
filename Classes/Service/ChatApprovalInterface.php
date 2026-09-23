@@ -41,4 +41,24 @@ interface ChatApprovalInterface
      * Returns true when the conversation was changed.
      */
     public function reconcile(Conversation $conversation): bool;
+
+    /** The run still waits for a decision. */
+    public const PENDING_RUN_WAITING = 'waiting';
+
+    /** The run was decided elsewhere and is being carried on right now. */
+    public const PENDING_RUN_BUSY = 'busy';
+
+    /** The run was decided elsewhere and has finished. */
+    public const PENDING_RUN_SETTLED = 'settled';
+
+    /** No run to look at, or not one this user may read. */
+    public const PENDING_RUN_UNKNOWN = 'unknown';
+
+    /**
+     * Where the run a conversation is parked on stands now, and — once it has
+     * finished — which records it wrote, as "table:uid" (ADR-017).
+     *
+     * @return array{state: self::PENDING_RUN_*, writes: list<string>}
+     */
+    public function inspectPendingRun(Conversation $conversation): array;
 }

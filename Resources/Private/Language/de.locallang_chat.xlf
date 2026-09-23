@@ -225,6 +225,18 @@
                 <source>Message exceeds %d character limit</source>
                 <target>Nachricht überschreitet das Limit von %d Zeichen</target>
             </trans-unit>
+            <trans-unit id="chat.nothingSaved" resname="chat.nothingSaved">
+                <source>Nothing was saved in this step: the answer reads like a finished change, but no record was written.</source>
+                <target>In diesem Schritt wurde nichts gespeichert: Die Antwort klingt nach einer erledigten Änderung, es wurde aber kein Datensatz geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="chat.runFinishedOutside" resname="chat.runFinishedOutside">
+                <source>The approval was decided outside this chat, and the run has finished there. It wrote: %s. Its answer is under AI Tasks.</source>
+                <target>Die Freigabe wurde außerhalb dieses Chats entschieden, und der Lauf ist dort abgeschlossen. Er hat geschrieben: %s. Seine Antwort steht unter AI Tasks.</target>
+            </trans-unit>
+            <trans-unit id="chat.runFinishedOutsideNothingWritten" resname="chat.runFinishedOutsideNothingWritten">
+                <source>The approval was decided outside this chat, and the run has finished there without writing anything. Its answer is under AI Tasks.</source>
+                <target>Die Freigabe wurde außerhalb dieses Chats entschieden, und der Lauf ist dort abgeschlossen, ohne etwas zu schreiben. Seine Antwort steht unter AI Tasks.</target>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">
@@ -260,6 +272,26 @@
             <trans-unit id="error.accessDenied" resname="error.accessDenied">
                 <source>Access denied</source>
                 <target>Zugriff verweigert</target>
+            </trans-unit>
+            <trans-unit id="error.approvalStillPending" resname="error.approvalStillPending">
+                <source>This step is still waiting for a decision. Approve or deny it on the card — a message does not approve it.</source>
+                <target>Dieser Schritt wartet noch auf eine Entscheidung. Bitte auf der Karte freigeben oder ablehnen – eine Nachricht erteilt keine Freigabe.</target>
+            </trans-unit>
+            <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
+                <source>The AI provider is not set up. Please contact your administrator.</source>
+                <target>Der KI-Anbieter ist nicht eingerichtet. Bitte an die Administration wenden.</target>
+            </trans-unit>
+            <trans-unit id="error.chatNotConfigured" resname="error.chatNotConfigured">
+                <source>The AI chat is not set up. Please contact your administrator.</source>
+                <target>Der KI-Chat ist nicht eingerichtet. Bitte an die Administration wenden.</target>
+            </trans-unit>
+            <trans-unit id="error.openProviders" resname="error.openProviders">
+                <source>Open the LLM providers</source>
+                <target>LLM-Provider öffnen</target>
+            </trans-unit>
+            <trans-unit id="error.openTasks" resname="error.openTasks">
+                <source>Open the LLM tasks</source>
+                <target>LLM-Tasks öffnen</target>
             </trans-unit>
 
             <!-- Attachments -->

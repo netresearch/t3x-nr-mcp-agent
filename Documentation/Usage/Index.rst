@@ -41,6 +41,28 @@ Which tools it has comes from nr-llm — its builtin set plus
 any MCP server registered under **AI > Operation > MCP
 Servers**; this extension registers none of its own.
 
+What the chat tells you besides the answer
+------------------------------------------
+
+*   **Nothing was saved in this step.** An answer that reads like a
+    finished change ("done", "created", "saved") carries this note when
+    the run behind it wrote no record. Check the page before relying on
+    the answer, and ask the assistant again.
+*   **The AI provider is not set up.** Editors see this sentence when
+    the provider cannot be used, for example because its API key is
+    missing. Administrators see the technical message instead, with a
+    button to the LLM providers or tasks module.
+*   **This step is still waiting for a decision.** A message such as
+    "weiter" or "habe alles freigegeben" while an approval card is on
+    screen does not start a new run and does not approve anything:
+    approve or deny on the card. If the step was already decided in
+    AI Tasks, the chat says so and names the records the run wrote.
+
+The assistant also knows which tools exist but are not available to
+you, and why — switched off, for administrators only, or not part of
+this chat's configuration — so it can tell you to ask an administrator
+instead of claiming that nothing can do what you asked.
+
 ..  figure:: /Images/MarkdownResponse.png
     :alt: AI response rendered as Markdown
     :class: with-shadow
