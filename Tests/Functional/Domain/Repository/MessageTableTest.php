@@ -231,6 +231,7 @@ final class MessageTableTest extends FunctionalTestCase
         $old = $this->newConversation('old');
         $kept = $this->newConversation('kept');
         $this->connection()->update(self::CONVERSATIONS, ['archived' => 1, 'tstamp' => time() - 200 * 86400], ['uid' => $old]);
+        $this->connection()->update(self::MESSAGES, ['crdate' => time() - 200 * 86400], ['conversation' => $old]);
 
         (new CommandTester($this->get(CleanupCommand::class)))->execute([]);
 
@@ -261,12 +262,15 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function orphanedMessagesAreRemovedEvenWhenNothingIsDeleted(): void
     {
-        $this->connection()->insert(self::MESSAGES, ['pid' => 0, 'conversation' => 9999, 'sorting' => 0, 'role' => 'user', 'payload' => '{}', 'crdate' => time()]);
+        $this->connection()->insert(self::MESSAGES, ['pid' => 0, 'conversation' => 9999, 'sorting' => 0, 'role' => 'user', 'payload' => '{}', 'crdate' => time() - 7200]);
+        // Just written: its conversation may still be invisible to the sweep.
+        $this->connection()->insert(self::MESSAGES, ['pid' => 0, 'conversation' => 9998, 'sorting' => 0, 'role' => 'user', 'payload' => '{}', 'crdate' => time()]);
         $kept = $this->newConversation('kept');
 
         (new CommandTester($this->get(CleanupCommand::class)))->execute([]);
 
         self::assertSame([], $this->messageRows(9999));
+        self::assertCount(1, $this->messageRows(9998));
         self::assertCount(2, $this->messageRows($kept));
     }
 }

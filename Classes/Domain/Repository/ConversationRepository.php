@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Domain\Repository;
 
-use Doctrine\DBAL\Exception\RetryableException;
+use Doctrine\DBAL\Exception\DeadlockException;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Throwable;
@@ -447,7 +447,9 @@ readonly class ConversationRepository
 
     /**
      * Run $work in a transaction, and run it again when the database picked it
-     * as a deadlock victim or timed out on a lock.
+     * as a deadlock victim. A lock-wait timeout is not retried: it has already
+     * waited for innodb_lock_wait_timeout, and three of those would hold an
+     * AJAX request for minutes.
      *
      * Replacing a conversation's message rows deletes a range of the unique
      * (conversation, sorting) index and inserts into it. Under REPEATABLE READ
@@ -464,6 +466,11 @@ readonly class ConversationRepository
      */
     private function transactional(Connection $conn, callable $work): mixed
     {
+        // Inside a caller's transaction this would only be a savepoint, and a
+        // deadlock rolls back the whole outer transaction: restarting just the
+        // inner part would run outside the transaction that was lost.
+        $attempts = $conn->getTransactionNestingLevel() === 0 ? self::TRANSACTION_ATTEMPTS : 1;
+
         for ($attempt = 1; ; ++$attempt) {
             $conn->beginTransaction();
             try {
@@ -471,15 +478,27 @@ readonly class ConversationRepository
                 $conn->commit();
 
                 return $result;
-            } catch (RetryableException $e) {
-                $conn->rollBack();
-                if ($attempt >= self::TRANSACTION_ATTEMPTS) {
+            } catch (DeadlockException $e) {
+                $this->rollBackIfActive($conn);
+                if ($attempt >= $attempts) {
                     throw $e;
                 }
             } catch (Throwable $e) {
-                $conn->rollBack();
+                $this->rollBackIfActive($conn);
                 throw $e;
             }
+        }
+    }
+
+    /**
+     * DBAL lowers the nesting level even when commit() itself throws, so after
+     * a deadlock reported at COMMIT (Galera, for one) there is nothing left to
+     * roll back — and rollBack() would throw instead of letting the retry run.
+     */
+    private function rollBackIfActive(Connection $conn): void
+    {
+        if ($conn->isTransactionActive()) {
+            $conn->rollBack();
         }
     }
 

@@ -24,6 +24,8 @@ final class CleanupCommand extends Command
 
     private const DEFAULT_DELETE_AFTER_DAYS = 90;
 
+    private const ORPHAN_MIN_AGE_SECONDS = 3600;
+
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly ExtensionConfiguration $extensionConfiguration,
@@ -156,10 +158,13 @@ final class CleanupCommand extends Command
         // The messages of a deleted conversation live in their own table
         // (ADR-016) and go with it. Removed as orphans on every run rather than
         // by the same criteria, so a conversation deleted any other way leaves
-        // nothing behind either.
+        // nothing behind either. Only rows older than an hour: under READ
+        // COMMITTED the subquery may not yet see a conversation whose first
+        // messages are being written in the same moment.
         $this->connectionPool->getConnectionForTable(self::MESSAGE_TABLE)->executeStatement(
             'DELETE FROM ' . self::MESSAGE_TABLE
-            . ' WHERE conversation NOT IN (SELECT uid FROM ' . self::TABLE . ')',
+            . ' WHERE crdate < ? AND conversation NOT IN (SELECT uid FROM ' . self::TABLE . ')',
+            [time() - self::ORPHAN_MIN_AGE_SECONDS],
         );
 
         if ($affected > 0) {

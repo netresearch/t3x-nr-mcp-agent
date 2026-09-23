@@ -75,9 +75,12 @@ Consequences
     an empty range takes a gap lock, and both inserts wait on the other's.
     Reproduced on MariaDB 11.4 with two sessions. Every transaction of the
     repository is therefore restarted up to three times on a
-    ``RetryableException`` (deadlock, lock wait timeout), which is the
-    remedy the database itself names; the work is a function of the
-    conversation and safe to repeat.
+    ``DeadlockException``, which is the remedy the database itself names;
+    the work is a function of the conversation and safe to repeat. A lock
+    wait timeout is not retried (it has already waited
+    ``innodb_lock_wait_timeout``), and nothing is retried inside a
+    caller's transaction, where the deadlock has rolled back more than the
+    repository's part.
 -   A legacy value that is not a JSON list — such a conversation could not
     be opened before either — is not destroyed by the wizard: it stays in
     the column behind the prefix ``!undecodable:``, which the wizard skips.
