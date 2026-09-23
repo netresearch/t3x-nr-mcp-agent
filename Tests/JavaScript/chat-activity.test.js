@@ -4,7 +4,7 @@
 
 import {describe, test, expect, jest, beforeEach} from '@jest/globals';
 import {ChatCoreController} from '../../Resources/Public/JavaScript/chat-core.js';
-import {activityEntries} from '../../Resources/Public/JavaScript/chat-activity.js';
+import {activityEntries, latestStepAnnouncement} from '../../Resources/Public/JavaScript/chat-activity.js';
 
 function controller(state = {}) {
     const host = {addController() {}, requestUpdate: jest.fn(), onScrollToBottom() {}, onFocusInput() {}, onResetInput() {}, isConnected: true};
@@ -58,6 +58,21 @@ describe('activityEntries', () => {
 
     test('a settled turn adds nothing', () => {
         expect(activityEntries(controller({status: 'idle', activity: []}))).toEqual([]);
+    });
+});
+
+describe('announcements', () => {
+    test('only the newest step is announced', () => {
+        const chat = controller({activity: [
+            {kind: 'llm', round: 1, ms: 5},
+            {kind: 'tool', round: 1, ms: 40, tool: 'read_records', error: false},
+        ]});
+
+        expect(latestStepAnnouncement(chat)).toBe('activity.tool, 40 ms');
+    });
+
+    test('nothing is announced before the first step', () => {
+        expect(latestStepAnnouncement(controller({activity: []}))).toBe('');
     });
 });
 
@@ -117,5 +132,8 @@ describe.each([
         expect(list).not.toBeNull();
         expect(list.querySelectorAll('li')).toHaveLength(1);
         expect(list.textContent).toContain('activity.tool');
+        // One small live region, not the whole list.
+        expect(list.querySelector('ol').hasAttribute('aria-live')).toBe(false);
+        expect(list.querySelector('[role="status"]').textContent.trim()).toBe('activity.tool, 4 ms');
     });
 });

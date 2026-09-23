@@ -64,4 +64,20 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
         self::assertStringNotContainsString('Conv 3', $html);
         self::assertStringContainsString('data-nr-chat-new="1"', $html);
     }
+
+    /** A title is user text: it must reach the page as text, never as markup. */
+    #[Test]
+    public function aTitleIsEscaped(): void
+    {
+        $this->get(\TYPO3\CMS\Core\Database\ConnectionPool::class)
+            ->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->update('tx_nrmcpagent_conversation', ['title' => '<script>alert(1)</script>', 'tstamp' => time()], ['uid' => 1]);
+
+        $html = $this->get(WidgetRegistry::class)
+            ->getAvailableWidget($this->request(), 'nrMcpAgentAiChat')
+            ->renderWidgetContent();
+
+        self::assertStringNotContainsString('<script>alert(1)</script>', $html);
+        self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
+    }
 }

@@ -15,7 +15,7 @@
                                     <f:if condition="{conversation.pinned}">&#x1F4CC; </f:if>{f:if(condition: conversation.title, then: conversation.title, else: '{f:translate(key: \'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:conversations.newConversation\')}')}
                                 </a>
                                 <div class="text-body-secondary small">
-                                    <f:format.date format="d.m.Y H:i">{conversation.tstamp}</f:format.date>
+                                    {conversation.date}
                                 </div>
                             </li>
                         </f:for>

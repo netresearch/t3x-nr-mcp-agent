@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Dashboard;
 
+use IntlDateFormatter;
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Localization\Locales;
 use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
 use TYPO3\CMS\Dashboard\Widgets\JavaScriptInterface;
 use TYPO3\CMS\Dashboard\Widgets\RequestAwareWidgetInterface;
@@ -47,6 +49,7 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
         private readonly BackendViewFactory $backendViewFactory,
         private readonly ConversationRepository $repository,
         private readonly ChatToolbarItem $chatAccess,
+        private readonly Locales $locales,
         private readonly array $options = [],
     ) {}
 
@@ -70,7 +73,7 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
      * What the template shows: whether the chat is available to this user,
      * and their most recent conversations if it is.
      *
-     * @return array{available: bool, conversations: list<array{uid: int, title: string, status: string, pinned: bool, tstamp: int}>}
+     * @return array{available: bool, conversations: list<array{uid: int, title: string, status: string, pinned: bool, tstamp: int, date: string}>}
      */
     public function templateVariables(): array
     {
@@ -83,7 +86,7 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
     }
 
     /**
-     * @return list<array{uid: int, title: string, status: string, pinned: bool, tstamp: int}>
+     * @return list<array{uid: int, title: string, status: string, pinned: bool, tstamp: int, date: string}>
      */
     private function recentConversations(): array
     {
@@ -98,12 +101,22 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
         // "where was I?", which pinning does not change.
         $conversations = array_slice($this->repository->findByBeUser($uid), 0, self::LIMIT);
 
+        // In the backend user's language: a fixed d.m.Y reads wrong to
+        // everyone who does not use it.
+        $formatter = new IntlDateFormatter(
+            (string) $this->locales->createLocaleFromUserPreferences($backendUser instanceof BackendUserAuthentication ? $backendUser : null),
+            IntlDateFormatter::MEDIUM,
+            IntlDateFormatter::SHORT,
+            date_default_timezone_get(),
+        );
+
         return array_map(static fn(Conversation $c): array => [
             'uid' => $c->getUid(),
             'title' => $c->getTitle(),
             'status' => $c->getStatus()->value,
             'pinned' => $c->isPinned(),
             'tstamp' => $c->getTstamp(),
+            'date' => (string) $formatter->format($c->getTstamp()),
         ], $conversations);
     }
 

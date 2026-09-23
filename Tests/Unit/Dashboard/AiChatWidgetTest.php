@@ -15,6 +15,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Localization\Locales;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Dashboard\Widgets\WidgetConfigurationInterface;
 
@@ -44,16 +45,17 @@ final class AiChatWidgetTest extends TestCase
             $viewFactory,
             $repository,
             new ChatToolbarItem($config, $this->createMock(PageRenderer::class)),
+            new Locales(),
         );
         $widget->setRequest($this->createMock(ServerRequestInterface::class));
 
         return $widget;
     }
 
-    private function actingAs(int $uid): void
+    private function actingAs(int $uid, string $lang = ''): void
     {
         $user = $this->createMock(BackendUserAuthentication::class);
-        $user->user = ['uid' => $uid, 'usergroup' => ''];
+        $user->user = ['uid' => $uid, 'usergroup' => '', 'lang' => $lang];
         $GLOBALS['BE_USER'] = $user;
     }
 
@@ -72,7 +74,7 @@ final class AiChatWidgetTest extends TestCase
 
         self::assertTrue($variables['available']);
         self::assertCount(AiChatWidget::LIMIT, $variables['conversations']);
-        self::assertSame(['uid' => 1, 'title' => 'Chat 1', 'status' => 'idle', 'pinned' => false, 'tstamp' => 99], $variables['conversations'][0]);
+        self::assertSame(['uid' => 1, 'title' => 'Chat 1', 'status' => 'idle', 'pinned' => false, 'tstamp' => 99], array_diff_key($variables['conversations'][0], ['date' => true]));
     }
 
     /**
@@ -99,5 +101,28 @@ final class AiChatWidgetTest extends TestCase
 
         self::assertCount(1, $instructions);
         self::assertSame('@netresearch/nr-mcp-agent/dashboard-widget.js', $instructions[0]->getName());
+    }
+
+    /** The date follows the backend user's language, not a fixed d.m.Y. */
+    #[Test]
+    public function theDateIsFormattedInTheUsersLanguage(): void
+    {
+        $timezone = date_default_timezone_get();
+        date_default_timezone_set('UTC');
+        try {
+            $tstamp = 1790157600; // 2026-09-23 10:00 UTC
+            $repository = $this->createMock(ConversationRepository::class);
+            $repository->method('findByBeUser')->willReturn([Conversation::fromRow(['uid' => 1, 'be_user' => 3, 'tstamp' => $tstamp])]);
+
+            $this->actingAs(3, 'de');
+            $german = $this->widget(1, $repository)->templateVariables()['conversations'][0]['date'];
+            $this->actingAs(3, '');
+            $english = $this->widget(1, $repository)->templateVariables()['conversations'][0]['date'];
+        } finally {
+            date_default_timezone_set($timezone);
+        }
+
+        self::assertStringStartsWith('23.09.2026', $german);
+        self::assertStringStartsWith('Sep 23, 2026', $english);
     }
 }

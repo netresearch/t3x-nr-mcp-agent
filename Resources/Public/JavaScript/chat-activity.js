@@ -59,6 +59,17 @@ export const chatActivityStyles = css`
     .activity .activity-error { color: var(--nr-chat-status-danger); }
     .activity .activity-waiting { color: var(--nr-chat-status-info); }
     .activity .activity-empty { color: var(--nr-chat-text-variant); border-bottom: none; }
+    .activity-announcement {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
 `;
 
 function formatDuration(ms) {
@@ -104,6 +115,21 @@ export function activityEntries(chat) {
 }
 
 /**
+ * The newest recorded step, as one short sentence for screen readers.
+ *
+ * The list itself is not a live region: announcing it would read the whole
+ * list again on every poll. This region holds the latest step only, so a
+ * screen reader announces each new step once.
+ */
+export function latestStepAnnouncement(chat) {
+    const recorded = chat.activity || [];
+    if (recorded.length === 0) return '';
+    const entries = activityEntries({...chat, activity: [recorded[recorded.length - 1]], status: 'idle', isProcessing: () => false});
+    const latest = entries[0];
+    return latest ? [latest.label, latest.meta].filter(Boolean).join(', ') : '';
+}
+
+/**
  * @param {object} chat the ChatCoreController
  * @param {'strip'|'sidebar'} placement
  */
@@ -115,7 +141,8 @@ export function renderActivity(chat, placement) {
     return html`
         <aside class="activity activity-${placement}" aria-label="${lll('activity.title')}">
             <h3>${lll('activity.title')}</h3>
-            <ol aria-live="polite">
+            <p class="activity-announcement" role="status">${latestStepAnnouncement(chat)}</p>
+            <ol>
                 ${entries.length === 0
                     ? html`<li class="activity-empty">${lll('activity.empty')}</li>`
                     : entries.map((e) => html`
