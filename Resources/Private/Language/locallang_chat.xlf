@@ -245,7 +245,7 @@
             <trans-unit id="fal_picker_popup_blocked" resname="fal_picker_popup_blocked">
                 <source>Popup was blocked. Please disable your popup blocker.</source>
             </trans-unit>
-                    <trans-unit id="chat.edit" resname="chat.edit">
+            <trans-unit id="chat.edit" resname="chat.edit">
                 <source>Edit</source>
             </trans-unit>
             <trans-unit id="chat.editMessage" resname="chat.editMessage">
@@ -280,6 +280,9 @@
             </trans-unit>
             <trans-unit id="error.notEditable" resname="error.notEditable">
                 <source>Only a message you wrote as text can be edited</source>
+            </trans-unit>
+            <trans-unit id="error.editStale" resname="error.editStale">
+                <source>The conversation changed since it was loaded. It has been reloaded; edit the message again.</source>
             </trans-unit>
         </body>
     </file>

@@ -479,6 +479,7 @@ export class ChatCoreController {
         this.editingIndex = idx;
         this.editDraft = this.messages[idx].content;
         this.host.requestUpdate();
+        this._focusAfterRender('.message-editor textarea');
     }
 
     cancelEdit() {
@@ -508,7 +509,7 @@ export class ChatCoreController {
         this.errorMessage = '';
         this.host.requestUpdate();
         try {
-            await this._api.editMessage(uid, idx, content, currentBackendContext());
+            await this._api.editMessage(uid, idx, content, currentBackendContext(), this.messages[idx].content, this.messages.length);
             if (uid !== this.activeUid) return;
             this.editingIndex = -1;
             this.editDraft = '';
@@ -519,12 +520,33 @@ export class ChatCoreController {
             );
             await this.loadMessages();
             this.startPollingIfNeeded();
+            if (idx === 0) {
+                // The server renames a conversation whose title came from
+                // this message; show the new one.
+                await this.loadConversations();
+            }
         } catch (e) {
             this.errorMessage = e.message;
+            if (e.status === 409 && uid === this.activeUid) {
+                // The transcript changed under this view: show it as it is now.
+                this.editingIndex = -1;
+                await this.loadMessages();
+                this.errorMessage = e.message;
+            }
         } finally {
             this.sending = false;
             this.host.requestUpdate();
         }
+    }
+
+    /**
+     * Move focus into an editor the next render opens, so a keyboard user
+     * does not have to find it (and Escape, which closes it, works at once).
+     */
+    _focusAfterRender(selector) {
+        this.host.updateComplete?.then(() => {
+            this.host.renderRoot?.querySelector(selector)?.focus();
+        });
     }
 
     toggleSystemPrompt() {
@@ -539,6 +561,7 @@ export class ChatCoreController {
         this.systemPromptDraft = this.systemPrompt;
         this.systemPromptOpen = true;
         this.host.requestUpdate();
+        this._focusAfterRender('.instructions-editor textarea');
     }
 
     closeSystemPrompt() {

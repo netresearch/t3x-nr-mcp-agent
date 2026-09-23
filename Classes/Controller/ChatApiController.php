@@ -371,10 +371,28 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.notEditable')], 400);
         }
 
+        // The index is a position in the transcript the client last loaded.
+        // If the transcript has changed since — another tab edited or sent —
+        // the same index may point at another message, and the edit would
+        // replace the wrong one. The client sends what it saw; a mismatch is a
+        // conflict to reload, not an edit to guess at.
+        $expectedContent = $body['expectedContent'] ?? null;
+        $expectedCount = $body['messageCount'] ?? null;
+        if ($expectedContent !== $original['content'] || $expectedCount !== count($messages)) {
+            return new JsonResponse(['error' => $this->translate('error.editStale')], 409);
+        }
+
         $currentStatus = $conversation->getStatus();
         $refusal = $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
             return $refusal;
+        }
+
+        // The title was taken from the first message when it was sent. Editing
+        // that message changes what the conversation is about, so an automatic
+        // title follows; a title the user renamed stays.
+        if ($index === 0 && $conversation->getTitle() === mb_substr($original['content'], 0, 255)) {
+            $conversation->setTitle($content);
         }
 
         $original['content'] = $content;

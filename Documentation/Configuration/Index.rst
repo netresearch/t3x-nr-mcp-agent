@@ -41,7 +41,11 @@ LLM connection
 
     The Task decides the provider, the model and the prompts; what
     the assistant may *do* is still decided per user by nr-llm, so
-    a mapping never widens a user's permissions. See ADR-015.
+    a mapping never widens a user's permissions. Before each turn the
+    chat checks the Task's Configuration: it must be active, and if it
+    is restricted to backend groups, the user must be in one of them
+    (administrators always are). Otherwise the turn fails and says why.
+    This applies to :confval:`llmTaskUid` too. See ADR-015.
 
 Processing
 ==========

@@ -115,6 +115,8 @@ class ChatWorkerCommandTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(0);
 
         $configuration = $this->createMock(LlmConfiguration::class);
+        // The chat checks the Configuration is active before it runs it.
+        $configuration->method('isActive')->willReturn(true);
         $configuration->method('getLlmModel')->willReturn($this->createMock(LlmModel::class));
         $task = $this->createMock(Task::class);
         $task->method('getConfiguration')->willReturn($configuration);

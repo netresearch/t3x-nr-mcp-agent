@@ -64,8 +64,12 @@ Consequences
 -   The Task decides the model and the prompts, not the permissions. What the
     assistant may do stays with nr-llm's per-user tool policy and the
     Configuration's own group restriction, so a mapping cannot widen a user's
-    rights. A mapping to a Task whose Configuration the user may not use fails
-    the turn the way a misconfigured ``llmTaskUid`` does.
+    rights. The agent runtime does not check the Configuration itself, so
+    ``ChatService::resolveConfiguration()`` does, before every turn: the
+    Configuration must be active, and if it is restricted to backend groups,
+    ``ConfigurationResolver::actorMayUse()`` must accept the user (admins
+    always pass). Otherwise the turn fails with a message naming the
+    Configuration and the reason. The same check applies to ``llmTaskUid``.
 -   Referential integrity is not checked: a deleted Task or group leaves a
     pair that matches nothing or fails the turn with "Task not found". With a
     TCA table this would be a dangling relation just the same.

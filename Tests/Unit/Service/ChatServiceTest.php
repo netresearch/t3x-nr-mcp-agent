@@ -98,6 +98,8 @@ class ChatServiceTest extends TestCase
         if ($taskRepository === null) {
             $model = $this->createMock(LlmModel::class);
             $this->configuration = $this->createMock(LlmConfiguration::class);
+            // The chat checks the Configuration is active before it runs it.
+            $this->configuration->method('isActive')->willReturn(true);
             $this->configuration->method('getSystemPrompt')->willReturn($prompts['system_prompt'] ?? '');
             $this->configuration->method('getLlmModel')->willReturn($model);
 

@@ -68,6 +68,8 @@ class ChatServiceCapabilitiesTest extends TestCase
     private function makeTaskRepository(?LlmModel $model): TaskRepository
     {
         $configuration = $this->createMock(LlmConfiguration::class);
+        // The chat checks the Configuration is active before it runs it.
+        $configuration->method('isActive')->willReturn(true);
         $configuration->method('getSystemPrompt')->willReturn('');
         $configuration->method('getLlmModel')->willReturn($model);
 

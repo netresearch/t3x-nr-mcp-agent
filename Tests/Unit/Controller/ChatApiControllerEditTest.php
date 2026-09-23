@@ -122,7 +122,7 @@ final class ChatApiControllerEditTest extends TestCase
         $this->conversation($this->transcript());
         $this->processor->expects(self::once())->method('dispatch');
 
-        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => '  better question ']));
+        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => '  better question ']));
 
         self::assertSame(202, $response->getStatusCode());
         self::assertNotNull($this->claimed);
@@ -138,7 +138,7 @@ final class ChatApiControllerEditTest extends TestCase
     {
         $this->conversation($this->transcript());
 
-        $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 2, 'content' => 'reworded']));
+        $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 2, 'expectedContent' => 'second question', 'messageCount' => 4, 'content' => 'reworded']));
 
         self::assertNotNull($this->claimed);
         $messages = $this->claimed->getDecodedMessages();
@@ -169,7 +169,7 @@ final class ChatApiControllerEditTest extends TestCase
     {
         $this->conversation([['role' => 'user', 'content' => [['type' => 'text', 'text' => 'hi']]]]);
 
-        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']));
+        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']));
 
         self::assertSame(400, $response->getStatusCode());
         self::assertNull($this->claimed);
@@ -181,7 +181,7 @@ final class ChatApiControllerEditTest extends TestCase
         $this->conversation($this->transcript(), ConversationStatus::Processing);
         $this->processor->expects(self::never())->method('dispatch');
 
-        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']));
+        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']));
 
         self::assertSame(409, $response->getStatusCode());
         self::assertNull($this->claimed);
@@ -203,7 +203,7 @@ final class ChatApiControllerEditTest extends TestCase
         $conversation = $this->conversation($this->transcript(), ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-1');
 
-        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']));
+        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']));
 
         self::assertSame(202, $response->getStatusCode());
         self::assertNotNull($this->claimed);
@@ -361,7 +361,7 @@ final class ChatApiControllerEditTest extends TestCase
         $this->repository->method('countActiveByBeUser')->willReturn(3);
         $this->processor->expects(self::never())->method('dispatch');
 
-        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']));
+        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']));
 
         self::assertSame(429, $response->getStatusCode());
         self::assertNull($this->claimed);
@@ -396,6 +396,47 @@ final class ChatApiControllerEditTest extends TestCase
             $this->createMock(UriBuilder::class),
         );
 
-        self::assertSame(409, $subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']))->getStatusCode());
+        self::assertSame(409, $subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']))->getStatusCode());
+    }
+
+    /** Another tab changed the transcript: the index may now point at another message. */
+    #[Test]
+    public function anEditFromAStaleViewIsAConflict(): void
+    {
+        $this->conversation($this->transcript());
+        $this->processor->expects(self::never())->method('dispatch');
+
+        $moved = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x', 'expectedContent' => 'first question', 'messageCount' => 6]));
+        $changed = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x', 'expectedContent' => 'what I saw', 'messageCount' => 4]));
+        $unknown = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']));
+
+        self::assertSame(409, $moved->getStatusCode());
+        self::assertSame(409, $changed->getStatusCode());
+        self::assertSame(409, $unknown->getStatusCode());
+        self::assertNull($this->claimed);
+    }
+
+    #[Test]
+    public function editingTheFirstMessageRenamesAnAutomaticTitle(): void
+    {
+        $conversation = $this->conversation($this->transcript());
+        $conversation->setTitle('first question');
+
+        $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'better question', 'expectedContent' => 'first question', 'messageCount' => 4]));
+
+        self::assertNotNull($this->claimed);
+        self::assertSame('better question', $this->claimed->getTitle());
+    }
+
+    #[Test]
+    public function aTitleTheUserChoseStays(): void
+    {
+        $conversation = $this->conversation($this->transcript());
+        $conversation->setTitle('Press release');
+
+        $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'better question', 'expectedContent' => 'first question', 'messageCount' => 4]));
+
+        self::assertNotNull($this->claimed);
+        self::assertSame('Press release', $this->claimed->getTitle());
     }
 }

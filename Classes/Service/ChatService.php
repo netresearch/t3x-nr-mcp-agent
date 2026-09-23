@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
@@ -119,6 +120,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly DocumentExtractorRegistry $documentExtractorRegistry,
         private readonly UploadMimeTypeMap $uploadMimeTypeMap,
         private readonly UserContextPrompt $userContextPrompt,
+        private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
     ) {}
 
     /**
@@ -129,7 +131,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $extractionFormats = $this->documentExtractorRegistry->getAvailableExtensions();
 
         try {
-            $configuration = $this->resolveConfiguration();
+            $configuration = $this->resolveConfiguration($this->resolveActor($this->currentBackendUserUid()));
             $provider = $this->resolveProvider($configuration);
             if ($provider instanceof VisionCapableInterface && $provider->supportsVision()) {
                 $documentFormats = $provider instanceof DocumentCapableInterface && $provider->supportsDocuments()
@@ -208,7 +210,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         try {
-            $configuration = $this->resolveConfiguration();
+            $configuration = $this->resolveConfiguration($this->resolveActor($conversation->getBeUser()));
             $this->runAgentTurn($conversation, $configuration, $operation);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
@@ -486,6 +488,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $this->applyResult($conversation, $result);
     }
 
+    private function currentBackendUserUid(): int
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $uid = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
+
+        return is_numeric($uid) ? (int) $uid : 0;
+    }
+
     private function resolveActor(int $beUserUid): AiActorContext
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
@@ -582,7 +592,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      *
      * @throws NrMcpAgentException when the Task or its Configuration is missing
      */
-    private function resolveConfiguration(): LlmConfiguration
+    private function resolveConfiguration(AiActorContext $actor): LlmConfiguration
     {
         $taskUid = $this->config->getLlmTaskUid();
         $task = $this->taskRepository->findByUid($taskUid);
@@ -593,6 +603,27 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $configuration = $task->getConfiguration();
         if ($configuration === null) {
             throw new NrMcpAgentException(sprintf('nr-llm Task with uid %d has no LLM configuration assigned', $taskUid));
+        }
+
+        // The Task names a Configuration; whether this user may run it is the
+        // Configuration's to say — its active flag and its backend-group
+        // restriction, as nr-llm's own modules check them. The runtime does
+        // not, so without this a Task mapped to a group (ADR-015), or the
+        // single llmTaskUid, would run a Configuration withheld from the user.
+        if (!$configuration->isActive()) {
+            throw new NrMcpAgentException(sprintf(
+                'The nr-llm configuration "%s" of Task %d is disabled. Ask an administrator to enable it or to assign another Task.',
+                $configuration->getName(),
+                $taskUid,
+            ));
+        }
+
+        if (!$this->configurationResolver->actorMayUse($configuration, $actor)) {
+            throw new NrMcpAgentException(sprintf(
+                'The nr-llm configuration "%s" of Task %d is restricted to other backend groups. Ask an administrator for access or for another Task.',
+                $configuration->getName(),
+                $taskUid,
+            ));
         }
 
         $this->resolvedPrompts = [

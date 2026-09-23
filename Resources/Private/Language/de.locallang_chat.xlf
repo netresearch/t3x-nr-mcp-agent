@@ -321,7 +321,7 @@
                 <source>Popup was blocked. Please disable your popup blocker.</source>
                 <target>Das Popup wurde blockiert. Bitte deaktiviere deinen Popup-Blocker.</target>
             </trans-unit>
-                    <trans-unit id="chat.edit" resname="chat.edit">
+            <trans-unit id="chat.edit" resname="chat.edit">
                 <source>Edit</source>
                 <target>Bearbeiten</target>
             </trans-unit>
@@ -368,6 +368,10 @@
             <trans-unit id="error.notEditable" resname="error.notEditable">
                 <source>Only a message you wrote as text can be edited</source>
                 <target>Nur eine Nachricht, die du als Text geschrieben hast, lässt sich bearbeiten</target>
+            </trans-unit>
+            <trans-unit id="error.editStale" resname="error.editStale">
+                <source>The conversation changed since it was loaded. It has been reloaded; edit the message again.</source>
+                <target>Die Unterhaltung hat sich seit dem Laden geändert. Sie wurde neu geladen; bearbeite die Nachricht bitte noch einmal.</target>
             </trans-unit>
         </body>
     </file>

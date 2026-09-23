@@ -79,9 +79,23 @@ describe('editing a sent message', () => {
 
         await chat.submitEdit();
 
-        expect(chat._api.editMessage).toHaveBeenCalledWith(7, 0, 'better', expect.objectContaining({pageId: expect.any(Number), module: expect.any(String)}));
+        expect(chat._api.editMessage).toHaveBeenCalledWith(7, 0, 'better', expect.objectContaining({pageId: expect.any(Number), module: expect.any(String)}), 'first', 3);
         expect(chat._api.getMessages).toHaveBeenCalledWith(7, 0);
         expect(chat.editingIndex).toBe(-1);
+        chat.stopPolling();
+    });
+
+    test('a conflict from a stale view reloads the transcript and closes the editor', async () => {
+        const chat = controller();
+        const conflict = Object.assign(new Error('changed'), {status: 409});
+        chat._api.editMessage.mockRejectedValue(conflict);
+        chat.startEdit(0);
+
+        await chat.submitEdit();
+
+        expect(chat.editingIndex).toBe(-1);
+        expect(chat._api.getMessages).toHaveBeenCalledWith(7, 0);
+        expect(chat.errorMessage).toBe('changed');
         chat.stopPolling();
     });
 
@@ -208,6 +222,20 @@ describe.each([
         textarea.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, composed: true}));
         await el.updateComplete;
         expect(el.shadowRoot.querySelector('.message-editor')).toBeNull();
+    });
+
+    test('opening an editor moves focus into it', async () => {
+        const el = await mount();
+        el.shadowRoot.querySelector('[data-action="edit-message"]').click();
+        await el.updateComplete;
+        await el.updateComplete;
+        expect(el.shadowRoot.activeElement).toBe(el.shadowRoot.querySelector('.message-editor textarea'));
+
+        el.chat.cancelEdit();
+        el.shadowRoot.querySelector('[data-action="instructions"]').click();
+        await el.updateComplete;
+        await el.updateComplete;
+        expect(el.shadowRoot.activeElement).toBe(el.shadowRoot.querySelector('.instructions-editor textarea'));
     });
 
     test('the instructions button opens the editor and marks a conversation that has instructions', async () => {

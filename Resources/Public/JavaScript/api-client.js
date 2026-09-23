@@ -63,10 +63,12 @@ export class ApiClient {
      * @param {number} index
      * @param {string} content
      * @param {{pageId: number, module: string}|null} [context]
+     * @param {string} [expectedContent] the message as the client shows it
+     * @param {number} [messageCount] the length of the transcript the client shows
      * @returns {Promise<{status: string}>}
      */
-    async editMessage(conversationUid, index, content, context = null) {
-        const body = {conversationUid, index, content};
+    async editMessage(conversationUid, index, content, context = null, expectedContent = '', messageCount = 0) {
+        const body = {conversationUid, index, content, expectedContent, messageCount};
         if (context !== null) {
             body.context = context;
         }
@@ -222,7 +224,9 @@ export class ApiClient {
             throw new Error(`HTTP ${res.status}: unexpected response`);
         }
         if (!res.ok) {
-            throw new Error(data.error || `HTTP ${res.status}`);
+            const error = new Error(data.error || `HTTP ${res.status}`);
+            error.status = res.status;
+            throw error;
         }
         return data;
     }

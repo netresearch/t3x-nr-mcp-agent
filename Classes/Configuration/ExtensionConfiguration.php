@@ -37,7 +37,13 @@ class ExtensionConfiguration
      * endpoint, the toolbar, the turn itself — runs as that user, so the same
      * question gets the same answer everywhere.
      *
+     * Callers pass nothing. The parameter exists so the resolution can be
+     * tested without a backend user; the groups it is given are trusted as
+     * they are, so production code must not pass groups it did not take from
+     * the authenticated user.
+     *
      * @param list<int>|null $groupIds the user's effective group ids; null reads the current backend user
+     * @internal the $groupIds parameter is for tests
      */
     public function getLlmTaskUid(?array $groupIds = null): int
     {
