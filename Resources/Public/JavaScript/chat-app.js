@@ -656,7 +656,8 @@ export class ChatApp extends LitElement {
                     ${conv?.pinned ? '\u{1F4CC}' : lll('conversations.pin')}
                 </button>
                 <button class="btn btn-sm" data-action="export"
-                    @click=${() => downloadTextFile(this.ownerDocument || document, this.chat.exportFileName(), this.chat.buildMarkdownExport())}
+                    ?disabled=${!this.chat.canExport()}
+                    @click=${() => this.chat.canExport() && downloadTextFile(this.ownerDocument || document, this.chat.exportFileName(), this.chat.buildMarkdownExport())}
                     title="${lll('conversations.export')}">
                     ${ICON_DOWNLOAD(14)} ${lll('conversations.exportShort')}
                 </button>

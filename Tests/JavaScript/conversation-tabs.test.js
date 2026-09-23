@@ -177,6 +177,25 @@ describe('ai-chat-panel conversation row', () => {
         expect(root.querySelector('.conv-more-popover')).toBeNull();
     });
 
+    test('Home and End jump to the first and the last entry; the button names the list it opens', async () => {
+        const el = await mountPanel({conversations: conversations(30), activeUid: 30});
+        const root = el.shadowRoot;
+        expect(root.querySelector('.conv-tab-more').hasAttribute('aria-controls')).toBe(false);
+        root.querySelector('.conv-tab-more').click();
+        await el.updateComplete;
+        expect(root.querySelector('.conv-tab-more').getAttribute('aria-controls')).toBe('conv-more-list');
+
+        const input = root.querySelector('.conv-more-search');
+        input.dispatchEvent(new KeyboardEvent('keydown', {key: 'End', bubbles: true, composed: true}));
+        await el.updateComplete;
+        const options = root.querySelectorAll('#conv-more-list [role="option"]');
+        expect(input.getAttribute('aria-activedescendant')).toBe(options[options.length - 1].id);
+
+        input.dispatchEvent(new KeyboardEvent('keydown', {key: 'Home', bubbles: true, composed: true}));
+        await el.updateComplete;
+        expect(input.getAttribute('aria-activedescendant')).toBe(options[0].id);
+    });
+
     test('typing filters the list', async () => {
         const el = await mountPanel({conversations: conversations(30), activeUid: 30});
         const root = el.shadowRoot;

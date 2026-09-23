@@ -19,6 +19,7 @@ function controller(state) {
 describe('buildMarkdownExport', () => {
     const chat = () => controller({
         activeUid: 7,
+        messagesUid: 7,
         conversations: [{uid: 7, title: 'Seitenbaum prüfen'}],
         messages: [
             {role: 'user', content: 'Welche Seiten sind versteckt?', createdAt: '2026-09-23T08:00:00+00:00'},
@@ -57,6 +58,35 @@ describe('buildMarkdownExport', () => {
 
     test('names an attached file', () => {
         expect(chat().buildMarkdownExport()).toContain('*export.attachment: bild.png*');
+    });
+});
+
+describe('export during a conversation switch', () => {
+    test('nothing is exported while the list still holds the previous conversation', () => {
+        const chat = controller({
+            activeUid: 8,
+            messagesUid: 7,
+            conversations: [{uid: 7, title: 'old'}, {uid: 8, title: 'new'}],
+            messages: [{role: 'user', content: 'from conversation 7'}],
+        });
+
+        expect(chat.canExport()).toBe(false);
+        expect(chat.buildMarkdownExport()).toBe('');
+    });
+
+    test('a late answer for a conversation switched away from is dropped', async () => {
+        const chat = controller({activeUid: 7, conversations: [{uid: 7}, {uid: 8}]});
+        let resolve;
+        chat._api = {getMessages: jest.fn(() => new Promise(r => { resolve = r; }))};
+        chat.host.onScrollToBottom = () => {};
+
+        const loading = chat.loadMessages();
+        chat.activeUid = 8;
+        resolve({status: 'idle', messages: [{role: 'user', content: 'from 7'}], totalCount: 1});
+        await loading;
+
+        expect(chat.messages).toEqual([]);
+        expect(chat.messagesUid).toBeNull();
     });
 });
 

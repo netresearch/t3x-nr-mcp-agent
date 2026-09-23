@@ -50,6 +50,12 @@ export class ChatCoreController {
     conversations = [];
     activeUid = null;
     messages = [];
+    /**
+     * The conversation `messages` belongs to. Differs from activeUid while a
+     * switch is loading: the list still holds the previous conversation, and
+     * anything built from it (the export) must wait.
+     */
+    messagesUid = null;
     status = '';
     errorMessage = '';
 
@@ -238,10 +244,15 @@ export class ChatCoreController {
     }
 
     async loadMessages() {
-        if (!this.activeUid) return;
+        const uid = this.activeUid;
+        if (!uid) return;
         try {
-            const data = await this._api.getMessages(this.activeUid, 0);
+            const data = await this._api.getMessages(uid, 0);
+            // Switched away while this was loading: the answer is for a
+            // conversation no longer on screen.
+            if (uid !== this.activeUid) return;
             this.messages = data.messages || [];
+            this.messagesUid = uid;
             this.status = data.status;
             this.errorMessage = data.errorMessage || '';
             this.approvalUrl = data.approvalUrl || '';
@@ -683,7 +694,13 @@ export class ChatCoreController {
      *
      * @returns {string}
      */
+    /** Whether the transcript on screen belongs to the active conversation. */
+    canExport() {
+        return this.activeUid !== null && this.messagesUid === this.activeUid;
+    }
+
     buildMarkdownExport() {
+        if (!this.canExport()) return '';
         const conv = this.getActiveConversation();
         const title = conv?.title || lll('conversations.newConversation');
         const parts = [`# ${title}`];

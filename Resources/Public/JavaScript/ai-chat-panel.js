@@ -990,6 +990,9 @@ export class AiChatPanel extends LitElement {
         this._pipWindow = pipWindow;
 
         pipWindow.addEventListener('pagehide', () => this._returnFromPopOut());
+        // Clicks in the detached window never reach the backend document, where
+        // the outside-click handler of the menus is registered.
+        pipWindow.document.addEventListener('click', this._closeAttachMenu);
         pipWindow.document.body.append(this);
         this._adoptStylesInto(pipWindow);
         this._dressWindow(pipWindow);
@@ -1076,6 +1079,7 @@ export class AiChatPanel extends LitElement {
     /** Put the panel back where it came from when its window goes away. */
     _returnFromPopOut() {
         const home = this._pipHome;
+        this._pipWindow?.document?.removeEventListener('click', this._closeAttachMenu);
         this._pipWindow = null;
         this._pipHome = null;
 
@@ -1530,7 +1534,7 @@ export class AiChatPanel extends LitElement {
                                 aria-label="${c.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                             ${'\u{1F4CC}'}
                         </button>
-                        <button class="btn-icon btn-sm" data-action="export" @click=${(e) => { e.stopPropagation(); this._exportConversation(); }}
+                        <button class="btn-icon btn-sm" data-action="export" ?disabled=${!this.chat.canExport()} @click=${(e) => { e.stopPropagation(); this._exportConversation(); }}
                                 title="${lll('conversations.export')}" aria-label="${lll('conversations.export')}">
                             ${ICON_DOWNLOAD(12)}
                         </button>
@@ -1556,6 +1560,7 @@ export class AiChatPanel extends LitElement {
                         <button class="conv-tab conv-tab-more"
                                 aria-haspopup="listbox"
                                 aria-expanded="${String(this._moreOpen)}"
+                                aria-controls="${this._moreOpen ? 'conv-more-list' : nothing}"
                                 title="${lll('conversations.moreTitle')}"
                                 @click=${(e) => { e.stopPropagation(); this._toggleMore(); }}>
                             ${lll('conversations.more', overflow.length)}
@@ -1564,6 +1569,7 @@ export class AiChatPanel extends LitElement {
                     ${this.chat.activeUid ? html`
                         <button class="btn-icon conv-tab-action"
                                 data-action="export"
+                                ?disabled=${!this.chat.canExport()}
                                 @click=${() => this._exportConversation()}
                                 title="${lll('conversations.export')}"
                                 aria-label="${lll('conversations.export')}">${ICON_DOWNLOAD(14)}</button>
@@ -1656,6 +1662,11 @@ export class AiChatPanel extends LitElement {
             if (items.length === 0) return;
             const step = e.key === 'ArrowDown' ? 1 : -1;
             this._moreIndex = (index + step + items.length) % items.length;
+        } else if (e.key === 'Home' || e.key === 'End') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (items.length === 0) return;
+            this._moreIndex = e.key === 'Home' ? 0 : items.length - 1;
         } else if (e.key === 'Enter') {
             e.preventDefault();
             e.stopPropagation();
@@ -1670,6 +1681,7 @@ export class AiChatPanel extends LitElement {
     }
 
     _exportConversation() {
+        if (!this.chat.canExport()) return;
         const doc = this.ownerDocument || document;
         downloadTextFile(doc, this.chat.exportFileName(), this.chat.buildMarkdownExport());
     }
