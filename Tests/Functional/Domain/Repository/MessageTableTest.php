@@ -237,4 +237,36 @@ final class MessageTableTest extends FunctionalTestCase
         self::assertSame([], $this->messageRows($old));
         self::assertCount(2, $this->messageRows($kept));
     }
+
+    /**
+     * A legacy value that is not a JSON list made the conversation unopenable
+     * before. The wizard must neither destroy it nor pick it up forever.
+     */
+    #[Test]
+    public function theWizardKeepsAnUndecodableTranscriptAndFinishes(): void
+    {
+        $this->connection()->insert(self::CONVERSATIONS, [
+            'pid' => 0, 'be_user' => 1, 'title' => 'broken', 'messages' => '[{"role":"user"', 'status' => 'idle', 'tstamp' => time(), 'crdate' => time(),
+        ]);
+        $uid = (int) $this->connection()->lastInsertId();
+        $wizard = $this->get(MigrateMessagesToTableUpdateWizard::class);
+
+        self::assertTrue($wizard->executeUpdate());
+
+        self::assertFalse($wizard->updateNecessary());
+        self::assertSame(ConversationRepository::UNDECODABLE_MARKER . '[{"role":"user"', $this->legacyColumn($uid));
+        self::assertSame([], $this->messageRows($uid));
+    }
+
+    #[Test]
+    public function orphanedMessagesAreRemovedEvenWhenNothingIsDeleted(): void
+    {
+        $this->connection()->insert(self::MESSAGES, ['pid' => 0, 'conversation' => 9999, 'sorting' => 0, 'role' => 'user', 'payload' => '{}', 'crdate' => time()]);
+        $kept = $this->newConversation('kept');
+
+        (new CommandTester($this->get(CleanupCommand::class)))->execute([]);
+
+        self::assertSame([], $this->messageRows(9999));
+        self::assertCount(2, $this->messageRows($kept));
+    }
 }

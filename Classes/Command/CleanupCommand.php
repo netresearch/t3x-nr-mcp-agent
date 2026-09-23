@@ -153,15 +153,16 @@ final class CleanupCommand extends Command
             )
             ->executeStatement();
 
+        // The messages of a deleted conversation live in their own table
+        // (ADR-016) and go with it. Removed as orphans on every run rather than
+        // by the same criteria, so a conversation deleted any other way leaves
+        // nothing behind either.
+        $this->connectionPool->getConnectionForTable(self::MESSAGE_TABLE)->executeStatement(
+            'DELETE FROM ' . self::MESSAGE_TABLE
+            . ' WHERE conversation NOT IN (SELECT uid FROM ' . self::TABLE . ')',
+        );
+
         if ($affected > 0) {
-            // The messages of a deleted conversation live in their own table
-            // (ADR-016) and go with it. Removed as orphans rather than by the
-            // same criteria, so a conversation deleted any other way leaves
-            // nothing behind either.
-            $this->connectionPool->getConnectionForTable(self::MESSAGE_TABLE)->executeStatement(
-                'DELETE FROM ' . self::MESSAGE_TABLE
-                . ' WHERE conversation NOT IN (SELECT uid FROM ' . self::TABLE . ')',
-            );
             $output->writeln(sprintf('<comment>Deleted %d old archived conversation(s)</comment>', $affected));
         }
 

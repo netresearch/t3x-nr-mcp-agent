@@ -70,6 +70,17 @@ Consequences
     instead of one ``UPDATE`` of a growing value. For the sizes a chat has
     this is the same order of work; for very long conversations append-only
     writes are the follow-up.
+-   Replacing the rows deadlocks under REPEATABLE READ (the MySQL/MariaDB
+    default) when two new conversations are written at once: the delete of
+    an empty range takes a gap lock, and both inserts wait on the other's.
+    Reproduced on MariaDB 11.4 with two sessions. Every transaction of the
+    repository is therefore restarted up to three times on a
+    ``RetryableException`` (deadlock, lock wait timeout), which is the
+    remedy the database itself names; the work is a function of the
+    conversation and safe to repeat.
+-   A legacy value that is not a JSON list — such a conversation could not
+    be opened before either — is not destroyed by the wizard: it stays in
+    the column behind the prefix ``!undecodable:``, which the wizard skips.
 -   Both tables must live on the same database connection for the
     transaction to cover them — the TYPO3 default. An installation that maps
     ``tx_nrmcpagent_message`` to another connection loses the atomicity.

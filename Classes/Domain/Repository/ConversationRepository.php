@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Domain\Repository;
 
+use Doctrine\DBAL\Exception\RetryableException;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Throwable;
@@ -31,6 +32,11 @@ readonly class ConversationRepository
     private const TABLE = 'tx_nrmcpagent_conversation';
 
     private const MESSAGE_TABLE = 'tx_nrmcpagent_message';
+
+    private const TRANSACTION_ATTEMPTS = 3;
+
+    /** Prefix of a legacy transcript the upgrade wizard could not decode and left in place. */
+    public const UNDECODABLE_MARKER = '!undecodable:';
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -125,33 +131,23 @@ readonly class ConversationRepository
         // later only updateSystemPrompt() writes them (see toRow()).
         $data['system_prompt'] = $conversation->getSystemPrompt();
 
-        $conn->beginTransaction();
-        try {
+        return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
             $conn->insert(self::TABLE, $data);
             $uid = (int) $conn->lastInsertId();
             $this->writeMessages($conn, $uid, $conversation->getDecodedMessages());
-            $conn->commit();
-        } catch (Throwable $e) {
-            $conn->rollBack();
-            throw $e;
-        }
 
-        return $uid;
+            return $uid;
+        });
     }
 
     public function update(Conversation $conversation): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
 
-        $conn->beginTransaction();
-        try {
+        $this->transactional($conn, function () use ($conn, $conversation): void {
             $conn->update(self::TABLE, $this->rowData($conversation), ['uid' => $conversation->getUid()]);
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
-            $conn->commit();
-        } catch (Throwable $e) {
-            $conn->rollBack();
-            throw $e;
-        }
+        });
     }
 
     /**
@@ -298,27 +294,21 @@ readonly class ConversationRepository
         // The claim and the transcript commit together: a claim that loses
         // leaves no message rows behind, and a worker cannot dequeue the
         // conversation before its new message is there.
-        $conn->beginTransaction();
-        try {
+        return $this->transactional($conn, function () use ($conn, $columns, $params, $conversation): bool {
             $affected = $conn->executeStatement(
                 'UPDATE ' . self::TABLE . ' SET ' . implode(', ', $columns)
                 . ' WHERE uid = ? AND status = ? AND deleted = ?',
                 $params,
             );
             if ($affected === 0) {
-                $conn->rollBack();
-
+                // Lost: nothing was written, so there is nothing to undo.
                 return false;
             }
 
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
-            $conn->commit();
-        } catch (Throwable $e) {
-            $conn->rollBack();
-            throw $e;
-        }
 
-        return true;
+            return true;
+        });
     }
 
     /**
@@ -456,6 +446,68 @@ readonly class ConversationRepository
     }
 
     /**
+     * Run $work in a transaction, and run it again when the database picked it
+     * as a deadlock victim or timed out on a lock.
+     *
+     * Replacing a conversation's message rows deletes a range of the unique
+     * (conversation, sorting) index and inserts into it. Under REPEATABLE READ
+     * (MySQL/MariaDB's default) the delete takes a gap lock even when the range
+     * is empty, so two users writing the first messages of two new
+     * conversations at the same moment deadlock — reproduced on MariaDB 11.4.
+     * The database rolls the victim back and asks for a restart, which is what
+     * this does; the work is a pure function of the conversation, so running it
+     * again is safe.
+     *
+     * @template T
+     * @param callable(): T $work
+     * @return T
+     */
+    private function transactional(Connection $conn, callable $work): mixed
+    {
+        for ($attempt = 1; ; ++$attempt) {
+            $conn->beginTransaction();
+            try {
+                $result = $work();
+                $conn->commit();
+
+                return $result;
+            } catch (RetryableException $e) {
+                $conn->rollBack();
+                if ($attempt >= self::TRANSACTION_ATTEMPTS) {
+                    throw $e;
+                }
+            } catch (Throwable $e) {
+                $conn->rollBack();
+                throw $e;
+            }
+        }
+    }
+
+    /**
+     * A transcript as the legacy column held it, or null when the value is
+     * not a JSON list.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function decodeLegacyTranscript(string $blob): ?array
+    {
+        $decoded = json_decode($blob, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $messages = [];
+        foreach ($decoded as $message) {
+            if (is_array($message)) {
+                /** @var array<string, mixed> $message */
+                $messages[] = $message;
+            }
+        }
+
+        return $messages;
+    }
+
+    /**
      * The conversation row as written: everything the model serialises, the
      * transcript excepted — that goes to the message table, and the legacy
      * column is emptied so it can never be read in place of the rows.
@@ -481,7 +533,10 @@ readonly class ConversationRepository
         $qb->getRestrictions()->removeAll();
         $count = $qb->count('uid')
             ->from(self::TABLE)
-            ->where($qb->expr()->neq('messages', $qb->createNamedParameter('')))
+            ->where(
+                $qb->expr()->neq('messages', $qb->createNamedParameter('')),
+                $qb->expr()->notLike('messages', $qb->createNamedParameter($qb->escapeLikeWildcards(self::UNDECODABLE_MARKER) . '%')),
+            )
             ->executeQuery()
             ->fetchOne();
 
@@ -500,7 +555,10 @@ readonly class ConversationRepository
         $qb->getRestrictions()->removeAll();
         $rows = $qb->select('uid', 'messages')
             ->from(self::TABLE)
-            ->where($qb->expr()->neq('messages', $qb->createNamedParameter('')))
+            ->where(
+                $qb->expr()->neq('messages', $qb->createNamedParameter('')),
+                $qb->expr()->notLike('messages', $qb->createNamedParameter($qb->escapeLikeWildcards(self::UNDECODABLE_MARKER) . '%')),
+            )
             ->orderBy('uid')
             ->setMaxResults($limit)
             ->executeQuery()
@@ -511,27 +569,24 @@ readonly class ConversationRepository
             $uid = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
             $blob = is_string($row['messages'] ?? null) ? $row['messages'] : '';
 
-            $conn->beginTransaction();
-            try {
+            $this->transactional($conn, function () use ($conn, $uid, $blob): void {
                 if ($this->loadMessages($uid) === []) {
-                    $decoded = json_decode($blob, true);
-                    $messages = [];
-                    foreach (is_array($decoded) ? $decoded : [] as $message) {
-                        if (is_array($message)) {
-                            /** @var array<string, mixed> $message */
-                            $messages[] = $message;
-                        }
+                    $messages = $this->decodeLegacyTranscript($blob);
+                    if ($messages === null) {
+                        // Not a JSON list: the conversation could not be
+                        // opened before either. Keep the value, marked, so
+                        // nothing is lost and the wizard does not pick it up
+                        // again.
+                        $conn->update(self::TABLE, ['messages' => self::UNDECODABLE_MARKER . $blob], ['uid' => $uid]);
+
+                        return;
                     }
 
                     $this->writeMessages($conn, $uid, $messages);
                 }
 
                 $conn->update(self::TABLE, ['messages' => ''], ['uid' => $uid]);
-                $conn->commit();
-            } catch (Throwable $e) {
-                $conn->rollBack();
-                throw $e;
-            }
+            });
         }
 
         return count($rows);
