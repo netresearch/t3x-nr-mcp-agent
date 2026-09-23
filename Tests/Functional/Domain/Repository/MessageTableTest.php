@@ -193,7 +193,7 @@ final class MessageTableTest extends FunctionalTestCase
     {
         $first = $this->legacyConversation([['role' => 'user', 'content' => 'a'], ['role' => 'assistant', 'content' => 'b']]);
         $second = $this->legacyConversation([['role' => 'user', 'content' => 'c', 'fileUid' => 5]]);
-        $wizard = $this->get(MigrateMessagesToTableUpdateWizard::class);
+        $wizard = new MigrateMessagesToTableUpdateWizard($this->subject);
 
         self::assertTrue($wizard->updateNecessary());
         self::assertTrue($wizard->executeUpdate());
@@ -217,7 +217,7 @@ final class MessageTableTest extends FunctionalTestCase
         $uid = $this->newConversation('current');
         $this->connection()->update(self::CONVERSATIONS, ['messages' => '[{"role":"user","content":"stale"}]'], ['uid' => $uid]);
 
-        $this->get(MigrateMessagesToTableUpdateWizard::class)->executeUpdate();
+        (new MigrateMessagesToTableUpdateWizard($this->subject))->executeUpdate();
 
         self::assertSame('', $this->legacyColumn($uid));
         $conversation = $this->subject->findByUid($uid);
@@ -249,7 +249,7 @@ final class MessageTableTest extends FunctionalTestCase
             'pid' => 0, 'be_user' => 1, 'title' => 'broken', 'messages' => '[{"role":"user"', 'status' => 'idle', 'tstamp' => time(), 'crdate' => time(),
         ]);
         $uid = (int) $this->connection()->lastInsertId();
-        $wizard = $this->get(MigrateMessagesToTableUpdateWizard::class);
+        $wizard = new MigrateMessagesToTableUpdateWizard($this->subject);
 
         self::assertTrue($wizard->executeUpdate());
 
