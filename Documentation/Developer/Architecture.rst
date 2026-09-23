@@ -120,8 +120,14 @@ The central entity. Stored in
     Auto-generated title from the first message.
 
 ``messages``
-    JSON-encoded array of all messages (user, assistant,
-    tool calls, tool results). Stored as ``mediumtext``.
+    Legacy: the transcript as one JSON array, as releases before
+    NEXT-172 stored it. Read only while a conversation has no rows
+    in ``tx_nrmcpagent_message``; written empty on every save and
+    emptied by the upgrade wizard ``nrMcpAgent_migrateMessagesToTable``
+    (ADR-016). The model still exposes the transcript as one list
+    (``getDecodedMessages()``); ``ConversationRepository`` fills it
+    from the message rows and writes it back to them, in the same
+    transaction as the conversation row.
 
     User messages with file attachments contain additional fields:
 

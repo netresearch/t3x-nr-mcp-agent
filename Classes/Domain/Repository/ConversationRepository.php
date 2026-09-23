@@ -6,15 +6,31 @@ namespace Netresearch\NrMcpAgent\Domain\Repository;
 
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
  * DBAL-based repository — no Extbase, direct QueryBuilder access.
+ *
+ * Messages live in their own table, one row per message (ADR-016). The
+ * conversation model still carries the transcript as one list, so nothing
+ * above this class knows: loading a conversation fills the list from the
+ * message rows, saving one writes them back — together with the
+ * conversation row, in one transaction, so a claim that fails leaves no
+ * message behind and a worker never dequeues a conversation whose new
+ * message is not there yet.
+ *
+ * Rows written before the table existed keep their transcript in the
+ * `messages` column until the upgrade wizard moves it, and are read from
+ * there as long as they have no message rows. The first save moves such a
+ * transcript as a side effect.
  */
 readonly class ConversationRepository
 {
     private const TABLE = 'tx_nrmcpagent_conversation';
+
+    private const MESSAGE_TABLE = 'tx_nrmcpagent_message';
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -32,7 +48,7 @@ readonly class ConversationRepository
             ->executeQuery()
             ->fetchAssociative();
 
-        return $row !== false ? Conversation::fromRow($row) : null;
+        return $row !== false ? $this->hydrate($row) : null;
     }
 
     private const LIST_COLUMNS = [
@@ -74,7 +90,7 @@ readonly class ConversationRepository
             ->executeQuery()
             ->fetchAssociative();
 
-        return $row !== false ? Conversation::fromRow($row) : null;
+        return $row !== false ? $this->hydrate($row) : null;
     }
 
     public function countActiveByBeUser(int $beUserUid): int
@@ -102,22 +118,40 @@ readonly class ConversationRepository
     public function add(Conversation $conversation): int
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $data = $conversation->toRow();
-        $data['crdate'] = $data['tstamp'] = time();
+        $data = $this->rowData($conversation);
+        $data['crdate'] = $data['tstamp'];
         $data['pid'] = 0;
         // A new row races nobody, so the instructions are written with it;
         // later only updateSystemPrompt() writes them (see toRow()).
         $data['system_prompt'] = $conversation->getSystemPrompt();
-        $conn->insert(self::TABLE, $data);
-        return (int) $conn->lastInsertId();
+
+        $conn->beginTransaction();
+        try {
+            $conn->insert(self::TABLE, $data);
+            $uid = (int) $conn->lastInsertId();
+            $this->writeMessages($conn, $uid, $conversation->getDecodedMessages());
+            $conn->commit();
+        } catch (Throwable $e) {
+            $conn->rollBack();
+            throw $e;
+        }
+
+        return $uid;
     }
 
     public function update(Conversation $conversation): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $data = $conversation->toRow();
-        $data['tstamp'] = time();
-        $conn->update(self::TABLE, $data, ['uid' => $conversation->getUid()]);
+
+        $conn->beginTransaction();
+        try {
+            $conn->update(self::TABLE, $this->rowData($conversation), ['uid' => $conversation->getUid()]);
+            $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
+            $conn->commit();
+        } catch (Throwable $e) {
+            $conn->rollBack();
+            throw $e;
+        }
     }
 
     /**
@@ -246,8 +280,7 @@ readonly class ConversationRepository
     public function updateIf(Conversation $conversation, ConversationStatus $expectedStatus): bool
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $data = $conversation->toRow();
-        $data['tstamp'] = time();
+        $data = $this->rowData($conversation);
 
         $columns = [];
         $params = [];
@@ -262,12 +295,30 @@ readonly class ConversationRepository
 
         $params[] = 0; // deleted
 
-        $affected = $conn->executeStatement(
-            'UPDATE ' . self::TABLE . ' SET ' . implode(', ', $columns)
-            . ' WHERE uid = ? AND status = ? AND deleted = ?',
-            $params,
-        );
-        return $affected > 0;
+        // The claim and the transcript commit together: a claim that loses
+        // leaves no message rows behind, and a worker cannot dequeue the
+        // conversation before its new message is there.
+        $conn->beginTransaction();
+        try {
+            $affected = $conn->executeStatement(
+                'UPDATE ' . self::TABLE . ' SET ' . implode(', ', $columns)
+                . ' WHERE uid = ? AND status = ? AND deleted = ?',
+                $params,
+            );
+            if ($affected === 0) {
+                $conn->rollBack();
+
+                return false;
+            }
+
+            $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
+            $conn->commit();
+        } catch (Throwable $e) {
+            $conn->rollBack();
+            throw $e;
+        }
+
+        return true;
     }
 
     /**
@@ -333,6 +384,156 @@ readonly class ConversationRepository
             return null;
         }
 
-        return Conversation::fromRow($row);
+        return $this->hydrate($row);
+    }
+
+    /**
+     * A conversation with its transcript: from the message rows, or — for a
+     * row the upgrade wizard has not reached yet — from the legacy column.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function hydrate(array $row): Conversation
+    {
+        $conversation = Conversation::fromRow($row);
+        $messages = $this->loadMessages($conversation->getUid());
+        if ($messages !== []) {
+            $conversation->setMessages($messages);
+        }
+
+        return $conversation;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function loadMessages(int $conversationUid): array
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::MESSAGE_TABLE);
+        $payloads = $qb->select('payload')
+            ->from(self::MESSAGE_TABLE)
+            ->where($qb->expr()->eq('conversation', $qb->createNamedParameter($conversationUid, Connection::PARAM_INT)))
+            ->orderBy('sorting', 'ASC')
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        $messages = [];
+        foreach ($payloads as $payload) {
+            $message = is_string($payload) ? json_decode($payload, true) : null;
+            if (is_array($message)) {
+                /** @var array<string, mixed> $message */
+                $messages[] = $message;
+            }
+        }
+
+        return $messages;
+    }
+
+    /**
+     * Replace the conversation's message rows with the given transcript.
+     *
+     * Replace, not append: an edit truncates the transcript (NEXT-172), and
+     * a transcript is a few dozen rows. Callers run inside the transaction
+     * that also writes the conversation row.
+     *
+     * @param list<array<string, mixed>> $messages
+     */
+    private function writeMessages(Connection $conn, int $conversationUid, array $messages): void
+    {
+        $conn->delete(self::MESSAGE_TABLE, ['conversation' => $conversationUid]);
+        $now = time();
+        foreach ($messages as $position => $message) {
+            $role = $message['role'] ?? '';
+            $conn->insert(self::MESSAGE_TABLE, [
+                'pid' => 0,
+                'conversation' => $conversationUid,
+                'sorting' => $position,
+                'role' => is_string($role) ? mb_substr($role, 0, 20) : '',
+                'payload' => json_encode($message, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                'crdate' => $now,
+            ]);
+        }
+    }
+
+    /**
+     * The conversation row as written: everything the model serialises, the
+     * transcript excepted — that goes to the message table, and the legacy
+     * column is emptied so it can never be read in place of the rows.
+     *
+     * @return array<string, int|string>
+     */
+    private function rowData(Conversation $conversation): array
+    {
+        $data = $conversation->toRow();
+        $data['messages'] = '';
+        $data['tstamp'] = time();
+
+        return $data;
+    }
+
+    /**
+     * How many conversations still keep their transcript in the legacy
+     * column — what the upgrade wizard has left to do.
+     */
+    public function countLegacyTranscripts(): int
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->getRestrictions()->removeAll();
+        $count = $qb->count('uid')
+            ->from(self::TABLE)
+            ->where($qb->expr()->neq('messages', $qb->createNamedParameter('')))
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($count) ? (int) $count : 0;
+    }
+
+    /**
+     * Move up to $limit legacy transcripts into the message table, one
+     * conversation per transaction. A conversation that already has message
+     * rows keeps them — they were written later than the column — and only
+     * loses the stale copy. Returns the number of conversations handled.
+     */
+    public function migrateLegacyTranscripts(int $limit): int
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->getRestrictions()->removeAll();
+        $rows = $qb->select('uid', 'messages')
+            ->from(self::TABLE)
+            ->where($qb->expr()->neq('messages', $qb->createNamedParameter('')))
+            ->orderBy('uid')
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        foreach ($rows as $row) {
+            $uid = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+            $blob = is_string($row['messages'] ?? null) ? $row['messages'] : '';
+
+            $conn->beginTransaction();
+            try {
+                if ($this->loadMessages($uid) === []) {
+                    $decoded = json_decode($blob, true);
+                    $messages = [];
+                    foreach (is_array($decoded) ? $decoded : [] as $message) {
+                        if (is_array($message)) {
+                            /** @var array<string, mixed> $message */
+                            $messages[] = $message;
+                        }
+                    }
+
+                    $this->writeMessages($conn, $uid, $messages);
+                }
+
+                $conn->update(self::TABLE, ['messages' => ''], ['uid' => $uid]);
+                $conn->commit();
+            } catch (Throwable $e) {
+                $conn->rollBack();
+                throw $e;
+            }
+        }
+
+        return count($rows);
     }
 }

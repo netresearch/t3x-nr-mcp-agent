@@ -18,6 +18,8 @@ final class CleanupCommand extends Command
 {
     private const TABLE = 'tx_nrmcpagent_conversation';
 
+    private const MESSAGE_TABLE = 'tx_nrmcpagent_message';
+
     private const STUCK_TIMEOUT_SECONDS = 300;
 
     private const DEFAULT_DELETE_AFTER_DAYS = 90;
@@ -152,6 +154,14 @@ final class CleanupCommand extends Command
             ->executeStatement();
 
         if ($affected > 0) {
+            // The messages of a deleted conversation live in their own table
+            // (ADR-016) and go with it. Removed as orphans rather than by the
+            // same criteria, so a conversation deleted any other way leaves
+            // nothing behind either.
+            $this->connectionPool->getConnectionForTable(self::MESSAGE_TABLE)->executeStatement(
+                'DELETE FROM ' . self::MESSAGE_TABLE
+                . ' WHERE conversation NOT IN (SELECT uid FROM ' . self::TABLE . ')',
+            );
             $output->writeln(sprintf('<comment>Deleted %d old archived conversation(s)</comment>', $affected));
         }
 

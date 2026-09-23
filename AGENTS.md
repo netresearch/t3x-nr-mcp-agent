@@ -87,7 +87,7 @@ make ci                          # lint + phpstan + rector + test + test-js
 
 - [Architecture (agent-facing)](docs/ARCHITECTURE.md) — component map, dependency rules
 - [Architecture (docs.typo3.org)](Documentation/Developer/Architecture.rst) — data flow, domain model
-- [Architecture Decision Records](Documentation/Developer/ADR/Index.rst) — ADR-001 through ADR-015
+- [Architecture Decision Records](Documentation/Developer/ADR/Index.rst) — ADR-001 through ADR-016
 - [Testing Guide](Documentation/Developer/Testing.rst) — test pyramid details
 - [CI Workflow](.github/workflows/ci.yml) — matrix build configuration
 - [Exec plans](docs/exec-plans/README.md) — multi-session task plans
