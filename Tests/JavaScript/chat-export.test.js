@@ -66,6 +66,16 @@ describe('exportFileName', () => {
         expect(chat.exportFileName(new Date(2026, 8, 3))).toBe('ai-chat-uber-seiten-inhalte-2026-09-03.md');
     });
 
+    test('stops at a word boundary within 50 characters', () => {
+        const chat = controller({activeUid: 1, conversations: [{uid: 1, title: 'eins zwei drei vier fuenf sechs sieben acht neun zehn elf'}]});
+        expect(chat.exportFileName(new Date(2026, 0, 1))).toBe('ai-chat-eins-zwei-drei-vier-fuenf-sechs-sieben-acht-neun-2026-01-01.md');
+    });
+
+    test('cuts a single overlong word', () => {
+        const chat = controller({activeUid: 1, conversations: [{uid: 1, title: 'x'.repeat(80)}]});
+        expect(chat.exportFileName(new Date(2026, 0, 1))).toBe(`ai-chat-${'x'.repeat(50)}-2026-01-01.md`);
+    });
+
     test('falls back when the title has nothing usable', () => {
         const chat = controller({activeUid: 1, conversations: [{uid: 1, title: '???'}]});
         expect(chat.exportFileName(new Date(2026, 0, 1))).toBe('ai-chat-conversation-2026-01-01.md');

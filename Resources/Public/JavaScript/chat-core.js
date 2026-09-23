@@ -695,7 +695,7 @@ export class ChatCoreController {
 
             const label = role === 'user' ? lll('export.roleUser') : lll('export.roleAssistant');
             const time = this._formatExportTime(msg.createdAt);
-            parts.push(`## ${label}${time ? ` · ${time}` : ''}`);
+            parts.push(time ? `## ${label} · ${time}` : `## ${label}`);
             if (msg.fileName) {
                 parts.push(`*${lll('export.attachment')}: ${msg.fileName}*`);
             }
@@ -713,14 +713,24 @@ export class ChatCoreController {
      */
     exportFileName(now = new Date()) {
         const title = this.getActiveConversation()?.title || '';
-        const slug = title
+        // Words of ASCII letters and digits, joined by single dashes: split
+        // and join rather than trimming dashes with a regular expression.
+        const words = title
             .normalize('NFKD')
-            .replace(/[̀-ͯ]/g, '')
+            .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '')
-            .slice(0, 50)
-            .replace(/-+$/g, '') || 'conversation';
+            .split(/[^a-z0-9]+/)
+            .filter(Boolean);
+        let slug = '';
+        for (const word of words) {
+            const next = slug === '' ? word : `${slug}-${word}`;
+            if (next.length > 50) {
+                slug ||= word.slice(0, 50);
+                break;
+            }
+            slug = next;
+        }
+        slug ||= 'conversation';
         const pad = (n) => String(n).padStart(2, '0');
         const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         return `ai-chat-${slug}-${date}.md`;
