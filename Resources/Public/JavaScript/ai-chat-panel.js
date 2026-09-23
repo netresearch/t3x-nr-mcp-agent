@@ -6,7 +6,8 @@ import {ChatCoreController, downloadTextFile} from './chat-core.js';
 import {splitConversationTabs, filterConversations} from './conversation-tabs.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from './icons.js';
+import {chatActivityStyles, renderActivity} from './chat-activity.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
@@ -44,7 +45,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -1483,8 +1484,10 @@ export class AiChatPanel extends LitElement {
                 ${this.state === STATES.MAXIMIZED ? this._renderSidebar() : nothing}
                 <div class="panel-content">
                     ${this.state === STATES.EXPANDED ? this._renderConvTabs() : nothing}
+                    ${this.state === STATES.EXPANDED ? renderActivity(this.chat, 'strip') : nothing}
                     ${this._renderChat()}
                 </div>
+                ${this.state === STATES.MAXIMIZED ? renderActivity(this.chat, 'sidebar') : nothing}
             </div>
         `;
     }
@@ -1535,6 +1538,12 @@ export class AiChatPanel extends LitElement {
                                 aria-label="${c.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                             ${'\u{1F4CC}'}
                         </button>
+                        <button class="btn-icon btn-sm" data-action="activity"
+                                aria-pressed="${String(this.chat.activityOpen)}"
+                                @click=${(e) => { e.stopPropagation(); this.chat.toggleActivity(); }}
+                                title="${lll('activity.button')}" aria-label="${lll('activity.button')}">
+                            ${ICON_ACTIVITY(12)}
+                        </button>
                         <button class="btn-icon btn-sm ${this.chat.systemPrompt ? 'has-instructions' : ''}" data-action="instructions"
                                 @click=${(e) => { e.stopPropagation(); this.chat.toggleSystemPrompt(); }}
                                 title="${instructionsLabel(this.chat)}" aria-label="${instructionsLabel(this.chat)}">
@@ -1571,6 +1580,14 @@ export class AiChatPanel extends LitElement {
                                 @click=${(e) => { e.stopPropagation(); this._toggleMore(); }}>
                             ${lll('conversations.more', overflow.length)}
                         </button>
+                    ` : nothing}
+                    ${this.chat.activeUid ? html`
+                        <button class="btn-icon conv-tab-action"
+                                data-action="activity"
+                                aria-pressed="${String(this.chat.activityOpen)}"
+                                @click=${() => this.chat.toggleActivity()}
+                                title="${lll('activity.button')}"
+                                aria-label="${lll('activity.button')}">${ICON_ACTIVITY(14)}</button>
                     ` : nothing}
                     ${this.chat.activeUid ? html`
                         <button class="btn-icon conv-tab-action ${this.chat.systemPrompt ? 'has-instructions' : ''}"

@@ -42,6 +42,15 @@ final class Conversation
      */
     private string $viewContext = '';
 
+    /**
+     * What the agent did in the current turn, as a JSON list of step
+     * summaries (NEXT-172). Written column by column while the turn runs
+     * ({@see \Netresearch\NrMcpAgent\Service\RunActivityRecorder}) and
+     * therefore deliberately not part of toRow(): a full-row write at the end
+     * of the turn must not put back the list it started with.
+     */
+    private string $activity = '';
+
     private bool $archived = false;
 
     private bool $pinned = false;
@@ -91,6 +100,7 @@ final class Conversation
         $conversation->currentRequestId = (string) self::val($row, 'current_request_id', '');
         $conversation->systemPrompt = (string) self::val($row, 'system_prompt', '');
         $conversation->viewContext = (string) self::val($row, 'view_context', '');
+        $conversation->activity = (string) self::val($row, 'activity', '');
         $conversation->archived = (bool) self::val($row, 'archived', false);
         $conversation->pinned = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage = (string) self::val($row, 'error_message', '');
@@ -320,6 +330,64 @@ final class Conversation
         $this->viewContext = $pageId === 0 && $module === ''
             ? ''
             : json_encode(['pageId' => $pageId, 'module' => $module], JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @return list<array<string, bool|int|string>>
+     */
+    public function getActivity(): array
+    {
+        return self::decodeActivity($this->activity);
+    }
+
+    public function getActivityJson(): string
+    {
+        return $this->activity;
+    }
+
+    /**
+     * @param list<array<string, bool|int|string>> $entries
+     */
+    public function setActivity(array $entries): void
+    {
+        $this->activity = $entries === [] ? '' : json_encode($entries, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Decode a stored activity list, dropping anything that is not a list of
+     * flat entries. Shared with the poll path, which reads the column without
+     * hydrating a conversation.
+     *
+     * @return list<array<string, bool|int|string>>
+     */
+    public static function decodeActivity(string $json): array
+    {
+        if ($json === '') {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $entries = [];
+        foreach ($decoded as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $clean = [];
+            foreach ($entry as $key => $value) {
+                if (is_string($key) && (is_bool($value) || is_int($value) || is_string($value))) {
+                    $clean[$key] = $value;
+                }
+            }
+
+            $entries[] = $clean;
+        }
+
+        return $entries;
     }
 
     public function isArchived(): bool

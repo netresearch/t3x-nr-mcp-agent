@@ -19,6 +19,7 @@ use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -58,6 +59,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $registry,
             new UploadMimeTypeMap(),
             $this->createMock(UserContextPrompt::class),
+            $this->createMock(RunActivityRecorder::class),
         );
     }
 
@@ -211,6 +213,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
             $this->createMock(UserContextPrompt::class),
+            $this->createMock(RunActivityRecorder::class),
         );
 
         $caps = $service->getProviderCapabilities();

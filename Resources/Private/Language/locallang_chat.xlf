@@ -284,6 +284,51 @@
             <trans-unit id="error.editStale" resname="error.editStale">
                 <source>The conversation changed since it was loaded. It has been reloaded; edit the message again.</source>
             </trans-unit>
+            <trans-unit id="activity.title" resname="activity.title">
+                <source>Activity</source>
+            </trans-unit>
+            <trans-unit id="activity.button" resname="activity.button">
+                <source>Show what the assistant does in this turn</source>
+            </trans-unit>
+            <trans-unit id="activity.tool" resname="activity.tool">
+                <source>Tool: %s</source>
+            </trans-unit>
+            <trans-unit id="activity.modelRound" resname="activity.modelRound">
+                <source>Model call, round %d</source>
+            </trans-unit>
+            <trans-unit id="activity.failed" resname="activity.failed">
+                <source>failed</source>
+            </trans-unit>
+            <trans-unit id="activity.approved" resname="activity.approved">
+                <source>Approved by you</source>
+            </trans-unit>
+            <trans-unit id="activity.denied" resname="activity.denied">
+                <source>Denied by you</source>
+            </trans-unit>
+            <trans-unit id="activity.waiting" resname="activity.waiting">
+                <source>Waiting for your approval</source>
+            </trans-unit>
+            <trans-unit id="activity.working" resname="activity.working">
+                <source>Working…</source>
+            </trans-unit>
+            <trans-unit id="activity.empty" resname="activity.empty">
+                <source>No steps in this turn yet.</source>
+            </trans-unit>
+            <trans-unit id="widget.title" resname="widget.title">
+                <source>AI Chat</source>
+            </trans-unit>
+            <trans-unit id="widget.description" resname="widget.description">
+                <source>Your most recent AI chats, opened in the chat panel with one click.</source>
+            </trans-unit>
+            <trans-unit id="widget.openConversation" resname="widget.openConversation">
+                <source>Open in the chat panel</source>
+            </trans-unit>
+            <trans-unit id="widget.empty" resname="widget.empty">
+                <source>No chats yet.</source>
+            </trans-unit>
+            <trans-unit id="widget.openModule" resname="widget.openModule">
+                <source>Open the chat module</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

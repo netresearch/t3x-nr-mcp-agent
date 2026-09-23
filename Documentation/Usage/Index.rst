@@ -70,6 +70,21 @@ What the assistant knows about you
     another one. Ask for a different language in the message ("answer in
     English") and it uses that instead.
 
+What the assistant is doing
+---------------------------
+
+The **Activity** button (a pulse line in the floating panel, *Activity* in
+the module) lists the steps of the current turn while it runs: every call
+to the model and every tool the assistant uses, with its duration, a
+failed tool call marked as such, and — when a step needs your approval —
+which tool is waiting. After you decide, your decision and the steps that
+follow it are added to the same list. The list starts over with your next
+message. It shows the names of the tools, not their arguments or results;
+those are in the run's timeline under **AI > AI Tasks**.
+
+In the expanded panel the list sits above the conversation; maximized, and
+in the module, it is a sidebar on the right.
+
 Instructions for a conversation
 -------------------------------
 
@@ -244,6 +259,17 @@ you keep, the row stays one line high and the chat keeps its space.
 Maximized, the panel lists every conversation in the sidebar instead.
 
 Panel height and state are stored in ``localStorage`` per user.
+
+Dashboard widget
+================
+
+With the TYPO3 dashboard installed, an **AI Chat** widget can be added to a
+dashboard (*Add widget > General*). It lists your five most recent chats;
+a click opens one in the floating panel next to the dashboard, **New chat**
+starts one there, and **Open the chat module** goes to the full-page view.
+For a user the chat is not available to, the widget says so instead of
+listing anything. Which groups may place the widget at all is set per
+backend group under *Dashboard widgets*, as for every other widget.
 
 Error handling
 ==============

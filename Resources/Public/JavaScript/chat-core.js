@@ -144,6 +144,15 @@ export class ChatCoreController {
     systemPromptDraft = '';
     systemPromptSaving = false;
 
+    /**
+     * Summaries of the current turn's steps, as the worker records them
+     * (NEXT-172); refreshed by every poll while the turn runs.
+     * @type {Array<{kind: string, round?: number, ms?: number, tool?: string, error?: boolean, approved?: boolean}>}
+     */
+    activity = [];
+    /** Whether the activity list is shown. */
+    activityOpen = false;
+
     /** Index of the user message being edited, or -1. */
     editingIndex = -1;
     editDraft = '';
@@ -234,6 +243,7 @@ export class ChatCoreController {
         this.systemPrompt = '';
         this.systemPromptOpen = false;
         this.editingIndex = -1;
+        this.activity = [];
         this.host.requestUpdate();
         await this.loadMessages();
         this.startPollingIfNeeded();
@@ -311,6 +321,7 @@ export class ChatCoreController {
             this.approvalUrl = data.approvalUrl || '';
             this.pendingApproval = data.pendingApproval || null;
             this.systemPrompt = data.systemPrompt || '';
+            this.activity = data.activity || [];
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
                 // screen is a question again, not a confirmation.
@@ -342,6 +353,14 @@ export class ChatCoreController {
 
             const newMessages = data.messages || [];
             const statusChanged = data.status !== this.status;
+
+            // The activity changes while nothing else does — a tool call adds
+            // an entry without a message — so it is taken from every poll.
+            const activity = data.activity || [];
+            if (JSON.stringify(activity) !== JSON.stringify(this.activity)) {
+                this.activity = activity;
+                this.host.requestUpdate();
+            }
 
             if (newMessages.length > 0 || statusChanged) {
                 if (newMessages.length > 0) {
@@ -446,6 +465,7 @@ export class ChatCoreController {
             }
             this.pendingFile = null;
             this.messages = [...this.messages, msg];
+            this.activity = [];
             this.status = 'processing';
             this._knownMessageCount++;
             this.conversations = this.conversations.map(c =>
@@ -555,6 +575,11 @@ export class ChatCoreController {
         } else {
             this.openSystemPrompt();
         }
+    }
+
+    toggleActivity() {
+        this.activityOpen = !this.activityOpen;
+        this.host.requestUpdate();
     }
 
     openSystemPrompt() {

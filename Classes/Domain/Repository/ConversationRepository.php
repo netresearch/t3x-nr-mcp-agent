@@ -181,14 +181,25 @@ readonly class ConversationRepository
     }
 
     /**
+     * Single-column write of the running turn's activity (NEXT-172). Called
+     * from the worker while the turn runs, so it must not touch any other
+     * column the turn's final write owns.
+     */
+    public function updateActivity(int $uid, string $activityJson): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, ['activity' => $activityJson], ['uid' => $uid]);
+    }
+
+    /**
      * Lightweight poll check — returns status metadata without loading messages.
      *
-     * @return array{status: string, message_count: int, error_message: string, approval_run_uuid: string, tstamp: int}|null
+     * @return array{status: string, message_count: int, error_message: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>}|null
      */
     public function findPollStatus(int $uid, int $beUserUid): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $qb->select('status', 'message_count', 'error_message', 'approval_run_uuid', 'tstamp')
+        $row = $qb->select('status', 'message_count', 'error_message', 'approval_run_uuid', 'tstamp', 'activity')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -207,6 +218,7 @@ readonly class ConversationRepository
         $errorMessage = $row['error_message'] ?? '';
         $approvalRunUuid = $row['approval_run_uuid'] ?? '';
         $tstamp = $row['tstamp'] ?? 0;
+        $activity = $row['activity'] ?? '';
 
         if (is_int($messageCount)) {
             $messageCountInt = $messageCount;
@@ -220,6 +232,7 @@ readonly class ConversationRepository
             'error_message' => is_string($errorMessage) ? $errorMessage : '',
             'approval_run_uuid' => is_string($approvalRunUuid) ? $approvalRunUuid : '',
             'tstamp' => is_numeric($tstamp) ? (int) $tstamp : 0,
+            'activity' => Conversation::decodeActivity(is_string($activity) ? $activity : ''),
         ];
     }
 

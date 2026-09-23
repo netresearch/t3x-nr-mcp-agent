@@ -439,4 +439,41 @@ final class ChatApiControllerEditTest extends TestCase
         self::assertNotNull($this->claimed);
         self::assertSame('Press release', $this->claimed->getTitle());
     }
+
+    #[Test]
+    public function theTranscriptCarriesTheActivityOfTheTurn(): void
+    {
+        $conversation = $this->conversation([]);
+        $conversation->setActivity([['kind' => 'tool', 'round' => 1, 'ms' => 4, 'tool' => 'read_records', 'error' => false]]);
+
+        $data = json_decode((string) $this->subject->getMessages($this->request([]))->getBody(), true);
+
+        self::assertIsArray($data);
+        self::assertSame([['kind' => 'tool', 'round' => 1, 'ms' => 4, 'tool' => 'read_records', 'error' => false]], $data['activity']);
+    }
+
+    /**
+     * The poll that runs every two seconds during a turn takes the fast path,
+     * so that is where the activity has to arrive for the list to be live.
+     */
+    #[Test]
+    public function aPollWithoutNewMessagesStillCarriesTheActivity(): void
+    {
+        $this->repository->method('findPollStatus')->willReturn([
+            'status' => 'processing',
+            'message_count' => 1,
+            'error_message' => '',
+            'approval_run_uuid' => '',
+            'tstamp' => time(),
+            'activity' => [['kind' => 'llm', 'round' => 1, 'ms' => 900]],
+        ]);
+        $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getQueryParams')->willReturn(['conversationUid' => '1', 'after' => '1']);
+        $data = json_decode((string) $this->subject->getMessages($request)->getBody(), true);
+
+        self::assertIsArray($data);
+        self::assertSame([['kind' => 'llm', 'round' => 1, 'ms' => 900]], $data['activity']);
+    }
 }

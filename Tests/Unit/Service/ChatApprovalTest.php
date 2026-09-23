@@ -26,6 +26,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -48,6 +49,8 @@ use TYPO3\CMS\Core\Site\SiteFinder;
 final class ChatApprovalTest extends TestCase
 {
     private ?ApprovalDecision $capturedDecision = null;
+
+    private mixed $capturedOnStep = null;
 
     private ?string $capturedRunUuid = null;
 
@@ -73,13 +76,15 @@ final class ChatApprovalTest extends TestCase
         ?PendingApprovalReaderInterface $reader = null,
         bool $claimSucceeds = true,
         ?AgentRunRepositoryInterface $runRepository = null,
+        ?RunActivityRecorder $activityRecorder = null,
     ): ChatService {
         $approveAnswer ??= $this->completed();
 
         $agentRuntime = $this->createMock(AgentRuntimeInterface::class);
         $agentRuntime->method('approve')->willReturnCallback(
-            function (mixed $actor, string $runUuid, ApprovalDecision $decision) use ($approveAnswer): AgentRunResult {
+            function (mixed $actor, string $runUuid, ApprovalDecision $decision, mixed $onStep = null) use ($approveAnswer): AgentRunResult {
                 $this->capturedRunUuid = $runUuid;
+                $this->capturedOnStep = $onStep;
                 $this->capturedDecision = $decision;
                 if ($approveAnswer instanceof RuntimeException) {
                     throw $approveAnswer;
@@ -108,6 +113,7 @@ final class ChatApprovalTest extends TestCase
             new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
             $this->createMock(UserContextPrompt::class),
+            $activityRecorder ?? $this->createMock(RunActivityRecorder::class),
         );
     }
 
@@ -261,6 +267,27 @@ final class ChatApprovalTest extends TestCase
         self::assertNotNull($this->capturedDecision);
         self::assertTrue($this->capturedDecision->approved);
         self::assertSame('digest-abc', $this->capturedDecision->turnDigest);
+    }
+
+    /**
+     * The decision appears in the activity of the run it belongs to, and the
+     * continuation's steps are recorded after it (NEXT-172).
+     */
+    #[Test]
+    public function theWorkerRecordsTheDecisionAndTheContinuationsSteps(): void
+    {
+        $conversation = $this->parkedConversation();
+        $callback = static function (): void {};
+        $recorder = $this->createMock(RunActivityRecorder::class);
+        $recorder->expects(self::once())->method('recordDecision')->with($conversation, false);
+        $recorder->expects(self::never())->method('start');
+        $recorder->method('onStep')->willReturn($callback);
+        $service = $this->createChatService(activityRecorder: $recorder);
+        $service->recordDecision($conversation, false, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame($callback, $this->capturedOnStep);
     }
 
     #[Test]

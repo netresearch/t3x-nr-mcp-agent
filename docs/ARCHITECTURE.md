@@ -13,6 +13,7 @@ A Lit-based chat UI in the TYPO3 backend polls `ChatApiController` via AJAX. Mes
 | API controller | AJAX endpoints: poll, send, file upload | `Classes/Controller/ChatApiController.php` |
 | Backend module | Full-page chat UI (Admin Tools > AI Chat) | `Classes/Controller/ChatModuleController.php`, `Resources/Private/Templates/Chat/Index.html` |
 | Floating panel | Toolbar chat widget, persistent across navigation | `Classes/Backend/ToolbarItems/ChatToolbarItem.php`, `Resources/Public/JavaScript/toolbar/chat-panel.js` |
+| Dashboard widget | Recent chats on the TYPO3 dashboard, opens them in the floating panel (optional, only with EXT:dashboard) | `Classes/Dashboard/AiChatWidget.php`, `Configuration/Services.php`, `Resources/Public/JavaScript/dashboard-widget.js` |
 | Chat service | Task/Configuration resolution, prompt building, LLM message assembly | `Classes/Service/ChatService.php` |
 | Processors | Dispatch a turn to CLI: fork (`exec`) or queue (worker) | `Classes/Service/ExecChatProcessor.php`, `Classes/Service/WorkerChatProcessor.php`, `Classes/Service/ChatProcessorInterface.php` |
 | CLI commands | `ai-chat:process`, `ai-chat:worker`, `ai-chat:cleanup` | `Classes/Command/ProcessChatCommand.php`, `Classes/Command/ChatWorkerCommand.php`, `Classes/Command/CleanupCommand.php` |

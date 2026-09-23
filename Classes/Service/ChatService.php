@@ -120,6 +120,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly DocumentExtractorRegistry $documentExtractorRegistry,
         private readonly UploadMimeTypeMap $uploadMimeTypeMap,
         private readonly UserContextPrompt $userContextPrompt,
+        private readonly RunActivityRecorder $activityRecorder,
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
     ) {}
 
@@ -252,12 +253,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The options object carries nothing but the caller source: every model
         // parameter stays on the LlmConfiguration, so toArray() is empty and no
         // provider option is overridden by naming ourselves here.
+        $this->activityRecorder->start($conversation);
         $result = $this->agentRuntime->run(new AgentRunRequest(
             configuration: $configuration,
             messages: $messages,
             actor: $this->resolveActor($conversation->getBeUser()),
             options: (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
-        ));
+        ), $this->activityRecorder->onStep($conversation));
 
         $this->applyResult($conversation, $result);
     }
@@ -452,15 +454,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // No caller source is named here: approve() takes no options object, and
         // the caller source is deliberately not part of the persisted options
         // either, so the continuation's provider calls stay unattributed.
+        $approved = $conversation->getApprovalDecision() === self::DECISION_APPROVE;
+        $this->activityRecorder->recordDecision($conversation, $approved);
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
                 $runUuid,
                 new ApprovalDecision(
-                    $conversation->getApprovalDecision() === self::DECISION_APPROVE,
+                    $approved,
                     $conversation->getBeUser(),
                     $conversation->getApprovalTurnDigest(),
                 ),
+                $this->activityRecorder->onStep($conversation),
             );
         } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException $e) {
             // These four RELEASE the run rather than consume it: it is still
