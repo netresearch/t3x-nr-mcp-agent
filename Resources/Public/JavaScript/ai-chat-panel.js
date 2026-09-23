@@ -307,6 +307,8 @@ export class AiChatPanel extends LitElement {
             color: var(--nr-chat-text);
         }
         .conv-tab.active {
+            /* Shrinks last: the open conversation's title is the one worth reading. */
+            flex-shrink: 0.25;
             background: var(--nr-chat-surface);
             color: var(--nr-chat-text);
             border-color: var(--nr-chat-border);
