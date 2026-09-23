@@ -277,7 +277,9 @@ final class ChatApprovalTest extends TestCase
     public function theWorkerRecordsTheDecisionAndTheContinuationsSteps(): void
     {
         $conversation = $this->parkedConversation();
-        $callback = static function (): void {};
+        $callback = static function (): void {
+            // Stands in for the recorder's callback; only its identity is checked.
+        };
         $recorder = $this->createMock(RunActivityRecorder::class);
         $recorder->expects(self::once())->method('recordDecision')->with($conversation, false);
         $recorder->expects(self::never())->method('start');

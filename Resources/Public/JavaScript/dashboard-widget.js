@@ -24,21 +24,21 @@ function openPanel(panel) {
 
 document.addEventListener('click', (event) => {
     const link = event.composedPath().find(
-        (el) => el instanceof Element && (el.hasAttribute('data-nr-chat-conversation') || el.hasAttribute('data-nr-chat-new')),
+        (el) => el instanceof HTMLElement && ('nrChatConversation' in el.dataset || 'nrChatNew' in el.dataset),
     );
     if (!link) {
         return;
     }
 
     const panel = findPanel();
-    if (!panel || !panel.chat) {
+    if (!panel?.chat) {
         return; // follow the link to the module
     }
 
     event.preventDefault();
     openPanel(panel);
 
-    const uid = Number.parseInt(link.getAttribute('data-nr-chat-conversation') ?? '', 10);
+    const uid = Number.parseInt(link.dataset.nrChatConversation ?? '', 10);
     if (uid > 0) {
         panel.chat.selectConversation(uid);
     } else {

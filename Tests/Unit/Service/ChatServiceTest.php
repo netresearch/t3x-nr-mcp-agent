@@ -882,7 +882,9 @@ class ChatServiceTest extends TestCase
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $callback = static function (): void {};
+        $callback = static function (): void {
+            // Stands in for the recorder's callback; only its identity is checked.
+        };
         $recorder = $this->createMock(RunActivityRecorder::class);
         $recorder->expects(self::once())->method('start')->with($conversation);
         $recorder->expects(self::once())->method('onStep')->with($conversation)->willReturn($callback);
