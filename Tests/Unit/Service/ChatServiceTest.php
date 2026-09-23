@@ -779,7 +779,7 @@ class ChatServiceTest extends TestCase
     }
 
     #[Test]
-    public function systemPromptUsesConversationCustomPromptInsteadOfConfigPrompts(): void
+    public function conversationInstructionsAreAppendedAfterTheAdministratorsPrompts(): void
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
@@ -787,17 +787,23 @@ class ChatServiceTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $service = $this->createChatService(prompts: [
-            'system_prompt' => 'This should be ignored.',
-            'prompt_template' => 'This too.',
+            'system_prompt' => 'Admin rule from the configuration.',
+            'prompt_template' => 'Admin rule from the task.',
         ]);
         $service->processConversation($conversation);
 
         $system = $this->capturedSystemPrompt();
-        // Identity is always present; the conversation prompt replaces config/task prompts.
+        // The administrator's prompts stay in force (NEXT-172 decision); the
+        // user's instructions come after them and are marked as the user's.
+        $config = strpos($system, 'Admin rule from the configuration.');
+        $task = strpos($system, 'Admin rule from the task.');
+        $custom = strpos($system, 'Only custom instructions');
+        self::assertNotFalse($config);
+        self::assertNotFalse($task);
+        self::assertNotFalse($custom);
+        self::assertGreaterThan($task, $custom);
+        self::assertStringContainsString('Instructions the user set for this conversation', $system);
         self::assertStringContainsString('TYPO3 Backend AI Chat by Netresearch', $system);
-        self::assertStringContainsString('Only custom instructions', $system);
-        self::assertStringNotContainsString('This should be ignored.', $system);
-        self::assertStringNotContainsString('This too.', $system);
     }
 
     /**

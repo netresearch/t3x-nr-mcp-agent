@@ -173,15 +173,17 @@ The system prompt is composed in this order:
     it from claiming to be ChatGPT/OpenAI, and defers the
     answer language to the user context (step 5). This holds
     regardless of how the Task/Configuration prompt is set.
-2.  **Conversation-level prompt** -- If a conversation has a
-    custom ``system_prompt`` set, it is used in place of the
-    Configuration/Task prompts.
-3.  **nr-llm Configuration + Task prompts** -- Otherwise the
+2.  **nr-llm Configuration + Task prompts** -- The
     ``system_prompt`` from the nr-llm Configuration record
-    and the ``prompt_template`` from the Task record are
+    and the ``prompt_template`` from the Task record,
     combined (separated by a blank line). Configure these in
     the TYPO3 backend to provide tool usage instructions or
-    persona definitions.
+    persona definitions. Always included.
+3.  **Conversation-level prompt** -- If a conversation has a
+    custom ``system_prompt`` set, it is appended after the
+    Configuration/Task prompts, labelled as the user's and
+    ranked below them: the administrator's instructions stay
+    in force (NEXT-172).
 
 4.  **Site-language context** -- appended in every case.
 5.  **User context** (``UserContextPrompt``) -- appended in every

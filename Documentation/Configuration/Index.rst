@@ -135,9 +135,12 @@ is used.
 
 **Instructions for a conversation** (``tx_nrmcpagent_conversation.system_prompt``)
     Set by the user in the chat (the sliders button, see
-    :doc:`/Usage/Index`). They replace the two prompts above for that
-    conversation. The assistant's identity, the site-language
-    rules and the user's own context are added either way.
+    :doc:`/Usage/Index`). They are added after the two prompts
+    above, which stay in force: the assistant is told to follow
+    the user's instructions only where they do not contradict
+    the configured ones. The assistant's identity, the
+    site-language rules and the user's own context are added
+    either way.
 
 Every prompt ends with the user's context:
 

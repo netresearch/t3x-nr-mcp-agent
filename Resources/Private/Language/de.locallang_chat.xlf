@@ -358,8 +358,8 @@
                 <target>Anweisungen für diese Unterhaltung</target>
             </trans-unit>
             <trans-unit id="instructions.help" resname="instructions.help">
-                <source>They replace the instructions configured for the chat and apply from the next message on. The assistant's identity, its tools and permissions, and the rules about languages stay the same. Leave the field empty to go back to the configured instructions.</source>
-                <target>Sie ersetzen die für den Chat konfigurierten Anweisungen und gelten ab der nächsten Nachricht. Identität des Assistenten, seine Werkzeuge und Berechtigungen sowie die Regeln zu Sprachen bleiben gleich. Leere das Feld, um wieder die konfigurierten Anweisungen zu verwenden.</target>
+                <source>They are added to the instructions configured for the chat, which stay in force and win where the two contradict each other. They apply from the next message on. The assistant's identity, its tools and permissions, and the rules about languages stay the same. Leave the field empty to remove them.</source>
+                <target>Sie ergänzen die für den Chat konfigurierten Anweisungen; diese bleiben gültig und haben Vorrang, wo sich beide widersprechen. Deine Anweisungen gelten ab der nächsten Nachricht. Identität des Assistenten, seine Werkzeuge und Berechtigungen sowie die Regeln zu Sprachen bleiben gleich. Leere das Feld, um sie zu entfernen.</target>
             </trans-unit>
             <trans-unit id="instructions.save" resname="instructions.save">
                 <source>Save instructions</source>

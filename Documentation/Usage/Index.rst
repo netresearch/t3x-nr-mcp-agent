@@ -76,9 +76,11 @@ Instructions for a conversation
 The **Instructions** button (sliders icon in the floating panel) opens a
 field for instructions that apply to this conversation only -- for
 example "answer in bullet points" or "you are reviewing the press
-section". They replace the instructions an administrator configured for
-the chat and take effect with the next message. The assistant's identity,
-its tools and permissions, and the language rules stay the same. The
+section". They are added to the instructions an administrator configured
+for the chat, which stay in force: where the two contradict each other,
+the configured ones win. Your instructions take effect with the next
+message. The assistant's identity, its tools and permissions, and the
+language rules stay the same. The
 button is highlighted while a conversation has instructions; empty the
 field and save to remove them. Instructions cannot be changed while an
 answer is being generated.
