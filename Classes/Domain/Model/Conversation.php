@@ -308,7 +308,7 @@ final class Conversation
     public function setViewContext(int $pageId, string $module): void
     {
         $pageId = max(0, $pageId);
-        if (preg_match('/^[A-Za-z0-9_]{1,100}$/', $module) !== 1) {
+        if (preg_match('/^\w{1,100}$/', $module) !== 1) {
             $module = '';
         }
 

@@ -28,7 +28,7 @@ export function currentBackendContext(win = globalThis.top ?? globalThis) {
         const doc = win.document;
         const router = doc.querySelector('typo3-backend-module-router');
         const module = router?.module || router?.getAttribute('module') || '';
-        if (/^[A-Za-z0-9_]{1,100}$/.test(module)) {
+        if (/^\w{1,100}$/.test(module)) {
             context.module = module;
         }
 
@@ -515,6 +515,14 @@ export class ChatCoreController {
         } finally {
             this.sending = false;
             this.host.requestUpdate();
+        }
+    }
+
+    toggleSystemPrompt() {
+        if (this.systemPromptOpen) {
+            this.closeSystemPrompt();
+        } else {
+            this.openSystemPrompt();
         }
     }
 

@@ -5,7 +5,7 @@ import {ChatCoreController, downloadTextFile} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS} from './icons.js';
-import {chatEditingStyles, renderEditButton, renderMessageEditor, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
+import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
 
 /**
  * <nr-chat-app> – Main chat application component.
@@ -658,7 +658,7 @@ export class ChatApp extends LitElement {
                 </button>
                 <button class="btn btn-sm ${this.chat.systemPrompt ? 'has-instructions' : ''}" data-action="instructions"
                     aria-pressed="${String(this.chat.systemPromptOpen)}"
-                    @click=${() => this.chat.systemPromptOpen ? this.chat.closeSystemPrompt() : this.chat.openSystemPrompt()}
+                    @click=${() => this.chat.toggleSystemPrompt()}
                     title="${instructionsLabel(this.chat)}">
                     ${ICON_INSTRUCTIONS(14)} ${lll('instructions.buttonShort')}
                 </button>
@@ -978,17 +978,12 @@ export class ChatApp extends LitElement {
         const bubbleContent = isUser
             ? html`${fileBadge}${this.chat.renderMessageContent(msg)}`
             : unsafeHTML(this.chat.renderMessageContent(msg));
-        const editing = isUser && this.chat.editingIndex === idx;
 
         return html`
             <div class="message-row ${role}">
                 ${isUser ? nothing : html`<div class="avatar avatar-assistant">${AVATAR_ASSISTANT(16)}</div>`}
                 <div class="message-bubble">
-                    ${editing ? renderMessageEditor(this.chat) : html`<div class="message ${role}">${bubbleContent}</div>`}
-                    <div class="message-meta">
-                        ${time ? html`<div class="message-time">${time}</div>` : nothing}
-                        ${isUser && !editing ? renderEditButton(this.chat, idx) : nothing}
-                    </div>
+                    ${renderMessageBody(this.chat, idx, html`<div class="message ${role}">${bubbleContent}</div>`, time)}
                 </div>
                 ${isUser ? html`<div class="avatar avatar-user">${AVATAR_USER(16)}</div>` : nothing}
             </div>

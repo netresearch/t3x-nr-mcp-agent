@@ -123,6 +123,34 @@ export function renderMessageEditor(chat) {
     `;
 }
 
+/**
+ * A message's bubble and the line under it — or, for the message being
+ * edited, the editor in its place. The edit control is offered on user
+ * messages only; renderEditButton() decides whether this one qualifies.
+ *
+ * @param {object} chat the ChatCoreController
+ * @param {number} idx
+ * @param {import('lit').TemplateResult} bubble the rendered message
+ * @param {string} time
+ */
+export function renderMessageBody(chat, idx, bubble, time) {
+    const isUser = chat.messages[idx]?.role === 'user';
+    if (isUser && chat.editingIndex === idx) {
+        return html`${renderMessageEditor(chat)}${renderMessageTime(time)}`;
+    }
+    return html`
+        ${bubble}
+        <div class="message-meta">
+            ${renderMessageTime(time)}
+            ${isUser ? renderEditButton(chat, idx) : nothing}
+        </div>
+    `;
+}
+
+function renderMessageTime(time) {
+    return time ? html`<div class="message-time">${time}</div>` : nothing;
+}
+
 /** Title of the instructions button: says whether the conversation has any. */
 export function instructionsLabel(chat) {
     return chat.systemPrompt ? lll('instructions.buttonSet') : lll('instructions.button');

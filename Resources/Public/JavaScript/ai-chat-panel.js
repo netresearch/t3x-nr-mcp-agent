@@ -7,7 +7,7 @@ import {splitConversationTabs, filterConversations} from './conversation-tabs.js
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS} from './icons.js';
-import {chatEditingStyles, renderEditButton, renderMessageEditor, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
+import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', awaiting_approval: '⏸', failed: '✕'};
@@ -1536,7 +1536,7 @@ export class AiChatPanel extends LitElement {
                             ${'\u{1F4CC}'}
                         </button>
                         <button class="btn-icon btn-sm ${this.chat.systemPrompt ? 'has-instructions' : ''}" data-action="instructions"
-                                @click=${(e) => { e.stopPropagation(); this.chat.systemPromptOpen ? this.chat.closeSystemPrompt() : this.chat.openSystemPrompt(); }}
+                                @click=${(e) => { e.stopPropagation(); this.chat.toggleSystemPrompt(); }}
                                 title="${instructionsLabel(this.chat)}" aria-label="${instructionsLabel(this.chat)}">
                             ${ICON_INSTRUCTIONS(12)}
                         </button>
@@ -1576,7 +1576,7 @@ export class AiChatPanel extends LitElement {
                         <button class="btn-icon conv-tab-action ${this.chat.systemPrompt ? 'has-instructions' : ''}"
                                 data-action="instructions"
                                 aria-pressed="${String(this.chat.systemPromptOpen)}"
-                                @click=${() => this.chat.systemPromptOpen ? this.chat.closeSystemPrompt() : this.chat.openSystemPrompt()}
+                                @click=${() => this.chat.toggleSystemPrompt()}
                                 title="${instructionsLabel(this.chat)}"
                                 aria-label="${instructionsLabel(this.chat)}">${ICON_INSTRUCTIONS(14)}</button>
                     ` : nothing}
@@ -1845,17 +1845,12 @@ export class AiChatPanel extends LitElement {
         const bubbleContent = isUser
             ? html`${fileBadge}${this.chat.renderMessageContent(msg)}`
             : unsafeHTML(this.chat.renderMessageContent(msg));
-        const editing = isUser && this.chat.editingIndex === idx;
 
         return html`
             <div class="message-row ${role}">
                 ${isUser ? nothing : html`<div class="avatar avatar-assistant">${AVATAR_ASSISTANT(14)}</div>`}
                 <div class="message-bubble">
-                    ${editing ? renderMessageEditor(this.chat) : html`<div class="message ${role}">${bubbleContent}</div>`}
-                    <div class="message-meta">
-                        ${time ? html`<div class="message-time">${time}</div>` : nothing}
-                        ${isUser && !editing ? renderEditButton(this.chat, idx) : nothing}
-                    </div>
+                    ${renderMessageBody(this.chat, idx, html`<div class="message ${role}">${bubbleContent}</div>`, time)}
                 </div>
                 ${isUser ? html`<div class="avatar avatar-user">${AVATAR_USER(14)}</div>` : nothing}
             </div>
