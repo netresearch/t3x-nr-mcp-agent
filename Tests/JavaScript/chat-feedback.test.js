@@ -83,6 +83,37 @@ describe.each(SURFACES)('$name feedback', ({module: modulePath, tag, open}) => {
         expect(el.shadowRoot.querySelector('.message-notice')).toBeNull();
     });
 
+    test('a run that finished outside the chat is shown as a label with the records it wrote', async () => {
+        const el = await render(modulePath, tag, open, {
+            messages: [
+                {role: 'user', content: 'habe alles freigegeben'},
+                {
+                    role: 'assistant',
+                    content: '[The pending step was decided outside this chat and its run has finished. Records it wrote: pages:10073.]',
+                    notice: 'runFinishedOutside',
+                    noticeArgs: ['pages:10073'],
+                },
+            ],
+        });
+
+        const bubble = el.shadowRoot.querySelector('.message-row.assistant .message.assistant');
+        expect(bubble.textContent).toContain('chat.runFinishedOutside');
+        expect(bubble.textContent).not.toContain('decided outside this chat and its run');
+    });
+
+    test('"still waiting" after a go-on message is shown as guidance, not as an error', async () => {
+        const el = await render(modulePath, tag, open, {
+            messages: [{role: 'user', content: 'Lege die Seite an'}],
+            status: 'awaiting_approval',
+            errorMessage: 'error.approvalStillPending',
+        });
+
+        const notice = el.shadowRoot.querySelector('.message.system');
+        expect(notice.textContent).toContain('chat.approvalPending');
+        expect(notice.textContent).toContain('error.approvalStillPending');
+        expect(notice.textContent).not.toContain('chat.errorPrefix');
+    });
+
     test('a configuration failure links an administrator to where it is fixed', async () => {
         const el = await render(modulePath, tag, open, {
             messages: [{role: 'user', content: 'what is the last LLM error about?'}],

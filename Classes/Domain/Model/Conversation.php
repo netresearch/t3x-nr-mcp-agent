@@ -224,16 +224,20 @@ final class Conversation
 
     /**
      * @param string|array<mixed> $content
-     * @param string              $notice a code the chat renders as a label beside the message, in the
-     *                                    reader's language; never sent to the model, because nr-llm's
-     *                                    message factory reads role and content only (ADR-017)
+     * @param string              $notice     a code the chat renders as a label in the reader's language
+     *                                        (ADR-017); nr-llm's message factory ignores the key, so it
+     *                                        does not reach the model
+     * @param list<string>        $noticeArgs values the label is filled with, e.g. record references
      */
-    public function appendMessage(MessageRole $role, string|array $content, string $notice = ''): void
+    public function appendMessage(MessageRole $role, string|array $content, string $notice = '', array $noticeArgs = []): void
     {
         $messages = $this->getDecodedMessages();
         $message = ['role' => $role->value, 'content' => $content, 'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM)];
         if ($notice !== '') {
             $message['notice'] = $notice;
+            if ($noticeArgs !== []) {
+                $message['noticeArgs'] = $noticeArgs;
+            }
         }
 
         $messages[] = $message;

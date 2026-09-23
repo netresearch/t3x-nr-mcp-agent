@@ -82,8 +82,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
 
         $languageService = $this->createStub(LanguageService::class);
         $languageService->method('sL')->willReturnCallback(
-            static fn(string $input): string => str_replace('LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:', '', $input)
-                . ($input === 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.runFinishedOutside' ? ' %s' : ''),
+            static fn(string $input): string => str_replace('LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:', '', $input),
         );
         $GLOBALS['LANG'] = $languageService;
     }
@@ -280,7 +279,13 @@ final class ChatApiControllerFeedbackTest extends TestCase
         self::assertCount(3, $messages);
         self::assertSame(['user', 'habe alles freigegeben'], [$messages[1]['role'], $messages[1]['content']]);
         self::assertSame('assistant', $messages[2]['role']);
-        self::assertSame('chat.runFinishedOutside pages:10073, tt_content:10077', $messages[2]['content']);
+        // Language-neutral for the model; the reader gets the label from the notice.
+        self::assertSame(
+            '[The pending step was decided outside this chat and its run has finished. Records it wrote: pages:10073, tt_content:10077.]',
+            $messages[2]['content'],
+        );
+        self::assertSame('runFinishedOutside', $messages[2]['notice'] ?? null);
+        self::assertSame(['pages:10073', 'tt_content:10077'], $messages[2]['noticeArgs'] ?? null);
     }
 
     /**

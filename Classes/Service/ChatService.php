@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service;
 
 use LogicException;
+use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
@@ -69,6 +70,21 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * label in the reader's language.
      */
     public const NOTICE_NOTHING_SAVED = 'nothingSaved';
+
+    /**
+     * The notice on the line the chat adds when a pending run was decided and
+     * finished outside it (ADR-017). The chat renders the label with the
+     * records the run wrote; the stored content is the language-neutral line
+     * the model reads.
+     */
+    public const NOTICE_RUN_FINISHED_OUTSIDE = 'runFinishedOutside';
+
+    /**
+     * What the model is told, next turn, beside an answer that got the
+     * nothing-saved notice: the notice is for the reader, and the model would
+     * otherwise go on believing its own claim.
+     */
+    private const NOTHING_SAVED_CORRECTION = '[Note from the chat: the run behind this answer wrote no record. Nothing it describes as done was saved.]';
 
     /**
      * How the model is told why a tool it is not offered is unavailable, per
@@ -568,7 +584,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         } catch (Throwable $e) {
             $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::Failed);
-            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
+            // The continuation calls the same provider as a turn does, so a
+            // missing key fails here as well and must be phrased the same way.
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
             $this->persist($conversation);
 
             return;
@@ -608,7 +626,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->appendMessage(
                 MessageRole::Assistant,
                 $answer,
-                $this->claimsAnUnrecordedChange($answer, $result) ? self::NOTICE_NOTHING_SAVED : '',
+                $this->claimsAnUnrecordedChange($answer, $result, $conversation) ? self::NOTICE_NOTHING_SAVED : '',
             );
             $conversation->setStatus(ConversationStatus::Idle);
             // Success leaves nothing to report. persist() writes the whole row,
@@ -655,29 +673,75 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
-     * Whether the answer reads like a finished change while the run recorded
-     * no write at all (ADR-017).
+     * Whether the answer reads like a finished change while the run wrote
+     * nothing at all (ADR-017).
      *
-     * The run decides, the text only triggers: a `tool_write` step is what a
-     * writer leaves when the DataHandler actually wrote a record (nr-llm
-     * ADR-182), so its absence is the fact, and the wording of the answer only
-     * says whether that fact is worth pointing out. Four times in one demo
+     * The run decides, the text only triggers. Four times in one demo
      * conversation the model answered "Erledigt" with record uids of its own
      * invention, in runs that called no tool (NEXT-167, conversation 92).
      *
-     * The steps are those of the segment that produced the answer. That is
-     * enough: every write needs an approval, so the segment that answers after
-     * a write is the continuation that carried it out.
+     * Read from the run's persisted event stream, not from the result's steps:
+     * every resume starts a fresh trace, so the steps of the segment that
+     * answers do not show a write an earlier approval of the same run carried
+     * out — a page written after the first approval and an element denied at
+     * the second would otherwise read as "nothing saved". Two kinds of event
+     * count as a write: `tool_write`, which a builtin writer leaves (nr-llm
+     * ADR-182), and a call that executed without error right after an
+     * approval — a remote tool whose write needed approval leaves no write
+     * target, and every approval-bound call is write-declared (nr-llm
+     * ADR-134). A run that could not be persisted has no stream; then the
+     * result's own steps are all there is.
      */
-    private function claimsAnUnrecordedChange(string $answer, AgentRunResult $result): bool
+    private function claimsAnUnrecordedChange(string $answer, AgentRunResult $result, Conversation $conversation): bool
     {
-        foreach ($result->steps as $step) {
-            if ($step->kind === RunStep::KIND_WRITE) {
+        if (!ChangeClaim::matches($answer)) {
+            return false;
+        }
+
+        if ($result->runUuid === '') {
+            foreach ($result->steps as $step) {
+                if ($step->kind === RunStep::KIND_WRITE) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        try {
+            $events = $this->agentRuntime->events($this->resolveActor($conversation->getBeUser()), $result->runUuid);
+        } catch (Throwable) {
+            // No evidence either way: say nothing rather than a wrong notice.
+            return false;
+        }
+
+        $afterApproval = false;
+        foreach ($events as $event) {
+            if ($event->kind === RunStep::KIND_WRITE) {
                 return false;
+            }
+
+            if ($event->kind === AgentEventKind::APPROVAL->value) {
+                $afterApproval = ($event->payload['approved'] ?? false) === true;
+
+                continue;
+            }
+
+            if ($event->kind === RunStep::KIND_TOOL) {
+                if ($afterApproval && ($event->payload['toolIsError'] ?? false) !== true) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            // A new model round ends the calls the approval released.
+            if ($event->kind === RunStep::KIND_REQUEST || $event->kind === RunStep::KIND_LLM) {
+                $afterApproval = false;
             }
         }
 
-        return ChangeClaim::matches($answer);
+        return true;
     }
 
     /**
@@ -777,6 +841,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         $result = [];
         foreach ($messages as $msg) {
+            // The notice is rendered for the reader; the model is told the same
+            // thing in its own transcript, per turn and never persisted, or it
+            // would go on building on the claim the notice contradicts.
+            if (($msg['notice'] ?? null) === self::NOTICE_NOTHING_SAVED && is_string($msg['content'] ?? null)) {
+                $msg['content'] .= "\n\n" . self::NOTHING_SAVED_CORRECTION;
+            }
+
             if (!isset($msg['fileUid'])) {
                 $result[] = $msg;
                 continue;

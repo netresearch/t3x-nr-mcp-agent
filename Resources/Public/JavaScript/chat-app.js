@@ -782,9 +782,28 @@ export class ChatApp extends LitElement {
     }
 
     /**
-     * The label an assistant message carries when it reads like a finished
-     * change and the run wrote nothing (ADR-017). The server stores the code,
-     * the label is rendered in the reader's language.
+     * An assistant message's body. A line the chat itself added for a run that
+     * finished outside it is stored language-neutral for the model; the reader
+     * gets the label in their own language, filled with the records the run
+     * wrote (ADR-017).
+     *
+     * @param {{content?: string, notice?: string, noticeArgs?: string[]}} msg
+     */
+    _renderAssistantContent(msg) {
+        if (msg.notice === 'runFinishedOutside') {
+            const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];
+            return writes.length > 0
+                ? lll('chat.runFinishedOutside', writes.join(', '))
+                : lll('chat.runFinishedOutsideNothingWritten');
+        }
+
+        return unsafeHTML(this.chat.renderMessageContent(msg));
+    }
+
+    /**
+     * The label an assistant message carries when it claims a finished change
+     * and the run wrote nothing (ADR-017). The server stores the code, the
+     * label is rendered in the reader's language.
      *
      * @param {{notice?: string}} msg
      */
@@ -1005,7 +1024,7 @@ export class ChatApp extends LitElement {
             : nothing;
         const bubbleContent = isUser
             ? html`${fileBadge}${this.chat.renderMessageContent(msg)}`
-            : unsafeHTML(this.chat.renderMessageContent(msg));
+            : this._renderAssistantContent(msg);
 
         return html`
             <div class="message-row ${role}">

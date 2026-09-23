@@ -39,23 +39,39 @@ picture, each in real conversations:
 Decision
 ========
 
-**The run decides, the text only triggers.** When a completed answer reads
-like a change (German and English participles such as "erledigt",
-"gespeichert", "created", "updated") and the segment that produced it holds no
-``tool_write`` step, the assistant message is stored with the notice
-``nothingSaved``. The chat renders it as a label in the reader's language:
-"Nothing was saved in this step". The word list is generous on purpose: a match
-on an answer that only talks about a change still yields a true notice, because
-the run wrote nothing. The segment's steps are enough, because every write
-needs an approval, so the segment that answers after a write is the one that
-carried it out. The system prompt adds the rule behind it: claim a change only
-on a successful write result, and never state a uid no tool returned.
+**The run decides, the text only triggers.** When a completed answer claims a
+change (German and English participles such as "erledigt", "gespeichert",
+"created", "updated", not preceded by a negation such as "nicht", "nichts",
+"kein" or "not" within three words) and the run wrote nothing, the assistant
+message is stored with the notice ``nothingSaved``. The chat renders it as a
+label in the reader's language: "Nothing was saved in this step". The word
+list is generous on purpose: a match on an answer that only talks about a
+change still yields a true notice, because the run wrote nothing.
+
+"The run wrote nothing" is read from the run's persisted event stream
+(``AgentRuntimeInterface::events()``), not from the result's steps: every
+resume starts a fresh trace, so a write carried out at the first approval of a
+turn is not in the steps of the segment that answers after the second. Two
+kinds of event count as a write: ``tool_write``, which a builtin writer leaves
+(nr-llm ADR-182), and a call that executed without error directly after an
+``approval`` with ``approved = true`` — a remote tool whose write needed
+approval leaves no write target, and every approval-bound call is
+write-declared (nr-llm ADR-134). A run that could not be persisted has no
+stream; its result's steps are the evidence then. A stream that cannot be read
+yields no notice rather than a guessed one.
+
+The notice is for the reader. The model is told the same on the next turn: the
+flagged answer reaches it with a note appended — "the run behind this answer
+wrote no record" — built per turn and never stored, so the model does not build
+on its own claim. The system prompt adds the rule behind it: claim a change
+only on a successful write result, and never state a uid no tool returned.
 
 **A failure carries its kind.** Next to ``error_message`` the conversation
 stores ``error_code``: ``providerNotConfigured`` for nr-llm's
 ``ProviderConfigurationException`` and ``ProviderAuthenticationException``
 (the exception chain is walked), ``chatNotConfigured`` for a missing Task,
-configuration or model. The request that shows the failure phrases it for the
+configuration or model — on an ordinary turn and on the continuation an
+approval starts alike. The request that shows the failure phrases it for the
 reader: an administrator gets the stored text and a link to the nr-llm
 providers or tasks module, everyone else a localised sentence that tells them to
 ask the administration. The code is data and the sentence is rendered per
@@ -68,8 +84,10 @@ the tools this user's run is not offered, one line each with the reason in
 plain words, and tells the model to say that such a tool exists and to point
 to an administrator. The service is looked up in the container by name and its
 absence yields an empty list, so the chat keeps working unchanged on an nr-llm
-without it. The list is information, never a gate. A trust-zone refusal in
-observe mode is offered and therefore not listed.
+without it. The list is information, never a gate. A builtin tool's trust-zone
+refusal in observe mode is offered and therefore not listed. Remote (MCP) tools
+are listed only when the chat user is an administrator: nr-llm leaves them out
+for everyone else, because their names are operator configuration.
 
 **"Go on" is not a new request, and not a decision.** When the conversation
 waits for an approval and the whole message is one of a short, explicit list of
@@ -81,10 +99,13 @@ before anything is written:
     may not decide in the chat and therefore gets no card;
 -   decided elsewhere and still running: the same answer as any busy
     conversation;
--   decided elsewhere and finished: the message is stored together with a note
+-   decided elsewhere and finished: the message is stored together with a line
     that names the records the run wrote (``pages:10073``, read from the run's
     ``tool_write`` events, which the privacy filter keeps at every level), and
-    the conversation is idle. The next turn therefore knows the page exists;
+    the conversation is idle. The line is stored language-neutral, for the
+    model, with the notice ``runFinishedOutside`` and the records beside it;
+    the reader sees the label in their own language, for the reason
+    ``error_code`` exists. The next turn therefore knows the page exists;
 -   anything the run cannot answer: the ordinary path.
 
 The message is never taken as the approval. An approval is a decision on the
@@ -113,8 +134,8 @@ Consequences
     rule makes the false claim less likely, the notice makes it visible.
 -   The conversation table gains the column ``error_code``. Existing rows have
     an empty code and are shown as before.
--   Non-administrators learn the names of tools they may not use, including
-    administrator-only ones. Tool names and reasons are policy facts, not
-    instance data.
+-   Non-administrators learn the names of builtin tools they may not use,
+    including administrator-only ones. Tool names and reasons are policy facts,
+    not instance data. Remote tool names stay with administrators.
 -   A "go on" phrase outside the list is an ordinary request, and so is any
     longer sentence that contains one.

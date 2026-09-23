@@ -22,6 +22,7 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -532,12 +533,20 @@ final readonly class ChatApiController
             return null;
         }
 
-        $note = $pending['writes'] === []
-            ? $this->translate('chat.runFinishedOutsideNothingWritten')
-            : sprintf($this->translate('chat.runFinishedOutside'), implode(', ', $pending['writes']));
-
+        // Stored as a notice code plus a language-neutral line, for the reason
+        // error_code exists (ADR-017): the reader gets a label in their own
+        // language, rendered from the code and the records; the model reads the
+        // line, which names the records so the next turn knows they exist.
         $conversation->appendMessage(MessageRole::User, $content);
-        $conversation->appendMessage(MessageRole::Assistant, $note);
+        $conversation->appendMessage(
+            MessageRole::Assistant,
+            sprintf(
+                '[The pending step was decided outside this chat and its run has finished. Records it wrote: %s.]',
+                $pending['writes'] === [] ? 'none' : implode(', ', $pending['writes']),
+            ),
+            ChatService::NOTICE_RUN_FINISHED_OUTSIDE,
+            $pending['writes'],
+        );
         $conversation->setStatus(ConversationStatus::Idle);
         $conversation->setErrorMessage('');
         $conversation->setApprovalRunUuid('');

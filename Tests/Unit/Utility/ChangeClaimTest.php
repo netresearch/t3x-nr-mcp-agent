@@ -28,6 +28,8 @@ final class ChangeClaimTest extends TestCase
         yield 'English, created' => ['I have created the page "About us" (uid 10073).'];
         yield 'English, updated' => ['Updated the SEO title of page 85.'];
         yield 'case does not matter' => ['ERLEDIGT.'];
+        yield 'one claim beside a negated one' => ['Die Seite wurde angelegt. Das Element wurde nicht angelegt.'];
+        yield 'a negation in the previous sentence does not carry over' => ['Kein Problem. Gespeichert.'];
     }
 
     #[Test]
@@ -46,6 +48,10 @@ final class ChangeClaimTest extends TestCase
         yield 'an offer' => ['Soll ich die Seite anlegen und die Meta-Description setzen?'];
         yield 'a word that only contains a claim' => ['Die Einstellungen sind unverändert; der Updatedienst läuft.'];
         yield 'empty' => [''];
+        yield 'the honest answer after a denial' => ['Du hast die Freigabe abgelehnt, es wurde nichts geändert.'];
+        yield 'English, negated' => ['The page has not been created, and nothing was saved.'];
+        yield 'contracted negation' => ["The description wasn't saved."];
+        yield 'kein' => ['Es wurde kein Element angelegt.'];
     }
 
     #[Test]

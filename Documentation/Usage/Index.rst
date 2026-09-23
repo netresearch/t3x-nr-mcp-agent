@@ -44,7 +44,7 @@ Servers**; this extension registers none of its own.
 What the chat tells you besides the answer
 ------------------------------------------
 
-*   **Nothing was saved in this step.** An answer that reads like a
+*   **Nothing was saved in this step.** An answer that claims a
     finished change ("done", "created", "saved") carries this note when
     the run behind it wrote no record. Check the page before relying on
     the answer, and ask the assistant again.

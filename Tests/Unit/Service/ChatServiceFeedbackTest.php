@@ -71,6 +71,7 @@ final class ChatServiceFeedbackTest extends TestCase
         ?array $unavailable = null,
         ?AgentRun $run = null,
         array $events = [],
+        bool $eventsFail = false,
     ): ChatService {
         $agentRuntime = $this->createMock(AgentRuntimeInterface::class);
         $agentRuntime->method('run')->willReturnCallback(
@@ -80,7 +81,11 @@ final class ChatServiceFeedbackTest extends TestCase
                 return $result ?? $this->completed('Hallo.');
             },
         );
-        $agentRuntime->method('events')->willReturn($events);
+        if ($eventsFail) {
+            $agentRuntime->method('events')->willThrowException(new RuntimeException('event table unreadable'));
+        } else {
+            $agentRuntime->method('events')->willReturn($events);
+        }
 
         if ($taskRepository === null) {
             $configuration = $this->createMock(LlmConfiguration::class);
@@ -187,6 +192,98 @@ final class ChatServiceFeedbackTest extends TestCase
     public function aClaimedChangeTheRunDidWriteCarriesNoNotice(): void
     {
         $conversation = $this->conversation('10041');
+
+        $this->createChatService($this->completed(self::FALSE_SUCCESS), events: [
+            $this->event(0, 'request'),
+            $this->event(1, 'approval', ['approved' => true, 'decidedBy' => 2]),
+            $this->event(2, 'tool', ['toolName' => 'create_content_element_draft', 'toolIsError' => false]),
+            $this->event(3, 'tool_write', ['writeTargetTable' => 'tt_content', 'writeTargetUid' => 10162]),
+            $this->event(4, 'llm'),
+        ])->processConversation($conversation);
+
+        self::assertArrayNotHasKey('notice', $this->lastMessage($conversation));
+    }
+
+    /**
+     * Every resume starts a fresh trace, so the segment that answers after the
+     * second approval does not carry the write of the first. The run's event
+     * stream does: page written after approval 1, element denied at approval 2,
+     * answer "Seite angelegt, Element abgelehnt" — no notice.
+     */
+    #[Test]
+    public function aWriteAtAnEarlierApprovalOfTheSameRunCounts(): void
+    {
+        $conversation = $this->conversation('Lege die Seite und ein Element an.');
+
+        $this->createChatService($this->completed('Seite angelegt (pages:10073), das Element wurde abgelehnt.'), events: [
+            $this->event(0, 'request'),
+            $this->event(1, 'llm'),
+            $this->event(2, 'approval', ['approved' => true, 'decidedBy' => 2]),
+            $this->event(3, 'tool', ['toolName' => 'create_page_draft', 'toolIsError' => false]),
+            $this->event(4, 'tool_write', ['writeTargetTable' => 'pages', 'writeTargetUid' => 10073]),
+            $this->event(5, 'request'),
+            $this->event(6, 'llm'),
+            $this->event(7, 'approval', ['approved' => false, 'decidedBy' => 2]),
+            $this->event(8, 'tool', ['toolName' => 'create_content_element_draft', 'toolIsError' => true]),
+            $this->event(9, 'request'),
+            $this->event(10, 'llm'),
+        ])->processConversation($conversation);
+
+        self::assertArrayNotHasKey('notice', $this->lastMessage($conversation));
+    }
+
+    /**
+     * A remote (MCP) tool whose write needed approval leaves no write target.
+     * It executed without error after the approval, so it counts as a write.
+     */
+    #[Test]
+    public function anApprovedRemoteCallThatSucceededCounts(): void
+    {
+        $conversation = $this->conversation('Lege das Ticket an.');
+
+        $this->createChatService($this->completed('Erledigt: Ticket angelegt.'), events: [
+            $this->event(0, 'request'),
+            $this->event(1, 'llm'),
+            $this->event(2, 'approval', ['approved' => true, 'decidedBy' => 2]),
+            $this->event(3, 'tool', ['toolName' => 'mcp_tracker_create_issue', 'toolIsError' => false]),
+            $this->event(4, 'request'),
+            $this->event(5, 'llm'),
+        ])->processConversation($conversation);
+
+        self::assertArrayNotHasKey('notice', $this->lastMessage($conversation));
+    }
+
+    /**
+     * An approved call that failed wrote nothing, and a read-only call made in a
+     * later round is not an approved one.
+     */
+    #[Test]
+    public function anApprovedCallThatFailedOrALaterReadDoesNotCount(): void
+    {
+        $conversation = $this->conversation('Setze die Beschreibung.');
+
+        $this->createChatService($this->completed('Erledigt: Beschreibung gesetzt.'), events: [
+            $this->event(0, 'request'),
+            $this->event(1, 'llm'),
+            $this->event(2, 'approval', ['approved' => true, 'decidedBy' => 2]),
+            $this->event(3, 'tool', ['toolName' => 'update_page_metadata', 'toolIsError' => true]),
+            $this->event(4, 'request'),
+            $this->event(5, 'llm'),
+            $this->event(6, 'tool', ['toolName' => 'get_page_content', 'toolIsError' => false]),
+            $this->event(7, 'request'),
+            $this->event(8, 'llm'),
+        ])->processConversation($conversation);
+
+        self::assertSame(ChatService::NOTICE_NOTHING_SAVED, $this->lastMessage($conversation)['notice'] ?? null);
+    }
+
+    /**
+     * A run that could not be persisted has no event stream; the steps of the
+     * result are the only evidence then.
+     */
+    #[Test]
+    public function anUnpersistedRunIsJudgedByItsSteps(): void
+    {
         $write = new RunStep(
             kind: RunStep::KIND_WRITE,
             round: 1,
@@ -194,8 +291,49 @@ final class ChatServiceFeedbackTest extends TestCase
             toolName: 'create_content_element_draft',
             writeTarget: new RecordReference('tt_content', 10162),
         );
+        $withWrite = new AgentRunResult(AgentRunOutcome::COMPLETED, '', [$write], new ToolLoopResult(self::FALSE_SUCCESS, [], 1, false, new UsageStatistics(1, 1, 2)));
+        $without = new AgentRunResult(AgentRunOutcome::COMPLETED, '', [], new ToolLoopResult(self::FALSE_SUCCESS, [], 1, false, new UsageStatistics(1, 1, 2)));
 
-        $this->createChatService($this->completed(self::FALSE_SUCCESS, [$write]))->processConversation($conversation);
+        $first = $this->conversation('10041');
+        $this->createChatService($withWrite)->processConversation($first);
+        self::assertArrayNotHasKey('notice', $this->lastMessage($first));
+
+        $second = $this->conversation('10041');
+        $this->createChatService($without)->processConversation($second);
+        self::assertSame(ChatService::NOTICE_NOTHING_SAVED, $this->lastMessage($second)['notice'] ?? null);
+    }
+
+    /**
+     * The notice is for the reader; the model is told the same in its own
+     * transcript on the next turn, or it builds on the claim.
+     */
+    #[Test]
+    public function theNextTurnTellsTheModelThatTheFlaggedAnswerSavedNothing(): void
+    {
+        $conversation = $this->conversation('10041');
+        $conversation->appendMessage(MessageRole::Assistant, self::FALSE_SUCCESS, ChatService::NOTICE_NOTHING_SAVED);
+        $conversation->appendMessage(MessageRole::User, 'ich sehe kein angelegtes Element');
+
+        $this->createChatService()->processConversation($conversation);
+
+        self::assertNotNull($this->capturedRequest);
+        $assistant = $this->capturedRequest->messages[2] ?? null;
+        self::assertIsArray($assistant);
+        self::assertSame('assistant', $assistant['role'] ?? null);
+        self::assertSame(
+            self::FALSE_SUCCESS . "\n\n[Note from the chat: the run behind this answer wrote no record. Nothing it describes as done was saved.]",
+            $assistant['content'] ?? null,
+        );
+        // Never persisted: the stored answer is what the model wrote.
+        self::assertSame(self::FALSE_SUCCESS, $conversation->getDecodedMessages()[1]['content']);
+    }
+
+    #[Test]
+    public function aStreamThatCannotBeReadAddsNoNotice(): void
+    {
+        $conversation = $this->conversation('10041');
+
+        $this->createChatService($this->completed(self::FALSE_SUCCESS), eventsFail: true)->processConversation($conversation);
 
         self::assertArrayNotHasKey('notice', $this->lastMessage($conversation));
     }
