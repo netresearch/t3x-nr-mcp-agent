@@ -48,6 +48,41 @@ Servers**; this extension registers none of its own.
     AI responses are rendered as rich Markdown — headings,
     lists, code blocks, and tables.
 
+Editing a message
+-----------------
+
+Every message you wrote as text has an **Edit** control below it while no
+answer is being generated. Change the text and choose **Save and run
+again**: the message is replaced, everything after it is removed, and the
+assistant answers the new wording. An attachment of the edited message
+stays attached. :kbd:`Escape` leaves the editor without changes,
+:kbd:`Ctrl+Enter` saves.
+
+What the assistant knows about you
+----------------------------------
+
+*   **The page you are on.** When you send a message while a page module
+    (Page, List, ...) shows a page, the assistant is told that page's uid
+    and title and which module is open. "Summarise this page" therefore
+    works without naming a uid. A page you may not see is never passed on.
+*   **Your backend language.** The assistant answers in the language your
+    backend is set to (*User settings > Language*), even when you write in
+    another one. Ask for a different language in the message ("answer in
+    English") and it uses that instead.
+
+Instructions for a conversation
+-------------------------------
+
+The **Instructions** button (sliders icon in the floating panel) opens a
+field for instructions that apply to this conversation only -- for
+example "answer in bullet points" or "you are reviewing the press
+section". They replace the instructions an administrator configured for
+the chat and take effect with the next message. The assistant's identity,
+its tools and permissions, and the language rules stay the same. The
+button is highlighted while a conversation has instructions; empty the
+field and save to remove them. Instructions cannot be changed while an
+answer is being generated.
+
 Conversation management
 =======================
 

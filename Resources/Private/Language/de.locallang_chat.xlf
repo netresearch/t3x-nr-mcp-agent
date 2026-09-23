@@ -321,6 +321,54 @@
                 <source>Popup was blocked. Please disable your popup blocker.</source>
                 <target>Das Popup wurde blockiert. Bitte deaktiviere deinen Popup-Blocker.</target>
             </trans-unit>
+                    <trans-unit id="chat.edit" resname="chat.edit">
+                <source>Edit</source>
+                <target>Bearbeiten</target>
+            </trans-unit>
+            <trans-unit id="chat.editMessage" resname="chat.editMessage">
+                <source>Edit this message and run the conversation again from here</source>
+                <target>Diese Nachricht bearbeiten und die Unterhaltung ab hier neu ausführen</target>
+            </trans-unit>
+            <trans-unit id="chat.editHint" resname="chat.editHint">
+                <source>Saving replaces this message and removes everything after it; the assistant then answers again.</source>
+                <target>Beim Speichern wird diese Nachricht ersetzt und alles danach entfernt; der Assistent antwortet dann neu.</target>
+            </trans-unit>
+            <trans-unit id="chat.editCancel" resname="chat.editCancel">
+                <source>Cancel</source>
+                <target>Abbrechen</target>
+            </trans-unit>
+            <trans-unit id="chat.editSubmit" resname="chat.editSubmit">
+                <source>Save and run again</source>
+                <target>Speichern und neu ausführen</target>
+            </trans-unit>
+            <trans-unit id="instructions.button" resname="instructions.button">
+                <source>Instructions for this conversation</source>
+                <target>Anweisungen für diese Unterhaltung</target>
+            </trans-unit>
+            <trans-unit id="instructions.buttonSet" resname="instructions.buttonSet">
+                <source>Instructions for this conversation (set)</source>
+                <target>Anweisungen für diese Unterhaltung (gesetzt)</target>
+            </trans-unit>
+            <trans-unit id="instructions.buttonShort" resname="instructions.buttonShort">
+                <source>Instructions</source>
+                <target>Anweisungen</target>
+            </trans-unit>
+            <trans-unit id="instructions.label" resname="instructions.label">
+                <source>Instructions for this conversation</source>
+                <target>Anweisungen für diese Unterhaltung</target>
+            </trans-unit>
+            <trans-unit id="instructions.help" resname="instructions.help">
+                <source>They replace the instructions configured for the chat and apply from the next message on. The assistant's identity, its tools and permissions, and the rules about languages stay the same. Leave the field empty to go back to the configured instructions.</source>
+                <target>Sie ersetzen die für den Chat konfigurierten Anweisungen und gelten ab der nächsten Nachricht. Identität des Assistenten, seine Werkzeuge und Berechtigungen sowie die Regeln zu Sprachen bleiben gleich. Leere das Feld, um wieder die konfigurierten Anweisungen zu verwenden.</target>
+            </trans-unit>
+            <trans-unit id="instructions.save" resname="instructions.save">
+                <source>Save instructions</source>
+                <target>Anweisungen speichern</target>
+            </trans-unit>
+            <trans-unit id="error.notEditable" resname="error.notEditable">
+                <source>Only a message you wrote as text can be edited</source>
+                <target>Nur eine Nachricht, die du als Text geschrieben hast, lässt sich bearbeiten</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

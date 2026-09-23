@@ -30,6 +30,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -74,6 +75,7 @@ class ChatServiceTest extends TestCase
         ?SiteFinder $siteFinder = null,
         ?DocumentExtractorRegistry $registry = null,
         ?TaskRepository $taskRepository = null,
+        ?UserContextPrompt $userContextPrompt = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -110,7 +112,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap());
+        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class));
     }
 
     /**
@@ -796,6 +798,59 @@ class ChatServiceTest extends TestCase
         self::assertStringContainsString('Only custom instructions', $system);
         self::assertStringNotContainsString('This should be ignored.', $system);
         self::assertStringNotContainsString('This too.', $system);
+    }
+
+    /**
+     * The user's own context — answer language, page and module (NEXT-172) —
+     * closes the prompt, after the site-language block.
+     */
+    #[Test]
+    public function theUserContextClosesTheSystemPrompt(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $userContext = $this->createMock(UserContextPrompt::class);
+        $userContext->expects(self::once())->method('build')->with($conversation)->willReturn('USER-CONTEXT-BLOCK');
+
+        $service = $this->createChatService(prompts: ['system_prompt' => 'You are a content editor.'], userContextPrompt: $userContext);
+        $service->processConversation($conversation);
+
+        self::assertStringEndsWith("\n\nUSER-CONTEXT-BLOCK", $this->capturedSystemPrompt());
+    }
+
+    #[Test]
+    public function theUserContextIsKeptWithACustomSystemPrompt(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSystemPrompt('Only custom instructions');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $userContext = $this->createStub(UserContextPrompt::class);
+        $userContext->method('build')->willReturn('USER-CONTEXT-BLOCK');
+
+        $service = $this->createChatService(userContextPrompt: $userContext);
+        $service->processConversation($conversation);
+
+        $system = $this->capturedSystemPrompt();
+        self::assertStringContainsString('Only custom instructions', $system);
+        self::assertStringEndsWith('USER-CONTEXT-BLOCK', $system);
+    }
+
+    #[Test]
+    public function theIdentityPromptDefersTheAnswerLanguageToTheUserContext(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $this->createChatService()->processConversation($conversation);
+
+        $system = $this->capturedSystemPrompt();
+        self::assertStringContainsString('Answer in the language named under "Answer language" below', $system);
+        self::assertStringNotContainsString('Always answer in the same language the user writes in', $system);
     }
 
     // -------------------------------------------------------------------------

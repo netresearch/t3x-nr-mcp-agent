@@ -30,6 +30,16 @@ return [
         'target' => ChatApiController::class . '::sendMessage',
         'methods' => ['POST'],
     ],
+    'ai_chat_conversation_edit' => [
+        'path' => '/ai-chat/conversations/edit',
+        'target' => ChatApiController::class . '::editMessage',
+        'methods' => ['POST'],
+    ],
+    'ai_chat_conversation_system_prompt' => [
+        'path' => '/ai-chat/conversations/system-prompt',
+        'target' => ChatApiController::class . '::updateSystemPrompt',
+        'methods' => ['POST'],
+    ],
     'ai_chat_conversation_approve' => [
         'path' => '/ai-chat/conversations/approve',
         'target' => ChatApiController::class . '::decideApproval',

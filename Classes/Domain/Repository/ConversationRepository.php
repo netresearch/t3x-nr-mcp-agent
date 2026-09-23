@@ -166,6 +166,18 @@ readonly class ConversationRepository
     }
 
     /**
+     * Lightweight instructions update — avoids reading/writing the full messages blob.
+     */
+    public function updateSystemPrompt(int $uid, string $systemPrompt, int $beUserUid): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'system_prompt' => $systemPrompt,
+            'tstamp' => time(),
+        ], ['uid' => $uid, 'be_user' => $beUserUid]);
+    }
+
+    /**
      * Lightweight poll check — returns status metadata without loading messages.
      *
      * @return array{status: string, message_count: int, error_message: string, approval_run_uuid: string, tstamp: int}|null

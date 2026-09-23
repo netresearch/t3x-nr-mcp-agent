@@ -245,6 +245,42 @@
             <trans-unit id="fal_picker_popup_blocked" resname="fal_picker_popup_blocked">
                 <source>Popup was blocked. Please disable your popup blocker.</source>
             </trans-unit>
+                    <trans-unit id="chat.edit" resname="chat.edit">
+                <source>Edit</source>
+            </trans-unit>
+            <trans-unit id="chat.editMessage" resname="chat.editMessage">
+                <source>Edit this message and run the conversation again from here</source>
+            </trans-unit>
+            <trans-unit id="chat.editHint" resname="chat.editHint">
+                <source>Saving replaces this message and removes everything after it; the assistant then answers again.</source>
+            </trans-unit>
+            <trans-unit id="chat.editCancel" resname="chat.editCancel">
+                <source>Cancel</source>
+            </trans-unit>
+            <trans-unit id="chat.editSubmit" resname="chat.editSubmit">
+                <source>Save and run again</source>
+            </trans-unit>
+            <trans-unit id="instructions.button" resname="instructions.button">
+                <source>Instructions for this conversation</source>
+            </trans-unit>
+            <trans-unit id="instructions.buttonSet" resname="instructions.buttonSet">
+                <source>Instructions for this conversation (set)</source>
+            </trans-unit>
+            <trans-unit id="instructions.buttonShort" resname="instructions.buttonShort">
+                <source>Instructions</source>
+            </trans-unit>
+            <trans-unit id="instructions.label" resname="instructions.label">
+                <source>Instructions for this conversation</source>
+            </trans-unit>
+            <trans-unit id="instructions.help" resname="instructions.help">
+                <source>They replace the instructions configured for the chat and apply from the next message on. The assistant's identity, its tools and permissions, and the rules about languages stay the same. Leave the field empty to go back to the configured instructions.</source>
+            </trans-unit>
+            <trans-unit id="instructions.save" resname="instructions.save">
+                <source>Save instructions</source>
+            </trans-unit>
+            <trans-unit id="error.notEditable" resname="error.notEditable">
+                <source>Only a message you wrote as text can be edited</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

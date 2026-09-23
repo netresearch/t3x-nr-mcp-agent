@@ -22,6 +22,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -107,6 +108,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
             $this->createMock(SiteFinder::class),
             new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
+            $this->createMock(UserContextPrompt::class),
         );
     }
 

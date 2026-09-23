@@ -47,6 +47,9 @@ final readonly class ChatApiController
 
     private const LANGUAGE_FILE = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf';
 
+    /** The length the conversation model keeps; longer input is refused rather than cut. */
+    private const MAX_SYSTEM_PROMPT_LENGTH = 10000;
+
     public function __construct(
         private ConversationRepository $repository,
         private ChatProcessorInterface $processor,
@@ -241,6 +244,7 @@ final readonly class ChatApiController
             'errorMessage' => $conversation->getErrorMessage(),
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
+            'systemPrompt' => $conversation->getSystemPrompt(),
         ]);
     }
 
@@ -295,17 +299,9 @@ final readonly class ChatApiController
         }
 
         $currentStatus = $conversation->getStatus();
-        if (in_array($currentStatus, [ConversationStatus::Processing, ConversationStatus::Locked, ConversationStatus::ToolLoop], true)
-        ) {
-            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
-        }
-
-        $maxActive = $this->config->getMaxActiveConversationsPerUser();
-        if ($maxActive > 0) {
-            $activeCount = $this->repository->countActiveByBeUser($this->getBeUserUid());
-            if ($activeCount >= $maxActive) {
-                return new JsonResponse(['error' => sprintf('Too many active conversations (max %d)', $maxActive)], 429);
-            }
+        $refusal = $this->refuseNewTurn($currentStatus);
+        if ($refusal !== null) {
+            return $refusal;
         }
 
         if ($fileUid !== null) {
@@ -324,6 +320,146 @@ final readonly class ChatApiController
             }
         } else {
             $conversation->appendMessage(MessageRole::User, $content);
+        }
+
+        return $this->queueTurn($conversation, $currentStatus, $body);
+    }
+
+    /**
+     * POST /ai-chat/conversations/edit – Replace one of the user's own
+     * messages and run the conversation again from there.
+     *
+     * Everything after the edited message is dropped: the answers to the old
+     * wording are answers to a question that is no longer in the transcript.
+     * An attachment of the edited message stays attached — the edit changes
+     * the text, not what was handed over with it.
+     *
+     * The same guards and the same claim as sendMessage(): an edit is a new
+     * turn over a shorter transcript.
+     */
+    public function editMessage(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $body = $this->parseBody($request);
+        $conversation = $this->findConversationOrFail($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $content = trim((string) ($body['content'] ?? ''));
+        if ($content === '') {
+            return new JsonResponse(['error' => 'Empty message'], 400);
+        }
+
+        $maxLength = $this->config->getMaxMessageLength();
+        if ($maxLength > 0 && mb_strlen($content) > $maxLength) {
+            return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
+        }
+
+        $rawIndex = $body['index'] ?? null;
+        $index = is_int($rawIndex) ? $rawIndex : -1;
+        $messages = $conversation->getDecodedMessages();
+        $original = $messages[$index] ?? null;
+        if ($original === null
+            || ($original['role'] ?? '') !== MessageRole::User->value
+            || !is_string($original['content'] ?? null)
+        ) {
+            return new JsonResponse(['error' => $this->translate('error.notEditable')], 400);
+        }
+
+        $currentStatus = $conversation->getStatus();
+        $refusal = $this->refuseNewTurn($currentStatus);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
+        $original['content'] = $content;
+        $original['createdAt'] = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
+        $conversation->setMessages([...array_slice($messages, 0, $index), $original]);
+
+        return $this->queueTurn($conversation, $currentStatus, $body);
+    }
+
+    /**
+     * POST /ai-chat/conversations/system-prompt – Set the conversation's own
+     * instructions; an empty value removes them.
+     *
+     * Refused while a turn is running: the worker writes the whole row when it
+     * settles, and would put back the prompt it started with.
+     */
+    public function updateSystemPrompt(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $body = $this->parseBody($request);
+        $conversation = $this->findConversationOrFail($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $prompt = trim((string) ($body['systemPrompt'] ?? ''));
+        if (mb_strlen($prompt) > self::MAX_SYSTEM_PROMPT_LENGTH) {
+            return new JsonResponse(['error' => sprintf('Instructions too long (max %d characters)', self::MAX_SYSTEM_PROMPT_LENGTH)], 400);
+        }
+
+        if ($this->isBusy($conversation->getStatus())) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        $this->repository->updateSystemPrompt($conversation->getUid(), $prompt, $this->getBeUserUid());
+
+        return new JsonResponse(['systemPrompt' => $prompt]);
+    }
+
+    private function isBusy(ConversationStatus $status): bool
+    {
+        return in_array($status, [ConversationStatus::Processing, ConversationStatus::Locked, ConversationStatus::ToolLoop], true);
+    }
+
+    /**
+     * Why a new turn may not start now, or null when it may: the conversation
+     * is already working, or the user has too many that are.
+     */
+    private function refuseNewTurn(ConversationStatus $currentStatus): ?ResponseInterface
+    {
+        if ($this->isBusy($currentStatus)) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        $maxActive = $this->config->getMaxActiveConversationsPerUser();
+        if ($maxActive > 0) {
+            $activeCount = $this->repository->countActiveByBeUser($this->getBeUserUid());
+            if ($activeCount >= $maxActive) {
+                return new JsonResponse(['error' => sprintf('Too many active conversations (max %d)', $maxActive)], 429);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Claim the conversation for a new turn and hand it to the worker.
+     *
+     * @param array<string, mixed> $body the request body, for the view context
+     */
+    private function queueTurn(Conversation $conversation, ConversationStatus $currentStatus, array $body): ResponseInterface
+    {
+        // Where the user is in the backend, for this turn (NEXT-172). Only
+        // shape is checked here; the worker decides what the user may see.
+        $context = $body['context'] ?? null;
+        if (is_array($context)) {
+            $pageId = $context['pageId'] ?? 0;
+            $module = $context['module'] ?? '';
+            $conversation->setViewContext(is_int($pageId) ? $pageId : 0, is_string($module) ? $module : '');
+        } else {
+            $conversation->setViewContext(0, '');
         }
 
         $conversation->setStatus(ConversationStatus::Processing);

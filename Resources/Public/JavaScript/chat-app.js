@@ -4,7 +4,8 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController, downloadTextFile} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS} from './icons.js';
+import {chatEditingStyles, renderEditButton, renderMessageEditor, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
 
 /**
  * <nr-chat-app> – Main chat application component.
@@ -19,7 +20,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -655,6 +656,12 @@ export class ChatApp extends LitElement {
                     title="${conv?.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                     ${conv?.pinned ? '\u{1F4CC}' : lll('conversations.pin')}
                 </button>
+                <button class="btn btn-sm ${this.chat.systemPrompt ? 'has-instructions' : ''}" data-action="instructions"
+                    aria-pressed="${String(this.chat.systemPromptOpen)}"
+                    @click=${() => this.chat.systemPromptOpen ? this.chat.closeSystemPrompt() : this.chat.openSystemPrompt()}
+                    title="${instructionsLabel(this.chat)}">
+                    ${ICON_INSTRUCTIONS(14)} ${lll('instructions.buttonShort')}
+                </button>
                 <button class="btn btn-sm" data-action="export"
                     ?disabled=${!this.chat.canExport()}
                     @click=${() => this.chat.canExport() && downloadTextFile(this.ownerDocument || document, this.chat.exportFileName(), this.chat.buildMarkdownExport())}
@@ -664,6 +671,7 @@ export class ChatApp extends LitElement {
                 <button class="btn btn-sm" @click=${() => this.chat.handleArchive()}>${lll('conversations.archive')}</button>
             </div>
 
+            ${renderInstructionsEditor(this.chat)}
             <div class="messages" aria-live="polite" aria-relevant="additions">
                 ${this.chat.messages.map((msg, idx) => this._renderMessage(msg, idx))}
                 ${this.chat.isProcessing() ? html`
@@ -970,13 +978,17 @@ export class ChatApp extends LitElement {
         const bubbleContent = isUser
             ? html`${fileBadge}${this.chat.renderMessageContent(msg)}`
             : unsafeHTML(this.chat.renderMessageContent(msg));
+        const editing = isUser && this.chat.editingIndex === idx;
 
         return html`
             <div class="message-row ${role}">
                 ${isUser ? nothing : html`<div class="avatar avatar-assistant">${AVATAR_ASSISTANT(16)}</div>`}
                 <div class="message-bubble">
-                    <div class="message ${role}">${bubbleContent}</div>
-                    ${time ? html`<div class="message-time">${time}</div>` : nothing}
+                    ${editing ? renderMessageEditor(this.chat) : html`<div class="message ${role}">${bubbleContent}</div>`}
+                    <div class="message-meta">
+                        ${time ? html`<div class="message-time">${time}</div>` : nothing}
+                        ${isUser && !editing ? renderEditButton(this.chat, idx) : nothing}
+                    </div>
                 </div>
                 ${isUser ? html`<div class="avatar avatar-user">${AVATAR_USER(16)}</div>` : nothing}
             </div>

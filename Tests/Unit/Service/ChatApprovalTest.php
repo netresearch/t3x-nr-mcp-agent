@@ -26,6 +26,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -106,6 +107,7 @@ final class ChatApprovalTest extends TestCase
             $this->createMock(SiteFinder::class),
             new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
+            $this->createMock(UserContextPrompt::class),
         );
     }
 

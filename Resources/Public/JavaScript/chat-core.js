@@ -5,6 +5,45 @@ import {renderMarkdown} from './markdown.js';
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
 /**
+ * Where the user is in the backend: the open module and the page the module
+ * shows (NEXT-172).
+ *
+ * Read from the backend frame, which the floating panel shares (ADR-011) and
+ * the chat module sits inside. The module is the router's current identifier;
+ * the page is the `id` of the module frame's URL — the page a page-tree module
+ * shows. A module that is not about a page has no `id` there, and then no page
+ * is sent: the page tree may still hold a selection, but "this page" would
+ * not mean it.
+ *
+ * Anything unreadable degrades to "no context" — it is a hint for the
+ * assistant, never a reason for a message to fail. The server re-checks the
+ * page against the user's permissions before it reaches the prompt.
+ *
+ * @param {Window} [win]
+ * @returns {{pageId: number, module: string}}
+ */
+export function currentBackendContext(win = globalThis.top ?? globalThis) {
+    const context = {pageId: 0, module: ''};
+    try {
+        const doc = win.document;
+        const router = doc.querySelector('typo3-backend-module-router');
+        const module = router?.module || router?.getAttribute('module') || '';
+        if (/^[A-Za-z0-9_]{1,100}$/.test(module)) {
+            context.module = module;
+        }
+
+        const frame = win.frames?.list_frame;
+        const id = new URLSearchParams(frame?.location?.search ?? '').get('id');
+        if (id && /^\d+$/.test(id)) {
+            context.pageId = Number.parseInt(id, 10);
+        }
+    } catch {
+        // Cross-origin or not a backend window: send no context.
+    }
+    return context;
+}
+
+/**
  * Offer text to the reader as a file download.
  *
  * The anchor is created in the document the component lives in: a panel moved
@@ -98,6 +137,17 @@ export class ChatCoreController {
     /** @type {string[]} */
     supportedFormats = [];
 
+    /** The active conversation's own instructions; empty when it has none. */
+    systemPrompt = '';
+    /** True while the instructions editor is open. */
+    systemPromptOpen = false;
+    systemPromptDraft = '';
+    systemPromptSaving = false;
+
+    /** Index of the user message being edited, or -1. */
+    editingIndex = -1;
+    editDraft = '';
+
     // ── Internal state ─────────────────────────────────────────────────
     /** @type {ApiClient} */
     _api;
@@ -181,6 +231,9 @@ export class ChatCoreController {
         this.expandedTools = new Set();
         this.pendingFile = null;
         this.approvalDecisionTaken = null;
+        this.systemPrompt = '';
+        this.systemPromptOpen = false;
+        this.editingIndex = -1;
         this.host.requestUpdate();
         await this.loadMessages();
         this.startPollingIfNeeded();
@@ -257,6 +310,7 @@ export class ChatCoreController {
             this.errorMessage = data.errorMessage || '';
             this.approvalUrl = data.approvalUrl || '';
             this.pendingApproval = data.pendingApproval || null;
+            this.systemPrompt = data.systemPrompt || '';
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
                 // screen is a question again, not a confirmation.
@@ -370,7 +424,7 @@ export class ChatCoreController {
         this.errorMessage = '';
         this.host.requestUpdate();
         try {
-            await this._api.sendMessage(this.activeUid, content, fileUid);
+            await this._api.sendMessage(this.activeUid, content, fileUid, currentBackendContext());
             this.inputValue = '';
             this.hasInput = false;
             this.host.onResetInput();
@@ -397,6 +451,99 @@ export class ChatCoreController {
             this.host.requestUpdate();
         } finally {
             this.sending = false;
+            this.host.requestUpdate();
+        }
+    }
+
+    /**
+     * Whether the message at `idx` can be edited and run again: a message the
+     * user wrote as plain text, while no turn is running.
+     */
+    canEditMessage(idx) {
+        const msg = this.messages[idx];
+        return !!msg && msg.role === 'user' && typeof msg.content === 'string'
+            && !this.isProcessing() && !this.sending && this.available;
+    }
+
+    startEdit(idx) {
+        if (!this.canEditMessage(idx)) return;
+        this.editingIndex = idx;
+        this.editDraft = this.messages[idx].content;
+        this.host.requestUpdate();
+    }
+
+    cancelEdit() {
+        this.editingIndex = -1;
+        this.editDraft = '';
+        this.host.requestUpdate();
+    }
+
+    /**
+     * Send the edited message. The server replaces it, drops every message
+     * after it and starts a new turn; the transcript is then reloaded rather
+     * than patched here, because indices past the edit no longer exist.
+     */
+    async submitEdit() {
+        const idx = this.editingIndex;
+        const content = this.editDraft.trim();
+        if (idx < 0 || !content || this.sending) return;
+
+        if (this.maxLength > 0 && content.length > this.maxLength) {
+            this.errorMessage = lll('chat.messageTooLong', this.maxLength);
+            this.host.requestUpdate();
+            return;
+        }
+
+        const uid = this.activeUid;
+        this.sending = true;
+        this.errorMessage = '';
+        this.host.requestUpdate();
+        try {
+            await this._api.editMessage(uid, idx, content, currentBackendContext());
+            if (uid !== this.activeUid) return;
+            this.editingIndex = -1;
+            this.editDraft = '';
+            this.expandedTools = new Set();
+            this.approvalDecisionTaken = null;
+            this.conversations = this.conversations.map(c =>
+                c.uid === uid ? {...c, status: 'processing'} : c
+            );
+            await this.loadMessages();
+            this.startPollingIfNeeded();
+        } catch (e) {
+            this.errorMessage = e.message;
+        } finally {
+            this.sending = false;
+            this.host.requestUpdate();
+        }
+    }
+
+    openSystemPrompt() {
+        this.systemPromptDraft = this.systemPrompt;
+        this.systemPromptOpen = true;
+        this.host.requestUpdate();
+    }
+
+    closeSystemPrompt() {
+        this.systemPromptOpen = false;
+        this.host.requestUpdate();
+    }
+
+    async saveSystemPrompt() {
+        const uid = this.activeUid;
+        if (!uid || this.systemPromptSaving) return;
+        this.systemPromptSaving = true;
+        this.host.requestUpdate();
+        try {
+            const data = await this._api.updateSystemPrompt(uid, this.systemPromptDraft.trim());
+            if (uid !== this.activeUid) return;
+            this.systemPrompt = data.systemPrompt ?? '';
+            this.systemPromptOpen = false;
+            this.errorMessage = '';
+        } catch (e) {
+            this.errorMessage = e.message;
+        } finally {
+            this.systemPromptSaving = false;
             this.host.requestUpdate();
         }
     }
