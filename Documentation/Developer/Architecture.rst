@@ -150,7 +150,16 @@ The central entity. Stored in
     for worker dequeue locking.
 
 ``system_prompt``
-    Optional custom system prompt override (per conversation).
+    Optional custom system prompt override (per conversation),
+    set by the user through ``/ai-chat/conversations/system-prompt``.
+
+``view_context``
+    JSON ``{"pageId": int, "module": string}``: the page the
+    module frame showed and the open module when the user last
+    sent or edited a message. Kept on the row, not on the
+    message, because stored messages go to the provider as they
+    are. The page is re-checked against the user's permissions
+    when the prompt is built (``UserContextPrompt``).
 
 System prompt priority
 ----------------------
@@ -161,20 +170,28 @@ The system prompt is composed in this order:
     fixed block establishes that the assistant is the
     Netresearch TYPO3 Backend AI Chat, steers it to use its
     tools instead of asking the user to paste data, forbids
-    it from claiming to be ChatGPT/OpenAI, and tells it to
-    answer in the user's language. This holds regardless of
-    how the Task/Configuration prompt is set.
-2.  **Conversation-level prompt** -- If a conversation has a
-    custom ``system_prompt`` set, it is used in place of the
-    Configuration/Task prompts.
-3.  **nr-llm Configuration + Task prompts** -- Otherwise the
+    it from claiming to be ChatGPT/OpenAI, and defers the
+    answer language to the user context (step 5). This holds
+    regardless of how the Task/Configuration prompt is set.
+2.  **nr-llm Configuration + Task prompts** -- The
     ``system_prompt`` from the nr-llm Configuration record
-    and the ``prompt_template`` from the Task record are
+    and the ``prompt_template`` from the Task record,
     combined (separated by a blank line). Configure these in
     the TYPO3 backend to provide tool usage instructions or
-    persona definitions.
-
-The site-language context is appended in every case.
+    persona definitions. Always included.
+3.  **Site-language context** -- appended in every case.
+4.  **User context** (``UserContextPrompt``) -- appended in every
+    case: the answer language (the backend user's ``lang``; a
+    language the message explicitly asks for wins), the open
+    module and the selected page with uid and title, the page
+    only if the user may show it.
+5.  **Conversation-level prompt** -- If a conversation has a
+    custom ``system_prompt`` set, it comes last, between
+    ``<user_instructions>`` markers (which are stripped from the
+    text itself), and the model is told to follow it only where
+    it does not contradict the rest of the prompt: the
+    administrator's instructions and the language rules stay in
+    force (NEXT-172).
 
 Configuration resolution
 -------------------------
@@ -183,7 +200,10 @@ Configuration resolution
 runs against, and the prompts, through nr-llm:
 
 1.  Load the Task record via nr-llm's ``TaskRepository`` (by
-    ``llmTaskUid`` from extension configuration).
+    ``ExtensionConfiguration::getLlmTaskUid()``: the Task of the
+    first pair in ``groupTaskMapping``, in the order written,
+    whose group the user belongs to, else ``llmTaskUid`` --
+    ADR-015).
 2.  Take ``Task::getConfiguration()`` as the ``LlmConfiguration``
     passed to ``AgentRuntime::run()``. A missing Task or
     Configuration fails the turn loudly.

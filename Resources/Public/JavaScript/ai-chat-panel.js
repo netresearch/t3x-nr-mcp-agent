@@ -6,7 +6,8 @@ import {ChatCoreController, downloadTextFile} from './chat-core.js';
 import {splitConversationTabs, filterConversations} from './conversation-tabs.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS} from './icons.js';
+import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⊘', awaiting_approval: '⏸', failed: '✕'};
@@ -43,7 +44,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -1534,6 +1535,11 @@ export class AiChatPanel extends LitElement {
                                 aria-label="${c.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                             ${'\u{1F4CC}'}
                         </button>
+                        <button class="btn-icon btn-sm ${this.chat.systemPrompt ? 'has-instructions' : ''}" data-action="instructions"
+                                @click=${(e) => { e.stopPropagation(); this.chat.toggleSystemPrompt(); }}
+                                title="${instructionsLabel(this.chat)}" aria-label="${instructionsLabel(this.chat)}">
+                            ${ICON_INSTRUCTIONS(12)}
+                        </button>
                         <button class="btn-icon btn-sm" data-action="export" ?disabled=${!this.chat.canExport()} @click=${(e) => { e.stopPropagation(); this._exportConversation(); }}
                                 title="${lll('conversations.export')}" aria-label="${lll('conversations.export')}">
                             ${ICON_DOWNLOAD(12)}
@@ -1565,6 +1571,14 @@ export class AiChatPanel extends LitElement {
                                 @click=${(e) => { e.stopPropagation(); this._toggleMore(); }}>
                             ${lll('conversations.more', overflow.length)}
                         </button>
+                    ` : nothing}
+                    ${this.chat.activeUid ? html`
+                        <button class="btn-icon conv-tab-action ${this.chat.systemPrompt ? 'has-instructions' : ''}"
+                                data-action="instructions"
+                                aria-pressed="${String(this.chat.systemPromptOpen)}"
+                                @click=${() => this.chat.toggleSystemPrompt()}
+                                title="${instructionsLabel(this.chat)}"
+                                aria-label="${instructionsLabel(this.chat)}">${ICON_INSTRUCTIONS(14)}</button>
                     ` : nothing}
                     ${this.chat.activeUid ? html`
                         <button class="btn-icon conv-tab-action"
@@ -1776,6 +1790,7 @@ export class AiChatPanel extends LitElement {
         const isResumable = conv?.resumable || false;
 
         return html`
+            ${renderInstructionsEditor(this.chat)}
             <div class="panel-messages" aria-live="polite" aria-relevant="additions">
                 ${this.chat.messages.map((msg, idx) => this._renderMessage(msg, idx))}
                 ${this.chat.isProcessing() ? html`
@@ -1835,9 +1850,7 @@ export class AiChatPanel extends LitElement {
             <div class="message-row ${role}">
                 ${isUser ? nothing : html`<div class="avatar avatar-assistant">${AVATAR_ASSISTANT(14)}</div>`}
                 <div class="message-bubble">
-                    <div class="message ${role}">${bubbleContent}</div>
-                    ${this._renderMessageNotice(msg)}
-                    ${time ? html`<div class="message-time">${time}</div>` : nothing}
+                    ${renderMessageBody(this.chat, idx, html`<div class="message ${role}">${bubbleContent}</div>${this._renderMessageNotice(msg)}`, time)}
                 </div>
                 ${isUser ? html`<div class="avatar avatar-user">${AVATAR_USER(14)}</div>` : nothing}
             </div>

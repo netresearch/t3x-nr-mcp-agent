@@ -215,7 +215,10 @@ class ConversationTest extends TestCase
         self::assertSame(1, $row['archived']);
         self::assertSame(1, $row['pinned']);
         self::assertSame('err', $row['error_message']);
-        self::assertSame('prompt', $row['system_prompt']);
+        // Written only by ConversationRepository::updateSystemPrompt(): a
+        // full-row write must not carry back an older value (NEXT-172).
+        self::assertArrayNotHasKey('system_prompt', $row);
+        self::assertSame('prompt', $conversation->getSystemPrompt());
     }
 
     #[Test]
@@ -345,7 +348,9 @@ class ConversationTest extends TestCase
 
         self::assertSame($original->getBeUser(), $hydrated->getBeUser());
         self::assertSame($original->getTitle(), $hydrated->getTitle());
-        self::assertSame($original->getSystemPrompt(), $hydrated->getSystemPrompt());
+        // The instructions do not travel through toRow() (NEXT-172): a
+        // full-row write must not carry an older value back.
+        self::assertSame('', $hydrated->getSystemPrompt());
         self::assertSame($original->isArchived(), $hydrated->isArchived());
         self::assertSame($original->isPinned(), $hydrated->isPinned());
         self::assertSame($original->getErrorMessage(), $hydrated->getErrorMessage());

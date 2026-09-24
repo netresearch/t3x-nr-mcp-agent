@@ -22,6 +22,31 @@ LLM connection
     Create the Task record in the nr-llm backend module
     first, then enter its UID here.
 
+    With :confval:`groupTaskMapping` set, this is the Task of the
+    users no mapping applies to; it can then stay ``0`` if every
+    user of the chat is in a mapped group.
+
+..  confval:: groupTaskMapping
+    :type: string
+    :default: *(empty)*
+
+    A different nr-llm Task per backend user group, written as
+    comma-separated ``groupUid:taskUid`` pairs, for example
+    ``3:12,5:14``. The first pair whose group the user belongs to
+    decides -- the order of the setting, not the order of the
+    user's groups. Membership includes subgroups, so mapping a
+    parent group covers the groups below it. Users in none of the
+    mapped groups use :confval:`llmTaskUid`. A malformed pair is
+    skipped; the others still apply.
+
+    The Task decides the provider, the model and the prompts; what
+    the assistant may *do* is still decided per user by nr-llm, so
+    a mapping never widens a user's permissions. Before each turn the
+    chat checks the Task's Configuration: it must be active, and if it
+    is restricted to backend groups, the user must be in one of them
+    (administrators always are). Otherwise the turn fails and says why.
+    This applies to :confval:`llmTaskUid` too. See ADR-015.
+
 Processing
 ==========
 
@@ -110,8 +135,28 @@ extension configuration itself, but in the **nr-llm records**:
 
 When both fields are set, they are combined (separated by a
 blank line). If neither is set, a locale-based default prompt
-is used. A per-conversation ``system_prompt`` field can
-override everything (set programmatically, not via UI).
+is used.
+
+**Instructions for a conversation** (``tx_nrmcpagent_conversation.system_prompt``)
+    Set by the user in the chat (the sliders button, see
+    :doc:`/Usage/Index`). They are added after the two prompts
+    above, which stay in force: the assistant is told to follow
+    the user's instructions only where they do not contradict
+    the configured ones. The assistant's identity, the
+    site-language rules and the user's own context are added
+    either way.
+
+Every prompt ends with the user's context:
+
+*   **Answer language** -- the language the user's backend is set
+    to. The assistant answers in it whatever language the message
+    is written in, unless the message explicitly asks for another
+    language.
+*   **Where the user is** -- the open backend module and, when the
+    module shows a page, that page's uid and title. The page is
+    included only if the user may see it; the check runs with the
+    user's page permissions when the turn is processed. It lets
+    "summarise this page" work without naming a uid.
 
 User interface
 ==============

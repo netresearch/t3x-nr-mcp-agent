@@ -22,6 +22,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -86,6 +87,8 @@ class ChatWorkerCommandExecuteTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
 
         $configuration = $this->createMock(LlmConfiguration::class);
+        // The chat checks the Configuration is active before it runs it.
+        $configuration->method('isActive')->willReturn(true);
         $configuration->method('getLlmModel')->willReturn($this->createMock(LlmModel::class));
         $task = $this->createMock(Task::class);
         $task->method('getConfiguration')->willReturn($configuration);
@@ -107,6 +110,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
             $this->createMock(SiteFinder::class),
             new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
+            $this->createMock(UserContextPrompt::class),
         );
     }
 

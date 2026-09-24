@@ -405,4 +405,29 @@ class ConversationRepositoryTest extends FunctionalTestCase
         self::assertSame('some error', $loaded->getErrorMessage());
         self::assertSame(2, $loaded->getMessageCount());
     }
+
+    /**
+     * The instructions are written on their own. A full-row write from a
+     * snapshot loaded before the user saved them — the worker settling a
+     * turn, a claim — must not put the old value back (NEXT-172).
+     */
+    #[Test]
+    public function aFullRowWriteDoesNotRevertSavedInstructions(): void
+    {
+        $snapshot = $this->subject->findByUid(1);
+        self::assertNotNull($snapshot);
+
+        $this->subject->updateSystemPrompt(1, 'Answer briefly.', 1);
+
+        $snapshot->setStatus(ConversationStatus::Failed);
+        $this->subject->update($snapshot);
+        // A claim changes the status; MySQL/MariaDB report an UPDATE that
+        // changes nothing as zero affected rows, which would read as a lost claim.
+        $snapshot->setStatus(ConversationStatus::Processing);
+        self::assertTrue($this->subject->updateIf($snapshot, ConversationStatus::Failed));
+
+        $reloaded = $this->subject->findByUid(1);
+        self::assertNotNull($reloaded);
+        self::assertSame('Answer briefly.', $reloaded->getSystemPrompt());
+    }
 }

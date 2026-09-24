@@ -35,6 +35,7 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\UnavailableToolsReaderInterface;
+use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -91,6 +92,8 @@ final class ChatServiceFeedbackTest extends TestCase
             $configuration = $this->createMock(LlmConfiguration::class);
             $configuration->method('getSystemPrompt')->willReturn('');
             $configuration->method('getLlmModel')->willReturn($this->createMock(LlmModel::class));
+            // The chat checks the Configuration is active before it runs it.
+            $configuration->method('isActive')->willReturn(true);
 
             $task = $this->createMock(Task::class);
             $task->method('getConfiguration')->willReturn($configuration);
@@ -127,7 +130,8 @@ final class ChatServiceFeedbackTest extends TestCase
             $this->createMock(SiteFinder::class),
             new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
-            $reader,
+            $this->createMock(UserContextPrompt::class),
+            unavailableTools: $reader,
         );
     }
 

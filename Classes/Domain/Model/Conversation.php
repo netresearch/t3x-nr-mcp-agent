@@ -31,6 +31,17 @@ final class Conversation
 
     private string $systemPrompt = '';
 
+    /**
+     * Where the user was in the backend when they last sent a message: the
+     * page selected in the page tree and the module open beside it, as JSON.
+     *
+     * Kept on the conversation rather than on the message: the turn runs in a
+     * worker, so what the browser knew at send time has to travel with the
+     * row, and the message array goes to the provider as it is stored — a key
+     * added there would be sent along (NEXT-172).
+     */
+    private string $viewContext = '';
+
     private bool $archived = false;
 
     private bool $pinned = false;
@@ -90,6 +101,7 @@ final class Conversation
         $conversation->status = (string) self::val($row, 'status', 'idle');
         $conversation->currentRequestId = (string) self::val($row, 'current_request_id', '');
         $conversation->systemPrompt = (string) self::val($row, 'system_prompt', '');
+        $conversation->viewContext = (string) self::val($row, 'view_context', '');
         $conversation->archived = (bool) self::val($row, 'archived', false);
         $conversation->pinned = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage = (string) self::val($row, 'error_message', '');
@@ -114,6 +126,12 @@ final class Conversation
     /**
      * Serialize back to a DB-compatible array (for INSERT/UPDATE).
      *
+     * `system_prompt` is not part of it: the user sets it on its own
+     * (ConversationRepository::updateSystemPrompt()), and every full-row write
+     * — the claim of a new turn, the worker's final save — carries the value it
+     * loaded. Written from here, a save that races the user's edit would put
+     * the old instructions back without anyone noticing (NEXT-172).
+     *
      * @return array<string, int|string>
      */
     public function toRow(): array
@@ -125,7 +143,7 @@ final class Conversation
             'message_count' => $this->messageCount,
             'status' => $this->status,
             'current_request_id' => $this->currentRequestId,
-            'system_prompt' => $this->systemPrompt,
+            'view_context' => $this->viewContext,
             'archived' => (int) $this->archived,
             'pinned' => (int) $this->pinned,
             'error_message' => $this->errorMessage,
@@ -297,6 +315,36 @@ final class Conversation
     public function setSystemPrompt(string $prompt): void
     {
         $this->systemPrompt = mb_substr($prompt, 0, 10000);
+    }
+
+    /**
+     * @return array{pageId: int, module: string}
+     */
+    public function getViewContext(): array
+    {
+        $decoded = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
+        $pageId = is_array($decoded) && is_int($decoded['pageId'] ?? null) ? $decoded['pageId'] : 0;
+        $module = is_array($decoded) && is_string($decoded['module'] ?? null) ? $decoded['module'] : '';
+
+        return ['pageId' => max(0, $pageId), 'module' => $module];
+    }
+
+    /**
+     * Only a positive page id and a module identifier made of the characters
+     * TYPO3 module identifiers use are kept; anything else is stored as absent.
+     * Whether the user may see the page or the module is decided when the turn
+     * runs, not here.
+     */
+    public function setViewContext(int $pageId, string $module): void
+    {
+        $pageId = max(0, $pageId);
+        if (preg_match('/^\w{1,100}$/', $module) !== 1) {
+            $module = '';
+        }
+
+        $this->viewContext = $pageId === 0 && $module === ''
+            ? ''
+            : json_encode(['pageId' => $pageId, 'module' => $module], JSON_THROW_ON_ERROR);
     }
 
     public function isArchived(): bool

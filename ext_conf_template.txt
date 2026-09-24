@@ -1,6 +1,9 @@
 # cat=basic/llm; type=int; label=nr-llm Task UID (reference to a configured nr-llm Task record)
 llmTaskUid = 0
 
+# cat=basic/llm; type=string; label=nr-llm Task per backend group: comma-separated groupUid:taskUid pairs, e.g. 3:12,5:14. The first pair whose group the user belongs to (subgroups included) decides; users in none of them use the Task UID above.
+groupTaskMapping =
+
 # cat=basic/processing; type=options[exec,worker]; label=Processing Strategy (exec: fork CLI process per request, worker: long-running systemd worker)
 processingStrategy = exec
 

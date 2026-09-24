@@ -105,6 +105,9 @@ readonly class ConversationRepository
         $data = $conversation->toRow();
         $data['crdate'] = $data['tstamp'] = time();
         $data['pid'] = 0;
+        // A new row races nobody, so the instructions are written with it;
+        // later only updateSystemPrompt() writes them (see toRow()).
+        $data['system_prompt'] = $conversation->getSystemPrompt();
         $conn->insert(self::TABLE, $data);
         return (int) $conn->lastInsertId();
     }
@@ -161,6 +164,18 @@ readonly class ConversationRepository
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
             'title'  => $title,
+            'tstamp' => time(),
+        ], ['uid' => $uid, 'be_user' => $beUserUid]);
+    }
+
+    /**
+     * Lightweight instructions update — avoids reading/writing the full messages blob.
+     */
+    public function updateSystemPrompt(int $uid, string $systemPrompt, int $beUserUid): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'system_prompt' => $systemPrompt,
             'tstamp' => time(),
         ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }

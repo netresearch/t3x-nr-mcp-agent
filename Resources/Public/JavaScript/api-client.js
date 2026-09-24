@@ -41,14 +41,47 @@ export class ApiClient {
      * @param {number} conversationUid
      * @param {string} content
      * @param {number|null} [fileUid]
+     * @param {{pageId: number, module: string}|null} [context] where the user is in the backend
      * @returns {Promise<{status: string}>}
      */
-    async sendMessage(conversationUid, content, fileUid = null) {
+    async sendMessage(conversationUid, content, fileUid = null, context = null) {
         const body = {conversationUid, content};
         if (fileUid !== null) {
             body.fileUid = fileUid;
         }
+        if (context !== null) {
+            body.context = context;
+        }
         return this._post('ai_chat_conversation_send', body);
+    }
+
+    /**
+     * Replace the user message at `index` and run the conversation again from
+     * there; the server drops everything after it.
+     *
+     * @param {number} conversationUid
+     * @param {number} index
+     * @param {string} content
+     * @param {{pageId: number, module: string}|null} [context]
+     * @param {string} [expectedContent] the message as the client shows it
+     * @param {number} [messageCount] the length of the transcript the client shows
+     * @returns {Promise<{status: string}>}
+     */
+    async editMessage(conversationUid, index, content, context = null, expectedContent = '', messageCount = 0) {
+        const body = {conversationUid, index, content, expectedContent, messageCount};
+        if (context !== null) {
+            body.context = context;
+        }
+        return this._post('ai_chat_conversation_edit', body);
+    }
+
+    /**
+     * @param {number} conversationUid
+     * @param {string} systemPrompt empty removes the conversation's instructions
+     * @returns {Promise<{systemPrompt: string}>}
+     */
+    async updateSystemPrompt(conversationUid, systemPrompt) {
+        return this._post('ai_chat_conversation_system_prompt', {conversationUid, systemPrompt});
     }
 
     /**
@@ -191,7 +224,9 @@ export class ApiClient {
             throw new Error(`HTTP ${res.status}: unexpected response`);
         }
         if (!res.ok) {
-            throw new Error(data.error || `HTTP ${res.status}`);
+            const error = new Error(data.error || `HTTP ${res.status}`);
+            error.status = res.status;
+            throw error;
         }
         return data;
     }

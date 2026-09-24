@@ -19,6 +19,7 @@ use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -114,6 +115,8 @@ class ChatWorkerCommandTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(0);
 
         $configuration = $this->createMock(LlmConfiguration::class);
+        // The chat checks the Configuration is active before it runs it.
+        $configuration->method('isActive')->willReturn(true);
         $configuration->method('getLlmModel')->willReturn($this->createMock(LlmModel::class));
         $task = $this->createMock(Task::class);
         $task->method('getConfiguration')->willReturn($configuration);
@@ -123,7 +126,7 @@ class ChatWorkerCommandTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($this->createMock(ProviderInterface::class));
 
-        $chatService = new ChatService($chatRepository, $config, $this->createMock(AgentRuntimeInterface::class), $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), new UploadMimeTypeMap());
+        $chatService = new ChatService($chatRepository, $config, $this->createMock(AgentRuntimeInterface::class), $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->createMock(UserContextPrompt::class));
         $repository = $this->createMock(ConversationRepository::class);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
