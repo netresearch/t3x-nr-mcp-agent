@@ -1933,11 +1933,9 @@ export class AiChatPanel extends LitElement {
      * @param {{content?: string, notice?: string, noticeArgs?: string[]}} msg
      */
     _renderAssistantContent(msg) {
-        if (msg.notice === 'runFinishedOutside') {
-            const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];
-            return writes.length > 0
-                ? lll('chat.runFinishedOutside', writes.join(', '))
-                : lll('chat.runFinishedOutsideNothingWritten');
+        const notice = this.chat.formatRunNotice(msg);
+        if (notice !== null) {
+            return notice;
         }
 
         return unsafeHTML(this.chat.renderMessageContent(msg));

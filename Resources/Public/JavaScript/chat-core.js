@@ -749,10 +749,26 @@ export class ChatCoreController {
             if (msg.fileName) {
                 parts.push(`*${lll('export.attachment')}: ${msg.fileName}*`);
             }
-            parts.push(this._extractText(msg).trim());
+            parts.push((this.formatRunNotice(msg) ?? this._extractText(msg)).trim());
         }
 
         return parts.join('\n\n') + '\n';
+    }
+
+    /**
+     * The reader-language text of a stored run notice, or null when the
+     * message carries none. Both chat surfaces and the export use it, so the
+     * export shows what the reader saw rather than the stored neutral line.
+     *
+     * @param {{notice?: string, noticeArgs?: string[]}} msg
+     * @returns {string|null}
+     */
+    formatRunNotice(msg) {
+        if (msg.notice !== 'runFinishedOutside') return null;
+        const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];
+        return writes.length > 0
+            ? lll('chat.runFinishedOutside', writes.join(', '))
+            : lll('chat.runFinishedOutsideNothingWritten');
     }
 
     /**
