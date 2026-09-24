@@ -559,8 +559,11 @@ export class ChatCoreController {
                 await this.loadConversations();
             }
         } catch (e) {
+            // The user may have switched conversations while the request ran;
+            // the failure belongs to the one that made it.
+            if (uid !== this.activeUid) return;
             this.errorMessage = e.message;
-            if (e.status === 409 && uid === this.activeUid) {
+            if (e.status === 409) {
                 // The transcript changed under this view: show it as it is now.
                 this.editingIndex = -1;
                 await this.loadMessages();
@@ -614,6 +617,7 @@ export class ChatCoreController {
             this.systemPromptOpen = false;
             this.errorMessage = '';
         } catch (e) {
+            if (uid !== this.activeUid) return;
             this.errorMessage = e.message;
         } finally {
             this.systemPromptSaving = false;
