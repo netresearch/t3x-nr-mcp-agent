@@ -590,8 +590,9 @@ readonly class ConversationRepository
      * Move up to $limit legacy transcripts into the message table. Only the
      * uids are selected here; each transcript is read and moved in its own
      * transaction (moveLegacyTranscript()), so a batch never holds more than
-     * one mediumtext value in memory. Returns the number of conversations
-     * handled.
+     * one mediumtext value in memory. Returns the number of transcripts
+     * moved: a row whose move did not happen is not counted, so a caller that
+     * loops until nothing moves cannot spin on a row that keeps qualifying.
      */
     public function migrateLegacyTranscripts(int $limit): int
     {
@@ -608,6 +609,7 @@ readonly class ConversationRepository
             ->executeQuery()
             ->fetchFirstColumn();
 
+        $moved = 0;
         foreach ($uids as $uid) {
             $uid = is_numeric($uid) ? (int) $uid : 0;
             $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
@@ -618,11 +620,13 @@ readonly class ConversationRepository
                 ->executeQuery()
                 ->fetchOne();
             // False when the chat saved it in the meantime, which moved it
-            // already; either way the row no longer qualifies.
-            $this->moveLegacyTranscript($uid, is_string($blob) ? $blob : '');
+            // already, or when the conditional write matched nothing.
+            if ($this->moveLegacyTranscript($uid, is_string($blob) ? $blob : '')) {
+                ++$moved;
+            }
         }
 
-        return count($uids);
+        return $moved;
     }
 
     /**

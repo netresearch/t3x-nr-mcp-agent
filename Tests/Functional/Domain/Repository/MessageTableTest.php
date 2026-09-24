@@ -240,6 +240,23 @@ final class MessageTableTest extends FunctionalTestCase
     }
 
     /**
+     * A batch counts what it moved, not what it selected: the wizard loops
+     * until a batch moves nothing, so a row whose move never succeeds must
+     * not keep the count above zero.
+     */
+    #[Test]
+    public function aBatchCountsOnlyTheTranscriptsItMoved(): void
+    {
+        $uid = $this->legacyConversation([['role' => 'user', 'content' => 'hi']]);
+        $repository = new NeverMovingConversationRepository($this->get(ConnectionPool::class));
+
+        self::assertSame(0, $repository->migrateLegacyTranscripts(10));
+        self::assertTrue((new MigrateMessagesToTableUpdateWizard($repository))->executeUpdate());
+        self::assertSame(1, $repository->countLegacyTranscripts(), 'the row is still reported as pending');
+        self::assertNotSame('', $this->legacyColumn($uid));
+    }
+
+    /**
      * A legacy value that is not a JSON list made the conversation unopenable
      * before. The wizard must neither destroy it nor pick it up forever.
      */
@@ -323,5 +340,17 @@ final class MessageTableTest extends FunctionalTestCase
         self::assertSame([], $this->messageRows(9999));
         self::assertCount(1, $this->messageRows(9998));
         self::assertCount(2, $this->messageRows($kept));
+    }
+}
+
+/**
+ * A repository whose conditional move never matches, as a row whose stored
+ * value does not compare equal to itself would behave.
+ */
+readonly class NeverMovingConversationRepository extends ConversationRepository
+{
+    public function moveLegacyTranscript(int $uid, string $blob): bool
+    {
+        return false;
     }
 }

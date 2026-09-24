@@ -52,7 +52,10 @@ final readonly class MigrateMessagesToTableUpdateWizard implements UpgradeWizard
     public function executeUpdate(): bool
     {
         while ($this->repository->migrateLegacyTranscripts(self::BATCH_SIZE) > 0) {
-            // Each batch clears what it moved, so the next one picks up the rest.
+            // Each batch clears what it moved, so the next one picks up the
+            // rest. A batch that moves nothing ends the run; updateNecessary()
+            // then still reports what is left, instead of the run never
+            // returning.
         }
 
         return true;
