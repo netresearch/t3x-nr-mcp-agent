@@ -38,6 +38,8 @@ export class ChatApp extends LitElement {
             display: flex;
             flex: 1;
             min-height: 0;
+            position: relative;
+            container-type: inline-size;
         }
 
         /* Sidebar */
@@ -480,6 +482,11 @@ export class ChatApp extends LitElement {
     }
 
     // ── Callback hooks for ChatCoreController ──────────────────────────
+
+    /** The conversation the module URL names (`&conversation=<uid>`), or 0. */
+    initialConversationUid() {
+        return Number.parseInt(new URLSearchParams(globalThis.location.search).get('conversation') ?? '', 10) || 0;
+    }
 
     onScrollToBottom(force = false) {
         const doScroll = () => {

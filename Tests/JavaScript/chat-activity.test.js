@@ -135,5 +135,43 @@ describe.each([
         // One small live region, not the whole list.
         expect(list.querySelector('ol').hasAttribute('aria-live')).toBe(false);
         expect(list.querySelector('[role="status"]').textContent.trim()).toBe('activity.tool, 4 ms');
+
+        // The list carries its own close button: over a narrow chat it can
+        // cover the header's toggle.
+        list.querySelector('.activity-close').click();
+        await el.updateComplete;
+        expect(el.shadowRoot.querySelector('.activity')).toBeNull();
+    });
+});
+
+describe('the conversation named in the module URL', () => {
+    function startupController(initialUid, conversations) {
+        const host = {
+            addController() {}, requestUpdate: jest.fn(), onScrollToBottom() {}, onFocusInput() {}, onResetInput() {}, isConnected: true,
+            initialConversationUid: () => initialUid,
+        };
+        const chat = new ChatCoreController(host);
+        chat._api = {
+            getStatus: jest.fn().mockResolvedValue({available: true}),
+            listConversations: jest.fn().mockResolvedValue({conversations}),
+        };
+        chat.selectConversation = jest.fn();
+        return chat;
+    }
+
+    test('is opened at startup when the list holds it', async () => {
+        const chat = startupController(12, [{uid: 7}, {uid: 12}]);
+
+        await chat.init();
+
+        expect(chat.selectConversation).toHaveBeenCalledWith(12);
+    });
+
+    test('is ignored when the list does not hold it', async () => {
+        const chat = startupController(99, [{uid: 7}]);
+
+        await chat.init();
+
+        expect(chat.selectConversation).not.toHaveBeenCalled();
     });
 });

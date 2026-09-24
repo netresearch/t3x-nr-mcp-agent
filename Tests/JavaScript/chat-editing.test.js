@@ -109,6 +109,20 @@ describe('editing a sent message', () => {
         expect(chat.editingIndex).toBe(0);
         expect(chat.errorMessage).toBe('Conversation is already processing');
     });
+
+    test('a failure that arrives after switching conversations stays off the new one', async () => {
+        const chat = controller();
+        chat._api.editMessage.mockImplementation(async () => {
+            chat.activeUid = 8;
+            throw new Error('Conversation is already processing');
+        });
+        chat.startEdit(0);
+
+        await chat.submitEdit();
+
+        expect(chat.errorMessage).toBe('');
+        expect(chat.sending).toBe(false);
+    });
 });
 
 describe('a transcript cut elsewhere', () => {
@@ -164,6 +178,20 @@ describe('conversation instructions', () => {
 
         expect(chat.systemPromptOpen).toBe(true);
         expect(chat.errorMessage).toBe('busy');
+    });
+
+    test('a failed save that arrives after switching conversations stays off the new one', async () => {
+        const chat = controller();
+        chat._api.updateSystemPrompt.mockImplementation(async () => {
+            chat.activeUid = 8;
+            throw new Error('busy');
+        });
+        chat.openSystemPrompt();
+
+        await chat.saveSystemPrompt();
+
+        expect(chat.errorMessage).toBe('');
+        expect(chat.systemPromptSaving).toBe(false);
     });
 });
 

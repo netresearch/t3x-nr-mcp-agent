@@ -8,7 +8,7 @@
                     <ul class="list-unstyled nr-chat-widget-list">
                         <f:for each="{conversations}" as="conversation">
                             <li class="mb-1">
-                                <a href="{f:be.uri(route: 'nr_mcp_agent_chat')}"
+                                <a href="{f:be.uri(route: 'nr_mcp_agent_chat', parameters: {conversation: conversation.uid})}"
                                    class="d-block text-truncate"
                                    data-nr-chat-conversation="{conversation.uid}"
                                    title="{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.openConversation')}">

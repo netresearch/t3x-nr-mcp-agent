@@ -341,6 +341,9 @@
             <trans-unit id="activity.empty" resname="activity.empty">
                 <source>No steps in this turn yet.</source>
             </trans-unit>
+            <trans-unit id="activity.close" resname="activity.close">
+                <source>Hide the activity list</source>
+            </trans-unit>
             <trans-unit id="widget.title" resname="widget.title">
                 <source>AI Chat</source>
             </trans-unit>

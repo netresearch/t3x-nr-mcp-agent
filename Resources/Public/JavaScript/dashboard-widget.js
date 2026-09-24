@@ -29,6 +29,11 @@ document.addEventListener('click', (event) => {
     if (!link) {
         return;
     }
+    // Ctrl, Cmd, Shift and Alt clicks and the middle button open the module
+    // link the way the browser does; only a plain click opens the panel.
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+        return;
+    }
 
     const panel = findPanel();
     if (!panel?.chat) {

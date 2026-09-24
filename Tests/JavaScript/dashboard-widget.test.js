@@ -14,8 +14,8 @@ function link(attrs) {
     return a;
 }
 
-function click(el) {
-    const event = new MouseEvent('click', {bubbles: true, cancelable: true, composed: true});
+function click(el, init = {}) {
+    const event = new MouseEvent('click', {bubbles: true, cancelable: true, composed: true, ...init});
     el.dispatchEvent(event);
     return event;
 }
@@ -53,6 +53,21 @@ describe('dashboard widget', () => {
 
         expect(panel.toggle).not.toHaveBeenCalled();
         expect(panel.chat.handleNewConversation).toHaveBeenCalled();
+        document.querySelector.mockRestore();
+    });
+
+    test.each([
+        ['Ctrl', {ctrlKey: true}],
+        ['Cmd', {metaKey: true}],
+        ['Shift', {shiftKey: true}],
+        ['Alt', {altKey: true}],
+        ['middle button', {button: 1}],
+    ])('a %s click opens the link the way the browser does', (_name, init) => {
+        const panel = fakePanel();
+        const event = click(link({'data-nr-chat-conversation': '12'}), init);
+
+        expect(event.defaultPrevented).toBe(false);
+        expect(panel.chat.selectConversation).not.toHaveBeenCalled();
         document.querySelector.mockRestore();
     });
 

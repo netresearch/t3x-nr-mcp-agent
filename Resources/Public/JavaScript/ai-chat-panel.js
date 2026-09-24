@@ -143,6 +143,8 @@ export class AiChatPanel extends LitElement {
             display: flex;
             min-height: 0;
             overflow: hidden;
+            position: relative;
+            container-type: inline-size;
         }
 
         /* Sidebar (maximized only) */
