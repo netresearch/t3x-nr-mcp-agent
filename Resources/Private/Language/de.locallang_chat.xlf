@@ -449,6 +449,10 @@
                 <source>No steps in this turn yet.</source>
                 <target>In dieser Runde noch keine Schritte.</target>
             </trans-unit>
+            <trans-unit id="activity.close" resname="activity.close">
+                <source>Hide the activity list</source>
+                <target>Aktivitätsliste ausblenden</target>
+            </trans-unit>
             <trans-unit id="widget.title" resname="widget.title">
                 <source>AI Chat</source>
                 <target>KI-Chat</target>

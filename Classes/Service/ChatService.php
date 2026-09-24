@@ -248,6 +248,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return;
         }
 
+        // A new turn: clear the previous turn's activity before anything can
+        // fail, so a turn that fails in its preparation does not show the
+        // steps of the one before it.
+        $this->activityRecorder->start($conversation);
+
         if ($this->config->getLlmTaskUid() === 0) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(
@@ -301,7 +306,6 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The options object carries nothing but the caller source: every model
         // parameter stays on the LlmConfiguration, so toArray() is empty and no
         // provider option is overridden by naming ourselves here.
-        $this->activityRecorder->start($conversation);
         $result = $this->agentRuntime->run(new AgentRunRequest(
             configuration: $configuration,
             messages: $messages,
@@ -564,7 +568,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // the caller source is deliberately not part of the persisted options
         // either, so the continuation's provider calls stay unattributed.
         $approved = $conversation->getApprovalDecision() === self::DECISION_APPROVE;
-        $this->activityRecorder->recordDecision($conversation, $approved);
+
+        // The decision is listed when the runtime acts on it: before the first
+        // step of the continuation, or once approve() returns if none fires. A
+        // decision the runtime refuses never appears in the list.
+        $decisionRecorded = false;
+        $recordDecision = function () use (&$decisionRecorded, $conversation, $approved): void {
+            if (!$decisionRecorded) {
+                $decisionRecorded = true;
+                $this->activityRecorder->recordDecision($conversation, $approved);
+            }
+        };
+        $recordStep = $this->activityRecorder->onStep($conversation);
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
@@ -574,8 +589,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $conversation->getBeUser(),
                     $conversation->getApprovalTurnDigest(),
                 ),
-                $this->activityRecorder->onStep($conversation),
+                static function (RunStep $step) use ($recordDecision, $recordStep): void {
+                    $recordDecision();
+                    $recordStep($step);
+                },
             );
+            $recordDecision();
         } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException $e) {
             // These four RELEASE the run rather than consume it: it is still
             // pending and still decidable. Put the conversation back where it

@@ -227,6 +227,12 @@ export class ChatCoreController {
             this.maxFileSize = statusData.maxFileSize || 0;
             this.supportedFormats = statusData.supportedFormats || [];
             await this.loadConversations();
+            // A link that names a conversation (the dashboard widget's, when
+            // the panel is not available) opens that one.
+            const initial = Number(this.host.initialConversationUid?.() ?? 0);
+            if (initial > 0 && this.conversations.some((c) => c.uid === initial)) {
+                await this.selectConversation(initial);
+            }
         } catch (e) {
             if (signal?.aborted) return;
             this.issues = [e.message];

@@ -894,6 +894,27 @@ class ChatServiceTest extends TestCase
         self::assertSame($callback, $this->capturedOnStep);
     }
 
+    /**
+     * A turn that fails before the run starts must not show the previous
+     * turn's steps as its own (NEXT-172).
+     */
+    #[Test]
+    public function aTurnThatFailsInItsPreparationStillResetsTheActivity(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $taskRepository = $this->createMock(TaskRepository::class);
+        $taskRepository->method('findByUid')->willReturn(null);
+        $recorder = $this->createMock(RunActivityRecorder::class);
+        $recorder->expects(self::once())->method('start')->with($conversation);
+
+        $this->createChatService(taskRepository: $taskRepository, activityRecorder: $recorder)->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+    }
+
     #[Test]
     public function theIdentityPromptDefersTheAnswerLanguageToTheUserContext(): void
     {

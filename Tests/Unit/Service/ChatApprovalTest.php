@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
@@ -77,17 +79,21 @@ final class ChatApprovalTest extends TestCase
         bool $claimSucceeds = true,
         ?AgentRunRepositoryInterface $runRepository = null,
         ?RunActivityRecorder $activityRecorder = null,
+        bool $approveFiresStep = false,
     ): ChatService {
         $approveAnswer ??= $this->completed();
 
         $agentRuntime = $this->createMock(AgentRuntimeInterface::class);
         $agentRuntime->method('approve')->willReturnCallback(
-            function (mixed $actor, string $runUuid, ApprovalDecision $decision, mixed $onStep = null) use ($approveAnswer): AgentRunResult {
+            function (mixed $actor, string $runUuid, ApprovalDecision $decision, mixed $onStep = null) use ($approveAnswer, $approveFiresStep): AgentRunResult {
                 $this->capturedRunUuid = $runUuid;
                 $this->capturedOnStep = $onStep;
                 $this->capturedDecision = $decision;
                 if ($approveAnswer instanceof RuntimeException) {
                     throw $approveAnswer;
+                }
+                if ($approveFiresStep && $onStep instanceof Closure) {
+                    $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 5.0));
                 }
 
                 return $approveAnswer;
@@ -270,26 +276,78 @@ final class ChatApprovalTest extends TestCase
     }
 
     /**
-     * The decision appears in the activity of the run it belongs to, and the
-     * continuation's steps are recorded after it (NEXT-172).
+     * The decision appears in the activity of the run it belongs to, before
+     * the continuation's first step (NEXT-172).
      */
     #[Test]
-    public function theWorkerRecordsTheDecisionAndTheContinuationsSteps(): void
+    public function theDecisionIsListedBeforeTheContinuationsFirstStep(): void
     {
         $conversation = $this->parkedConversation();
-        $callback = static function (): void {
-            // Stands in for the recorder's callback; only its identity is checked.
-        };
-        $recorder = $this->createMock(RunActivityRecorder::class);
-        $recorder->expects(self::once())->method('recordDecision')->with($conversation, false);
-        $recorder->expects(self::never())->method('start');
-        $recorder->method('onStep')->willReturn($callback);
-        $service = $this->createChatService(activityRecorder: $recorder);
+        $recorder = $this->loggingRecorder();
+        $service = $this->createChatService(activityRecorder: $recorder, approveFiresStep: true);
         $service->recordDecision($conversation, false, 'digest-abc');
 
         $service->processConversation($conversation);
 
-        self::assertSame($callback, $this->capturedOnStep);
+        self::assertSame(['decision:denied', 'step:llm'], $recorder->log);
+    }
+
+    #[Test]
+    public function aContinuationWithoutStepsStillListsTheDecision(): void
+    {
+        $conversation = $this->parkedConversation();
+        $recorder = $this->loggingRecorder();
+        $service = $this->createChatService(activityRecorder: $recorder);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(['decision:approved'], $recorder->log);
+    }
+
+    /**
+     * A decision the runtime refuses was not acted on, so the list does not
+     * claim it was (NEXT-172).
+     */
+    #[Test]
+    public function aRefusedDecisionIsNotListed(): void
+    {
+        $conversation = $this->parkedConversation();
+        $recorder = $this->loggingRecorder();
+        $service = $this->createChatService(new StaleApprovalTurnException('run-uuid-1234', 'The review is stale'), activityRecorder: $recorder);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame([], $recorder->log);
+    }
+
+    /**
+     * A recorder that writes nothing and logs what it was asked to record.
+     */
+    private function loggingRecorder(): RunActivityRecorder
+    {
+        return new class ($this->createMock(ConversationRepository::class)) extends RunActivityRecorder {
+            /** @var list<string> */
+            public array $log = [];
+
+            public function start(Conversation $conversation): void
+            {
+                $this->log[] = 'start';
+            }
+
+            public function onStep(Conversation $conversation): Closure
+            {
+                return function (RunStep $step): void {
+                    $this->log[] = 'step:' . $step->kind;
+                };
+            }
+
+            public function recordDecision(Conversation $conversation, bool $approved): void
+            {
+                $this->log[] = 'decision:' . ($approved ? 'approved' : 'denied');
+            }
+        };
     }
 
     #[Test]
