@@ -16,11 +16,14 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
@@ -149,7 +152,7 @@ final readonly class ChatApiController
             'messageCount' => $c->getMessageCount(),
             'pinned' => $c->isPinned(),
             'resumable' => $c->isResumable(),
-            'errorMessage' => $c->getErrorMessage(),
+            ...$this->presentError($c->getErrorMessage(), $c->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($c->getApprovalRunUuid()),
             'tstamp' => $c->getTstamp(),
         ], $conversations);
@@ -219,7 +222,7 @@ final readonly class ChatApiController
                     'status' => $meta['status'],
                     'messages' => [],
                     'totalCount' => $meta['message_count'],
-                    'errorMessage' => $meta['error_message'],
+                    ...$this->presentError($meta['error_message'], $meta['error_code']),
                     'approvalUrl' => $this->buildApprovalUrl($meta['approval_run_uuid']),
                 ]);
             }
@@ -241,7 +244,7 @@ final readonly class ChatApiController
             'status' => $conversation->getStatus()->value,
             'messages' => $newMessages,
             'totalCount' => count($messages),
-            'errorMessage' => $conversation->getErrorMessage(),
+            ...$this->presentError($conversation->getErrorMessage(), $conversation->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
             'systemPrompt' => $conversation->getSystemPrompt(),
@@ -299,6 +302,18 @@ final readonly class ChatApiController
         }
 
         $currentStatus = $conversation->getStatus();
+        // "weiter" while a run waits for an approval is not a new request. Left
+        // to the ordinary path below it abandoned the approval and started a
+        // second run over the same transcript — which drafted the page again
+        // (ADR-017, NEXT-167). It is never read as an approval either. A run
+        // awaiting approval is not busy, so this comes before refuseNewTurn().
+        if ($currentStatus === ConversationStatus::AwaitingApproval && $fileUid === null && ContinueIntent::matches($content)) {
+            $continued = $this->continuePendingRun($conversation, $content);
+            if ($continued !== null) {
+                return $continued;
+            }
+        }
+
         $refusal = $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
             return $refusal;
@@ -637,6 +652,114 @@ final readonly class ChatApiController
         }
 
         return $backendUser->isAdmin() || (bool) $backendUser->check('modules', 'nrllm_aitasks');
+    }
+
+    /**
+     * Answer a "go on" message on a conversation that waits for an approval,
+     * or null to let it through as an ordinary new turn (ADR-017).
+     *
+     * Still waiting: nothing is written and no run starts; the reader is told
+     * that the decision is taken on the card. The message is not treated as
+     * the decision: an approval is a decision on the preview the card shows,
+     * and "habe alles freigegeben" is a belief about one — on the demo it was
+     * written about runs decided in another module (conversations 79, 80).
+     *
+     * Decided elsewhere and finished: the message and a note are appended —
+     * the note names the records the run wrote, so the next turn knows the
+     * page exists instead of drafting it again — and the conversation is idle.
+     * Decided elsewhere and still running: the same answer as any busy row.
+     * Anything the run cannot tell (gone, unreadable): the ordinary path.
+     */
+    private function continuePendingRun(Conversation $conversation, string $content): ?ResponseInterface
+    {
+        $pending = $this->chatApproval->inspectPendingRun($conversation);
+
+        if ($pending['state'] === ChatApprovalInterface::PENDING_RUN_WAITING) {
+            // Only a reader who may decide gets the card (buildPendingApproval),
+            // so only they are sent to it.
+            return new JsonResponse([
+                'error' => $this->translate($this->mayDecideApprovals() ? 'error.approvalStillPending' : 'error.approvalStillPendingElsewhere'),
+            ], 409);
+        }
+
+        if ($pending['state'] === ChatApprovalInterface::PENDING_RUN_BUSY) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        if ($pending['state'] !== ChatApprovalInterface::PENDING_RUN_SETTLED) {
+            return null;
+        }
+
+        // Stored as a notice code plus a language-neutral line, for the reason
+        // error_code exists (ADR-017): the reader gets a label in their own
+        // language, rendered from the code and the records; the model reads the
+        // line, which names the records so the next turn knows they exist.
+        $conversation->appendMessage(MessageRole::User, $content);
+        $conversation->appendMessage(
+            MessageRole::Assistant,
+            sprintf(
+                '[The pending step was decided outside this chat and its run has finished. Records it wrote: %s.]',
+                $pending['writes'] === [] ? 'none' : implode(', ', $pending['writes']),
+            ),
+            ChatService::NOTICE_RUN_FINISHED_OUTSIDE,
+            $pending['writes'],
+        );
+        $conversation->setStatus(ConversationStatus::Idle);
+        $conversation->setErrorMessage('');
+        $conversation->setApprovalRunUuid('');
+        $conversation->clearApprovalDecision();
+
+        if (!$this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval)) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        return new JsonResponse(['status' => ConversationStatus::Idle->value], 200);
+    }
+
+    /**
+     * The stored failure as this reader sees it (ADR-017).
+     *
+     * A failure with a code is phrased per reader: an administrator gets the
+     * technical message and a link to where it is fixed, everyone else a plain
+     * sentence that says who can fix it. "API key identifier is required for
+     * provider OpenAI" helps the one and tells the other nothing (NEXT-167,
+     * demo conversation 49).
+     *
+     * @return array{errorMessage: string, errorLink: string, errorLinkLabel: string}
+     */
+    private function presentError(string $message, string $code): array
+    {
+        $plain = ['errorMessage' => $message, 'errorLink' => '', 'errorLinkLabel' => ''];
+
+        $kind = ConversationErrorCode::tryFrom($code);
+        if ($kind === null || $message === '') {
+            return $plain;
+        }
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication || !$backendUser->isAdmin()) {
+            return [
+                'errorMessage' => $this->translate(match ($kind) {
+                    ConversationErrorCode::ProviderNotConfigured => 'error.providerNotConfigured',
+                    ConversationErrorCode::ChatNotConfigured => 'error.chatNotConfigured',
+                }),
+                'errorLink' => '',
+                'errorLinkLabel' => '',
+            ];
+        }
+
+        [$route, $label] = match ($kind) {
+            ConversationErrorCode::ProviderNotConfigured => ['nrllm_providers', 'error.openProviders'],
+            ConversationErrorCode::ChatNotConfigured => ['nrllm_tasks', 'error.openTasks'],
+        };
+
+        try {
+            $link = (string) $this->uriBuilder->buildUriFromRoute($route);
+        } catch (RouteNotFoundException) {
+            return $plain;
+        }
+
+        return ['errorMessage' => $message, 'errorLink' => $link, 'errorLinkLabel' => $this->translate($label)];
     }
 
     /**

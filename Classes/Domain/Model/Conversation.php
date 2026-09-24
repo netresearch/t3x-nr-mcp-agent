@@ -49,6 +49,17 @@ final class Conversation
     private string $errorMessage = '';
 
     /**
+     * What KIND of failure the message describes, as a code the reader's
+     * request turns into text: empty for an ordinary message.
+     *
+     * The message is stored as it happened; the code decides how it is shown
+     * and to whom (ADR-017). A provider without an API key is technical detail
+     * for an administrator and a plain "ask the administration" for an editor,
+     * and only the request knows which of the two is reading.
+     */
+    private string $errorCode = '';
+
+    /**
      * The run that is waiting for an approval, so the chat can link to it.
      *
      * Empty whenever nothing is pending. It is a separate column rather than
@@ -94,6 +105,7 @@ final class Conversation
         $conversation->archived = (bool) self::val($row, 'archived', false);
         $conversation->pinned = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage = (string) self::val($row, 'error_message', '');
+        $conversation->errorCode = (string) self::val($row, 'error_code', '');
         $conversation->approvalRunUuid = (string) self::val($row, 'approval_run_uuid', '');
         $conversation->approvalDecision = (string) self::val($row, 'approval_decision', '');
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
@@ -135,6 +147,7 @@ final class Conversation
             'archived' => (int) $this->archived,
             'pinned' => (int) $this->pinned,
             'error_message' => $this->errorMessage,
+            'error_code' => $this->errorCode,
             'approval_run_uuid' => $this->approvalRunUuid,
             'approval_decision' => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
@@ -229,11 +242,23 @@ final class Conversation
 
     /**
      * @param string|array<mixed> $content
+     * @param string              $notice     a code the chat renders as a label in the reader's language
+     *                                        (ADR-017); nr-llm's message factory ignores the key, so it
+     *                                        does not reach the model
+     * @param list<string>        $noticeArgs values the label is filled with, e.g. record references
      */
-    public function appendMessage(MessageRole $role, string|array $content): void
+    public function appendMessage(MessageRole $role, string|array $content, string $notice = '', array $noticeArgs = []): void
     {
         $messages = $this->getDecodedMessages();
-        $messages[] = ['role' => $role->value, 'content' => $content, 'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM)];
+        $message = ['role' => $role->value, 'content' => $content, 'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM)];
+        if ($notice !== '') {
+            $message['notice'] = $notice;
+            if ($noticeArgs !== []) {
+                $message['noticeArgs'] = $noticeArgs;
+            }
+        }
+
+        $messages[] = $message;
         $this->setMessages($messages); // setMessages already updates messageCount
 
         if ($this->title === '' && $role === MessageRole::User && is_string($content)) {
@@ -347,6 +372,11 @@ final class Conversation
         return $this->errorMessage;
     }
 
+    public function getErrorCode(): string
+    {
+        return $this->errorCode;
+    }
+
     public function getApprovalRunUuid(): string
     {
         return $this->approvalRunUuid;
@@ -392,9 +422,14 @@ final class Conversation
         return $this->approvalDecision !== '' && $this->approvalRunUuid !== '';
     }
 
-    public function setErrorMessage(string $message): void
+    /**
+     * Set the failure text and its kind together, so a message written without
+     * a code can never inherit the code of the one it replaces.
+     */
+    public function setErrorMessage(string $message, string $code = ''): void
     {
         $this->errorMessage = $message;
+        $this->errorCode = $code;
     }
 
     public function getTstamp(): int

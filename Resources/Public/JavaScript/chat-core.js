@@ -101,6 +101,16 @@ export class ChatCoreController {
     /** Link to the run waiting for an approval; empty when nothing is pending. */
     approvalUrl = '';
 
+    /**
+     * Where an administrator fixes the failure on screen, and the link text;
+     * both empty for anyone else and for an ordinary failure (ADR-017).
+     */
+    errorLink = '';
+    errorLinkLabel = '';
+
+    /** The server message the link belongs to; a local error replacing it takes no link along. */
+    errorLinkMessage = '';
+
     /** True while a decision is in flight, so the buttons cannot be pressed twice. */
     approvalBusy = false;
 
@@ -308,6 +318,7 @@ export class ChatCoreController {
             this.messagesUid = uid;
             this.status = data.status;
             this.errorMessage = data.errorMessage || '';
+            this._setErrorLink(data);
             this.approvalUrl = data.approvalUrl || '';
             this.pendingApproval = data.pendingApproval || null;
             this.systemPrompt = data.systemPrompt || '';
@@ -355,6 +366,7 @@ export class ChatCoreController {
                 }
                 this.status = data.status;
                 this.errorMessage = data.errorMessage || '';
+                this._setErrorLink(data);
                 this.approvalUrl = data.approvalUrl || '';
                 this.pendingApproval = data.pendingApproval || null;
                 this._knownMessageCount = data.totalCount;
@@ -411,6 +423,27 @@ export class ChatCoreController {
             clearTimeout(this._pollTimer);
             this._pollTimer = null;
         }
+    }
+
+    /**
+     * The link an administrator gets beside a configuration failure, or null.
+     * Only while the message on screen is the one the server sent it with.
+     *
+     * @returns {{href: string, label: string}|null}
+     */
+    currentErrorLink() {
+        if (!this.errorLink || !this.errorMessage || this.errorLinkMessage !== this.errorMessage) {
+            return null;
+        }
+
+        return {href: this.errorLink, label: this.errorLinkLabel || this.errorLink};
+    }
+
+    /** @param {{errorMessage?: string, errorLink?: string, errorLinkLabel?: string}} data */
+    _setErrorLink(data) {
+        this.errorLink = data.errorLink || '';
+        this.errorLinkLabel = data.errorLinkLabel || '';
+        this.errorLinkMessage = data.errorMessage || '';
     }
 
     isProcessing() {
@@ -903,10 +936,26 @@ export class ChatCoreController {
             if (msg.fileName) {
                 parts.push(`*${lll('export.attachment')}: ${msg.fileName}*`);
             }
-            parts.push(this._extractText(msg).trim());
+            parts.push((this.formatRunNotice(msg) ?? this._extractText(msg)).trim());
         }
 
         return parts.join('\n\n') + '\n';
+    }
+
+    /**
+     * The reader-language text of a stored run notice, or null when the
+     * message carries none. Both chat surfaces and the export use it, so the
+     * export shows what the reader saw rather than the stored neutral line.
+     *
+     * @param {{notice?: string, noticeArgs?: string[]}} msg
+     * @returns {string|null}
+     */
+    formatRunNotice(msg) {
+        if (msg.notice !== 'runFinishedOutside') return null;
+        const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];
+        return writes.length > 0
+            ? lll('chat.runFinishedOutside', writes.join(', '))
+            : lll('chat.runFinishedOutsideNothingWritten');
     }
 
     /**

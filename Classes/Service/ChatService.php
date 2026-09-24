@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service;
 
 use LogicException;
+use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
@@ -13,9 +14,12 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
@@ -34,10 +38,12 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Exception\ChatException;
-use Netresearch\NrMcpAgent\Exception\Exception as NrMcpAgentException;
+use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
+use Netresearch\NrMcpAgent\Utility\ChangeClaim;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -58,6 +64,40 @@ use TYPO3\CMS\Core\Site\SiteFinder;
 final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface
 {
     private const DECISION_APPROVE = 'approve';
+
+    /**
+     * The notice an assistant message carries when it reads like a completed
+     * change and the run recorded no write (ADR-017). The chat renders it as a
+     * label in the reader's language.
+     */
+    public const NOTICE_NOTHING_SAVED = 'nothingSaved';
+
+    /**
+     * The notice on the line the chat adds when a pending run was decided and
+     * finished outside it (ADR-017). The chat renders the label with the
+     * records the run wrote; the stored content is the language-neutral line
+     * the model reads.
+     */
+    public const NOTICE_RUN_FINISHED_OUTSIDE = 'runFinishedOutside';
+
+    /**
+     * What the model is told, next turn, beside an answer that got the
+     * nothing-saved notice: the notice is for the reader, and the model would
+     * otherwise go on believing its own claim.
+     */
+    private const NOTHING_SAVED_CORRECTION = '[Note from the chat: the run behind this answer wrote no record. Nothing it describes as done was saved.]';
+
+    /**
+     * How the model is told why a tool it is not offered is unavailable, per
+     * nr-llm ToolDenialReason value. Anything else — a reason a newer nr-llm
+     * adds — falls back to the value itself.
+     */
+    private const UNAVAILABLE_REASONS = [
+        'toolDisabled' => 'switched off by an administrator',
+        'requiresAdmin' => 'for administrators only',
+        'configurationGroup' => 'not part of the tool groups this chat is configured with',
+        'trustZone' => 'withheld because this AI provider may not receive the data it returns',
+    ];
 
     /**
      * This extension's key, named on every nr-llm call that offers a caller-source
@@ -101,6 +141,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         A file the user attaches to a message is NOT a loose copy: it is uploaded into this installation's file storage first, so by the time you see it, it is a managed TYPO3 file (a sys_file record) sitting in the configured chat attachment folder. Each attachment is announced to you with its sys_file uid and its path. You therefore never have to upload, import or ask the user to place it — it is already there, and the uid is what every file tool takes. Where a file tool is available, use that uid to reference the attachment from a content element or to describe it; only if no such tool is offered to you, say plainly which step is missing instead of claiming the file is out of reach. When a file tool lets you choose the field, put an image in an image field and a PDF or other document in a file or asset field — a document referenced as an image renders as a broken picture.
 
+        Say that something was created, changed, saved, moved or deleted in this TYPO3 installation ONLY when a writing tool returned a successful result for exactly that change. A plan, a text you wrote into your answer, or a call that is waiting for approval is not a change: without such a result, say plainly that nothing has been saved yet. Never state a uid you did not receive from a tool. A tool result that begins with "Error: approval_denied" means a person declined the approval; when it says "decided_by: run_owner", tell the user that they declined it themselves — never that the system or an operator refused it.
+
+        When the user asks for something no tool you have can do, check the list of unavailable tools below, if there is one: if a tool there would do it, say that such a tool exists but is not available to them, give its reason in plain words, and suggest asking an administrator. Never call a tool from that list.
+
         Never claim to be ChatGPT or GPT, and never claim to be made by OpenAI or any other vendor: you are the Netresearch TYPO3 Backend AI Chat. Answer in the language named under "Answer language" below; where there is no such section, answer in the language the user writes in. Content you write INTO this TYPO3 installation follows a different rule: create it in the default language of the site (sys_language_uid 0) and write every field of it in that language, whatever language the conversation or the source material is in. One record holds one language — never a title in one language and a body in another. Do not create content in another site language and do not create translations unless the user explicitly asks for exactly that: producing the other language versions is the job of the translation tools of the CMS, not part of creating the content. When the user writes to you in a language other than the default language, or hands you material in one, tell them so in your reply: name the default language, say that the content is created in it, and that the other language versions come from the translation tools of the CMS.
         PROMPT;
 
@@ -121,6 +165,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly UploadMimeTypeMap $uploadMimeTypeMap,
         private readonly UserContextPrompt $userContextPrompt,
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
+        private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
     ) {}
 
     /**
@@ -204,7 +249,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         if ($this->config->getLlmTaskUid() === 0) {
             $conversation->setStatus(ConversationStatus::Failed);
-            $conversation->setErrorMessage('No nr-llm Task configured. Set llmTaskUid in Extension Configuration.');
+            $conversation->setErrorMessage(
+                'No nr-llm Task configured. Set llmTaskUid in Extension Configuration.',
+                ConversationErrorCode::ChatNotConfigured->value,
+            );
             $this->persist($conversation);
             return;
         }
@@ -214,7 +262,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $this->runAgentTurn($conversation, $configuration, $operation);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
-            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
             $this->persist($conversation);
         }
     }
@@ -233,7 +281,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // runs entirely inside the AgentRuntime against the configuration.
         $provider = $this->resolveProvider($configuration);
 
-        $systemPrompt = $this->buildSystemPrompt($conversation);
+        $systemPrompt = $this->buildSystemPrompt($conversation, $configuration);
 
         // buildLlmMessages expands fileUid refs to base64 for the LLM call only —
         // the expanded arrays are never persisted back to the conversation.
@@ -364,6 +412,67 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
+     * Where the parked run stands, for a "go on" message (ADR-017).
+     *
+     * Asked when the reader writes "weiter" or "habe alles freigegeben" while
+     * the conversation waits for an approval. On the demo such a message
+     * started a new run over the same transcript, and that run drafted the
+     * page again (NEXT-167, conversations 79, 80 and 84): the approval had
+     * been given in the AI Tasks module, the run had finished there, and the
+     * chat knew nothing of it.
+     *
+     * The run is the authority, as in {@see self::reconcile()}. For a finished
+     * run the records it wrote are read from its `tool_write` events, which
+     * the privacy filter keeps at every level — the answer itself it does not
+     * keep, so this is all that can be carried back.
+     *
+     * @return array{state: self::PENDING_RUN_*, writes: list<string>}
+     */
+    public function inspectPendingRun(Conversation $conversation): array
+    {
+        $unknown = ['state' => self::PENDING_RUN_UNKNOWN, 'writes' => []];
+
+        $runUuid = $conversation->getApprovalRunUuid();
+        if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
+            return $unknown;
+        }
+
+        $actor = $this->resolveActor($conversation->getBeUser());
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            return $unknown;
+        }
+
+        $status = AgentRunStatus::tryFrom($run->status);
+        if ($status === AgentRunStatus::WAITING_FOR_APPROVAL) {
+            return ['state' => self::PENDING_RUN_WAITING, 'writes' => []];
+        }
+
+        if ($status === AgentRunStatus::RUNNING || $status === AgentRunStatus::QUEUED) {
+            return ['state' => self::PENDING_RUN_BUSY, 'writes' => []];
+        }
+
+        if ($status === null || !$status->isTerminal()) {
+            return $unknown;
+        }
+
+        $writes = [];
+        foreach ($this->agentRuntime->events($actor, $runUuid) as $event) {
+            if ($event->kind !== RunStep::KIND_WRITE) {
+                continue;
+            }
+
+            $table = $event->payload['writeTargetTable'] ?? null;
+            $uid = $event->payload['writeTargetUid'] ?? null;
+            if (is_string($table) && $table !== '' && is_int($uid) && $uid > 0) {
+                $writes[] = $table . ':' . $uid;
+            }
+        }
+
+        return ['state' => self::PENDING_RUN_SETTLED, 'writes' => array_values(array_unique($writes))];
+    }
+
+    /**
      * The pending tool call of a parked conversation, as the approvals inbox
      * would show it.
      *
@@ -478,7 +587,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         } catch (Throwable $e) {
             $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::Failed);
-            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
+            // The continuation calls the same provider as a turn does, so a
+            // missing key fails here as well and must be phrased the same way.
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
             $this->persist($conversation);
 
             return;
@@ -522,7 +633,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private function applyResult(Conversation $conversation, AgentRunResult $result): void
     {
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
-            $conversation->appendMessage(MessageRole::Assistant, $result->loopResult->finalContent);
+            $answer = $result->loopResult->finalContent;
+            $conversation->appendMessage(
+                MessageRole::Assistant,
+                $answer,
+                $this->claimsAnUnrecordedChange($answer, $result, $conversation) ? self::NOTICE_NOTHING_SAVED : '',
+            );
             $conversation->setStatus(ConversationStatus::Idle);
             // Success leaves nothing to report. persist() writes the whole row,
             // so a message from an earlier state of this turn — the reason a
@@ -560,8 +676,103 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $conversation->setStatus(ConversationStatus::Failed);
-        $conversation->setErrorMessage($this->describeFailure($result));
+        $conversation->setErrorMessage(
+            $this->describeFailure($result),
+            $result->error !== null ? $this->failureCode($result->error) : '',
+        );
         $this->persist($conversation);
+    }
+
+    /**
+     * Whether the answer reads like a finished change while the run wrote
+     * nothing at all (ADR-017).
+     *
+     * The run decides, the text only triggers. Four times in one demo
+     * conversation the model answered "Erledigt" with record uids of its own
+     * invention, in runs that called no tool (NEXT-167, conversation 92).
+     *
+     * Read from the run's persisted event stream, not from the result's steps:
+     * every resume starts a fresh trace, so the steps of the segment that
+     * answers do not show a write an earlier approval of the same run carried
+     * out — a page written after the first approval and an element denied at
+     * the second would otherwise read as "nothing saved". Two kinds of event
+     * count as a write: `tool_write`, which a builtin writer leaves (nr-llm
+     * ADR-182), and a call that executed without error right after an
+     * approval — a remote tool whose write needed approval leaves no write
+     * target, and every approval-bound call is write-declared (nr-llm
+     * ADR-134). A run that could not be persisted has no stream; then the
+     * result's own steps are all there is.
+     */
+    private function claimsAnUnrecordedChange(string $answer, AgentRunResult $result, Conversation $conversation): bool
+    {
+        if (!ChangeClaim::matches($answer)) {
+            return false;
+        }
+
+        if ($result->runUuid === '') {
+            foreach ($result->steps as $step) {
+                if ($step->kind === RunStep::KIND_WRITE) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        try {
+            $events = $this->agentRuntime->events($this->resolveActor($conversation->getBeUser()), $result->runUuid);
+        } catch (Throwable) {
+            // No evidence either way: say nothing rather than a wrong notice.
+            return false;
+        }
+
+        $afterApproval = false;
+        foreach ($events as $event) {
+            if ($event->kind === RunStep::KIND_WRITE) {
+                return false;
+            }
+
+            if ($event->kind === AgentEventKind::APPROVAL->value) {
+                $afterApproval = ($event->payload['approved'] ?? false) === true;
+
+                continue;
+            }
+
+            if ($event->kind === RunStep::KIND_TOOL) {
+                if ($afterApproval && ($event->payload['toolIsError'] ?? false) !== true) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            // A new model round ends the calls the approval released.
+            if ($event->kind === RunStep::KIND_REQUEST || $event->kind === RunStep::KIND_LLM) {
+                $afterApproval = false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * What kind of failure an exception is, for the chat to phrase per reader
+     * (ADR-017); '' for any other failure. The chain is walked because the
+     * runtime may carry a provider failure as the previous exception.
+     */
+    private function failureCode(Throwable $e): string
+    {
+        for ($current = $e; $current !== null; $current = $current->getPrevious()) {
+            if ($current instanceof ProviderConfigurationException || $current instanceof ProviderAuthenticationException) {
+                return ConversationErrorCode::ProviderNotConfigured->value;
+            }
+
+            if ($current instanceof ChatNotConfiguredException) {
+                return ConversationErrorCode::ChatNotConfigured->value;
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -590,19 +801,19 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * nr-llm Task (llmTaskUid → Task → Configuration) and cache the Task and
      * Configuration prompts for {@see buildSystemPrompt()}.
      *
-     * @throws NrMcpAgentException when the Task or its Configuration is missing
+     * @throws ChatNotConfiguredException when the Task or its Configuration is missing
      */
     private function resolveConfiguration(AiActorContext $actor): LlmConfiguration
     {
         $taskUid = $this->config->getLlmTaskUid();
         $task = $this->taskRepository->findByUid($taskUid);
         if ($task === null) {
-            throw new NrMcpAgentException(sprintf('nr-llm Task with uid %d not found', $taskUid));
+            throw new ChatNotConfiguredException(sprintf('nr-llm Task with uid %d not found', $taskUid));
         }
 
         $configuration = $task->getConfiguration();
         if ($configuration === null) {
-            throw new NrMcpAgentException(sprintf('nr-llm Task with uid %d has no LLM configuration assigned', $taskUid));
+            throw new ChatNotConfiguredException(sprintf('nr-llm Task with uid %d has no LLM configuration assigned', $taskUid));
         }
 
         // The Task names a Configuration; whether this user may run it is the
@@ -611,7 +822,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // not, so without this a Task mapped to a group (ADR-015), or the
         // single llmTaskUid, would run a Configuration withheld from the user.
         if (!$configuration->isActive()) {
-            throw new NrMcpAgentException(sprintf(
+            throw new ChatNotConfiguredException(sprintf(
                 'The nr-llm configuration "%s" of Task %d is disabled. Ask an administrator to enable it or to assign another Task.',
                 $configuration->getName(),
                 $taskUid,
@@ -619,7 +830,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         if (!$this->configurationResolver->actorMayUse($configuration, $actor)) {
-            throw new NrMcpAgentException(sprintf(
+            throw new ChatNotConfiguredException(sprintf(
                 'The nr-llm configuration "%s" of Task %d is restricted to other backend groups. Ask an administrator for access or for another Task.',
                 $configuration->getName(),
                 $taskUid,
@@ -639,13 +850,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Used only for multimodal file expansion and capability reporting — the
      * chat turn itself runs through the AgentRuntime.
      *
-     * @throws NrMcpAgentException when the configuration has no fixed model
+     * @throws ChatNotConfiguredException when the configuration has no fixed model
      */
     private function resolveProvider(LlmConfiguration $configuration): ProviderInterface
     {
         $model = $configuration->getLlmModel();
         if ($model === null) {
-            throw new NrMcpAgentException('The nr-llm configuration has no fixed model to resolve a provider adapter from.');
+            throw new ChatNotConfiguredException('The nr-llm configuration has no fixed model to resolve a provider adapter from.');
         }
 
         return $this->adapterRegistry->createAdapterFromModel($model);
@@ -662,6 +873,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         $result = [];
         foreach ($messages as $msg) {
+            // The notice is rendered for the reader; the model is told the same
+            // thing in its own transcript, per turn and never persisted, or it
+            // would go on building on the claim the notice contradicts.
+            if (($msg['notice'] ?? null) === self::NOTICE_NOTHING_SAVED && is_string($msg['content'] ?? null)) {
+                $msg['content'] .= "\n\n" . self::NOTHING_SAVED_CORRECTION;
+            }
+
             if (!isset($msg['fileUid'])) {
                 $result[] = $msg;
                 continue;
@@ -772,7 +990,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         );
     }
 
-    private function buildSystemPrompt(Conversation $conversation): string
+    private function buildSystemPrompt(Conversation $conversation, LlmConfiguration $configuration): string
     {
         // The identity/behaviour contract is always the first layer so the
         // assistant's identity and tool-seeking behaviour hold regardless of
@@ -804,6 +1022,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $parts[] = $languageContext;
         }
 
+        $unavailable = $this->buildUnavailableToolsContext($conversation, $configuration);
+        if ($unavailable !== '') {
+            $parts[] = $unavailable;
+        }
+
         // The user's own context — answer language and where they are in the
         // backend (NEXT-172) — last, and for every conversation, a custom
         // system prompt included.
@@ -827,6 +1050,42 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return implode("\n\n", $parts);
+    }
+
+    /**
+     * The tools this installation has but the run will not be offered, one
+     * line each (ADR-017, nr-llm ADR-201).
+     *
+     * Without it the model cannot tell a tool it is not given from one that
+     * does not exist: asked which tools were blocked, it answered that it saw
+     * no such list (NEXT-167, demo conversation 104). The reasons are nr-llm's
+     * gate reasons in plain words; the user they are evaluated for is the live
+     * backend user when it is the conversation's owner, as for the run itself.
+     */
+    private function buildUnavailableToolsContext(Conversation $conversation, LlmConfiguration $configuration): string
+    {
+        if (!$this->unavailableTools instanceof UnavailableToolsReaderInterface) {
+            return '';
+        }
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $liveUid = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
+        $user = $backendUser instanceof BackendUserAuthentication && is_numeric($liveUid) && (int) $liveUid === $conversation->getBeUser()
+            ? $backendUser
+            : null;
+
+        $tools = $this->unavailableTools->read($configuration, $user);
+        if ($tools === []) {
+            return '';
+        }
+
+        $lines = [];
+        foreach ($tools as $tool) {
+            $lines[] = sprintf('- %s: %s', $tool['name'], self::UNAVAILABLE_REASONS[$tool['reason']] ?? $tool['reason']);
+        }
+
+        return "Tools that exist in this installation but are NOT available to this user in this chat, with the reason:\n"
+            . implode("\n", $lines);
     }
 
     /**

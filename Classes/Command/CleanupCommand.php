@@ -72,6 +72,7 @@ final class CleanupCommand extends Command
             ->update(self::TABLE)
             ->set('status', 'failed')
             ->set('error_message', 'Timed out after 5 minutes without completion')
+            ->set('error_code', '')
             // Drop the approval fields with the status. failed is resumable, so
             // a decision left on the row would be carried out by the worker the
             // Retry button dispatches — a write the user approved days earlier,
