@@ -301,6 +301,28 @@ class ConversationRepositoryTest extends FunctionalTestCase
         self::assertSame('', $result['error_message']);
     }
 
+    /**
+     * The kind of a failure travels with its message through every read the
+     * chat answers from: the poll, the full row and the list (ADR-017).
+     */
+    #[Test]
+    public function theErrorCodeIsWrittenAndReadByEveryPath(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setErrorMessage('API key identifier is required for provider OpenAI', 'providerNotConfigured');
+        $uid = $this->subject->add($conversation);
+
+        self::assertSame('providerNotConfigured', $this->subject->findPollStatus($uid, 1)['error_code'] ?? null);
+        self::assertSame('providerNotConfigured', $this->subject->findByUid($uid)?->getErrorCode());
+
+        $listed = array_values(array_filter(
+            $this->subject->findByBeUser(1),
+            static fn(Conversation $c): bool => $c->getUid() === $uid,
+        ));
+        self::assertSame('providerNotConfigured', $listed[0]->getErrorCode());
+    }
+
     #[Test]
     public function findPollStatusReturnsNullForWrongUser(): void
     {
