@@ -134,6 +134,48 @@ class CleanupCommandTest extends FunctionalTestCase
         self::assertSame('processing', $recentRow['status']);
     }
 
+    /**
+     * NEXT-167, demo conversation 80: left in `processing` since 2026-08-21
+     * after its last user message, with no run and no answer. The command
+     * already resets such a row — the demo simply never ran it — so this pins
+     * the case with the row as the demo held it: no approval run, a last
+     * message from the user, a timestamp weeks old. The code of an earlier
+     * failure must not survive the reset either (ADR-017).
+     */
+    #[Test]
+    public function aConversationLeftProcessingForWeeksWithoutARunIsReset(): void
+    {
+        $conn = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
+        $lastWrite = (int) strtotime('2026-08-21T07:29:11+00:00');
+        $conn->insert(self::TABLE, [
+            'pid' => 0,
+            'be_user' => 1,
+            'title' => 'Lege unter der Seite mit der id 10011 eine neue, zunächst versteckte Unterseite an',
+            'messages' => (string) json_encode([
+                ['role' => 'user', 'content' => 'Es fehlt noch das Element für die neue Unterseite', 'createdAt' => '2026-08-21T07:25:24+00:00'],
+                ['role' => 'assistant', 'content' => 'Das fehlende Element ist jetzt angelegt.', 'createdAt' => '2026-08-21T07:25:42+00:00'],
+                ['role' => 'user', 'content' => 'jetzt hat es geklappt', 'createdAt' => '2026-08-21T07:29:11+00:00'],
+            ]),
+            'message_count' => 3,
+            'status' => 'processing',
+            'error_message' => 'API key identifier is required for provider OpenAI',
+            'error_code' => 'providerNotConfigured',
+            'approval_run_uuid' => '',
+            'deleted' => 0,
+            'tstamp' => $lastWrite,
+            'crdate' => $lastWrite,
+        ]);
+        $uid = (int) $conn->lastInsertId();
+
+        $tester = new CommandTester($this->get(CleanupCommand::class));
+        $tester->execute([]);
+
+        $row = $this->fetchRow($uid);
+        self::assertSame('failed', $row['status']);
+        self::assertStringContainsString('Timed out', $row['error_message']);
+        self::assertSame('', $row['error_code']);
+    }
+
     #[Test]
     public function autoArchiveInactiveConversations(): void
     {

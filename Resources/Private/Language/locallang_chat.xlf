@@ -171,6 +171,15 @@
             <trans-unit id="chat.messageTooLong" resname="chat.messageTooLong">
                 <source>Message exceeds %d character limit</source>
             </trans-unit>
+            <trans-unit id="chat.nothingSaved" resname="chat.nothingSaved">
+                <source>Nothing was saved in this step.</source>
+            </trans-unit>
+            <trans-unit id="chat.runFinishedOutside" resname="chat.runFinishedOutside">
+                <source>The approval was decided outside this chat, and the run has finished there. It wrote: %s. Its answer is under AI Tasks.</source>
+            </trans-unit>
+            <trans-unit id="chat.runFinishedOutsideNothingWritten" resname="chat.runFinishedOutsideNothingWritten">
+                <source>The approval was decided outside this chat, and the run has finished there without writing anything. Its answer is under AI Tasks.</source>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">
@@ -198,6 +207,24 @@
             </trans-unit>
             <trans-unit id="error.accessDenied" resname="error.accessDenied">
                 <source>Access denied</source>
+            </trans-unit>
+            <trans-unit id="error.approvalStillPending" resname="error.approvalStillPending">
+                <source>This step is still waiting for a decision. Approve or deny it on the card — a message does not approve it.</source>
+            </trans-unit>
+            <trans-unit id="error.approvalStillPendingElsewhere" resname="error.approvalStillPendingElsewhere">
+                <source>This step is still waiting for an approval in AI Tasks — a message does not approve it.</source>
+            </trans-unit>
+            <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
+                <source>The AI provider is not set up. Please contact your administrator.</source>
+            </trans-unit>
+            <trans-unit id="error.chatNotConfigured" resname="error.chatNotConfigured">
+                <source>The AI chat is not set up. Please contact your administrator.</source>
+            </trans-unit>
+            <trans-unit id="error.openProviders" resname="error.openProviders">
+                <source>Open the LLM providers</source>
+            </trans-unit>
+            <trans-unit id="error.openTasks" resname="error.openTasks">
+                <source>Open the LLM tasks</source>
             </trans-unit>
 
             <!-- Attachments -->

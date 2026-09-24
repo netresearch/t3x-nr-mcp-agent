@@ -27,3 +27,4 @@ consequences of each decision.
     ADR-012-markdown-rendering-with-marked-and-dompurify
     ADR-013-server-side-document-text-extraction-fallback
     ADR-014-configurable-mcp-server-registry
+    ADR-017-the-chat-states-what-the-run-did
