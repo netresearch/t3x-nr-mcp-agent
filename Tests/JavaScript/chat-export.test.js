@@ -134,3 +134,25 @@ describe('downloadTextFile', () => {
         spy.mockRestore();
     });
 });
+
+describe('buildMarkdownExport with a run notice', () => {
+    test('exports the notice the reader saw, not the stored neutral line', () => {
+        const md = controller({
+            activeUid: 3,
+            messagesUid: 3,
+            conversations: [{uid: 3, title: 'Freigabe'}],
+            messages: [
+                {role: 'user', content: 'weiter'},
+                {
+                    role: 'assistant',
+                    content: 'run 42 finished outside the chat; it wrote pages:10073',
+                    notice: 'runFinishedOutside',
+                    noticeArgs: ['pages:10073'],
+                },
+            ],
+        }).buildMarkdownExport();
+
+        expect(md).toContain('chat.runFinishedOutside');
+        expect(md).not.toContain('run 42 finished outside the chat');
+    });
+});

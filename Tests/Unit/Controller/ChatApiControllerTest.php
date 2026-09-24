@@ -231,6 +231,7 @@ class ChatApiControllerTest extends TestCase
             'status' => 'idle',
             'message_count' => 3,
             'error_message' => '',
+            'error_code' => '',
             'approval_run_uuid' => '',
             'activity' => [],
         ]);
@@ -857,6 +858,7 @@ class ChatApiControllerTest extends TestCase
             'status' => 'processing',
             'message_count' => 2,
             'error_message' => '',
+            'error_code' => '',
             'approval_run_uuid' => 'run-uuid-1234',
             'tstamp' => time() - 600,
             'activity' => [],
@@ -883,6 +885,7 @@ class ChatApiControllerTest extends TestCase
             'status' => 'processing',
             'message_count' => 2,
             'error_message' => '',
+            'error_code' => '',
             'approval_run_uuid' => '',
             'tstamp' => time() - 600,
             'activity' => [],
@@ -923,6 +926,7 @@ class ChatApiControllerTest extends TestCase
             'status' => 'idle',
             'message_count' => 2,
             'error_message' => '',
+            'error_code' => '',
             'approval_run_uuid' => '',
             'activity' => [],
         ]);

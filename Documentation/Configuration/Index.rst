@@ -321,7 +321,10 @@ Scheduled cleanup
 
 Add the cleanup command to your cron or TYPO3 scheduler
 to handle stuck conversations, auto-archiving, and
-deletion of old data:
+deletion of old data. A conversation whose worker never
+finished stays in *processing* until this command marks it
+failed after five minutes — without the schedule it can stay
+there indefinitely:
 
 ..  code-block:: bash
 

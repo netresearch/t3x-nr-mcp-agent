@@ -59,7 +59,7 @@ readonly class ConversationRepository
 
     private const LIST_COLUMNS = [
         'uid', 'be_user', 'title', 'status', 'message_count',
-        'pinned', 'archived', 'error_message', 'approval_run_uuid',
+        'pinned', 'archived', 'error_message', 'error_code', 'approval_run_uuid',
         'approval_decision', 'approval_turn_digest', 'tstamp', 'crdate',
     ];
 
@@ -226,12 +226,12 @@ readonly class ConversationRepository
     /**
      * Lightweight poll check — returns status metadata without loading messages.
      *
-     * @return array{status: string, message_count: int, error_message: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>}|null
+     * @return array{status: string, message_count: int, error_message: string, error_code: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>}|null
      */
     public function findPollStatus(int $uid, int $beUserUid): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $qb->select('status', 'message_count', 'error_message', 'approval_run_uuid', 'tstamp', 'activity')
+        $row = $qb->select('status', 'message_count', 'error_message', 'error_code', 'approval_run_uuid', 'tstamp', 'activity')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -248,6 +248,7 @@ readonly class ConversationRepository
         $status = $row['status'] ?? '';
         $messageCount = $row['message_count'] ?? 0;
         $errorMessage = $row['error_message'] ?? '';
+        $errorCode = $row['error_code'] ?? '';
         $approvalRunUuid = $row['approval_run_uuid'] ?? '';
         $tstamp = $row['tstamp'] ?? 0;
         $activity = $row['activity'] ?? '';
@@ -262,6 +263,7 @@ readonly class ConversationRepository
             'status' => is_string($status) ? $status : '',
             'message_count' => $messageCountInt,
             'error_message' => is_string($errorMessage) ? $errorMessage : '',
+            'error_code' => is_string($errorCode) ? $errorCode : '',
             'approval_run_uuid' => is_string($approvalRunUuid) ? $approvalRunUuid : '',
             'tstamp' => is_numeric($tstamp) ? (int) $tstamp : 0,
             'activity' => Conversation::decodeActivity(is_string($activity) ? $activity : ''),

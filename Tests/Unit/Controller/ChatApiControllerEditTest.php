@@ -463,6 +463,7 @@ final class ChatApiControllerEditTest extends TestCase
             'status' => 'processing',
             'message_count' => 1,
             'error_message' => '',
+            'error_code' => '',
             'approval_run_uuid' => '',
             'tstamp' => time(),
             'activity' => [['kind' => 'llm', 'round' => 1, 'ms' => 900]],
