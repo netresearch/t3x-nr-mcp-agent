@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-24
+
 ### Added
 
 - **An answer that claims a change the run did not make says "Nothing was saved in this step"** (NEXT-167, ADR-017). On the demo the assistant answered "Erledigt" four times in one conversation, with page and element uids of its own invention, in runs that called no tool. When a completed answer claims a change (German or English participles such as *erledigt*, *gespeichert*, *created*, *updated*, not preceded by a negation) and the run's persisted event stream holds neither a `tool_write` event nor a call that succeeded right after an approval (an approved remote write leaves no write target), the message is stored with the notice `nothingSaved`, and both chat surfaces render it as a label in the reader's language. The text only triggers, the run decides; the whole run counts, so a page written at the first of two approvals is not reported as unsaved. On the next turn the model receives the flagged answer with a note that nothing was saved. The system prompt gains the rule behind it — claim a change only on a successful write result, never state a uid no tool returned — and how to read nr-llm's `approval_denied (decided_by: run_owner)` result: the user declined it, not "the system".
