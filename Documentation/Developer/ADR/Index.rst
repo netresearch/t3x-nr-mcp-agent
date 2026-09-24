@@ -28,4 +28,5 @@ consequences of each decision.
     ADR-013-server-side-document-text-extraction-fallback
     ADR-014-configurable-mcp-server-registry
     ADR-015-llm-task-per-backend-group
+    ADR-016-messages-in-their-own-table
     ADR-017-the-chat-states-what-the-run-did

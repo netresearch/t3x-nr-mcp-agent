@@ -28,3 +28,15 @@ CREATE TABLE tx_nrmcpagent_conversation (
     KEY current_request_id (current_request_id, status)
 );
 
+CREATE TABLE tx_nrmcpagent_message (
+    uid int(11) unsigned NOT NULL AUTO_INCREMENT,
+    pid int(11) unsigned DEFAULT 0 NOT NULL,
+    conversation int(11) unsigned DEFAULT 0 NOT NULL,
+    sorting int(11) unsigned DEFAULT 0 NOT NULL,
+    role varchar(20) DEFAULT '' NOT NULL,
+    payload mediumtext,
+    crdate int(11) unsigned DEFAULT 0 NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY conversation_sorting (conversation, sorting)
+);

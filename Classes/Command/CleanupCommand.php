@@ -18,9 +18,13 @@ final class CleanupCommand extends Command
 {
     private const TABLE = 'tx_nrmcpagent_conversation';
 
+    private const MESSAGE_TABLE = 'tx_nrmcpagent_message';
+
     private const STUCK_TIMEOUT_SECONDS = 300;
 
     private const DEFAULT_DELETE_AFTER_DAYS = 90;
+
+    private const ORPHAN_MIN_AGE_SECONDS = 3600;
 
     public function __construct(
         private readonly ConnectionPool $connectionPool,
@@ -48,6 +52,9 @@ final class CleanupCommand extends Command
         $timeoutCount = $this->timeoutStuckConversations($output);
         $archiveCount = $this->autoArchiveInactiveConversations($output);
         $deleteCount = $this->deleteOldArchivedConversations($output, $deleteAfterDays);
+        // Runs even when deleting archived conversations is switched off: a
+        // conversation removed any other way must not leave its messages.
+        $this->deleteOrphanedMessages();
 
         $output->writeln('');
         $output->writeln('<info>Cleanup summary:</info>');
@@ -157,5 +164,22 @@ final class CleanupCommand extends Command
         }
 
         return $affected;
+    }
+
+    /**
+     * The messages of a deleted conversation live in their own table
+     * (ADR-016) and go with it. Removed as orphans on every run rather than by
+     * the deletion's criteria, so a conversation deleted any other way leaves
+     * nothing behind either. Only rows older than an hour: under READ
+     * COMMITTED the subquery may not yet see a conversation whose first
+     * messages are being written in the same moment.
+     */
+    private function deleteOrphanedMessages(): void
+    {
+        $this->connectionPool->getConnectionForTable(self::MESSAGE_TABLE)->executeStatement(
+            'DELETE FROM ' . self::MESSAGE_TABLE
+            . ' WHERE crdate < ? AND conversation NOT IN (SELECT uid FROM ' . self::TABLE . ')',
+            [time() - self::ORPHAN_MIN_AGE_SECONDS],
+        );
     }
 }
