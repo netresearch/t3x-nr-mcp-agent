@@ -213,8 +213,9 @@ runs against, and the prompts, through nr-llm:
 
 1.  Load the Task record via nr-llm's ``TaskRepository`` (by
     ``ExtensionConfiguration::getLlmTaskUid()``: the Task of the
-    user's first group in ``groupTaskMapping``, else
-    ``llmTaskUid`` -- ADR-015).
+    first pair in ``groupTaskMapping``, in the order written,
+    whose group the user belongs to, else ``llmTaskUid`` --
+    ADR-015).
 2.  Take ``Task::getConfiguration()`` as the ``LlmConfiguration``
     passed to ``AgentRuntime::run()``. A missing Task or
     Configuration fails the turn loudly.
