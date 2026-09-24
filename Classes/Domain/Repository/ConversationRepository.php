@@ -664,6 +664,10 @@ readonly class ConversationRepository
                     'status' => ConversationStatus::Failed->value,
                     'error_message' => 'The stored transcript of this conversation could not be read. It is kept unchanged for inspection.',
                     'archived' => 1,
+                    // The retention period of archived conversations counts
+                    // from here, so an old row is not deleted with its kept
+                    // value by the next cleanup run.
+                    'tstamp' => time(),
                 ]
                 : ['messages' => ''];
 

@@ -239,6 +239,39 @@ final class MessageTableTest extends FunctionalTestCase
         self::assertCount(2, $this->messageRows($kept));
     }
 
+    #[Test]
+    public function orphanedMessagesAreRemovedWhenArchivedDeletionIsSwitchedOff(): void
+    {
+        $gone = $this->newConversation('first');
+        $kept = $this->newConversation('second');
+        $this->connection()->delete(self::CONVERSATIONS, ['uid' => $gone]);
+        $this->connection()->update(self::MESSAGES, ['crdate' => time() - 2 * 3600], ['conversation' => $gone]);
+
+        (new CommandTester($this->get(CleanupCommand::class)))->execute(['--delete-after-days' => '0']);
+
+        self::assertSame([], $this->messageRows($gone));
+        self::assertCount(2, $this->messageRows($kept));
+    }
+
+    /**
+     * An old row the wizard marks as unreadable is archived; its retention
+     * period starts with the migration, or the next cleanup run would delete
+     * the value the wizard kept for inspection.
+     */
+    #[Test]
+    public function anUndecodableTranscriptSurvivesTheNextCleanup(): void
+    {
+        $this->connection()->insert(self::CONVERSATIONS, [
+            'pid' => 0, 'be_user' => 1, 'title' => 'old and broken', 'messages' => '{not json', 'status' => 'idle', 'tstamp' => time() - 400 * 86400, 'crdate' => time() - 400 * 86400,
+        ]);
+        $uid = (int) $this->connection()->lastInsertId();
+
+        (new MigrateMessagesToTableUpdateWizard($this->subject))->executeUpdate();
+        (new CommandTester($this->get(CleanupCommand::class)))->execute([]);
+
+        self::assertSame(ConversationRepository::UNDECODABLE_MARKER . '{not json', $this->legacyColumn($uid));
+    }
+
     /**
      * A batch counts what it moved, not what it selected: the wizard loops
      * until a batch moves nothing, so a row whose move never succeeds must
