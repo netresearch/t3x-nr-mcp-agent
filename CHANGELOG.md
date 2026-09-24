@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Messages are stored in their own table** (NEXT-172, ADR-016). `tx_nrmcpagent_message` holds one row per message; the conversation's `messages` column is no longer written. `ConversationRepository` loads the rows into the model's list and writes them back in the same transaction as the conversation row — in `updateIf()` the transaction wraps the compare-and-swap and rolls back when the claim loses, so a lost claim leaves no message behind and a worker never dequeues a conversation whose new message is not there yet. Conversations stored by earlier releases are read from the old column until they are saved or moved: **run the upgrade wizard `nrMcpAgent_migrateMessagesToTable` and the database analyzer after updating.** `ai-chat:cleanup` removes message rows older than an hour whose conversation no longer exists, on every run. Replacing the rows can deadlock under MySQL/MariaDB's REPEATABLE READ when two new conversations are written at once (reproduced on MariaDB 11.4); the repository restarts a deadlocked transaction up to three times (not a lock-wait timeout, and not inside a caller's transaction). A legacy transcript that is not valid JSON is kept in the column behind the prefix `!undecodable:` instead of being dropped; the conversation is marked failed and archived and opens empty. The wizard moves one conversation per transaction and claims it with a conditional write, so a chat save that happens while it runs is never overwritten.
 
+### Changed
+
+- **Requires nr-llm 0.37 (NEXT-172).** nr-llm 0.37 refuses to resume a run whose configuration an administrator deactivated while it waited for approval; earlier versions resumed it and ran the pending write. The chat treats that refusal like the other refusals that leave the run pending: the conversation stays in *awaiting approval* with the reason, instead of failing and offering a Retry, and can be decided once the configuration is active again.
+
 ## [0.14.0] - 2026-09-23
 
 ### Fixed

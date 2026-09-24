@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
@@ -408,6 +409,27 @@ final class ChatApprovalTest extends TestCase
         self::assertSame('', $conversation->getApprovalDecision(), 'the consumed decision must not be retried');
         self::assertFalse($conversation->isResumable(), 'a parked conversation must not offer Retry');
         self::assertStringContainsString('stale', $conversation->getErrorMessage());
+    }
+
+    /**
+     * An administrator deactivated the configuration while the run waited.
+     * nr-llm refuses the decision before claiming the run, so the run is still
+     * pending, and the conversation must stay decidable for when the
+     * configuration is active again.
+     */
+    #[Test]
+    public function aDeactivatedConfigurationLeavesTheConversationDecidable(): void
+    {
+        $conversation = $this->parkedConversation();
+        $service = $this->createChatService(RunConfigurationInactiveException::forRun('run-uuid-1234'));
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+        self::assertFalse($conversation->isResumable(), 'a parked conversation must not offer Retry');
+        self::assertStringContainsString('deactivated', $conversation->getErrorMessage());
     }
 
     #[Test]

@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
@@ -595,9 +596,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 },
             );
             $recordDecision();
-        } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException $e) {
-            // These four RELEASE the run rather than consume it: it is still
-            // pending and still decidable. Put the conversation back where it
+        } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException|RunConfigurationInactiveException $e) {
+            // These five RELEASE the run rather than consume it: it is still
+            // pending and still decidable. A deactivated configuration is one
+            // of them (nr-llm 0.37): the run waits until it is active again. Put the conversation back where it
             // was, with the reason, so the card returns and the reader can
             // decide again. Marking it Failed would hide the card AND offer a
             // Retry that starts a second run over the same transcript.
