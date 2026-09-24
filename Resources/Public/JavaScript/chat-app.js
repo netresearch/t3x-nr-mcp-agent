@@ -4,7 +4,8 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController, downloadTextFile} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS} from './icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from './icons.js';
+import {chatActivityStyles, renderActivity} from './chat-activity.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
 
 /**
@@ -20,7 +21,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -37,6 +38,8 @@ export class ChatApp extends LitElement {
             display: flex;
             flex: 1;
             min-height: 0;
+            position: relative;
+            container-type: inline-size;
         }
 
         /* Sidebar */
@@ -480,6 +483,11 @@ export class ChatApp extends LitElement {
 
     // ── Callback hooks for ChatCoreController ──────────────────────────
 
+    /** The conversation the module URL names (`&conversation=<uid>`), or 0. */
+    initialConversationUid() {
+        return Number.parseInt(new URLSearchParams(globalThis.location.search).get('conversation') ?? '', 10) || 0;
+    }
+
     onScrollToBottom(force = false) {
         const doScroll = () => {
             const container = this.renderRoot?.querySelector('.messages');
@@ -548,6 +556,7 @@ export class ChatApp extends LitElement {
                 <div class="main">
                     ${this._renderMain()}
                 </div>
+                ${renderActivity(this.chat, 'sidebar')}
             </div>
         `;
     }
@@ -655,6 +664,12 @@ export class ChatApp extends LitElement {
                 <button class="btn btn-sm" @click=${() => this.chat.handleTogglePin()}
                     title="${conv?.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                     ${conv?.pinned ? '\u{1F4CC}' : lll('conversations.pin')}
+                </button>
+                <button class="btn btn-sm" data-action="activity"
+                    aria-pressed="${String(this.chat.activityOpen)}"
+                    @click=${() => this.chat.toggleActivity()}
+                    title="${lll('activity.button')}">
+                    ${ICON_ACTIVITY(14)} ${lll('activity.title')}
                 </button>
                 <button class="btn btn-sm ${this.chat.systemPrompt ? 'has-instructions' : ''}" data-action="instructions"
                     aria-pressed="${String(this.chat.systemPromptOpen)}"

@@ -6,6 +6,8 @@ services:
 
   Netresearch\NrMcpAgent\:
     resource: '../Classes/*'
+    # Registered in Services.php, and only when EXT:dashboard is installed.
+    exclude: '../Classes/Dashboard/*'
 
   Netresearch\NrMcpAgent\Controller\ChatModuleController:
     public: true

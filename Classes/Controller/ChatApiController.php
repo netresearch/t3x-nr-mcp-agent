@@ -224,6 +224,7 @@ final readonly class ChatApiController
                     'totalCount' => $meta['message_count'],
                     ...$this->presentError($meta['error_message'], $meta['error_code']),
                     'approvalUrl' => $this->buildApprovalUrl($meta['approval_run_uuid']),
+                    'activity' => $meta['activity'],
                 ]);
             }
         }
@@ -248,6 +249,7 @@ final readonly class ChatApiController
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
             'systemPrompt' => $conversation->getSystemPrompt(),
+            'activity' => $conversation->getActivity(),
         ]);
     }
 

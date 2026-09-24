@@ -409,6 +409,70 @@
                 <source>The conversation changed since it was loaded. It has been reloaded; edit the message again.</source>
                 <target>Die Unterhaltung hat sich seit dem Laden geändert. Sie wurde neu geladen; bearbeite die Nachricht bitte noch einmal.</target>
             </trans-unit>
+            <trans-unit id="activity.title" resname="activity.title">
+                <source>Activity</source>
+                <target>Aktivität</target>
+            </trans-unit>
+            <trans-unit id="activity.button" resname="activity.button">
+                <source>Show what the assistant does in this turn</source>
+                <target>Anzeigen, was der Assistent in dieser Runde tut</target>
+            </trans-unit>
+            <trans-unit id="activity.tool" resname="activity.tool">
+                <source>Tool: %s</source>
+                <target>Werkzeug: %s</target>
+            </trans-unit>
+            <trans-unit id="activity.modelRound" resname="activity.modelRound">
+                <source>Model call, round %d</source>
+                <target>Modellaufruf, Runde %d</target>
+            </trans-unit>
+            <trans-unit id="activity.failed" resname="activity.failed">
+                <source>failed</source>
+                <target>fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="activity.approved" resname="activity.approved">
+                <source>Approved by you</source>
+                <target>Von dir freigegeben</target>
+            </trans-unit>
+            <trans-unit id="activity.denied" resname="activity.denied">
+                <source>Denied by you</source>
+                <target>Von dir abgelehnt</target>
+            </trans-unit>
+            <trans-unit id="activity.waiting" resname="activity.waiting">
+                <source>Waiting for your approval</source>
+                <target>Wartet auf deine Freigabe</target>
+            </trans-unit>
+            <trans-unit id="activity.working" resname="activity.working">
+                <source>Working…</source>
+                <target>Arbeitet …</target>
+            </trans-unit>
+            <trans-unit id="activity.empty" resname="activity.empty">
+                <source>No steps in this turn yet.</source>
+                <target>In dieser Runde noch keine Schritte.</target>
+            </trans-unit>
+            <trans-unit id="activity.close" resname="activity.close">
+                <source>Hide the activity list</source>
+                <target>Aktivitätsliste ausblenden</target>
+            </trans-unit>
+            <trans-unit id="widget.title" resname="widget.title">
+                <source>AI Chat</source>
+                <target>KI-Chat</target>
+            </trans-unit>
+            <trans-unit id="widget.description" resname="widget.description">
+                <source>Your most recent AI chats, opened in the chat panel with one click.</source>
+                <target>Deine letzten KI-Chats, mit einem Klick im Chat-Panel geöffnet.</target>
+            </trans-unit>
+            <trans-unit id="widget.openConversation" resname="widget.openConversation">
+                <source>Open in the chat panel</source>
+                <target>Im Chat-Panel öffnen</target>
+            </trans-unit>
+            <trans-unit id="widget.empty" resname="widget.empty">
+                <source>No chats yet.</source>
+                <target>Noch keine Chats.</target>
+            </trans-unit>
+            <trans-unit id="widget.openModule" resname="widget.openModule">
+                <source>Open the chat module</source>
+                <target>Chat-Modul öffnen</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

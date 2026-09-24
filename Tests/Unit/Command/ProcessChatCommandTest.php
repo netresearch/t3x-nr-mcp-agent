@@ -20,6 +20,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -51,7 +52,7 @@ class ProcessChatCommandTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($this->createMock(ProviderInterface::class));
 
-        return new ChatService($repository, $config, $this->createMock(AgentRuntimeInterface::class), $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->createMock(UserContextPrompt::class));
+        return new ChatService($repository, $config, $this->createMock(AgentRuntimeInterface::class), $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->createMock(UserContextPrompt::class), $this->createMock(RunActivityRecorder::class));
     }
 
     #[Test]

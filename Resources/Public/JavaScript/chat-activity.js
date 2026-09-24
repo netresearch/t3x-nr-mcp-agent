@@ -1,0 +1,196 @@
+import {html, css, nothing} from 'lit';
+import {lll} from '@typo3/core/lit-helper.js';
+
+/**
+ * What the assistant does in the current turn, step by step (NEXT-172).
+ *
+ * The worker writes a summary of every model round and tool call onto the
+ * conversation while the turn runs, and the chat's poll carries it here. The
+ * pending approval is not a step the runtime reports: it is taken from the
+ * card the chat already holds, and shown as the last entry while the turn
+ * waits for it.
+ *
+ * Shared by the module and the panel, like chat-editing.js.
+ */
+
+export const chatActivityStyles = css`
+    .activity {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: var(--nr-chat-surface-low);
+        font-size: 12px;
+    }
+    .activity-strip {
+        max-height: 30%;
+        border-bottom: 1px solid var(--nr-chat-border);
+        flex-shrink: 0;
+    }
+    .activity-sidebar {
+        width: 240px;
+        min-width: 240px;
+        border-left: 1px solid var(--nr-chat-border);
+    }
+    /* Too narrow for the chat and a 240px column side by side: the list lies
+       over the chat's right edge instead of squeezing it, and may cover the
+       header's toggle, so the list carries its own close button. */
+    @container (max-width: 560px) {
+        .activity-sidebar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 5;
+            width: min(240px, 85%);
+            min-width: 0;
+            box-shadow: -4px 0 12px rgb(0 0 0 / 20%);
+        }
+    }
+    .activity-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .activity-close {
+        margin: 4px 6px 0 0;
+        padding: 2px 6px;
+        border: none;
+        background: none;
+        color: var(--nr-chat-text-variant);
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+    }
+    .activity-close:hover { color: var(--nr-chat-text); }
+    .activity-close:focus-visible { outline: 2px solid var(--nr-chat-status-info); outline-offset: 1px; }
+    .activity h3 {
+        margin: 0;
+        padding: 8px 10px 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--nr-chat-text);
+    }
+    .activity ol {
+        list-style: none;
+        margin: 0;
+        padding: 0 10px 8px;
+        overflow-y: auto;
+    }
+    .activity li {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        padding: 3px 0;
+        color: var(--nr-chat-text);
+        border-bottom: 1px dashed var(--nr-chat-border);
+    }
+    .activity li:last-child { border-bottom: none; }
+    .activity .activity-icon { flex-shrink: 0; width: 1.2em; text-align: center; }
+    .activity .activity-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .activity .activity-meta { flex-shrink: 0; color: var(--nr-chat-text-variant); font-size: 11px; }
+    .activity .activity-error { color: var(--nr-chat-status-danger); }
+    .activity .activity-waiting { color: var(--nr-chat-status-info); }
+    .activity .activity-empty { color: var(--nr-chat-text-variant); border-bottom: none; }
+    .activity-announcement {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+`;
+
+function formatDuration(ms) {
+    if (typeof ms !== 'number' || ms <= 0) return '';
+    return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+}
+
+/**
+ * The entries as the list shows them: the recorded steps, then — derived
+ * from the conversation's state — a pending approval or the running turn.
+ *
+ * @returns {Array<{icon: string, label: string, meta: string, tone: string}>}
+ */
+export function activityEntries(chat) {
+    const entries = (chat.activity || []).map((entry) => {
+        if (entry.kind === 'tool') {
+            return {
+                icon: entry.error ? '✕' : '⚙',
+                label: lll('activity.tool', entry.tool || '?'),
+                meta: entry.error ? lll('activity.failed') : formatDuration(entry.ms),
+                tone: entry.error ? 'error' : '',
+            };
+        }
+        if (entry.kind === 'approval') {
+            return {
+                icon: entry.approved ? '✓' : '⊘',
+                label: entry.approved ? lll('activity.approved') : lll('activity.denied'),
+                meta: '',
+                tone: '',
+            };
+        }
+        return {icon: '◌', label: lll('activity.modelRound', entry.round ?? 0), meta: formatDuration(entry.ms), tone: ''};
+    });
+
+    if (chat.status === 'awaiting_approval') {
+        const names = (chat.pendingApproval?.calls || []).map((c) => c.name).join(', ');
+        entries.push({icon: '⏸', label: lll('activity.waiting'), meta: names, tone: 'waiting'});
+    } else if (chat.isProcessing()) {
+        entries.push({icon: '⟳', label: lll('activity.working'), meta: '', tone: 'waiting'});
+    }
+
+    return entries;
+}
+
+/**
+ * The newest recorded step, as one short sentence for screen readers.
+ *
+ * The list itself is not a live region: announcing it would read the whole
+ * list again on every poll. This region holds the latest step only, so a
+ * screen reader announces each new step once.
+ */
+export function latestStepAnnouncement(chat) {
+    const recorded = chat.activity || [];
+    if (recorded.length === 0) return '';
+    const entries = activityEntries({...chat, activity: [recorded[recorded.length - 1]], status: 'idle', isProcessing: () => false});
+    const latest = entries[0];
+    return latest ? [latest.label, latest.meta].filter(Boolean).join(', ') : '';
+}
+
+/**
+ * @param {object} chat the ChatCoreController
+ * @param {'strip'|'sidebar'} placement
+ */
+export function renderActivity(chat, placement) {
+    if (!chat.activityOpen || !chat.activeUid) {
+        return nothing;
+    }
+    const entries = activityEntries(chat);
+    return html`
+        <aside class="activity activity-${placement}" aria-label="${lll('activity.title')}">
+            <div class="activity-head">
+                <h3>${lll('activity.title')}</h3>
+                <button type="button" class="activity-close" @click=${() => chat.toggleActivity()}
+                    aria-label="${lll('activity.close')}" title="${lll('activity.close')}">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <p class="activity-announcement" role="status">${latestStepAnnouncement(chat)}</p>
+            <ol>
+                ${entries.length === 0
+                    ? html`<li class="activity-empty">${lll('activity.empty')}</li>`
+                    : entries.map((e) => html`
+                        <li class="${e.tone ? `activity-${e.tone}` : ''}">
+                            <span class="activity-icon" aria-hidden="true">${e.icon}</span>
+                            <span class="activity-label">${e.label}</span>
+                            ${e.meta ? html`<span class="activity-meta">${e.meta}</span>` : nothing}
+                        </li>
+                    `)}
+            </ol>
+        </aside>
+    `;
+}

@@ -164,6 +164,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly DocumentExtractorRegistry $documentExtractorRegistry,
         private readonly UploadMimeTypeMap $uploadMimeTypeMap,
         private readonly UserContextPrompt $userContextPrompt,
+        private readonly RunActivityRecorder $activityRecorder,
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
     ) {}
@@ -247,6 +248,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return;
         }
 
+        // A new turn: clear the previous turn's activity before anything can
+        // fail, so a turn that fails in its preparation does not show the
+        // steps of the one before it.
+        $this->activityRecorder->start($conversation);
+
         if ($this->config->getLlmTaskUid() === 0) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(
@@ -305,7 +311,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             messages: $messages,
             actor: $this->resolveActor($conversation->getBeUser()),
             options: (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
-        ));
+        ), $this->activityRecorder->onStep($conversation));
 
         $this->applyResult($conversation, $result);
     }
@@ -561,16 +567,34 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // No caller source is named here: approve() takes no options object, and
         // the caller source is deliberately not part of the persisted options
         // either, so the continuation's provider calls stay unattributed.
+        $approved = $conversation->getApprovalDecision() === self::DECISION_APPROVE;
+
+        // The decision is listed when the runtime acts on it: before the first
+        // step of the continuation, or once approve() returns if none fires. A
+        // decision the runtime refuses never appears in the list.
+        $decisionRecorded = false;
+        $recordDecision = function () use (&$decisionRecorded, $conversation, $approved): void {
+            if (!$decisionRecorded) {
+                $decisionRecorded = true;
+                $this->activityRecorder->recordDecision($conversation, $approved);
+            }
+        };
+        $recordStep = $this->activityRecorder->onStep($conversation);
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
                 $runUuid,
                 new ApprovalDecision(
-                    $conversation->getApprovalDecision() === self::DECISION_APPROVE,
+                    $approved,
                     $conversation->getBeUser(),
                     $conversation->getApprovalTurnDigest(),
                 ),
+                static function (RunStep $step) use ($recordDecision, $recordStep): void {
+                    $recordDecision();
+                    $recordStep($step);
+                },
             );
+            $recordDecision();
         } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException $e) {
             // These four RELEASE the run rather than consume it: it is still
             // pending and still decidable. Put the conversation back where it

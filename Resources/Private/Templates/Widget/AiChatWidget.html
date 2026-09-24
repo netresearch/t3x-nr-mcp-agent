@@ -1,0 +1,44 @@
+{namespace core=TYPO3\CMS\Core\ViewHelpers}
+<f:layout name="Widget/Widget" />
+<f:section name="main">
+    <f:if condition="{available}">
+        <f:then>
+            <f:if condition="{conversations}">
+                <f:then>
+                    <ul class="list-unstyled nr-chat-widget-list">
+                        <f:for each="{conversations}" as="conversation">
+                            <li class="mb-1">
+                                <a href="{f:be.uri(route: 'nr_mcp_agent_chat', parameters: {conversation: conversation.uid})}"
+                                   class="d-block text-truncate"
+                                   data-nr-chat-conversation="{conversation.uid}"
+                                   title="{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.openConversation')}">
+                                    <f:if condition="{conversation.pinned}">&#x1F4CC; </f:if>{f:if(condition: conversation.title, then: conversation.title, else: '{f:translate(key: \'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:conversations.newConversation\')}')}
+                                </a>
+                                <div class="text-body-secondary small">
+                                    {conversation.date}
+                                </div>
+                            </li>
+                        </f:for>
+                    </ul>
+                </f:then>
+                <f:else>
+                    <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.empty')}</p>
+                </f:else>
+            </f:if>
+        </f:then>
+        <f:else>
+            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+        </f:else>
+    </f:if>
+</f:section>
+<f:section name="footer">
+    <f:if condition="{available}">
+        <a class="btn btn-default" href="{f:be.uri(route: 'nr_mcp_agent_chat')}" data-nr-chat-new="1">
+            <core:icon identifier="actions-plus" size="small" />
+            {f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:conversations.new')}
+        </a>
+        <a class="btn btn-link" href="{f:be.uri(route: 'nr_mcp_agent_chat')}">
+            {f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.openModule')}
+        </a>
+    </f:if>
+</f:section>

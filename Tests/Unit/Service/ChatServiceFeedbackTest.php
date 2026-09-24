@@ -34,6 +34,7 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UnavailableToolsReaderInterface;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -131,6 +132,7 @@ final class ChatServiceFeedbackTest extends TestCase
             new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
             $this->createMock(UserContextPrompt::class),
+            $this->createMock(RunActivityRecorder::class),
             unavailableTools: $reader,
         );
     }

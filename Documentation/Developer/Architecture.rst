@@ -153,6 +153,18 @@ The central entity. Stored in
     Optional custom system prompt override (per conversation),
     set by the user through ``/ai-chat/conversations/system-prompt``.
 
+``activity``
+    JSON list of step summaries of the current turn --
+    ``{"kind": "llm"|"tool"|"approval", "round", "ms", "tool",
+    "error", "approved"}``, at most 100. Written column-only by
+    ``RunActivityRecorder``, which is the ``onStep`` callback of
+    ``AgentRuntime::run()`` and ``approve()``; never part of
+    ``Conversation::toRow()``, so the turn's final full-row write
+    cannot put back the list it started with. Returned by
+    ``getMessages`` on both the full and the fast poll path.
+    Tool arguments and results are not stored here; nr-llm's run
+    record keeps them.
+
 ``view_context``
     JSON ``{"pageId": int, "module": string}``: the page the
     module frame showed and the open module when the user last

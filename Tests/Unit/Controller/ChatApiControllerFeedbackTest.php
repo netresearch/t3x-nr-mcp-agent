@@ -198,6 +198,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
             'error_code' => 'providerNotConfigured',
             'approval_run_uuid' => '',
             'tstamp' => time(),
+            'activity' => [],
         ]);
 
         $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1', 'after' => '1'])));

@@ -233,6 +233,7 @@ class ChatApiControllerTest extends TestCase
             'error_message' => '',
             'error_code' => '',
             'approval_run_uuid' => '',
+            'activity' => [],
         ]);
 
         $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '1']);
@@ -860,6 +861,7 @@ class ChatApiControllerTest extends TestCase
             'error_code' => '',
             'approval_run_uuid' => 'run-uuid-1234',
             'tstamp' => time() - 600,
+            'activity' => [],
         ]);
         $conversation = new Conversation();
         $conversation->setStatus(ConversationStatus::Processing);
@@ -886,6 +888,7 @@ class ChatApiControllerTest extends TestCase
             'error_code' => '',
             'approval_run_uuid' => '',
             'tstamp' => time() - 600,
+            'activity' => [],
         ]);
         $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
         $this->chatApproval->expects(self::never())->method('reconcile');
@@ -925,6 +928,7 @@ class ChatApiControllerTest extends TestCase
             'error_message' => '',
             'error_code' => '',
             'approval_run_uuid' => '',
+            'activity' => [],
         ]);
         // findOneByUidAndBeUser should never be called in the fast path
         $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
