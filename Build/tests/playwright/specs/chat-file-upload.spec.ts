@@ -32,6 +32,9 @@ async function openChatWithConversation(page: Page): Promise<void> {
         await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
     }
     await page.waitForFunction(() => !!document.querySelector('ai-chat-panel'), null, { timeout: 10000 });
+    // Until init() has settled the panel renders a spinner instead of the
+    // "New chat" button looked for below.
+    await page.waitForFunction(() => (document.querySelector('ai-chat-panel') as any).chat.loading === false, null, { timeout: 10000 });
     await page.locator('.ai-chat-toolbar-btn').click();
     await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'expanded', { timeout: 3000 });
 
@@ -62,7 +65,7 @@ test.describe('Chat File Upload', () => {
         // The "+" attachment button should be visible in the input area
         const attachBtn = await page.evaluateHandle(() => {
             const panel = document.querySelector('ai-chat-panel');
-            return panel?.shadowRoot?.querySelector('.attachment-menu button, button[title*="attach"], button[aria-label*="attach"]') ?? null;
+            return panel?.shadowRoot?.querySelector('.attach-menu-wrap > button, button[title*="attach"], button[aria-label*="attach"]') ?? null;
         });
         expect(attachBtn).not.toBeNull();
     });
@@ -73,7 +76,7 @@ test.describe('Chat File Upload', () => {
         // If vision is not supported, check that the "+" button is disabled
         const isDisabled = await page.evaluate(() => {
             const panel = document.querySelector('ai-chat-panel');
-            const btn = panel?.shadowRoot?.querySelector('.attachment-menu button') as HTMLButtonElement | null;
+            const btn = panel?.shadowRoot?.querySelector('.attach-menu-wrap > button') as HTMLButtonElement | null;
             // If no attachment menu at all (visionSupported=false), return true (correctly hidden/disabled)
             if (!btn) return true;
             return btn.disabled || btn.hasAttribute('disabled');
@@ -88,7 +91,7 @@ test.describe('Chat File Upload', () => {
 
         const opened = await page.evaluate(() => {
             const panel = document.querySelector('ai-chat-panel');
-            const btn = panel?.shadowRoot?.querySelector('.attachment-menu button') as HTMLButtonElement | null;
+            const btn = panel?.shadowRoot?.querySelector('.attach-menu-wrap > button') as HTMLButtonElement | null;
             if (!btn || btn.disabled) return null;
             btn.click();
             return true;
@@ -103,7 +106,7 @@ test.describe('Chat File Upload', () => {
         await page.waitForTimeout(300);
         const dropdownVisible = await page.evaluate(() => {
             const panel = document.querySelector('ai-chat-panel');
-            return !!panel?.shadowRoot?.querySelector('.attachment-dropdown');
+            return !!panel?.shadowRoot?.querySelector('.attach-menu');
         });
         expect(dropdownVisible).toBe(true);
     });
@@ -127,7 +130,7 @@ test.describe('Chat File Upload', () => {
             const fileInputVisible = await page.evaluate(() => {
                 const panel = document.querySelector('ai-chat-panel');
                 // Open the dropdown first
-                const btn = panel?.shadowRoot?.querySelector('.attachment-menu button') as HTMLButtonElement | null;
+                const btn = panel?.shadowRoot?.querySelector('.attach-menu-wrap > button') as HTMLButtonElement | null;
                 if (!btn || btn.disabled) return false;
                 btn.click();
                 return true;
@@ -145,8 +148,8 @@ test.describe('Chat File Upload', () => {
                 page.waitForEvent('filechooser', { timeout: 3000 }).catch(() => null),
                 page.evaluate(() => {
                     const panel = document.querySelector('ai-chat-panel');
-                    const dropdown = panel?.shadowRoot?.querySelector('.attachment-dropdown');
-                    const uploadBtn = dropdown?.querySelector('button') as HTMLButtonElement | null;
+                    const dropdown = panel?.shadowRoot?.querySelector('.attach-menu');
+                    const uploadBtn = dropdown?.querySelector('[role="menuitem"]') as HTMLButtonElement | null;
                     if (uploadBtn) uploadBtn.click();
                 }),
             ]);
@@ -182,7 +185,7 @@ test.describe('Chat File Upload', () => {
         try {
             const opened = await page.evaluate(() => {
                 const panel = document.querySelector('ai-chat-panel');
-                const btn = panel?.shadowRoot?.querySelector('.attachment-menu button') as HTMLButtonElement | null;
+                const btn = panel?.shadowRoot?.querySelector('.attach-menu-wrap > button') as HTMLButtonElement | null;
                 if (!btn || btn.disabled) return false;
                 btn.click();
                 return true;
@@ -196,7 +199,7 @@ test.describe('Chat File Upload', () => {
                 page.waitForEvent('filechooser', { timeout: 3000 }).catch(() => null),
                 page.evaluate(() => {
                     const panel = document.querySelector('ai-chat-panel');
-                    const uploadBtn = panel?.shadowRoot?.querySelector('.attachment-dropdown button') as HTMLButtonElement | null;
+                    const uploadBtn = panel?.shadowRoot?.querySelector('.attach-menu [role="menuitem"]') as HTMLButtonElement | null;
                     if (uploadBtn) uploadBtn.click();
                 }),
             ]);
@@ -231,7 +234,7 @@ test.describe('Chat File Upload', () => {
         try {
             const opened = await page.evaluate(() => {
                 const panel = document.querySelector('ai-chat-panel');
-                const btn = panel?.shadowRoot?.querySelector('.attachment-menu button') as HTMLButtonElement | null;
+                const btn = panel?.shadowRoot?.querySelector('.attach-menu-wrap > button') as HTMLButtonElement | null;
                 if (!btn || btn.disabled) return false;
                 btn.click();
                 return true;
@@ -245,7 +248,7 @@ test.describe('Chat File Upload', () => {
                 page.waitForEvent('filechooser', { timeout: 3000 }).catch(() => null),
                 page.evaluate(() => {
                     const panel = document.querySelector('ai-chat-panel');
-                    const uploadBtn = panel?.shadowRoot?.querySelector('.attachment-dropdown button') as HTMLButtonElement | null;
+                    const uploadBtn = panel?.shadowRoot?.querySelector('.attach-menu [role="menuitem"]') as HTMLButtonElement | null;
                     if (uploadBtn) uploadBtn.click();
                 }),
             ]);
@@ -300,7 +303,7 @@ test.describe('Chat File Upload', () => {
         try {
             const opened = await page.evaluate(() => {
                 const panel = document.querySelector('ai-chat-panel');
-                const btn = panel?.shadowRoot?.querySelector('.attachment-menu button') as HTMLButtonElement | null;
+                const btn = panel?.shadowRoot?.querySelector('.attach-menu-wrap > button') as HTMLButtonElement | null;
                 if (!btn || btn.disabled) return false;
                 btn.click();
                 return true;
@@ -314,7 +317,7 @@ test.describe('Chat File Upload', () => {
                 page.waitForEvent('filechooser', { timeout: 3000 }).catch(() => null),
                 page.evaluate(() => {
                     const panel = document.querySelector('ai-chat-panel');
-                    const uploadBtn = panel?.shadowRoot?.querySelector('.attachment-dropdown button') as HTMLButtonElement | null;
+                    const uploadBtn = panel?.shadowRoot?.querySelector('.attach-menu [role="menuitem"]') as HTMLButtonElement | null;
                     if (uploadBtn) uploadBtn.click();
                 }),
             ]);

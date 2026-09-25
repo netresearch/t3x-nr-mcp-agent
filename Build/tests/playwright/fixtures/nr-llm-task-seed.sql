@@ -3,18 +3,20 @@
 -- E2E variant, which then points `llmTaskUid` at Task 1.
 --
 -- The rows are taken from nr-llm's own functional fixtures (Providers.csv,
--- Models.csv, LlmConfigurations.csv, Tasks.csv). The provider is Ollama on
--- purpose: it needs no API key, and its adapter reports no vision support, so
--- the specs never reach a real model. No spec waits for a model answer.
+-- Models.csv, LlmConfigurations.csv, Tasks.csv). The provider uses the OpenAI
+-- adapter because it reports vision support, which the file-upload specs need
+-- to reach the attachment menu at all. It carries no API key and points at a
+-- closed local port, so no request leaves the runner; no spec waits for a
+-- model answer.
 INSERT INTO tx_nrllm_provider
     (uid, pid, identifier, name, description, adapter_type, endpoint_url, api_key, organization_id, api_timeout, max_retries, options, is_active, sorting, deleted, hidden)
 VALUES
-    (1, 0, 'e2e-ollama', 'E2E Ollama', 'Placeholder provider for the Playwright suite; never called', 'ollama', 'http://127.0.0.1:11434', '', '', 30, 0, '', 1, 1, 0, 0);
+    (1, 0, 'e2e-openai', 'E2E OpenAI', 'Placeholder provider for the Playwright suite; never reachable', 'openai', 'http://127.0.0.1:9/v1', '', '', 5, 0, '', 1, 1, 0, 0);
 
 INSERT INTO tx_nrllm_model
     (uid, pid, identifier, name, description, provider_uid, model_id, context_length, max_output_tokens, capabilities, default_timeout, cost_input, cost_output, is_active, is_default, sorting, deleted, hidden)
 VALUES
-    (1, 0, 'e2e-model', 'E2E Model', 'Placeholder model for the Playwright suite', 1, 'e2e-model', 8192, 1024, 'chat,tools', 120, 0, 0, 1, 1, 1, 0, 0);
+    (1, 0, 'e2e-model', 'E2E Model', 'Placeholder model for the Playwright suite', 1, 'e2e-model', 8192, 1024, 'chat,vision,tools', 5, 0, 0, 1, 1, 1, 0, 0);
 
 INSERT INTO tx_nrllm_configuration
     (uid, pid, identifier, name, description, model_uid, translator, system_prompt, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, options, max_requests_per_day, max_tokens_per_day, max_cost_per_day, is_active, is_default, allowed_groups, tstamp, crdate, deleted, hidden, sorting)
