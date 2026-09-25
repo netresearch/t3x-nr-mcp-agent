@@ -14,6 +14,9 @@ class ConversationRepositoryTest extends FunctionalTestCase
 {
     private const CONV_1_TITLE = 'Conv 1';
 
+    // nr_mcp_agent depends on filelist (the FAL picker's element browser).
+    protected array $coreExtensionsToLoad = ['filelist'];
+
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',
         'netresearch/nr-llm',

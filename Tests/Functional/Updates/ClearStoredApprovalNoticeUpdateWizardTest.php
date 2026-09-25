@@ -30,6 +30,9 @@ class ClearStoredApprovalNoticeUpdateWizardTest extends FunctionalTestCase
     /** A reason performRecordedDecision() writes back when the runtime refuses a decision; the chat must keep showing it. */
     private const REFUSAL_REASON = 'The run could not be resumed: the turn has moved on since the card was shown.';
 
+    // nr_mcp_agent depends on filelist (the FAL picker's element browser).
+    protected array $coreExtensionsToLoad = ['filelist'];
+
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',
         'netresearch/nr-llm',

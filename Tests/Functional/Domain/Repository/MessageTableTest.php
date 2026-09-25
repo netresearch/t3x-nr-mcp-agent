@@ -27,6 +27,9 @@ final class MessageTableTest extends FunctionalTestCase
 
     private const MESSAGES = 'tx_nrmcpagent_message';
 
+    // nr_mcp_agent depends on filelist (the FAL picker's element browser).
+    protected array $coreExtensionsToLoad = ['filelist'];
+
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',
         'netresearch/nr-llm',

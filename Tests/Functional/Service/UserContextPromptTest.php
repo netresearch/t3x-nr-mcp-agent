@@ -16,6 +16,9 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  */
 final class UserContextPromptTest extends FunctionalTestCase
 {
+    // nr_mcp_agent depends on filelist (the FAL picker's element browser).
+    protected array $coreExtensionsToLoad = ['filelist'];
+
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',
         'netresearch/nr-llm',
