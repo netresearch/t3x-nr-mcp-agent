@@ -71,11 +71,12 @@ test.describe('AI Chat Backend Module', () => {
         const iframe = await navigateToModule(page);
         const chatApp = iframe.locator('nr-chat-app');
 
-        // The sidebar shows "Conversations" heading and "No conversations yet"
-        const conversationsHeading = chatApp.getByRole('heading', { name: 'Conversations' });
+        // The sidebar shows the "Chats" heading and the empty-list notice
+        // (conversations.title and conversations.empty in locallang_chat.xlf)
+        const conversationsHeading = chatApp.getByRole('heading', { name: 'Chats' });
         await expect(conversationsHeading).toBeVisible({ timeout: 5000 });
 
-        const emptyState = chatApp.getByText('No conversations yet');
+        const emptyState = chatApp.getByText('No chats yet. Start a new one!');
         await expect(emptyState).toBeVisible({ timeout: 5000 });
     });
 
