@@ -35,6 +35,8 @@ jobs:
       # the toolbar chat panel). seed-and-test.sh branches on the variant.
       setup-variants: '["unconfigured","configured"]'
       test-command: 'bash Build/tests/playwright/seed-and-test.sh'
+      # var/log/ carries the TYPO3 exception log behind a backend 500.
       artifact-path: |
         playwright-report/
         Build/tests/playwright/test-results/
+        var/log/
