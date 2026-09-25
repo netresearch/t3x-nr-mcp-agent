@@ -91,8 +91,22 @@ test.describe('AI Chat Panel', () => {
         await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'expanded', { timeout: 3000 });
 
         const panel = page.locator('ai-chat-panel');
+
+        // The panel opens 16px from the right edge of the viewport
+        // (_defaultPosition) and the grip never widens it past that edge, so
+        // move it left by its header first to leave room for the drag below.
+        const startBox = await panel.boundingBox();
+        const header = await page.locator('ai-chat-panel .panel-header .title').boundingBox();
+        expect(startBox).not.toBeNull();
+        expect(header).not.toBeNull();
+        await page.mouse.move(header!.x + 10, header!.y + header!.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(header!.x - 190, header!.y + header!.height / 2, { steps: 10 });
+        await page.mouse.up();
+
         const box = await panel.boundingBox();
         if (!box) { test.skip(); return; }
+        expect(box.x).toBeLessThan(startBox!.x - 150);
 
         // Drag the bottom-right corner to resize
         const gripX = box.x + box.width - 8;

@@ -67,6 +67,9 @@ If not installed, XLSX files will be rejected at upload time with a 422 response
    vendor/bin/typo3 database:updateschema
    ```
 
+   This also installs EXT:filelist (`typo3/cms-filelist`); the file picker
+   opens its element browser, so it must stay active.
+
 2. In nr-llm, create a **Task** record that configures your LLM provider
    (e.g. OpenAI, Anthropic). Note the UID.
 

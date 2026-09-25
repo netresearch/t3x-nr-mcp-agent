@@ -17,7 +17,8 @@ CI/CD is built from thin callers of shared reusable workflows (`netresearch/typo
 | `release.yml` | TER/release packaging — intentional drift (extension key etc.) |
 | `mutation.yml` | Infection via the shared `php-mutation` reusable |
 | `docs.yml` | docs.typo3.org render, runs on `Documentation/**` changes |
-| `e2e.yml` | Playwright E2E — `workflow_dispatch` only, no automatic trigger |
+| `e2e.yml` | Playwright E2E on PRs and `main` via the shared `e2e.yml` reusable; two setup variants (`unconfigured`, `configured` with a seeded nr-llm Task), driven by `Build/tests/playwright/seed-and-test.sh` |
+| `js-tests.yml` | Jest suite (`npm run test:js`) via the shared `node-test.yml` reusable |
 | `harness-verify.yml` | Agent-harness consistency via `Build/Scripts/verify-harness.sh` |
 | `dco.yml`, `labeler.yml`, `community.yml`, `auto-merge-deps.yml`, `pages.yml`, `ter-publish.yml` | Housekeeping/release plumbing |
 

@@ -15,7 +15,7 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  */
 final class AiChatWidgetRegistrationTest extends FunctionalTestCase
 {
-    protected array $coreExtensionsToLoad = ['dashboard'];
+    protected array $coreExtensionsToLoad = ['dashboard', 'filelist'];
 
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',
