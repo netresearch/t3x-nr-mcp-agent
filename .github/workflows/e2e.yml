@@ -29,7 +29,11 @@ jobs:
       # composer.json allows ^13.4 || ^14.0; ci.yml tests 13.4 only, and an
       # unconstrained install would resolve 14.
       typo3-versions: '["^13.4"]'
-      typo3-packages: '["typo3/cms-core","typo3/cms-backend"]'
+      # typo3/cms-filelist registers the `file` element browser the FAL picker
+      # opens (fal-picker.spec.ts). composer.json does not require it, and
+      # without it that iframe answers 500: "Element browser with identifier
+      # file is not registered".
+      typo3-packages: '["typo3/cms-core","typo3/cms-backend","typo3/cms-filelist"]'
       # The specs need two installation states that cannot coexist: without an
       # nr-llm Task (ai-chat-module.spec.ts) and with one (every spec driving
       # the toolbar chat panel). seed-and-test.sh branches on the variant.
