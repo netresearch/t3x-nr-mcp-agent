@@ -31,6 +31,9 @@ test('the toolbar button loads and expands the chat panel', async ({ page }) => 
     expect(nrMcpImports.length).toBeGreaterThan(0);
 
     await page.waitForFunction(() => !!document.querySelector('ai-chat-panel'), null, { timeout: 10000 });
+    // The element exists before init() has loaded the conversations; until
+    // then the panel shows a spinner.
+    await page.waitForFunction(() => (document.querySelector('ai-chat-panel') as any).chat.loading === false, null, { timeout: 10000 });
 
     await page.locator('.ai-chat-toolbar-btn').click();
     await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'expanded', { timeout: 3000 });
