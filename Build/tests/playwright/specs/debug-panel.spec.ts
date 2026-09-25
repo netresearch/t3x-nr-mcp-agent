@@ -3,9 +3,16 @@ import { test, expect } from '@playwright/test';
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
 const TYPO3_PASSWORD = process.env.TYPO3_ADMIN_PASSWORD || 'Joh316!!';
 
-test('debug: inspect toolbar button and panel DOM', async ({ page }) => {
-    const consoleMessages: string[] = [];
-    page.on('console', msg => consoleMessages.push(`[${msg.type()}] ${msg.text()}`));
+// The wiring the other panel specs take for granted: the import map carries
+// the extension's modules, the toolbar item renders the panel element, the
+// panel loads without a console error, and the toolbar button expands it.
+test('the toolbar button loads and expands the chat panel', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', msg => {
+        if (msg.type() === 'error') {
+            consoleErrors.push(msg.text());
+        }
+    });
 
     await page.goto('/typo3/');
     const loginForm = page.locator('#t3-login-form, form[name="loginform"]');
@@ -16,34 +23,17 @@ test('debug: inspect toolbar button and panel DOM', async ({ page }) => {
         await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
     }
 
-    // Wait a bit for JS modules to load
-    await page.waitForTimeout(2000);
-
-    // Check importmap
-    const importMap = await page.evaluate(() => {
+    const nrMcpImports = await page.evaluate(() => {
         const el = document.querySelector('script[type="importmap"]');
-        if (!el) return 'NO IMPORTMAP';
-        const map = JSON.parse(el.textContent || '{}');
-        const nrEntries = Object.entries(map.imports || {}).filter(([k]) => k.includes('nr-mcp'));
-        return JSON.stringify(nrEntries);
+        const map = JSON.parse(el?.textContent || '{}');
+        return Object.keys(map.imports || {}).filter(k => k.includes('nr-mcp'));
     });
-    console.log('Import map nr-mcp entries:', importMap);
+    expect(nrMcpImports.length).toBeGreaterThan(0);
 
-    // Check panel
-    const panelExists = await page.evaluate(() => !!document.querySelector('ai-chat-panel'));
-    console.log('Panel element exists:', panelExists);
+    await page.waitForFunction(() => !!document.querySelector('ai-chat-panel'), null, { timeout: 10000 });
 
-    // Check all console messages
-    console.log('Console messages:', consoleMessages.filter(m => m.includes('chat') || m.includes('error') || m.includes('Error')).join('\n'));
-
-    // Try clicking
     await page.locator('.ai-chat-toolbar-btn').click();
-    await page.waitForTimeout(1000);
-    const stateAfterClick = await page.evaluate(() => {
-        const panel = document.querySelector('ai-chat-panel');
-        return panel ? panel.getAttribute('state') : 'NO PANEL';
-    });
-    console.log('Panel state after click:', stateAfterClick);
+    await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'expanded', { timeout: 3000 });
 
-    expect(true).toBe(true);
+    expect(consoleErrors.filter(m => /chat|nr-mcp/i.test(m))).toEqual([]);
 });
