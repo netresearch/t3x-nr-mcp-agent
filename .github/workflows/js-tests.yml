@@ -1,0 +1,27 @@
+name: JavaScript Tests
+
+# Runs the Jest suite in Tests/JavaScript (`npm run test:js`). The Lit
+# components had unit tests, but no workflow ran them.
+#
+# Thin caller of the shared node-test reusable, so the action pins and
+# harden-runner stay maintained centrally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  jest:
+    uses: netresearch/.github/.github/workflows/node-test.yml@main
+    permissions:
+      contents: read
+    with:
+      package-manager: npm
+      node-version: '24'
+      install-cmd: npm ci --no-audit --no-fund
+      test-cmd: npm run test:js
