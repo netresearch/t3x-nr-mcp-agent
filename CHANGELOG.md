@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`typo3/cms-filelist` is a declared dependency** (NEXT-172). The FAL picker opens TYPO3's `file` element browser, which EXT:filelist registers. Without it the picker answered 500 ("Element browser with identifier file is not registered"). `composer.json` requires it and `ext_emconf.php` depends on it.
+
 ## [0.15.0] - 2026-09-24
 
 ### Added

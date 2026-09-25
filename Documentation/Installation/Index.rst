@@ -9,6 +9,8 @@ Requirements
 
 *   TYPO3 v13.4+ or v14.x
 *   PHP 8.2+
+*   EXT:filelist (``typo3/cms-filelist``) -- the file picker
+    uses its element browser
 *   `netresearch/nr-llm <https://github.com/netresearch/
     t3x-nr-llm>`__ (^0.37) -- LLM abstraction layer
 
