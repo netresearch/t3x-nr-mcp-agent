@@ -1,99 +1,40 @@
 name: E2E Tests
 
-# E2E tests require a running TYPO3 instance.
-# Triggered manually via workflow_dispatch; there is no automatic trigger.
-# For local runs: make test-e2e (requires DDEV)
+# Playwright specs in Build/tests/playwright/specs against a TYPO3 13.4
+# installation the shared reusable workflow sets up (MariaDB, `typo3 setup`,
+# PHP built-in server, admin user `admin` / `Joh316!!` — the specs' defaults).
+# For local runs: make test-e2e (requires DDEV).
 on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
   workflow_dispatch:
-    inputs:
-      typo3_base_url:
-        description: 'TYPO3 base URL (defaults to DDEV site)'
-        required: false
-        default: 'https://v13.nr-mcp-agent.ddev.site:33001'
 
-# The job only reads the repository and uploads an artifact; neither needs
-# more than read access to contents. Without this block the job receives the
-# repository's default token scope, which is broader than it uses.
-permissions:
-  contents: read
+permissions: {}
+
+# Supersede stale PR runs; merge_group and push-to-main are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   e2e:
-    name: Playwright E2E
-    runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:26.7
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: typo3
-          MYSQL_USER: typo3
-          MYSQL_PASSWORD: typo3
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240  # v2
-        with:
-          php-version: '8.3'
-          tools: composer:v2
-          extensions: pdo_mysql
-          coverage: none
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
-        with:
-          node-version: '24'
-
-      - name: Install PHP dependencies
-        run: composer require --no-interaction typo3/cms-core:"^13.4" typo3/cms-backend:"^13.4" -W --no-progress
-
-      - name: Install TYPO3
-        env:
-          TYPO3_DB_HOST: 127.0.0.1
-          TYPO3_DB_PORT: 3306
-          TYPO3_DB_NAME: typo3
-          TYPO3_DB_USERNAME: typo3
-          TYPO3_DB_PASSWORD: typo3
-        run: |
-          .Build/bin/typo3 setup \
-            --driver=mysqli \
-            --host=127.0.0.1 \
-            --port=3306 \
-            --dbname=typo3 \
-            --username=typo3 \
-            --password=typo3 \
-            --admin-user-name=admin \
-            --admin-password=Admin1234! \
-            --project-name="nr-mcp-agent E2E" \
-            --no-interaction
-          .Build/bin/typo3 extension:setup
-          .Build/bin/typo3 database:updateschema
-
-      - name: Start PHP built-in server
-        run: |
-          php -S 127.0.0.1:8080 -t .Build/Web &
-          echo "PHP server started"
-          sleep 2
-
-      - name: Install Playwright
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-
-      - name: Run E2E tests
-        env:
-          TYPO3_BASE_URL: ${{ github.event.inputs.typo3_base_url || 'http://127.0.0.1:8080' }}
-        run: npx playwright test --config=Build/tests/playwright/playwright.config.ts
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+    uses: netresearch/typo3-ci-workflows/.github/workflows/e2e.yml@main
+    permissions:
+      contents: read
+    with:
+      # Same range as the ci.yml matrix (8.2-8.4); composer's platform is 8.2.
+      php-version: '8.3'
+      # composer.json allows ^13.4 || ^14.0; ci.yml tests 13.4 only, and an
+      # unconstrained install would resolve 14.
+      typo3-versions: '["^13.4"]'
+      typo3-packages: '["typo3/cms-core","typo3/cms-backend"]'
+      # The specs need two installation states that cannot coexist: without an
+      # nr-llm Task (ai-chat-module.spec.ts) and with one (every spec driving
+      # the toolbar chat panel). seed-and-test.sh branches on the variant.
+      setup-variants: '["unconfigured","configured"]'
+      test-command: 'bash Build/tests/playwright/seed-and-test.sh'
+      artifact-path: |
+        playwright-report/
+        Build/tests/playwright/test-results/
