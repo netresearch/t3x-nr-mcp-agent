@@ -7,7 +7,7 @@ Installation
 Requirements
 ============
 
-*   TYPO3 v13.4+ or v14.x
+*   TYPO3 v13.4 LTS or v14.3 LTS
 *   PHP 8.2+
 *   EXT:filelist (``typo3/cms-filelist``) -- the file picker
     uses its element browser
