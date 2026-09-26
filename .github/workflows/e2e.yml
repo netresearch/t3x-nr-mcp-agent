@@ -26,7 +26,7 @@ jobs:
     with:
       # Same range as the ci.yml matrix (8.2-8.4); composer's platform is 8.2.
       php-version: '8.3'
-      # composer.json allows ^13.4 || ^14.0; ci.yml tests 13.4 only, and an
+      # composer.json allows ^13.4 || ^14.3; ci.yml tests 13.4 only, and an
       # unconstrained install would resolve 14.
       typo3-versions: '["^13.4"]'
       # typo3/cms-filelist registers the `file` element browser the FAL picker

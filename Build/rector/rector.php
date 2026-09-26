@@ -15,7 +15,7 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
     $configure($rectorConfig, __DIR__ . '/../..');
 
     // UP_TO_TYPO3_13 matches the lowest supported core major (typo3/cms-core
-    // ^13.4 || ^14.0); fleet convention: repos still supporting v13 use the
+    // ^13.4 || ^14.3); fleet convention: repos still supporting v13 use the
     // v13 level set (see t3x-nr-vault, t3x-nr-image-optimize).
     $rectorConfig->sets([
         Typo3LevelSetList::UP_TO_TYPO3_13,
