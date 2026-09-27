@@ -1101,7 +1101,7 @@ export class AiChatPanel extends LitElement {
         }
 
         let style = this._dressStyle;
-        if (!style || style.ownerDocument !== doc) {
+        if (style?.ownerDocument !== doc) {
             style = doc.createElement('style');
             doc.head.append(style);
             this._dressStyle = style;
