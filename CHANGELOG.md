@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-09-27
+
+### Changed
+
+- **Accept nr-llm 0.38.** `composer.json` requires `netresearch/nr-llm` at `^0.37 || ^0.38`, and `ext_emconf.php` declares `nr_llm 0.37.0-0.38.99` to match. On a 0.x version `^0.37` does not admit 0.38.0, so this extension kept an installation from moving to nr-llm 0.38. The floor stays at 0.37.
+
+### Fixed
+
+- **TYPO3 is required as 13.4 LTS or 14.3 LTS.** `composer.json` requires `^13.4 || ^14.3` for `typo3/cms-backend`, `cms-core`, `cms-filelist` and `cms-install` (and `cms-dashboard` in `require-dev`), and `ext_emconf.php` declares `13.4.0-14.3.99` for `typo3`, `filelist` and the `dashboard` suggestion. The non-LTS releases 14.0 to 14.2 no longer resolve this extension.
+
 ## [0.15.1] - 2026-09-25
 
 ### Fixed
