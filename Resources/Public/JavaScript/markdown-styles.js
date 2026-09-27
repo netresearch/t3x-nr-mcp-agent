@@ -31,7 +31,7 @@ export const markdownStyles = css`
     .message.assistant pre code { background: none; padding: 0; }
     .message.assistant blockquote {
         border-left: 3px solid color-mix(in srgb, currentColor 20%, transparent); margin: 4px 0;
-        padding: 2px 10px; color: inherit; opacity: 0.8;
+        padding: 2px 10px; color: var(--nr-chat-text-variant);
     }
     .message.assistant hr { border: none; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); margin: 8px 0; }
     .message.assistant table { border-collapse: collapse; margin: 6px 0; font-size: 0.9em; }

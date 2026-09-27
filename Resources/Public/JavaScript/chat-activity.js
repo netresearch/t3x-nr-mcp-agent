@@ -63,7 +63,7 @@ export const chatActivityStyles = css`
     }
     .activity-close:hover { color: var(--nr-chat-text); }
     .activity-close:focus-visible { outline: 2px solid var(--nr-chat-status-info); outline-offset: 1px; }
-    .activity h3 {
+    .activity h2 {
         margin: 0;
         padding: 8px 10px 4px;
         font-size: 12px;
@@ -173,7 +173,7 @@ export function renderActivity(chat, placement) {
     return html`
         <aside class="activity activity-${placement}" aria-label="${lll('activity.title')}">
             <div class="activity-head">
-                <h3>${lll('activity.title')}</h3>
+                <h2>${lll('activity.title')}</h2>
                 <button type="button" class="activity-close" @click=${() => chat.toggleActivity()}
                     aria-label="${lll('activity.close')}" title="${lll('activity.close')}">
                     <span aria-hidden="true">×</span>

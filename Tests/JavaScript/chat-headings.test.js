@@ -1,0 +1,83 @@
+/**
+ * Heading structure of the AI Chat module.
+ *
+ * The module document is `<body><nr-chat-app>` and nothing else, so the
+ * component is the only place its headings can come from. It used to open
+ * with an h3 ("Conversations") and have no h1 at all: axe reported
+ * page-has-heading-one on the demo, and a screen-reader user jumping by
+ * heading landed on a third-level heading with nothing above it.
+ */
+
+import {describe, test, expect, beforeEach} from '@jest/globals';
+
+async function renderModule(chatState = {}) {
+    await import('../../Resources/Public/JavaScript/chat-app.js');
+
+    const el = document.createElement('nr-chat-app');
+    document.body.append(el);
+    Object.assign(el.chat, {
+        activeUid: null,
+        available: true,
+        loading: false,
+        issues: [],
+        conversations: [],
+        messages: [],
+        ...chatState,
+    });
+    el.requestUpdate();
+    await el.updateComplete;
+
+    return el;
+}
+
+/** Heading levels in document order, shadow root included. */
+function headingLevels(el) {
+    return [...el.shadowRoot.querySelectorAll('h1, h2, h3, h4, h5, h6')]
+        .map((h) => Number(h.localName.slice(1)));
+}
+
+const OPEN_CONVERSATION = {activeUid: 42, conversations: [{uid: 42, title: 'Hello', status: 'idle'}]};
+
+describe('chat module headings', () => {
+    beforeEach(() => {
+        document.body.replaceChildren();
+    });
+
+    test.each([
+        ['without an open conversation', {}],
+        ['with an open conversation', OPEN_CONVERSATION],
+    ])('has exactly one h1 %s', async (_label, state) => {
+        const el = await renderModule(state);
+
+        expect(headingLevels(el).filter((level) => level === 1)).toHaveLength(1);
+    });
+
+    test('the h1 names the open conversation', async () => {
+        const el = await renderModule(OPEN_CONVERSATION);
+
+        expect(el.shadowRoot.querySelector('h1').textContent.trim()).toBe('Hello');
+    });
+
+    test('the h1 names the module when no conversation is open', async () => {
+        const el = await renderModule();
+
+        expect(el.shadowRoot.querySelector('h1').textContent.trim()).toBe('panel.title');
+    });
+
+    test.each([
+        ['without an open conversation', {}],
+        ['with the activity panel open', {...OPEN_CONVERSATION, activityOpen: true}],
+    ])('skips no heading level %s', async (_label, state) => {
+        const el = await renderModule(state);
+        const levels = headingLevels(el);
+
+        // No heading may go deeper than one level below the deepest one
+        // opened so far — an h1 followed by an h3 breaks the outline.
+        let deepest = 1;
+        for (const level of levels) {
+            expect(level).toBeLessThanOrEqual(deepest + 1);
+            deepest = Math.max(deepest, level);
+        }
+        expect(levels.length).toBeGreaterThan(1);
+    });
+});

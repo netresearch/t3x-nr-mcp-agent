@@ -64,7 +64,7 @@ export class ChatApp extends LitElement {
             padding: 12px;
             border-bottom: 1px solid var(--nr-chat-border);
         }
-        .sidebar-header h3 {
+        .sidebar-header h2 {
             margin: 0;
             font-size: 14px;
         }
@@ -119,6 +119,16 @@ export class ChatApp extends LitElement {
             padding: 8px 12px;
             border-bottom: 1px solid var(--nr-chat-border);
             min-height: 44px;
+        }
+        /* The module's one h1: the open conversation, or the module name. */
+        .main-title {
+            flex: 1;
+            margin: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: inherit;
+            font-weight: 700;
         }
         .messages {
             flex: 1;
@@ -179,7 +189,7 @@ export class ChatApp extends LitElement {
             background: var(--nr-chat-surface-base);
             font-size: 12px;
             font-family: monospace;
-            opacity: 0.7;
+            color: var(--nr-chat-text-variant);
             max-height: 100px;
             overflow: hidden;
             cursor: pointer;
@@ -206,7 +216,7 @@ export class ChatApp extends LitElement {
         .approval-call { margin-bottom: 8px; }
         .approval-call code { font-size: .9em; }
         .approval-preview ul { margin: 4px 0 0; padding-left: 1.2em; }
-        .approval-warning { color: var(--nr-chat-status-warning, #ef6c00); margin-left: 6px; }
+        .approval-warning { color: var(--nr-chat-status-warning); margin-left: 6px; }
         .approval-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
         .approval-run-link { display: inline-block; margin-top: 6px; font-size: 12px; }
         .approval-stale { margin: 4px 0; }
@@ -227,11 +237,11 @@ export class ChatApp extends LitElement {
             border-radius: 6px; font-size: 12px;
         }
         .file-badge .file-badge-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .file-badge .remove { cursor: pointer; opacity: 0.5; font-size: 16px; line-height: 1; }
-        .file-badge .remove:hover { opacity: 1; }
+        .file-badge .remove { cursor: pointer; color: var(--nr-chat-text-variant); font-size: 16px; line-height: 1; }
+        .file-badge .remove:hover { color: var(--nr-chat-text); }
         .message-file-badge {
             display: flex; align-items: center; gap: 4px;
-            font-size: 11px; margin-bottom: 3px; opacity: 0.85;
+            font-size: 11px; margin-bottom: 3px;
         }
 
         /* Attach menu */
@@ -409,7 +419,6 @@ export class ChatApp extends LitElement {
         .empty-state-hint {
             margin: 16px 0 0 !important;
             font-size: 13px;
-            opacity: 0.85;
         }
 
         .issues-banner {
@@ -564,7 +573,7 @@ export class ChatApp extends LitElement {
     _renderSidebar() {
         return html`
             <div class="sidebar-header">
-                <h3>${lll('conversations.title')}</h3>
+                <h2>${lll('conversations.title')}</h2>
                 <button class="btn btn-icon"
                     @click=${() => this.chat.handleNewConversation()}
                     ?disabled=${!this.chat.available}
@@ -642,6 +651,7 @@ export class ChatApp extends LitElement {
             return html`
                 <div class="main-header">
                     ${this._renderToggleButton()}
+                    <h1 class="main-title">${lll('panel.title')}</h1>
                 </div>
                 <div class="empty-state">
                     ${this.chat.available
@@ -658,9 +668,9 @@ export class ChatApp extends LitElement {
         return html`
             <div class="main-header">
                 ${this._renderToggleButton()}
-                <strong style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                <h1 class="main-title">
                     ${conv?.title || lll('conversations.newConversation')}
-                </strong>
+                </h1>
                 <button class="btn btn-sm" @click=${() => this.chat.handleTogglePin()}
                     title="${conv?.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                     ${conv?.pinned ? '\u{1F4CC}' : lll('conversations.pin')}
@@ -835,7 +845,7 @@ export class ChatApp extends LitElement {
 
         return html`
             <div class="message-notice" role="note"
-                style="color:var(--nr-chat-status-warning, #8a5300);font-size:12px;margin-top:4px;">
+                style="color:var(--nr-chat-status-warning);font-size:12px;margin-top:4px;">
                 \u26A0\uFE0F ${lll('chat.nothingSaved')}
             </div>
         `;

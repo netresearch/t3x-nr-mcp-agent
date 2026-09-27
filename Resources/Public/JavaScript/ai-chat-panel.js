@@ -92,19 +92,17 @@ export class AiChatPanel extends LitElement {
         .resize-grip svg {
             width: 14px;
             height: 14px;
-            opacity: 0.3;
-            transition: opacity 0.15s;
+            color: var(--nr-chat-text-variant);
+            transition: color 0.15s;
         }
         .resize-grip:hover svg,
-        .resize-grip:active svg {
-            opacity: 0.6;
+        .resize-grip:active svg,
+        .resize-grip:focus-visible svg {
+            color: var(--nr-chat-text);
         }
         .resize-grip:focus-visible {
             outline: 2px solid var(--nr-chat-focus-ring);
             outline-offset: -2px;
-        }
-        .resize-grip:focus-visible svg {
-            opacity: 0.8;
         }
 
         /* Panel header — drag handle */
@@ -166,7 +164,7 @@ export class AiChatPanel extends LitElement {
             padding: 10px 12px;
             border-bottom: 1px solid var(--nr-chat-border);
         }
-        .panel-sidebar-header h3 {
+        .panel-sidebar-header h2 {
             margin: 0;
             font-size: 13px;
         }
@@ -329,17 +327,17 @@ export class AiChatPanel extends LitElement {
             flex-shrink: 0;
             font-size: 11px;
         }
-        .conv-tab .tab-icon.status-processing,
-        .conv-tab .tab-icon.status-tool_loop,
         .approval-card { margin-top: 8px; }
         .approval-call { margin-bottom: 8px; }
         .approval-call code { font-size: .9em; }
         .approval-preview ul { margin: 4px 0 0; padding-left: 1.2em; }
-        .approval-warning { color: var(--nr-chat-status-warning, #ef6c00); margin-left: 6px; }
+        .approval-warning { color: var(--nr-chat-status-warning); margin-left: 6px; }
         .approval-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
         .approval-run-link { display: inline-block; margin-top: 6px; font-size: 12px; }
         .approval-stale { margin: 4px 0; }
         .approval-card pre { margin: 4px 0 0; max-height: 12em; overflow: auto; }
+        .conv-tab .tab-icon.status-processing,
+        .conv-tab .tab-icon.status-tool_loop,
         .conv-tab .tab-icon.status-awaiting_approval,
         .conv-tab .tab-icon.status-failed  { color: var(--nr-chat-status-danger); }
         .conv-tab .tab-icon.status-idle    { color: var(--nr-chat-status-success); }
@@ -500,7 +498,7 @@ export class AiChatPanel extends LitElement {
             justify-content: center;
         }
         .avatar-assistant { background: var(--nr-chat-accent); color: var(--nr-chat-on-accent); }
-        .avatar-user { background: var(--nr-chat-surface-high); color: #555; }
+        .avatar-user { background: var(--nr-chat-surface-high); color: var(--nr-chat-text); }
         .message-time {
             font-size: 10px;
             color: var(--nr-chat-text-variant);
@@ -528,7 +526,7 @@ export class AiChatPanel extends LitElement {
             background: var(--nr-chat-surface-base);
             font-size: 11px;
             font-family: monospace;
-            opacity: 0.5;
+            color: var(--nr-chat-text-variant);
             max-height: 40px;
             overflow: hidden;
             cursor: pointer;
@@ -593,11 +591,11 @@ export class AiChatPanel extends LitElement {
             border-radius: 6px; font-size: 12px;
         }
         .file-badge .file-badge-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .file-badge .remove { cursor: pointer; opacity: 0.5; font-size: 16px; line-height: 1; }
-        .file-badge .remove:hover { opacity: 1; }
+        .file-badge .remove { cursor: pointer; color: var(--nr-chat-text-variant); font-size: 16px; line-height: 1; }
+        .file-badge .remove:hover { color: var(--nr-chat-text); }
         .message-file-badge {
             display: flex; align-items: center; gap: 4px;
-            font-size: 11px; margin-bottom: 3px; opacity: 0.85;
+            font-size: 11px; margin-bottom: 3px;
         }
 
         /* Input area */
@@ -705,7 +703,6 @@ export class AiChatPanel extends LitElement {
         .empty-state-hint {
             margin: 12px 0 0 !important;
             font-size: 12px;
-            opacity: 0.85;
         }
 
         .btn-primary {
@@ -962,8 +959,9 @@ export class AiChatPanel extends LitElement {
      *
      * The element is MOVED rather than re-rendered into the new document: the
      * conversation lives on the controller attached to this instance, and a copy
-     * would start empty. The --nr-chat-* properties fall back to their literals
-     * once the backend's --typo3-* are out of reach.
+     * would start empty. The backend's --typo3-* tokens and its colour scheme
+     * do not exist in the new document either; _dressWindow() carries them over,
+     * or the --nr-chat-* properties would fall back to their light literals.
      *
      * The styles do NOT travel with the element, which this comment used to
      * claim. Lit applies `static styles` through `adoptedStyleSheets`, and a
@@ -1055,11 +1053,18 @@ export class AiChatPanel extends LitElement {
      * shows as a white frame, and until it has painted the window is the
      * browser's blank white whatever theme the backend is in.
      *
-     * The background is carried over as a resolved value: --typo3-component-bg
-     * is declared on the BACKEND document's root, so a var() reference in the
-     * new document could only ever produce its fallback. If it does not resolve,
-     * nothing is set — the reset alone already removes the frame, and a literal
-     * here would be the hardcoded colour the colour-scheme guard forbids.
+     * The --typo3-* tokens the panel's styles reference are declared on the
+     * BACKEND document's root, so a var() reference in the new document could
+     * only ever produce its fallback — the light literals in theme.js. They are
+     * copied onto the new root as the backend computes them. A computed custom
+     * property still holds `light-dark(…)` unresolved; it picks its branch
+     * where it is used, from that document's `color-scheme`. So the backend
+     * root's computed `color-scheme` is copied too: core derives it from the
+     * user's TYPO3 setting (`data-color-scheme`), which makes the detached
+     * window follow that setting rather than the operating system.
+     *
+     * Nothing is set for a token that does not resolve — a literal here would
+     * be the hardcoded colour the colour-scheme guard forbids.
      *
      * @param {Window} targetWindow
      */
@@ -1069,16 +1074,50 @@ export class AiChatPanel extends LitElement {
             return;
         }
 
+        const backendRoot = getComputedStyle(document.documentElement);
+        const declarations = [];
+        const scheme = backendRoot.getPropertyValue('color-scheme').trim();
+        if (scheme !== '') {
+            declarations.push(`color-scheme:${scheme};`);
+        }
+        for (const name of this._backendTokenNames()) {
+            const value = backendRoot.getPropertyValue(name).trim();
+            if (value !== '') {
+                declarations.push(`${name}:${value};`);
+            }
+        }
+
         const style = doc.createElement('style');
-        style.textContent = 'html,body{margin:0;padding:0;height:100%;overflow:hidden;}';
+        style.textContent = 'html,body{margin:0;padding:0;height:100%;overflow:hidden;}'
+            + (declarations.length > 0 ? `:root{${declarations.join('')}}` : '');
         doc.head.append(style);
 
-        const background = getComputedStyle(document.documentElement)
-            .getPropertyValue('--typo3-component-bg')
-            .trim();
+        const background = backendRoot.getPropertyValue('--typo3-component-bg').trim();
         if (background !== '') {
             doc.documentElement.style.background = background;
         }
+    }
+
+    /**
+     * Every --typo3-* token the panel's own styles reference, read from the
+     * same `static styles` _adoptStylesInto() rebuilds — so a token added to a
+     * stylesheet later travels with the panel without a list to maintain.
+     *
+     * @return {Set<string>}
+     */
+    _backendTokenNames() {
+        const names = new Set(['--typo3-component-bg']);
+        for (const style of (this.constructor.styles ?? []).flat(Infinity)) {
+            const text = style?.cssText;
+            if (typeof text !== 'string') {
+                continue;
+            }
+            for (const [name] of text.matchAll(/--typo3-[a-z0-9-]+/g)) {
+                names.add(name);
+            }
+        }
+
+        return names;
     }
 
     /** Put the panel back where it came from when its window goes away. */
@@ -1499,7 +1538,7 @@ export class AiChatPanel extends LitElement {
         return html`
             <div class="panel-sidebar">
                 <div class="panel-sidebar-header">
-                    <h3>${lll('conversations.title')}</h3>
+                    <h2>${lll('conversations.title')}</h2>
                     <button class="btn-icon"
                             @click=${() => this.chat.handleNewConversation()}
                             ?disabled=${!this.chat.available}
@@ -1989,7 +2028,7 @@ export class AiChatPanel extends LitElement {
 
         return html`
             <div class="message-notice" role="note"
-                style="color:var(--nr-chat-status-warning, #8a5300);font-size:12px;margin-top:4px;">
+                style="color:var(--nr-chat-status-warning);font-size:12px;margin-top:4px;">
                 \u26A0\uFE0F ${lll('chat.nothingSaved')}
             </div>
         `;

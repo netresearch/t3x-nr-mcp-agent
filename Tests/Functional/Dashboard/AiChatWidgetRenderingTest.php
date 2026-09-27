@@ -80,4 +80,21 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
         self::assertStringNotContainsString('<script>alert(1)</script>', $html);
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
     }
+
+    /**
+     * The date under each conversation is muted text. `text-body-secondary` is a
+     * Bootstrap 5.3 utility that TYPO3's backend.css does not define (13.4.35 and
+     * 14.3.7), so the date rendered in the body colour; core's `text-variant`
+     * follows the backend colour scheme at both versions.
+     */
+    #[Test]
+    public function theDateUsesCoresMutedTextClass(): void
+    {
+        $html = $this->get(WidgetRegistry::class)
+            ->getAvailableWidget($this->request(), 'nrMcpAgentAiChat')
+            ->renderWidgetContent();
+
+        self::assertStringContainsString('class="text-variant small"', $html);
+        self::assertStringNotContainsString('text-body-secondary', $html);
+    }
 }

@@ -49,6 +49,7 @@ export const themeStyles = css`
         /* Plain status text on default surfaces */
         --nr-chat-status-info: var(--typo3-text-color-info, #1565c0);
         --nr-chat-status-success: var(--typo3-text-color-success, #2e7d32);
+        --nr-chat-status-warning: var(--typo3-text-color-warning, #8a5300);
         --nr-chat-status-danger: var(--typo3-text-color-danger, #c62828);
 
         color: var(--nr-chat-text);

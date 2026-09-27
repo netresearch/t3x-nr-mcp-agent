@@ -244,9 +244,60 @@ describe('panel pop-out', () => {
 
         const style = pipWindow.document.head.querySelector('style');
         expect(style).not.toBeNull();
+        document.documentElement.style.removeProperty('--typo3-component-bg');
         expect(style.textContent).toContain('margin:0');
         // Resolved, not a var() reference the new document cannot look up.
         expect(pipWindow.document.documentElement.style.background).toBe('rgb(1, 2, 3)');
+    });
+
+    /**
+     * The defect: the --typo3-* tokens live on the BACKEND document's root, so
+     * in the detached document every --nr-chat-* property fell back to its
+     * light literal, and a backend set to dark showed a light panel. A computed
+     * custom property still holds `light-dark(…)`; it resolves against the
+     * colour-scheme of the document it is used in, so the scheme has to travel
+     * with the tokens.
+     */
+    test('carries the backend colour scheme and its tokens into the detached window', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const backendRoot = {
+            'color-scheme': 'only dark',
+            '--typo3-surface-container-lowest': 'light-dark(rgb(255, 255, 255), rgb(20, 19, 22))',
+            '--typo3-text-color-warning': 'light-dark(rgb(138, 83, 0), rgb(255, 193, 7))',
+        };
+        const realGetComputedStyle = window.getComputedStyle;
+        const spy = jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => (
+            element === document.documentElement
+                ? {getPropertyValue: (name) => backendRoot[name] ?? ''}
+                : realGetComputedStyle.call(window, element, pseudo)
+        ));
+
+        try {
+            const {panel} = await mountPanel();
+            await panel.popOut();
+
+            const css = [...pipWindow.document.head.querySelectorAll('style')].map((s) => s.textContent).join('');
+            // The TYPO3 setting, as core resolved it from data-color-scheme —
+            // not whatever the operating system prefers.
+            expect(css).toContain('color-scheme:only dark;');
+            expect(css).toContain('--typo3-surface-container-lowest:light-dark(rgb(255, 255, 255), rgb(20, 19, 22));');
+            expect(css).toContain('--typo3-text-color-warning:light-dark(rgb(138, 83, 0), rgb(255, 193, 7));');
+        } finally {
+            spy.mockRestore();
+        }
+    });
+
+    test('copies every --typo3-* token its own styles reference, and only those', async () => {
+        installPictureInPictureStub();
+        const {panel} = await mountPanel();
+        const names = panel._backendTokenNames();
+
+        // theme.js maps its --nr-chat-* properties onto these; missing one
+        // leaves that property on its light literal in the detached window.
+        expect(names.has('--typo3-surface-container-lowest')).toBe(true);
+        expect(names.has('--typo3-text-color-warning')).toBe(true);
+        expect(names.has('--typo3-component-bg')).toBe(true);
+        expect([...names].every((name) => name.startsWith('--typo3-'))).toBe(true);
     });
 
     test('a failed request leaves the panel where it was', async () => {
