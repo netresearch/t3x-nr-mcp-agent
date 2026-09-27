@@ -33,23 +33,39 @@ const STYLE_SOURCES = [
     'toolbar/chat-panel.js',
 ];
 
-const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/;
+/** CSS named colours (CSS Color 4), matched only as a value of a colour-bearing property. */
+const NAMED_COLORS = 'aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen';
+const COLOR_PROPERTY = '(?:color|background(?:-color)?|border(?:-(?:top|right|bottom|left|block|inline))?(?:-color)?|outline(?:-color)?|fill|stroke|text-decoration(?:-color)?|caret-color|accent-color|column-rule(?:-color)?)';
+const COLOR_LITERAL = new RegExp(
+    '#[0-9a-fA-F]{3,8}\\b'
+    + '|\\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\('
+    + `|(?:^|[\\s;{"'])${COLOR_PROPERTY}\\s*:[^;{}"']*?(?<![\\w-])(?:${NAMED_COLORS})(?![\\w-])`,
+    'i',
+);
 
 const read = (file) => readFileSync(join(jsDir, file), 'utf8');
 
 /**
- * Remove every `var(...)` and `color-mix(...)` call, parentheses balanced, so
- * that only what a line sets OUTSIDE of them is left. A literal inside those is
- * a fallback and allowed; one outside is a colour that ignores the scheme.
+ * Remove what may carry a colour literal legitimately, parentheses balanced, so
+ * that only what a line sets OUTSIDE of it is left:
+ *  - every `var(...)` call: a literal there is a fallback;
+ *  - a `color-mix(...)` that mixes in `var(` or `currentColor`, so it follows
+ *    the scheme; one that mixes two literals does not and stays;
+ *  - the `box-shadow` declaration: a shadow darkens whatever is below it in
+ *    both schemes, it is not a colour a reader has to tell apart. Only the
+ *    declaration goes; a colour set beside it on the same line is still checked.
  *
- * The previous guard skipped any line that merely CONTAINED `var(--`, which let
+ * The first guard skipped any line that merely CONTAINED `var(--`, which let
  * `background: var(--nr-chat-surface-high); color: #555;` through: the
  * background followed the scheme and the text colour on the same line did not.
  */
 function stripSchemeAwareCalls(line) {
-    let out = line;
+    let out = line.replace(/box-shadow\s*:[^;{}"']*(?:;|(?=[}"']|$))/g, '');
+    let from = 0;
     for (;;) {
-        const match = /(?:var|color-mix)\(/.exec(out);
+        const re = /(?:var|color-mix)\(/g;
+        re.lastIndex = from;
+        const match = re.exec(out);
         if (!match) {
             return out;
         }
@@ -59,25 +75,56 @@ function stripSchemeAwareCalls(line) {
             if (out[end] === '(') depth++;
             if (out[end] === ')' && --depth === 0) break;
         }
-        out = out.slice(0, match.index) + out.slice(end + 1);
+        const call = out.slice(match.index, end + 1);
+        if (call.startsWith('var(') || /var\(|currentColor/i.test(call.slice('color-mix('.length))) {
+            out = out.slice(0, match.index) + out.slice(end + 1);
+            from = match.index;
+        } else {
+            from = match.index + 'color-mix('.length;
+        }
     }
 }
+
+/** A line of prose in a comment is not a style. */
+const isComment = (line) => /^\s*(?:\/\/|\/\*|\*)/.test(line);
 
 describe('color-scheme safety (no bare color literals)', () => {
     test.each(STYLE_SOURCES)('%s uses color literals only as var()/color-mix() fallbacks', (file) => {
         const offending = read(file)
             .split('\n')
             .map((line, idx) => ({line, no: idx + 1}))
-            // A shadow darkens whatever is below it in both schemes; it is not a
-            // colour a reader has to tell apart from its background.
-            .filter(({line}) => !/^\s*box-shadow:/.test(line))
+            .filter(({line}) => !isComment(line))
             .filter(({line}) => COLOR_LITERAL.test(stripSchemeAwareCalls(line)));
         expect(offending.map(({no, line}) => `${file}:${no}: ${line.trim()}`)).toEqual([]);
     });
 
-    test('the guard catches a literal that shares its line with a var()', () => {
-        expect(COLOR_LITERAL.test(stripSchemeAwareCalls('.a { background: var(--x); color: #555; }'))).toBe(true);
-        expect(COLOR_LITERAL.test(stripSchemeAwareCalls('.a { color: var(--x, var(--y, #555)); }'))).toBe(false);
+    const flagged = (line) => COLOR_LITERAL.test(stripSchemeAwareCalls(line));
+
+    test.each([
+        ['a hex literal beside a var()', '.a { background: var(--x); color: #555; }'],
+        ['rgb()', '.a { color: rgb(85 85 85); }'],
+        ['rgba()', '.a { color: rgba(0, 0, 0, .6); }'],
+        ['hsl()', '.a { color: hsl(0 0% 33%); }'],
+        ['hsla()', '.a { color: hsla(0, 0%, 33%, 1); }'],
+        ['oklch()', '.a { color: oklch(45% 0 0); }'],
+        ['a named colour', '.a { color: gray; }'],
+        ['a named colour in a shorthand', '.a { border: 1px solid black; }'],
+        ['a named colour in an inline style', '<div style="color:white;">'],
+        ['a color-mix() of two literals', '.a { color: color-mix(in srgb, #555 50%, white); }'],
+        ['a colour beside an exempt box-shadow', '.a { box-shadow: 0 0 4px rgb(0 0 0 / 20%); color: #555; }'],
+    ])('the guard catches %s', (_label, line) => {
+        expect(flagged(line)).toBe(true);
+    });
+
+    test.each([
+        ['a literal as a var() fallback', '.a { color: var(--x, var(--y, #555)); }'],
+        ['a color-mix() over a var()', '.a { color: color-mix(in srgb, var(--x) 85%, black); }'],
+        ['a color-mix() over currentColor', '.a { border: 1px solid color-mix(in srgb, currentColor 15%, transparent); }'],
+        ['a box-shadow on its own', '    box-shadow: -4px 0 12px rgb(0 0 0 / 20%);'],
+        ['white-space', '.a { white-space: nowrap; }'],
+        ['transparent and currentColor', '.a { background: transparent; color: currentColor; }'],
+    ])('the guard lets %s through', (_label, line) => {
+        expect(flagged(line)).toBe(false);
     });
 });
 
@@ -187,6 +234,29 @@ describe('shared theme contract', () => {
             expect(rule?.[2].trim()).toBe('color: var(--nr-chat-status-info);');
         },
     );
+
+    const ruleBody = (file, selector) => [...read(file).matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+        .find(([, sel]) => sel.split(',').map((s) => s.trim()).includes(selector))?.[2].trim();
+
+    /**
+     * The selected conversation took core's active background (the primary
+     * colour) and kept the body text colour: 2.58-2.61:1.
+     */
+    test.each([
+        ['chat-app.js', '.conversation-item.active'],
+        ['ai-chat-panel.js', '.sidebar-item.active'],
+    ])('%s gives %s the active text colour with the active background', (file, selector) => {
+        expect(ruleBody(file, selector)).toBe('background: var(--nr-chat-active);\n            color: var(--nr-chat-on-active);');
+        expect(theme).toContain('--nr-chat-on-active: var(--typo3-component-active-color,');
+    });
+
+    /** No rule for this status left the badge at 1.17-1.98:1. */
+    test.each(['chat-app.js', 'ai-chat-panel.js'])('%s pairs the awaiting-approval badge colours', (file) => {
+        expect(ruleBody(file, '.status-badge.status-awaiting_approval'))
+            .toBe('background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text);');
+        expect(theme).toContain('--nr-chat-info-bg: var(--typo3-surface-container-info,');
+        expect(theme).toContain('--nr-chat-info-text: var(--typo3-surface-container-info-text,');
+    });
 
     test('status warnings map to the scheme-aware TYPO3 warning text token', () => {
         expect(theme).toContain('--nr-chat-status-warning: var(--typo3-text-color-warning,');

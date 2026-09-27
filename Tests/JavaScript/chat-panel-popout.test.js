@@ -238,16 +238,19 @@ describe('panel pop-out', () => {
     test('gives the detached window a reset and a background', async () => {
         const {pipWindow} = installPictureInPictureStub();
         document.documentElement.style.setProperty('--typo3-component-bg', 'rgb(1, 2, 3)');
-        const {panel} = await mountPanel();
+        try {
+            const {panel} = await mountPanel();
 
-        await panel.popOut();
+            await panel.popOut();
 
-        const style = pipWindow.document.head.querySelector('style');
-        expect(style).not.toBeNull();
-        document.documentElement.style.removeProperty('--typo3-component-bg');
-        expect(style.textContent).toContain('margin:0');
-        // Resolved, not a var() reference the new document cannot look up.
-        expect(pipWindow.document.documentElement.style.background).toBe('rgb(1, 2, 3)');
+            const style = pipWindow.document.head.querySelector('style');
+            expect(style).not.toBeNull();
+            expect(style.textContent).toContain('margin:0');
+            // Resolved, not a var() reference the new document cannot look up.
+            expect(pipWindow.document.documentElement.style.background).toBe('rgb(1, 2, 3)');
+        } finally {
+            document.documentElement.style.removeProperty('--typo3-component-bg');
+        }
     });
 
     /**
@@ -284,6 +287,64 @@ describe('panel pop-out', () => {
             expect(css).toContain('--typo3-text-color-warning:light-dark(rgb(138, 83, 0), rgb(255, 193, 7));');
         } finally {
             spy.mockRestore();
+        }
+    });
+
+    /**
+     * Core switches scheme and theme live: `typo3:color-scheme:update` and
+     * `typo3:theme:update` end in `data-color-scheme` / `data-theme` on the
+     * backend root, without a reload. A window dressed once at opening kept the
+     * old scheme until it was closed.
+     */
+    test('follows a scheme or theme switch while it is open, and stops when it closes', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const backendRoot = {
+            'color-scheme': 'only dark',
+            '--typo3-surface-container-lowest': 'rgb(20, 19, 22)',
+        };
+        const realGetComputedStyle = window.getComputedStyle;
+        const spy = jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => (
+            element === document.documentElement
+                ? {getPropertyValue: (name) => backendRoot[name] ?? ''}
+                : realGetComputedStyle.call(window, element, pseudo)
+        ));
+        const root = document.documentElement;
+        const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+        const dressCss = () => [...pipWindow.document.head.querySelectorAll('style')].map((s) => s.textContent);
+
+        try {
+            const {panel} = await mountPanel();
+            await panel.popOut();
+            expect(dressCss()).toHaveLength(1);
+            expect(dressCss()[0]).toContain('color-scheme:only dark;');
+
+            backendRoot['color-scheme'] = 'only light';
+            root.setAttribute('data-color-scheme', 'light');
+            await settle();
+            // Rewritten in place: one style element, the new scheme.
+            expect(dressCss()).toHaveLength(1);
+            expect(dressCss()[0]).toContain('color-scheme:only light;');
+
+            backendRoot['--typo3-surface-container-lowest'] = 'rgb(250, 250, 250)';
+            root.setAttribute('data-theme', 'classic');
+            await settle();
+            expect(dressCss()[0]).toContain('--typo3-surface-container-lowest:rgb(250, 250, 250);');
+
+            const [, handler] = pipWindow.addEventListener.mock.calls.find(([type]) => type === 'pagehide');
+            const disconnect = jest.spyOn(MutationObserver.prototype, 'disconnect');
+            handler();
+            // The observer on the backend root is released, not left behind.
+            expect(disconnect).toHaveBeenCalled();
+            disconnect.mockRestore();
+            backendRoot['color-scheme'] = 'only dark';
+            root.setAttribute('data-color-scheme', 'dark');
+            await settle();
+            // Closed: nothing listens any more.
+            expect(dressCss()[0]).toContain('color-scheme:only light;');
+        } finally {
+            spy.mockRestore();
+            root.removeAttribute('data-color-scheme');
+            root.removeAttribute('data-theme');
         }
     });
 

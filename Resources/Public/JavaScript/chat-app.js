@@ -92,6 +92,7 @@ export class ChatApp extends LitElement {
         }
         .conversation-item.active {
             background: var(--nr-chat-active);
+            color: var(--nr-chat-on-active);
         }
         .conversation-item .title {
             flex: 1;
@@ -383,6 +384,7 @@ export class ChatApp extends LitElement {
         .status-processing, .status-tool_loop {
             background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text);
         }
+        .status-badge.status-awaiting_approval { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
         .status-failed { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
 
         .empty-state {
@@ -549,7 +551,10 @@ export class ChatApp extends LitElement {
 
     render() {
         if (this.chat.loading) {
-            return html`<div class="empty-state"><span class="spinner"></span></div>`;
+            return html`
+                <div class="main-header"><h1 class="main-title">${lll('panel.title')}</h1></div>
+                <div class="empty-state"><span class="spinner"></span></div>
+            `;
         }
 
         return html`

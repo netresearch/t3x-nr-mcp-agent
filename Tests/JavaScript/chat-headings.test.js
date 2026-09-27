@@ -81,3 +81,53 @@ describe('chat module headings', () => {
         expect(levels.length).toBeGreaterThan(1);
     });
 });
+
+/**
+ * The floating panel is a complementary region inside the backend page, not a
+ * page of its own, so it carries no h1; its headings start at h2. Maximized, it
+ * shows the conversation sidebar and the activity list side by side.
+ */
+describe('chat panel headings', () => {
+    beforeEach(() => {
+        document.body.replaceChildren();
+    });
+
+    async function renderPanel(chatState) {
+        await import('../../Resources/Public/JavaScript/ai-chat-panel.js');
+        const el = document.createElement('ai-chat-panel');
+        document.body.append(el);
+        el.state = 'maximized';
+        Object.assign(el.chat, {available: true, loading: false, issues: [], messages: [], conversations: [], ...chatState});
+        el.requestUpdate();
+        await el.updateComplete;
+
+        return el;
+    }
+
+    test('the maximized panel opens its outline at h2 and skips no level', async () => {
+        const el = await renderPanel({...OPEN_CONVERSATION, activityOpen: true});
+        const levels = headingLevels(el);
+
+        expect(el.shadowRoot.querySelector('.panel-sidebar-header h2')).not.toBeNull();
+        expect(levels.length).toBeGreaterThan(1);
+        expect(levels).not.toContain(1);
+        let deepest = 1;
+        for (const level of levels) {
+            expect(level).toBeLessThanOrEqual(deepest + 1);
+            deepest = Math.max(deepest, level);
+        }
+    });
+});
+
+describe('chat module while loading', () => {
+    beforeEach(() => {
+        document.body.replaceChildren();
+    });
+
+    test('already has its h1', async () => {
+        const el = await renderModule({loading: true});
+
+        expect(headingLevels(el)).toEqual([1]);
+        expect(el.shadowRoot.querySelector('h1').textContent.trim()).toBe('panel.title');
+    });
+});

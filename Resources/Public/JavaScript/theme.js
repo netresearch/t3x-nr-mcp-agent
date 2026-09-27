@@ -30,6 +30,7 @@ export const themeStyles = css`
         --nr-chat-input-border: var(--typo3-input-border-color, #ccc);
         --nr-chat-hover: var(--typo3-state-default-hover-bg, var(--typo3-state-hover, rgba(0, 0, 0, 0.04)));
         --nr-chat-active: var(--typo3-component-active-bg, var(--typo3-state-active, rgba(0, 0, 0, 0.08)));
+        --nr-chat-on-active: var(--typo3-component-active-color, #fff);
 
         /* Primary accent (send button, user bubble, assistant avatar) */
         --nr-chat-accent: var(--typo3-surface-primary, var(--typo3-primary, #0078d4));
@@ -43,6 +44,8 @@ export const themeStyles = css`
         --nr-chat-warning-bg: var(--typo3-surface-container-warning, #fff3e0);
         --nr-chat-warning-text: var(--typo3-surface-container-warning-text, #e65100);
         --nr-chat-warning-border: color-mix(in srgb, var(--nr-chat-warning-text) 30%, transparent);
+        --nr-chat-info-bg: var(--typo3-surface-container-info, #e3f2fd);
+        --nr-chat-info-text: var(--typo3-surface-container-info-text, #0d47a1);
         --nr-chat-danger-bg: var(--typo3-surface-container-danger, #ffebee);
         --nr-chat-danger-text: var(--typo3-surface-container-danger-text, #c62828);
 

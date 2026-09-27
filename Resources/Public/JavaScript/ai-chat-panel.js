@@ -193,6 +193,13 @@ export class AiChatPanel extends LitElement {
         }
         .sidebar-item.active {
             background: var(--nr-chat-active);
+            color: var(--nr-chat-on-active);
+        }
+        .sidebar-item.active .btn-icon {
+            color: inherit;
+        }
+        .sidebar-item.active .btn-icon:hover {
+            background: color-mix(in srgb, currentColor 15%, transparent);
         }
         .sidebar-item .item-title {
             flex: 1;
@@ -767,6 +774,7 @@ export class AiChatPanel extends LitElement {
         .status-processing, .status-tool_loop {
             background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text);
         }
+        .status-badge.status-awaiting_approval { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
         .status-failed { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
 
         .empty-state {
@@ -999,6 +1007,7 @@ export class AiChatPanel extends LitElement {
         pipWindow.document.body.append(this);
         this._adoptStylesInto(pipWindow);
         this._dressWindow(pipWindow);
+        this._watchBackendScheme();
         this._applySize();
 
         return true;
@@ -1066,6 +1075,10 @@ export class AiChatPanel extends LitElement {
      * Nothing is set for a token that does not resolve — a literal here would
      * be the hardcoded colour the colour-scheme guard forbids.
      *
+     * Called again whenever the backend switches scheme or theme while the
+     * window is open (see _watchBackendScheme()); it then rewrites the one
+     * style element it created instead of adding another.
+     *
      * @param {Window} targetWindow
      */
     _dressWindow(targetWindow) {
@@ -1087,10 +1100,14 @@ export class AiChatPanel extends LitElement {
             }
         }
 
-        const style = doc.createElement('style');
+        let style = this._dressStyle;
+        if (!style || style.ownerDocument !== doc) {
+            style = doc.createElement('style');
+            doc.head.append(style);
+            this._dressStyle = style;
+        }
         style.textContent = 'html,body{margin:0;padding:0;height:100%;overflow:hidden;}'
             + (declarations.length > 0 ? `:root{${declarations.join('')}}` : '');
-        doc.head.append(style);
 
         const background = backendRoot.getPropertyValue('--typo3-component-bg').trim();
         if (background !== '') {
@@ -1120,10 +1137,38 @@ export class AiChatPanel extends LitElement {
         return names;
     }
 
+    /**
+     * Keep the detached window in step with the backend's scheme and theme.
+     *
+     * Core switches both live, without a reload: on `typo3:color-scheme:update`
+     * and `typo3:theme:update` it sets `data-color-scheme` / `data-theme` on
+     * the backend root. Observing those two attributes catches the change after
+     * it has been applied, whichever event caused it, so the values
+     * _dressWindow() reads are already the new ones.
+     */
+    _watchBackendScheme() {
+        this._schemeObserver?.disconnect();
+        if (typeof MutationObserver !== 'function') {
+            return;
+        }
+        this._schemeObserver = new MutationObserver(() => {
+            if (this._pipWindow) {
+                this._dressWindow(this._pipWindow);
+            }
+        });
+        this._schemeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-color-scheme', 'data-theme'],
+        });
+    }
+
     /** Put the panel back where it came from when its window goes away. */
     _returnFromPopOut() {
         const home = this._pipHome;
         this._pipWindow?.document?.removeEventListener('click', this._closeAttachMenu);
+        this._schemeObserver?.disconnect();
+        this._schemeObserver = null;
+        this._dressStyle = null;
         this._pipWindow = null;
         this._pipHome = null;
 
