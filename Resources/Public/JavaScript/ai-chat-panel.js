@@ -195,11 +195,19 @@ export class AiChatPanel extends LitElement {
             background: var(--nr-chat-active);
             color: var(--nr-chat-on-active);
         }
+        /* The focus ring colour is the active background's own colour. */
+        .sidebar-item.active:focus-visible {
+            outline-color: var(--nr-chat-on-active);
+        }
         .sidebar-item.active .btn-icon {
             color: inherit;
         }
         .sidebar-item.active .btn-icon:hover {
             background: color-mix(in srgb, currentColor 15%, transparent);
+        }
+        .sidebar-item.active .btn-icon:focus-visible {
+            outline: 2px solid var(--nr-chat-on-active);
+            outline-offset: -2px;
         }
         .sidebar-item .item-title {
             flex: 1;

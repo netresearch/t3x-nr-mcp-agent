@@ -94,6 +94,10 @@ export class ChatApp extends LitElement {
             background: var(--nr-chat-active);
             color: var(--nr-chat-on-active);
         }
+        /* The focus ring colour is the active background's own colour. */
+        .conversation-item.active:focus-visible {
+            outline-color: var(--nr-chat-on-active);
+        }
         .conversation-item .title {
             flex: 1;
             overflow: hidden;

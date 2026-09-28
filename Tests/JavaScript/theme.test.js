@@ -17,6 +17,7 @@ import {describe, test, expect} from '@jest/globals';
 import {readFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {colourLiteralsInCss, colourLiteralsInModule} from './support/color-literals.js';
 
 const jsDir = join(dirname(fileURLToPath(import.meta.url)), '../../Resources/Public/JavaScript');
 
@@ -28,77 +29,29 @@ const STYLE_SOURCES = [
     'chat-editing.js',
     'conversation-tabs.js',
     'dashboard-widget.js',
+    'icons.js',
     'markdown-styles.js',
     'theme.js',
     'toolbar/chat-panel.js',
 ];
 
-/** CSS named colours (CSS Color 4), matched only as a value of a colour-bearing property. */
-const NAMED_COLORS = 'aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen';
-const COLOR_PROPERTY = '(?:color|background(?:-color)?|border(?:-(?:top|right|bottom|left|block|inline))?(?:-color)?|outline(?:-color)?|fill|stroke|text-decoration(?:-color)?|caret-color|accent-color|column-rule(?:-color)?)';
-const COLOR_LITERAL = new RegExp(
-    '#[0-9a-fA-F]{3,8}\\b'
-    + '|\\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\('
-    + `|(?:^|[\\s;{"'])${COLOR_PROPERTY}\\s*:[^;{}"']*?(?<![\\w-])(?:${NAMED_COLORS})(?![\\w-])`,
-    'i',
-);
-
 const read = (file) => readFileSync(join(jsDir, file), 'utf8');
 
 /**
- * Remove what may carry a colour literal legitimately, parentheses balanced, so
- * that only what a line sets OUTSIDE of it is left:
- *  - every `var(...)` call: a literal there is a fallback;
- *  - a `color-mix(...)` that mixes in `var(` or `currentColor`, so it follows
- *    the scheme; one that mixes two literals does not and stays;
- *  - the `box-shadow` declaration: a shadow darkens whatever is below it in
- *    both schemes, it is not a colour a reader has to tell apart. Only the
- *    declaration goes; a colour set beside it on the same line is still checked.
- *
- * The first guard skipped any line that merely CONTAINED `var(--`, which let
- * `background: var(--nr-chat-surface-high); color: #555;` through: the
- * background followed the scheme and the text colour on the same line did not.
+ * The guard used to be a regular expression over source lines. Two review
+ * rounds in a row found forms it missed (a hex beside a var() on the same line,
+ * hsl(), named colours, SVG attributes, comment detection by a leading `*`), so
+ * it now parses: @babel/parser for the modules, the @csstools CSS parser for
+ * the CSS in them, and @csstools/css-color-parser to decide what is a colour.
+ * See Tests/JavaScript/support/color-literals.js.
  */
-function stripSchemeAwareCalls(line) {
-    let out = line.replace(/box-shadow\s*:[^;{}"']*(?:;|(?=[}"']|$))/g, '');
-    let from = 0;
-    for (;;) {
-        const re = /(?:var|color-mix)\(/g;
-        re.lastIndex = from;
-        const match = re.exec(out);
-        if (!match) {
-            return out;
-        }
-        let depth = 0;
-        let end = match.index + match[0].length - 1;
-        for (; end < out.length; end++) {
-            if (out[end] === '(') depth++;
-            if (out[end] === ')' && --depth === 0) break;
-        }
-        const call = out.slice(match.index, end + 1);
-        if (call.startsWith('var(') || /var\(|currentColor/i.test(call.slice('color-mix('.length))) {
-            out = out.slice(0, match.index) + out.slice(end + 1);
-            from = match.index;
-        } else {
-            from = match.index + 'color-mix('.length;
-        }
-    }
-}
-
-/** A line of prose in a comment is not a style. */
-const isComment = (line) => /^\s*(?:\/\/|\/\*|\*)/.test(line);
-
 describe('color-scheme safety (no bare color literals)', () => {
-    test.each(STYLE_SOURCES)('%s uses color literals only as var()/color-mix() fallbacks', (file) => {
-        const offending = read(file)
-            .split('\n')
-            .map((line, idx) => ({line, no: idx + 1}))
-            .filter(({line}) => !isComment(line))
-            .filter(({line}) => COLOR_LITERAL.test(stripSchemeAwareCalls(line)));
-        expect(offending.map(({no, line}) => `${file}:${no}: ${line.trim()}`)).toEqual([]);
+    test.each(STYLE_SOURCES)('%s uses colour literals only as var() fallbacks', (file) => {
+        expect(colourLiteralsInModule(read(file)).map((hit) => `${file}:${hit}`)).toEqual([]);
     });
 
-    const flagged = (line) => COLOR_LITERAL.test(stripSchemeAwareCalls(line));
+    const css = (text) => colourLiteralsInCss(text).length > 0;
+    const js = (text) => colourLiteralsInModule(text).length > 0;
 
     test.each([
         ['a hex literal beside a var()', '.a { background: var(--x); color: #555; }'],
@@ -106,25 +59,66 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['rgba()', '.a { color: rgba(0, 0, 0, .6); }'],
         ['hsl()', '.a { color: hsl(0 0% 33%); }'],
         ['hsla()', '.a { color: hsla(0, 0%, 33%, 1); }'],
+        ['hwb()', '.a { color: hwb(0 20% 20%); }'],
         ['oklch()', '.a { color: oklch(45% 0 0); }'],
+        ['color()', '.a { color: color(srgb 0.3 0.3 0.3); }'],
         ['a named colour', '.a { color: gray; }'],
         ['a named colour in a shorthand', '.a { border: 1px solid black; }'],
-        ['a named colour in an inline style', '<div style="color:white;">'],
+        ['a named colour in a custom property', ':host { --nr-chat-foo: white; }'],
+        ['a hex in a custom property', ':host { --x: #555; }'],
+        ['a text-shadow', '.a { text-shadow: 0 1px 0 #fff; }'],
+        ['a gradient', '.a { background: linear-gradient(white, var(--x)); }'],
+        ['scrollbar-color', '.a { scrollbar-color: gray transparent; }'],
         ['a color-mix() of two literals', '.a { color: color-mix(in srgb, #555 50%, white); }'],
+        ['a literal mixed with currentColor', '.a { color: color-mix(in srgb, currentColor 50%, #555); }'],
+        ['light-dark() of literals', '.a { color: light-dark(#333, #eee); }'],
         ['a colour beside an exempt box-shadow', '.a { box-shadow: 0 0 4px rgb(0 0 0 / 20%); color: #555; }'],
-    ])('the guard catches %s', (_label, line) => {
-        expect(flagged(line)).toBe(true);
+        ['a star-hack property', '.a { *color: #555; }'],
+        ['a rule inside @keyframes', '@keyframes k { from { color: red; } }'],
+    ])('the CSS check catches %s', (_label, text) => {
+        expect(css(text)).toBe(true);
     });
 
     test.each([
         ['a literal as a var() fallback', '.a { color: var(--x, var(--y, #555)); }'],
-        ['a color-mix() over a var()', '.a { color: color-mix(in srgb, var(--x) 85%, black); }'],
-        ['a color-mix() over currentColor', '.a { border: 1px solid color-mix(in srgb, currentColor 15%, transparent); }'],
-        ['a box-shadow on its own', '    box-shadow: -4px 0 12px rgb(0 0 0 / 20%);'],
+        ['a named colour as a var() fallback', '.a { color: var(--x, black); }'],
+        ['a color-mix() over currentColor and transparent', '.a { border: 1px solid color-mix(in srgb, currentColor 15%, transparent); }'],
+        ['a box-shadow on its own', '.a { box-shadow: -4px 0 12px rgb(0 0 0 / 20%); }'],
         ['white-space', '.a { white-space: nowrap; }'],
         ['transparent and currentColor', '.a { background: transparent; color: currentColor; }'],
-    ])('the guard lets %s through', (_label, line) => {
-        expect(flagged(line)).toBe(false);
+        ['a system colour', '.a { color: CanvasText; }'],
+        ['a CSS comment', '/* was color: #555; */ .a { color: var(--x); }'],
+        ['an animation name that is not a colour', '.a { animation: spin 1s linear infinite; }'],
+    ])('the CSS check lets %s through', (_label, text) => {
+        expect(css(text)).toBe(false);
+    });
+
+    test.each([
+        ['a hex in a Lit css`` block', 'const s = css`.a { color: #555; }`;'],
+        ['a named colour in a style attribute', 'const t = html`<div style="color:white;"></div>`;'],
+        ['an upper-case style attribute', 'const t = html`<div style="COLOR:WHITE"></div>`;'],
+        ['an interpolated literal in a style attribute', "const t = html`<div style=\"color:${ok ? 'var(--a)' : '#555'};\"></div>`;"],
+        ['an SVG fill hex', 'const i = html`<svg><path fill="#000" d="M0"/></svg>`;'],
+        ['an SVG fill named', 'const i = html`<svg><path fill="black" d="M0"/></svg>`;'],
+        ['an SVG stroke named', 'const i = html`<svg><path stroke="white" d="M0"/></svg>`;'],
+        ['a single-quoted SVG fill', "const i = html`<svg><path fill='black'/></svg>`;"],
+        ['element.style.prop', "el.style.background = 'white';"],
+        ['element.style.setProperty()', "el.style.setProperty('color', 'white');"],
+        ['element.style.cssText', "el.style.cssText = 'color: #555';"],
+        ['Object.assign(element.style)', "Object.assign(el.style, {backgroundColor: 'rgb(0 0 0)'});"],
+    ])('the module check catches %s', (_label, source) => {
+        expect(js(source)).toBe(true);
+    });
+
+    test.each([
+        ['a hex in a block comment', '/*\n * color: #555;\n */\nconst a = 1;'],
+        ['a hex in a line comment', '// was #555\nconst a = 1;'],
+        ['an SVG using currentColor', 'const i = html`<svg fill="none" stroke="currentColor"><path d="M0"/></svg>`;'],
+        ['an SVG fill from a custom property', 'const i = html`<svg><path fill="var(--nr-icon-accent, #2F99A4)"/></svg>`;'],
+        ['prose that names a colour', "const label = 'Red means the run failed';"],
+        ['a style from a token', "Object.assign(el.style, {background: 'var(--typo3-surface-container-lowest, #fff)'});"],
+    ])('the module check lets %s through', (_label, source) => {
+        expect(js(source)).toBe(false);
     });
 });
 
@@ -235,7 +229,7 @@ describe('shared theme contract', () => {
         },
     );
 
-    const ruleBody = (file, selector) => [...read(file).matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    const ruleBody = (file, selector) => [...read(file).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
         .find(([, sel]) => sel.split(',').map((s) => s.trim()).includes(selector))?.[2].trim();
 
     /**
@@ -248,6 +242,32 @@ describe('shared theme contract', () => {
     ])('%s gives %s the active text colour with the active background', (file, selector) => {
         expect(ruleBody(file, selector)).toBe('background: var(--nr-chat-active);\n            color: var(--nr-chat-on-active);');
         expect(theme).toContain('--nr-chat-on-active: var(--typo3-component-active-color,');
+    });
+
+    /**
+     * The icon buttons in the selected panel row kept the button text colour
+     * on the active background (3.12:1 in light); they take the row's colour,
+     * and their hover tint is mixed from it rather than from the light hover
+     * surface.
+     */
+    test('the icon buttons in the selected panel row follow the row colour', () => {
+        expect(ruleBody('ai-chat-panel.js', '.sidebar-item.active .btn-icon')).toBe('color: inherit;');
+        expect(ruleBody('ai-chat-panel.js', '.sidebar-item.active .btn-icon:hover'))
+            .toBe('background: color-mix(in srgb, currentColor 15%, transparent);');
+        // The browser's own ring is dark, 1.88-2.83:1 on the active background.
+        expect(ruleBody('ai-chat-panel.js', '.sidebar-item.active .btn-icon:focus-visible'))
+            .toBe('outline: 2px solid var(--nr-chat-on-active);\n            outline-offset: -2px;');
+    });
+
+    /**
+     * --nr-chat-focus-ring and the active background resolve to the same colour
+     * in the light scheme, so the focus ring on the selected row measured 1.00:1.
+     */
+    test.each([
+        ['chat-app.js', '.conversation-item.active:focus-visible'],
+        ['ai-chat-panel.js', '.sidebar-item.active:focus-visible'],
+    ])('%s draws the focus ring of %s in the active text colour', (file, selector) => {
+        expect(ruleBody(file, selector)).toBe('outline-color: var(--nr-chat-on-active);');
     });
 
     /** No rule for this status left the badge at 1.17-1.98:1. */
