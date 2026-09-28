@@ -76,7 +76,7 @@ class ProcessChatCommandTest extends TestCase
     }
 
     #[Test]
-    public function executeFailsWhenConversationNotInProcessingState(): void
+    public function executeLeavesAConversationNotInProcessingStateAlone(): void
     {
         $conversation = Conversation::fromRow([
             'uid' => 1,
@@ -99,12 +99,12 @@ class ProcessChatCommandTest extends TestCase
         $output = new BufferedOutput();
         $result = $command->run($input, $output);
 
-        self::assertSame(1, $result);
+        self::assertSame(0, $result);
         self::assertStringContainsString('not in processing state', $output->fetch());
     }
 
     #[Test]
-    public function executeFailsWhenConversationInFailedState(): void
+    public function executeLeavesAFailedConversationAlone(): void
     {
         $conversation = Conversation::fromRow([
             'uid' => 2,
@@ -127,12 +127,12 @@ class ProcessChatCommandTest extends TestCase
         $output = new BufferedOutput();
         $result = $command->run($input, $output);
 
-        self::assertSame(1, $result);
+        self::assertSame(0, $result);
         self::assertStringContainsString('not in processing state', $output->fetch());
     }
 
     #[Test]
-    public function executeFailsWhenConversationIsLocked(): void
+    public function executeLeavesALockedConversationAlone(): void
     {
         $conversation = Conversation::fromRow([
             'uid' => 3,
@@ -155,7 +155,7 @@ class ProcessChatCommandTest extends TestCase
         $output = new BufferedOutput();
         $result = $command->run($input, $output);
 
-        self::assertSame(1, $result);
+        self::assertSame(0, $result);
     }
 
     #[Test]
@@ -185,7 +185,7 @@ class ProcessChatCommandTest extends TestCase
         $input->bind($command->getDefinition());
         $output = new BufferedOutput();
 
-        self::assertSame(1, $command->run($input, $output));
+        self::assertSame(0, $command->run($input, $output));
         self::assertStringContainsString('not in processing state', $output->fetch());
     }
 
@@ -238,7 +238,7 @@ class ProcessChatCommandTest extends TestCase
     }
 
     #[Test]
-    public function executeFailsWhenConversationIsToolLoop(): void
+    public function executeLeavesAToolLoopConversationAlone(): void
     {
         $conversation = Conversation::fromRow([
             'uid' => 4,
@@ -261,7 +261,7 @@ class ProcessChatCommandTest extends TestCase
         $output = new BufferedOutput();
         $result = $command->run($input, $output);
 
-        self::assertSame(1, $result);
+        self::assertSame(0, $result);
         self::assertStringContainsString('not in processing state', $output->fetch());
     }
 

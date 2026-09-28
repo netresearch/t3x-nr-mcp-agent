@@ -45,10 +45,18 @@ final class ProcessChatCommand extends Command
         $conversation = $this->repository->claimForProcess($uid, $claimId);
 
         if ($conversation === null) {
-            $output->writeln($this->repository->findByUid($uid) === null
-                ? '<error>Conversation not found</error>'
-                : '<error>Conversation is not in processing state</error>');
-            return Command::FAILURE;
+            if ($this->repository->findByUid($uid) === null) {
+                $output->writeln('<error>Conversation not found</error>');
+                return Command::FAILURE;
+            }
+
+            // Not an error: another ai-chat:process or a worker has the turn,
+            // or it is already over. Nothing is left to do here.
+            $output->writeln(sprintf(
+                '<info>Conversation %d is not in processing state: another process or worker has claimed it, or the turn is over. Nothing to do.</info>',
+                $uid,
+            ));
+            return Command::SUCCESS;
         }
 
         BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool);

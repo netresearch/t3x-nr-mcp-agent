@@ -45,7 +45,7 @@ final class ProcessChatCommandTest extends FunctionalTestCase
         $tester = new CommandTester($this->get(ProcessChatCommand::class));
         $exitCode = $tester->execute(['conversationUid' => '2']);
 
-        self::assertSame(1, $exitCode);
+        self::assertSame(0, $exitCode);
         self::assertStringContainsString('not in processing state', $tester->getDisplay());
         // Untouched: still the worker's, no error written, no message added.
         self::assertSame($before, $this->row(2));
@@ -61,7 +61,7 @@ final class ProcessChatCommandTest extends FunctionalTestCase
         $tester = new CommandTester($this->get(ProcessChatCommand::class));
         $exitCode = $tester->execute(['conversationUid' => '1']);
 
-        self::assertSame(1, $exitCode);
+        self::assertSame(0, $exitCode);
         self::assertSame($before, $this->row(1));
     }
 

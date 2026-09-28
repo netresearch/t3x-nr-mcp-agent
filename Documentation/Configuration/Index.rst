@@ -67,6 +67,11 @@ Processing
         Better for production -- lower latency, no
         process forking overhead.
 
+        A site set to ``worker`` must run
+        ``ai-chat:worker`` (see below); without it,
+        conversations stay in ``processing`` until
+        ``ai-chat:cleanup`` marks them failed.
+
 Access control
 ==============
 
