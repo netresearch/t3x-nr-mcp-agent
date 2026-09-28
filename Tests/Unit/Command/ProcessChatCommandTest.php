@@ -159,6 +159,37 @@ class ProcessChatCommandTest extends TestCase
     }
 
     #[Test]
+    public function aLostClaimDoesNotProcessTheTurnEvenIfTheRowStillReadsProcessing(): void
+    {
+        // The race: the row read a moment ago said processing, but a worker
+        // (or a second ai-chat:process) claimed it in between.
+        $conversation = Conversation::fromRow([
+            'uid' => 5,
+            'be_user' => 1,
+            'status' => 'processing',
+            'messages' => '[{"role":"user","content":"Hello"}]',
+            'message_count' => 1,
+        ]);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('findByUid')->willReturn($conversation);
+        $repository->expects(self::once())
+            ->method('claimForProcess')
+            ->with(5, self::stringStartsWith('process_'))
+            ->willReturn(null);
+        $repository->expects(self::never())->method('update');
+        $repository->expects(self::never())->method('updateIf');
+
+        $command = new ProcessChatCommand($this->createChatService(), $repository, $this->createMock(ConnectionPool::class));
+        $input = new ArrayInput(['conversationUid' => '5']);
+        $input->bind($command->getDefinition());
+        $output = new BufferedOutput();
+
+        self::assertSame(1, $command->run($input, $output));
+        self::assertStringContainsString('not in processing state', $output->fetch());
+    }
+
+    #[Test]
     public function classHasAsCommandAttribute(): void
     {
         $reflection = new ReflectionClass(ProcessChatCommand::class);

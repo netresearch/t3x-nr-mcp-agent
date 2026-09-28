@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`processingStrategy = worker` is honoured.** The setting was read by nothing: `Configuration/Services.yaml` always bound the `exec` processor, so every message also started an `ai-chat:process` next to a running `ai-chat:worker`. `ChatProcessorInterface` is now built from the setting (`worker` selects the worker processor, anything else keeps `exec`).
+- **`ai-chat:process` claims its turn before it runs it.** It read the conversation and checked for `processing`, then processed it without a claim, so a worker that dequeued the same turn in between processed it a second time. The command now claims the row in one update (`processing` to `locked`), as the worker does, and exits without processing when it loses.
+
 ## [0.15.2] - 2026-09-27
 
 ### Changed

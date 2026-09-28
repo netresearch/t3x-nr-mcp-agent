@@ -38,15 +38,16 @@ final class ProcessChatCommand extends Command
         $conversationUidArg = $input->getArgument('conversationUid');
         assert(is_string($conversationUidArg) || is_int($conversationUidArg));
         $uid = (int) $conversationUidArg;
-        $conversation = $this->repository->findByUid($uid);
+        // Claim the turn in one UPDATE, as ai-chat:worker does: a second
+        // ai-chat:process for the same conversation, or a worker that took it
+        // first, leaves this one with nothing to do.
+        $claimId = 'process_' . getmypid() . '_' . bin2hex(random_bytes(4));
+        $conversation = $this->repository->claimForProcess($uid, $claimId);
 
         if ($conversation === null) {
-            $output->writeln('<error>Conversation not found</error>');
-            return Command::FAILURE;
-        }
-
-        if ($conversation->getStatus() !== ConversationStatus::Processing) {
-            $output->writeln('<error>Conversation is not in processing state</error>');
+            $output->writeln($this->repository->findByUid($uid) === null
+                ? '<error>Conversation not found</error>'
+                : '<error>Conversation is not in processing state</error>');
             return Command::FAILURE;
         }
 

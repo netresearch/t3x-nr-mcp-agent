@@ -32,11 +32,18 @@ this command for each incoming message.
 
 ``1``
     Failure -- conversation not found, wrong status,
-    or processing error. The conversation is set to
-    ``failed`` with an error message.
+    already claimed, or processing error. Only a
+    processing error sets the conversation to
+    ``failed`` with an error message; the other cases
+    leave it as it is.
 
 **Behavior:**
 
+*   Claims the conversation first: one update moves it
+    from ``processing`` to ``locked``, the same claim
+    ``ai-chat:worker`` makes. If another process or a
+    worker claimed it first, the command exits without
+    processing the turn.
 *   Initializes the backend user context for the
     conversation owner.
 *   If the conversation has pending tool calls (crash

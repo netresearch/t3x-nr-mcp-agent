@@ -148,6 +148,58 @@ class ConversationRepositoryTest extends FunctionalTestCase
     }
 
     #[Test]
+    public function claimForProcessLocksAProcessingRowForTheClaimant(): void
+    {
+        $conversation = $this->subject->claimForProcess(2, 'process_1');
+
+        self::assertNotNull($conversation);
+        self::assertSame(2, $conversation->getUid());
+        self::assertSame(ConversationStatus::Locked, $conversation->getStatus());
+
+        $reloaded = $this->subject->findByUid(2);
+        self::assertNotNull($reloaded);
+        self::assertSame(ConversationStatus::Locked, $reloaded->getStatus());
+        self::assertSame('process_1', $reloaded->getCurrentRequestId());
+    }
+
+    #[Test]
+    public function secondClaimForProcessOfTheSameTurnLoses(): void
+    {
+        self::assertNotNull($this->subject->claimForProcess(2, 'process_a'));
+
+        self::assertNull($this->subject->claimForProcess(2, 'process_b'));
+        self::assertSame('process_a', $this->subject->findByUid(2)?->getCurrentRequestId());
+    }
+
+    #[Test]
+    public function claimForProcessLosesToAWorkerThatDequeuedFirst(): void
+    {
+        self::assertNotNull($this->subject->dequeueForWorker('worker_1'));
+
+        self::assertNull($this->subject->claimForProcess(2, 'process_a'));
+        self::assertSame('worker_1', $this->subject->findByUid(2)?->getCurrentRequestId());
+    }
+
+    #[Test]
+    public function workerFindsNothingAfterClaimForProcess(): void
+    {
+        self::assertNotNull($this->subject->claimForProcess(2, 'process_a'));
+
+        self::assertNull($this->subject->dequeueForWorker('worker_1'));
+    }
+
+    #[Test]
+    public function claimForProcessDoesNotTouchARowThatIsNotProcessing(): void
+    {
+        self::assertNull($this->subject->claimForProcess(1, 'process_a'));
+
+        $reloaded = $this->subject->findByUid(1);
+        self::assertNotNull($reloaded);
+        self::assertSame(ConversationStatus::Idle, $reloaded->getStatus());
+        self::assertSame('', $reloaded->getCurrentRequestId());
+    }
+
+    #[Test]
     public function updateIfReturnsTrueWhenStatusMatches(): void
     {
         // Conv 1 is 'idle'
