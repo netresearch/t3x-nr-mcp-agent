@@ -157,7 +157,7 @@ function withPlaceholders(value, choice) {
  */
 function* placeholderChoices(count) {
     for (const placeholder of PLACEHOLDERS) {
-        yield Array(count).fill(placeholder);
+        yield new Array(count).fill(placeholder);
     }
     if (count < 2 || count > 3) {
         return;
@@ -453,7 +453,8 @@ function templateVariants(quasis, expressions, css = false) {
  * `${unsafeCSS(...)}` block) it is a comment, so the stylesheet still parses.
  */
 function interpolated(textBefore, css, expression) {
-    const inValue = !css || /:[^;{}]*$/.test(textBefore);
+    const boundary = Math.max(textBefore.lastIndexOf(';'), textBefore.lastIndexOf('{'), textBefore.lastIndexOf('}'));
+    const inValue = !css || textBefore.lastIndexOf(':') > boundary;
     const text = inValue ? 'var(--interpolated)' : '/* interpolated */';
     return SourceText.fromRaw(text, text, expression.loc.start.line);
 }
