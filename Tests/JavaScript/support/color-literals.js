@@ -70,7 +70,7 @@ const DEPRECATED_SYSTEM_COLOURS = new Set([
 ]);
 
 /** Properties whose value is a single colour when written as an SVG/HTML attribute. */
-const COLOUR_ATTRIBUTES = ['fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'color'];
+const COLOUR_ATTRIBUTES = new Set(['fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'color']);
 
 const identOf = (node) => (isTokenNode(node) && node.value[0] === 'ident-token' ? node.value[4].value.toLowerCase() : null);
 
@@ -286,7 +286,7 @@ const CALL_HANDLERS = {
         if (attribute === 'style') {
             return cssOptions(value);
         }
-        return COLOUR_ATTRIBUTES.includes(attribute) ? cssOptions(value, (v) => `${attribute}: ${v}`) : [];
+        return COLOUR_ATTRIBUTES.has(attribute) ? cssOptions(value, (v) => `${attribute}: ${v}`) : [];
     },
 
     unsafeCSS: (node) => cssOptions(node.arguments[0]),
