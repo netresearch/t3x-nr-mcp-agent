@@ -80,24 +80,16 @@ readonly class Typo3CliBinaryResolver
     }
 
     /**
+     * The `config` section of composer.json; empty when the file is missing,
+     * unreadable or not valid JSON, so Composer's defaults apply.
+     *
      * @return array<mixed>
      */
     private function readComposerConfig(string $composerJsonFile): array
     {
-        if (!is_file($composerJsonFile)) {
-            return [];
-        }
+        $content = is_file($composerJsonFile) ? file_get_contents($composerJsonFile) : false;
+        $json = is_string($content) ? json_decode($content, true) : null;
 
-        $content = file_get_contents($composerJsonFile);
-        if ($content === false) {
-            return [];
-        }
-
-        $json = json_decode($content, true);
-        if (!is_array($json) || !is_array($json['config'] ?? null)) {
-            return [];
-        }
-
-        return $json['config'];
+        return is_array($json) && is_array($json['config'] ?? null) ? $json['config'] : [];
     }
 }
