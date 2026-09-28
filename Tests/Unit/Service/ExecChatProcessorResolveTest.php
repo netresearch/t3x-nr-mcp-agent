@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ExecChatProcessor;
+use Netresearch\NrMcpAgent\Service\Typo3CliBinaryResolver;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use ReflectionClass;
 
 /**
@@ -24,7 +27,7 @@ class ExecChatProcessorResolveTest extends TestCase
         // In unit test context, PHP_SAPI is always 'cli'
         self::assertSame('cli', PHP_SAPI);
 
-        $processor = new ExecChatProcessor();
+        $processor = $this->processor();
         $reflection = new ReflectionClass($processor);
         $method = $reflection->getMethod('resolvePhpCliBinary');
         $method->setAccessible(true);
@@ -38,7 +41,7 @@ class ExecChatProcessorResolveTest extends TestCase
     #[Test]
     public function resolvePhpCliBinaryReturnsString(): void
     {
-        $processor = new ExecChatProcessor();
+        $processor = $this->processor();
         $reflection = new ReflectionClass($processor);
         $method = $reflection->getMethod('resolvePhpCliBinary');
         $method->setAccessible(true);
@@ -47,5 +50,14 @@ class ExecChatProcessorResolveTest extends TestCase
 
         self::assertIsString($result);
         self::assertNotEmpty($result);
+    }
+
+    private function processor(): ExecChatProcessor
+    {
+        return new ExecChatProcessor(
+            $this->createMock(Typo3CliBinaryResolver::class),
+            $this->createMock(ConversationRepository::class),
+            $this->createMock(LoggerInterface::class),
+        );
     }
 }
