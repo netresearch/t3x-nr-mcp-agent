@@ -142,7 +142,7 @@ final class Typo3CliBinaryResolverTest extends TestCase
 
         $warnings = [];
         set_error_handler(static function (int $errno, string $message) use (&$warnings): bool {
-            $warnings[] = $message;
+            $warnings[] = $errno . ': ' . $message;
 
             return true;
         });
