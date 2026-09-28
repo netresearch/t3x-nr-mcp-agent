@@ -17,7 +17,7 @@ import {describe, test, expect} from '@jest/globals';
 import {readFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {colourLiteralsInCss, colourLiteralsInModule} from './support/color-literals.js';
+import {colourLiteralsInCss, colourLiteralsInModule, takeColourGuardNotices} from './support/color-literals.js';
 
 const jsDir = join(dirname(fileURLToPath(import.meta.url)), '../../Resources/Public/JavaScript');
 
@@ -49,7 +49,10 @@ const read = (file) => readFileSync(join(jsDir, file), 'utf8');
  */
 describe('color-scheme safety (no bare color literals)', () => {
     test.each(STYLE_SOURCES)('%s uses colour literals only as var() fallbacks', (file) => {
+        takeColourGuardNotices();
         expect(colourLiteralsInModule(read(file)).map((hit) => `${file}:${hit}`)).toEqual([]);
+        // Every value in our own sources matches css-tree's grammar; none was only scanned.
+        expect(takeColourGuardNotices()).toEqual([]);
     });
 
     const css = (text) => colourLiteralsInCss(text).length > 0;
@@ -210,10 +213,70 @@ describe('color-scheme safety (no bare color literals)', () => {
 
     /** A value that does not match its property's grammar is reported, not skipped. */
     test.each([
-        ['a value outside the grammar', '.a { transition: color 1s linear(0, red); }'],
         ['CSS that does not parse', '.a { color: red; } }}} {'],
     ])('the CSS check throws on %s', (_label, text) => {
         expect(() => colourLiteralsInCss(text)).toThrow(/colour guard/);
+    });
+
+    /**
+     * Syntax newer than css-tree 3.2.1's grammar does not match it. That is
+     * not an error in the CSS: the value is scanned for colours instead and a
+     * notice names it.
+     */
+    test.each([
+        ['calc-size()', '.a { height: calc-size(auto, size); }', []],
+        ['a value outside the grammar with a colour in it', '.a { transition: color 1s linear(0, red); }', ['transition: red']],
+    ])('a value css-tree cannot match (%s) is scanned and noticed, not thrown', (_label, text, found) => {
+        takeColourGuardNotices();
+        expect(colourLiteralsInCss(text)).toEqual(found);
+        expect(takeColourGuardNotices()).toHaveLength(1);
+    });
+
+    test('contrast-color() over a custom property is scanned without a finding', () => {
+        expect(colourLiteralsInCss('.a { color: contrast-color(var(--bg)); }')).toEqual([]);
+    });
+
+    /**
+     * Values built only from custom properties: the channels, or the whole
+     * value, come from var(). None of them is a literal, and none may throw.
+     */
+    test.each([
+        ['rgb() of one custom property', '.a { color: rgb(var(--rgb)); }'],
+        ['rgba() of a custom property and an alpha', '.a { color: rgba(var(--rgb), .5); }'],
+        ['a Bootstrap-style background', '.a { background: rgb(var(--bs-body-bg-rgb)); }'],
+        ['rgb() of three custom properties', '.a { color: rgb(var(--r) var(--g) var(--b)); }'],
+        ['oklch() of three custom properties', '.a { color: oklch(var(--l) var(--c) var(--h)); }'],
+        ['hsl() of three custom properties', '.a { color: hsl(var(--h) var(--s) var(--l)); }'],
+        ['a transition made of custom properties', '.a { transition: var(--p) var(--d) var(--e) var(--dl); }'],
+        ['an animation made of custom properties', '.a { animation: var(--n) var(--d) var(--e) var(--i); }'],
+    ])('the CSS check lets %s through', (_label, text) => {
+        takeColourGuardNotices();
+        expect(colourLiteralsInCss(text)).toEqual([]);
+        expect(takeColourGuardNotices()).toEqual([]);
+    });
+
+    test.each([
+        ['hsl() with a fixed saturation and lightness', '.a { color: hsl(var(--h) 50% 40%); }', 'color: hsl(var(--h) 50% 40%)'],
+        ['rgb() with two fixed channels', '.a { border: 1px solid rgb(var(--r) 0 0); }', 'border: rgb(var(--r) 0 0)'],
+    ])('the CSS check reports %s as written in the source', (_label, text, finding) => {
+        expect(colourLiteralsInCss(text)).toEqual([finding]);
+    });
+
+    /** At-rule descriptors match their own grammar, not a property's. */
+    test('@font-face descriptors match the descriptor grammar', () => {
+        takeColourGuardNotices();
+        const text = '@font-face { font-family: X; font-weight: 100 900; font-style: oblique 0deg 20deg; font-stretch: 75% 125%; }';
+        expect(colourLiteralsInCss(text)).toEqual([]);
+        expect(takeColourGuardNotices()).toEqual([]);
+    });
+
+    /** `symbols: red` names a symbol; only the descriptor grammar knows it is not a colour. */
+    test('a counter-style symbol named like a colour is not a colour', () => {
+        expect(colourLiteralsInCss('@counter-style x { system: cyclic; symbols: red; pad: 2 red; }')).toEqual([]);
+    });
+
+    test('a colour in a font palette descriptor is reported', () => {
+        expect(colourLiteralsInCss('@font-palette-values --p { font-family: X; override-colors: 0 red; }')).toEqual(['override-colors: red']);
     });
 
     test.each([

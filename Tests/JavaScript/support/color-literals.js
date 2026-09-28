@@ -4,19 +4,29 @@
  * Parsed, not pattern-matched. The component sources are read with
  * @babel/parser, which separates code from comments and strings. Every piece of
  * CSS found in them is parsed with css-tree, and each declaration is matched
- * against its property's value grammar with css-tree's lexer: only the parts
- * the grammar types as `<color>` are looked at. So `grid-area: red`,
+ * against its property's value grammar with css-tree's lexer — or, directly
+ * inside an at-rule, against that descriptor's grammar: only the parts the
+ * grammar types as `<color>` are looked at. So `grid-area: red`,
  * `animation-name: tomato` or `transition: background` are not colours, while
  * `border: 1px solid red` is — decided by the grammar, not by a keyword list.
- * A module that does not parse throws, and so does a CSS value that does not
- * parse or does not match its property's grammar: a guard that skipped them
- * would report them clean.
+ * A module that does not parse throws, and so does CSS text that does not
+ * parse: a guard that skipped them would report them clean.
+ *
+ * A value that parses but does not match its grammar is scanned for anything
+ * of the `<color>` type instead. If it holds var() or env(), the custom
+ * properties may carry any part of it (`rgb(var(--rgb))`, a transition made of
+ * var()s). If it holds none, css-tree's grammar may be older than the syntax
+ * (`calc-size()`), and a notice says so; takeColourGuardNotices() returns
+ * them, and the test over our own sources expects none.
  *
  * What is allowed inside a `<color>`:
  *  - anything inside var() — a literal there is a fallback. For matching, each
  *    var() is stood in for by a placeholder that fits the grammar
  *    (`currentcolor`, `0`, `0px`, an identifier, …); the placeholder is never
- *    reported;
+ *    reported, and a colour function counts as a literal only when at least
+ *    one of its arguments is written in the source: `rgb(var(--r) var(--g)
+ *    var(--b))` passes, `hsl(var(--h) 50% 40%)` is reported. A finding is
+ *    printed as the source has it, not as the stand-in the match ran on;
  *  - `transparent` and `currentColor`, which carry no colour of their own;
  *  - the current CSS system colours (Canvas, CanvasText, ButtonFace, …), which
  *    follow `color-scheme`. The deprecated ones (ThreeDFace, Window, …) and
@@ -28,8 +38,8 @@
  *    colour — it draws a line such as a focus ring.
  *
  * A custom property has no grammar; its value is scanned for anything that
- * matches the `<color>` type. So is a descriptor css-tree does not know as a
- * property (`initial-value` in `@property`).
+ * matches the `<color>` type. So is a descriptor css-tree does not know, or
+ * one typed as any value (`initial-value` in `@property`).
  *
  * Where CSS is looked for:
  *  - templates tagged `css`, however it is imported (`css`, an alias of it,
@@ -107,7 +117,6 @@ const PLACEHOLDERS = [
     [{type: 'Number', value: '0'}, {type: 'Number', value: '0'}],
 ];
 
-const PLACEHOLDER_MARK = Symbol('placeholder');
 
 const SUBSTITUTED = new Set(['var', 'env']);
 
@@ -141,7 +150,7 @@ function withPlaceholders(value, choice) {
                 return undefined;
             }
             for (const placeholder of choice[index++]) {
-                list.insertData({...placeholder, loc: node.loc, [PLACEHOLDER_MARK]: true}, item);
+                list.insertData({...placeholder, loc: node.loc}, item);
             }
             list.remove(item);
             return this.skip;
@@ -196,14 +205,27 @@ const isType = (match, name) => match.syntax?.type === 'Type' && match.syntax.na
 /** The AST nodes a match covers, in order. */
 const astNodesOf = (match) => [...matchNodes(match)].map((m) => m.node).filter(Boolean);
 
-/** A colour is literal unless it is colourless, a current system colour or a stand-in. */
-function isLiteral(node) {
-    if (node[PLACEHOLDER_MARK]) {
+/**
+ * Whether the nodes of one `<color>` are a literal colour. A keyword is literal
+ * unless it is colourless or a current system colour. A colour function is
+ * literal only when at least one of its arguments was written in the source:
+ * `rgb(var(--r) var(--g) var(--b))` is built from custom properties, while
+ * `hsl(var(--h) 50% 40%)` fixes saturation and lightness and is reported.
+ */
+function isLiteralColour(nodes, standIns = new Set()) {
+    const isStandIn = (node) => standIns.has(node.loc?.start.offset);
+    const [head, ...rest] = nodes;
+    if (!head || isStandIn(head)) {
         return false;
     }
-    if (node.type === 'Identifier') {
-        const name = node.name.toLowerCase();
+    if (head.type === 'Identifier') {
+        const name = head.name.toLowerCase();
         return !COLOURLESS.has(name) && !SYSTEM_COLOURS.has(name);
+    }
+    if (head.type === 'Function') {
+        // The closing parenthesis is matched against the function node again; it is not an argument.
+        const args = rest.filter((n) => n !== head && n.type !== 'Operator' && n.type !== 'WhiteSpace');
+        return args.length === 0 || args.some((n) => !isStandIn(n));
     }
 
     return true;
@@ -241,29 +263,46 @@ function softShadows(match) {
         (shadow.match ?? []).forEach(collect);
         const blur = lengths[2] ? astNodesOf(lengths[2]) : [];
 
-        return blur.length === 1 && blur[0].type === 'Dimension' && !blur[0][PLACEHOLDER_MARK] && Number(blur[0].value) >= 1;
+        return blur.length === 1 && blur[0].type === 'Dimension' && Number(blur[0].value) >= 1;
     });
 }
 
-/** Literal colours in a value matched against a known property's grammar. */
-function literalsInPropertyValue(property, value) {
+/** Notices about values the guard could not match and scanned instead. */
+const notices = [];
+
+/** The notices collected since the last call, emptied. */
+export const takeColourGuardNotices = () => notices.splice(0);
+
+/**
+ * Literal colours in a value matched against a grammar: a property's, or an
+ * at-rule descriptor's. When no stand-in combination fits and the value holds
+ * var() or env(), the custom properties may carry any part of it
+ * (`rgb(var(--rgb))`, a whole transition); when it holds none, the grammar
+ * may simply be older than the syntax (`calc-size()`). Either way the value
+ * is scanned for `<color>` instead, and the second case leaves a notice.
+ */
+function literalsInGrammarValue(match, label, value) {
     const count = substitutions(value).length;
+    // A stand-in carries the source position of the var()/env() it replaces.
+    const standIns = new Set(substitutions(value).map((node) => node.loc?.start.offset));
     const fallbacks = envFallbackLiterals(value);
-    let lastError = null;
+    const soft = (result) => (/(^|-)box-shadow$/.test(label) ? softShadows(result.matched) : []);
     for (const choice of count > 0 ? placeholderChoices(count) : [[]]) {
         const candidate = count > 0 ? withPlaceholders(value, choice) : value;
-        const result = lexer.matchProperty(property, candidate);
+        const result = match(candidate);
         if (result.matched) {
-            const soft = /(^|-)box-shadow$/.test(property) ? softShadows(result.matched) : [];
-            const exempt = new Set(soft.flatMap((shadow) => astNodesOf(shadow)));
+            const exempt = new Set(soft(result).flatMap((shadow) => astNodesOf(shadow)));
             return [...fallbacks, ...leafColours(result.matched)
                 .map((colour) => astNodesOf(colour))
-                .filter((nodes) => nodes.length > 0 && !nodes.some((n) => exempt.has(n)) && nodes.some(isLiteral))
+                .filter((nodes) => nodes.length > 0 && !nodes.some((n) => exempt.has(n)) && isLiteralColour(nodes, standIns))
                 .map((nodes) => nodes[0])];
         }
-        lastError = result.error;
     }
-    throw new Error(`colour guard: "${property}: ${csstree.generate(value)}" does not match the property's grammar (${lastError?.message?.split('\n')[0]})`);
+    if (count === 0) {
+        notices.push(`"${label}: ${csstree.generate(value)}" does not match css-tree's grammar; scanned for colours instead`);
+    }
+
+    return literalsInFreeValue(value);
 }
 
 /** Literal colours in a value without a grammar: anything that is a `<color>`. */
@@ -281,12 +320,28 @@ function literalsInFreeValue(value) {
             if (!result.matched) {
                 return undefined;
             }
-            found.push(...leafColours(result.matched).map((c) => astNodesOf(c)).filter((n) => n.some(isLiteral)).map((n) => n[0]));
+            found.push(...leafColours(result.matched).map((c) => astNodesOf(c)).filter((n) => isLiteralColour(n)).map((n) => n[0]));
             return this.skip;
         },
     });
 
     return found;
+}
+
+/**
+ * Whether css-tree knows a descriptor of an at-rule. Looked up directly:
+ * `lexer.getAtruleDescriptor()` throws in css-tree 3.2.1, whose at-rule table
+ * has no prototype.
+ */
+function hasDescriptor(atrule, name) {
+    const definition = Object.hasOwn(lexer.atrules, atrule) ? lexer.atrules[atrule] : null;
+    if (!definition?.descriptors || !Object.hasOwn(definition.descriptors, name)) {
+        return false;
+    }
+    // A descriptor typed as any value (`@property`'s initial-value, whose type
+    // its `syntax` sets) has no grammar to find a <color> with.
+    const syntax = definition.descriptors[name].syntax;
+    return !(syntax && /^<declaration-value>\??$/.test(csstree.definitionSyntax.generate(syntax).trim()));
 }
 
 const parseErrors = (errors, text) => {
@@ -307,6 +362,8 @@ function findInCss(text, context = 'stylesheet') {
     csstree.walk(ast, {
         visit: 'Declaration',
         enter(declaration) {
+            // A declaration directly in an at-rule (not in a rule inside it) is a descriptor.
+            const atrule = this.rule ? null : this.atrule?.name?.toLowerCase();
             // `*color` is the old IE property hack; the property still applies elsewhere.
             const property = declaration.property.replace(/^[*_]/, '').toLowerCase();
             let {value} = declaration;
@@ -320,10 +377,18 @@ function findInCss(text, context = 'stylesheet') {
             if (value.children?.isEmpty) {
                 return;
             }
-            const known = !property.startsWith('--') && lexer.getProperty(property) !== null;
-            const nodes = known ? literalsInPropertyValue(property, value) : literalsInFreeValue(value);
+            let nodes;
+            if (atrule && hasDescriptor(atrule, property)) {
+                nodes = literalsInGrammarValue((v) => lexer.matchAtruleDescriptor(atrule, property, v), property, value);
+            } else if (!atrule && !property.startsWith('--') && lexer.getProperty(property) !== null) {
+                nodes = literalsInGrammarValue((v) => lexer.matchProperty(property, v), property, value);
+            } else {
+                nodes = literalsInFreeValue(value);
+            }
             for (const node of nodes) {
-                found.push({property, literal: csstree.generate(node), offset: node.loc?.start.offset ?? 0});
+                // The source text, not the stand-in the match ran on.
+                const literal = node.loc ? text.slice(node.loc.start.offset, node.loc.end.offset) : csstree.generate(node);
+                found.push({property, literal, offset: node.loc?.start.offset ?? 0});
             }
         },
     });
