@@ -19,9 +19,15 @@ use TYPO3\CMS\Core\Core\Environment;
  * Composer root that typo3/cms-composer-installers exports as
  * TYPO3_PATH_COMPOSER_ROOT; in classic mode it is EXT:core/bin/typo3.
  *
- * Two deviations from core: an absolute `bin-dir` is used as it is (core's
- * trim() would turn it into a relative one), and without
- * TYPO3_PATH_COMPOSER_ROOT the project path stands in for the Composer root.
+ * Four deviations from core:
+ * - an absolute `bin-dir` is used as it is (core's trim() would turn it into
+ *   a relative one);
+ * - without TYPO3_PATH_COMPOSER_ROOT the project path stands in for the
+ *   Composer root;
+ * - a missing, unreadable or invalid composer.json falls back to Composer's
+ *   defaults (`vendor/bin`), where core returns null;
+ * - `{$vendor-dir}` in `bin-dir` is expanded, as Composer's Config::get()
+ *   does; core would look for a directory with that literal name.
  */
 readonly class Typo3CliBinaryResolver
 {
@@ -71,6 +77,7 @@ readonly class Typo3CliBinaryResolver
 
         $vendorDir = is_string($config['vendor-dir'] ?? null) ? $config['vendor-dir'] : 'vendor';
         $binDir = is_string($config['bin-dir'] ?? null) ? $config['bin-dir'] : rtrim($vendorDir, '/') . '/bin';
+        $binDir = str_replace('{$vendor-dir}', rtrim($vendorDir, '/'), $binDir);
 
         if (str_starts_with($binDir, '/')) {
             return rtrim($binDir, '/');

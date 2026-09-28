@@ -109,11 +109,51 @@ final class Typo3CliBinaryResolverTest extends TestCase
     }
 
     #[Test]
+    public function relativeBinDirWithSlashesUnderARootWithTrailingSlash(): void
+    {
+        $this->writeComposerJson(['config' => ['bin-dir' => 'bin/']]);
+        $binary = $this->createBinary('bin');
+
+        self::assertSame($binary, (new Typo3CliBinaryResolver())->resolveFor(true, $this->root . '/', '/unused'));
+    }
+
+    #[Test]
+    public function vendorDirPlaceholderInBinDirIsExpanded(): void
+    {
+        $this->writeComposerJson(['config' => ['vendor-dir' => 'lib/', 'bin-dir' => '{$vendor-dir}/tools']]);
+        $binary = $this->createBinary('lib/tools');
+
+        self::assertSame($binary, (new Typo3CliBinaryResolver())->resolveFor(true, $this->root, '/unused'));
+    }
+
+    #[Test]
+    public function absoluteVendorDirPlaceholderInBinDirStaysAbsolute(): void
+    {
+        $this->writeComposerJson(['config' => ['vendor-dir' => $this->root . '/shared/vendor', 'bin-dir' => '{$vendor-dir}/bin']]);
+        $binary = $this->createBinary('shared/vendor/bin');
+
+        self::assertSame($binary, (new Typo3CliBinaryResolver())->resolveFor(true, $this->root, '/unused'));
+    }
+
+    #[Test]
     public function missingComposerJsonFallsBackToVendorBin(): void
     {
         $binary = $this->createBinary('vendor/bin');
 
-        self::assertSame($binary, (new Typo3CliBinaryResolver())->resolveFor(true, $this->root, '/unused'));
+        $warnings = [];
+        set_error_handler(static function (int $errno, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+        try {
+            $resolved = (new Typo3CliBinaryResolver())->resolveFor(true, $this->root, '/unused');
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame([], $warnings);
+        self::assertSame($binary, $resolved);
     }
 
     #[Test]
@@ -150,6 +190,25 @@ final class Typo3CliBinaryResolverTest extends TestCase
     }
 
     #[Test]
+    public function unreadableBinaryThrows(): void
+    {
+        $binary = $this->createBinary('vendor/bin');
+        chmod($binary, 0o000);
+        clearstatcache();
+        if (is_readable($binary)) {
+            chmod($binary, 0o644);
+            self::markTestSkipped('The test process can read a file with mode 0000 (running as root).');
+        }
+
+        try {
+            $this->expectException(Typo3CliBinaryNotFoundException::class);
+            (new Typo3CliBinaryResolver())->resolveFor(true, $this->root, '/unused');
+        } finally {
+            chmod($binary, 0o644);
+        }
+    }
+
+    #[Test]
     public function directoryInPlaceOfTheBinaryThrows(): void
     {
         mkdir($this->root . '/vendor/bin/typo3', 0777, true);
@@ -165,6 +224,29 @@ final class Typo3CliBinaryResolverTest extends TestCase
         $this->initializeEnvironment(composerMode: true, projectPath: '/nonexistent-project');
         $this->writeComposerJson(['config' => ['bin-dir' => '.Build/bin']]);
         $binary = $this->createBinary('.Build/bin');
+        putenv('TYPO3_PATH_COMPOSER_ROOT=' . $this->root);
+
+        self::assertSame($binary, (new Typo3CliBinaryResolver())->resolve());
+    }
+
+    #[Test]
+    public function resolveTreatsAnEmptyComposerRootAsUnset(): void
+    {
+        $this->initializeEnvironment(composerMode: true, projectPath: $this->root);
+        $binary = $this->createBinary('vendor/bin');
+        putenv('TYPO3_PATH_COMPOSER_ROOT=');
+
+        self::assertSame($binary, (new Typo3CliBinaryResolver())->resolve());
+    }
+
+    #[Test]
+    public function resolveInClassicModeUsesTheFrameworkBasePath(): void
+    {
+        // The legacy layout (project path = public path), for which 13.4 and
+        // 14.3 both put the system extensions in typo3/sysext.
+        $this->initializeEnvironment(composerMode: false, projectPath: $this->root, publicPath: $this->root);
+        $binary = $this->createBinary('typo3/sysext/core/bin');
+        $this->createBinary('vendor/bin');
         putenv('TYPO3_PATH_COMPOSER_ROOT=' . $this->root);
 
         self::assertSame($binary, (new Typo3CliBinaryResolver())->resolve());
@@ -200,14 +282,14 @@ final class Typo3CliBinaryResolverTest extends TestCase
         return $binary;
     }
 
-    private function initializeEnvironment(bool $composerMode, string $projectPath): void
+    private function initializeEnvironment(bool $composerMode, string $projectPath, ?string $publicPath = null): void
     {
         Environment::initialize(
             new ApplicationContext('Testing'),
             true,
             $composerMode,
             $projectPath,
-            $projectPath . '/public',
+            $publicPath ?? $projectPath . '/public',
             $projectPath . '/var',
             $projectPath . '/config',
             $projectPath . '/vendor/bin/typo3',
