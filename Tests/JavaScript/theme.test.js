@@ -41,8 +41,10 @@ const read = (file) => readFileSync(join(jsDir, file), 'utf8');
  * The guard used to be a regular expression over source lines. Two review
  * rounds in a row found forms it missed (a hex beside a var() on the same line,
  * hsl(), named colours, SVG attributes, comment detection by a leading `*`), so
- * it now parses: @babel/parser for the modules, the @csstools CSS parser for
- * the CSS in them, and @csstools/css-color-parser to decide what is a colour.
+ * it now parses: @babel/parser for the modules and css-tree for the CSS in
+ * them. css-tree's lexer matches each declaration against its property's
+ * grammar, and only what the grammar types as `<color>` is checked — the same
+ * name is a colour in `color: red` and not in `grid-area: red`.
  * See Tests/JavaScript/support/color-literals.js.
  */
 describe('color-scheme safety (no bare color literals)', () => {
@@ -157,6 +159,103 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['an unterminated template', 'const t = `abc'],
     ])('the module check throws on %s', (_label, source) => {
         expect(() => colourLiteralsInModule(source)).toThrow();
+    });
+
+    /**
+     * Whether an identifier is a colour depends on the property: the lexer
+     * matches each value against its property's grammar, so a name that is a
+     * colour elsewhere is not one here.
+     */
+    test.each([
+        ['transition', 'transition: color 0.2s;'],
+        ['transition-property', 'transition-property: background;'],
+        ['an upper-case transition', 'TRANSITION: Background 1s;'],
+        ['-webkit-transition', '-webkit-transition: background 0.15s;'],
+        ['-webkit-transition-property', '-webkit-transition-property: background;'],
+        ['will-change', 'will-change: background-color;'],
+        ['grid-area', 'grid-area: red;'],
+        ['animation', 'animation: red 1s linear;'],
+        ['animation-name', 'animation-name: tomato;'],
+        ['an animation named like a deprecated system colour', 'animation-name: Background;'],
+        ['a system font', 'font: menu;'],
+        ['view-transition-name', 'view-transition-name: red;'],
+        ['counter-reset', 'counter-reset: red;'],
+        ['container-name', 'container-name: menu;'],
+        ['current system colours', 'color: HighlightText; background: Highlight; border-color: ButtonBorder; outline-color: GrayText; caret-color: LinkText;'],
+        ['more current system colours', 'color: AccentColorText; background: AccentColor; border-color: SelectedItem;'],
+    ])('the grammar does not read %s as a colour', (_label, declarations) => {
+        expect(css(`.a { ${declarations} }`)).toBe(false);
+    });
+
+    test.each([
+        ['a deprecated system colour in a border', 'border-color: ButtonHighlight;'],
+        ['a deprecated system colour in mixed case', 'background: threedFACE;'],
+        ['a deprecated system colour inside light-dark()', 'color: light-dark(WindowText, CanvasText);'],
+        ['a literal mixed with a system colour', 'color: color-mix(in srgb, Canvas 50%, red);'],
+        ['-webkit-focus-ring-color', 'outline-color: -webkit-focus-ring-color;'],
+        ['a box-shadow ring with a hairline blur', 'box-shadow: 0 0 0.01px 2px red;'],
+        ['a box-shadow ring with a var() blur', 'box-shadow: 0 0 var(--b) 2px red;'],
+        ['a box-shadow ring with a calc() blur', 'box-shadow: inset 0 0 calc(0px) 2px red;'],
+        ['a box-shadow without blur', 'box-shadow: 2px 2px red;'],
+        ['a hard text-shadow', 'text-shadow: 1px 1px 0 red;'],
+        ['a drop-shadow() filter', 'filter: drop-shadow(0 0 2px red);'],
+        ['a literal beside a shadow held in a var()', 'box-shadow: var(--shadow), 0 0 0 1px red;'],
+    ])('the grammar finds %s', (_label, declarations) => {
+        expect(css(`.a { ${declarations} }`)).toBe(true);
+    });
+
+    test('an @property initial value is scanned as a colour', () => {
+        expect(css("@property --x { syntax: '<color>'; inherits: false; initial-value: red; }")).toBe(true);
+    });
+
+    /** A value that does not match its property's grammar is reported, not skipped. */
+    test.each([
+        ['a value outside the grammar', '.a { transition: color 1s linear(0, red); }'],
+        ['CSS that does not parse', '.a { color: red; } }}} {'],
+    ])('the CSS check throws on %s', (_label, text) => {
+        expect(() => colourLiteralsInCss(text)).toThrow(/colour guard/);
+    });
+
+    test.each([
+        ['an optional call to style.setProperty()', "el?.style.setProperty('color', 'red');"],
+        ['an optional call to setAttribute()', "el?.setAttribute('fill', 'red');"],
+        ['Object.assign() on an optional member', "Object.assign(el?.style, {color: 'red'});"],
+        ['CSSStyleSheet.replace()', "sheet.replace('.a { color: red; }');"],
+        ['an unquoted hex attribute', 'const i = html`<path fill=#333 d="M0"/>`;'],
+        ['a style attribute with spaces around =', 'const i = html`<rect style = "fill : red"/>`;'],
+        ['a lit svg`` template', "import {svg} from 'lit';\nconst i = svg`<path stroke=\"red\"/>`;"],
+        ['lit.css on a default import', "import Lit from 'lit';\nconst s = Lit.css`.a { color: red; }`;"],
+    ])('the module check catches %s', (_label, source) => {
+        expect(js(source)).toBe(true);
+    });
+
+    test.each([
+        ['a URL with a colour parameter', "const u = '/typo3/ajax?color=red&x=1';"],
+        ['prose that shows an attribute', "const help = 'Use fill=black for the icon';"],
+        ['a data-color attribute', 'const t = html`<div data-color="red"></div>`;'],
+        ['String.prototype.replace()', "const s = text.replace('status: red', 'x');"],
+        ['a style property removed with an empty string', "el.style.right = '';"],
+    ])('the module check lets %s through', (_label, source) => {
+        expect(js(source)).toBe(false);
+    });
+
+    test.each([
+        ['a multi-line interpolation before the literal',
+            "import {css, unsafeCSS} from 'lit';\nconst s = css`\n  .a { color: ${unsafeCSS(\n    X\n  )}; }\n  .b { color: #555; }\n`;", 6],
+        ['conditional options of different height',
+            "import {css} from 'lit';\nconst s = css`\n  .a { ${on ? `\n    border: 0;\n  ` : ''} }\n\n  .b { color: #555; }\n`;", 7],
+        ['an html`` template with a multi-line interpolation',
+            "import {html} from 'lit';\nconst t = html`<div>${items.map(\n  (i) => i\n)}</div>\n<span style=\"color: red\"></span>`;", 5],
+        ['a string with \\n escapes',
+            "const m = '<p>\\n</p>\\n<span style=\"color:red\"></span>';", 1],
+        ['a line continuation in a template',
+            "import {css} from 'lit';\nconst s = css`.a {\\\n}\n.b { color: #555; }`;", 4],
+        ['one property of a multi-line Object.assign()',
+            "Object.assign(el.style, {\n  width: '1px',\n  color: 'red',\n});", 3],
+    ])('the line of a finding survives %s', (_label, source, line) => {
+        const lines = colourLiteralsInModule(source).map((hit) => Number(hit.split(':')[0]));
+        expect(lines.length).toBeGreaterThan(0);
+        expect(new Set(lines)).toEqual(new Set([line]));
     });
 
     test('a finding names the line of the literal, not the start of its css`` block', () => {

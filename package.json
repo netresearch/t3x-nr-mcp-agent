@@ -13,11 +13,9 @@
   },
   "devDependencies": {
     "@babel/parser": "^7.29.8",
-    "@csstools/css-color-parser": "^3.1.0",
-    "@csstools/css-parser-algorithms": "^3.0.5",
-    "@csstools/css-tokenizer": "^3.0.4",
     "@playwright/test": "^1.58.2",
     "axe-core": "^4.13.0",
+    "css-tree": "^3.2.1",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "jest-environment-node": "^30.3.0",
