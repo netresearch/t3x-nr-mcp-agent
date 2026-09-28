@@ -195,9 +195,20 @@ export class AiChatPanel extends LitElement {
             background: var(--nr-chat-active);
             color: var(--nr-chat-on-active);
         }
-        /* The focus ring colour is the active background's own colour. */
+        /*
+         * Two-colour indicator. --nr-chat-focus-ring equals the active
+         * background in light schemes, and a light ring alone vanishes into
+         * the light sidebar beside the row. So the outer 2px take the ring
+         * colour (against the surface around the row) and the next 2px the
+         * active text colour (against the row itself). Both stay inside the
+         * row, where no scroll container can clip them. The row's bottom
+         * border takes the ring colour too, or the ring is 1px thinner there.
+         */
         .sidebar-item.active:focus-visible {
-            outline-color: var(--nr-chat-on-active);
+            outline: 2px solid var(--nr-chat-on-active);
+            outline-offset: -4px;
+            box-shadow: inset 0 0 0 2px var(--nr-chat-focus-ring);
+            border-bottom-color: var(--nr-chat-focus-ring);
         }
         .sidebar-item.active .btn-icon {
             color: inherit;

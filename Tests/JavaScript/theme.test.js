@@ -73,6 +73,14 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['a literal mixed with currentColor', '.a { color: color-mix(in srgb, currentColor 50%, #555); }'],
         ['light-dark() of literals', '.a { color: light-dark(#333, #eee); }'],
         ['a colour beside an exempt box-shadow', '.a { box-shadow: 0 0 4px rgb(0 0 0 / 20%); color: #555; }'],
+        ['a box-shadow ring without blur', '.a { box-shadow: 0 0 0 2px #000; }'],
+        ['an inset box-shadow ring', '.a { box-shadow: inset 0 0 0 2px black; }'],
+        ['a hard layer in a multi-layer box-shadow', '.a { box-shadow: 0 4px 24px rgb(0 0 0 / 18%), 0 0 0 1px #ccc; }'],
+        ['a -webkit-box-shadow ring', '.a { -webkit-box-shadow: 0 0 0 1px #000; }'],
+        ['a literal as an env() fallback', '.a { color: env(x, red); }'],
+        ['a deprecated system colour', '.a { background: ThreeDFace; }'],
+        ['another deprecated system colour', '.a { color: WindowText; }'],
+        ['a relative colour from a literal', '.a { color: rgb(from white r g b / 50%); }'],
         ['a star-hack property', '.a { *color: #555; }'],
         ['a rule inside @keyframes', '@keyframes k { from { color: red; } }'],
     ])('the CSS check catches %s', (_label, text) => {
@@ -83,12 +91,16 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['a literal as a var() fallback', '.a { color: var(--x, var(--y, #555)); }'],
         ['a named colour as a var() fallback', '.a { color: var(--x, black); }'],
         ['a color-mix() over currentColor and transparent', '.a { border: 1px solid color-mix(in srgb, currentColor 15%, transparent); }'],
-        ['a box-shadow on its own', '.a { box-shadow: -4px 0 12px rgb(0 0 0 / 20%); }'],
+        ['a soft box-shadow', '.a { box-shadow: -4px 0 12px rgb(0 0 0 / 20%); }'],
+        ['a focus ring from the token', '.a { box-shadow: 0 0 0 1px var(--nr-chat-focus-ring); }'],
         ['white-space', '.a { white-space: nowrap; }'],
         ['transparent and currentColor', '.a { background: transparent; color: currentColor; }'],
         ['a system colour', '.a { color: CanvasText; }'],
+        ['a current system colour named like a control', '.a { background: ButtonFace; color: ButtonText; }'],
+        ['a hex in an attribute selector', '[data-x="#555"] { color: var(--x); }'],
         ['a CSS comment', '/* was color: #555; */ .a { color: var(--x); }'],
         ['an animation name that is not a colour', '.a { animation: spin 1s linear infinite; }'],
+        ['a property named in a transition', '.a { transition: background 0.15s, color 0.15s; }'],
     ])('the CSS check lets %s through', (_label, text) => {
         expect(css(text)).toBe(false);
     });
@@ -106,6 +118,19 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['element.style.setProperty()', "el.style.setProperty('color', 'white');"],
         ['element.style.cssText', "el.style.cssText = 'color: #555';"],
         ['Object.assign(element.style)', "Object.assign(el.style, {backgroundColor: 'rgb(0 0 0)'});"],
+        ['setAttribute(style)', "el.setAttribute('style', 'color: red');"],
+        ['setAttribute(fill)', "el.setAttribute('fill', 'black');"],
+        ['setAttribute(stroke)', "el.setAttribute('stroke', '#333');"],
+        ['a <style> element in html``', 'const t = html`<style>.a { color: red; }</style>`;'],
+        ['unsafeCSS()', "import {css, unsafeCSS} from 'lit';\nconst s = css`${unsafeCSS('.a { color: #555; }')}`;"],
+        ['an aliased css tag', "import {css as litCss} from 'lit';\nconst s = litCss`.a { color: #555; }`;"],
+        ['a namespaced lit.css tag', "import * as lit from 'lit';\nconst s = lit.css`.a { color: #555; }`;"],
+        ['replaceSync()', "sheet.replaceSync('.a{color:#555}');"],
+        ['an unquoted SVG fill', 'const i = html`<path fill=black d="M0"/>`;'],
+        ['an SVG stop-color', 'const i = html`<stop offset="0" stop-color="red"/>`;'],
+        ['an SVG color attribute', 'const i = html`<svg color="red"><path fill="currentColor"/></svg>`;'],
+        ['markup in a string assigned to innerHTML', "el.innerHTML = '<div style=\"color:red\"></div>';"],
+        ['markup in an untagged template', 'const markup = `<div style="color:red"></div>`;'],
     ])('the module check catches %s', (_label, source) => {
         expect(js(source)).toBe(true);
     });
@@ -117,8 +142,25 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['an SVG fill from a custom property', 'const i = html`<svg><path fill="var(--nr-icon-accent, #2F99A4)"/></svg>`;'],
         ['prose that names a colour', "const label = 'Red means the run failed';"],
         ['a style from a token', "Object.assign(el.style, {background: 'var(--typo3-surface-container-lowest, #fff)'});"],
+        ['a data-fill attribute', 'const t = html`<div data-fill="black"></div>`;'],
+        ['an SVG fill from a gradient', 'const i = html`<path fill="url(#g)"/>`;'],
     ])('the module check lets %s through', (_label, source) => {
         expect(js(source)).toBe(false);
+    });
+
+    /** A module that does not parse must fail loudly, never pass as clean. */
+    test.each([
+        ['a syntax error', 'const = 1;'],
+        // Babel can recover from this one; with error recovery on it would return
+        // a tree and the module would be reported clean.
+        ['a recoverable error', 'let a;\nlet a;\nconst s = css`.a { color: var(--x); }`;'],
+        ['an unterminated template', 'const t = `abc'],
+    ])('the module check throws on %s', (_label, source) => {
+        expect(() => colourLiteralsInModule(source)).toThrow();
+    });
+
+    test('a finding names the line of the literal, not the start of its css`` block', () => {
+        expect(colourLiteralsInModule('const s = css`\n  .a {\n    color: #555;\n  }`;')).toEqual(['3: color: #555']);
     });
 });
 
@@ -262,12 +304,20 @@ describe('shared theme contract', () => {
     /**
      * --nr-chat-focus-ring and the active background resolve to the same colour
      * in the light scheme, so the focus ring on the selected row measured 1.00:1.
+     * A ring in the active text colour alone fixed that and lost the outer edge
+     * instead: light against the light sidebar, 1.06:1. Two colours, both inside
+     * the row: the ring colour outside, the active text colour within.
      */
     test.each([
         ['chat-app.js', '.conversation-item.active:focus-visible'],
         ['ai-chat-panel.js', '.sidebar-item.active:focus-visible'],
-    ])('%s draws the focus ring of %s in the active text colour', (file, selector) => {
-        expect(ruleBody(file, selector)).toBe('outline-color: var(--nr-chat-on-active);');
+    ])('%s draws a two-colour focus indicator on %s', (file, selector) => {
+        expect(ruleBody(file, selector)).toBe([
+            'outline: 2px solid var(--nr-chat-on-active);',
+            'outline-offset: -4px;',
+            'box-shadow: inset 0 0 0 2px var(--nr-chat-focus-ring);',
+            'border-bottom-color: var(--nr-chat-focus-ring);',
+        ].join('\n            '));
     });
 
     /** No rule for this status left the badge at 1.17-1.98:1. */
