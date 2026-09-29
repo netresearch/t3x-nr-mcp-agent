@@ -72,6 +72,11 @@ Processing
         conversations stay in ``processing`` until
         ``ai-chat:cleanup`` marks them failed.
 
+        With either strategy, a turn whose process
+        crashes stays ``locked`` until
+        ``ai-chat:cleanup`` marks it failed after five
+        minutes, so schedule ``ai-chat:cleanup``.
+
 Access control
 ==============
 

@@ -1,7 +1,7 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
-import {ChatCoreController, downloadTextFile} from './chat-core.js';
+import {ChatCoreController, displayStatus, downloadTextFile} from './chat-core.js';
 import {markdownStyles} from './markdown-styles.js';
 import {themeStyles} from './theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from './icons.js';
@@ -595,7 +595,7 @@ export class ChatApp extends LitElement {
                     ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
                 </div>
                 <div class="meta">
-                    <span class="status-badge status-${c.status}">${c.status}</span>
+                    <span class="status-badge status-${displayStatus(c.status)}">${displayStatus(c.status)}</span>
                 </div>
             </div>
         `;
