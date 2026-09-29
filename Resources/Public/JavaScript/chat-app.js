@@ -370,7 +370,7 @@ export class ChatApp extends LitElement {
             text-transform: uppercase;
         }
         .status-idle { background: var(--nr-chat-success-bg); color: var(--nr-chat-success-text); }
-        .status-processing, .status-locked, .status-tool_loop {
+        .status-processing, .status-tool_loop {
             background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text);
         }
         .status-failed { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }

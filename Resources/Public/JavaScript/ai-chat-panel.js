@@ -11,7 +11,9 @@ import {chatActivityStyles, renderActivity} from './chat-activity.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
-const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', locked: '⟳', awaiting_approval: '⏸', failed: '✕'};
+// Keyed by displayStatus(): `locked` is shown as `processing`, so it has no
+// icon of its own.
+const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', awaiting_approval: '⏸', failed: '✕'};
 const DEFAULT_HEIGHT = 350;
 const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 320;
@@ -339,7 +341,6 @@ export class AiChatPanel extends LitElement {
         .approval-stale { margin: 4px 0; }
         .approval-card pre { margin: 4px 0 0; max-height: 12em; overflow: auto; }
         .conv-tab .tab-icon.status-awaiting_approval,
-        .conv-tab .tab-icon.status-locked { color: var(--nr-chat-status-info); }
         .conv-tab .tab-icon.status-failed  { color: var(--nr-chat-status-danger); }
         .conv-tab .tab-icon.status-idle    { color: var(--nr-chat-status-success); }
         .conv-tab .tab-close {
@@ -766,7 +767,7 @@ export class AiChatPanel extends LitElement {
             line-height: 1.4;
         }
         .status-idle { background: var(--nr-chat-success-bg); color: var(--nr-chat-success-text); }
-        .status-processing, .status-locked, .status-tool_loop {
+        .status-processing, .status-tool_loop {
             background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text);
         }
         .status-failed { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
