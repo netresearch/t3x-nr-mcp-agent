@@ -266,7 +266,7 @@ function channelsOf(fn) {
     // their commas, so positions are not certain: the last group is taken as
     // the alpha when the name says there is one (rgba, hsla) or when all four
     // groups are written out.
-    const hasAlpha = groups.length === 4 || /a$/.test(fn.name.toLowerCase());
+    const hasAlpha = groups.length === 4 || fn.name.toLowerCase().endsWith('a');
 
     return (hasAlpha ? groups.slice(0, -1) : groups).flat();
 }
