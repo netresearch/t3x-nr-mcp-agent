@@ -27,16 +27,28 @@ this command for each incoming message.
 **Exit codes:**
 
 ``0``
-    Success -- conversation processed and set to
-    ``idle``.
+    The turn ran: the conversation ends ``idle``,
+    waiting for an approval, or ``failed`` with an
+    error message. Also returned, with an info line,
+    when there is nothing to do: the conversation is
+    not in ``processing`` because another
+    ``ai-chat:process`` or a worker claimed it first,
+    or because the turn is already over. That case
+    leaves the conversation as it is.
 
 ``1``
-    Failure -- conversation not found, wrong status,
-    or processing error. The conversation is set to
-    ``failed`` with an error message.
+    Failure -- conversation not found, or an error
+    escaped the turn.
 
 **Behavior:**
 
+*   Claims the conversation first: one update moves it
+    from ``processing`` to ``locked``, the same claim
+    ``ai-chat:worker`` makes. A database deadlock on
+    that update counts as a lost claim. The row stays
+    ``locked`` until the turn ends, so no worker and no
+    second ``ai-chat:process`` can take the same turn
+    while it runs.
 *   Initializes the backend user context for the
     conversation owner.
 *   If the conversation has pending tool calls (crash

@@ -365,11 +365,55 @@ readonly class ConversationRepository
             return null;
         }
 
+        return $this->findLockedBy($workerId);
+    }
+
+    /**
+     * Atomically claim one given 'processing' conversation for `ai-chat:process`.
+     *
+     * The same claim dequeueForWorker() makes, for a known uid: one UPDATE that
+     * moves the row from processing to locked only if it is still processing.
+     * Whoever loses — a second process for the same turn, or a worker that
+     * dequeued it first — updates zero rows and gets null.
+     *
+     * A deadlock counts as a lost claim too. MySQL reports one (SQLSTATE
+     * 40001) when this UPDATE meets dequeueForWorker()'s on the same row; the
+     * database has rolled this side back, and the row is either taken or
+     * still 'processing' for the next worker poll.
+     */
+    public function claimForProcess(int $uid, string $claimId): ?Conversation
+    {
+        try {
+            $affected = $this->connectionPool->getConnectionForTable(self::TABLE)->executeStatement(
+                'UPDATE ' . self::TABLE . '
+                 SET status = ?, current_request_id = ?
+                 WHERE uid = ? AND status = ? AND deleted = ?',
+                [
+                    ConversationStatus::Locked->value,
+                    $claimId,
+                    $uid,
+                    ConversationStatus::Processing->value,
+                    0,
+                ],
+            );
+        } catch (DeadlockException) {
+            return null;
+        }
+
+        if ($affected === 0) {
+            return null;
+        }
+
+        return $this->findLockedBy($claimId);
+    }
+
+    private function findLockedBy(string $claimId): ?Conversation
+    {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $row = $qb->select('*')
             ->from(self::TABLE)
             ->where(
-                $qb->expr()->eq('current_request_id', $qb->createNamedParameter($workerId)),
+                $qb->expr()->eq('current_request_id', $qb->createNamedParameter($claimId)),
                 $qb->expr()->eq('status', $qb->createNamedParameter(ConversationStatus::Locked->value)),
             )
             ->executeQuery()

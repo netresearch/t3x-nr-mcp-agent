@@ -915,6 +915,14 @@ final readonly class ChatApiController
             return $conversation;
         }
 
+        // Locked: ai-chat:process or a worker has claimed the turn and is
+        // running it. That is busy, not broken — the same answer a new message
+        // gets. Processing stays resumable on purpose: it is also the state of
+        // a turn whose worker never started.
+        if ($conversation->getStatus() === ConversationStatus::Locked) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
         if (!$conversation->isResumable()) {
             return new JsonResponse(['error' => $this->translate('error.notResumable')], 400);
         }

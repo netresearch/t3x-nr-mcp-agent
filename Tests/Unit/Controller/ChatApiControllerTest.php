@@ -287,6 +287,26 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function resumeConversationRefusesATurnThatIsRunningAsBusy(): void
+    {
+        // Locked is a claimed turn in progress: Retry must not start a second
+        // run over the same transcript, and the answer is "busy" (409), the
+        // same a new message gets — not "cannot be resumed" (400).
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Locked);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->expects(self::never())->method('updateIf');
+        $this->processor->expects(self::never())->method('dispatch');
+
+        $request = $this->createRequest('POST', '{"conversationUid": 1}');
+        $response = $this->subject->resumeConversation($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertSame('error.conversationProcessing', $data['error']);
+    }
+
+    #[Test]
     public function resumeConversationDispatchesForFailedConversation(): void
     {
         $conversation = new Conversation();

@@ -252,15 +252,20 @@ The conversation lifecycle is modeled as a state enum:
     Ready for new user input. This is the resting state.
 
 ``processing``
-    A CLI process is actively calling the LLM.
+    Waiting for a consumer: the request has claimed the
+    conversation for a turn, and ``ai-chat:process`` or
+    ``ai-chat:worker`` has not taken it yet.
 
 ``locked``
-    Reserved by a worker process for dequeue.
+    Claimed by ``ai-chat:process`` or ``ai-chat:worker``
+    and running. The row stays ``locked`` for the whole
+    turn, so no second consumer can take it. The chat
+    shows it like ``processing``.
 
 ``tool_loop``
     Legacy transitional state. The tool loop now runs
     synchronously inside nr-llm's ``AgentRuntime`` within a
-    single ``processing`` turn, so the chat no longer parks a
+    single ``locked`` turn, so the chat no longer parks a
     conversation here; the state is retained for backward
     compatibility.
 
@@ -270,11 +275,11 @@ The conversation lifecycle is modeled as a state enum:
 
 State transitions::
 
-    idle --> processing --> idle          (success)
-    idle --> processing --> tool_loop --> processing
-                                             (tool iteration)
-    idle --> processing --> failed        (error)
-    * --> failed                         (cleanup timeout)
+    idle --> processing --> locked --> idle     (success)
+    idle --> processing --> locked --> failed   (error)
+    idle --> processing --> locked --> awaiting_approval
+                                                 (run paused)
+    processing|locked|tool_loop --> failed      (cleanup timeout)
 
 File attachment flow
 ====================

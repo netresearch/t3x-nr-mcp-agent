@@ -20,7 +20,12 @@ Processing a turn
     configured Task (``llmTaskUid`` -> ``Task`` -> ``getConfiguration()``).
     A missing Task or Configuration fails loudly rather than silently
     degrading to a no-tools chat.
-3.  Set the conversation status to ``processing``.
+3.  Keep the conversation ``locked``: ``ai-chat:process`` and
+    ``ai-chat:worker`` claimed it as ``locked`` before calling the
+    service, and the turn start writes ``locked`` again (refreshing the
+    timestamp ``ai-chat:cleanup`` measures). A ``processing`` row is one
+    waiting for a consumer, so writing ``processing`` here would let a
+    second consumer take the running turn.
 4.  Build the message transcript: a ``system`` message carrying the
     identity/behaviour contract and the resolved Task/Configuration
     prompts (see Architecture > System prompt priority), followed by the
@@ -98,8 +103,12 @@ conversation. The CLI worker (``ai-chat:process`` / ``ai-chat:worker``)
 therefore always calls ``processConversation()``.
 ``resumeConversation()`` re-runs the turn over the existing transcript
 for a resumable conversation (``processing``, ``tool_loop`` or
-``failed``), which is used to recover a conversation left ``processing``
-by a crashed worker.
+``failed``) and for the ``locked`` conversation a consumer hands it.
+Retry from the chat recovers a conversation left ``processing`` because
+no consumer ever claimed it. A conversation whose consumer crashed
+mid-turn stays ``locked``; Retry refuses it with ``409`` like any busy
+conversation, and it is released only when ``ai-chat:cleanup`` marks it
+``failed`` after five minutes.
 
 It refuses with ``409`` while an approval decision recorded by
 ``recordDecision()`` has not been carried out yet

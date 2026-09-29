@@ -38,16 +38,25 @@ final class ProcessChatCommand extends Command
         $conversationUidArg = $input->getArgument('conversationUid');
         assert(is_string($conversationUidArg) || is_int($conversationUidArg));
         $uid = (int) $conversationUidArg;
-        $conversation = $this->repository->findByUid($uid);
+        // Claim the turn in one UPDATE, as ai-chat:worker does: a second
+        // ai-chat:process for the same conversation, or a worker that took it
+        // first, leaves this one with nothing to do.
+        $claimId = 'process_' . getmypid() . '_' . bin2hex(random_bytes(4));
+        $conversation = $this->repository->claimForProcess($uid, $claimId);
 
         if ($conversation === null) {
-            $output->writeln('<error>Conversation not found</error>');
-            return Command::FAILURE;
-        }
+            if ($this->repository->findByUid($uid) === null) {
+                $output->writeln('<error>Conversation not found</error>');
+                return Command::FAILURE;
+            }
 
-        if ($conversation->getStatus() !== ConversationStatus::Processing) {
-            $output->writeln('<error>Conversation is not in processing state</error>');
-            return Command::FAILURE;
+            // Not an error: another ai-chat:process or a worker has the turn,
+            // or it is already over. Nothing is left to do here.
+            $output->writeln(sprintf(
+                '<info>Conversation %d is not in processing state: another process or worker has claimed it, or the turn is over. Nothing to do.</info>',
+                $uid,
+            ));
+            return Command::SUCCESS;
         }
 
         BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool);

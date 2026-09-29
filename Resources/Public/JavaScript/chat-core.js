@@ -5,6 +5,20 @@ import {renderMarkdown} from './markdown.js';
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
 /**
+ * The status a conversation is shown with.
+ *
+ * `locked` means ai-chat:process or ai-chat:worker has claimed the turn and is
+ * running it; the row keeps that status until the turn ends. For the reader it
+ * is the same as `processing`. The API still reports the real status.
+ *
+ * @param {string} status
+ * @returns {string}
+ */
+export function displayStatus(status) {
+    return status === 'locked' ? 'processing' : status;
+}
+
+/**
  * Where the user is in the backend: the open module and the page the module
  * shows (NEXT-172).
  *

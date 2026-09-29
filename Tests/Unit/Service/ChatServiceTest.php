@@ -278,12 +278,15 @@ class ChatServiceTest extends TestCase
     }
 
     #[Test]
-    public function processConversationSetsProcessingStatusAtStart(): void
+    public function processConversationKeepsTheRowLockedAtStart(): void
     {
+        // The turn start used to write Processing, which dequeueForWorker() and
+        // claimForProcess() take as "free": a second consumer could claim the
+        // turn while this one was running it.
         $conversation = Conversation::fromRow([
             'uid' => 10,
             'be_user' => 7,
-            'status' => 'processing',
+            'status' => 'locked',
             'messages' => json_encode([['role' => 'user', 'content' => 'Hi']]),
             'message_count' => 1,
         ]);
@@ -291,7 +294,7 @@ class ChatServiceTest extends TestCase
         $repository = $this->createMock(ConversationRepository::class);
         $repository->expects(self::once())
             ->method('updateStatus')
-            ->with(10, ConversationStatus::Processing, 7);
+            ->with(10, ConversationStatus::Locked, 7);
 
         $service = $this->createChatService(repository: $repository);
         $service->processConversation($conversation);
@@ -637,6 +640,25 @@ class ChatServiceTest extends TestCase
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
         self::assertNull($this->capturedRequest);
+    }
+
+    #[Test]
+    public function resumeConversationRunsAConversationTheCallerClaimed(): void
+    {
+        // ai-chat:process and ai-chat:worker hand over the row as Locked.
+        $conversation = Conversation::fromRow([
+            'uid' => 4,
+            'be_user' => 1,
+            'status' => 'locked',
+            'messages' => json_encode([['role' => 'user', 'content' => 'Hi again']]),
+            'message_count' => 1,
+        ]);
+
+        $service = $this->createChatService($this->completedResult('Resumed answer.'));
+        $service->resumeConversation($conversation);
+
+        self::assertNotNull($this->capturedRequest);
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
     }
 
     #[Test]

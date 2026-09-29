@@ -221,7 +221,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
     public function resumeConversation(Conversation $conversation): void
     {
-        if (!$conversation->isResumable()) {
+        // Locked is how ai-chat:process and ai-chat:worker hand over the turn
+        // they claimed; it is not resumable from the UI, but it is this turn.
+        if (!$conversation->isResumable() && $conversation->getStatus() !== ConversationStatus::Locked) {
             return;
         }
 
@@ -280,8 +282,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function runAgentTurn(Conversation $conversation, LlmConfiguration $configuration, string $operation): void
     {
-        $conversation->setStatus(ConversationStatus::Processing);
-        $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Processing, $conversation->getBeUser());
+        // Locked, not Processing: the command or worker that runs this turn has
+        // claimed the row as Locked, and Processing is what dequeueForWorker()
+        // and claimForProcess() pick up. Writing Processing here handed the turn
+        // to the next consumer while it was still running. The write keeps the
+        // tstamp fresh for ai-chat:cleanup, as before.
+        $conversation->setStatus(ConversationStatus::Locked);
+        $this->repository->updateStatus($conversation->getUid(), ConversationStatus::Locked, $conversation->getBeUser());
 
         // The provider is resolved only to expand file attachments into the
         // multimodal wire shape (image/document capability); the chat itself

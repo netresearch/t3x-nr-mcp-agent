@@ -15,9 +15,9 @@ services:
   Netresearch\NrMcpAgent\Controller\ChatApiController:
     public: true
 
-  # Processor: defaults to exec, override for worker mode
+  # Processor: chosen by the extension setting processingStrategy (exec | worker)
   Netresearch\NrMcpAgent\Service\ChatProcessorInterface:
-    class: Netresearch\NrMcpAgent\Service\ExecChatProcessor
+    factory: ['@Netresearch\NrMcpAgent\Service\ChatProcessorFactory', 'create']
 
   # Document extractors — tagged for DocumentExtractorRegistry
   Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry:
