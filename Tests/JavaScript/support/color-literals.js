@@ -615,13 +615,16 @@ function templateVariants(quasis, expressions, css = false) {
 }
 
 /**
- * What an interpolation that is not a string stands for. In markup and in a
- * CSS value it is a var() reference; between CSS rules or declarations (a
- * `${unsafeCSS(...)}` block) it is a comment, so the stylesheet still parses.
+ * What an interpolation that is not a string stands for. In a CSS value, and
+ * in a markup attribute value, it is a var() reference; between CSS rules or
+ * declarations (a `${unsafeCSS(...)}` block, a whole `style="${styleMap(…)}"`,
+ * the content of a `<style>` element) it is a comment, so the CSS still parses.
  */
 function interpolated(textBefore, css, expression) {
     const boundary = Math.max(textBefore.lastIndexOf(';'), textBefore.lastIndexOf('{'), textBefore.lastIndexOf('}'));
-    const inValue = !css || textBefore.lastIndexOf(':') > boundary;
+    const inValue = css
+        ? textBefore.lastIndexOf(':') > boundary
+        : !/(?:\bstyle\s*=\s*["']?|[;{}>]|\*\/)\s*$/i.test(textBefore);
     const text = inValue ? 'var(--interpolated)' : '/* interpolated */';
     return SourceText.fromRaw(text, text, expression.loc.start.line);
 }

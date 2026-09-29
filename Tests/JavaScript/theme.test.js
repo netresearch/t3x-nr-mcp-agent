@@ -136,6 +136,7 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['an SVG color attribute', 'const i = html`<svg color="red"><path fill="currentColor"/></svg>`;'],
         ['markup in a string assigned to innerHTML', "el.innerHTML = '<div style=\"color:red\"></div>';"],
         ['markup in an untagged template', 'const markup = `<div style="color:red"></div>`;'],
+        ['a literal after an interpolated declaration', 'const t = html`<div style="${extra} color: red"></div>`;'],
     ])('the module check catches %s', (_label, source) => {
         expect(js(source)).toBe(true);
     });
@@ -149,6 +150,10 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['a style from a token', "Object.assign(el.style, {background: 'var(--typo3-surface-container-lowest, #fff)'});"],
         ['a data-fill attribute', 'const t = html`<div data-fill="black"></div>`;'],
         ['an SVG fill from a gradient', 'const i = html`<path fill="url(#g)"/>`;'],
+        // Interpolations outside a CSS value must still leave CSS that parses.
+        ['a whole style attribute interpolated', 'const t = html`<div style="${styleMap({a: 1})}"></div>`;'],
+        ['an interpolation between declarations', 'const t = html`<div style="color: var(--x); ${extra}"></div>`;'],
+        ['an interpolated <style> element', 'const t = html`<style>${sheet}</style>`;'],
     ])('the module check lets %s through', (_label, source) => {
         expect(js(source)).toBe(false);
     });
