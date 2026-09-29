@@ -238,15 +238,153 @@ describe('panel pop-out', () => {
     test('gives the detached window a reset and a background', async () => {
         const {pipWindow} = installPictureInPictureStub();
         document.documentElement.style.setProperty('--typo3-component-bg', 'rgb(1, 2, 3)');
+        try {
+            const {panel} = await mountPanel();
+
+            await panel.popOut();
+
+            const style = pipWindow.document.head.querySelector('style');
+            expect(style).not.toBeNull();
+            expect(style.textContent).toContain('margin:0');
+            // Resolved, not a var() reference the new document cannot look up.
+            expect(pipWindow.document.documentElement.style.background).toBe('rgb(1, 2, 3)');
+        } finally {
+            document.documentElement.style.removeProperty('--typo3-component-bg');
+        }
+    });
+
+    /**
+     * The defect: the --typo3-* tokens live on the BACKEND document's root, so
+     * in the detached document every --nr-chat-* property fell back to its
+     * light literal, and a backend set to dark showed a light panel. A computed
+     * custom property still holds `light-dark(…)`; it resolves against the
+     * colour-scheme of the document it is used in, so the scheme has to travel
+     * with the tokens.
+     */
+    test('carries the backend colour scheme and its tokens into the detached window', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const backendRoot = {
+            'color-scheme': 'only dark',
+            '--typo3-surface-container-lowest': 'light-dark(rgb(255, 255, 255), rgb(20, 19, 22))',
+            '--typo3-text-color-warning': 'light-dark(rgb(138, 83, 0), rgb(255, 193, 7))',
+        };
+        const realGetComputedStyle = window.getComputedStyle;
+        const spy = jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => (
+            element === document.documentElement
+                ? {getPropertyValue: (name) => backendRoot[name] ?? ''}
+                : realGetComputedStyle.call(window, element, pseudo)
+        ));
+
+        try {
+            const {panel} = await mountPanel();
+            await panel.popOut();
+
+            const css = [...pipWindow.document.head.querySelectorAll('style')].map((s) => s.textContent).join('');
+            // The TYPO3 setting, as core resolved it from data-color-scheme —
+            // not whatever the operating system prefers.
+            expect(css).toContain('color-scheme:only dark;');
+            expect(css).toContain('--typo3-surface-container-lowest:light-dark(rgb(255, 255, 255), rgb(20, 19, 22));');
+            expect(css).toContain('--typo3-text-color-warning:light-dark(rgb(138, 83, 0), rgb(255, 193, 7));');
+        } finally {
+            spy.mockRestore();
+        }
+    });
+
+    /**
+     * Core switches scheme and theme live: `typo3:color-scheme:update` and
+     * `typo3:theme:update` end in `data-color-scheme` / `data-theme` on the
+     * backend root, without a reload. A window dressed once at opening kept the
+     * old scheme until it was closed.
+     */
+    test('follows a scheme or theme switch while it is open, and stops when it closes', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const backendRoot = {
+            'color-scheme': 'only dark',
+            '--typo3-surface-container-lowest': 'rgb(20, 19, 22)',
+        };
+        const realGetComputedStyle = window.getComputedStyle;
+        const spy = jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => (
+            element === document.documentElement
+                ? {getPropertyValue: (name) => backendRoot[name] ?? ''}
+                : realGetComputedStyle.call(window, element, pseudo)
+        ));
+        const root = document.documentElement;
+        const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+        const dressCss = () => [...pipWindow.document.head.querySelectorAll('style')].map((s) => s.textContent);
+
+        try {
+            const {panel} = await mountPanel();
+            await panel.popOut();
+            expect(dressCss()).toHaveLength(1);
+            expect(dressCss()[0]).toContain('color-scheme:only dark;');
+
+            backendRoot['color-scheme'] = 'only light';
+            root.setAttribute('data-color-scheme', 'light');
+            await settle();
+            // Rewritten in place: one style element, the new scheme.
+            expect(dressCss()).toHaveLength(1);
+            expect(dressCss()[0]).toContain('color-scheme:only light;');
+
+            backendRoot['--typo3-surface-container-lowest'] = 'rgb(250, 250, 250)';
+            root.setAttribute('data-theme', 'classic');
+            await settle();
+            expect(dressCss()[0]).toContain('--typo3-surface-container-lowest:rgb(250, 250, 250);');
+
+            const [, handler] = pipWindow.addEventListener.mock.calls.find(([type]) => type === 'pagehide');
+            const disconnect = jest.spyOn(MutationObserver.prototype, 'disconnect');
+            handler();
+            // The observer on the backend root is released, not left behind.
+            expect(disconnect).toHaveBeenCalled();
+            disconnect.mockRestore();
+            backendRoot['color-scheme'] = 'only dark';
+            root.setAttribute('data-color-scheme', 'dark');
+            await settle();
+            // Closed: nothing listens any more.
+            expect(dressCss()[0]).toContain('color-scheme:only light;');
+        } finally {
+            spy.mockRestore();
+            root.removeAttribute('data-color-scheme');
+            root.removeAttribute('data-theme');
+        }
+    });
+
+    test('drops the previous background when a switch leaves the token empty', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const backendRoot = {'--typo3-component-bg': 'rgb(1, 2, 3)'};
+        const realGetComputedStyle = window.getComputedStyle;
+        const spy = jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => (
+            element === document.documentElement
+                ? {getPropertyValue: (name) => backendRoot[name] ?? ''}
+                : realGetComputedStyle.call(window, element, pseudo)
+        ));
+        const root = document.documentElement;
+
+        try {
+            const {panel} = await mountPanel();
+            await panel.popOut();
+            expect(pipWindow.document.documentElement.style.background).toBe('rgb(1, 2, 3)');
+
+            delete backendRoot['--typo3-component-bg'];
+            root.setAttribute('data-theme', 'classic');
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(pipWindow.document.documentElement.style.background).toBe('');
+        } finally {
+            spy.mockRestore();
+            root.removeAttribute('data-theme');
+        }
+    });
+
+    test('copies every --typo3-* token its own styles reference, and only those', async () => {
+        installPictureInPictureStub();
         const {panel} = await mountPanel();
+        const names = panel._backendTokenNames();
 
-        await panel.popOut();
-
-        const style = pipWindow.document.head.querySelector('style');
-        expect(style).not.toBeNull();
-        expect(style.textContent).toContain('margin:0');
-        // Resolved, not a var() reference the new document cannot look up.
-        expect(pipWindow.document.documentElement.style.background).toBe('rgb(1, 2, 3)');
+        // theme.js maps its --nr-chat-* properties onto these; missing one
+        // leaves that property on its light literal in the detached window.
+        expect(names.has('--typo3-surface-container-lowest')).toBe(true);
+        expect(names.has('--typo3-text-color-warning')).toBe(true);
+        expect(names.has('--typo3-component-bg')).toBe(true);
+        expect([...names].every((name) => name.startsWith('--typo3-'))).toBe(true);
     });
 
     test('a failed request leaves the panel where it was', async () => {
