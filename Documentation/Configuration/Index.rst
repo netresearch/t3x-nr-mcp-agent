@@ -61,6 +61,14 @@ Processing
         (``ai-chat:process``). Simple, no extra setup.
         Best for development and low-traffic sites.
 
+        The process runs the ``typo3`` binary from the
+        Composer ``bin-dir`` of the project (default
+        ``vendor/bin``), or ``typo3/sysext/core/bin/typo3``
+        in a classic installation. If the binary is not
+        there, the conversation fails with a message and
+        the path that was checked is written to the TYPO3
+        log.
+
     ``worker``
         Uses a long-running worker process
         (``ai-chat:worker``) that polls for new messages.
