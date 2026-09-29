@@ -23,10 +23,13 @@
  *  - anything inside var() — a literal there is a fallback. For matching, each
  *    var() is stood in for by a placeholder that fits the grammar
  *    (`currentcolor`, `0`, `0px`, an identifier, …); the placeholder is never
- *    reported, and a colour function counts as a literal only when at least
- *    one of its arguments is written in the source: `rgb(var(--r) var(--g)
- *    var(--b))` passes, `hsl(var(--h) 50% 40%)` is reported. A finding is
- *    printed as the source has it, not as the stand-in the match ran on;
+ *    reported. A colour function counts as a literal only when at least one
+ *    colour channel is written in the source — the same rule on the grammar
+ *    path and in the free scan. An alpha alone does not decide the colour, and
+ *    a calc() of custom properties is still a custom property: `rgb(var(--r)
+ *    var(--g) var(--b) / 50%)` and `rgba(var(--rgb), .5)` pass,
+ *    `hsl(var(--h) var(--s) 40%)` is reported. A finding is printed as the
+ *    source has it, not as the stand-in the match ran on;
  *  - `transparent` and `currentColor`, which carry no colour of their own;
  *  - the current CSS system colours (Canvas, CanvasText, ButtonFace, …), which
  *    follow `color-scheme`. The deprecated ones (ThreeDFace, Window, …) and
@@ -205,17 +208,94 @@ const isType = (match, name) => match.syntax?.type === 'Type' && match.syntax.na
 /** The AST nodes a match covers, in order. */
 const astNodesOf = (match) => [...matchNodes(match)].map((m) => m.node).filter(Boolean);
 
+/** Colour functions whose arguments are channels, and the ones with a colour space first. */
+const CHANNEL_FUNCTIONS = new Set(['rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab', 'oklch', 'color']);
+
+const childrenOf = (node) => node.children?.toArray?.() ?? [];
+
+/**
+ * Whether a node was written in the source rather than supplied by a custom
+ * property: var() and env() are not; a function such as calc() is only when one
+ * of its leaves is (`calc(var(--r))` is a stand-in, `calc(var(--r) + 10)` is
+ * written); operators and whitespace are neither.
+ */
+function isWritten(node) {
+    if (node.type === 'WhiteSpace' || node.type === 'Operator') {
+        return false;
+    }
+    if (node.type === 'Function') {
+        return !SUBSTITUTED.has(node.name.toLowerCase()) && childrenOf(node).some(isWritten);
+    }
+    if (node.type === 'Parentheses') {
+        return childrenOf(node).some(isWritten);
+    }
+
+    return true;
+}
+
+/**
+ * The channel arguments of a colour function: the alpha after `/`, the alpha
+ * of the legacy comma syntax, and the colour space of color() are left out.
+ * Relative colours (`from …`) return null.
+ */
+function channelsOf(fn) {
+    let args = childrenOf(fn).filter((n) => n.type !== 'WhiteSpace');
+    if (args.some((n) => n.type === 'Identifier' && n.name.toLowerCase() === 'from')) {
+        return null;
+    }
+    if (fn.name.toLowerCase() === 'color') {
+        args = args.slice(1);
+    }
+    const slash = args.findIndex((n) => n.type === 'Operator' && n.value === '/');
+    if (slash >= 0) {
+        return args.slice(0, slash);
+    }
+    const groups = [[]];
+    for (const node of args) {
+        if (node.type === 'Operator' && node.value === ',') {
+            groups.push([]);
+        } else {
+            groups.at(-1).push(node);
+        }
+    }
+
+    if (groups.length === 1) {
+        return args;
+    }
+    // Legacy comma syntax. A custom property may carry several channels and
+    // their commas, so positions are not certain: the last group is taken as
+    // the alpha when the name says there is one (rgba, hsla) or when all four
+    // groups are written out.
+    const hasAlpha = groups.length === 4 || /a$/.test(fn.name.toLowerCase());
+
+    return (hasAlpha ? groups.slice(0, -1) : groups).flat();
+}
+
+/**
+ * A colour function is a literal when at least one colour channel is written
+ * in the source. `rgb(var(--r) var(--g) var(--b))` and `rgba(var(--rgb), .5)`
+ * pass (an alpha does not decide the colour); `hsl(var(--h) 50% 40%)` is
+ * reported. One rule for both paths: the grammar match and the free scan
+ * apply it to the function as the source has it.
+ */
+function isLiteralFunction(fn) {
+    if (!CHANNEL_FUNCTIONS.has(fn.name.toLowerCase())) {
+        return true;
+    }
+    const channels = channelsOf(fn);
+
+    return channels === null || channels.length === 0 || channels.some(isWritten);
+}
+
 /**
  * Whether the nodes of one `<color>` are a literal colour. A keyword is literal
- * unless it is colourless or a current system colour. A colour function is
- * literal only when at least one of its arguments was written in the source:
- * `rgb(var(--r) var(--g) var(--b))` is built from custom properties, while
- * `hsl(var(--h) 50% 40%)` fixes saturation and lightness and is reported.
+ * unless it is colourless or a current system colour; a colour function by
+ * isLiteralFunction(), applied to the source function at the same position
+ * (`original`), not to the stand-in copy the match ran on.
  */
-function isLiteralColour(nodes, standIns = new Set()) {
-    const isStandIn = (node) => standIns.has(node.loc?.start.offset);
-    const [head, ...rest] = nodes;
-    if (!head || isStandIn(head)) {
+function isLiteralColour(nodes, standIns = new Set(), original = new Map()) {
+    const [head] = nodes;
+    if (!head || standIns.has(head.loc?.start.offset)) {
         return false;
     }
     if (head.type === 'Identifier') {
@@ -223,12 +303,18 @@ function isLiteralColour(nodes, standIns = new Set()) {
         return !COLOURLESS.has(name) && !SYSTEM_COLOURS.has(name);
     }
     if (head.type === 'Function') {
-        // The closing parenthesis is matched against the function node again; it is not an argument.
-        const args = rest.filter((n) => n !== head && n.type !== 'Operator' && n.type !== 'WhiteSpace');
-        return args.length === 0 || args.some((n) => !isStandIn(n));
+        return isLiteralFunction(original.get(head.loc?.start.offset) ?? head);
     }
 
     return true;
+}
+
+/** The functions of a value by their source position. */
+function functionsByOffset(value) {
+    const map = new Map();
+    csstree.walk(value, {visit: 'Function', enter(node) { map.set(node.loc?.start.offset, node); }});
+
+    return map;
 }
 
 /** `<color>` matches that contain no other `<color>`: the colours actually written. */
@@ -285,6 +371,7 @@ function literalsInGrammarValue(match, label, value) {
     const count = substitutions(value).length;
     // A stand-in carries the source position of the var()/env() it replaces.
     const standIns = new Set(substitutions(value).map((node) => node.loc?.start.offset));
+    const original = functionsByOffset(value);
     const fallbacks = envFallbackLiterals(value);
     const soft = (result) => (/(^|-)box-shadow$/.test(label) ? softShadows(result.matched) : []);
     for (const choice of count > 0 ? placeholderChoices(count) : [[]]) {
@@ -294,7 +381,7 @@ function literalsInGrammarValue(match, label, value) {
             const exempt = new Set(soft(result).flatMap((shadow) => astNodesOf(shadow)));
             return [...fallbacks, ...leafColours(result.matched)
                 .map((colour) => astNodesOf(colour))
-                .filter((nodes) => nodes.length > 0 && !nodes.some((n) => exempt.has(n)) && isLiteralColour(nodes, standIns))
+                .filter((nodes) => nodes.length > 0 && !nodes.some((n) => exempt.has(n)) && isLiteralColour(nodes, standIns, original))
                 .map((nodes) => nodes[0])];
         }
     }
@@ -305,16 +392,31 @@ function literalsInGrammarValue(match, label, value) {
     return literalsInFreeValue(value);
 }
 
-/** Literal colours in a value without a grammar: anything that is a `<color>`. */
+/**
+ * Literal colours in a value without a grammar, or one that matched none:
+ * anything that is a `<color>`. css-tree cannot type a colour function that
+ * holds var() or env() — a custom property may carry several channels and
+ * their commas (`hsl(var(--hs), 40%)`) — so such a function is known by its
+ * name and judged by the same channel rule as on the grammar path.
+ */
 function literalsInFreeValue(value) {
     const found = [];
     csstree.walk(value, {
         enter(node) {
-            if (node.type === 'Function' && node.name.toLowerCase() === 'var') {
+            if (node.type === 'Function' && SUBSTITUTED.has(node.name.toLowerCase())) {
+                // A var() fallback is allowed; an env() fallback is checked.
+                found.push(...envFallbackLiterals({type: 'Value', children: new csstree.List().fromArray([node])}));
                 return this.skip;
             }
             if (!['Identifier', 'Hash', 'Function'].includes(node.type)) {
                 return undefined;
+            }
+            if (node.type === 'Function' && CHANNEL_FUNCTIONS.has(node.name.toLowerCase())
+                && substitutions({type: 'Value', children: new csstree.List().fromArray([node])}).length > 0) {
+                if (isLiteralFunction(node)) {
+                    found.push(node);
+                }
+                return this.skip;
             }
             const result = lexer.matchType('color', node);
             if (!result.matched) {

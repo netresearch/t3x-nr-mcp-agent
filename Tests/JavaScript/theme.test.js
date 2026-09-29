@@ -219,9 +219,10 @@ describe('color-scheme safety (no bare color literals)', () => {
     });
 
     /**
-     * Syntax newer than css-tree 3.2.1's grammar does not match it. That is
-     * not an error in the CSS: the value is scanned for colours instead and a
-     * notice names it.
+     * A value that parses but matches no grammar is scanned for colours instead
+     * of throwing, and a notice names it. calc-size() is newer than css-tree
+     * 3.2.1's grammar; `linear(0, red)` is invalid CSS, because linear() takes
+     * numbers and percentages and `red` is neither.
      */
     test.each([
         ['calc-size()', '.a { height: calc-size(auto, size); }', []],
@@ -260,6 +261,45 @@ describe('color-scheme safety (no bare color literals)', () => {
         ['rgb() with two fixed channels', '.a { border: 1px solid rgb(var(--r) 0 0); }', 'border: rgb(var(--r) 0 0)'],
     ])('the CSS check reports %s as written in the source', (_label, text, finding) => {
         expect(colourLiteralsInCss(text)).toEqual([finding]);
+    });
+
+    /**
+     * One rule on both paths: a colour function is a literal when at least one
+     * colour channel is written in the source. An alpha alone does not decide
+     * the colour, and a calc() of custom properties is still a custom property.
+     * The grammar path is a `color` declaration; the free scan runs on a custom
+     * property, which has no grammar, and on a value that matches none.
+     */
+    const COLOUR_FUNCTIONS = [
+        ['rgb() with a channel computed from a literal', 'rgb(calc(var(--r) + 10) var(--g) var(--b))', true],
+        ['hsl() with a fixed lightness and a computed saturation', 'hsl(var(--h) calc(var(--s) * 1%) 40%)', true],
+        ['hsl() with a fixed lightness', 'hsl(var(--h) var(--s) 40%)', true],
+        ['hsl() with fixed channels after one custom property', 'hsl(var(--hs) 40%)', true],
+        ['legacy hsl() with a fixed channel after one custom property', 'hsl(var(--hs), 40%)', true],
+        ['color() with one fixed channel', 'color(srgb var(--r) 0.5 var(--b))', true],
+        ['rgb() of calc()s of custom properties', 'rgb(calc(var(--r)) calc(var(--g)) calc(var(--b)))', false],
+        ['rgb() with one calc() of a custom property', 'rgb(calc(var(--r)) var(--g) var(--b))', false],
+        ['rgb() with a computed alpha', 'rgb(var(--r) var(--g) var(--b) / calc(var(--a)))', false],
+        ['rgb() with a literal alpha only', 'rgb(var(--r) var(--g) var(--b) / 50%)', false],
+        ['rgb() of one custom property with a literal alpha', 'rgb(var(--rgb) / 50%)', false],
+        ['legacy rgba() with a literal alpha only', 'rgba(var(--rgb), .5)', false],
+        ['legacy hsl() of four groups with a literal alpha only', 'hsl(var(--h), var(--s), var(--l), .5)', false],
+        ['color() of custom properties', 'color(srgb var(--r) var(--g) var(--b))', false],
+    ];
+    test.each(COLOUR_FUNCTIONS)('the grammar path judges %s', (_label, colour, literal) => {
+        expect(colourLiteralsInCss(`.a { color: ${colour}; }`)).toEqual(literal ? [`color: ${colour}`] : []);
+    });
+    test.each(COLOUR_FUNCTIONS)('the free scan judges %s', (_label, colour, literal) => {
+        expect(colourLiteralsInCss(`.a { --x: ${colour}; }`)).toEqual(literal ? [`--x: ${colour}`] : []);
+    });
+
+    test.each([
+        ['a border of custom properties with a fixed lightness', '.a { border: var(--w) var(--s) hsl(var(--h) var(--s2) 40%); }', ['border: hsl(var(--h) var(--s2) 40%)']],
+        ['a value outside the grammar holding a fixed colour', '.a { border: var(--w) solid hsl(var(--h) 50% 40%) calc-size(auto, size); }', ['border: hsl(var(--h) 50% 40%)']],
+        ['a value outside the grammar holding an alpha only', '.a { border: var(--w) solid rgb(var(--r) var(--g) var(--b) / 50%) calc-size(auto, size); }', []],
+        ['a colour-mix() of a fixed hsl() and a custom property', '.a { color: color-mix(in oklch, hsl(var(--h) 50% 40%), var(--x)); }', ['color: hsl(var(--h) 50% 40%)']],
+    ])('a value no stand-in fits is judged by the same rule: %s', (_label, text, found) => {
+        expect(colourLiteralsInCss(text)).toEqual(found);
     });
 
     /** At-rule descriptors match their own grammar, not a property's. */
