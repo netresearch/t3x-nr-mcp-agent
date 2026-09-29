@@ -364,7 +364,7 @@ export class AiChatPanel extends LitElement {
         .approval-card pre { margin: 4px 0 0; max-height: 12em; overflow: auto; }
         .conv-tab .tab-icon.status-processing,
         .conv-tab .tab-icon.status-tool_loop,
-        .conv-tab .tab-icon.status-awaiting_approval,
+        .conv-tab .tab-icon.status-awaiting_approval { color: var(--nr-chat-status-info); }
         .conv-tab .tab-icon.status-failed  { color: var(--nr-chat-status-danger); }
         .conv-tab .tab-icon.status-idle    { color: var(--nr-chat-status-success); }
         .conv-tab .tab-close {

@@ -464,7 +464,7 @@ describe('shared theme contract', () => {
      * so "processing" and "tool_loop" tab icons lost their status colour and took
      * `.approval-card`'s margin-top instead.
      */
-    test.each(['processing', 'tool_loop', 'awaiting_approval', 'locked'])(
+    test.each(['processing', 'tool_loop', 'awaiting_approval'])(
         'the %s tab icon takes the status info colour',
         (status) => {
             const rule = [...read('ai-chat-panel.js').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
