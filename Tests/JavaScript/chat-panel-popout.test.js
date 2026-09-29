@@ -348,6 +348,32 @@ describe('panel pop-out', () => {
         }
     });
 
+    test('drops the previous background when a switch leaves the token empty', async () => {
+        const {pipWindow} = installPictureInPictureStub();
+        const backendRoot = {'--typo3-component-bg': 'rgb(1, 2, 3)'};
+        const realGetComputedStyle = window.getComputedStyle;
+        const spy = jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => (
+            element === document.documentElement
+                ? {getPropertyValue: (name) => backendRoot[name] ?? ''}
+                : realGetComputedStyle.call(window, element, pseudo)
+        ));
+        const root = document.documentElement;
+
+        try {
+            const {panel} = await mountPanel();
+            await panel.popOut();
+            expect(pipWindow.document.documentElement.style.background).toBe('rgb(1, 2, 3)');
+
+            delete backendRoot['--typo3-component-bg'];
+            root.setAttribute('data-theme', 'classic');
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(pipWindow.document.documentElement.style.background).toBe('');
+        } finally {
+            spy.mockRestore();
+            root.removeAttribute('data-theme');
+        }
+    });
+
     test('copies every --typo3-* token its own styles reference, and only those', async () => {
         installPictureInPictureStub();
         const {panel} = await mountPanel();

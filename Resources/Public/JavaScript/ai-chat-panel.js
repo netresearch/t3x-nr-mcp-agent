@@ -1131,6 +1131,9 @@ export class AiChatPanel extends LitElement {
         const background = backendRoot.getPropertyValue('--typo3-component-bg').trim();
         if (background !== '') {
             doc.documentElement.style.background = background;
+        } else {
+            // A re-dress after a switch must not keep the previous theme's colour.
+            doc.documentElement.style.background = '';
         }
     }
 
