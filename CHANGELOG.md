@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-09-30
+
 ### Fixed
 
 - **`processingStrategy = worker` is honoured.** The setting was read by nothing: `Configuration/Services.yaml` always bound the `exec` processor, so every message also started an `ai-chat:process` next to a running `ai-chat:worker`. `ChatProcessorInterface` is now built from the setting (`worker` selects the worker processor, anything else keeps `exec`).
