@@ -34,7 +34,8 @@ Decision
 
 Use a ``allowedGroups`` extension configuration setting. If the list is empty,
 all authenticated backend users have access. If non-empty, only users belonging
-to one of the listed groups can access the chat module and API endpoints.
+to one of the listed groups can use the chat API endpoints; other users get
+no toolbar item, and the dashboard widget lists no conversations for them.
 
 Consequences
 ============
@@ -45,4 +46,5 @@ Consequences
     begins.
 -   Granularity is at the group level; per-user overrides require creating a
     dedicated group.
--   Admin users (UID 0) bypass the check in line with TYPO3 conventions.
+-   Admin users (the ``admin`` flag of the backend user) bypass the check in
+    line with TYPO3 conventions.

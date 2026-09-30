@@ -40,7 +40,7 @@ Component map and enforced dependency rules: [docs/ARCHITECTURE.md](docs/ARCHITE
 make up                          # Full setup: DDEV + all TYPO3 versions + docs
 
 # Testing
-make test                        # Unit + Functional + Architecture tests
+make test                        # Unit + Functional tests (phpat rules run in make phpstan)
 make test-unit                   # Unit tests only
 make test-func                   # Functional tests (requires DDEV)
 make test-js                     # Jest tests (Lit components)
@@ -89,7 +89,7 @@ make ci                          # lint + phpstan + rector + test + test-js
 
 - [Architecture (agent-facing)](docs/ARCHITECTURE.md) — component map, dependency rules
 - [Architecture (docs.typo3.org)](Documentation/Developer/Architecture.rst) — data flow, domain model
-- [Architecture Decision Records](Documentation/Developer/ADR/Index.rst) — ADR-001 through ADR-016
+- [Architecture Decision Records](Documentation/Developer/ADR/Index.rst) — ADR-001 through ADR-017
 - [Testing Guide](Documentation/Developer/Testing.rst) — test pyramid details
 - [CI Workflow](.github/workflows/ci.yml) — matrix build configuration
 - [Exec plans](docs/exec-plans/README.md) — multi-session task plans

@@ -19,7 +19,7 @@ Full test pyramid: `Unit/` and `Functional/` (PHPUnit, TYPO3 testing-framework),
 ## Tests
 
 ```bash
-make test           # unit + functional + architecture (DDEV)
+make test           # unit + functional (DDEV); phpat rules run in make phpstan
 make test-unit      # or: composer ci:tests:unit
 make test-func      # or: composer ci:tests:functional
 make test-js        # Jest with coverage

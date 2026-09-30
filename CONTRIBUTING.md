@@ -24,7 +24,7 @@ make up   # starts DDEV and installs TYPO3
 ## Tests
 
 ```bash
-make test          # unit + functional + architecture
+make test          # unit + functional (the phpat architecture rules run in make phpstan)
 make test-js       # Lit component tests
 make test-e2e      # Playwright (requires running TYPO3)
 make test-mutation # mutation score check
