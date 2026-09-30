@@ -25,9 +25,7 @@ jobs:
       contents: read
     with:
       php-versions: '["8.2","8.3","8.4"]'
-      # TYPO3 ^14 is excluded until saschaegerer/phpstan-typo3 and
-      # typo3fluid/fluid ship releases that support TYPO3 14.
-      typo3-versions: '["^13.4"]'
+      typo3-versions: '["^13.4","^14.3"]'
       # This extension's tests require both cms-core and cms-backend.
       typo3-packages: '["typo3/cms-core","typo3/cms-backend"]'
       run-functional-tests: true

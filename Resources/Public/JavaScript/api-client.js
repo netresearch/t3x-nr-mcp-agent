@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 /**
  * Thin wrapper around the TYPO3 AJAX routes for ai-chat.
  * All methods return parsed JSON or throw on HTTP errors.

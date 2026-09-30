@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 <!-- FOR AI AGENTS - Human readability is a side effect, not a goal -->
 <!-- Managed by agent: keep sections and order; edit content, not structure -->
 <!-- Last updated: 2026-08-19 | Last verified: 2026-08-19 -->
@@ -27,7 +29,7 @@ AI Chat for TYPO3 — integrates a conversational AI assistant into the TYPO3 ba
 | `Configuration/` | TYPO3 TCA, backend routes/modules, Services.yaml |
 | `Resources/` | Fluid templates, JS (Lit web components), CSS |
 | `Documentation/` | RST docs (rendered on docs.typo3.org) |
-| `.github/workflows/` | CI (PHP 8.2–8.4 × TYPO3 ^13.4 matrix) |
+| `.github/workflows/` | CI (PHP 8.2–8.4 × TYPO3 ^13.4 / ^14.3 matrix) |
 
 Component map and enforced dependency rules: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -38,7 +40,7 @@ Component map and enforced dependency rules: [docs/ARCHITECTURE.md](docs/ARCHITE
 make up                          # Full setup: DDEV + all TYPO3 versions + docs
 
 # Testing
-make test                        # Unit + Functional + Architecture tests
+make test                        # Unit + Functional tests (phpat rules run in make phpstan)
 make test-unit                   # Unit tests only
 make test-func                   # Functional tests (requires DDEV)
 make test-js                     # Jest tests (Lit components)
@@ -87,7 +89,7 @@ make ci                          # lint + phpstan + rector + test + test-js
 
 - [Architecture (agent-facing)](docs/ARCHITECTURE.md) — component map, dependency rules
 - [Architecture (docs.typo3.org)](Documentation/Developer/Architecture.rst) — data flow, domain model
-- [Architecture Decision Records](Documentation/Developer/ADR/Index.rst) — ADR-001 through ADR-016
+- [Architecture Decision Records](Documentation/Developer/ADR/Index.rst) — ADR-001 through ADR-017
 - [Testing Guide](Documentation/Developer/Testing.rst) — test pyramid details
 - [CI Workflow](.github/workflows/ci.yml) — matrix build configuration
 - [Exec plans](docs/exec-plans/README.md) — multi-session task plans

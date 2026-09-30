@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 /**
  * Rendering tests for the two feedback surfaces NEXT-167 added (ADR-017):
  *

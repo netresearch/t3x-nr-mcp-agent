@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 /**
  * Keeps old documentation links working after the move to /docs/.
  *

@@ -2,6 +2,8 @@
 ## Description: Install all supported TYPO3 versions
 ## Usage: install-all
 ## Example: ddev install-all
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 set -euo pipefail
 

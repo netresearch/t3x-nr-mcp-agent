@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 <!-- Managed by agent: keep sections and order; edit content, not structure -->
 <!-- Last updated: 2026-08-19 -->
 
@@ -11,7 +13,7 @@ CI/CD is built from thin callers of shared reusable workflows (`netresearch/typo
 
 | File | Role |
 |------|------|
-| `ci.yml` | Test matrix (PHP 8.2–8.4 × TYPO3 ^13.4, SQLite functionals) — **intentional drift**, customize here |
+| `ci.yml` | Test matrix (PHP 8.2–8.4 × TYPO3 ^13.4 and ^14.3, SQLite functionals) — **intentional drift**, customize here |
 | `checks.yml` | Security/quality jobs — byte-identical to the template, do NOT edit in-repo |
 | `check-template-drift.yml` | Fails CI when template-governed files diverge |
 | `release.yml` | TER/release packaging — intentional drift (extension key etc.) |
@@ -32,7 +34,6 @@ CI/CD is built from thin callers of shared reusable workflows (`netresearch/typo
 - New jobs in `checks.yml` must also be added to `gate.needs` — the gate job is the only required context, a job missing there cannot block a merge
 - Template-governed files are edited in `netresearch/.github/templates/typo3-extension/`, then synced — never patched locally (except the `intentional-drift` list in `template.yaml`)
 - Every job declares explicit least-privilege `permissions:`; actions are SHA-pinned
-- TYPO3 ^14 is excluded from the matrix until `saschaegerer/phpstan-typo3` and `typo3fluid/fluid` support it (comment in `ci.yml`)
 
 ## Security
 

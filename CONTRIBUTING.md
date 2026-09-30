@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Contributing
 
 ## Prerequisites
@@ -22,7 +24,7 @@ make up   # starts DDEV and installs TYPO3
 ## Tests
 
 ```bash
-make test          # unit + functional + architecture
+make test          # unit + functional (the phpat architecture rules run in make phpstan)
 make test-js       # Lit component tests
 make test-e2e      # Playwright (requires running TYPO3)
 make test-mutation # mutation score check
@@ -41,7 +43,30 @@ Fix style and analysis issues in the same commit as the code change.
 
 ## Reporting issues
 
-Use [GitHub Issues](https://github.com/netresearch/t3x-nr-mcp-agent/issues).
+Use [GitHub Issues](https://github.com/netresearch/t3x-nr-mcp-agent/issues). Report vulnerabilities as described in the [Netresearch security policy](https://github.com/netresearch/.github/blob/main/SECURITY.md), not in public issues. The security expectations, trust boundaries and the checks behind them are in [docs/SECURITY-ASSURANCE.md](docs/SECURITY-ASSURANCE.md).
+
+## Governance and policies
+
+This extension follows the organisation-wide Netresearch policies:
+
+- [Governance](https://github.com/netresearch/.github/blob/main/GOVERNANCE.md): ownership, roles, how decisions are made and conflicts resolved.
+- [Roadmap](https://github.com/netresearch/.github/blob/main/ROADMAP.md): planned and excluded work for the next twelve months.
+- [Handling of dependency and code analysis findings](https://github.com/netresearch/.github/blob/main/SECURITY.md#handling-of-dependency-and-code-analysis-findings): which vulnerability, licence and static-analysis findings must be fixed, by when, and how exceptions are recorded.
+- [Secret management](https://github.com/netresearch/.github/blob/main/SECURITY.md#secret-management): where CI and release credentials are stored, who may use them, how committed secrets are detected, and when secrets are rotated.
+- [Access roster](https://github.com/netresearch/.github/blob/main/docs/access-roster.md): the people and teams with administrative or write access to this repository.
+
+Checks that run on every pull request in this repository:
+
+- `.github/workflows/checks.yml`: Composer Audit (fails on any advisory for an installed package) and Opengrep SAST, both through `typo3-ci-workflows`' `security.yml` (which Opengrep findings block a pull request is set by the organisation's [static analysis rule](https://github.com/netresearch/.github/blob/main/SECURITY.md#static-analysis-sast)); Dependency Review (fails on newly added dependencies with a vulnerability of severity high or higher); PHP License Audit (`license-check.yml`, fails when the `composer licenses` output matches its forbidden-licence pattern, by default `"(SSPL|BSL)"`); CodeQL for the JavaScript and the workflow files (CodeQL has no PHP analysis; PHPStan and Opengrep cover the PHP code); Betterleaks secret scanning; zizmor for the workflow files; the pull request quality gate (`pr-quality.yml`: a size check on non-draft pull requests and the solo-maintainer auto-approval for non-draft pull requests that an owner, member or collaborator opens from a branch of this repository); and the aggregate `All security checks` job, which fails unless every one of these jobs succeeded or was skipped. The fuzz job finds no fuzz suite in `Build/phpunit.xml` and is skipped.
+- `.github/workflows/ci.yml`: PHP lint, code style (PHP-CS-Fixer, `.php-cs-fixer.dist.php`), PHPStan (level 10, `Build/phpstan/phpstan.neon`, including the architecture rules in `Tests/Architecture/`), Rector, unit and functional (SQLite) tests on PHP 8.2 to 8.4 with TYPO3 13.4 and 14.3, and the documentation rendering of `Documentation/`; and the aggregate `All CI checks` job, which fails unless every CI job succeeded or was skipped.
+- `.github/workflows/js-tests.yml`: the Jest tests in `Tests/JavaScript/`.
+- `.github/workflows/e2e.yml`: the Playwright tests in `Build/tests/playwright/specs/` against TYPO3 13.4, once without and once with an nr-llm Task configured.
+- `.github/workflows/mutation.yml`: Infection with the thresholds in `infection.json.dist`.
+- `.github/workflows/harness-verify.yml`: `Build/Scripts/verify-harness.sh`.
+- `.github/workflows/dco.yml`: the `Signed-off-by` trailer on every commit.
+- `.github/workflows/check-template-drift.yml`: Template drift compares the `.github/` files managed by the organisation's typo3-extension template with that template.
+
+Pull requests that change `Documentation/**` or `.github/workflows/docs.yml` also run `.github/workflows/docs.yml`, which renders the documentation.
 
 ## Commit Signing
 

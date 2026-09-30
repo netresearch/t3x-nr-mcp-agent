@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 #
 # CI-only E2E hook. The e2e reusable workflow (netresearch/typo3-ci-workflows)
 # runs this as its `test-command` AFTER TYPO3 setup and the PHP server start,

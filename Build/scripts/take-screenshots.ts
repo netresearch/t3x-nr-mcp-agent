@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 /**
  * Documentation screenshot generator for nr_mcp_agent.
  *

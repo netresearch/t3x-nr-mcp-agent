@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 import {html} from 'lit';
 
 export const AVATAR_ASSISTANT = (size = 16) => html`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 2a3 3 0 0 1 3 3v3H9V5a3 3 0 0 1 3-3z"/><circle cx="8.5" cy="16.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="15.5" cy="16.5" r="1.5" fill="currentColor" stroke="none"/></svg>`;

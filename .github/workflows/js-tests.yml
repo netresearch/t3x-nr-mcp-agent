@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 name: JavaScript Tests
 
 # Runs the Jest suite in Tests/JavaScript (`npm run test:js`). The Lit

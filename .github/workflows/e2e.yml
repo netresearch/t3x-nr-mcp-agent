@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 name: E2E Tests
 
 # Playwright specs in Build/tests/playwright/specs against a TYPO3 13.4
@@ -26,8 +29,8 @@ jobs:
     with:
       # Same range as the ci.yml matrix (8.2-8.4); composer's platform is 8.2.
       php-version: '8.3'
-      # composer.json allows ^13.4 || ^14.3; ci.yml tests 13.4 only, and an
-      # unconstrained install would resolve 14.
+      # composer.json allows ^13.4 || ^14.3; the E2E run is pinned to 13.4,
+      # because an unconstrained install would resolve 14.
       typo3-versions: '["^13.4"]'
       # typo3/cms-filelist registers the `file` element browser the FAL picker
       # opens (fal-picker.spec.ts). composer.json requires it; it is listed

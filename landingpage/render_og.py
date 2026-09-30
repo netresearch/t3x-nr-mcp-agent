@@ -3,6 +3,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["cairosvg"]
 # ///
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 """Render the social preview cards.
 
 One 1200x630 card per language, built from the headline the page itself renders,

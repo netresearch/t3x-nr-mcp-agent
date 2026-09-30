@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 import {ApiClient} from './api-client.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {renderMarkdown} from './markdown.js';

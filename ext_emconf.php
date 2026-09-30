@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ */
+
 $EM_CONF[$_EXTKEY] = [
     'title' => 'AI Chat',
     'description' => 'AI chat assistant for the TYPO3 backend',

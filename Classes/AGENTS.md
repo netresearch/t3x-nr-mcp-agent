@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 <!-- Managed by agent: keep sections and order; edit content, not structure -->
 <!-- Last updated: 2026-08-19 -->
 
@@ -48,5 +50,5 @@ PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Cl
 ## When stuck
 
 - Component map and dependency rules: `../docs/ARCHITECTURE.md`
-- Design rationale: `../Documentation/Developer/ADR/` (ADR-001…016)
+- Design rationale: `../Documentation/Developer/ADR/` (ADR-001…017)
 - Agent loop details: `../Documentation/Developer/AgentLoop.rst`

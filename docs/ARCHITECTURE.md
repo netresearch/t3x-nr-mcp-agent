@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Architecture (agent-facing)
 
 Component map for AI agents working on `nr_mcp_agent`. Canonical prose documentation lives in `Documentation/Developer/Architecture.rst`; this file is the quick, verified index.
@@ -42,4 +44,4 @@ Enforced by phpat; the rules run as part of PHPStan (`Build/phpstan/phpstan.neon
 
 ## Key decisions
 
-Recorded as ADRs in `Documentation/Developer/ADR/` (ADR-001 … ADR-016). Most load-bearing for code changes: CLI-based processing (ADR-002), nr-llm as abstraction layer (ADR-004), conversation state machine (ADR-005), phpat-enforced layering (ADR-006), polling over WebSockets/SSE (ADR-007), Lit without build step (ADR-008), group-based access control (ADR-009), error-message sanitization (ADR-010).
+Recorded as ADRs in `Documentation/Developer/ADR/` (ADR-001 … ADR-017). Most load-bearing for code changes: CLI-based processing (ADR-002), nr-llm as abstraction layer (ADR-004), conversation state machine (ADR-005), phpat-enforced layering (ADR-006), polling over WebSockets/SSE (ADR-007), Lit without build step (ADR-008), group-based access control (ADR-009), error-message sanitization (ADR-010).

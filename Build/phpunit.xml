@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 <phpunit backupGlobals="true"
          bootstrap="../Tests/Build/Bootstrap.php"
          cacheResult="false"

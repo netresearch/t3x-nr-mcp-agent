@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 import {html, css, nothing} from 'lit';
 import {lll} from '@typo3/core/lit-helper.js';
 

@@ -1,5 +1,10 @@
 <?php
 
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ */
+
 /**
  * Run once to generate binary test fixtures.
  * Usage: php Tests/Fixtures/Documents/generate.php

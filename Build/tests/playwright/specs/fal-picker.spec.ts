@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 import { test, expect, Page } from '@playwright/test';
 
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
