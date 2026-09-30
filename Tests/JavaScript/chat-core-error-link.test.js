@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 /**
  * The error link an administrator gets beside a configuration failure
  * (ADR-017) travels through the two readers of the message endpoint: the full

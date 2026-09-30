@@ -2,6 +2,8 @@
 ## Description: Copy landing page to webroot (for manual refresh)
 ## Usage: copy-landing-page
 ## Example: ddev copy-landing-page
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 set -euo pipefail
 

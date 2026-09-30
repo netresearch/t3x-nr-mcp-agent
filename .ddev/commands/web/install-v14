@@ -2,6 +2,8 @@
 ## Description: Install TYPO3 v14 with nr_mcp_agent extension
 ## Usage: install-v14
 ## Example: ddev install-v14
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 set -euo pipefail
 

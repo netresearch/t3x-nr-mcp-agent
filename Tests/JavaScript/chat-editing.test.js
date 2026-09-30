@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 /**
  * Editing a sent message, the conversation's instructions, and the backend
  * context sent with a turn (NEXT-172).

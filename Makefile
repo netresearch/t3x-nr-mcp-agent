@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 .PHONY: up start down restart install install-all install-v13 install-v14 sync test test-unit test-func test-js test-e2e test-mutation test-all coverage lint lint-fix phpstan rector ci docs
 
 # === Environment ===

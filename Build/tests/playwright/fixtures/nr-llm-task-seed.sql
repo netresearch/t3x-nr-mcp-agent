@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: GPL-2.0-or-later
+-- SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 -- The smallest nr-llm chain the chat panel runs on: Provider -> Model ->
 -- Configuration -> Task. Loaded by ../seed-and-test.sh for the `configured`
 -- E2E variant, which then points `llmTaskUid` at Task 1.

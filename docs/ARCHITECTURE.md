@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # Architecture (agent-facing)
 
 Component map for AI agents working on `nr_mcp_agent`. Canonical prose documentation lives in `Documentation/Developer/Architecture.rst`; this file is the quick, verified index.

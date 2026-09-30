@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 includes:
     - %currentWorkingDirectory%/.Build/vendor/saschaegerer/phpstan-typo3/extension.neon
     - %currentWorkingDirectory%/.Build/vendor/phpat/phpat/extension.neon

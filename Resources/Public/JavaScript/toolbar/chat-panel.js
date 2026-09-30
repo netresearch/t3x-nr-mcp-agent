@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
 /**
  * Entry point for AI Chat panel - auto-loaded in the outer backend frame
  * via the backend.module import map tag.
