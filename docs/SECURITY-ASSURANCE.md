@@ -85,7 +85,7 @@ Users cannot expect:
 
 ## Verification
 
-The tests named above run in CI on every pull request (`.github/workflows/ci.yml`, `.github/workflows/js-tests.yml`). PHPStan runs at level 10 with the phpat rules, and Opengrep fails a pull request on findings of severity WARNING or higher. The full list of pull-request checks is in [CONTRIBUTING.md](../CONTRIBUTING.md#governance-and-policies). Locally:
+The tests named above run in CI on every pull request (`.github/workflows/ci.yml`, `.github/workflows/js-tests.yml`). PHPStan runs at level 10 with the phpat rules, and Opengrep (`auto` rule set, `--error --severity WARNING`) fails a pull request on any finding it reports. The full list of pull-request checks is in [CONTRIBUTING.md](../CONTRIBUTING.md#governance-and-policies). Locally:
 
 ```bash
 ./Build/Scripts/runTests.sh -s unit
