@@ -13,7 +13,7 @@ CI/CD is built from thin callers of shared reusable workflows (`netresearch/typo
 
 | File | Role |
 |------|------|
-| `ci.yml` | Test matrix (PHP 8.2–8.4 × TYPO3 ^13.4, SQLite functionals) — **intentional drift**, customize here |
+| `ci.yml` | Test matrix (PHP 8.2–8.4 × TYPO3 ^13.4 and ^14.3, SQLite functionals) — **intentional drift**, customize here |
 | `checks.yml` | Security/quality jobs — byte-identical to the template, do NOT edit in-repo |
 | `check-template-drift.yml` | Fails CI when template-governed files diverge |
 | `release.yml` | TER/release packaging — intentional drift (extension key etc.) |

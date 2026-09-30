@@ -29,7 +29,7 @@ AI Chat for TYPO3 — integrates a conversational AI assistant into the TYPO3 ba
 | `Configuration/` | TYPO3 TCA, backend routes/modules, Services.yaml |
 | `Resources/` | Fluid templates, JS (Lit web components), CSS |
 | `Documentation/` | RST docs (rendered on docs.typo3.org) |
-| `.github/workflows/` | CI (PHP 8.2–8.4 × TYPO3 ^13.4 matrix) |
+| `.github/workflows/` | CI (PHP 8.2–8.4 × TYPO3 ^13.4 / ^14.3 matrix) |
 
 Component map and enforced dependency rules: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
