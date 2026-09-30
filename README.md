@@ -146,6 +146,10 @@ Architectural decisions are documented as ADRs in [Documentation/Developer/ADR/]
 - **[nr-vault](https://github.com/netresearch/t3x-nr-vault)** -- Secure
   credential storage for TYPO3.
 
+## Security
+
+What the extension protects and what it does not, its trust boundaries and the checks behind them: [docs/SECURITY-ASSURANCE.md](docs/SECURITY-ASSURANCE.md). Report vulnerabilities as described in the [Netresearch security policy](https://github.com/netresearch/.github/blob/main/SECURITY.md), not in public issues.
+
 ## License
 
 GPL-2.0-or-later. See [LICENSE](LICENSE) for details.

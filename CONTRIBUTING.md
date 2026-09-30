@@ -43,7 +43,7 @@ Fix style and analysis issues in the same commit as the code change.
 
 ## Reporting issues
 
-Use [GitHub Issues](https://github.com/netresearch/t3x-nr-mcp-agent/issues).
+Use [GitHub Issues](https://github.com/netresearch/t3x-nr-mcp-agent/issues). Report vulnerabilities as described in the [Netresearch security policy](https://github.com/netresearch/.github/blob/main/SECURITY.md), not in public issues. The security expectations, trust boundaries and the checks behind them are in [docs/SECURITY-ASSURANCE.md](docs/SECURITY-ASSURANCE.md).
 
 ## Governance and policies
 

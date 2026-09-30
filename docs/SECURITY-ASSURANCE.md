@@ -1,0 +1,95 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+# Security assurance
+
+This document states what users of `netresearch/nr-mcp-agent` can and cannot expect in terms of security, where the extension's trust boundaries are, and which code and tests counter the weaknesses that matter for it. It describes the code on `main`; when this file and the code disagree, the code wins and this file is corrected. Vulnerabilities are reported as described in the [Netresearch security policy](https://github.com/netresearch/.github/blob/main/SECURITY.md). The component map is in [ARCHITECTURE.md](ARCHITECTURE.md).
+
+The extension is a proof of concept (`README.md`, `ext_emconf.php` state `alpha`). It is not an MCP server and contains no MCP client: MCP clients cannot connect to it. It is a chat for TYPO3 backend users. The model, the tools the model may call, and the MCP servers those tools can come from are provided and configured in [nr-llm](https://github.com/netresearch/t3x-nr-llm) (`Documentation/Developer/AgentLoop.rst`; the stdio MCP client this extension once had was removed in 0.12.0, ADR-014).
+
+## What the extension does, security-wise
+
+| Entry point | Who can reach it | Input | Code |
+|-------------|------------------|-------|------|
+| 14 AJAX routes under `/ai-chat/` (status, conversation list, create, messages, send, edit, instructions, approve, resume, archive, pin, rename, file upload, file info) | Authenticated backend users with a valid TYPO3 route token; further limited by `allowedGroups` | JSON body or query parameters, one uploaded file | `Configuration/Backend/AjaxRoutes.php`, `Classes/Controller/ChatApiController.php` |
+| Backend module "AI Chat", toolbar item, dashboard widget | Backend users with module access (`'access' => 'user'`); the toolbar item and widget apply `allowedGroups` | None beyond the request | `Configuration/Backend/Modules.php`, `Classes/Controller/ChatModuleController.php`, `Classes/Backend/ToolbarItems/ChatToolbarItem.php`, `Classes/Dashboard/AiChatWidget.php` |
+| Console commands `ai-chat:process`, `ai-chat:worker`, `ai-chat:cleanup` | Whoever can run the TYPO3 CLI on the host; `ai-chat:process` is also started by the web request (processing strategy `exec`) | Conversation uid, command options | `Classes/Command/`, `Classes/Service/ExecChatProcessor.php` |
+| Upgrade wizards | Install Tool or `typo3 upgrade:run` | None | `Classes/Updates/` |
+
+A turn works like this: the browser stores the user's message on a conversation, a CLI process claims the conversation, loads the owning backend user as `$GLOBALS['BE_USER']` (`Classes/Utility/BackendUserInitializer.php`), builds the system prompt and the transcript (`Classes/Service/ChatService.php`) and hands both to nr-llm's `AgentRuntime`. nr-llm calls the model, runs the tool calls the model asks for, and returns the result, which the extension stores on the conversation. The browser polls and renders it.
+
+The extension stores conversations and their messages in `tx_nrmcpagent_conversation` and `tx_nrmcpagent_message` (`ext_tables.sql`), and chat attachments as FAL files in `<attachmentFolder>/<backend user uid>/` of the default storage. Its own code opens no network connections; the provider calls and the tool calls are made by nr-llm.
+
+## Security expectations
+
+Users can expect:
+
+- Every AJAX route requires a logged-in backend user and a valid route token: none of the routes in `AjaxRoutes.php` sets `'access' => 'public'`, so TYPO3's `RouteDispatcher::assertRequestToken()` (13.4 and 14.3) rejects a request without the token, which counters cross-site request forgery.
+- When `allowedGroups` is set, every AJAX endpoint answers 403 to a user who is neither an administrator nor directly a member of one of the listed groups; subgroups are not considered (`ChatApiController::checkAccess()`). The toolbar item and the dashboard widget apply the same rule (`ChatToolbarItem::checkAccess()`).
+- A user reaches only their own conversations: every conversation lookup filters by the conversation uid and the user's own uid, and another user's conversation is answered with 404 (`ConversationRepository::findOneByUidAndBeUser()`, `ChatApiController::findConversationOrFail()`).
+- A turn runs with the permissions of the conversation's owner, never with a service account. The CLI process loads the owner, and only if the account is neither deleted nor disabled; the actor handed to nr-llm carries the owner's uid, admin flag and groups (`BackendUserInitializer::initialize()`, `ChatService::resolveActor()`).
+- A file can be attached only if the user may read it (`checkActionPermission('read')` in `sendMessage()` and `fileInfo()`). Uploads are limited to 20 MB, their type is detected on the server with `finfo` and must be one the provider or an installed text extractor supports, extraction formats are test-parsed before the file is stored, and an existing file with the same name is never overwritten (`ChatApiController::fileUpload()`, `storeAttachment()`). TYPO3's file mount and folder permissions decide whether the user may write to the attachment folder.
+- Message length (`maxMessageLength`, default 10,000 characters), conversation instructions (10,000 characters), attachments per conversation (5) and conversations processed at the same time per user (`maxActiveConversationsPerUser`, default 3, then 429) are limited (`ChatApiController`, `ext_conf_template.txt`).
+- Only an administrator or a user with access to nr-llm's AI Tasks module (`nrllm_aitasks`) can approve or reject a tool call that nr-llm has paused for approval (`ChatApiController::mayDecideApprovals()`). The chat never reads a chat message as an approval (`ContinueIntent`, ADR-017).
+- The model's answers are rendered as Markdown through marked and sanitized with DOMPurify before they enter the page; `script`, `style`, `iframe`, `object` and `embed` elements, event-handler attributes and `javascript:` URLs are removed (`Resources/Public/JavaScript/markdown.js`). The user's own messages are rendered as text.
+- Error messages stored for the chat have bearer tokens, key-like strings and URLs replaced and are cut to 500 characters (`Classes/Utility/ErrorMessageSanitizer.php`, ADR-010). Users who are not administrators see a fixed sentence for configuration errors instead of the provider's message for the two coded configuration errors (`ChatApiController::presentError()`).
+- The command that starts `ai-chat:process` from a web request passes every path through `escapeshellarg()` and the conversation uid as an integer (`ExecChatProcessor::buildCommand()`).
+- Conversations are archived after `autoArchiveDays` of inactivity (default 30) and archived ones deleted after 90 days by `ai-chat:cleanup` (`Classes/Command/CleanupCommand.php`), when that command is scheduled.
+
+Users cannot expect:
+
+- Protection against prompt injection. Web pages, records, files, attachments and MCP server results that the model reads can contain text that steers it. The extension marks the user's own conversation instructions as lower-ranked text inside the system prompt, but it cannot keep a model from following instructions it finds in content. What a steered model can do is bounded by the tools nr-llm offers it and by the permissions of the user it runs as.
+- A narrower tool set than nr-llm allows. The extension requests the whole set nr-llm makes available for the configuration (`allowedToolNames` is `null`, `ChatService::runAgentTurn()`). Which tools exist, which are enabled, which need administrator rights or an approval, and which data classes a configuration may reach are nr-llm settings. nr-llm's builtin tools read and write TYPO3 records, pages, files, TypoScript, TCA, site configuration, logs and system information, and can fetch external URLs; MCP servers configured in nr-llm add their own tools.
+- That the model's answer is true. When an answer claims a change that no tool recorded, the chat adds a notice (`Classes/Utility/ChangeClaim.php`, `ChatService::claimsAnUnrecordedChange()`, ADR-017), but other statements of the model are not checked.
+- Confidentiality towards the LLM provider. Messages, attachments (as images, documents or extracted text), the title of the page the user has open, the backend language, the site languages and the results of tool calls are sent to the provider configured in nr-llm.
+- Restricted links in answers. A link in an answer can point to any `http(s)` address and carry data the model put into it; opening it is the user's decision. Images from other hosts do not load while TYPO3's backend Content-Security-Policy applies (`img-src` allows the backend's own host, `data:` and two video thumbnail hosts in TYPO3 13.4 and 14.3).
+- Access control by group when `allowedGroups` is empty, which is the default: then every backend user can use the chat.
+- Isolation from the document parsers. PDF, DOCX and XLSX files are parsed in the PHP process by smalot/pdfparser, PHPWord and, if installed, PhpSpreadsheet; their security depends on those libraries.
+- Protection against a misconfigured installation. The extension trusts its extension configuration, nr-llm's configuration and the host (see below).
+
+## Threat model and trust boundaries
+
+| Boundary | Untrusted input | Control |
+|----------|-----------------|---------|
+| Browser → AJAX routes | Request body, query parameters, uploaded file | TYPO3 backend authentication and route token, `checkAccess()`, ownership filter on every conversation lookup, length and count limits, `finfo` type check, read permission check for attached files, JSON responses |
+| Backend user → model | Messages, conversation instructions, attachments | The user's instructions are fenced between markers, the markers are removed from the text, and the prompt ranks them below the administrator's prompts (`ChatService::buildSystemPrompt()`); the page named in the prompt is re-checked against the user's permissions (`Classes/Service/UserContextPrompt.php`) |
+| Model and tool results → TYPO3 | Tool calls chosen by the model, content returned by tools and MCP servers | Tool gate and approvals in nr-llm, evaluated for the conversation's owner; approval decisions only by users with the AI Tasks module |
+| Model → browser | Answer text | marked + DOMPurify, TYPO3 backend CSP |
+| Web request → CLI process | Conversation uid | Integer cast, `escapeshellarg()` for paths, the CLI process re-reads the conversation and claims it in one database update (`ConversationRepository::claimForProcess()`) |
+| Integrator → extension | Extension configuration (`llmTaskUid`, `groupTaskMapping`, `allowedGroups`, limits, `attachmentFolder`), nr-llm configuration | Trusted |
+
+## Secure design principles applied
+
+- **Least privilege.** A turn runs as the conversation's owner; nr-llm evaluates tools against that user, not against a technical account. Approval decisions need the AI Tasks module in addition to chat access.
+- **Complete mediation.** `checkAccess()` runs at the start of every endpoint, and every endpoint that takes a conversation uid resolves it through the owner-filtered lookup.
+- **Fail-safe defaults.** A missing nr-llm Task or configuration fails the turn with a message instead of running without tools or without a prompt (`ChatService::processConversation()`); a turn does not run for a backend user that no longer exists or is disabled (`BackendUserInitializer`); a file whose type cannot be detected is rejected.
+- **Ranking of instructions.** The administrator's prompts come first in the system prompt, the user's conversation instructions last, fenced and declared subordinate.
+- **Layering.** phpat rules, run with PHPStan, keep the domain free of controllers and commands, services free of direct `ConnectionPool` access and controllers free of commands (`Tests/Architecture/LayerDependencyTest.php`, `docs/ARCHITECTURE.md`).
+- **Minimal disclosure.** Error messages are sanitized before they are stored, and non-administrators get a plain sentence instead of provider details.
+
+## Countering common weaknesses
+
+| Weakness (CWE / OWASP) | Counter | Evidence |
+|------------------------|---------|----------|
+| Missing authorization, insecure direct object reference (CWE-862, CWE-639, A01:2021) | `checkAccess()`, owner filter on every conversation lookup, read permission check for attached files, module check for approvals | `Tests/Unit/Controller/ChatApiControllerTest.php` (`checkAccessDeniesUnauthorizedGroup`, `checkAccessAllowsAdminDespiteGroupRestriction`, `decidingAnApprovalRequiresTheModuleTheInboxLivesIn`), `Tests/Unit/Controller/ChatApiControllerEditTest.php` (`bothEndpointsAnswerNotFoundForAnotherUsersConversation`), `Tests/Functional/Domain/Repository/ConversationRepositoryTest.php` (`findOneByUidAndBeUserEnforcesOwnership`), `Tests/Functional/Controller/ChatApiControllerTest.php` (`accessDeniedWhenUserNotInAllowedGroups`), `Tests/Unit/Controller/ChatApiControllerFileInfoTest.php` (`fileInfoReturnsForbiddenWhenNoReadPermission`) |
+| Cross-site request forgery (CWE-352) | TYPO3 route token on all AJAX routes | `Configuration/Backend/AjaxRoutes.php` |
+| Cross-site scripting (CWE-79, A03:2021) | DOMPurify on rendered answers; escaping in the dashboard widget template | `Tests/JavaScript/markdown.test.js` (`strips script tags from output`, `strips javascript: href from links`, `strips onerror attributes`), `Tests/Functional/Dashboard/AiChatWidgetRenderingTest.php` (`aTitleIsEscaped`) |
+| Prompt injection (OWASP LLM01) | Fenced user instructions; page context only for pages the user may see; tools gated and approvals required by nr-llm; notice on unrecorded change claims | `Tests/Unit/Service/ChatServiceTest.php` (`theUsersInstructionsCannotCloseTheirFence`, `conversationInstructionsAreAppendedAfterTheAdministratorsPrompts`), `Tests/Functional/Service/UserContextPromptTest.php` (`aPageTheUserMayNotSeeIsLeftOut`), `Tests/Unit/Utility/ChangeClaimTest.php` |
+| Unrestricted upload of dangerous file types (CWE-434) | Server-side type detection with `finfo` against an allow-list, size limit, parse check, no overwrite | `Tests/Unit/Controller/ChatApiControllerTest.php` (`fileUploadRejectsInvalidMimeType`, `fileUploadAcceptsExtractionBackedMimeType`) |
+| OS command injection (CWE-78) | `escapeshellarg()` for every path, integer uid | `Tests/Unit/Service/ExecChatProcessorTest.php` (`commandQuotesPathsThatCarryShellSyntax`) |
+| SQL injection (CWE-89) | QueryBuilder with named parameters in the repository and the user loader | `Classes/Domain/Repository/ConversationRepository.php`, `Classes/Utility/BackendUserInitializer.php` |
+| Information exposure through error messages (CWE-209) | Sanitizer on stored error messages, per-reader error text | `Tests/Unit/Utility/ErrorMessageSanitizerTest.php` |
+| Race conditions on a turn (CWE-362) | A turn is claimed with one conditional update; a second consumer finds nothing to do | `Tests/Functional/Command/ProcessChatCommandTest.php` (`aTurnAWorkerClaimedFirstIsNotProcessedAgain`), `Tests/Functional/Service/ChatServiceTurnClaimTest.php` |
+| Uncontrolled resource consumption (CWE-400) | Message, instruction, upload and attachment limits, active-conversation limit per user, stuck conversations failed after five minutes by `ai-chat:cleanup` | `Classes/Controller/ChatApiController.php`, `Classes/Command/CleanupCommand.php` |
+| Hard-coded credentials (CWE-798) | None in the code; provider keys live in nr-llm; Betterleaks scans every pull request | `.github/workflows/checks.yml` |
+| Vulnerable and outdated components (A06:2021) | Composer Audit and Dependency Review on every pull request, Renovate update pull requests. The vendored marked and DOMPurify builds are not declared in `composer.json` or `package.json`, so the audits do not see them; their versions are in their file headers | `.github/workflows/checks.yml`, `renovate.json`, `Resources/Public/JavaScript/Vendor/` |
+
+## Verification
+
+The tests named above run in CI on every pull request (`.github/workflows/ci.yml`, `.github/workflows/js-tests.yml`). PHPStan runs at level 10 with the phpat rules, and Opengrep fails a pull request on findings of severity WARNING or higher. The full list of pull-request checks is in [CONTRIBUTING.md](../CONTRIBUTING.md#governance-and-policies). Locally:
+
+```bash
+./Build/Scripts/runTests.sh -s unit
+./Build/Scripts/runTests.sh -s functional -d sqlite
+./Build/Scripts/runTests.sh -s phpstan
+npm ci && npm run test:js
+```
