@@ -40,6 +40,8 @@ final readonly class ExecChatProcessor implements ChatProcessorInterface
             return;
         }
 
+        // buildCommand() quotes every path with escapeshellarg(); the uid is an int.
+        // nosemgrep: php.lang.security.exec-use.exec-use
         exec($cmd);
     }
 
