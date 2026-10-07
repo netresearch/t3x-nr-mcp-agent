@@ -130,3 +130,56 @@ test('returns plain paragraph for plain text input', () => {
     const html = renderMarkdown('hello world');
     expect(html).toContain('hello world');
 });
+
+// ── Images and links ─────────────────────────────────────────────────────────
+
+test('keeps an image of the backend origin and an inline image', () => {
+    const html = renderMarkdown(`![own](${window.location.origin}/fileadmin/a.png) ![rel](/fileadmin/b.png) ![inline](data:image/png;base64,abc)`);
+    expect(html).toContain('alt="own"');
+    expect(html).toContain('alt="rel"');
+    expect(html).toContain('alt="inline"');
+});
+
+test('drops an image from another origin', () => {
+    const html = renderMarkdown('Text ![x](https://elsewhere.example/p.png?d=1) <img src="//elsewhere.example/q.png" alt="y">');
+    expect(html).toContain('Text');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('elsewhere.example');
+});
+
+test('opens a link to another origin in a new tab without a referrer', () => {
+    const html = renderMarkdown('[docs](https://docs.example.org/page)');
+    const link = new DOMParser().parseFromString(html, 'text/html').querySelector('a');
+    expect(link.getAttribute('href')).toBe('https://docs.example.org/page');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+});
+
+test('leaves a link within the backend as it is', () => {
+    const html = renderMarkdown('[record](/typo3/record/edit)');
+    const link = new DOMParser().parseFromString(html, 'text/html').querySelector('a');
+    expect(link.getAttribute('href')).toBe('/typo3/record/edit');
+    expect(link.hasAttribute('target')).toBe(false);
+});
+
+test('keeps no other way of loading an image', () => {
+    const html = renderMarkdown([
+        '<img src="/a.png" srcset="https://elsewhere.example/s.png 1x" alt="s">',
+        '<picture><source srcset="https://elsewhere.example/p.png"><img src="/b.png" alt="p"></picture>',
+        '<input type="image" src="https://elsewhere.example/i.png">',
+        '<video poster="https://elsewhere.example/v.png"></video>',
+        '<audio src="https://elsewhere.example/a.mp3"></audio>',
+        '<p style="background:url(https://elsewhere.example/st.png)">x</p>',
+        '<table background="https://elsewhere.example/b.png"><tr><td>t</td></tr></table>',
+    ].join('\n'));
+    expect(html).not.toContain('elsewhere.example');
+    expect(html).toContain('alt="s"');
+    expect(html).toContain('alt="p"');
+});
+
+test('opens an image-map link to another origin in a new tab without a referrer', () => {
+    const html = renderMarkdown('<img src="/map.png" usemap="#m" alt="m"><map name="m"><area shape="rect" coords="0,0,9,9" href="https://docs.example.org/area" alt="a"></map>');
+    const area = new DOMParser().parseFromString(html, 'text/html').querySelector('area');
+    expect(area.getAttribute('target')).toBe('_blank');
+    expect(area.getAttribute('rel')).toBe('noopener noreferrer');
+});

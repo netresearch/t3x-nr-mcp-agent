@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Utility\BackendUserInitializer;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -70,10 +71,14 @@ final class ChatWorkerCommand extends Command
                     usleep($pollInterval);
                 }
             } catch (Throwable $e) {
-                $output->writeln(sprintf('<error>Error: %s</error>', $e->getMessage()));
+                // The output ends up in the log the worker's supervisor keeps:
+                // the same sanitised text as the stored error message, never
+                // the raw one.
+                $message = ErrorMessageSanitizer::sanitize($e->getMessage());
+                $output->writeln(sprintf('<error>Error: %s</error>', OutputFormatter::escape($message)));
                 if ($conversation !== null) {
                     $conversation->setStatus(ConversationStatus::Failed);
-                    $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
+                    $conversation->setErrorMessage($message);
                     $this->repository->update($conversation);
                 }
             } finally {

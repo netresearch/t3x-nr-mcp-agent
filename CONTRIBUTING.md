@@ -50,7 +50,7 @@ Use [GitHub Issues](https://github.com/netresearch/t3x-nr-mcp-agent/issues). Rep
 This extension follows the organisation-wide Netresearch policies:
 
 - [Governance](https://github.com/netresearch/.github/blob/main/GOVERNANCE.md): ownership, roles, how decisions are made and conflicts resolved.
-- [Roadmap](https://github.com/netresearch/.github/blob/main/ROADMAP.md): planned and excluded work for the next twelve months.
+- [Roadmap](ROADMAP.md): the status of this extension (alpha proof of concept) and how the [organisation roadmap](https://github.com/netresearch/.github/blob/main/ROADMAP.md) applies to it.
 - [Handling of dependency and code analysis findings](https://github.com/netresearch/.github/blob/main/SECURITY.md#handling-of-dependency-and-code-analysis-findings): which vulnerability, licence and static-analysis findings must be fixed, by when, and how exceptions are recorded.
 - [Secret management](https://github.com/netresearch/.github/blob/main/SECURITY.md#secret-management): where CI and release credentials are stored, who may use them, how committed secrets are detected, and when secrets are rotated.
 - [Access roster](https://github.com/netresearch/.github/blob/main/docs/access-roster.md): the people and teams with administrative or write access to this repository.
