@@ -176,3 +176,10 @@ test('keeps no other way of loading an image', () => {
     expect(html).toContain('alt="s"');
     expect(html).toContain('alt="p"');
 });
+
+test('opens an image-map link to another origin in a new tab without a referrer', () => {
+    const html = renderMarkdown('<img src="/map.png" usemap="#m" alt="m"><map name="m"><area shape="rect" coords="0,0,9,9" href="https://docs.example.org/area" alt="a"></map>');
+    const area = new DOMParser().parseFromString(html, 'text/html').querySelector('area');
+    expect(area.getAttribute('target')).toBe('_blank');
+    expect(area.getAttribute('rel')).toBe('noopener noreferrer');
+});

@@ -67,7 +67,7 @@ purifier.addHook('uponSanitizeElement', (node, data) => {
 });
 
 purifier.addHook('afterSanitizeAttributes', (node) => {
-    if (node.tagName === 'A' && node.hasAttribute('href') && isExternalLink(node.getAttribute('href') || '')) {
+    if ((node.tagName === 'A' || node.tagName === 'AREA') && node.hasAttribute('href') && isExternalLink(node.getAttribute('href') || '')) {
         node.setAttribute('target', '_blank');
         node.setAttribute('rel', 'noopener noreferrer');
     }
