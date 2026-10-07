@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **`ai-chat:process` and `ai-chat:worker` write the sanitized error text.** When a turn fails, both commands now print the same text that is stored as the conversation's error message, with bearer tokens, key-like strings and URLs replaced (`ErrorMessageSanitizer`, ADR-010), and escape it for the console. The output of `ai-chat:process` goes to `var/log/ai-chat-process.log`.
+- **`ai-chat:process` and `ai-chat:worker` write the sanitized error text.** When an error escapes the turn, both commands now print its message with bearer tokens, key-like strings and URLs replaced (`ErrorMessageSanitizer`, ADR-010, as for the stored error message), and escape it for the console. Failures that `ChatService` handles inside the turn are stored and not printed. The output of `ai-chat:process` goes to `var/log/ai-chat-process.log`.
 - **Answers show images only from the backend's own origin or inline.** The Markdown renderer drops an image whose source is on another origin, removes the other elements and attributes that load a resource on display (`picture`, `source`, `video`, `audio`, `track`, `input`; `srcset`, `poster`, `background`, `style`), and opens links to another origin in a new tab with `rel="noopener noreferrer"`. It uses its own DOMPurify instance, so the shared `dompurify` import is unchanged.
 
 ### Changed
