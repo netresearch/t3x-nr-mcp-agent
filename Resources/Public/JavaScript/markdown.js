@@ -90,7 +90,9 @@ export function renderMarkdown(text) {
     const raw = /** @type {string} */ (marked.parse(text, MARKED_OPTIONS));
     return purifier.sanitize(raw, {
         USE_PROFILES: {html: true},
-        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
-        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+        // Elements and attributes that load a resource without the reader's
+        // action, besides <img src> (see the hooks above), are not kept.
+        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'picture', 'source', 'video', 'audio', 'track', 'input'],
+        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'srcset', 'poster', 'background', 'style'],
     });
 }

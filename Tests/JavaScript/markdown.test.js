@@ -161,3 +161,18 @@ test('leaves a link within the backend as it is', () => {
     expect(link.getAttribute('href')).toBe('/typo3/record/edit');
     expect(link.hasAttribute('target')).toBe(false);
 });
+
+test('keeps no other way of loading an image', () => {
+    const html = renderMarkdown([
+        '<img src="/a.png" srcset="https://elsewhere.example/s.png 1x" alt="s">',
+        '<picture><source srcset="https://elsewhere.example/p.png"><img src="/b.png" alt="p"></picture>',
+        '<input type="image" src="https://elsewhere.example/i.png">',
+        '<video poster="https://elsewhere.example/v.png"></video>',
+        '<audio src="https://elsewhere.example/a.mp3"></audio>',
+        '<p style="background:url(https://elsewhere.example/st.png)">x</p>',
+        '<table background="https://elsewhere.example/b.png"><tr><td>t</td></tr></table>',
+    ].join('\n'));
+    expect(html).not.toContain('elsewhere.example');
+    expect(html).toContain('alt="s"');
+    expect(html).toContain('alt="p"');
+});

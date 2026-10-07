@@ -29,7 +29,7 @@ Frontend assets of the backend module and toolbar panel. `Private/`: Fluid layou
 ## Security
 
 - All LLM/markdown output is sanitized with DOMPurify before insertion into the DOM — never bypass it with `innerHTML` on raw model output
-- `markdown.js` uses its own DOMPurify instance with hooks: images only inline or from the backend's origin, links to other origins open in a new tab with `rel="noopener noreferrer"`
+- `markdown.js` uses its own DOMPurify instance with hooks: images only inline or from the backend's origin (no `srcset`, `poster`, `background`, `style`, no media or `input` elements), links to other origins open in a new tab with `rel="noopener noreferrer"`
 - Do not add third-party CDN references; vendored dependencies only (`Public/JavaScript/Vendor/`)
 
 ## Checklist
