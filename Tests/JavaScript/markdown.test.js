@@ -130,3 +130,34 @@ test('returns plain paragraph for plain text input', () => {
     const html = renderMarkdown('hello world');
     expect(html).toContain('hello world');
 });
+
+// ── Images and links ─────────────────────────────────────────────────────────
+
+test('keeps an image of the backend origin and an inline image', () => {
+    const html = renderMarkdown(`![own](${window.location.origin}/fileadmin/a.png) ![rel](/fileadmin/b.png) ![inline](data:image/png;base64,abc)`);
+    expect(html).toContain('alt="own"');
+    expect(html).toContain('alt="rel"');
+    expect(html).toContain('alt="inline"');
+});
+
+test('drops an image from another origin', () => {
+    const html = renderMarkdown('Text ![x](https://elsewhere.example/p.png?d=1) <img src="//elsewhere.example/q.png" alt="y">');
+    expect(html).toContain('Text');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('elsewhere.example');
+});
+
+test('opens a link to another origin in a new tab without a referrer', () => {
+    const html = renderMarkdown('[docs](https://docs.example.org/page)');
+    const link = new DOMParser().parseFromString(html, 'text/html').querySelector('a');
+    expect(link.getAttribute('href')).toBe('https://docs.example.org/page');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+});
+
+test('leaves a link within the backend as it is', () => {
+    const html = renderMarkdown('[record](/typo3/record/edit)');
+    const link = new DOMParser().parseFromString(html, 'text/html').querySelector('a');
+    expect(link.getAttribute('href')).toBe('/typo3/record/edit');
+    expect(link.hasAttribute('target')).toBe(false);
+});
