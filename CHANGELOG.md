@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.4] - 2026-10-07
+
 ### Fixed
 
 - **`ai-chat:process` and `ai-chat:worker` write the sanitized error text.** When an error escapes the turn, both commands now print its message with bearer tokens, key-like strings and URLs replaced (`ErrorMessageSanitizer`, ADR-010, as for the stored error message), and escape it for the console. Failures that `ChatService` handles inside the turn are stored and not printed. The output of `ai-chat:process` goes to `var/log/ai-chat-process.log`.
@@ -16,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **nr-llm 0.39 is accepted.** `composer.json` requires `netresearch/nr-llm` `^0.37 || ^0.38 || ^0.39`, `ext_emconf.php` declares `0.37.0-0.39.99`. On a 0.x version `^0.38` does not admit 0.39.0, so this extension kept an installation from moving to nr-llm 0.39. The breaking changes of nr-llm 0.39 (structured completion results, the optional routing parameter on the configuration calls, decimal model prices, the removed LLM judge) touch no class or method this extension calls or implements; the floor stays at 0.37.
+- **The extension is called "AI Chat" everywhere** (#193): `ext_emconf.php`, the title part of the `composer.json` description (which TER and TYPO3 v14 read), `Documentation/guides.xml`, `Documentation/Index.rst` and the README.
+- **CI tests TYPO3 14.3 as well as 13.4.** `composer.json` declared `^13.4 || ^14.3`, but the test matrix ran 13.4 only.
+- **Source files carry SPDX licence and copyright notices**, enforced for PHP by PHP-CS-Fixer, and the release archives leave out development, CI and agent files.
+- **`docs/SECURITY-ASSURANCE.md`** is a security assurance case: entry points, threat model, trust boundaries and the counter to each CWE/OWASP class, each tied to code or a test. `CONTRIBUTING.md` links the organisation's governance, security and access policies and states the checks every pull request runs, including the licence check's refused licences.
+- **The shell call that starts the chat worker is marked as reviewed for Opengrep**: it quotes both binaries and the log file with `escapeshellarg()` and formats the uid as an integer. Nothing changes at runtime.
 - **`ROADMAP.md`** states the extension's status (alpha proof of concept) and how the organisation roadmap applies to it; `CONTRIBUTING.md` links it.
 - **`.github/template.yaml`** no longer lists `.github/dependabot.yml` as intentional drift: the file does not exist, and the template no longer carries it.
 

@@ -16,7 +16,7 @@ AI Chat for TYPO3 — integrates a conversational AI assistant into the TYPO3 ba
 
 - **Package**: `netresearch/nr-mcp-agent` (Composer) / `nr_mcp_agent` (extension key)
 - **Namespace**: `Netresearch\NrMcpAgent\`
-- **Tech stack**: PHP ^8.2, TYPO3 ^13.4 || ^14.3, nr-llm ^0.37 || ^0.38, Lit web components (no build step)
+- **Tech stack**: PHP ^8.2, TYPO3 ^13.4 || ^14.3, nr-llm ^0.37 || ^0.38 || ^0.39, Lit web components (no build step)
 - **Version**: see `ext_emconf.php` (single source of truth — do not pin versions in docs)
 
 ## Architecture
