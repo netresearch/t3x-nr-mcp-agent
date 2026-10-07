@@ -3,9 +3,9 @@
 
 ..  include:: /Includes.rst.txt
 
-====================
-AI Chat for TYPO3
-====================
+=======
+AI Chat
+=======
 
 :Extension key:
     nr_mcp_agent

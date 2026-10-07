@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
-# AI Chat for TYPO3 (`nr_mcp_agent`)
+# AI Chat for TYPO3
 
 [![CI](https://github.com/netresearch/t3x-nr-mcp-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-mcp-agent/actions)
 <!-- [![Latest Stable Version](https://poser.pugx.org/netresearch/nr-mcp-agent/v)](https://packagist.org/packages/netresearch/nr-mcp-agent) -->

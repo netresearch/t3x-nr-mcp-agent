@@ -7,7 +7,7 @@
 
 $EM_CONF[$_EXTKEY] = [
     'title' => 'AI Chat',
-    'description' => 'AI chat assistant for the TYPO3 backend',
+    'description' => 'AI chat assistant for the TYPO3 backend, using nr-llm and an MCP server for tool calling.',
     'category' => 'module',
     'version' => '0.15.3',
     'state' => 'alpha',
