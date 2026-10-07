@@ -1,6 +1,6 @@
 {
     "name": "netresearch/nr-mcp-agent",
-    "description": "AI chat assistant for the TYPO3 backend using nr-llm and MCP server",
+    "description": "AI Chat - AI chat assistant for the TYPO3 backend, using nr-llm and an MCP server for tool calling.",
     "license": "GPL-2.0-or-later",
     "type": "typo3-cms-extension",
     "keywords": [
