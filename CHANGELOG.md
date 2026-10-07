@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`ai-chat:process` and `ai-chat:worker` write the sanitized error text.** When a turn fails, both commands now print the same text that is stored as the conversation's error message, with bearer tokens, key-like strings and URLs replaced (`ErrorMessageSanitizer`, ADR-010), and escape it for the console. The output of `ai-chat:process` goes to `var/log/ai-chat-process.log`.
+- **Answers show images only from the backend's own origin or inline.** The Markdown renderer drops an image whose source is on another origin, and opens links to another origin in a new tab with `rel="noopener noreferrer"`. It uses its own DOMPurify instance, so the shared `dompurify` import is unchanged.
+
+### Changed
+
+- **`ROADMAP.md`** states the extension's status (alpha proof of concept) and how the organisation roadmap applies to it; `CONTRIBUTING.md` links it.
+- **`.github/template.yaml`** no longer lists `.github/dependabot.yml` as intentional drift: the file does not exist, and the template no longer carries it.
+
 ## [0.15.3] - 2026-09-30
 
 ### Fixed
