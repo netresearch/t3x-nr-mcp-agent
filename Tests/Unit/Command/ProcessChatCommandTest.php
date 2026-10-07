@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Command;
 
+use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model as LlmModel;
 use Netresearch\NrLlm\Domain\Model\Task;
@@ -30,16 +31,21 @@ use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class ProcessChatCommandTest extends TestCase
 {
-    private function createChatService(): ChatService
+    private function createChatService(?RunActivityRecorder $activityRecorder = null): ChatService
     {
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
@@ -57,7 +63,7 @@ class ProcessChatCommandTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($this->createMock(ProviderInterface::class));
 
-        return new ChatService($repository, $config, $this->createMock(AgentRuntimeInterface::class), $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->createMock(UserContextPrompt::class), $this->createMock(RunActivityRecorder::class));
+        return new ChatService($repository, $config, $this->createMock(AgentRuntimeInterface::class), $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class));
     }
 
     #[Test]
@@ -192,6 +198,62 @@ class ProcessChatCommandTest extends TestCase
 
         self::assertSame(0, $command->run($input, $output));
         self::assertStringContainsString('not in processing state', $output->fetch());
+    }
+
+    #[Test]
+    public function aFailedTurnWritesTheSanitisedMessageToTheOutput(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 6,
+            'be_user' => 1,
+            'status' => 'processing',
+            'messages' => '[{"role":"user","content":"Hello"}]',
+            'message_count' => 1,
+        ]);
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('claimForProcess')->willReturn($conversation);
+        // The turn fails once it has started, with a message that carries
+        // provider details.
+        $activityRecorder = $this->createMock(RunActivityRecorder::class);
+        $activityRecorder->method('start')->willThrowException(new RuntimeException('Provider said: Incorrect API key provided: sk-proj-abcdefghijklmnop for https://api.example.test/v1/chat?key=raw-secret-value <info>'));
+        GeneralUtility::addInstance(BackendUserAuthentication::class, $this->createMock(BackendUserAuthentication::class));
+
+        $command = new ProcessChatCommand($this->createChatService($activityRecorder), $repository, $this->connectionPoolWithBackendUser());
+        $input = new ArrayInput(['conversationUid' => '6']);
+        $input->bind($command->getDefinition());
+        $output = new BufferedOutput();
+
+        try {
+            self::assertSame(1, $command->run($input, $output));
+        } finally {
+            GeneralUtility::purgeInstances();
+            unset($GLOBALS['BE_USER']);
+        }
+
+        $written = $output->fetch();
+        self::assertStringContainsString('Error: Provider said: Incorrect API key provided: [REDACTED] for [URL]', $written);
+        self::assertStringNotContainsString('sk-proj-abcdefghijklmnop', $written);
+        self::assertStringNotContainsString('raw-secret-value', $written);
+        self::assertSame('Provider said: Incorrect API key provided: [REDACTED] for [URL] <info>', $conversation->getErrorMessage());
+    }
+
+    private function connectionPoolWithBackendUser(): ConnectionPool
+    {
+        $expressionBuilder = $this->createMock(ExpressionBuilder::class);
+        $expressionBuilder->method('eq')->willReturn('1 = 1');
+        $result = $this->createMock(Result::class);
+        $result->method('fetchAssociative')->willReturn(['uid' => 1, 'username' => 'editor']);
+        $queryBuilder = $this->createMock(QueryBuilder::class);
+        $queryBuilder->method('select')->willReturnSelf();
+        $queryBuilder->method('from')->willReturnSelf();
+        $queryBuilder->method('where')->willReturnSelf();
+        $queryBuilder->method('expr')->willReturn($expressionBuilder);
+        $queryBuilder->method('createNamedParameter')->willReturn('?');
+        $queryBuilder->method('executeQuery')->willReturn($result);
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturn($queryBuilder);
+
+        return $connectionPool;
     }
 
     #[Test]

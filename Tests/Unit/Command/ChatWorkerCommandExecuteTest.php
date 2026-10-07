@@ -158,6 +158,38 @@ class ChatWorkerCommandExecuteTest extends TestCase
     }
 
     #[Test]
+    public function aFailedTurnWritesTheSanitisedMessageToTheOutput(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid' => 3, 'be_user' => 3, 'status' => 'processing',
+            'messages' => '[{"role":"user","content":"Hello"}]', 'message_count' => 1,
+        ]);
+        GeneralUtility::addInstance(BackendUserAuthentication::class, $this->createMock(BackendUserAuthentication::class));
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('dequeueForWorker')->willReturn($conversation);
+        $repository->method('update')->willThrowException(new RuntimeException('break'));
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willThrowException(new RuntimeException('Provider said: Incorrect API key provided: sk-proj-abcdefghijklmnop for https://api.example.test/v1/chat?key=raw-secret-value <info>'));
+
+        $command = new ChatWorkerCommand($this->createChatService(), $repository, $connectionPool);
+        $output = new BufferedOutput();
+        $input = new ArrayInput(['--poll-interval' => '0']);
+        $input->bind($command->getDefinition());
+
+        try {
+            $command->run($input, $output);
+        } catch (RuntimeException) {
+            // expected break
+        }
+
+        $written = $output->fetch();
+        self::assertStringContainsString('Error: Provider said: Incorrect API key provided: [REDACTED] for [URL]', $written);
+        self::assertStringNotContainsString('sk-proj-abcdefghijklmnop', $written);
+        self::assertStringNotContainsString('raw-secret-value', $written);
+    }
+
+    #[Test]
     public function executeCleansBEUserGlobalInFinally(): void
     {
         $conversation = Conversation::fromRow([
