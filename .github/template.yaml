@@ -9,11 +9,7 @@
 #     versions, matrix-exclude, functional-tests, db, remove-dev-deps, coverage)
 #   - .github/workflows/release.yml — archive-prefix / package-name / extension-key
 # Customize those two in-repo; everything else stays in sync with the template.
-#
-# .github/dependabot.yml is also drift-exempt here: this extension ships a
-# package.json, so it adds the opt-in npm ecosystem block on top of the template.
 template: typo3-extension
 intentional-drift:
   - .github/workflows/ci.yml
   - .github/workflows/release.yml
-  - .github/dependabot.yml
