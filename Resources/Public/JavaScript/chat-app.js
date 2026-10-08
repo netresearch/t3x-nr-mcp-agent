@@ -4,12 +4,12 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
-import {ChatCoreController, displayStatus, downloadTextFile} from './chat-core.js';
-import {markdownStyles} from './markdown-styles.js';
-import {themeStyles} from './theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from './icons.js';
-import {chatActivityStyles, renderActivity} from './chat-activity.js';
-import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from './chat-editing.js';
+import {ChatCoreController, displayStatus, downloadTextFile} from '@netresearch/nr-mcp-agent/chat-core.js';
+import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
+import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
+import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
+import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 /**
  * <nr-chat-app> – Main chat application component.

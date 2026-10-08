@@ -444,7 +444,7 @@ describe('shared theme contract', () => {
 
     test.each(['ai-chat-panel.js', 'chat-app.js'])('%s applies themeStyles before its own styles', (file) => {
         const source = read(file);
-        expect(source).toContain("import {themeStyles} from './theme.js';");
+        expect(source).toContain("import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';");
         expect(source).toContain('static styles = [themeStyles, markdownStyles,');
     });
 

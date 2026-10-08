@@ -9,6 +9,9 @@ export default {
         // Map importmap names to vendored files so Jest can resolve them
         '^marked$': '<rootDir>/Resources/Public/JavaScript/Vendor/marked.esm.js',
         '^dompurify$': '<rootDir>/Resources/Public/JavaScript/Vendor/dompurify.esm.js',
+        // The modules import each other through the importmap prefix, which
+        // gives the browser a cache-busted URL for each; resolve it to the source.
+        '^@netresearch/nr-mcp-agent/(.*)$': '<rootDir>/Resources/Public/JavaScript/$1',
         // `lit` comes from the TYPO3 backend importmap at runtime. Mapping the
         // bare specifiers at the npm package lets the components render under
         // jsdom, so their behaviour can be asserted rather than grepped.
