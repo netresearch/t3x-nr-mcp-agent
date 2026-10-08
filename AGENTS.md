@@ -64,7 +64,7 @@ make ci                          # lint + phpstan + rector + test + test-js
 
 ## Development
 
-- **Commits:** Conventional Commits format, no Co-Authored-By trailer
+- **Commits:** Conventional Commits format
 - **Code style:** Run `make lint-fix` before every push; fix style in the same commit
 - **Tests:** Run after every change — no "done" without green tests
 - **Static analysis:** PHPStan Level 10; phpat architecture rules run automatically with PHPStan (`Build/phpstan/phpstan.neon` registers them)
