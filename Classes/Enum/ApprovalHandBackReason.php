@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 
 /**
@@ -43,19 +44,26 @@ enum ApprovalHandBackReason: string
     case NotAwaitingApproval = 'handBack.notAwaitingApproval';
 
     /**
-     * Only the five refusals that RELEASE the run are hand-backs; ChatService
+     * Four-eyes (nr-llm ADR-172): the run's configuration requires a second
+     * person, and the reader started the run.
+     */
+    case SecondApproverRequired = 'handBack.secondApprover';
+
+    /**
+     * Only the six refusals that RELEASE the run are hand-backs; ChatService
      * catches exactly these. Any other exception leaves the run's state
      * unknown and fails the conversation instead, so there is no generic
      * hand-back reason to map it to.
      */
     public static function fromException(
-        StaleApprovalTurnException|RunAlreadyResumingException|ApproverNotPermittedException|RunConfigurationInactiveException|RunNotAwaitingApprovalException $e,
+        StaleApprovalTurnException|RunAlreadyResumingException|ApproverNotPermittedException|RunConfigurationInactiveException|RunNotAwaitingApprovalException|SelfApprovalDeniedException $e,
     ): self {
         return match (true) {
             $e instanceof StaleApprovalTurnException        => self::StaleTurn,
             $e instanceof RunAlreadyResumingException       => self::AlreadyResuming,
             $e instanceof ApproverNotPermittedException     => self::ApproverNotPermitted,
             $e instanceof RunConfigurationInactiveException => self::ConfigurationInactive,
+            $e instanceof SelfApprovalDeniedException       => self::SecondApproverRequired,
             default                                         => self::NotAwaitingApproval,
         };
     }
@@ -66,7 +74,7 @@ enum ApprovalHandBackReason: string
      */
     public function pointsToRun(): bool
     {
-        return $this === self::AlreadyResuming || $this === self::NotAwaitingApproval;
+        return in_array($this, [self::AlreadyResuming, self::NotAwaitingApproval, self::SecondApproverRequired], true);
     }
 
     /** The key of the reader-facing sentence in locallang_chat.xlf. */

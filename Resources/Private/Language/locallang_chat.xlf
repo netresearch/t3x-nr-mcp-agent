@@ -240,6 +240,9 @@
             <trans-unit id="error.handBack.notAwaitingApproval" resname="error.handBack.notAwaitingApproval">
                 <source>This step no longer waits for a decision, so nothing was carried out. AI Tasks shows where the run stands.</source>
             </trans-unit>
+            <trans-unit id="error.handBack.secondApprover" resname="error.handBack.secondApprover">
+                <source>This change needs a second person: for this AI configuration, whoever started the step may not approve it. A colleague can approve it in AI Tasks; you can still deny it here.</source>
+            </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
             </trans-unit>
