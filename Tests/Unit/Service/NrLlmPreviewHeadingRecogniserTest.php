@@ -40,7 +40,7 @@ final class NrLlmPreviewHeadingRecogniserTest extends TestCase
         return (new class {
             public static function isHeading(string $line, LanguageService $languageService): bool
             {
-                throw new DomainException('broken');
+                throw new DomainException(sprintf('No answer for "%s" in %s.', $line, $languageService::class));
             }
         })::class;
     }

@@ -66,22 +66,14 @@ final class ApprovalCallPresenterTest extends TestCase
      */
     private function headings(): PreviewHeadingRecogniserInterface
     {
-        return new class ([self::HEADING_CREATE, self::HEADING_DELETE, self::HEADING_UPDATE]) implements PreviewHeadingRecogniserInterface {
-            /** @param list<string> $references */
-            public function __construct(private readonly array $references) {}
+        $references = [self::HEADING_CREATE, self::HEADING_DELETE, self::HEADING_UPDATE];
+        $recogniser = $this->createMock(PreviewHeadingRecogniserInterface::class);
+        $recogniser->method('isHeading')->willReturnCallback(
+            static fn(string $line, LanguageService $language): bool => trim($line) !== ''
+                && in_array(trim($line), array_map(static fn(string $reference): string => trim($language->sL($reference)), $references), true),
+        );
 
-            public function isHeading(string $line, LanguageService $language): bool
-            {
-                $line = trim($line);
-                foreach ($this->references as $reference) {
-                    if ($line !== '' && trim($language->sL($reference)) === $line) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        };
+        return $recogniser;
     }
 
     private function presenter(): ApprovalCallPresenter
