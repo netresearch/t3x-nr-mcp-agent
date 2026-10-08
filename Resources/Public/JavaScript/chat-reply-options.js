@@ -62,6 +62,20 @@ export const chatReplyOptionsStyles = css`
 `;
 
 /**
+ * What the status line says after a decision on the approval card: the
+ * approval, or one of the two denials (ADR-018).
+ *
+ * @param {'approved'|'variant'|'skip'|'denied'} taken
+ */
+export function decisionLabel(taken) {
+    if (taken === 'approved') {
+        return lll('chat.approvalGranted');
+    }
+
+    return taken === 'variant' ? lll('chat.approvalDeniedVariant') : lll('chat.approvalDeniedSkip');
+}
+
+/**
  * The input's placeholder: an invitation to answer in one's own words when
  * typed text answers the question, the usual one otherwise.
  */

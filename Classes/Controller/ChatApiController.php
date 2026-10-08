@@ -57,6 +57,8 @@ final readonly class ChatApiController
 {
     private const ERROR_FILE_NOT_FOUND = 'File not found';
 
+    private const ERROR_MESSAGE_TOO_LONG = 'Message too long (max %d characters)';
+
     /**
      * The backend group permission that lets an editor decide approvals in
      * their own conversations (ADR-021), as TYPO3 stores it in
@@ -312,7 +314,7 @@ final readonly class ChatApiController
 
         $maxLength = $this->config->getMaxMessageLength();
         if ($maxLength > 0 && mb_strlen($content) > $maxLength) {
-            return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
+            return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
         }
 
         $fileUid      = isset($body['fileUid']) ? (int) $body['fileUid'] : null;
@@ -409,7 +411,7 @@ final readonly class ChatApiController
 
         $maxLength = $this->config->getMaxMessageLength();
         if ($maxLength > 0 && mb_strlen($content) > $maxLength) {
-            return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
+            return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
         }
 
         $rawIndex = $body['index'] ?? null;
@@ -1033,24 +1035,9 @@ final readonly class ChatApiController
             return $conversation;
         }
 
-        if ($conversation->getStatus() !== ConversationStatus::AwaitingInput) {
-            return new JsonResponse(['error' => $this->translate('error.notAwaitingInput')], 409);
-        }
-
-        $pause = $this->chatApproval->pendingInput($conversation);
-        if ($pause === null) {
-            return new JsonResponse(['error' => $this->translate('error.notAwaitingInput')], 409);
-        }
-
-        $freeText = $body['freeText'] ?? null;
-        $maxLength = $this->config->getMaxMessageLength();
-        if (is_string($freeText) && $maxLength > 0 && mb_strlen(trim($freeText)) > $maxLength) {
-            return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
-        }
-
-        $submission = $pause->form()->submission($body, [$this->translate('input.yes'), $this->translate('input.no')]);
-        if ($submission === null) {
-            return new JsonResponse(['error' => $this->translate('error.inputNotOffered')], 400);
+        $submission = $this->acceptedAnswer($conversation, $body);
+        if ($submission instanceof ResponseInterface) {
+            return $submission;
         }
 
         // The digest the question was shown with travels back as it came; the
@@ -1063,6 +1050,34 @@ final readonly class ChatApiController
         $this->processor->dispatch($conversation->getUid());
 
         return new JsonResponse(['status' => $conversation->getStatus()->value], 202);
+    }
+
+    /**
+     * The answer as the run will receive it, or the refusal: the conversation
+     * asks nothing (any more), free text is too long, or the answer is not one
+     * the question offers.
+     *
+     * @param array<string, mixed> $body
+     *
+     * @return array{data: array<string, mixed>, display: string}|ResponseInterface
+     */
+    private function acceptedAnswer(Conversation $conversation, array $body): array|ResponseInterface
+    {
+        $pause = $conversation->getStatus() === ConversationStatus::AwaitingInput
+            ? $this->chatApproval->pendingInput($conversation)
+            : null;
+        if ($pause === null) {
+            return new JsonResponse(['error' => $this->translate('error.notAwaitingInput')], 409);
+        }
+
+        $freeText = $body['freeText'] ?? null;
+        $maxLength = $this->config->getMaxMessageLength();
+        if (is_string($freeText) && $maxLength > 0 && mb_strlen(trim($freeText)) > $maxLength) {
+            return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
+        }
+
+        return $pause->form()->submission($body, [$this->translate('input.yes'), $this->translate('input.no')])
+            ?? new JsonResponse(['error' => $this->translate('error.inputNotOffered')], 400);
     }
 
     /**
@@ -1105,7 +1120,7 @@ final readonly class ChatApiController
         // A denial says why (ADR-018): another variant, or skip this point. An
         // unknown value is a plain denial.
         $reasonValue = $body['reason'] ?? '';
-        $reason = $approve ? null : DenyReason::tryFrom(is_string($reasonValue) ? $reasonValue : '');
+        $reason = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
 
         if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest, $reason, $reason !== null ? $this->translate($reason->labelKey()) : '')) {
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
