@@ -8,7 +8,7 @@
  * Finds the toolbar button rendered by ChatToolbarItem and wires it
  * to the <ai-chat-panel> component.
  */
-import '../ai-chat-panel.js';
+import '@netresearch/nr-mcp-agent/ai-chat-panel.js';
 
 class ChatPanelToolbarInit {
     static init() {
