@@ -1,0 +1,8 @@
+"be_groups"
+,"uid","pid","title","custom_options","deleted","hidden"
+,1,0,"Editors who approve their own changes","tx_nrmcpagent:approve_own_changes",0,0
+,2,0,"Editors","",0,0
+"be_users"
+,"uid","pid","username","password","admin","usergroup","tstamp","crdate"
+,3,0,"granted","$2y$12$xxx",0,"1",1710000000,1710000000
+,4,0,"plain","$2y$12$xxx",0,"2",1710000000,1710000000

@@ -47,6 +47,13 @@ interface ChatApprovalInterface
      */
     public function reconcile(Conversation $conversation): bool;
 
+    /**
+     * Whether the configuration the waiting run belongs to requires a second
+     * approver (nr-llm ADR-172). In the chat the reader is always the run's
+     * initiator, so then nobody can approve it here.
+     */
+    public function requiresSecondApprover(Conversation $conversation): bool;
+
     /** The run still waits for a decision. */
     public const PENDING_RUN_WAITING = 'waiting';
 
