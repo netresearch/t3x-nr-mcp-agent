@@ -229,7 +229,7 @@
                 <source>The conversation moved on after this card was shown, so nothing was carried out. Check the card and decide again.</source>
             </trans-unit>
             <trans-unit id="error.handBack.alreadyResuming" resname="error.handBack.alreadyResuming">
-                <source>This step is already being carried out after an earlier decision. Reload the conversation in a moment to see its answer.</source>
+                <source>This step is already being carried out after an earlier decision, so this one was not applied. The answer appears in AI Tasks, under this run.</source>
             </trans-unit>
             <trans-unit id="error.handBack.approverNotPermitted" resname="error.handBack.approverNotPermitted">
                 <source>Your own permissions do not cover this change, so you may not approve it and nothing was carried out. Someone whose permissions cover it can approve it.</source>
@@ -238,7 +238,7 @@
                 <source>The AI configuration of this chat is switched off, so nothing was carried out. The step waits until it is switched on again; then decide again.</source>
             </trans-unit>
             <trans-unit id="error.handBack.notAwaitingApproval" resname="error.handBack.notAwaitingApproval">
-                <source>This step no longer waits for a decision, so nothing was carried out. Reload the conversation to see where it stands.</source>
+                <source>This step no longer waits for a decision, so nothing was carried out. AI Tasks shows where the run stands.</source>
             </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>

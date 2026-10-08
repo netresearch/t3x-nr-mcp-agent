@@ -506,9 +506,10 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
     });
 
     /**
-     * Why error.handBack.alreadyResuming asks for a reload rather than
-     * promising that the answer appears: a conversation handed back keeps the
-     * status awaiting_approval, which is not polled.
+     * Why error.handBack.alreadyResuming points to AI Tasks rather than
+     * promising that the answer appears here: a conversation handed back
+     * keeps the status awaiting_approval, which is not polled, and
+     * reconcile() repairs only a conversation that is processing.
      */
     test('a conversation waiting for approval is not polled', async () => {
         const el = await renderPending(modulePath, tag, open);

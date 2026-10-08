@@ -300,8 +300,8 @@
                 <target>Die Unterhaltung hat sich nach dem Anzeigen dieser Karte weiterentwickelt, deshalb wurde nichts ausgeführt. Bitte die Karte prüfen und erneut entscheiden.</target>
             </trans-unit>
             <trans-unit id="error.handBack.alreadyResuming" resname="error.handBack.alreadyResuming">
-                <source>This step is already being carried out after an earlier decision. Reload the conversation in a moment to see its answer.</source>
-                <target>Dieser Schritt wird nach einer früheren Entscheidung bereits ausgeführt. Bitte die Unterhaltung gleich neu laden, um die Antwort zu sehen.</target>
+                <source>This step is already being carried out after an earlier decision, so this one was not applied. The answer appears in AI Tasks, under this run.</source>
+                <target>Dieser Schritt wird nach einer früheren Entscheidung bereits ausgeführt, diese Entscheidung wurde deshalb nicht übernommen. Die Antwort erscheint in KI-Aufgaben bei diesem Lauf.</target>
             </trans-unit>
             <trans-unit id="error.handBack.approverNotPermitted" resname="error.handBack.approverNotPermitted">
                 <source>Your own permissions do not cover this change, so you may not approve it and nothing was carried out. Someone whose permissions cover it can approve it.</source>
@@ -312,8 +312,8 @@
                 <target>Die KI-Konfiguration dieses Chats ist ausgeschaltet, deshalb wurde nichts ausgeführt. Der Schritt wartet, bis sie wieder eingeschaltet ist; danach bitte erneut entscheiden.</target>
             </trans-unit>
             <trans-unit id="error.handBack.notAwaitingApproval" resname="error.handBack.notAwaitingApproval">
-                <source>This step no longer waits for a decision, so nothing was carried out. Reload the conversation to see where it stands.</source>
-                <target>Dieser Schritt wartet nicht mehr auf eine Entscheidung, deshalb wurde nichts ausgeführt. Bitte die Unterhaltung neu laden, um den aktuellen Stand zu sehen.</target>
+                <source>This step no longer waits for a decision, so nothing was carried out. AI Tasks shows where the run stands.</source>
+                <target>Dieser Schritt wartet nicht mehr auf eine Entscheidung, deshalb wurde nichts ausgeführt. Den aktuellen Stand des Laufs zeigt KI-Aufgaben.</target>
             </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
