@@ -9,6 +9,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
+import {chatReplyOptionsStyles, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 /**
@@ -24,7 +25,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatReplyOptionsStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -407,7 +408,7 @@ export class ChatApp extends LitElement {
         .status-processing, .status-tool_loop {
             background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text);
         }
-        .status-badge.status-awaiting_approval { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
+        .status-badge.status-awaiting_approval, .status-badge.status-awaiting_input { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
         .status-failed { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
 
         .empty-state {
@@ -736,6 +737,7 @@ export class ChatApp extends LitElement {
                 ${this._renderStatusNotice(isResumable)}
             </div>
 
+            ${renderReplyOptions(this.chat)}
             ${this._renderFileBadge()}
             <div class="input-area">
                 ${this._renderAttachmentMenu()}
@@ -744,8 +746,8 @@ export class ChatApp extends LitElement {
                         .value=${this.chat.inputValue}
                         @input=${this._handleInput}
                         @keydown=${this._handleKeydown}
-                        placeholder="${lll('chat.placeholder')}"
-                        aria-label="${lll('chat.placeholder')}"
+                        placeholder="${replyPlaceholder(this.chat)}"
+                        aria-label="${replyPlaceholder(this.chat)}"
                         ?disabled=${!this.chat.available}
                         maxlength=${this.maxLength > 0 ? this.maxLength : nothing}
                         rows="2"
@@ -779,6 +781,13 @@ export class ChatApp extends LitElement {
      */
     _renderStatusNotice(isResumable) {
         const dismiss = () => { this.chat.errorMessage = ''; this.requestUpdate(); };
+
+        // A question shows its answers, and the reason it is open again, above
+        // the input (ADR-018); an error line here would offer a Retry that
+        // steps past it.
+        if (this.chat.status === 'awaiting_input') {
+            return nothing;
+        }
 
         if (this.chat.approvalDecisionTaken) {
             const granted = this.chat.approvalDecisionTaken === 'approved';

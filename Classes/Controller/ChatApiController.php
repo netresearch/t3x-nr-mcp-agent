@@ -23,6 +23,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
@@ -226,7 +227,10 @@ final readonly class ChatApiController
             // until they reload. Polling has already stopped by then
             // (awaiting_approval is not a processing status), so nothing repairs
             // it. Fall through once and answer with the card.
-            $isAwaitingApproval = $meta['status'] === ConversationStatus::AwaitingApproval->value;
+            // The same holds for a question (ADR-018): the poll that first sees
+            // it must answer with the reply buttons.
+            $isAwaitingApproval = $meta['status'] === ConversationStatus::AwaitingApproval->value
+                || $meta['status'] === ConversationStatus::AwaitingInput->value;
 
             if ($meta['message_count'] <= $afterIndex && !$mayNeedRepair && !$isAwaitingApproval) {
                 return new JsonResponse([
@@ -259,6 +263,7 @@ final readonly class ChatApiController
             ...$this->presentError($conversation->getErrorMessage(), $conversation->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
+            'pendingInput' => $this->buildPendingInput($conversation),
             // Whether this reader may decide approvals at all. Without it the
             // notice cannot tell "decide below" from "someone else decides",
             // and a link into a module the reader cannot open is no next step.
@@ -754,7 +759,7 @@ final readonly class ChatApiController
         // A run nr-llm handed back still pending: the stored reason is a code
         // only, rendered for every reader alike (administrators included) —
         // nr-llm's own message is in the log, never on screen.
-        $handBack = ApprovalHandBackReason::tryFrom($code);
+        $handBack = ApprovalHandBackReason::tryFrom($code) ?? InputHandBackReason::tryFrom($code);
         if ($handBack !== null) {
             return ['errorMessage' => $this->translate($handBack->labelKey()), 'errorLink' => '', 'errorLinkLabel' => ''];
         }
@@ -889,6 +894,97 @@ final readonly class ChatApiController
         }
 
         return $this->languageServiceFactory->createFromUserPreferences($backendUser);
+    }
+
+    /**
+     * The question the run waits for an answer to, as the reply buttons render
+     * it (ADR-018); null when nothing is asked.
+     *
+     * Not gated by mayDecideApprovals(): an answer releases no write fence.
+     * nr-llm forbids a tool that asks for input from declaring a write (nr-llm
+     * ADR-105, ADR-134), the owner may act on their own run, and nr-llm checks
+     * that they may run the tool the question belongs to (nr-llm ADR-150).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildPendingInput(Conversation $conversation): ?array
+    {
+        $pause = $this->chatApproval->pendingInput($conversation);
+        if ($pause === null) {
+            return null;
+        }
+
+        return [
+            'runUuid' => $pause->runUuid,
+            'turnDigest' => $pause->turnDigest,
+            ...$pause->form()->toArray(),
+        ];
+    }
+
+    /**
+     * POST /ai-chat/conversations/input – Answer the question a run asks.
+     *
+     * Body: `conversationUid`, `turnDigest`, and the answer — `choice` (one of
+     * the offered values), `freeText`, or `fields` for a form (ADR-018).
+     *
+     * The answer is checked against the question as it stands now and then
+     * recorded; a worker hands it to the runtime, as with an approval, because
+     * submitInput() drives the whole continuation. 202 like every path that
+     * hands work to the worker.
+     */
+    public function submitInput(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        // Read as plain JSON: a form answer nests its fields, which the
+        // string-or-int shape parseBody() promises does not describe.
+        $decoded = json_decode((string) $request->getBody(), true);
+        $body = [];
+        foreach (is_array($decoded) ? $decoded : [] as $key => $value) {
+            if (is_string($key)) {
+                $body[$key] = $value;
+            }
+        }
+
+        $uid = $body['conversationUid'] ?? 0;
+        $conversation = $this->findConversationOrFail($request, ['conversationUid' => is_int($uid) || is_string($uid) ? $uid : 0]);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        if ($conversation->getStatus() !== ConversationStatus::AwaitingInput) {
+            return new JsonResponse(['error' => $this->translate('error.notAwaitingInput')], 409);
+        }
+
+        $pause = $this->chatApproval->pendingInput($conversation);
+        if ($pause === null) {
+            return new JsonResponse(['error' => $this->translate('error.notAwaitingInput')], 409);
+        }
+
+        $freeText = $body['freeText'] ?? null;
+        $maxLength = $this->config->getMaxMessageLength();
+        if (is_string($freeText) && $maxLength > 0 && mb_strlen(trim($freeText)) > $maxLength) {
+            return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
+        }
+
+        $submission = $pause->form()->submission($body, [$this->translate('input.yes'), $this->translate('input.no')]);
+        if ($submission === null) {
+            return new JsonResponse(['error' => $this->translate('error.inputNotOffered')], 400);
+        }
+
+        // The digest the question was shown with travels back as it came; the
+        // runtime compares it with the question it is suspended on now.
+        $digest = $body['turnDigest'] ?? '';
+        if (!$this->chatApproval->recordInput($conversation, $submission['data'], is_string($digest) ? $digest : '', $submission['display'])) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        $this->processor->dispatch($conversation->getUid());
+
+        return new JsonResponse(['status' => $conversation->getStatus()->value], 202);
     }
 
     /**

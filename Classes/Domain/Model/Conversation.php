@@ -23,6 +23,12 @@ final class Conversation
     /** Prefix of a legacy transcript the upgrade wizard could not decode and left in place. */
     public const UNDECODABLE_MARKER = '!undecodable:';
 
+    /** The recorded decision that is an answer to a question (ADR-018). */
+    public const DECISION_INPUT = 'input';
+
+    /** The notice on the user message that holds an answer to a question (ADR-018). */
+    public const NOTICE_INPUT_ANSWER = 'inputAnswer';
+
     private int $uid = 0;
 
     private int $beUser = 0;
@@ -87,7 +93,8 @@ final class Conversation
 
     /**
      * The decision a user made in the request, waiting for the worker to carry
-     * it out: 'approve', 'deny', or empty when nothing is pending.
+     * it out: 'approve', 'deny', 'input' for an answer to a question
+     * (ADR-018), or empty when nothing is pending.
      */
     private string $approvalDecision = '';
 
@@ -96,6 +103,14 @@ final class Conversation
      * hands the runtime exactly what the reader saw (ADR-132).
      */
     private string $approvalTurnDigest = '';
+
+    /**
+     * The answer a user gave to a run that asked for input, as JSON, waiting
+     * for the worker to hand it to the runtime (ADR-018). Recorded with the
+     * decision 'input' and the digest of the question it answers, the way an
+     * approval decision is recorded.
+     */
+    private string $pendingInput = '';
 
     private int $tstamp = 0;
 
@@ -127,6 +142,7 @@ final class Conversation
         $conversation->approvalRunUuid = (string) self::val($row, 'approval_run_uuid', '');
         $conversation->approvalDecision = (string) self::val($row, 'approval_decision', '');
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
+        $conversation->pendingInput = (string) self::val($row, 'pending_input', '');
         $conversation->tstamp = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate = (int) self::val($row, 'crdate', 0);
         return $conversation;
@@ -169,6 +185,7 @@ final class Conversation
             'approval_run_uuid' => $this->approvalRunUuid,
             'approval_decision' => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
+            'pending_input' => $this->pendingInput,
         ];
     }
 
@@ -315,6 +332,7 @@ final class Conversation
             $this->approvalRunUuid = '';
             $this->approvalDecision = '';
             $this->approvalTurnDigest = '';
+            $this->pendingInput = '';
         }
     }
 
@@ -493,6 +511,81 @@ final class Conversation
     {
         $this->approvalDecision = '';
         $this->approvalTurnDigest = '';
+        $this->pendingInput = '';
+    }
+
+    /**
+     * Record the answer to a run that asked for input, for the worker to hand
+     * to the runtime (ADR-018).
+     *
+     * Stored as a decision of its own kind, so everything that guards a
+     * recorded decision — the Retry refusal, the worker's routing, the reconcile
+     * of a worker that never came — guards the answer too. The digest is the
+     * one the question was shown with: nr-llm refuses an answer to a question
+     * that has changed since (nr-llm ADR-150).
+     *
+     * @param array<string, mixed> $data the values, keyed by the schema's property names
+     */
+    public function recordInputSubmission(array $data, string $turnDigest): void
+    {
+        $this->approvalDecision = self::DECISION_INPUT;
+        $this->approvalTurnDigest = $turnDigest;
+        $this->pendingInput = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Put the user's answer to a question into the transcript, marked so that
+     * it can be taken out again if nr-llm hands the question back unanswered.
+     *
+     * The answer is shown at once, as a sent message is; it is also what the
+     * model reads on later turns, where the question's run is not in the
+     * transcript. The notice key is ignored by nr-llm's message factory, so it
+     * does not reach the model.
+     */
+    public function appendInputAnswer(string $display): void
+    {
+        $this->appendMessage(MessageRole::User, $display, self::NOTICE_INPUT_ANSWER);
+    }
+
+    /**
+     * Take the last answer back out when the question it answered is open
+     * again: an answer next to the same question, still waiting, would read
+     * as if it had been given.
+     */
+    public function dropInputAnswer(): void
+    {
+        $messages = $this->getDecodedMessages();
+        $last = end($messages);
+        if (is_array($last) && ($last['notice'] ?? null) === self::NOTICE_INPUT_ANSWER) {
+            array_pop($messages);
+            $this->setMessages($messages);
+        }
+    }
+
+    /** Whether the recorded decision is an answer to a question rather than an approval. */
+    public function hasPendingInputSubmission(): bool
+    {
+        return $this->approvalDecision === self::DECISION_INPUT && $this->hasPendingApprovalDecision();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getPendingInputData(): array
+    {
+        $decoded = $this->pendingInput !== '' ? json_decode($this->pendingInput, true) : null;
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $data = [];
+        foreach ($decoded as $key => $value) {
+            if (is_string($key)) {
+                $data[$key] = $value;
+            }
+        }
+
+        return $data;
     }
 
     /** Whether a decision is recorded and still waiting to be carried out. */

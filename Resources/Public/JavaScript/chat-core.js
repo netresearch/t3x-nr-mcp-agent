@@ -158,6 +158,17 @@ export class ChatCoreController {
      * arrives.
      */
     approvalDecisionTaken = null;
+
+    /**
+     * The question the run waits for an answer to, as the reply buttons
+     * render it (ADR-018); null when nothing is asked.
+     * @type {{runUuid: string, turnDigest: string, kind: string, question: string, options: Array<{value: *, label: string}>, freeText: boolean, fields: Array<object>}|null}
+     */
+    pendingInput = null;
+
+    /** True while an answer is on its way, so it cannot be sent twice. */
+    inputBusy = false;
+
     inputValue = '';
     hasInput = false;
     loading = true;
@@ -283,6 +294,7 @@ export class ChatCoreController {
         this.expandedTools = new Set();
         this.pendingFile = null;
         this.approvalDecisionTaken = null;
+        this.pendingInput = null;
         this.systemPrompt = '';
         this.systemPromptOpen = false;
         this.editingIndex = -1;
@@ -349,6 +361,63 @@ export class ChatCoreController {
         }
     }
 
+    /** Whether the run waits for an answer the reply buttons can give. */
+    isAwaitingInput() {
+        return this.status === 'awaiting_input' && this.pendingInput !== null;
+    }
+
+    /**
+     * Whether text typed into the input is the answer to the question rather
+     * than a message of its own: only when the question declares a free-text
+     * answer (ADR-018). Otherwise a sent message leaves the question behind,
+     * as a message leaves a pending approval behind.
+     */
+    answersAsFreeText() {
+        return this.isAwaitingInput() && this.pendingInput.kind === 'choice' && this.pendingInput.freeText === true;
+    }
+
+    /**
+     * Send an answer to the question and follow the conversation.
+     *
+     * The server records the answer and a worker hands it to the run, as with
+     * an approval; the outcome arrives through the poll. Bound to the
+     * conversation the answer was given in, for the reason decideApproval()
+     * gives.
+     *
+     * @param {{choice: *}|{freeText: string}|{fields: Object<string, *>}} answer
+     * @returns {Promise<boolean>} whether the answer was taken
+     */
+    async submitInput(answer) {
+        const uid = this.activeUid;
+        if (!this.isAwaitingInput() || this.inputBusy || !uid) {
+            return false;
+        }
+
+        this.inputBusy = true;
+        this.host.requestUpdate();
+        try {
+            await this._api.submitInput(uid, this.pendingInput.turnDigest || '', answer);
+            if (uid !== this.activeUid) {
+                return false;
+            }
+
+            this.pendingInput = null;
+            this.errorMessage = '';
+            this.host.requestUpdate();
+            await this.loadMessages();
+            this.startPollingIfNeeded();
+            return true;
+        } catch (e) {
+            if (uid === this.activeUid) {
+                this.errorMessage = e.message;
+            }
+            return false;
+        } finally {
+            this.inputBusy = false;
+            this.host.requestUpdate();
+        }
+    }
+
     async loadMessages() {
         const uid = this.activeUid;
         if (!uid) return;
@@ -365,6 +434,7 @@ export class ChatCoreController {
             this.approvalUrl = data.approvalUrl || '';
             this._setApprovalRight(data);
             this.pendingApproval = data.pendingApproval || null;
+            this.pendingInput = data.pendingInput || null;
             this.systemPrompt = data.systemPrompt || '';
             this.activity = data.activity || [];
             if (data.pendingApproval) {
@@ -436,6 +506,7 @@ export class ChatCoreController {
                 this.approvalUrl = data.approvalUrl || '';
                 this._setApprovalRight(data);
                 this.pendingApproval = data.pendingApproval || null;
+                this.pendingInput = data.pendingInput || null;
                 this._knownMessageCount = data.totalCount;
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>
@@ -524,6 +595,16 @@ export class ChatCoreController {
         if (this.maxLength > 0 && content.length > this.maxLength) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);
             this.host.requestUpdate();
+            return;
+        }
+
+        if (this.answersAsFreeText() && !this.pendingFile) {
+            if (await this.submitInput({freeText: content})) {
+                this.inputValue = '';
+                this.hasInput = false;
+                this.host.onResetInput();
+                this.host.requestUpdate();
+            }
             return;
         }
 

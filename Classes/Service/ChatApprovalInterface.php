@@ -40,6 +40,22 @@ interface ChatApprovalInterface
     public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest): bool;
 
     /**
+     * The question the conversation's run waits for an answer to (ADR-018), or
+     * null when nothing is asked or the actor may not read the run.
+     */
+    public function pendingInput(Conversation $conversation): ?InputPause;
+
+    /**
+     * Record the user's answer and claim the conversation for the worker, as
+     * recordDecision() does for an approval: submitInput() drives the whole
+     * continuation too. The answer is put into the transcript at once.
+     *
+     * @param array<string, mixed> $data    the values, already checked against the question's form
+     * @param string               $display the transcript line for the answer
+     */
+    public function recordInput(Conversation $conversation, array $data, string $turnDigest, string $display): bool;
+
+    /**
      * Put a claimed conversation back in step with the run it waits on, for the
      * case where the worker never picked the decision up.
      *

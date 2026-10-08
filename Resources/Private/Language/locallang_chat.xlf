@@ -240,6 +240,30 @@
             <trans-unit id="error.handBack.notAwaitingApproval" resname="error.handBack.notAwaitingApproval">
                 <source>This step no longer waits for a decision, so nothing was carried out. AI Tasks shows where the run stands.</source>
             </trans-unit>
+            <trans-unit id="error.notAwaitingInput" resname="error.notAwaitingInput">
+                <source>This question is no longer open.</source>
+            </trans-unit>
+            <trans-unit id="error.inputNotOffered" resname="error.inputNotOffered">
+                <source>This answer does not fit the question. Choose one of the answers offered.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputStale" resname="error.handBack.inputStale">
+                <source>The question changed after it was shown, so the answer was not taken. Answer again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputInvalid" resname="error.handBack.inputInvalid">
+                <source>The answer does not fit the question, so it was not taken. Answer again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputNotPermitted" resname="error.handBack.inputNotPermitted">
+                <source>Your own permissions do not cover the step this question belongs to, so the answer was not taken.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputAlreadyResuming" resname="error.handBack.inputAlreadyResuming">
+                <source>This question was already answered, so this answer was not taken. The result appears in AI Tasks, under this run.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputConfigOff" resname="error.handBack.inputConfigOff">
+                <source>The AI configuration of this chat is switched off, so the answer was not taken. The question waits until it is switched on again; then answer again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.notAwaitingInput" resname="error.handBack.notAwaitingInput">
+                <source>This question no longer waits for an answer, so nothing was taken. AI Tasks shows where the run stands.</source>
+            </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
             </trans-unit>
@@ -360,6 +384,33 @@
             </trans-unit>
             <trans-unit id="activity.waiting" resname="activity.waiting">
                 <source>Waiting for your approval</source>
+            </trans-unit>
+            <trans-unit id="input.groupLabel" resname="input.groupLabel">
+                <source>Reply options</source>
+            </trans-unit>
+            <trans-unit id="input.chooseAnswer" resname="input.chooseAnswer">
+                <source>Choose an answer</source>
+            </trans-unit>
+            <trans-unit id="input.freeTextPlaceholder" resname="input.freeTextPlaceholder">
+                <source>Write your own answer...</source>
+            </trans-unit>
+            <trans-unit id="input.formSubmit" resname="input.formSubmit">
+                <source>Send answer</source>
+            </trans-unit>
+            <trans-unit id="input.messageEndsQuestion" resname="input.messageEndsQuestion">
+                <source>A message of your own ends the question.</source>
+            </trans-unit>
+            <trans-unit id="input.unsupported" resname="input.unsupported">
+                <source>The chat cannot show this question.</source>
+            </trans-unit>
+            <trans-unit id="input.yes" resname="input.yes">
+                <source>Yes</source>
+            </trans-unit>
+            <trans-unit id="input.no" resname="input.no">
+                <source>No</source>
+            </trans-unit>
+            <trans-unit id="activity.waitingInput" resname="activity.waitingInput">
+                <source>Waiting for your answer</source>
             </trans-unit>
             <trans-unit id="activity.working" resname="activity.working">
                 <source>Working…</source>

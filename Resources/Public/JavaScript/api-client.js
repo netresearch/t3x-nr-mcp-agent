@@ -120,6 +120,18 @@ export class ApiClient {
         return this._post('ai_chat_conversation_approve', {conversationUid, approve, turnDigest});
     }
 
+    /**
+     * Answer the question a conversation's run asks (ADR-018).
+     *
+     * @param {number} conversationUid
+     * @param {string} turnDigest the digest the question arrived with
+     * @param {{choice: *}|{freeText: string}|{fields: Object<string, *>}} answer
+     * @returns {Promise<{status: string}>}
+     */
+    async submitInput(conversationUid, turnDigest, answer) {
+        return this._post('ai_chat_conversation_input', {conversationUid, turnDigest, ...answer});
+    }
+
     async resumeConversation(conversationUid) {
         return this._post('ai_chat_conversation_resume', {conversationUid});
     }
