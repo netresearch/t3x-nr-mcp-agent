@@ -758,7 +758,9 @@ export class ChatCoreController {
             this.slashOpen = open;
             this.slashIndex = 0;
             if (open && this.skills === null) {
-                this.loadSkills();
+                // loadSkills() handles its own failure; the list renders
+                // "loading" until it settles.
+                void this.loadSkills();
             }
         } else if (open) {
             this.slashIndex = 0;

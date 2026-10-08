@@ -101,21 +101,25 @@ final readonly class NrLlmSkillCatalogue implements SkillCatalogueInterface
 
         try {
             $task = $this->taskRepository->findByUid($this->config->getLlmTaskUid());
-            if (!$task instanceof Task) {
-                return [];
-            }
 
-            $skills = [];
-            $configuration = $task->getConfiguration();
-            foreach ([...($configuration?->getSkills() ?? []), ...$task->getSkills()] as $skill) {
-                if ($skill instanceof Skill && $skill->isEnabled() && $skill->getIdentifier() !== '') {
-                    $skills[] = $skill;
-                }
-            }
-
-            return $skills;
+            return $task instanceof Task ? $this->attachedTo($task) : [];
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /**
+     * @return list<Skill>
+     */
+    private function attachedTo(Task $task): array
+    {
+        $skills = [];
+        foreach ([...($task->getConfiguration()?->getSkills() ?? []), ...$task->getSkills()] as $skill) {
+            if ($skill instanceof Skill && $skill->isEnabled() && $skill->getIdentifier() !== '') {
+                $skills[] = $skill;
+            }
+        }
+
+        return $skills;
     }
 }

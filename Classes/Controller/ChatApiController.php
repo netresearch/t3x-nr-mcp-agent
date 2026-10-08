@@ -221,29 +221,33 @@ final readonly class ChatApiController
     {
         $pageUid = (int) ($body['pageUid'] ?? 0);
         $languageUid = (int) ($body['languageUid'] ?? 0);
+        $skill = trim((string) ($body['skill'] ?? ''));
+
+        $refusal = $pageUid > 0 ? $this->refusePage($pageUid, $languageUid) : null;
+        $refusal ??= $skill !== '' ? $this->refuseSkill($skill) : null;
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
         if ($pageUid > 0) {
-            if (!$this->mayShowPage($pageUid)) {
-                return new JsonResponse(['error' => $this->translate('error.pageNotAccessible')], 403);
-            }
-
-            if (!$this->mayEditPageLanguage($pageUid, $languageUid)) {
-                return new JsonResponse(['error' => $this->translate('error.languageNotAccessible')], 403);
-            }
-
             $conversation->setViewContext($pageUid, '', $languageUid);
         }
 
-        $skill = trim((string) ($body['skill'] ?? ''));
-        if ($skill !== '') {
-            $refusal = $this->refuseSkill($skill);
-            if ($refusal !== null) {
-                return $refusal;
-            }
-
-            $conversation->setSkillIdentifier($skill);
-        }
+        $conversation->setSkillIdentifier($skill);
 
         return null;
+    }
+
+    /** Why the user cannot start a conversation about this page in this language, or null. */
+    private function refusePage(int $pageUid, int $languageUid): ?ResponseInterface
+    {
+        if (!$this->mayShowPage($pageUid)) {
+            return new JsonResponse(['error' => $this->translate('error.pageNotAccessible')], 403);
+        }
+
+        return $this->mayEditPageLanguage($pageUid, $languageUid)
+            ? null
+            : new JsonResponse(['error' => $this->translate('error.languageNotAccessible')], 403);
     }
 
     /**
@@ -285,10 +289,15 @@ final readonly class ChatApiController
     private function mayEditPageLanguage(int $pageUid, int $languageUid): bool
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if ($languageUid < 0 || !$backendUser instanceof BackendUserAuthentication || !$backendUser->checkLanguageAccess($languageUid)) {
-            return false;
-        }
 
+        return $languageUid >= 0
+            && $backendUser instanceof BackendUserAuthentication
+            && $backendUser->checkLanguageAccess($languageUid)
+            && $this->siteHasLanguage($pageUid, $languageUid);
+    }
+
+    private function siteHasLanguage(int $pageUid, int $languageUid): bool
+    {
         if (!$this->siteFinder instanceof SiteFinder) {
             return true;
         }
