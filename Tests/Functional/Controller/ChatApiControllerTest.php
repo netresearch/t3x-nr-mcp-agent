@@ -253,7 +253,13 @@ class ChatApiControllerTest extends FunctionalTestCase
     public function getMessagesNamesTheActionAndSeparatesTheTechnicalLine(): void
     {
         $this->importCSVDataSet(__DIR__ . self::AWAITING_APPROVAL_FIXTURE);
-        $this->setUpLanguageServiceFor('de');
+        // The reader's language is English here, the run's acting user's
+        // German: the preview lines are in the latter (nr-llm ADR-213), and
+        // the chat's run acts as the conversation owner, user 1. The German
+        // technical line must still be recognised, and the labels the card
+        // renders itself come in the reader's English.
+        $this->setUpLanguageServiceFor('default');
+        $GLOBALS['BE_USER']->user['lang'] = 'de';
 
         $approval = $this->createMock(ChatApprovalInterface::class);
         $approval->method('pendingApproval')->willReturn(new WaitingRunView(
@@ -280,22 +286,23 @@ class ChatApiControllerTest extends FunctionalTestCase
             new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
             $this->get(ApprovalCallPresenter::class),
+            $this->get(LanguageServiceFactory::class),
         );
 
         $request = (new ServerRequest())->withQueryParams(['conversationUid' => 6, 'after' => 1]);
         $calls   = json_decode((string) $subject->getMessages($request)->getBody(), true)['pendingApproval']['calls'];
 
         // A summary first line (nr-llm up to 0.39) is no heading in any
-        // version: the declared label, in German, names the change.
-        self::assertSame('Seite als Entwurf anlegen', $calls[0]['actionLabel']);
+        // version: the declared label, in the reader's language, names it.
+        self::assertSame('Create page draft', $calls[0]['actionLabel']);
         self::assertFalse($calls[0]['actionLabelFromPreview']);
         self::assertSame(['Page [157] "test" — 1 field(s):'], $calls[0]['previewLines']);
         self::assertSame('Seite 157', $calls[0]['technicalDetails']);
         // A refusal never names the button; delete_record declares no label.
         self::assertSame('', $calls[1]['actionLabel']);
         self::assertSame(['Page not found or not permitted.'], $calls[1]['previewLines']);
-        // Without a usable preview the declared label, in German, names it.
-        self::assertSame('Seite als Entwurf anlegen', $calls[2]['actionLabel']);
+        // Without a usable preview the declared label names it as well.
+        self::assertSame('Create page draft', $calls[2]['actionLabel']);
         self::assertFalse($calls[2]['actionLabelFromPreview']);
     }
 

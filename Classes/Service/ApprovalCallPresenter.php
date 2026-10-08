@@ -27,9 +27,9 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  *
  * What names the change, in this order:
  *
- * 1. The preview's first line, but only when it is positively one of the
- *    heading labels nr-llm's previews open with ("Seite löschen", editorial
- *    rule 16), resolved in the reader's language. It is per call and more
+ * 1. The preview's first line, but only when nr-llm recognises it as one of
+ *    the headings its previews open with ("Seite löschen", editorial rule
+ *    16; nr-llm's ApprovalPreviewHeadings). It is per call and more
  *    specific than the tool's label. It becomes `actionLabel`, leaves
  *    `previewLines`, and `actionLabelFromPreview` says so. A first line
  *    that is a summary ("Page [10002] "Home" — 1 field(s):", nr-llm up to
@@ -43,12 +43,17 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * nothing of this payload, and the preview lines nr-llm stored with the run —
  * the ones ADR-184 compares on resume — are read, never written.
  *
- * The technical line is recognised by nr-llm's own label in the reader's
- * language, never by position alone: nr-llm before 0.39 and tools outside
- * nr-llm end their preview with an ordinary line, and taking that away would
- * hide part of what is being decided. The preview is written in the language
- * of the run's acting user, who is the reader of their own conversation; where
- * the two differ the line does not match and stays visible as it is.
+ * The technical line is recognised by nr-llm's own label, never by position
+ * alone: nr-llm before 0.39 and tools outside nr-llm end their preview with
+ * an ordinary line, and taking that away would hide part of what is being
+ * decided.
+ *
+ * Preview lines are written in the language of the run's ACTING user (nr-llm
+ * ADR-213), so the heading and the technical line are matched in that
+ * language (`$previewLanguage`), and only the editor action label, which the
+ * card itself renders, in the reader's. In this chat the two are the same
+ * person — a run acts as the conversation's owner, and only the owner reads
+ * the conversation — but the caller passes them separately all the same.
  */
 final readonly class ApprovalCallPresenter
 {
@@ -57,11 +62,13 @@ final readonly class ApprovalCallPresenter
 
     public function __construct(
         private ?EditorActionLabelsInterface $editorActionLabels = null,
-        private ?PreviewHeadingLabelsInterface $previewHeadingLabels = null,
+        private ?PreviewHeadingRecogniserInterface $previewHeadings = null,
     ) {}
 
     /**
      * @param list<PendingCallView> $calls
+     * @param ?LanguageService $language        the reader's, for the editor action label
+     * @param ?LanguageService $previewLanguage the run's acting user's, the preview lines' language
      *
      * @return list<array{
      *     name: string,
@@ -75,14 +82,10 @@ final readonly class ApprovalCallPresenter
      *     actionLabelFromPreview: bool,
      * }>
      */
-    public function present(array $calls, ?LanguageService $language): array
+    public function present(array $calls, ?LanguageService $language, ?LanguageService $previewLanguage): array
     {
         $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
-        $technicalLabel  = $this->resolve(self::TECHNICAL_DETAILS_LABEL, $language);
-        $headings        = array_map(
-            fn(string $reference): string => $this->resolve($reference, $language),
-            $this->previewHeadingLabels?->labelReferences() ?? [],
-        );
+        $technicalLabel  = $this->resolve(self::TECHNICAL_DETAILS_LABEL, $previewLanguage);
 
         $presented = [];
         foreach ($calls as $call) {
@@ -95,7 +98,7 @@ final readonly class ApprovalCallPresenter
                 $this->resolve($labelReferences[$call->name] ?? '', $language),
                 $lines,
                 $call->previewFailed,
-                $headings,
+                $previewLanguage,
             );
 
             $presented[] = [
@@ -123,40 +126,20 @@ final readonly class ApprovalCallPresenter
      * otherwise the editor action label, which may be ''.
      *
      * @param list<string> $lines
-     * @param list<string> $headings heading labels in the reader's language
      *
      * @return array{string, list<string>, bool} the label, the remaining lines, whether the label came from them
      */
-    private function nameTheChange(string $editorActionLabel, array $lines, bool $previewFailed, array $headings): array
+    private function nameTheChange(string $editorActionLabel, array $lines, bool $previewFailed, ?LanguageService $previewLanguage): array
     {
         $first = $lines[0] ?? '';
-        if ($previewFailed || !$this->isHeading($first, $headings)) {
+        if ($previewFailed
+            || !$previewLanguage instanceof LanguageService
+            || $this->previewHeadings?->isHeading($first, $previewLanguage) !== true
+        ) {
             return [$editorActionLabel, $lines, false];
         }
 
-        return [$first, array_slice($lines, 1), true];
-    }
-
-    /**
-     * Whether `$line` is one of the heading labels: equal to it, or, for a
-     * label with `%s` / `%d` placeholders, matching it with any text there.
-     *
-     * @param list<string> $headings
-     */
-    private function isHeading(string $line, array $headings): bool
-    {
-        if ($line === '') {
-            return false;
-        }
-
-        foreach ($headings as $heading) {
-            $pattern = '/^' . str_replace(['%s', '%d'], ['.+', '\\d+'], preg_quote($heading, '/')) . '$/u';
-            if ($heading === $line || preg_match($pattern, $line) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return [trim($first), array_slice($lines, 1), true];
     }
 
     /**

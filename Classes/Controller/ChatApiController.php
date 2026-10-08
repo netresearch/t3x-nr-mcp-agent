@@ -39,6 +39,7 @@ use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderAccessPermissionsException;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
@@ -73,6 +74,7 @@ final readonly class ChatApiController
         // Optional so the card degrades to its generic wording rather than
         // failing where the presenter is not wired; the container wires it.
         private ?ApprovalCallPresenter $approvalCallPresenter = null,
+        private ?LanguageServiceFactory $languageServiceFactory = null,
     ) {}
 
     /**
@@ -861,8 +863,32 @@ final readonly class ChatApiController
             'calls'            => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
                 $language instanceof LanguageService ? $language : null,
+                $this->previewLanguage($conversation),
             ),
         ];
+    }
+
+    /**
+     * The language the preview lines are written in: the run's acting user's
+     * (nr-llm ADR-213). A chat run acts as the conversation's owner
+     * (ChatService::resolveActor()), so it is built from that user's own
+     * preferences, the way nr-llm builds it. Null when the request is not the
+     * owner's or no factory is wired: nothing is then matched against the
+     * lines, and the card falls back to labels it renders itself.
+     */
+    private function previewLanguage(Conversation $conversation): ?LanguageService
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $uid         = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
+        if (!$this->languageServiceFactory instanceof LanguageServiceFactory
+            || !$backendUser instanceof BackendUserAuthentication
+            || !is_numeric($uid)
+            || (int) $uid !== $conversation->getBeUser()
+        ) {
+            return null;
+        }
+
+        return $this->languageServiceFactory->createFromUserPreferences($backendUser);
     }
 
     /**

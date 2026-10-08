@@ -12,7 +12,7 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\EditorActionLabelsInterface;
-use Netresearch\NrMcpAgent\Service\PreviewHeadingLabelsInterface;
+use Netresearch\NrMcpAgent\Service\PreviewHeadingRecogniserInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -60,12 +60,33 @@ final class ApprovalCallPresenterTest extends TestCase
         return $labels;
     }
 
+    /**
+     * nr-llm's ApprovalPreviewHeadings::isHeading() as #1016 defines it: the
+     * trimmed line equals one of the heading texts in the given language.
+     */
+    private function headings(): PreviewHeadingRecogniserInterface
+    {
+        return new class ([self::HEADING_CREATE, self::HEADING_DELETE, self::HEADING_UPDATE]) implements PreviewHeadingRecogniserInterface {
+            /** @param list<string> $references */
+            public function __construct(private readonly array $references) {}
+
+            public function isHeading(string $line, LanguageService $language): bool
+            {
+                $line = trim($line);
+                foreach ($this->references as $reference) {
+                    if ($line !== '' && trim($language->sL($reference)) === $line) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        };
+    }
+
     private function presenter(): ApprovalCallPresenter
     {
-        $headings = $this->createMock(PreviewHeadingLabelsInterface::class);
-        $headings->method('labelReferences')->willReturn([self::HEADING_CREATE, self::HEADING_DELETE, self::HEADING_UPDATE]);
-
-        return new ApprovalCallPresenter($this->labels(), $headings);
+        return new ApprovalCallPresenter($this->labels(), $this->headings());
     }
 
     private const PREVIEW = [
@@ -81,7 +102,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('create_page_draft', '{"parent":157}', true, ['Die Vorschau ist fehlgeschlagen.'], previewFailed: true);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame('Seite als Entwurf anlegen', $presented[0]['actionLabel']);
         self::assertSame('create_page_draft', $presented[0]['name']);
@@ -97,7 +118,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('create_page_draft', '{}', true);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame('Seite als Entwurf anlegen', $presented[0]['actionLabel']);
         self::assertSame([], $presented[0]['previewLines']);
@@ -113,7 +134,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('delete_record', '{}', true, ['Seite löschen', 'Seite: „Alt“', 'Technische Details: Seite 3']);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame('Seite löschen', $presented[0]['actionLabel']);
         self::assertTrue($presented[0]['actionLabelFromPreview']);
@@ -131,7 +152,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame('Neue Seite als Entwurf anlegen', $presented[0]['actionLabel']);
         self::assertTrue($presented[0]['actionLabelFromPreview']);
@@ -144,7 +165,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('delete_record', '{}', true, ['Seite löschen']);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame('Seite löschen', $presented[0]['actionLabel']);
         self::assertSame([], $presented[0]['previewLines']);
@@ -156,7 +177,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('delete_record', '{}', true, ['Seite löschen', 'Technische Details: Seite 3']);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame('Seite löschen', $presented[0]['actionLabel']);
         self::assertSame([], $presented[0]['previewLines']);
@@ -173,12 +194,12 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW);
 
-        $withoutHeadings = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german())[0];
+        $withoutHeadings = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german(), $this->german())[0];
         self::assertSame('Seite als Entwurf anlegen', $withoutHeadings['actionLabel']);
         self::assertFalse($withoutHeadings['actionLabelFromPreview']);
         self::assertSame(['Neue Seite als Entwurf anlegen', 'Ort: unter „Product page“', 'Titel: „test“'], $withoutHeadings['previewLines']);
 
-        $withoutLanguage = $this->presenter()->present([$call], null)[0];
+        $withoutLanguage = $this->presenter()->present([$call], null, null)[0];
         self::assertSame('', $withoutLanguage['actionLabel']);
         self::assertSame(self::PREVIEW, $withoutLanguage['previewLines']);
     }
@@ -205,44 +226,41 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView($tool, '{}', true, [$firstLine]);
 
-        $presented = $this->presenter()->present([$call], $this->german())[0];
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german())[0];
 
         self::assertSame($expectedLabel, $presented['actionLabel']);
         self::assertFalse($presented['actionLabelFromPreview']);
         self::assertSame([$firstLine], $presented['previewLines']);
     }
 
-    /** A heading label with a placeholder matches with any text in its place. */
+    /**
+     * Preview lines are in the run's acting user's language (nr-llm ADR-213).
+     * A German preview is recognised with the German preview language even
+     * when the reader's language resolves nothing, and not with the reader's.
+     */
     #[Test]
-    public function aHeadingWithAPlaceholderMatchesItsFilledForm(): void
+    public function headingsAreMatchedInThePreviewsLanguageNotTheReaders(): void
     {
-        $language = $this->createMock(LanguageService::class);
-        $language->method('sL')->willReturnCallback(static fn(string $reference): string => match ($reference) {
-            self::HEADING_UPDATE => '%d Seiten aktualisieren',
-            self::HEADING_DELETE => 'Seite „%s“ löschen',
-            self::HEADING_CREATE => 'Bild für %s (Open Graph) ändern',
-            default              => '',
-        });
-        $headings = $this->createMock(PreviewHeadingLabelsInterface::class);
-        $headings->method('labelReferences')->willReturn([self::HEADING_UPDATE, self::HEADING_DELETE, self::HEADING_CREATE, self::LABEL]);
-        $presenter = new ApprovalCallPresenter(null, $headings);
+        $english = $this->createMock(LanguageService::class);
+        $english->method('sL')->willReturn('');
+        $call = new PendingCallView('delete_record', '{}', true, ['Seite löschen', 'Seite: „Alt“']);
 
-        $presented = $presenter->present([
-            new PendingCallView('a', '{}', true, ['12 Seiten aktualisieren', 'x']),
-            new PendingCallView('b', '{}', true, ['Seite „Home“ löschen', 'x']),
-            new PendingCallView('c', '{}', true, ['zwölf Seiten aktualisieren', 'x']),
-            // Brackets in a label are text, not a pattern.
-            new PendingCallView('d', '{}', true, ['Bild für soziale Medien (Open Graph) ändern', 'x']),
-            // A label that does not resolve (self::LABEL here) matches no line,
-            // not even an empty one.
-            new PendingCallView('e', '{}', true, ['', 'x']),
-        ], $language);
+        $inPreviewLanguage = $this->presenter()->present([$call], $english, $this->german())[0];
+        $inReaderLanguage  = $this->presenter()->present([$call], $this->german(), $english)[0];
 
-        self::assertTrue($presented[0]['actionLabelFromPreview']);
-        self::assertTrue($presented[1]['actionLabelFromPreview']);
-        self::assertFalse($presented[2]['actionLabelFromPreview']);
-        self::assertTrue($presented[3]['actionLabelFromPreview']);
-        self::assertFalse($presented[4]['actionLabelFromPreview']);
+        self::assertSame('Seite löschen', $inPreviewLanguage['actionLabel']);
+        self::assertTrue($inPreviewLanguage['actionLabelFromPreview']);
+        self::assertFalse($inReaderLanguage['actionLabelFromPreview']);
+        self::assertSame(['Seite löschen', 'Seite: „Alt“'], $inReaderLanguage['previewLines']);
+    }
+
+    /** nr-llm trims the line when it compares; the card shows the trimmed heading. */
+    #[Test]
+    public function aHeadingWithSurroundingSpaceIsShownTrimmed(): void
+    {
+        $call = new PendingCallView('delete_record', '{}', true, [' Seite löschen ', 'Seite: „Alt“']);
+
+        self::assertSame('Seite löschen', $this->presenter()->present([$call], $this->german(), $this->german())[0]['actionLabel']);
     }
 
     #[Test]
@@ -250,7 +268,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW, previewStale: true);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame(['Ort: unter „Product page“', 'Titel: „test“'], $presented[0]['previewLines']);
         self::assertSame('Seite 157, Tabelle pages', $presented[0]['technicalDetails']);
@@ -269,7 +287,7 @@ final class ApprovalCallPresenterTest extends TestCase
         $lines = ['Neue Seite als Entwurf anlegen', 'Ort: unter „Product page“', 'Sichtbarkeit: zunächst verborgen, erste Unterseite'];
         $call  = new PendingCallView('create_page_draft', '{}', true, $lines);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame(array_slice($lines, 1), $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
@@ -282,7 +300,7 @@ final class ApprovalCallPresenterTest extends TestCase
         $lines = ['Technische Details: Seite 157', 'Titel: „test“'];
         $call  = new PendingCallView('create_page_draft', '{}', true, $lines);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame($lines, $presented[0]['previewLines']);
     }
@@ -294,7 +312,7 @@ final class ApprovalCallPresenterTest extends TestCase
         $lines = ['Technische Details: Seite 157, Tabelle pages'];
         $call  = new PendingCallView('create_page_draft', '{}', true, $lines);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame($lines, $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
@@ -307,7 +325,7 @@ final class ApprovalCallPresenterTest extends TestCase
         $lines = ['Technische Details: Seite 157'];
         $call  = new PendingCallView('delete_record', '{}', true, $lines);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame('', $presented[0]['actionLabel']);
         self::assertFalse($presented[0]['actionLabelFromPreview']);
@@ -320,7 +338,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('delete_record', '{}', true, self::PREVIEW, previewFailed: true);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame(self::PREVIEW, $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
@@ -336,7 +354,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW);
 
-        $presented = $this->presenter()->present([$call], null);
+        $presented = $this->presenter()->present([$call], null, null);
 
         self::assertSame(self::PREVIEW, $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
@@ -349,7 +367,7 @@ final class ApprovalCallPresenterTest extends TestCase
         $lines = ['Neue Seite als Entwurf anlegen', 'Titel: „test“', 'Technische Details: '];
         $call  = new PendingCallView('create_page_draft', '{}', true, $lines);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame(array_slice($lines, 1), $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
@@ -367,7 +385,7 @@ final class ApprovalCallPresenterTest extends TestCase
         $matching = new PendingCallView('a', '{}', true, ['Ändern', 'Titel', '(Technisch: Seite 1)']);
         $open     = new PendingCallView('b', '{}', true, ['Ändern', 'Titel', '(Technisch: Seite 1']);
 
-        $presented = (new ApprovalCallPresenter())->present([$matching, $open], $language);
+        $presented = (new ApprovalCallPresenter())->present([$matching, $open], $language, $language);
 
         // Without a heading source the first line stays.
         self::assertSame(['Ändern', 'Titel'], $presented[0]['previewLines']);
@@ -383,7 +401,7 @@ final class ApprovalCallPresenterTest extends TestCase
         $language->method('sL')->willReturn('%s');
         $call = new PendingCallView('a', '{}', true, ['Ändern', 'Titel', 'Seite 1']);
 
-        $presented = (new ApprovalCallPresenter())->present([$call], $language);
+        $presented = (new ApprovalCallPresenter())->present([$call], $language, $language);
 
         self::assertSame(['Ändern', 'Titel', 'Seite 1'], $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
@@ -394,7 +412,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('remote_tool', '{}', false);
 
-        $presented = $this->presenter()->present([$call], $this->german());
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
         self::assertSame([], $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
