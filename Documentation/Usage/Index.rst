@@ -63,6 +63,25 @@ What the chat tells you besides the answer
     step was already decided in AI Tasks, the chat says so and names
     the records the run wrote.
 
+Answering a question in the chat
+--------------------------------
+
+A step can stop and ask you something before it goes on, for example
+whether a proposed text should be taken over. The question appears as the
+assistant's message, and the possible answers appear as buttons directly
+above the input field. Press one to answer; the step continues with your
+answer, and the answer stays in the conversation as your message.
+
+When the question allows an answer in your own words, the input field says
+**Write your own answer** and what you send is the answer. Otherwise a
+message you send ends the question and starts a new request. A question
+with several fields is shown as a small form with a **Send answer**
+button. If the chat cannot show a question, it says so.
+
+When the question changed after it was shown, or your answer could not be
+taken, the question comes back with the reason above the buttons; answer
+again.
+
 Approving a step in the chat
 ----------------------------
 

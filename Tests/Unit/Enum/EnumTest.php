@@ -19,8 +19,8 @@ class EnumTest extends TestCase
     #[Test]
     public function conversationStatusHasAllExpectedCases(): void
     {
-        $expected = ['idle', 'processing', 'locked', 'tool_loop', 'awaiting_approval', 'failed'];
-        $actual   = array_map(fn (ConversationStatus $s) => $s->value, ConversationStatus::cases());
+        $expected = ['idle', 'processing', 'locked', 'tool_loop', 'awaiting_approval', 'awaiting_input', 'failed'];
+        $actual = array_map(fn(ConversationStatus $s) => $s->value, ConversationStatus::cases());
         self::assertSame($expected, $actual);
     }
 
