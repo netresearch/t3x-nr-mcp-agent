@@ -65,6 +65,17 @@ keys, Enter or Tab to pick, Escape to close). Picking sets the
 conversation's skill (``POST /ai-chat/conversations/skill``) and sends no
 message; the skill is shown above the input with a button to remove it.
 
+**An invocation, with the page as its subject.** nr-llm ADR-214 passes a
+process skill as an invocation — the skill's uid and a subject record —
+rather than as a forced skill on every turn, and skips process skills on
+the forced path. nr-llm has no invocation API yet, so the run request is
+built through ``SkillInvocationInterface``, which nothing implements; with
+no implementation, or when it answers null, the skill goes as a forced skill
+as before. The invocation carries the conversation's page as the subject
+record (``pages``, uid). The skill's uid is resolved from the catalogue and
+kept beside the identifier (new column ``skill_uid``, 0 when the catalogue
+did not know it).
+
 **No skill on a four-eyes configuration.** nr-llm ADR-214 decides a guided
 process only on the chat card; where the configuration requires a second
 approver (nr-llm ADR-172), the run's owner cannot release their own write
@@ -77,7 +88,7 @@ configuration was switched to four-eyes keeps running.
 Consequences
 ============
 
-*   New column ``skill_identifier``, new routes ``ai_chat_skills`` and
+*   New columns ``skill_identifier`` and ``skill_uid``, new routes ``ai_chat_skills`` and
     ``ai_chat_conversation_skill``. Run the database analyzer after
     upgrading.
 *   Today a skill reaches the model as reference data, not as instructions;

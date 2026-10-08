@@ -31,14 +31,14 @@ interface SkillCatalogueInterface
      * The skills the current user can invoke: enabled ones attached to the
      * chat's configuration or Task, by name. Empty when not available.
      *
-     * @return list<array{identifier: string, name: string, description: string}>
+     * @return list<array{identifier: string, name: string, description: string, uid: int}>
      */
     public function catalogue(): array;
 
     /**
      * One entry of catalogue(), or null when the user cannot invoke it.
      *
-     * @return array{identifier: string, name: string, description: string}|null
+     * @return array{identifier: string, name: string, description: string, uid: int}|null
      */
     public function find(string $identifier): ?array;
 

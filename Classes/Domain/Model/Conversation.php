@@ -58,6 +58,9 @@ final class Conversation
      */
     private string $skillIdentifier = '';
 
+    /** The skill's record uid, when the catalogue knew it (0 otherwise). */
+    private int $skillUid = 0;
+
     /**
      * What the agent did in the current turn, as a JSON list of step
      * summaries (NEXT-172). Written column by column while the turn runs
@@ -128,6 +131,7 @@ final class Conversation
         $conversation->systemPrompt = (string) self::val($row, 'system_prompt', '');
         $conversation->viewContext = (string) self::val($row, 'view_context', '');
         $conversation->skillIdentifier = (string) self::val($row, 'skill_identifier', '');
+        $conversation->skillUid = (int) self::val($row, 'skill_uid', 0);
         $conversation->activity = (string) self::val($row, 'activity', '');
         $conversation->archived = (bool) self::val($row, 'archived', false);
         $conversation->pinned = (bool) self::val($row, 'pinned', false);
@@ -395,9 +399,15 @@ final class Conversation
      * is kept; anything else is stored as none. Whether the skill exists is
      * decided by the caller and, at run time, by nr-llm.
      */
-    public function setSkillIdentifier(string $identifier): void
+    public function setSkillIdentifier(string $identifier, int $uid = 0): void
     {
         $this->skillIdentifier = self::isSkillIdentifier($identifier) ? $identifier : '';
+        $this->skillUid = $this->skillIdentifier !== '' ? max(0, $uid) : 0;
+    }
+
+    public function getSkillUid(): int
+    {
+        return $this->skillUid;
     }
 
     public static function isSkillIdentifier(string $identifier): bool

@@ -233,7 +233,7 @@ final readonly class ChatApiController
             $conversation->setViewContext($pageUid, '', $languageUid);
         }
 
-        $conversation->setSkillIdentifier($skill);
+        $conversation->setSkillIdentifier($skill, $this->skillUid($skill));
 
         return null;
     }
@@ -272,6 +272,12 @@ final readonly class ChatApiController
         }
 
         return null;
+    }
+
+    /** The skill's record uid from the catalogue, 0 when it does not know it. */
+    private function skillUid(string $identifier): int
+    {
+        return $identifier !== '' ? ($this->skills?->find($identifier)['uid'] ?? 0) : 0;
     }
 
     private function mayShowPage(int $pageUid): bool
@@ -376,8 +382,9 @@ final readonly class ChatApiController
             return $refusal;
         }
 
-        $this->repository->updateSkillIdentifier($conversation->getUid(), $skill, $this->getBeUserUid());
-        $conversation->setSkillIdentifier($skill);
+        $skillUid = $this->skillUid($skill);
+        $this->repository->updateSkillIdentifier($conversation->getUid(), $skill, $this->getBeUserUid(), $skillUid);
+        $conversation->setSkillIdentifier($skill, $skillUid);
 
         return new JsonResponse(['skill' => $this->presentSkill($conversation)]);
     }

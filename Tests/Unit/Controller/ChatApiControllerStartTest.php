@@ -40,7 +40,7 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 #[CoversClass(ChatApiController::class)]
 final class ChatApiControllerStartTest extends TestCase
 {
-    private const SKILL = ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'Geführt'];
+    private const SKILL = ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'Geführt', 'uid' => 17];
 
     private ConversationRepository&MockObject $repository;
 
@@ -129,6 +129,7 @@ final class ChatApiControllerStartTest extends TestCase
         self::assertSame(201, $response->getStatusCode());
         self::assertNotNull($this->added);
         self::assertSame('seo-page-tour', $this->added->getSkillIdentifier());
+        self::assertSame(self::SKILL['uid'], $this->added->getSkillUid(), 'the uid the catalogue knows is kept beside the identifier');
     }
 
     /**
@@ -201,7 +202,7 @@ final class ChatApiControllerStartTest extends TestCase
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
-        $this->repository->expects(self::once())->method('updateSkillIdentifier')->with(0, 'seo-page-tour', 1);
+        $this->repository->expects(self::once())->method('updateSkillIdentifier')->with(0, 'seo-page-tour', 1, 17);
 
         $response = $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "seo-page-tour"}'));
 

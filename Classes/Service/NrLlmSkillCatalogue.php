@@ -58,6 +58,7 @@ final readonly class NrLlmSkillCatalogue implements SkillCatalogueInterface
                 'identifier' => $skill->getIdentifier(),
                 'name' => $skill->getName() !== '' ? $skill->getName() : $skill->getIdentifier(),
                 'description' => $skill->getDescription(),
+                'uid' => (int) $skill->getUid(),
             ];
         }
 
