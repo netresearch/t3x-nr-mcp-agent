@@ -93,7 +93,7 @@ describe.each(SURFACES)('$name feedback', ({module: modulePath, tag, open}) => {
         expect(notice.getAttribute('role')).toBe('note');
         expect(notice.textContent).not.toContain('⚠');
         expect(notice.getAttribute('style')).not.toContain('warning');
-        expect(notice.getAttribute('style')).toContain('var(--nr-chat-text-variant)');
+        expect(notice.getAttribute('style')).toContain('color:var(--nr-chat-text);');
     });
 
     test('an answer without the notice carries none', async () => {

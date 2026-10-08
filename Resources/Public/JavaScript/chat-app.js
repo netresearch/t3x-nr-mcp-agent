@@ -873,10 +873,11 @@ export class ChatApp extends LitElement {
         // A plain note, not a warning: the trigger is generous on purpose
         // (ChangeClaim), so it also fires under answers of read-only steps that
         // merely mention a change, and the editorial rules keep warnings for
-        // critical consequences (rule 21).
+        // critical consequences (rule 21). The body text colour keeps the
+        // contrast at least as high as the warning colour had.
         return html`
             <div class="message-notice" role="note"
-                style="color:var(--nr-chat-text-variant);font-size:12px;margin-top:4px;">
+                style="color:var(--nr-chat-text);font-size:12px;margin-top:4px;">
                 ${lll('chat.nothingSaved')}
             </div>
         `;

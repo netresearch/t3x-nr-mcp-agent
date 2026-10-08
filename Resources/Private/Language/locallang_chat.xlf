@@ -126,7 +126,7 @@
                 <source>Approval granted — the assistant is carrying the step out.</source>
             </trans-unit>
             <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
-                <source>Approval denied — the step was not carried out.</source>
+                <source>Cancelled — the step was not carried out.</source>
             </trans-unit>
             <trans-unit id="chat.approvalPreviewUnavailable" resname="chat.approvalPreviewUnavailable">
                 <source>No preview — you are deciding without one</source>
