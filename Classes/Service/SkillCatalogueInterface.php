@@ -48,4 +48,12 @@ interface SkillCatalogueInterface
      * nr-llm that cannot take one.
      */
     public function augmentationFor(string $identifier): ?RunAugmentation;
+
+    /**
+     * Whether the chat's configuration needs a second person to approve every
+     * change (nr-llm ADR-172). A guided process is decided on the chat card
+     * only (nr-llm ADR-214), where the run's owner cannot release their own
+     * write, so no skill starts on such a configuration.
+     */
+    public function requiresSecondApprover(): bool;
 }

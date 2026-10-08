@@ -65,6 +65,15 @@ keys, Enter or Tab to pick, Escape to close). Picking sets the
 conversation's skill (``POST /ai-chat/conversations/skill``) and sends no
 message; the skill is shown above the input with a button to remove it.
 
+**No skill on a four-eyes configuration.** nr-llm ADR-214 decides a guided
+process only on the chat card; where the configuration requires a second
+approver (nr-llm ADR-172), the run's owner cannot release their own write
+there. A skill is therefore refused at the start and when it is picked
+(409, ``error.skillSecondApprover``) when the chat Task's configuration
+requires a second approver. Every catalogue skill counts as a process
+here: nr-llm does not mark process skills yet. A skill picked before the
+configuration was switched to four-eyes keeps running.
+
 Consequences
 ============
 

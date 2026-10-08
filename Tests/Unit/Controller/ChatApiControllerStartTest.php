@@ -85,10 +85,11 @@ final class ChatApiControllerStartTest extends TestCase
         );
     }
 
-    private function catalogue(bool $available = true): SkillCatalogueInterface&MockObject
+    private function catalogue(bool $available = true, bool $secondApprover = false): SkillCatalogueInterface&MockObject
     {
         $skills = $this->createMock(SkillCatalogueInterface::class);
         $skills->method('isAvailable')->willReturn($available);
+        $skills->method('requiresSecondApprover')->willReturn($secondApprover);
         $skills->method('catalogue')->willReturn($available ? [self::SKILL] : []);
         $skills->method('find')->willReturnCallback(
             static fn(string $identifier): ?array => $available && $identifier === self::SKILL['identifier'] ? self::SKILL : null,
@@ -128,6 +129,24 @@ final class ChatApiControllerStartTest extends TestCase
         self::assertSame(201, $response->getStatusCode());
         self::assertNotNull($this->added);
         self::assertSame('seo-page-tour', $this->added->getSkillIdentifier());
+    }
+
+    /**
+     * A guided process is decided on the chat card only (nr-llm ADR-214);
+     * under four-eyes the owner cannot release their own write there, so no
+     * skill starts, and the chat shows why. A plain conversation still does.
+     */
+    #[Test]
+    public function noSkillStartsOnAConfigurationWithASecondApprover(): void
+    {
+        $subject = $this->subject($this->catalogue(secondApprover: true));
+
+        $start = $subject->createConversation($this->request('{"skill": "seo-page-tour"}'));
+        self::assertSame(409, $start->getStatusCode());
+        self::assertSame('error.skillSecondApprover', self::json($start)['error'] ?? null);
+        self::assertNull($this->added);
+
+        self::assertSame(201, $subject->createConversation($this->request('{}'))->getStatusCode());
     }
 
     #[Test]
@@ -218,6 +237,15 @@ final class ChatApiControllerStartTest extends TestCase
         $this->repository->expects(self::never())->method('updateSkillIdentifier');
 
         self::assertSame(400, $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "nope"}'))->getStatusCode());
+    }
+
+    #[Test]
+    public function pickingASkillOnAConfigurationWithASecondApproverIsRefused(): void
+    {
+        $this->repository->method('findOneByUidAndBeUser')->willReturn(new Conversation());
+        $this->repository->expects(self::never())->method('updateSkillIdentifier');
+
+        self::assertSame(409, $this->subject($this->catalogue(secondApprover: true))->updateSkill($this->request('{"conversationUid": 7, "skill": "seo-page-tour"}'))->getStatusCode());
     }
 
     #[Test]

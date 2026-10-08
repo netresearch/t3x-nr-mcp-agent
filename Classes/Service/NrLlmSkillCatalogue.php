@@ -90,6 +90,17 @@ final readonly class NrLlmSkillCatalogue implements SkillCatalogueInterface
         return null;
     }
 
+    public function requiresSecondApprover(): bool
+    {
+        try {
+            $task = $this->taskRepository->findByUid($this->config->getLlmTaskUid());
+
+            return $task instanceof Task && ($task->getConfiguration()?->requiresSecondApprover() ?? false);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     /**
      * @return list<Skill>
      */
