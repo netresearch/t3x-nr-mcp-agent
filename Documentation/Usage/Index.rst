@@ -144,6 +144,27 @@ button is highlighted while a conversation has instructions; empty the
 field and save to remove them. Instructions cannot be changed while an
 answer is being generated.
 
+Guided processes
+----------------
+
+A skill can walk you through a page one point at a time. While it does:
+
+*   **The header shows where it stands** -- for example
+    "Über uns · Deutsch · Punkt 2 von 5". It changes when the assistant
+    stops to ask you or to propose a change, not while it works.
+*   **The element is highlighted.** With the floating panel open next to
+    the page module, the content element the current point is about gets a
+    frame and is scrolled into view. The full-page chat module and the
+    popped-out panel have no page module beside them and only show the
+    progress.
+*   **Skipped points stay open.** A point you skip is kept with the page,
+    its language and the skill, beyond the conversation, so the process can
+    offer it again the next time it runs on the page. Everyone who may see
+    the page and edit that language can be offered them.
+
+None of this changes a record. An administrator can switch the tools behind
+it off as the tool group ``nr_mcp_agent``.
+
 Conversation management
 =======================
 

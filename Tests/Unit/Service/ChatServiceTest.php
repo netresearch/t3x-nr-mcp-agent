@@ -31,9 +31,11 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
@@ -85,6 +87,7 @@ class ChatServiceTest extends TestCase
         ?TaskRepository $taskRepository = null,
         ?UserContextPrompt $userContextPrompt = null,
         ?RunActivityRecorder $activityRecorder = null,
+        ?GuidedStateLinker $guidedState = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -124,7 +127,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class));
+        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState);
     }
 
     /**
@@ -573,6 +576,38 @@ class ChatServiceTest extends TestCase
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
         self::assertSame('', $conversation->getApprovalRunUuid());
+    }
+
+    /**
+     * @return iterable<string, array{AgentRunResult}>
+     */
+    public static function returnedRuns(): iterable
+    {
+        yield 'completed' => [new AgentRunResult(AgentRunOutcome::COMPLETED, 'run-uuid', [], new ToolLoopResult('Fertig', [], 1, false, new UsageStatistics(1, 1, 2)))];
+        yield 'waiting for an approval' => [new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid', [])];
+        yield 'failed' => [new AgentRunResult(AgentRunOutcome::FAILED, 'run-uuid', [], error: new RuntimeException('boom'))];
+    }
+
+    /**
+     * Whatever way a run returns, what the guided-state tools reported during
+     * it reaches the conversation (ADR-020): the header shows the progress
+     * when the run pauses for an approval, not only when it completes.
+     */
+    #[Test]
+    #[DataProvider('returnedRuns')]
+    public function aReturnedRunHandsItsGuidedStateToTheConversation(AgentRunResult $result): void
+    {
+        $runState = $this->createMock(RunStateRepository::class);
+        $runState->expects(self::once())->method('find')->with('run-uuid', 7)
+            ->willReturn(['progress' => ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], 'highlight' => null]);
+
+        $conversation = new Conversation();
+        $conversation->setBeUser(7);
+        $conversation->appendMessage(MessageRole::User, 'Prüfe die Seite');
+
+        $this->createChatService($result, guidedState: new GuidedStateLinker($runState))->processConversation($conversation);
+
+        self::assertSame(['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], $conversation->getGuidedState()['progress']);
     }
 
     /**
