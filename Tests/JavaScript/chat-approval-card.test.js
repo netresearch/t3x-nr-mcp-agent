@@ -397,17 +397,56 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
         expect(notice).not.toBeNull();
         expect(notice.textContent).toContain('chat.approvalPending');
-        expect(notice.textContent).toContain('chat.approvalPendingDetail');
         expect(notice.textContent).not.toContain('chat.errorPrefix');
         expect(notice.querySelector('.approval-actions')).not.toBeNull();
     });
 
     /**
-     * A decision refused by the runtime hands the run back with the reason in
-     * the same field — "The turn moved on", a stale digest. That reason is the
-     * detail then, not the generic sentence beside it.
+     * Editorial rules 14 and 24: above the card stands a short status, not an
+     * explanation of what a write is. The card's heading names the change.
      */
-    test('a reason handed back with the run replaces the generic sentence', async () => {
+    test('the pending notice is the short status and nothing more', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const notice = el.shadowRoot.querySelector('.message.system').cloneNode(true);
+        notice.querySelector('.approval-card').remove();
+
+        expect(notice.textContent.trim()).toBe('chat.approvalPending');
+    });
+
+    /**
+     * A reader who may not decide approvals gets no card from the server, and
+     * the module behind the link would refuse them. The notice gives the step
+     * they can take instead (rule 27): ask someone who may approve.
+     */
+    test('a reader who may not decide is told whom to ask, without card or link', async () => {
+        const el = await renderPending(modulePath, tag, open, null);
+        el.chat.mayDecideApproval = false;
+        el.requestUpdate();
+        await el.updateComplete;
+        const notice = el.shadowRoot.querySelector('.message.system');
+
+        expect(notice.textContent.trim()).toBe('chat.approvalPendingElsewhere');
+        expect(notice.querySelector('a')).toBeNull();
+        expect(notice.querySelector('button')).toBeNull();
+    });
+
+    test('the right to decide comes from the full response and survives a fast poll', async () => {
+        const el = await renderPending(modulePath, tag, open, null);
+        el.chat._setApprovalRight({mayDecideApproval: false});
+        expect(el.chat.mayDecideApproval).toBe(false);
+        // The fast poll path carries no flag: the last answer stands.
+        el.chat._setApprovalRight({status: 'awaiting_approval'});
+        expect(el.chat.mayDecideApproval).toBe(false);
+        el.chat._setApprovalRight({mayDecideApproval: true});
+        expect(el.chat.mayDecideApproval).toBe(true);
+    });
+
+    /**
+     * A decision refused by the runtime hands the run back with the reason in
+     * the same field — "The turn moved on", a stale digest. It follows the
+     * status label.
+     */
+    test('a reason handed back with the run follows the status', async () => {
         const el = await renderPending(modulePath, tag, open);
         el.chat.errorMessage = 'The turn moved on — decide again.';
         el.requestUpdate();
@@ -415,8 +454,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         const notice = el.shadowRoot.querySelector('.message.system');
 
         expect(notice.textContent).toContain('chat.approvalPending');
-        expect(notice.textContent).toContain('The turn moved on — decide again.');
-        expect(notice.textContent).not.toContain('chat.approvalPendingDetail');
+        expect(notice.textContent).toContain('chat.approvalPending: The turn moved on — decide again.');
     });
 
     /**
@@ -433,7 +471,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
         expect(notice.textContent).toContain('chat.errorPrefix');
         expect(notice.textContent).toContain('provider exploded');
-        expect(notice.textContent).not.toContain('chat.approvalPendingDetail');
+        expect(notice.textContent).not.toContain('chat.approvalPending');
         expect(notice.textContent).not.toContain('Error:');
         expect(notice.querySelector('.btn-icon')).not.toBeNull();
     });

@@ -256,6 +256,10 @@ final readonly class ChatApiController
             ...$this->presentError($conversation->getErrorMessage(), $conversation->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
+            // Whether this reader may decide approvals at all. Without it the
+            // notice cannot tell "decide below" from "someone else decides",
+            // and a link into a module the reader cannot open is no next step.
+            'mayDecideApproval' => $this->mayDecideApprovals(),
             'systemPrompt' => $conversation->getSystemPrompt(),
             'activity' => $conversation->getActivity(),
         ]);

@@ -2034,9 +2034,24 @@ export class AiChatPanel extends LitElement {
             // still pending. No Dismiss either: the notice follows the status,
             // so clearing the field would not hide it, and the card it carries
             // is where the decision is taken.
+            //
+            // A short status, not an explanation (editorial rules 14, 24): the
+            // card below names the change and its buttons the decision. A
+            // reader who may not decide gets neither card nor link — the module
+            // would refuse them — but the one step they can take (rule 27).
+            if (!this.chat.mayDecideApproval) {
+                return html`
+                    <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
+                        ${lll('chat.approvalPendingElsewhere')}
+                    </div>
+                `;
+            }
+
+            const reason = this.chat.errorMessage ? `: ${this.chat.errorMessage}` : '';
+
             return html`
                 <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
-                    ${lll('chat.approvalPending')}: ${this.chat.errorMessage || lll('chat.approvalPendingDetail')}
+                    ${lll('chat.approvalPending')}${reason}
                     ${this._renderApprovalCard()}
                 </div>
             `;

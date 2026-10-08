@@ -550,6 +550,22 @@ class ChatApiControllerTest extends FunctionalTestCase
     }
 
     /**
+     * The notice tells "decide below" from "someone else decides" by this
+     * flag. User 1 is an admin; user 2 has neither admin rights nor the
+     * nrllm_aitasks module.
+     */
+    #[Test]
+    public function getMessagesSaysWhetherTheReaderMayDecideApprovals(): void
+    {
+        $request = (new ServerRequest())->withQueryParams(['conversationUid' => 1]);
+        self::assertTrue(json_decode((string) $this->subject->getMessages($request)->getBody(), true)['mayDecideApproval']);
+
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
+        $request = (new ServerRequest())->withQueryParams(['conversationUid' => 3]);
+        self::assertFalse(json_decode((string) $this->subject->getMessages($request)->getBody(), true)['mayDecideApproval']);
+    }
+
+    /**
      * Same for error.decisionInFlight: the one refusal the chat renders behind
      * its error prefix, because Retry is offered in the error branch only.
      */

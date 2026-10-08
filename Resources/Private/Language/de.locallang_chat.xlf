@@ -148,16 +148,16 @@
                 <target>Wird verarbeitet...</target>
             </trans-unit>
             <trans-unit id="chat.approvalPending" resname="chat.approvalPending">
-                <source>Waiting for approval</source>
-                <target>Freigabe ausstehend</target>
+                <source>Waiting for your approval</source>
+                <target>Wartet auf deine Freigabe</target>
             </trans-unit>
-            <trans-unit id="chat.approvalPendingDetail" resname="chat.approvalPendingDetail">
-                <source>This step writes data and needs an approval before it runs.</source>
-                <target>Dieser Schritt schreibt Daten und braucht eine Freigabe, bevor er ausgeführt wird.</target>
+            <trans-unit id="chat.approvalPendingElsewhere" resname="chat.approvalPendingElsewhere">
+                <source>Waiting for approval. You cannot approve this step yourself: ask someone with access to AI Tasks to approve it.</source>
+                <target>Wartet auf eine Freigabe. Du kannst diesen Schritt nicht selbst freigeben: Bitte jemanden mit Zugriff auf KI-Aufgaben, ihn freizugeben.</target>
             </trans-unit>
             <trans-unit id="chat.approvalOpen" resname="chat.approvalOpen">
                 <source>Open the run in AI Tasks</source>
-                <target>Lauf in AI Tasks öffnen</target>
+                <target>Lauf in KI-Aufgaben öffnen</target>
             </trans-unit>
             <trans-unit id="chat.approvalGranted" resname="chat.approvalGranted">
                 <source>Approval granted — the assistant is carrying the step out.</source>
@@ -209,7 +209,7 @@
             </trans-unit>
             <trans-unit id="chat.approvalUnreadable" resname="chat.approvalUnreadable">
                 <source>This run cannot be read here. Open it in AI Tasks.</source>
-                <target>Dieser Lauf lässt sich hier nicht lesen. Im Modul AI Tasks öffnen.</target>
+                <target>Dieser Lauf lässt sich hier nicht lesen. Im Modul KI-Aufgaben öffnen.</target>
             </trans-unit>
             <trans-unit id="chat.errorPrefix" resname="chat.errorPrefix">
                 <source>Error:</source>
@@ -245,11 +245,11 @@
             </trans-unit>
             <trans-unit id="chat.runFinishedOutside" resname="chat.runFinishedOutside">
                 <source>The approval was decided outside this chat, and the run has finished there. It wrote: %s. Its answer is under AI Tasks.</source>
-                <target>Die Freigabe wurde außerhalb dieses Chats entschieden, und der Lauf ist dort abgeschlossen. Er hat geschrieben: %s. Seine Antwort steht unter AI Tasks.</target>
+                <target>Die Freigabe wurde außerhalb dieses Chats entschieden, und der Lauf ist dort abgeschlossen. Er hat geschrieben: %s. Seine Antwort steht unter KI-Aufgaben.</target>
             </trans-unit>
             <trans-unit id="chat.runFinishedOutsideNothingWritten" resname="chat.runFinishedOutsideNothingWritten">
                 <source>The approval was decided outside this chat, and the run has finished there without writing anything. Its answer is under AI Tasks.</source>
-                <target>Die Freigabe wurde außerhalb dieses Chats entschieden, und der Lauf ist dort abgeschlossen, ohne etwas zu schreiben. Seine Antwort steht unter AI Tasks.</target>
+                <target>Die Freigabe wurde außerhalb dieses Chats entschieden, und der Lauf ist dort abgeschlossen, ohne etwas zu schreiben. Seine Antwort steht unter KI-Aufgaben.</target>
             </trans-unit>
 
             <!-- Tool messages -->
@@ -292,8 +292,8 @@
                 <target>Dieser Schritt wartet noch auf eine Entscheidung. Bitte auf der Karte freigeben oder abbrechen – eine Nachricht erteilt keine Freigabe.</target>
             </trans-unit>
             <trans-unit id="error.approvalStillPendingElsewhere" resname="error.approvalStillPendingElsewhere">
-                <source>This step is still waiting for an approval in AI Tasks — a message does not approve it.</source>
-                <target>Dieser Schritt wartet noch auf eine Freigabe in AI Tasks – eine Nachricht erteilt keine Freigabe.</target>
+                <source>This step is still waiting for an approval you cannot give yourself. Ask someone with access to AI Tasks to approve it — a message here does not approve it.</source>
+                <target>Dieser Schritt wartet noch auf eine Freigabe, die du nicht selbst erteilen kannst. Bitte jemanden mit Zugriff auf KI-Aufgaben, ihn freizugeben – eine Nachricht hier erteilt keine Freigabe.</target>
             </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
