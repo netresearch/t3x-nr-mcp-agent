@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-10-09
+
+### Fixed
+
+- **After an upgrade the browser loads the new version of every chat module (#204).** The modules imported each other by relative path (`./chat-core.js`). TYPO3 serves `_assets` as immutable under a directory name that stays the same across extension versions, and only the importmap entries carry the `?bust=` query, so a relative import fetched the URL without it and a browser kept the previous version's `chat-core.js` next to a new `chat-app.js`. After the upgrade to 0.16.0 that made the approval card tell an administrator they could not approve the step. All imports between the extension's modules now go through the `@netresearch/nr-mcp-agent/` importmap prefix, which TYPO3 maps to a cache-busted URL per file.
+
 ## [0.16.0] - 2026-10-08
 
 ### Added
