@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use DomainException;
 use Netresearch\NrMcpAgent\Service\NrLlmPreviewHeadingLabels;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -42,7 +43,7 @@ final class NrLlmPreviewHeadingLabelsTest extends TestCase
             /** @return list<string> */
             public static function labelReferences(): array
             {
-                throw new RuntimeException('broken');
+                throw new DomainException('broken');
             }
         })::class;
     }

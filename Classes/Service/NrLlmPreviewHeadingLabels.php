@@ -41,6 +41,24 @@ final readonly class NrLlmPreviewHeadingLabels implements PreviewHeadingLabelsIn
 
     public function labelReferences(): array
     {
+        $labels = [];
+        foreach ($this->fetch() as $reference) {
+            if (is_string($reference) && str_starts_with($reference, 'LLL:')) {
+                $labels[] = $reference;
+            }
+        }
+
+        return $labels;
+    }
+
+    /**
+     * What the provider returns, or nothing when it is absent, misbehaves or
+     * returns something that is not a list.
+     *
+     * @return iterable<mixed>
+     */
+    private function fetch(): iterable
+    {
         try {
             if (!class_exists($this->provider) || !method_exists($this->provider, self::METHOD)) {
                 return [];
@@ -52,20 +70,9 @@ final readonly class NrLlmPreviewHeadingLabels implements PreviewHeadingLabelsIn
             $instance   = $method->isStatic() ? null : $this->container->get($this->provider);
             $references = $method->invoke(is_object($instance) ? $instance : null);
         } catch (Throwable) {
-            return [];
+            $references = [];
         }
 
-        if (!is_iterable($references)) {
-            return [];
-        }
-
-        $labels = [];
-        foreach ($references as $reference) {
-            if (is_string($reference) && str_starts_with($reference, 'LLL:')) {
-                $labels[] = $reference;
-            }
-        }
-
-        return $labels;
+        return is_iterable($references) ? $references : [];
     }
 }
