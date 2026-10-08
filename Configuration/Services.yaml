@@ -12,6 +12,31 @@ services:
     # Registered in Services.php, and only when EXT:dashboard is installed.
     exclude: '../Classes/Dashboard/*'
 
+  # Seams of the AI assistant dashboard widgets. Each alias is the point to
+  # re-bind: the open-points store replaces NullOpenPointReader here.
+  Netresearch\NrMcpAgent\Service\Assistant\OpenPointReaderInterface:
+    alias: Netresearch\NrMcpAgent\Service\Assistant\NullOpenPointReader
+
+  Netresearch\NrMcpAgent\Service\Assistant\GuidedSkillProviderInterface:
+    alias: Netresearch\NrMcpAgent\Service\Assistant\ConfiguredGuidedSkillProvider
+
+  Netresearch\NrMcpAgent\Service\Assistant\QuickTaskProviderInterface:
+    alias: Netresearch\NrMcpAgent\Service\Assistant\ConfiguredQuickTaskProvider
+
+  # Pages to suggest for a guided tour; also for the chat's own page choice.
+  Netresearch\NrMcpAgent\Service\Assistant\PageSuggestionProviderInterface:
+    alias: Netresearch\NrMcpAgent\Service\Assistant\DeterministicPageSuggestionProvider
+
+  # Which skills the widgets offer: those the chat's skill catalogue would
+  # accept, under the identifier it accepts. "@?" injects null while the
+  # catalogue service does not exist, and then no skill is offered.
+  Netresearch\NrMcpAgent\Service\Assistant\SkillResolverInterface:
+    alias: Netresearch\NrMcpAgent\Service\Assistant\CatalogueSkillResolver
+
+  Netresearch\NrMcpAgent\Service\Assistant\CatalogueSkillResolver:
+    arguments:
+      $catalogue: '@?Netresearch\NrMcpAgent\Service\SkillCatalogueInterface'
+
   Netresearch\NrMcpAgent\Controller\ChatModuleController:
     public: true
 
