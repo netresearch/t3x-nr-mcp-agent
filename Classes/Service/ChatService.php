@@ -176,6 +176,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?SkillCatalogueInterface $skills = null,
     ) {}
 
     /**
@@ -327,6 +328,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             messages: $messages,
             actor: $this->resolveActor($conversation->getBeUser()),
             options: (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
+            // The conversation's skill, on every turn (ADR-019); none when it
+            // is gone or nr-llm cannot take one.
+            augmentation: $this->skills?->augmentationFor($conversation->getSkillIdentifier()),
         ), $this->activityRecorder->onStep($conversation));
 
         $this->applyResult($conversation, $result);

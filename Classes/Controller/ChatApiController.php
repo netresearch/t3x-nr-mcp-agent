@@ -29,6 +29,7 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -36,6 +37,7 @@ use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Localization\LanguageService;
@@ -49,6 +51,8 @@ use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
+use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class ChatApiController
@@ -75,6 +79,10 @@ final readonly class ChatApiController
         // failing where the presenter is not wired; the container wires it.
         private ?ApprovalCallPresenter $approvalCallPresenter = null,
         private ?LanguageServiceFactory $languageServiceFactory = null,
+        // Optional for the same reason: without them a conversation starts
+        // without a language check and without skills (ADR-019).
+        private ?SiteFinder $siteFinder = null,
+        private ?SkillCatalogueInterface $skills = null,
     ) {}
 
     /**
@@ -163,6 +171,7 @@ final readonly class ChatApiController
             'messageCount' => $c->getMessageCount(),
             'pinned' => $c->isPinned(),
             'resumable' => $c->isResumable(),
+            'skillIdentifier' => $c->getSkillIdentifier(),
             ...$this->presentError($c->getErrorMessage(), $c->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($c->getApprovalRunUuid()),
             'tstamp' => $c->getTstamp(),
@@ -172,8 +181,15 @@ final readonly class ChatApiController
 
     /**
      * POST /ai-chat/conversations/create – Create new conversation.
+     *
+     * Optionally about one page and with a skill (ADR-019): `pageUid`, the
+     * page's `languageUid` (0 when omitted) and `skill`, the identifier of a
+     * skill from the catalogue. The page must be one the user may show, the
+     * language one of the page's site that the user may edit, and the skill
+     * one the user can invoke. Where nr-llm cannot take a skill per run, the
+     * identifier is kept and the runs go without it.
      */
-    public function createConversation(): ResponseInterface
+    public function createConversation(?ServerRequestInterface $request = null): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
         if ($accessDenied !== null) {
@@ -183,10 +199,193 @@ final readonly class ChatApiController
         $conversation = new Conversation();
         $conversation->setBeUser($this->getBeUserUid());
 
+        $body = $request instanceof ServerRequestInterface ? $this->parseBody($request) : [];
+        $refusal = $this->applyStartContext($conversation, $body);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
         $uid = $this->repository->add($conversation);
         return new JsonResponse([
             'uid' => $uid,
         ], 201);
+    }
+
+    /**
+     * The page, its language and the skill a new conversation starts with,
+     * or the refusal when one of them is not the user's to use.
+     *
+     * @param array<string, string|int> $body
+     */
+    private function applyStartContext(Conversation $conversation, array $body): ?ResponseInterface
+    {
+        $pageUid = (int) ($body['pageUid'] ?? 0);
+        $languageUid = (int) ($body['languageUid'] ?? 0);
+        if ($pageUid > 0) {
+            if (!$this->mayShowPage($pageUid)) {
+                return new JsonResponse(['error' => $this->translate('error.pageNotAccessible')], 403);
+            }
+
+            if (!$this->mayEditPageLanguage($pageUid, $languageUid)) {
+                return new JsonResponse(['error' => $this->translate('error.languageNotAccessible')], 403);
+            }
+
+            $conversation->setViewContext($pageUid, '', $languageUid);
+        }
+
+        $skill = trim((string) ($body['skill'] ?? ''));
+        if ($skill !== '') {
+            $refusal = $this->refuseSkill($skill);
+            if ($refusal !== null) {
+                return $refusal;
+            }
+
+            $conversation->setSkillIdentifier($skill);
+        }
+
+        return null;
+    }
+
+    /**
+     * Why the user cannot pick this skill, or null when they can. With nr-llm
+     * unable to take a skill there is no catalogue to check against; a
+     * well-formed identifier is kept and degrades to none at run time.
+     */
+    private function refuseSkill(string $skill): ?ResponseInterface
+    {
+        if (!Conversation::isSkillIdentifier($skill)) {
+            return new JsonResponse(['error' => $this->translate('error.skillUnknown')], 400);
+        }
+
+        if ($this->skills instanceof SkillCatalogueInterface && $this->skills->isAvailable() && $this->skills->find($skill) === null) {
+            return new JsonResponse(['error' => $this->translate('error.skillUnknown')], 400);
+        }
+
+        return null;
+    }
+
+    private function mayShowPage(int $pageUid): bool
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication) {
+            return false;
+        }
+
+        $row = BackendUtility::readPageAccess($pageUid, $backendUser->getPagePermsClause(Permission::PAGE_SHOW));
+
+        $uid = is_array($row) ? ($row['uid'] ?? null) : null;
+
+        return is_numeric($uid) && (int) $uid === $pageUid;
+    }
+
+    /**
+     * Whether the language exists in the page's site and the user may edit
+     * it. Without a site finder only the user's language permission is asked.
+     */
+    private function mayEditPageLanguage(int $pageUid, int $languageUid): bool
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if ($languageUid < 0 || !$backendUser instanceof BackendUserAuthentication || !$backendUser->checkLanguageAccess($languageUid)) {
+            return false;
+        }
+
+        if (!$this->siteFinder instanceof SiteFinder) {
+            return true;
+        }
+
+        try {
+            $this->siteFinder->getSiteByPageId($pageUid)->getLanguageById($languageUid);
+        } catch (Exception) {
+            // A page outside every site has its default language and no other.
+            return $languageUid === 0 && !$this->hasSite($pageUid);
+        }
+
+        return true;
+    }
+
+    private function hasSite(int $pageUid): bool
+    {
+        try {
+            $this->siteFinder?->getSiteByPageId($pageUid);
+        } catch (Exception) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * GET /ai-chat/skills – The skills the user can pick for a conversation,
+     * for the "/" list in the input (ADR-019). Empty, with `available` false,
+     * where nr-llm cannot take a skill per run.
+     */
+    public function listSkills(): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $available = $this->skills instanceof SkillCatalogueInterface && $this->skills->isAvailable();
+
+        return new JsonResponse([
+            'available' => $available,
+            'skills' => $available ? $this->skills->catalogue() : [],
+        ]);
+    }
+
+    /**
+     * POST /ai-chat/conversations/skill – Pick the conversation's skill; an
+     * empty `skill` removes it. Refused while a turn runs, which already runs
+     * with the old one.
+     */
+    public function updateSkill(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $body = $this->parseBody($request);
+        $conversation = $this->findConversationOrFail($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $skill = trim((string) ($body['skill'] ?? ''));
+        if ($skill !== '') {
+            $refusal = $this->refuseSkill($skill);
+            if ($refusal !== null) {
+                return $refusal;
+            }
+        }
+
+        if ($this->isBusy($conversation->getStatus())) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        $this->repository->updateSkillIdentifier($conversation->getUid(), $skill, $this->getBeUserUid());
+        $conversation->setSkillIdentifier($skill);
+
+        return new JsonResponse(['skill' => $this->presentSkill($conversation)]);
+    }
+
+    /**
+     * The conversation's skill as the chat shows it: identifier and name, the
+     * name falling back to the identifier when the catalogue does not list it.
+     *
+     * @return array{identifier: string, name: string}|null
+     */
+    private function presentSkill(Conversation $conversation): ?array
+    {
+        $identifier = $conversation->getSkillIdentifier();
+        if ($identifier === '') {
+            return null;
+        }
+
+        $entry = $this->skills?->find($identifier);
+
+        return ['identifier' => $identifier, 'name' => $entry['name'] ?? $identifier];
     }
 
     /**
@@ -267,6 +466,7 @@ final readonly class ChatApiController
             // card offers the link even though it has a preview.
             'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
             'systemPrompt' => $conversation->getSystemPrompt(),
+            'skill' => $this->presentSkill($conversation),
             'activity' => $conversation->getActivity(),
         ]);
     }
@@ -510,9 +710,18 @@ final readonly class ChatApiController
         // shape is checked here; the worker decides what the user may see.
         $context = $body['context'] ?? null;
         if (is_array($context)) {
-            $pageId = $context['pageId'] ?? 0;
+            $pageId = is_int($context['pageId'] ?? null) ? $context['pageId'] : 0;
             $module = $context['module'] ?? '';
-            $conversation->setViewContext(is_int($pageId) ? $pageId : 0, is_string($module) ? $module : '');
+            $languageId = is_int($context['languageId'] ?? null) ? $context['languageId'] : -1;
+            // The browser does not always see the page's language (the page
+            // module keeps it in its module data). On the same page, the
+            // language the conversation started with stays (ADR-019).
+            $stored = $conversation->getViewContext();
+            if ($languageId < 0 && $pageId === $stored['pageId']) {
+                $languageId = $stored['languageId'];
+            }
+
+            $conversation->setViewContext($pageId, is_string($module) ? $module : '', $languageId);
         } else {
             $conversation->setViewContext(0, '');
         }

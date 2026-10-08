@@ -129,6 +129,20 @@ those are in the run's timeline under **AI > AI Tasks**.
 In the expanded panel the list sits above the conversation; maximized, and
 in the module, it is a sidebar on the right.
 
+Starting with a page and a skill
+--------------------------------
+
+A link into the chat module can start a conversation about one page:
+``&pageUid=<page>``, optionally ``&languageUid=<language>`` and
+``&skill=<skill>``. The chat checks that you may open the page and edit the
+language, opens the new conversation and replaces the parameters with the
+conversation's own, so reloading opens it again.
+
+Typing ``/`` at the start of the input lists the skills available in the
+chat. Pick one with the arrow keys and Enter, or with the mouse; nothing is
+sent. The conversation's skill is shown above the input, and the ``×``
+beside it removes it. Every later answer in the conversation uses it.
+
 Instructions for a conversation
 -------------------------------
 

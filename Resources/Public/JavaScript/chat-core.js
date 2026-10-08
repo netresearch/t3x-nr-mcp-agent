@@ -50,9 +50,18 @@ export function currentBackendContext(win = globalThis.top ?? globalThis) {
         }
 
         const frame = win.frames?.list_frame;
-        const id = new URLSearchParams(frame?.location?.search ?? '').get('id');
+        const params = new URLSearchParams(frame?.location?.search ?? '');
+        const id = params.get('id');
         if (id && /^\d+$/.test(id)) {
             context.pageId = Number.parseInt(id, 10);
+            // The page's language, where the module URL carries it: `language`
+            // (TYPO3 13) or the first of `languages[]` (14). The page module
+            // often keeps it in its module data instead; then none is sent and
+            // the server keeps the one the conversation started with (ADR-019).
+            const language = params.get('language') ?? params.get('languages[0]') ?? params.getAll('languages[]')[0];
+            if (language && /^\d+$/.test(language)) {
+                context.languageId = Number.parseInt(language, 10);
+            }
         }
     } catch {
         // Cross-origin or not a backend window: send no context.
@@ -174,6 +183,16 @@ export class ChatCoreController {
     /** @type {string[]} */
     supportedFormats = [];
 
+    /** The active conversation's skill (ADR-019), or null. @type {{identifier: string, name: string}|null} */
+    skill = null;
+
+    /** The skills the user can pick; null until loaded. @type {Array<{identifier: string, name: string, description: string}>|null} */
+    skills = null;
+
+    /** Whether the "/" list is open, and which of its entries is highlighted. */
+    slashOpen = false;
+    slashIndex = 0;
+
     /** The active conversation's own instructions; empty when it has none. */
     systemPrompt = '';
     /** True while the instructions editor is open. */
@@ -257,8 +276,17 @@ export class ChatCoreController {
             // A link that names a conversation (the dashboard widget's, when
             // the panel is not available) opens that one.
             const initial = Number(this.host.initialConversationUid?.() ?? 0);
+            const start = this.host.initialStartContext?.() ?? null;
             if (initial > 0 && this.conversations.some((c) => c.uid === initial)) {
                 await this.selectConversation(initial);
+            } else if (start && this.available) {
+                // A link that starts a conversation about a page, with a
+                // skill (ADR-019). The host is told the new uid so a reload
+                // opens it instead of starting another one.
+                const uid = await this.handleNewConversation(start);
+                if (uid) {
+                    this.host.onStartContextConsumed?.(uid);
+                }
             }
         } catch (e) {
             if (signal?.aborted) return;
@@ -283,6 +311,8 @@ export class ChatCoreController {
         this.expandedTools = new Set();
         this.pendingFile = null;
         this.approvalDecisionTaken = null;
+        this.skill = null;
+        this.slashOpen = false;
         this.systemPrompt = '';
         this.systemPromptOpen = false;
         this.editingIndex = -1;
@@ -366,6 +396,7 @@ export class ChatCoreController {
             this._setApprovalRight(data);
             this.pendingApproval = data.pendingApproval || null;
             this.systemPrompt = data.systemPrompt || '';
+            this.skill = data.skill || null;
             this.activity = data.activity || [];
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
@@ -698,13 +729,90 @@ export class ChatCoreController {
         }
     }
 
-    async handleNewConversation() {
+    /**
+     * @param {{pageUid?: number, languageUid?: number, skill?: string}|null} [start]
+     * @returns {Promise<number|null>} the new conversation's uid
+     */
+    async handleNewConversation(start = null) {
         try {
-            const data = await this._api.createConversation();
+            const data = await this._api.createConversation(start ?? {});
             await this.loadConversations();
             await this.selectConversation(data.uid);
+            return data.uid;
         } catch (e) {
             this.errorMessage = e.message;
+            this.host.requestUpdate();
+            return null;
+        }
+    }
+
+    // ── Skills ("/" in the input, ADR-019) ────────────────────────────
+
+    /**
+     * Open or close the list as the input changes: open while the input is a
+     * "/" followed by no space, which is the start of a skill's identifier.
+     */
+    updateSlash() {
+        const open = /^\/\S*$/.test(this.inputValue) && this.activeUid !== null;
+        if (open !== this.slashOpen) {
+            this.slashOpen = open;
+            this.slashIndex = 0;
+            if (open && this.skills === null) {
+                this.loadSkills();
+            }
+        } else if (open) {
+            this.slashIndex = 0;
+        }
+        this.host.requestUpdate();
+    }
+
+    closeSlash() {
+        this.slashOpen = false;
+        this.host.requestUpdate();
+    }
+
+    async loadSkills() {
+        try {
+            const data = await this._api.listSkills();
+            this.skills = data.skills || [];
+        } catch {
+            this.skills = [];
+        }
+        this.host.requestUpdate();
+    }
+
+    /** The skills whose identifier or name contains what follows the "/". */
+    slashMatches() {
+        const query = this.inputValue.slice(1).toLowerCase();
+        return (this.skills || []).filter((s) => s.identifier.toLowerCase().includes(query)
+            || s.name.toLowerCase().includes(query));
+    }
+
+    /** Make the skill the conversation's; the "/" text is not sent. */
+    async selectSkill(entry) {
+        this.slashOpen = false;
+        this.inputValue = '';
+        this.hasInput = false;
+        this.host.onResetInput();
+        await this._setSkill(entry.identifier);
+    }
+
+    async clearSkill() {
+        await this._setSkill('');
+    }
+
+    async _setSkill(identifier) {
+        const uid = this.activeUid;
+        if (!uid) return;
+        try {
+            const data = await this._api.updateSkill(uid, identifier);
+            if (uid !== this.activeUid) return;
+            this.skill = data.skill || null;
+            this.errorMessage = '';
+        } catch (e) {
+            if (uid !== this.activeUid) return;
+            this.errorMessage = e.message;
+        } finally {
             this.host.requestUpdate();
         }
     }

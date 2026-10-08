@@ -136,6 +136,7 @@ readonly class ConversationRepository
         // A new row races nobody, so the instructions are written with it;
         // later only updateSystemPrompt() writes them (see toRow()).
         $data['system_prompt'] = $conversation->getSystemPrompt();
+        $data['skill_identifier'] = $conversation->getSkillIdentifier();
 
         return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
             $conn->insert(self::TABLE, $data);
@@ -208,6 +209,19 @@ readonly class ConversationRepository
     /**
      * Lightweight instructions update — avoids reading/writing the full messages blob.
      */
+    /**
+     * Single-column write of the conversation's skill (ADR-019), for the reason
+     * updateSystemPrompt() gives.
+     */
+    public function updateSkillIdentifier(int $uid, string $skillIdentifier, int $beUserUid): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'skill_identifier' => $skillIdentifier,
+            'tstamp' => time(),
+        ], ['uid' => $uid, 'be_user' => $beUserUid]);
+    }
+
     public function updateSystemPrompt(int $uid, string $systemPrompt, int $beUserUid): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
