@@ -21,7 +21,10 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
@@ -30,6 +33,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
@@ -37,8 +41,10 @@ use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -86,6 +92,7 @@ final class ChatApprovalTest extends TestCase
         ?AgentRunRepositoryInterface $runRepository = null,
         ?RunActivityRecorder $activityRecorder = null,
         bool $approveFiresStep = false,
+        ?LoggerInterface $logger = null,
     ): ChatService {
         $approveAnswer ??= $this->completed();
 
@@ -126,6 +133,7 @@ final class ChatApprovalTest extends TestCase
             new UploadMimeTypeMap(),
             $this->createMock(UserContextPrompt::class),
             $activityRecorder ?? $this->createMock(RunActivityRecorder::class),
+            logger: $logger,
         );
     }
 
@@ -413,7 +421,7 @@ final class ChatApprovalTest extends TestCase
         self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
         self::assertSame('', $conversation->getApprovalDecision(), 'the consumed decision must not be retried');
         self::assertFalse($conversation->isResumable(), 'a parked conversation must not offer Retry');
-        self::assertStringContainsString('stale', $conversation->getErrorMessage());
+        self::assertSame(ApprovalHandBackReason::StaleTurn->value, $conversation->getErrorCode());
     }
 
     /**
@@ -434,7 +442,48 @@ final class ChatApprovalTest extends TestCase
         self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
         self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
         self::assertFalse($conversation->isResumable(), 'a parked conversation must not offer Retry');
-        self::assertStringContainsString('deactivated', $conversation->getErrorMessage());
+        self::assertSame(ApprovalHandBackReason::ConfigurationInactive->value, $conversation->getErrorCode());
+    }
+
+    /**
+     * @return iterable<string, array{RuntimeException, ApprovalHandBackReason}>
+     */
+    public static function releasingRefusals(): iterable
+    {
+        $secret = 'Run run-uuid-1234 internal state: class Foo\\Bar';
+        yield 'stale turn' => [new StaleApprovalTurnException('run-uuid-1234', $secret), ApprovalHandBackReason::StaleTurn];
+        yield 'already resuming' => [new RunAlreadyResumingException('run-uuid-1234', $secret), ApprovalHandBackReason::AlreadyResuming];
+        yield 'approver not permitted' => [new ApproverNotPermittedException('run-uuid-1234', $secret), ApprovalHandBackReason::ApproverNotPermitted];
+        yield 'configuration inactive' => [new RunConfigurationInactiveException('run-uuid-1234', $secret), ApprovalHandBackReason::ConfigurationInactive];
+        yield 'not awaiting approval' => [new RunNotAwaitingApprovalException('run-uuid-1234', $secret), ApprovalHandBackReason::NotAwaitingApproval];
+    }
+
+    /**
+     * nr-llm's message is a developer's sentence and may name internals. The
+     * conversation keeps only the reason code, which the chat renders in the
+     * reader's language; the message goes to the log.
+     */
+    #[Test]
+    #[DataProvider('releasingRefusals')]
+    public function aReleasingRefusalStoresItsReasonAndLogsTheMessage(RuntimeException $refusal, ApprovalHandBackReason $reason): void
+    {
+        $conversation = $this->parkedConversation();
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning')->with(
+            self::anything(),
+            self::callback(static fn(array $context): bool => ($context['exception'] ?? null) === $refusal
+                && ($context['reason'] ?? null) === $reason->value
+                && ($context['run'] ?? null) === 'run-uuid-1234'
+                && ($context['message'] ?? null) === $refusal->getMessage()),
+        );
+        $service = $this->createChatService($refusal, logger: $logger);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame($reason->value, $conversation->getErrorCode());
+        self::assertSame('', $conversation->getErrorMessage());
     }
 
     #[Test]

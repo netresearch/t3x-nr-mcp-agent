@@ -359,9 +359,14 @@ export class AiChatPanel extends LitElement {
         .approval-card { margin-top: 8px; }
         .approval-call { margin-bottom: 8px; }
         .approval-call code { font-size: .9em; }
+        .approval-title { margin: 0 0 4px; }
         .approval-preview ul { margin: 4px 0 0; padding-left: 1.2em; }
+        .approval-technical { margin-top: 6px; }
+        .approval-technical summary { cursor: pointer; }
+        .approval-technical p { margin: 4px 0 0; }
         .approval-warning { color: var(--nr-chat-status-warning); margin-left: 6px; }
         .approval-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+        .status-notice:focus-visible { outline: 2px solid var(--nr-chat-focus-ring); outline-offset: 2px; }
         .approval-run-link { display: inline-block; margin-top: 6px; font-size: 12px; }
         .approval-stale { margin: 4px 0; }
         .approval-card pre { margin: 4px 0 0; max-height: 12em; overflow: auto; }
@@ -2008,7 +2013,7 @@ export class AiChatPanel extends LitElement {
         if (this.chat.approvalDecisionTaken) {
             const granted = this.chat.approvalDecisionTaken === 'approved';
             return html`
-                <div class="message system" role="status"
+                <div class="message system status-notice" tabindex="-1"
                     style="color:${granted ? 'var(--nr-chat-status-success, #2e7d32)' : 'var(--nr-chat-status-info, #0277bd)'};">
                     ${granted ? lll('chat.approvalGranted') : lll('chat.approvalDenied')}
                 </div>
@@ -2030,16 +2035,31 @@ export class AiChatPanel extends LitElement {
             // still pending. No Dismiss either: the notice follows the status,
             // so clearing the field would not hide it, and the card it carries
             // is where the decision is taken.
+            //
+            // A short status, not an explanation (editorial rules 14, 24): the
+            // card below names the change and its buttons the decision. A
+            // reader who may not decide gets neither card nor link — the module
+            // would refuse them — but the one step they can take (rule 27).
+            if (!this.chat.mayDecideApproval) {
+                return html`
+                    <div class="message system status-notice" tabindex="-1" style="color:var(--nr-chat-status-info, #0277bd);">
+                        ${lll('chat.approvalPendingElsewhere')}
+                    </div>
+                `;
+            }
+
+            const reason = this.chat.errorMessage ? `: ${this.chat.errorMessage}` : '';
+
             return html`
-                <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
-                    ${lll('chat.approvalPending')}: ${this.chat.errorMessage || lll('chat.approvalPendingDetail')}
+                <div class="message system status-notice" tabindex="-1" style="color:var(--nr-chat-status-info, #0277bd);">
+                    ${lll('chat.approvalPending')}${reason}
                     ${this._renderApprovalCard()}
                 </div>
             `;
         }
 
         return html`
-            <div class="message system" style="color:var(--nr-chat-status-danger, #c62828);">
+            <div class="message system status-notice" tabindex="-1" style="color:var(--nr-chat-status-danger, #c62828);">
                 ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
                 ${this._renderErrorLink()}
                 ${isResumable ? html`
@@ -2096,10 +2116,15 @@ export class AiChatPanel extends LitElement {
             return nothing;
         }
 
+        // A plain note, not a warning: the trigger is generous on purpose
+        // (ChangeClaim), so it also fires under answers of read-only steps that
+        // merely mention a change, and the editorial rules keep warnings for
+        // critical consequences (rule 21). The body text colour keeps the
+        // contrast at least as high as the warning colour had.
         return html`
             <div class="message-notice" role="note"
-                style="color:var(--nr-chat-status-warning);font-size:12px;margin-top:4px;">
-                \u26A0\uFE0F ${lll('chat.nothingSaved')}
+                style="color:var(--nr-chat-text);font-size:12px;margin-top:4px;">
+                ${lll('chat.nothingSaved')}
             </div>
         `;
     }
@@ -2111,7 +2136,14 @@ export class AiChatPanel extends LitElement {
      * this conversation's, the decision goes through the same per-run
      * authorisation as the approvals module, and the answer arrives here.
      *
-     * Approve and Deny are the only actions of a decidable card. The link to
+     * The card names the change, not the tool: its heading and its approve
+     * button carry the change's name (the preview's first line, else the tool's
+     * editor action label), the preview lines follow in
+     * nr-llm's order, and the tool name, its arguments and the technical
+     * preview line sit in one closed "Show technical details" section
+     * (editorial rules 10, 14-16, 22, 26). The cancel button says "Cancel".
+     *
+     * Approve and cancel are the only actions of a decidable card. The link to
      * the run used to sit beside them, styled like a third button and labelled
      * "Grant approval", although it opens the run's timeline, where nothing can
      * be granted (NEXT-162). It is now a plain text link, and it is offered on
@@ -2138,36 +2170,85 @@ export class AiChatPanel extends LitElement {
             <div class="approval-card">
                 ${pending.calls.map((call) => html`
                     <div class="approval-call">
-                        <code>${call.name}</code>
+                        <p class="approval-title" role="heading" aria-level="3"><strong>${call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
                         ${call.toolStillRegistered ? nothing : html`
-                            <span class="approval-warning">${lll('chat.approvalToolGone')}</span>
+                            <p class="approval-warning approval-stale">${lll('chat.approvalToolGone')}</p>
                         `}
                         ${call.previewStale ? html`
                             <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
                         ` : nothing}
-                        ${call.previewLines && call.previewLines.length ? html`
-                            <div class="approval-preview">
-                                <strong>${call.previewFailed
-                                    ? lll('chat.approvalPreviewUnavailable')
-                                    : lll('chat.approvalPreview')}</strong>
-                                <ul>${call.previewLines.map((line) => html`<li>${line}</li>`)}</ul>
-                            </div>
-                        ` : nothing}
-                        <details>
-                            <summary>${lll('chat.approvalArguments')}</summary>
+                        ${this._renderApprovalPreview(call)}
+                        <details class="approval-technical">
+                            <summary>${lll('chat.approvalTechnicalDetails')}</summary>
+                            ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
+                            <p>${lll('chat.approvalTool')} <code>${call.name}</code></p>
+                            <p>${lll('chat.approvalArguments')}</p>
                             <pre><code>${call.argumentsJson}</code></pre>
                         </details>
                     </div>
                 `)}
                 <div class="approval-actions">
                     <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this.chat.decideApproval(true)}>${lll('chat.approvalApprove')}</button>
+                        @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
                     <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this.chat.decideApproval(false)}>${lll('chat.approvalDeny')}</button>
+                        @click=${() => this._decide(false)}>${lll('chat.approvalCancel')}</button>
                 </div>
-                ${this._lacksPreview(pending) ? this._renderRunDetailsLink() : nothing}
+                ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
             </div>
         `;
+    }
+
+    /**
+     * The preview lines of one call, in nr-llm's order. A failed or withheld
+     * preview is introduced as such, because its lines carry the reason.
+     */
+    _renderApprovalPreview(call) {
+        if (!call.previewLines?.length) {
+            return nothing;
+        }
+
+        const unavailable = call.previewFailed
+            ? html`<strong>${lll('chat.approvalPreviewUnavailable')}</strong>`
+            : nothing;
+
+        return html`
+            <div class="approval-preview">
+                ${unavailable}
+                <ul>${call.previewLines.map((line) => html`<li>${line}</li>`)}</ul>
+            </div>
+        `;
+    }
+
+    /**
+     * Take the decision, then move focus to the status line that answers it.
+     * The card and the button the reader pressed are gone by then, and focus
+     * would otherwise fall back to the document body. Not when the reader has
+     * switched conversations meanwhile: the answer is not on screen then.
+     */
+    async _decide(approve) {
+        const uid = this.chat.activeUid;
+        await this.chat.decideApproval(approve);
+        if (uid !== this.chat.activeUid) {
+            return;
+        }
+
+        await this.updateComplete;
+        this.shadowRoot.querySelector('.status-notice')?.focus();
+    }
+
+    /**
+     * What the approve button says (editorial rule 22): the action it carries
+     * out, named by the change's name the server resolved. The decision covers every
+     * call of the turn, so a button naming one action is right only when the
+     * turn has exactly one call; otherwise, and for a tool without a label,
+     * the button says that the step(s) will be carried out.
+     */
+    _approveLabel(pending) {
+        if (pending.calls.length === 1) {
+            return pending.calls[0].actionLabel || lll('chat.approvalConfirmGeneric');
+        }
+
+        return lll('chat.approvalConfirmGenericAll');
     }
 
     /**
@@ -2177,7 +2258,8 @@ export class AiChatPanel extends LitElement {
      */
     _lacksPreview(pending) {
         return pending.calls.some(
-            (call) => call.previewFailed || !(call.previewLines && call.previewLines.length),
+            // A preview whose only line became the heading still showed it.
+            (call) => call.previewFailed || !(call.previewLines?.length || call.actionLabelFromPreview),
         );
     }
 

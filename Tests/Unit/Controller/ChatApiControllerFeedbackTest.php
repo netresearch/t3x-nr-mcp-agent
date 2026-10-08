@@ -15,12 +15,14 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -191,6 +193,41 @@ final class ChatApiControllerFeedbackTest extends TestCase
 
         self::assertSame(self::PROVIDER_FAILURE, $data['errorMessage']);
         self::assertSame('', $data['errorLink']);
+    }
+
+    /**
+     * A run nr-llm handed back still pending stores a reason code and no
+     * text. Every reader, an administrator included, gets the chat's sentence
+     * for it; nothing of nr-llm's message can reach the screen.
+     *
+     * @return iterable<string, array{ApprovalHandBackReason, bool}>
+     */
+    public static function handBackReasons(): iterable
+    {
+        foreach (ApprovalHandBackReason::cases() as $reason) {
+            yield $reason->name . ' for an editor' => [$reason, false];
+            yield $reason->name . ' for an administrator' => [$reason, true];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('handBackReasons')]
+    public function aHandedBackRunIsExplainedByItsReasonsLabel(ApprovalHandBackReason $reason, bool $isAdmin): void
+    {
+        $this->setUpBackendUser(isAdmin: $isAdmin);
+        $conversation = new Conversation();
+        $conversation->setBeUser(2);
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setErrorMessage('', $reason->value);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+
+        self::assertSame($reason->labelKey(), $data['errorMessage']);
+        self::assertSame('', $data['errorLink']);
+        // Only the two sentences that send the reader to AI Tasks get the link.
+        $pointsToRun = in_array($reason, [ApprovalHandBackReason::AlreadyResuming, ApprovalHandBackReason::NotAwaitingApproval], true);
+        self::assertSame($pointsToRun, $data['errorPointsToRun']);
     }
 
     #[Test]

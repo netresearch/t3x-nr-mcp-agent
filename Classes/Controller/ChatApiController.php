@@ -14,16 +14,17 @@ use DateTimeInterface;
 use Exception;
 use finfo;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
-use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -38,6 +39,7 @@ use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderAccessPermissionsException;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
@@ -69,6 +71,10 @@ final readonly class ChatApiController
         private DocumentExtractorRegistry $documentExtractorRegistry,
         private UploadMimeTypeMap $uploadMimeTypeMap,
         private UriBuilder $uriBuilder,
+        // Optional so the card degrades to its generic wording rather than
+        // failing where the presenter is not wired; the container wires it.
+        private ?ApprovalCallPresenter $approvalCallPresenter = null,
+        private ?LanguageServiceFactory $languageServiceFactory = null,
     ) {}
 
     /**
@@ -253,6 +259,13 @@ final readonly class ChatApiController
             ...$this->presentError($conversation->getErrorMessage(), $conversation->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
+            // Whether this reader may decide approvals at all. Without it the
+            // notice cannot tell "decide below" from "someone else decides",
+            // and a link into a module the reader cannot open is no next step.
+            'mayDecideApproval' => $this->mayDecideApprovals(),
+            // A hand-back whose sentence points to the run in AI Tasks: the
+            // card offers the link even though it has a preview.
+            'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
             'systemPrompt' => $conversation->getSystemPrompt(),
             'activity' => $conversation->getActivity(),
         ]);
@@ -738,6 +751,14 @@ final readonly class ChatApiController
     {
         $plain = ['errorMessage' => $message, 'errorLink' => '', 'errorLinkLabel' => ''];
 
+        // A run nr-llm handed back still pending: the stored reason is a code
+        // only, rendered for every reader alike (administrators included) —
+        // nr-llm's own message is in the log, never on screen.
+        $handBack = ApprovalHandBackReason::tryFrom($code);
+        if ($handBack !== null) {
+            return ['errorMessage' => $this->translate($handBack->labelKey()), 'errorLink' => '', 'errorLinkLabel' => ''];
+        }
+
         $kind = ConversationErrorCode::tryFrom($code);
         if ($kind === null || $message === '') {
             return $plain;
@@ -831,27 +852,43 @@ final readonly class ChatApiController
             return null;
         }
 
+        // The reader's language, the same source translate() reads.
+        $language = $GLOBALS['LANG'] ?? null;
+
         return [
             'runUuid'          => $view->runUuid,
             'turnDigest'       => $view->turnDigest ?? '',
             'configLabel'      => $view->configLabel,
             'unreadableReason' => $view->unreadableReason,
-            'calls'            => array_map(
-                static fn(PendingCallView $call): array => [
-                    'name'                => $call->name,
-                    'toolStillRegistered' => $call->toolStillRegistered,
-                    'previewLines'        => $call->previewLines,
-                    'previewFailed'       => $call->previewFailed,
-                    // nr-llm refuses an approved write whose record changed after
-                    // the preview and hands the run back with this flag. Without
-                    // it the card returns looking exactly as it did before the
-                    // click, and only the approvals module said why.
-                    'previewStale'        => $call->previewStale,
-                    'argumentsJson'       => $call->argumentsJson,
-                ],
+            'calls'            => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
+                $language instanceof LanguageService ? $language : null,
+                $this->previewLanguage($conversation),
             ),
         ];
+    }
+
+    /**
+     * The language the preview lines are written in: the run's acting user's
+     * (nr-llm ADR-213). A chat run acts as the conversation's owner
+     * (ChatService::resolveActor()), so it is built from that user's own
+     * preferences, the way nr-llm builds it. Null when the request is not the
+     * owner's or no factory is wired: nothing is then matched against the
+     * lines, and the card falls back to labels it renders itself.
+     */
+    private function previewLanguage(Conversation $conversation): ?LanguageService
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $uid         = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
+        if (!$this->languageServiceFactory instanceof LanguageServiceFactory
+            || !$backendUser instanceof BackendUserAuthentication
+            || !is_numeric($uid)
+            || (int) $uid !== $conversation->getBeUser()
+        ) {
+            return null;
+        }
+
+        return $this->languageServiceFactory->createFromUserPreferences($backendUser);
     }
 
     /**

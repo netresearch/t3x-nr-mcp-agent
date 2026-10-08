@@ -119,6 +119,16 @@ export class ChatCoreController {
     approvalUrl = '';
 
     /**
+     * Whether this reader may decide approvals. False means a pending step is
+     * someone else's to decide, and the notice says so instead of offering a
+     * card or a link into a module the reader cannot open.
+     */
+    mayDecideApproval = true;
+
+    /** The reason on screen sends the reader to the run, so the card links to it. */
+    errorPointsToRun = false;
+
+    /**
      * Where an administrator fixes the failure on screen, and the link text;
      * both empty for anyone else and for an ordinary failure (ADR-017).
      */
@@ -353,6 +363,7 @@ export class ChatCoreController {
             this.errorMessage = data.errorMessage || '';
             this._setErrorLink(data);
             this.approvalUrl = data.approvalUrl || '';
+            this._setApprovalRight(data);
             this.pendingApproval = data.pendingApproval || null;
             this.systemPrompt = data.systemPrompt || '';
             this.activity = data.activity || [];
@@ -367,6 +378,19 @@ export class ChatCoreController {
         } catch (e) {
             this.errorMessage = e.message;
             this.host.requestUpdate();
+        }
+    }
+
+    /**
+     * Only the full response carries the flag; the fast poll path leaves the
+     * last known answer in place.
+     */
+    _setApprovalRight(data) {
+        if (typeof data.mayDecideApproval === 'boolean') {
+            this.mayDecideApproval = data.mayDecideApproval;
+        }
+        if (typeof data.errorPointsToRun === 'boolean') {
+            this.errorPointsToRun = data.errorPointsToRun;
         }
     }
 
@@ -410,6 +434,7 @@ export class ChatCoreController {
                 this.errorMessage = data.errorMessage || '';
                 this._setErrorLink(data);
                 this.approvalUrl = data.approvalUrl || '';
+                this._setApprovalRight(data);
                 this.pendingApproval = data.pendingApproval || null;
                 this._knownMessageCount = data.totalCount;
                 // Update active conversation status in-place (avoids extra request)

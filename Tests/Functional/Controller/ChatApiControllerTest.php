@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -31,6 +32,9 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 class ChatApiControllerTest extends FunctionalTestCase
 {
+    /** A conversation parked for approval; its own fixture so the shared one keeps its counts. */
+    private const AWAITING_APPROVAL_FIXTURE = '/../Fixtures/conversation_awaiting_approval.csv';
+
     // nr_mcp_agent depends on filelist (the FAL picker's element browser).
     protected array $coreExtensionsToLoad = ['filelist'];
 
@@ -178,7 +182,7 @@ class ChatApiControllerTest extends FunctionalTestCase
     {
         // Its own fixture: adding the row to the shared one would move the
         // counts three other tests assert on.
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/conversation_awaiting_approval.csv');
+        $this->importCSVDataSet(__DIR__ . self::AWAITING_APPROVAL_FIXTURE);
 
         $this->subject = $this->subjectWithPendingApproval(new WaitingRunView(
             runUuid: 'run-uuid-6',
@@ -214,7 +218,7 @@ class ChatApiControllerTest extends FunctionalTestCase
     #[Test]
     public function getMessagesTellsTheCardWhichCallWasHandedBackAsStale(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/conversation_awaiting_approval.csv');
+        $this->importCSVDataSet(__DIR__ . self::AWAITING_APPROVAL_FIXTURE);
 
         $this->subject = $this->subjectWithPendingApproval(new WaitingRunView(
             runUuid: 'run-uuid-6',
@@ -234,6 +238,72 @@ class ChatApiControllerTest extends FunctionalTestCase
 
         self::assertTrue($body['pendingApproval']['calls'][0]['previewStale']);
         self::assertFalse($body['pendingApproval']['calls'][1]['previewStale']);
+    }
+
+    /**
+     * The card names the change, not the tool (editorial rules 14, 15, 22):
+     * a preview's first line only when it is a recognised heading, else
+     * nr-llm's editor action declaration in the reader's language, and
+     * nr-llm's technical last preview line is handed over on
+     * its own so the card can keep it behind "Show technical details". Wired
+     * through the container against the installed nr-llm, so a renamed label
+     * key or a service nr-llm stops providing shows up here.
+     */
+    #[Test]
+    public function getMessagesNamesTheActionAndSeparatesTheTechnicalLine(): void
+    {
+        $this->importCSVDataSet(__DIR__ . self::AWAITING_APPROVAL_FIXTURE);
+        // The reader's language is English here, the run's acting user's
+        // German: the preview lines are in the latter (nr-llm ADR-213), and
+        // the chat's run acts as the conversation owner, user 1. The German
+        // technical line must still be recognised, and the labels the card
+        // renders itself come in the reader's English.
+        $this->setUpLanguageServiceFor('default');
+        $GLOBALS['BE_USER']->user['lang'] = 'de';
+
+        $approval = $this->createMock(ChatApprovalInterface::class);
+        $approval->method('pendingApproval')->willReturn(new WaitingRunView(
+            runUuid: 'run-uuid-6',
+            mode: WaitingRunView::MODE_APPROVAL,
+            createdAt: 1710000000,
+            configLabel: 'Demo',
+            turnDigest: 'digest-6',
+            pendingCalls: [
+                new PendingCallView('create_page_draft', '{"parent":157}', true, ['Page [157] "test" — 1 field(s):', 'Technische Details: Seite 157']),
+                new PendingCallView('delete_record', '{"uid":3}', true, ['Page not found or not permitted.']),
+                new PendingCallView('create_page_draft', '{"parent":158}', true, ['Die Vorschau ist fehlgeschlagen.'], previewFailed: true),
+            ],
+        ));
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->createMock(ChatProcessorInterface::class),
+            $this->config,
+            $this->capabilities,
+            $approval,
+            $this->get(ResourceFactory::class),
+            $this->get(StorageRepository::class),
+            new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
+            GeneralUtility::makeInstance(UriBuilder::class),
+            $this->get(ApprovalCallPresenter::class),
+            $this->get(LanguageServiceFactory::class),
+        );
+
+        $request = (new ServerRequest())->withQueryParams(['conversationUid' => 6, 'after' => 1]);
+        $calls   = json_decode((string) $subject->getMessages($request)->getBody(), true)['pendingApproval']['calls'];
+
+        // A summary first line (nr-llm up to 0.39) is no heading in any
+        // version: the declared label, in the reader's language, names it.
+        self::assertSame('Create page draft', $calls[0]['actionLabel']);
+        self::assertFalse($calls[0]['actionLabelFromPreview']);
+        self::assertSame(['Page [157] "test" — 1 field(s):'], $calls[0]['previewLines']);
+        self::assertSame('Seite 157', $calls[0]['technicalDetails']);
+        // A refusal never names the button; delete_record declares no label.
+        self::assertSame('', $calls[1]['actionLabel']);
+        self::assertSame(['Page not found or not permitted.'], $calls[1]['previewLines']);
+        // Without a usable preview the declared label names it as well.
+        self::assertSame('Create page draft', $calls[2]['actionLabel']);
+        self::assertFalse($calls[2]['actionLabelFromPreview']);
     }
 
     /**
@@ -492,6 +562,22 @@ class ChatApiControllerTest extends FunctionalTestCase
         self::assertSame(403, $response->getStatusCode());
         $body = json_decode((string) $response->getBody(), true);
         self::assertSame(['error' => 'Keine Berechtigung, Freigaben zu entscheiden'], $body);
+    }
+
+    /**
+     * The notice tells "decide below" from "someone else decides" by this
+     * flag. User 1 is an admin; user 2 has neither admin rights nor the
+     * nrllm_aitasks module.
+     */
+    #[Test]
+    public function getMessagesSaysWhetherTheReaderMayDecideApprovals(): void
+    {
+        $request = (new ServerRequest())->withQueryParams(['conversationUid' => 1]);
+        self::assertTrue(json_decode((string) $this->subject->getMessages($request)->getBody(), true)['mayDecideApproval']);
+
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
+        $request = (new ServerRequest())->withQueryParams(['conversationUid' => 3]);
+        self::assertFalse(json_decode((string) $this->subject->getMessages($request)->getBody(), true)['mayDecideApproval']);
     }
 
     /**

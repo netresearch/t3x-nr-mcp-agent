@@ -530,6 +530,15 @@ describe('shared theme contract', () => {
         ].join('\n            '));
     });
 
+    /**
+     * The status line takes focus after an approval decision; without a
+     * rule of its own the ring would be whatever the browser draws on a div.
+     */
+    test.each(['chat-app.js', 'ai-chat-panel.js'])('%s draws a focus ring on the status notice', (file) => {
+        expect(ruleBody(file, '.status-notice:focus-visible'))
+            .toBe('outline: 2px solid var(--nr-chat-focus-ring); outline-offset: 2px;');
+    });
+
     /** No rule for this status left the badge at 1.17-1.98:1. */
     test.each(['chat-app.js', 'ai-chat-panel.js'])('%s pairs the awaiting-approval badge colours', (file) => {
         expect(ruleBody(file, '.status-badge.status-awaiting_approval'))

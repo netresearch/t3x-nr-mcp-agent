@@ -28,12 +28,28 @@ const PENDING = {
     unreadableReason: null,
     calls: [{
         name: 'update_page_metadata',
+        // The change's name as the server resolves it: the preview's first
+        // line, else the tool's editor action label (nr-llm ADR-152).
+        actionLabel: 'Seiten-Metadaten ändern',
         toolStillRegistered: true,
-        previewLines: ['Page [10002] description: (empty) → TYPO3 is a free and open source enterprise CMS'],
+        previewLines: [
+            'Seite: „Home“',
+            'Meta Description: (leer) → „TYPO3 is a free and open source enterprise CMS“',
+        ],
+        // nr-llm's last preview line, taken out of previewLines by the server.
+        technicalDetails: 'Seite 10002, Feld description',
         previewFailed: false,
         argumentsJson: '{"pageUid":10002,"description":"TYPO3 is a free and open source enterprise CMS"}',
     }],
 };
+
+/** The card as a reader sees it before opening anything: without the closed details. */
+function defaultView(card) {
+    const clone = card.cloneNode(true);
+    clone.querySelectorAll('details:not([open])').forEach((details) => details.remove());
+
+    return clone.textContent;
+}
 
 /**
  * @param {string} modulePath
@@ -82,8 +98,91 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         const card = el.shadowRoot.querySelector('.approval-card');
 
         expect(card).not.toBeNull();
-        expect(card.textContent).toContain('update_page_metadata');
         expect(card.textContent).toContain('TYPO3 is a free and open source enterprise CMS');
+    });
+
+    /**
+     * Editorial rules 14 and 15: the card names the change in the reader's
+     * language, never the tool. The raw name is support's business and sits
+     * behind "Show technical details" only.
+     */
+    test('the heading is the action label, and the tool name is only in the closed details', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect(card.querySelector('.approval-title').textContent.trim()).toBe('Seiten-Metadaten ändern');
+        expect(defaultView(card)).not.toContain('update_page_metadata');
+        expect(defaultView(card)).not.toContain('chat.approvalPreview');
+
+        const details = card.querySelectorAll('details');
+        expect(details).toHaveLength(1);
+        expect(details[0].hasAttribute('open')).toBe(false);
+        expect(details[0].querySelector('summary').textContent.trim()).toBe('chat.approvalTechnicalDetails');
+        expect(details[0].textContent).toContain('update_page_metadata');
+        expect(details[0].textContent).toContain('"pageUid":10002');
+        expect(details[0].textContent).toContain('Seite 10002, Feld description');
+    });
+
+    test('the preview lines follow the heading in the order nr-llm gave them', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const items = [...el.shadowRoot.querySelectorAll('.approval-card .approval-preview li')]
+            .map((li) => li.textContent);
+
+        expect(items).toEqual(PENDING.calls[0].previewLines);
+        expect(defaultView(el.shadowRoot.querySelector('.approval-card'))).not.toContain('Seite 10002, Feld description');
+    });
+
+    /** Editorial rule 22: the button says what it does, and "Cancel" replaces "Deny". */
+    test('the approve button names the action and the other one cancels', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const [approve, cancel] = el.shadowRoot.querySelectorAll('.approval-actions button');
+
+        expect(approve.localName).toBe('button');
+        expect(approve.textContent.trim()).toBe('Seiten-Metadaten ändern');
+        expect(cancel.textContent.trim()).toBe('chat.approvalCancel');
+    });
+
+    test('a tool without an action label gets the generic heading and button', async () => {
+        const pending = {...PENDING, calls: [{...PENDING.calls[0], name: 'delete_record', actionLabel: ''}]};
+        const el = await renderPending(modulePath, tag, open, pending);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect(card.querySelector('.approval-title').textContent.trim()).toBe('chat.approvalTitleGeneric');
+        expect(card.querySelector('.approval-actions button').textContent.trim()).toBe('chat.approvalConfirmGeneric');
+        expect(defaultView(card)).not.toContain('delete_record');
+    });
+
+    /**
+     * A tool without an editor action label is named by its preview's first
+     * line, which the server moves into actionLabel. A preview that had only
+     * that line is still a preview: no "open the run" link as if there were
+     * nothing to see.
+     */
+    test('a change named by its preview names the heading and the button, and counts as a preview', async () => {
+        const pending = {...PENDING, calls: [{
+            ...PENDING.calls[0], name: 'delete_record', actionLabel: 'Seite löschen',
+            actionLabelFromPreview: true, previewLines: [],
+        }]};
+        const el = await renderPending(modulePath, tag, open, pending);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect(card.querySelector('.approval-title').textContent.trim()).toBe('Seite löschen');
+        expect(card.querySelector('.approval-actions button').textContent.trim()).toBe('Seite löschen');
+        expect(card.querySelector('a')).toBeNull();
+    });
+
+    /** One decision covers the whole turn, so one call's name would undersell it. */
+    test('a turn with several calls names each change and carries them out together', async () => {
+        const pending = {...PENDING, calls: [
+            PENDING.calls[0],
+            {...PENDING.calls[0], name: 'create_page_draft', actionLabel: 'Seite als Entwurf anlegen'},
+        ]};
+        const el = await renderPending(modulePath, tag, open, pending);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect([...card.querySelectorAll('.approval-title')].map((t) => t.textContent.trim()))
+            .toEqual(['Seiten-Metadaten ändern', 'Seite als Entwurf anlegen']);
+        expect(card.querySelector('.approval-actions button').textContent.trim()).toBe('chat.approvalConfirmGenericAll');
     });
 
     test('approving reaches the API with the digest the card carried', async () => {
@@ -317,17 +416,148 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
         expect(notice).not.toBeNull();
         expect(notice.textContent).toContain('chat.approvalPending');
-        expect(notice.textContent).toContain('chat.approvalPendingDetail');
         expect(notice.textContent).not.toContain('chat.errorPrefix');
         expect(notice.querySelector('.approval-actions')).not.toBeNull();
     });
 
     /**
-     * A decision refused by the runtime hands the run back with the reason in
-     * the same field — "The turn moved on", a stale digest. That reason is the
-     * detail then, not the generic sentence beside it.
+     * Editorial rules 14 and 24: above the card stands a short status, not an
+     * explanation of what a write is. The card's heading names the change.
      */
-    test('a reason handed back with the run replaces the generic sentence', async () => {
+    test('the pending notice is the short status and nothing more', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const notice = el.shadowRoot.querySelector('.message.system').cloneNode(true);
+        notice.querySelector('.approval-card').remove();
+
+        expect(notice.textContent.trim()).toBe('chat.approvalPending');
+    });
+
+    /**
+     * A reader who may not decide approvals gets no card from the server, and
+     * the module behind the link would refuse them. The notice gives the step
+     * they can take instead (rule 27): ask someone who may approve.
+     */
+    test('a reader who may not decide is told whom to ask, without card or link', async () => {
+        const el = await renderPending(modulePath, tag, open, null);
+        el.chat.mayDecideApproval = false;
+        el.requestUpdate();
+        await el.updateComplete;
+        const notice = el.shadowRoot.querySelector('.message.system');
+
+        expect(notice.textContent.trim()).toBe('chat.approvalPendingElsewhere');
+        expect(notice.querySelector('a')).toBeNull();
+        expect(notice.querySelector('button')).toBeNull();
+    });
+
+    /**
+     * Through loadMessages() and pollMessages() over a stubbed transport, so
+     * the test fails if either stops reading the flag. The fast poll path
+     * carries no flag; the last full answer has to stand.
+     */
+    test('the right to decide comes from the full response and survives a fast poll', async () => {
+        const el = await renderPending(modulePath, tag, open, null);
+        const full = (mayDecideApproval) => ({
+            status: 'awaiting_approval', messages: [{role: 'user', content: 'x'}], totalCount: 1,
+            errorMessage: '', approvalUrl: '', pendingApproval: null, mayDecideApproval,
+        });
+        el.chat._api.getMessages = jest.fn().mockResolvedValueOnce(full(false));
+        await el.chat.loadMessages();
+        expect(el.chat.mayDecideApproval).toBe(false);
+
+        // A status change reaches the branch that reads the response; no flag in it.
+        el.chat._api.getMessages = jest.fn().mockResolvedValueOnce({status: 'processing', messages: [], totalCount: 1});
+        await el.chat.pollMessages();
+        expect(el.chat.status).toBe('processing');
+        expect(el.chat.mayDecideApproval).toBe(false);
+
+        el.chat._api.getMessages = jest.fn().mockResolvedValueOnce({...full(true), status: 'awaiting_approval'});
+        await el.chat.pollMessages();
+        expect(el.chat.mayDecideApproval).toBe(true);
+        el.chat.stopPolling();
+    });
+
+    /**
+     * A hand-back that sends the reader to the run in AI Tasks ("already
+     * resuming", "no longer waiting") must offer the link it points to, even
+     * on a card with a preview.
+     */
+    test('a reason that points to the run brings the run link onto the card', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        expect(el.shadowRoot.querySelector('.approval-card a')).toBeNull();
+
+        el.chat.errorPointsToRun = true;
+        el.chat.errorMessage = 'error.handBack.alreadyResuming';
+        el.requestUpdate();
+        await el.updateComplete;
+
+        const link = el.shadowRoot.querySelector('.approval-card a.approval-run-link');
+        expect(link).not.toBeNull();
+        expect(link.textContent).toContain('chat.approvalOpen');
+    });
+
+    /** Focus announces the decision's answer; a live region on top would say it twice. */
+    test('the decision notice is not also a live region', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat.approvalDecisionTaken = 'approved';
+        el.requestUpdate();
+        await el.updateComplete;
+
+        const notice = el.shadowRoot.querySelector('.status-notice');
+        expect(notice.textContent).toContain('chat.approvalGranted');
+        expect(notice.hasAttribute('role')).toBe(false);
+        expect(notice.getAttribute('tabindex')).toBe('-1');
+    });
+
+    /** The card title is a heading for screen readers, without looking like one. */
+    test('the card title is announced as a heading', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const title = el.shadowRoot.querySelector('.approval-title');
+
+        expect(title.getAttribute('role')).toBe('heading');
+        expect(title.getAttribute('aria-level')).toBe('3');
+    });
+
+    /**
+     * The pressed button disappears with the card. Focus goes to the status
+     * line that answers the decision instead of falling back to the body.
+     */
+    test('after a decision focus moves to the status line', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
+        el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
+
+        el.shadowRoot.querySelectorAll('.approval-actions button')[0].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const notice = el.shadowRoot.querySelector('.status-notice');
+        expect(notice.textContent).toContain('chat.approvalGranted');
+        expect(el.shadowRoot.activeElement).toBe(notice);
+        el.chat.stopPolling();
+    });
+
+    /**
+     * Why error.handBack.alreadyResuming points to AI Tasks rather than
+     * promising that the answer appears here: a conversation handed back
+     * keeps the status awaiting_approval, which is not polled, and
+     * reconcile() repairs only a conversation that is processing.
+     */
+    test('a conversation waiting for approval is not polled', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const poll = jest.spyOn(el.chat, 'schedulePoll');
+
+        el.chat.startPollingIfNeeded();
+
+        expect(poll).not.toHaveBeenCalled();
+    });
+
+    /**
+     * A decision refused by the runtime hands the run back with the reason in
+     * the same field — "The turn moved on", a stale digest. It follows the
+     * status label.
+     */
+    test('a reason handed back with the run follows the status', async () => {
         const el = await renderPending(modulePath, tag, open);
         el.chat.errorMessage = 'The turn moved on — decide again.';
         el.requestUpdate();
@@ -335,8 +565,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         const notice = el.shadowRoot.querySelector('.message.system');
 
         expect(notice.textContent).toContain('chat.approvalPending');
-        expect(notice.textContent).toContain('The turn moved on — decide again.');
-        expect(notice.textContent).not.toContain('chat.approvalPendingDetail');
+        expect(notice.textContent).toContain('chat.approvalPending: The turn moved on — decide again.');
     });
 
     /**
@@ -353,7 +582,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
         expect(notice.textContent).toContain('chat.errorPrefix');
         expect(notice.textContent).toContain('provider exploded');
-        expect(notice.textContent).not.toContain('chat.approvalPendingDetail');
+        expect(notice.textContent).not.toContain('chat.approvalPending');
         expect(notice.textContent).not.toContain('Error:');
         expect(notice.querySelector('.btn-icon')).not.toBeNull();
     });

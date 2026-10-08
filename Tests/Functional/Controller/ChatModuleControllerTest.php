@@ -79,8 +79,8 @@ class ChatModuleControllerTest extends FunctionalTestCase
     {
         $body = (string) $this->renderModulePage()->getBody();
 
-        self::assertStringContainsString('"chat.approvalPending":"Waiting for approval"', $body);
-        self::assertStringContainsString('"chat.approvalPendingDetail":"This step writes data and needs an approval before it runs."', $body);
+        self::assertStringContainsString('"chat.approvalPending":"Waiting for your approval"', $body);
+        self::assertStringContainsString('"chat.approvalPendingElsewhere":"Waiting for approval. You cannot approve this step yourself', $body);
     }
 
     private function renderModulePage(): ResponseInterface
