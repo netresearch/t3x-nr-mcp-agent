@@ -362,15 +362,12 @@ final readonly class ChatApiController
         }
 
         $skill = trim((string) ($body['skill'] ?? ''));
-        if ($skill !== '') {
-            $refusal = $this->refuseSkill($skill);
-            if ($refusal !== null) {
-                return $refusal;
-            }
-        }
-
-        if ($this->isBusy($conversation->getStatus())) {
-            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        $refusal = $skill !== '' ? $this->refuseSkill($skill) : null;
+        $refusal ??= $this->isBusy($conversation->getStatus())
+            ? new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409)
+            : null;
+        if ($refusal !== null) {
+            return $refusal;
         }
 
         $this->repository->updateSkillIdentifier($conversation->getUid(), $skill, $this->getBeUserUid());
