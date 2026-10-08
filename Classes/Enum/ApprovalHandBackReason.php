@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
-use Throwable;
 
 /**
  * Why nr-llm handed a decided run back still pending, as the conversation's
@@ -43,18 +42,21 @@ enum ApprovalHandBackReason: string
     /** The run no longer waits for a decision. */
     case NotAwaitingApproval = 'handBack.notAwaitingApproval';
 
-    /** Any other reason; the generic wording. */
-    case Unknown = 'handBack.unknown';
-
-    public static function fromException(Throwable $e): self
-    {
+    /**
+     * Only the five refusals that RELEASE the run are hand-backs; ChatService
+     * catches exactly these. Any other exception leaves the run's state
+     * unknown and fails the conversation instead, so there is no generic
+     * hand-back reason to map it to.
+     */
+    public static function fromException(
+        StaleApprovalTurnException|RunAlreadyResumingException|ApproverNotPermittedException|RunConfigurationInactiveException|RunNotAwaitingApprovalException $e,
+    ): self {
         return match (true) {
             $e instanceof StaleApprovalTurnException        => self::StaleTurn,
             $e instanceof RunAlreadyResumingException       => self::AlreadyResuming,
             $e instanceof ApproverNotPermittedException     => self::ApproverNotPermitted,
             $e instanceof RunConfigurationInactiveException => self::ConfigurationInactive,
-            $e instanceof RunNotAwaitingApprovalException   => self::NotAwaitingApproval,
-            default                                         => self::Unknown,
+            default                                         => self::NotAwaitingApproval,
         };
     }
 

@@ -300,12 +300,12 @@
                 <target>Die Unterhaltung hat sich nach dem Anzeigen dieser Karte weiterentwickelt, deshalb wurde nichts ausgeführt. Bitte die Karte prüfen und erneut entscheiden.</target>
             </trans-unit>
             <trans-unit id="error.handBack.alreadyResuming" resname="error.handBack.alreadyResuming">
-                <source>This step is already being carried out after an earlier decision. Wait a moment — the answer appears here.</source>
-                <target>Dieser Schritt wird nach einer früheren Entscheidung bereits ausgeführt. Bitte kurz warten – die Antwort erscheint hier.</target>
+                <source>This step is already being carried out after an earlier decision. Reload the conversation in a moment to see its answer.</source>
+                <target>Dieser Schritt wird nach einer früheren Entscheidung bereits ausgeführt. Bitte die Unterhaltung gleich neu laden, um die Antwort zu sehen.</target>
             </trans-unit>
             <trans-unit id="error.handBack.approverNotPermitted" resname="error.handBack.approverNotPermitted">
-                <source>You may not approve this step, so nothing was carried out. Ask someone with access to AI Tasks to approve it.</source>
-                <target>Du darfst diesen Schritt nicht freigeben, deshalb wurde nichts ausgeführt. Bitte jemanden mit Zugriff auf KI-Aufgaben, ihn freizugeben.</target>
+                <source>Your own permissions do not cover this change, so you may not approve it and nothing was carried out. Someone whose permissions cover it can approve it.</source>
+                <target>Deine eigenen Rechte decken diese Änderung nicht ab, deshalb darfst du sie nicht freigeben, und es wurde nichts ausgeführt. Freigeben kann jemand, dessen Rechte sie abdecken.</target>
             </trans-unit>
             <trans-unit id="error.handBack.configurationInactive" resname="error.handBack.configurationInactive">
                 <source>The AI configuration of this chat is switched off, so nothing was carried out. The step waits until it is switched on again; then decide again.</source>
@@ -314,10 +314,6 @@
             <trans-unit id="error.handBack.notAwaitingApproval" resname="error.handBack.notAwaitingApproval">
                 <source>This step no longer waits for a decision, so nothing was carried out. Reload the conversation to see where it stands.</source>
                 <target>Dieser Schritt wartet nicht mehr auf eine Entscheidung, deshalb wurde nichts ausgeführt. Bitte die Unterhaltung neu laden, um den aktuellen Stand zu sehen.</target>
-            </trans-unit>
-            <trans-unit id="error.handBack.unknown" resname="error.handBack.unknown">
-                <source>The decision could not be carried out, so nothing was changed. Decide again; if it fails again, contact an administrator.</source>
-                <target>Die Entscheidung konnte nicht ausgeführt werden, es wurde nichts geändert. Bitte erneut entscheiden; scheitert es wieder, an die Administration wenden.</target>
             </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>

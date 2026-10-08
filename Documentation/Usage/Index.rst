@@ -67,13 +67,15 @@ Approving a step in the chat
 ----------------------------
 
 A step that writes data waits for your decision on a card in the chat.
-The card is headed with what the step does, for example **Seite als
-Entwurf anlegen**, followed by what would change: where, the current
-state, the new state and the consequences. The approve button carries
-the same name, so it says what pressing it does; **Cancel** leaves
-everything as it is. A step whose tool declares no such name is headed
-**Planned step** and approved with **Carry out step**, and a turn with
-several steps is approved as a whole with **Carry out all steps**.
+The card is headed with what the step does, for example **Create page
+draft** or **Delete page**, followed by what would change: where, the
+current state, the new state and the consequences. The approve button
+carries the same name, so it says what pressing it does; **Cancel**
+leaves everything as it is. The name is the tool's editor action label
+or, for a tool without one, the first line of its preview. A step whose
+preview failed, was withheld or is empty is headed **Planned step** and
+approved with **Carry out step**, and a turn with several steps is
+approved as a whole with **Carry out all steps**.
 
 The tool's internal name, its arguments and the record identifiers are
 under **Show technical details**, which is closed until you open it.

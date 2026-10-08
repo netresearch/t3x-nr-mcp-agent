@@ -20,8 +20,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
-use Throwable;
 
 #[CoversClass(ApprovalHandBackReason::class)]
 final class ApprovalHandBackReasonTest extends TestCase
@@ -29,7 +27,7 @@ final class ApprovalHandBackReasonTest extends TestCase
     private const LANGUAGE_DIR = __DIR__ . '/../../../Resources/Private/Language/';
 
     /**
-     * @return iterable<string, array{Throwable, ApprovalHandBackReason}>
+     * @return iterable<string, array{StaleApprovalTurnException|RunAlreadyResumingException|ApproverNotPermittedException|RunConfigurationInactiveException|RunNotAwaitingApprovalException, ApprovalHandBackReason}>
      */
     public static function exceptions(): iterable
     {
@@ -38,12 +36,11 @@ final class ApprovalHandBackReasonTest extends TestCase
         yield 'approver not permitted' => [new ApproverNotPermittedException('run-1', 'denied'), ApprovalHandBackReason::ApproverNotPermitted];
         yield 'configuration inactive' => [new RunConfigurationInactiveException('run-1', 'inactive'), ApprovalHandBackReason::ConfigurationInactive];
         yield 'not awaiting approval' => [new RunNotAwaitingApprovalException('run-1', 'not waiting'), ApprovalHandBackReason::NotAwaitingApproval];
-        yield 'anything else' => [new RuntimeException('something new'), ApprovalHandBackReason::Unknown];
     }
 
     #[Test]
     #[DataProvider('exceptions')]
-    public function eachExceptionMapsToItsReason(Throwable $e, ApprovalHandBackReason $expected): void
+    public function eachExceptionMapsToItsReason(StaleApprovalTurnException|RunAlreadyResumingException|ApproverNotPermittedException|RunConfigurationInactiveException|RunNotAwaitingApprovalException $e, ApprovalHandBackReason $expected): void
     {
         self::assertSame($expected, ApprovalHandBackReason::fromException($e));
     }

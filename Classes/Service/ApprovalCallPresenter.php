@@ -25,6 +25,13 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  *   line ("Technical details: …", nr-llm 0.39 and later), taken out of
  *   `previewLines` so the card can put them behind "Show technical details".
  *
+ * A tool without an editor action label still names its change: nr-llm's
+ * previews (and those of its companion extensions) open with a line such as
+ * "Seite löschen" (editorial rule 16). For such a call `actionLabel` is that
+ * first line, it is taken out of `previewLines` so the card does not repeat
+ * it, and `actionLabelFromPreview` says so. Not for a failed or withheld
+ * preview, whose lines are the reason, and never the technical line.
+ *
  * Display only. The decision the card sends carries the run's turn digest and
  * nothing of this payload, and the preview lines nr-llm stored with the run —
  * the ones ADR-184 compares on resume — are read, never written.
@@ -57,6 +64,7 @@ final readonly class ApprovalCallPresenter
      *     previewFailed: bool,
      *     previewStale: bool,
      *     argumentsJson: string,
+     *     actionLabelFromPreview: bool,
      * }>
      */
     public function present(array $calls, ?LanguageService $language): array
@@ -71,9 +79,17 @@ final readonly class ApprovalCallPresenter
                 ? [$call->previewLines, '']
                 : $this->splitTechnicalLine($call->previewLines, $technicalLabel);
 
+            [$actionLabel, $lines, $fromPreview] = $this->nameTheChange(
+                $this->resolve($labelReferences[$call->name] ?? '', $language),
+                $lines,
+                $call->previewFailed,
+                $technicalLabel,
+            );
+
             $presented[] = [
                 'name'                => $call->name,
-                'actionLabel'         => $this->resolve($labelReferences[$call->name] ?? '', $language),
+                'actionLabel'         => $actionLabel,
+                'actionLabelFromPreview' => $fromPreview,
                 'toolStillRegistered' => $call->toolStillRegistered,
                 'previewLines'        => $lines,
                 'technicalDetails'    => $technical,
@@ -91,13 +107,33 @@ final readonly class ApprovalCallPresenter
     }
 
     /**
+     * The editor action label when there is one; otherwise the preview's first
+     * line, which names the change, taken out of the lines.
+     *
+     * @param list<string> $lines
+     *
+     * @return array{string, list<string>, bool} the label, the remaining lines, whether the label came from them
+     */
+    private function nameTheChange(string $editorActionLabel, array $lines, bool $previewFailed, string $technicalLabel): array
+    {
+        $first = $lines[0] ?? '';
+        if ($editorActionLabel !== '' || $previewFailed || $first === '' || $this->technicalDetailsOf($first, $technicalLabel) !== '') {
+            return [$editorActionLabel, $lines, false];
+        }
+
+        return [$first, array_slice($lines, 1), true];
+    }
+
+    /**
      * @param list<string> $lines
      *
      * @return array{list<string>, string} the lines without the technical one, and its identifiers
      */
     private function splitTechnicalLine(array $lines, string $label): array
     {
-        $details = $lines === [] ? '' : $this->technicalDetailsOf($lines[array_key_last($lines)], $label);
+        // A preview made of the technical line alone keeps it: moving it would
+        // leave a card that shows nothing of what is decided.
+        $details = count($lines) < 2 ? '' : $this->technicalDetailsOf($lines[array_key_last($lines)], $label);
 
         return $details === '' ? [$lines, ''] : [array_slice($lines, 0, -1), $details];
     }

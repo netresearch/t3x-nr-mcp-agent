@@ -263,7 +263,7 @@ class ChatApiControllerTest extends FunctionalTestCase
             turnDigest: 'digest-6',
             pendingCalls: [
                 new PendingCallView('create_page_draft', '{"parent":157}', true, ['Titel: „test“', 'Technische Details: Seite 157']),
-                new PendingCallView('delete_record', '{"uid":3}', true, ['Seite: „Alt“']),
+                new PendingCallView('delete_record', '{"uid":3}', true, ['Seite löschen', 'Seite: „Alt“']),
             ],
         ));
         $subject = new ChatApiController(
@@ -286,8 +286,10 @@ class ChatApiControllerTest extends FunctionalTestCase
         self::assertSame('Seite als Entwurf anlegen', $calls[0]['actionLabel']);
         self::assertSame(['Titel: „test“'], $calls[0]['previewLines']);
         self::assertSame('Seite 157', $calls[0]['technicalDetails']);
-        // nr-llm declares no editor action for delete_record: the card falls back.
-        self::assertSame('', $calls[1]['actionLabel']);
+        // nr-llm declares no editor action for delete_record: its preview's
+        // first line names the change instead and is not repeated.
+        self::assertSame('Seite löschen', $calls[1]['actionLabel']);
+        self::assertTrue($calls[1]['actionLabelFromPreview']);
         self::assertSame(['Seite: „Alt“'], $calls[1]['previewLines']);
     }
 

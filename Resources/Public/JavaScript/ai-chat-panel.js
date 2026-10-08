@@ -2012,7 +2012,7 @@ export class AiChatPanel extends LitElement {
         if (this.chat.approvalDecisionTaken) {
             const granted = this.chat.approvalDecisionTaken === 'approved';
             return html`
-                <div class="message system" role="status"
+                <div class="message system status-notice" tabindex="-1" role="status"
                     style="color:${granted ? 'var(--nr-chat-status-success, #2e7d32)' : 'var(--nr-chat-status-info, #0277bd)'};">
                     ${granted ? lll('chat.approvalGranted') : lll('chat.approvalDenied')}
                 </div>
@@ -2041,7 +2041,7 @@ export class AiChatPanel extends LitElement {
             // would refuse them — but the one step they can take (rule 27).
             if (!this.chat.mayDecideApproval) {
                 return html`
-                    <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
+                    <div class="message system status-notice" tabindex="-1" style="color:var(--nr-chat-status-info, #0277bd);">
                         ${lll('chat.approvalPendingElsewhere')}
                     </div>
                 `;
@@ -2050,7 +2050,7 @@ export class AiChatPanel extends LitElement {
             const reason = this.chat.errorMessage ? `: ${this.chat.errorMessage}` : '';
 
             return html`
-                <div class="message system" style="color:var(--nr-chat-status-info, #0277bd);">
+                <div class="message system status-notice" tabindex="-1" style="color:var(--nr-chat-status-info, #0277bd);">
                     ${lll('chat.approvalPending')}${reason}
                     ${this._renderApprovalCard()}
                 </div>
@@ -2058,7 +2058,7 @@ export class AiChatPanel extends LitElement {
         }
 
         return html`
-            <div class="message system" style="color:var(--nr-chat-status-danger, #c62828);">
+            <div class="message system status-notice" tabindex="-1" style="color:var(--nr-chat-status-danger, #c62828);">
                 ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
                 ${this._renderErrorLink()}
                 ${isResumable ? html`
@@ -2168,7 +2168,7 @@ export class AiChatPanel extends LitElement {
             <div class="approval-card">
                 ${pending.calls.map((call) => html`
                     <div class="approval-call">
-                        <p class="approval-title"><strong>${call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
+                        <p class="approval-title" role="heading" aria-level="3"><strong>${call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
                         ${call.toolStillRegistered ? nothing : html`
                             <p class="approval-warning approval-stale">${lll('chat.approvalToolGone')}</p>
                         `}
@@ -2187,9 +2187,9 @@ export class AiChatPanel extends LitElement {
                 `)}
                 <div class="approval-actions">
                     <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this.chat.decideApproval(true)}>${this._approveLabel(pending)}</button>
+                        @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
                     <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this.chat.decideApproval(false)}>${lll('chat.approvalCancel')}</button>
+                        @click=${() => this._decide(false)}>${lll('chat.approvalCancel')}</button>
                 </div>
                 ${this._lacksPreview(pending) ? this._renderRunDetailsLink() : nothing}
             </div>
@@ -2218,6 +2218,23 @@ export class AiChatPanel extends LitElement {
     }
 
     /**
+     * Take the decision, then move focus to the status line that answers it.
+     * The card and the button the reader pressed are gone by then, and focus
+     * would otherwise fall back to the document body. Not when the reader has
+     * switched conversations meanwhile: the answer is not on screen then.
+     */
+    async _decide(approve) {
+        const uid = this.chat.activeUid;
+        await this.chat.decideApproval(approve);
+        if (uid !== this.chat.activeUid) {
+            return;
+        }
+
+        await this.updateComplete;
+        this.shadowRoot.querySelector('.status-notice')?.focus();
+    }
+
+    /**
      * What the approve button says (editorial rule 22): the action it carries
      * out, named by the tool's editor action label. The decision covers every
      * call of the turn, so a button naming one action is right only when the
@@ -2239,7 +2256,8 @@ export class AiChatPanel extends LitElement {
      */
     _lacksPreview(pending) {
         return pending.calls.some(
-            (call) => call.previewFailed || !(call.previewLines && call.previewLines.length),
+            // A preview whose only line became the heading still showed it.
+            (call) => call.previewFailed || !(call.previewLines?.length || call.actionLabelFromPreview),
         );
     }
 

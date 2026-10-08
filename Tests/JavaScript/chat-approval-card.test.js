@@ -152,6 +152,25 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         expect(defaultView(card)).not.toContain('delete_record');
     });
 
+    /**
+     * A tool without an editor action label is named by its preview's first
+     * line, which the server moves into actionLabel. A preview that had only
+     * that line is still a preview: no "open the run" link as if there were
+     * nothing to see.
+     */
+    test('a change named by its preview names the heading and the button, and counts as a preview', async () => {
+        const pending = {...PENDING, calls: [{
+            ...PENDING.calls[0], name: 'delete_record', actionLabel: 'Seite löschen',
+            actionLabelFromPreview: true, previewLines: [],
+        }]};
+        const el = await renderPending(modulePath, tag, open, pending);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect(card.querySelector('.approval-title').textContent.trim()).toBe('Seite löschen');
+        expect(card.querySelector('.approval-actions button').textContent.trim()).toBe('Seite löschen');
+        expect(card.querySelector('a')).toBeNull();
+    });
+
     /** One decision covers the whole turn, so one call's name would undersell it. */
     test('a turn with several calls names each change and carries them out together', async () => {
         const pending = {...PENDING, calls: [
@@ -430,15 +449,74 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         expect(notice.querySelector('button')).toBeNull();
     });
 
+    /**
+     * Through loadMessages() and pollMessages() over a stubbed transport, so
+     * the test fails if either stops reading the flag. The fast poll path
+     * carries no flag; the last full answer has to stand.
+     */
     test('the right to decide comes from the full response and survives a fast poll', async () => {
         const el = await renderPending(modulePath, tag, open, null);
-        el.chat._setApprovalRight({mayDecideApproval: false});
+        const full = (mayDecideApproval) => ({
+            status: 'awaiting_approval', messages: [{role: 'user', content: 'x'}], totalCount: 1,
+            errorMessage: '', approvalUrl: '', pendingApproval: null, mayDecideApproval,
+        });
+        el.chat._api.getMessages = jest.fn().mockResolvedValueOnce(full(false));
+        await el.chat.loadMessages();
         expect(el.chat.mayDecideApproval).toBe(false);
-        // The fast poll path carries no flag: the last answer stands.
-        el.chat._setApprovalRight({status: 'awaiting_approval'});
+
+        // A status change reaches the branch that reads the response; no flag in it.
+        el.chat._api.getMessages = jest.fn().mockResolvedValueOnce({status: 'processing', messages: [], totalCount: 1});
+        await el.chat.pollMessages();
+        expect(el.chat.status).toBe('processing');
         expect(el.chat.mayDecideApproval).toBe(false);
-        el.chat._setApprovalRight({mayDecideApproval: true});
+
+        el.chat._api.getMessages = jest.fn().mockResolvedValueOnce({...full(true), status: 'awaiting_approval'});
+        await el.chat.pollMessages();
         expect(el.chat.mayDecideApproval).toBe(true);
+        el.chat.stopPolling();
+    });
+
+    /** The card title is a heading for screen readers, without looking like one. */
+    test('the card title is announced as a heading', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const title = el.shadowRoot.querySelector('.approval-title');
+
+        expect(title.getAttribute('role')).toBe('heading');
+        expect(title.getAttribute('aria-level')).toBe('3');
+    });
+
+    /**
+     * The pressed button disappears with the card. Focus goes to the status
+     * line that answers the decision instead of falling back to the body.
+     */
+    test('after a decision focus moves to the status line', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
+        el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
+
+        el.shadowRoot.querySelectorAll('.approval-actions button')[0].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const notice = el.shadowRoot.querySelector('.status-notice');
+        expect(notice.textContent).toContain('chat.approvalGranted');
+        expect(el.shadowRoot.activeElement).toBe(notice);
+        el.chat.stopPolling();
+    });
+
+    /**
+     * Why error.handBack.alreadyResuming asks for a reload rather than
+     * promising that the answer appears: a conversation handed back keeps the
+     * status awaiting_approval, which is not polled.
+     */
+    test('a conversation waiting for approval is not polled', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const poll = jest.spyOn(el.chat, 'schedulePoll');
+
+        el.chat.startPollingIfNeeded();
+
+        expect(poll).not.toHaveBeenCalled();
     });
 
     /**

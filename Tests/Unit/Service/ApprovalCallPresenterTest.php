@@ -71,23 +71,69 @@ final class ApprovalCallPresenterTest extends TestCase
         self::assertFalse($presented[0]['previewStale']);
     }
 
+    /**
+     * nr-llm declares no editor action for delete_record, but its preview
+     * opens with the change's name (rule 16). That line names the card and
+     * the button, and is not repeated below.
+     */
     #[Test]
-    public function aToolWithoutADeclarationGetsAnEmptyLabel(): void
+    public function aToolWithoutADeclarationIsNamedByItsPreviewsFirstLine(): void
     {
-        $call = new PendingCallView('delete_record', '{}', true, ['Seite: „Alt“']);
+        $call = new PendingCallView('delete_record', '{}', true, ['Seite löschen', 'Seite: „Alt“', 'Technische Details: Seite 3']);
 
         $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
 
-        self::assertSame('', $presented[0]['actionLabel']);
+        self::assertSame('Seite löschen', $presented[0]['actionLabel']);
+        self::assertTrue($presented[0]['actionLabelFromPreview']);
+        self::assertSame(['Seite: „Alt“'], $presented[0]['previewLines']);
+        self::assertSame('Seite 3', $presented[0]['technicalDetails']);
     }
 
+    /** The declared label wins; the preview stays whole. */
     #[Test]
-    public function withoutALabelSourceOrALanguageNothingIsNamed(): void
+    public function aDeclaredLabelKeepsThePreviewsFirstLine(): void
     {
         $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW);
 
-        self::assertSame('', (new ApprovalCallPresenter())->present([$call], $this->german())[0]['actionLabel']);
-        self::assertSame('', (new ApprovalCallPresenter($this->labels()))->present([$call], null)[0]['actionLabel']);
+        $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
+
+        self::assertFalse($presented[0]['actionLabelFromPreview']);
+        self::assertSame(['Ort: unter „Product page“', 'Titel: „test“'], $presented[0]['previewLines']);
+    }
+
+    /** A preview made of the change's name alone still names the card. */
+    #[Test]
+    public function aPreviewOfOnlyTheChangesNameBecomesTheHeading(): void
+    {
+        $call = new PendingCallView('delete_record', '{}', true, ['Seite löschen']);
+
+        $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
+
+        self::assertSame('Seite löschen', $presented[0]['actionLabel']);
+        self::assertSame([], $presented[0]['previewLines']);
+    }
+
+    /** Two lines, the name and the identifiers: both leave the body. */
+    #[Test]
+    public function aNameAndATechnicalLineLeaveNothingInTheBody(): void
+    {
+        $call = new PendingCallView('delete_record', '{}', true, ['Seite löschen', 'Technische Details: Seite 3']);
+
+        $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
+
+        self::assertSame('Seite löschen', $presented[0]['actionLabel']);
+        self::assertSame([], $presented[0]['previewLines']);
+        self::assertSame('Seite 3', $presented[0]['technicalDetails']);
+    }
+
+    /** Without a label source or a language the declaration cannot be read; the preview names the change. */
+    #[Test]
+    public function withoutALabelSourceOrALanguageThePreviewNamesTheChange(): void
+    {
+        $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW);
+
+        self::assertSame('Ort: unter „Product page“', (new ApprovalCallPresenter())->present([$call], $this->german())[0]['actionLabel']);
+        self::assertSame('Ort: unter „Product page“', (new ApprovalCallPresenter($this->labels()))->present([$call], null)[0]['actionLabel']);
     }
 
     #[Test]
@@ -132,17 +178,47 @@ final class ApprovalCallPresenterTest extends TestCase
         self::assertSame($lines, $presented[0]['previewLines']);
     }
 
+    /** Moving the only line would leave a card that shows nothing of what is decided. */
+    #[Test]
+    public function aPreviewOfOnlyTheTechnicalLineKeepsIt(): void
+    {
+        $lines = ['Technische Details: Seite 157, Tabelle pages'];
+        $call  = new PendingCallView('create_page_draft', '{}', true, $lines);
+
+        $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
+
+        self::assertSame($lines, $presented[0]['previewLines']);
+        self::assertSame('', $presented[0]['technicalDetails']);
+    }
+
+    /** The technical line never becomes the heading, even where nothing else names the change. */
+    #[Test]
+    public function aLoneTechnicalLineIsNotTakenAsTheHeading(): void
+    {
+        $lines = ['Technische Details: Seite 157'];
+        $call  = new PendingCallView('delete_record', '{}', true, $lines);
+
+        $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
+
+        self::assertSame('', $presented[0]['actionLabel']);
+        self::assertFalse($presented[0]['actionLabelFromPreview']);
+        self::assertSame($lines, $presented[0]['previewLines']);
+    }
+
     /** A failed or withheld preview carries its reason in the lines; they stay whole. */
     #[Test]
     public function aFailedPreviewKeepsAllItsLines(): void
     {
-        $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW, previewFailed: true);
+        $call = new PendingCallView('delete_record', '{}', true, self::PREVIEW, previewFailed: true);
 
         $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
 
         self::assertSame(self::PREVIEW, $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
         self::assertTrue($presented[0]['previewFailed']);
+        // Its first line is a reason, not the change's name.
+        self::assertFalse($presented[0]['actionLabelFromPreview']);
+        self::assertSame('', $presented[0]['actionLabel']);
     }
 
     /** Without the reader's language the label is unknown, so nothing is guessed. */
@@ -153,7 +229,9 @@ final class ApprovalCallPresenterTest extends TestCase
 
         $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], null);
 
-        self::assertSame(self::PREVIEW, $presented[0]['previewLines']);
+        // The first line names the change; the technical last line stays.
+        self::assertSame(array_slice(self::PREVIEW, 1), $presented[0]['previewLines']);
+        self::assertSame('', $presented[0]['technicalDetails']);
     }
 
     /** A label line with nothing after its prefix carries no identifiers to show. */
@@ -178,8 +256,8 @@ final class ApprovalCallPresenterTest extends TestCase
             ApprovalCallPresenter::TECHNICAL_DETAILS_LABEL => '(Technisch: %s)',
             default                                      => '',
         });
-        $matching = new PendingCallView('a', '{}', true, ['Titel', '(Technisch: Seite 1)']);
-        $open     = new PendingCallView('b', '{}', true, ['Titel', '(Technisch: Seite 1']);
+        $matching = new PendingCallView('a', '{}', true, ['Ändern', 'Titel', '(Technisch: Seite 1)']);
+        $open     = new PendingCallView('b', '{}', true, ['Ändern', 'Titel', '(Technisch: Seite 1']);
 
         $presented = (new ApprovalCallPresenter())->present([$matching, $open], $language);
 
@@ -194,7 +272,7 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $language = $this->createMock(LanguageService::class);
         $language->method('sL')->willReturn('%s');
-        $call = new PendingCallView('a', '{}', true, ['Titel', 'Seite 1']);
+        $call = new PendingCallView('a', '{}', true, ['Ändern', 'Titel', 'Seite 1']);
 
         $presented = (new ApprovalCallPresenter())->present([$call], $language);
 
