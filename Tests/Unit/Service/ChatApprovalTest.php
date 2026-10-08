@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
@@ -25,6 +26,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
@@ -448,6 +450,28 @@ final class ChatApprovalTest extends TestCase
     /**
      * @return iterable<string, array{RuntimeException, ApprovalHandBackReason}>
      */
+    /**
+     * Four-eyes (nr-llm ADR-172): nr-llm refuses the initiator's own approval
+     * before anything is claimed, and the run keeps waiting for a colleague.
+     * The chat caught only five refusals, so this one failed the conversation
+     * and offered a Retry that would start a second run over the transcript.
+     */
+    #[Test]
+    public function anApprovalRefusedByFourEyesLeavesTheConversationWaiting(): void
+    {
+        $conversation = $this->parkedConversation();
+        $actor = AiActorContext::backendUser(1);
+        $service = $this->createChatService(SelfApprovalDeniedException::forActor($actor, 'run-uuid-1234', 'demo'));
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+        self::assertSame('handBack.secondApprover', $conversation->getErrorCode());
+        self::assertFalse($conversation->isResumable(), 'no Retry next to a run that waits for a colleague');
+    }
+
     public static function releasingRefusals(): iterable
     {
         $secret = 'Run run-uuid-1234 internal state: class Foo\\Bar';
@@ -456,6 +480,7 @@ final class ChatApprovalTest extends TestCase
         yield 'approver not permitted' => [new ApproverNotPermittedException('run-uuid-1234', $secret), ApprovalHandBackReason::ApproverNotPermitted];
         yield 'configuration inactive' => [new RunConfigurationInactiveException('run-uuid-1234', $secret), ApprovalHandBackReason::ConfigurationInactive];
         yield 'not awaiting approval' => [new RunNotAwaitingApprovalException('run-uuid-1234', $secret), ApprovalHandBackReason::NotAwaitingApproval];
+        yield 'second approver required' => [new SelfApprovalDeniedException('run-uuid-1234', $secret), ApprovalHandBackReason::SecondApproverRequired];
     }
 
     /**
