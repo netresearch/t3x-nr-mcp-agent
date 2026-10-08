@@ -60,13 +60,8 @@ What the chat tells you besides the answer
     screen does not start a new run and does not approve anything:
     decide on the card. Without a card, the step is decided in AI Tasks;
     if you cannot open AI Tasks, ask someone who may approve there. If the
-    step was already decided in AI Tasks, the chat closes the card, says
-    so and names the records the run wrote; your message then continues
-    from there.
-*   **Any other message while the card is on screen** starts a new
-    request. In a guided process it also cancels the waiting step, so it
-    can no longer be approved anywhere; otherwise the step stays waiting in
-    AI Tasks.
+    step was already decided in AI Tasks, the chat says so and names
+    the records the run wrote.
 
 Answering a question in the chat
 --------------------------------
@@ -100,7 +95,8 @@ everything as it is. When a guided process proposes a change, two buttons
 take the place of **Cancel** and tell the assistant why the change is not
 taken: **Another variant** asks for a different proposal, **Skip** moves on
 without this change; your choice stays in the conversation as your
-message. The name is the first line of the step's
+message. In a guided process, a message of your own while a proposal or a
+question waits cancels that step. The name is the first line of the step's
 preview when nr-llm marks that line as naming the change; otherwise it
 is the tool's editor action label, and without one the step is headed
 **Planned step** and approved with **Carry out step**. A turn with
