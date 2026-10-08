@@ -234,7 +234,11 @@ export class ChatApp extends LitElement {
         .approval-card { margin-top: 8px; }
         .approval-call { margin-bottom: 8px; }
         .approval-call code { font-size: .9em; }
+        .approval-title { margin: 0 0 4px; }
         .approval-preview ul { margin: 4px 0 0; padding-left: 1.2em; }
+        .approval-technical { margin-top: 6px; }
+        .approval-technical summary { cursor: pointer; }
+        .approval-technical p { margin: 4px 0 0; }
         .approval-warning { color: var(--nr-chat-status-warning); margin-left: 6px; }
         .approval-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
         .approval-run-link { display: inline-block; margin-top: 6px; font-size: 12px; }
@@ -866,10 +870,14 @@ export class ChatApp extends LitElement {
             return nothing;
         }
 
+        // A plain note, not a warning: the trigger is generous on purpose
+        // (ChangeClaim), so it also fires under answers of read-only steps that
+        // merely mention a change, and the editorial rules keep warnings for
+        // critical consequences (rule 21).
         return html`
             <div class="message-notice" role="note"
-                style="color:var(--nr-chat-status-warning);font-size:12px;margin-top:4px;">
-                \u26A0\uFE0F ${lll('chat.nothingSaved')}
+                style="color:var(--nr-chat-text-variant);font-size:12px;margin-top:4px;">
+                ${lll('chat.nothingSaved')}
             </div>
         `;
     }
@@ -881,7 +889,13 @@ export class ChatApp extends LitElement {
      * this conversation's, the decision goes through the same per-run
      * authorisation as the approvals module, and the answer arrives here.
      *
-     * Approve and Deny are the only actions of a decidable card. The link to
+     * The card names the change, not the tool: its heading and its approve
+     * button carry the tool's editor action label, the preview lines follow in
+     * nr-llm's order, and the tool name, its arguments and the technical
+     * preview line sit in one closed "Show technical details" section
+     * (editorial rules 10, 14-16, 22, 26). The cancel button says "Cancel".
+     *
+     * Approve and cancel are the only actions of a decidable card. The link to
      * the run used to sit beside them, styled like a third button and labelled
      * "Grant approval", although it opens the run's timeline, where nothing can
      * be granted (NEXT-162). It is now a plain text link, and it is offered on
@@ -908,36 +922,52 @@ export class ChatApp extends LitElement {
             <div class="approval-card">
                 ${pending.calls.map((call) => html`
                     <div class="approval-call">
-                        <code>${call.name}</code>
+                        <p class="approval-title"><strong>${call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
                         ${call.toolStillRegistered ? nothing : html`
-                            <span class="approval-warning">${lll('chat.approvalToolGone')}</span>
+                            <p class="approval-warning approval-stale">${lll('chat.approvalToolGone')}</p>
                         `}
                         ${call.previewStale ? html`
                             <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
                         ` : nothing}
                         ${call.previewLines && call.previewLines.length ? html`
                             <div class="approval-preview">
-                                <strong>${call.previewFailed
-                                    ? lll('chat.approvalPreviewUnavailable')
-                                    : lll('chat.approvalPreview')}</strong>
+                                ${call.previewFailed ? html`<strong>${lll('chat.approvalPreviewUnavailable')}</strong>` : nothing}
                                 <ul>${call.previewLines.map((line) => html`<li>${line}</li>`)}</ul>
                             </div>
                         ` : nothing}
-                        <details>
-                            <summary>${lll('chat.approvalArguments')}</summary>
+                        <details class="approval-technical">
+                            <summary>${lll('chat.approvalTechnicalDetails')}</summary>
+                            ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
+                            <p>${lll('chat.approvalTool')} <code>${call.name}</code></p>
+                            <p>${lll('chat.approvalArguments')}</p>
                             <pre><code>${call.argumentsJson}</code></pre>
                         </details>
                     </div>
                 `)}
                 <div class="approval-actions">
                     <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this.chat.decideApproval(true)}>${lll('chat.approvalApprove')}</button>
+                        @click=${() => this.chat.decideApproval(true)}>${this._approveLabel(pending)}</button>
                     <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this.chat.decideApproval(false)}>${lll('chat.approvalDeny')}</button>
+                        @click=${() => this.chat.decideApproval(false)}>${lll('chat.approvalCancel')}</button>
                 </div>
                 ${this._lacksPreview(pending) ? this._renderRunDetailsLink() : nothing}
             </div>
         `;
+    }
+
+    /**
+     * What the approve button says (editorial rule 22): the action it carries
+     * out, named by the tool's editor action label. The decision covers every
+     * call of the turn, so a button naming one action is right only when the
+     * turn has exactly one call; otherwise, and for a tool without a label,
+     * the button says that the step(s) will be carried out.
+     */
+    _approveLabel(pending) {
+        if (pending.calls.length === 1) {
+            return pending.calls[0].actionLabel || lll('chat.approvalConfirmGeneric');
+        }
+
+        return lll('chat.approvalConfirmGenericAll');
     }
 
     /**

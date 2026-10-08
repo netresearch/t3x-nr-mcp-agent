@@ -75,6 +75,27 @@ describe.each(SURFACES)('$name feedback', ({module: modulePath, tag, open}) => {
         expect(notice.textContent).toContain('chat.nothingSaved');
     });
 
+    /**
+     * The notice is a plain note, not a warning. Its trigger is generous by
+     * design, so it also stands under answers of read-only steps, where a
+     * warning sign and the warning colour announce a danger that is not there
+     * (editorial rule 21 keeps warnings for critical consequences).
+     */
+    test('the nothing-saved notice is a neutral note without a warning sign', async () => {
+        const el = await render(modulePath, tag, open, {
+            messages: [
+                {role: 'user', content: '10041'},
+                {role: 'assistant', content: FALSE_SUCCESS, notice: 'nothingSaved'},
+            ],
+        });
+
+        const notice = el.shadowRoot.querySelector('.message-row.assistant .message-notice');
+        expect(notice.getAttribute('role')).toBe('note');
+        expect(notice.textContent).not.toContain('⚠');
+        expect(notice.getAttribute('style')).not.toContain('warning');
+        expect(notice.getAttribute('style')).toContain('var(--nr-chat-text-variant)');
+    });
+
     test('an answer without the notice carries none', async () => {
         const el = await render(modulePath, tag, open, {
             messages: [

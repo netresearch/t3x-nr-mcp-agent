@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -234,6 +235,57 @@ class ChatApiControllerTest extends FunctionalTestCase
 
         self::assertTrue($body['pendingApproval']['calls'][0]['previewStale']);
         self::assertFalse($body['pendingApproval']['calls'][1]['previewStale']);
+    }
+
+    /**
+     * The card names the change, not the tool (editorial rules 14, 15, 22):
+     * the label comes from nr-llm's editor action declaration in the reader's
+     * language, and nr-llm's technical last preview line is handed over on
+     * its own so the card can keep it behind "Show technical details". Wired
+     * through the container against the installed nr-llm, so a renamed label
+     * key or a service nr-llm stops providing shows up here.
+     */
+    #[Test]
+    public function getMessagesNamesTheActionAndSeparatesTheTechnicalLine(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/conversation_awaiting_approval.csv');
+        $this->setUpLanguageServiceFor('de');
+
+        $approval = $this->createMock(ChatApprovalInterface::class);
+        $approval->method('pendingApproval')->willReturn(new WaitingRunView(
+            runUuid: 'run-uuid-6',
+            mode: WaitingRunView::MODE_APPROVAL,
+            createdAt: 1710000000,
+            configLabel: 'Demo',
+            turnDigest: 'digest-6',
+            pendingCalls: [
+                new PendingCallView('create_page_draft', '{"parent":157}', true, ['Titel: „test“', 'Technische Details: Seite 157']),
+                new PendingCallView('delete_record', '{"uid":3}', true, ['Seite: „Alt“']),
+            ],
+        ));
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->createMock(ChatProcessorInterface::class),
+            $this->config,
+            $this->capabilities,
+            $approval,
+            $this->get(ResourceFactory::class),
+            $this->get(StorageRepository::class),
+            new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
+            GeneralUtility::makeInstance(UriBuilder::class),
+            $this->get(ApprovalCallPresenter::class),
+        );
+
+        $request = (new ServerRequest())->withQueryParams(['conversationUid' => 6, 'after' => 1]);
+        $calls   = json_decode((string) $subject->getMessages($request)->getBody(), true)['pendingApproval']['calls'];
+
+        self::assertSame('Seite als Entwurf anlegen', $calls[0]['actionLabel']);
+        self::assertSame(['Titel: „test“'], $calls[0]['previewLines']);
+        self::assertSame('Seite 157', $calls[0]['technicalDetails']);
+        // nr-llm declares no editor action for delete_record: the card falls back.
+        self::assertSame('', $calls[1]['actionLabel']);
+        self::assertSame(['Seite: „Alt“'], $calls[1]['previewLines']);
     }
 
     /**

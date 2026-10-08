@@ -14,7 +14,6 @@ use DateTimeInterface;
 use Exception;
 use finfo;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
-use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
@@ -24,6 +23,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -69,6 +69,9 @@ final readonly class ChatApiController
         private DocumentExtractorRegistry $documentExtractorRegistry,
         private UploadMimeTypeMap $uploadMimeTypeMap,
         private UriBuilder $uriBuilder,
+        // Optional so the card degrades to its generic wording rather than
+        // failing where the presenter is not wired; the container wires it.
+        private ?ApprovalCallPresenter $approvalCallPresenter = null,
     ) {}
 
     /**
@@ -831,25 +834,17 @@ final readonly class ChatApiController
             return null;
         }
 
+        // The reader's language, the same source translate() reads.
+        $language = $GLOBALS['LANG'] ?? null;
+
         return [
             'runUuid'          => $view->runUuid,
             'turnDigest'       => $view->turnDigest ?? '',
             'configLabel'      => $view->configLabel,
             'unreadableReason' => $view->unreadableReason,
-            'calls'            => array_map(
-                static fn(PendingCallView $call): array => [
-                    'name'                => $call->name,
-                    'toolStillRegistered' => $call->toolStillRegistered,
-                    'previewLines'        => $call->previewLines,
-                    'previewFailed'       => $call->previewFailed,
-                    // nr-llm refuses an approved write whose record changed after
-                    // the preview and hands the run back with this flag. Without
-                    // it the card returns looking exactly as it did before the
-                    // click, and only the approvals module said why.
-                    'previewStale'        => $call->previewStale,
-                    'argumentsJson'       => $call->argumentsJson,
-                ],
+            'calls'            => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
+                $language instanceof LanguageService ? $language : null,
             ),
         ];
     }

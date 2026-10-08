@@ -122,20 +122,11 @@
             <trans-unit id="chat.approvalOpen" resname="chat.approvalOpen">
                 <source>Open the run in AI Tasks</source>
             </trans-unit>
-            <trans-unit id="chat.approvalApprove" resname="chat.approvalApprove">
-                <source>Approve</source>
-            </trans-unit>
             <trans-unit id="chat.approvalGranted" resname="chat.approvalGranted">
                 <source>Approval granted — the assistant is carrying the step out.</source>
             </trans-unit>
             <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
                 <source>Approval denied — the step was not carried out.</source>
-            </trans-unit>
-            <trans-unit id="chat.approvalDeny" resname="chat.approvalDeny">
-                <source>Deny</source>
-            </trans-unit>
-            <trans-unit id="chat.approvalPreview" resname="chat.approvalPreview">
-                <source>What this call would do</source>
             </trans-unit>
             <trans-unit id="chat.approvalPreviewUnavailable" resname="chat.approvalPreviewUnavailable">
                 <source>No preview — you are deciding without one</source>
@@ -144,10 +135,28 @@
                 <source>This record changed after the preview you approved, so nothing was written. The preview shows its current state — please check it and decide again.</source>
             </trans-unit>
             <trans-unit id="chat.approvalArguments" resname="chat.approvalArguments">
-                <source>Arguments</source>
+                <source>Arguments:</source>
             </trans-unit>
             <trans-unit id="chat.approvalToolGone" resname="chat.approvalToolGone">
                 <source>The tool for this call is no longer registered.</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalTitleGeneric" resname="chat.approvalTitleGeneric">
+                <source>Planned step</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalConfirmGeneric" resname="chat.approvalConfirmGeneric">
+                <source>Carry out step</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalConfirmGenericAll" resname="chat.approvalConfirmGenericAll">
+                <source>Carry out all steps</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalCancel" resname="chat.approvalCancel">
+                <source>Cancel</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalTechnicalDetails" resname="chat.approvalTechnicalDetails">
+                <source>Show technical details</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalTool" resname="chat.approvalTool">
+                <source>Tool:</source>
             </trans-unit>
             <trans-unit id="chat.approvalUnreadable" resname="chat.approvalUnreadable">
                 <source>This run cannot be read here. Open it in AI Tasks.</source>

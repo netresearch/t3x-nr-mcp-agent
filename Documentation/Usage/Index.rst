@@ -58,9 +58,24 @@ What the chat tells you besides the answer
 *   **This step is still waiting for a decision.** A message such as
     "weiter" or "habe alles freigegeben" while an approval card is on
     screen does not start a new run and does not approve anything:
-    approve or deny on the card (without a card: in AI Tasks). If the
+    decide on the card (without a card: in AI Tasks). If the
     step was already decided in AI Tasks, the chat says so and names
     the records the run wrote.
+
+Approving a step in the chat
+----------------------------
+
+A step that writes data waits for your decision on a card in the chat.
+The card is headed with what the step does, for example **Seite als
+Entwurf anlegen**, followed by what would change: where, the current
+state, the new state and the consequences. The approve button carries
+the same name, so it says what pressing it does; **Cancel** leaves
+everything as it is. A step whose tool declares no such name is headed
+**Planned step** and approved with **Carry out step**, and a turn with
+several steps is approved as a whole with **Carry out all steps**.
+
+The tool's internal name, its arguments and the record identifiers are
+under **Show technical details**, which is closed until you open it.
 
 The assistant also knows which tools exist but are not available to
 you, and why — switched off, for administrators only, or not part of

@@ -28,12 +28,28 @@ const PENDING = {
     unreadableReason: null,
     calls: [{
         name: 'update_page_metadata',
+        // What the server resolves from the tool's editor action declaration
+        // (nr-llm ADR-152) in the reader's language.
+        actionLabel: 'Seiten-Metadaten ändern',
         toolStillRegistered: true,
-        previewLines: ['Page [10002] description: (empty) → TYPO3 is a free and open source enterprise CMS'],
+        previewLines: [
+            'Seite: „Home“',
+            'Meta Description: (leer) → „TYPO3 is a free and open source enterprise CMS“',
+        ],
+        // nr-llm's last preview line, taken out of previewLines by the server.
+        technicalDetails: 'Seite 10002, Feld description',
         previewFailed: false,
         argumentsJson: '{"pageUid":10002,"description":"TYPO3 is a free and open source enterprise CMS"}',
     }],
 };
+
+/** The card as a reader sees it before opening anything: without the closed details. */
+function defaultView(card) {
+    const clone = card.cloneNode(true);
+    clone.querySelectorAll('details:not([open])').forEach((details) => details.remove());
+
+    return clone.textContent;
+}
 
 /**
  * @param {string} modulePath
@@ -82,8 +98,72 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         const card = el.shadowRoot.querySelector('.approval-card');
 
         expect(card).not.toBeNull();
-        expect(card.textContent).toContain('update_page_metadata');
         expect(card.textContent).toContain('TYPO3 is a free and open source enterprise CMS');
+    });
+
+    /**
+     * Editorial rules 14 and 15: the card names the change in the reader's
+     * language, never the tool. The raw name is support's business and sits
+     * behind "Show technical details" only.
+     */
+    test('the heading is the action label, and the tool name is only in the closed details', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect(card.querySelector('.approval-title').textContent.trim()).toBe('Seiten-Metadaten ändern');
+        expect(defaultView(card)).not.toContain('update_page_metadata');
+        expect(defaultView(card)).not.toContain('chat.approvalPreview');
+
+        const details = card.querySelectorAll('details');
+        expect(details).toHaveLength(1);
+        expect(details[0].hasAttribute('open')).toBe(false);
+        expect(details[0].querySelector('summary').textContent.trim()).toBe('chat.approvalTechnicalDetails');
+        expect(details[0].textContent).toContain('update_page_metadata');
+        expect(details[0].textContent).toContain('"pageUid":10002');
+        expect(details[0].textContent).toContain('Seite 10002, Feld description');
+    });
+
+    test('the preview lines follow the heading in the order nr-llm gave them', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const items = [...el.shadowRoot.querySelectorAll('.approval-card .approval-preview li')]
+            .map((li) => li.textContent);
+
+        expect(items).toEqual(PENDING.calls[0].previewLines);
+        expect(defaultView(el.shadowRoot.querySelector('.approval-card'))).not.toContain('Seite 10002, Feld description');
+    });
+
+    /** Editorial rule 22: the button says what it does, and "Cancel" replaces "Deny". */
+    test('the approve button names the action and the other one cancels', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        const [approve, cancel] = el.shadowRoot.querySelectorAll('.approval-actions button');
+
+        expect(approve.localName).toBe('button');
+        expect(approve.textContent.trim()).toBe('Seiten-Metadaten ändern');
+        expect(cancel.textContent.trim()).toBe('chat.approvalCancel');
+    });
+
+    test('a tool without an action label gets the generic heading and button', async () => {
+        const pending = {...PENDING, calls: [{...PENDING.calls[0], name: 'delete_record', actionLabel: ''}]};
+        const el = await renderPending(modulePath, tag, open, pending);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect(card.querySelector('.approval-title').textContent.trim()).toBe('chat.approvalTitleGeneric');
+        expect(card.querySelector('.approval-actions button').textContent.trim()).toBe('chat.approvalConfirmGeneric');
+        expect(defaultView(card)).not.toContain('delete_record');
+    });
+
+    /** One decision covers the whole turn, so one call's name would undersell it. */
+    test('a turn with several calls names each change and carries them out together', async () => {
+        const pending = {...PENDING, calls: [
+            PENDING.calls[0],
+            {...PENDING.calls[0], name: 'create_page_draft', actionLabel: 'Seite als Entwurf anlegen'},
+        ]};
+        const el = await renderPending(modulePath, tag, open, pending);
+        const card = el.shadowRoot.querySelector('.approval-card');
+
+        expect([...card.querySelectorAll('.approval-title')].map((t) => t.textContent.trim()))
+            .toEqual(['Seiten-Metadaten ändern', 'Seite als Entwurf anlegen']);
+        expect(card.querySelector('.approval-actions button').textContent.trim()).toBe('chat.approvalConfirmGenericAll');
     });
 
     test('approving reaches the API with the digest the card carried', async () => {
