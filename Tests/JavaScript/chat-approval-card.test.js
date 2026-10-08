@@ -28,8 +28,8 @@ const PENDING = {
     unreadableReason: null,
     calls: [{
         name: 'update_page_metadata',
-        // What the server resolves from the tool's editor action declaration
-        // (nr-llm ADR-152) in the reader's language.
+        // The change's name as the server resolves it: the preview's first
+        // line, else the tool's editor action label (nr-llm ADR-152).
         actionLabel: 'Seiten-Metadaten ändern',
         toolStillRegistered: true,
         previewLines: [

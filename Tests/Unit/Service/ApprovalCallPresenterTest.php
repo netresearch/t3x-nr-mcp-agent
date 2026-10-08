@@ -51,15 +51,17 @@ final class ApprovalCallPresenterTest extends TestCase
     }
 
     private const PREVIEW = [
+        'Neue Seite als Entwurf anlegen',
         'Ort: unter „Product page“',
         'Titel: „test“',
         'Technische Details: Seite 157, Tabelle pages',
     ];
 
+    /** Without a usable preview the declared label, in the reader's language, names the change. */
     #[Test]
-    public function aDeclaredActionIsNamedInTheReadersLanguage(): void
+    public function aDeclaredActionNamesACallWhosePreviewFailed(): void
     {
-        $call = new PendingCallView('create_page_draft', '{"parent":157}', true, self::PREVIEW);
+        $call = new PendingCallView('create_page_draft', '{"parent":157}', true, ['Die Vorschau ist fehlgeschlagen.'], previewFailed: true);
 
         $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
 
@@ -67,8 +69,20 @@ final class ApprovalCallPresenterTest extends TestCase
         self::assertSame('create_page_draft', $presented[0]['name']);
         self::assertSame('{"parent":157}', $presented[0]['argumentsJson']);
         self::assertTrue($presented[0]['toolStillRegistered']);
-        self::assertFalse($presented[0]['previewFailed']);
+        self::assertTrue($presented[0]['previewFailed']);
         self::assertFalse($presented[0]['previewStale']);
+        self::assertFalse($presented[0]['actionLabelFromPreview']);
+    }
+
+    #[Test]
+    public function aDeclaredActionNamesACallWithoutPreview(): void
+    {
+        $call = new PendingCallView('create_page_draft', '{}', true);
+
+        $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
+
+        self::assertSame('Seite als Entwurf anlegen', $presented[0]['actionLabel']);
+        self::assertSame([], $presented[0]['previewLines']);
     }
 
     /**
@@ -89,15 +103,20 @@ final class ApprovalCallPresenterTest extends TestCase
         self::assertSame('Seite 3', $presented[0]['technicalDetails']);
     }
 
-    /** The declared label wins; the preview stays whole. */
+    /**
+     * The preview's first line is per call and more specific than the tool's
+     * label, so it wins even where a label is declared; showing both would
+     * repeat the heading.
+     */
     #[Test]
-    public function aDeclaredLabelKeepsThePreviewsFirstLine(): void
+    public function thePreviewsFirstLineWinsOverADeclaredLabel(): void
     {
         $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW);
 
         $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
 
-        self::assertFalse($presented[0]['actionLabelFromPreview']);
+        self::assertSame('Neue Seite als Entwurf anlegen', $presented[0]['actionLabel']);
+        self::assertTrue($presented[0]['actionLabelFromPreview']);
         self::assertSame(['Ort: unter „Product page“', 'Titel: „test“'], $presented[0]['previewLines']);
     }
 
@@ -132,8 +151,8 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $call = new PendingCallView('create_page_draft', '{}', true, self::PREVIEW);
 
-        self::assertSame('Ort: unter „Product page“', (new ApprovalCallPresenter())->present([$call], $this->german())[0]['actionLabel']);
-        self::assertSame('Ort: unter „Product page“', (new ApprovalCallPresenter($this->labels()))->present([$call], null)[0]['actionLabel']);
+        self::assertSame('Neue Seite als Entwurf anlegen', (new ApprovalCallPresenter())->present([$call], $this->german())[0]['actionLabel']);
+        self::assertSame('Neue Seite als Entwurf anlegen', (new ApprovalCallPresenter($this->labels()))->present([$call], null)[0]['actionLabel']);
     }
 
     #[Test]
@@ -157,12 +176,12 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         // Longer than the label's prefix, so a test that only looked at the
         // end of the line would take it for the technical one.
-        $lines = ['Ort: unter „Product page“', 'Sichtbarkeit: zunächst verborgen, erste Unterseite'];
+        $lines = ['Neue Seite als Entwurf anlegen', 'Ort: unter „Product page“', 'Sichtbarkeit: zunächst verborgen, erste Unterseite'];
         $call  = new PendingCallView('create_page_draft', '{}', true, $lines);
 
         $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
 
-        self::assertSame($lines, $presented[0]['previewLines']);
+        self::assertSame(array_slice($lines, 1), $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
     }
 
@@ -238,12 +257,12 @@ final class ApprovalCallPresenterTest extends TestCase
     #[Test]
     public function aTechnicalLineWithoutIdentifiersStays(): void
     {
-        $lines = ['Titel: „test“', 'Technische Details: '];
+        $lines = ['Neue Seite als Entwurf anlegen', 'Titel: „test“', 'Technische Details: '];
         $call  = new PendingCallView('create_page_draft', '{}', true, $lines);
 
         $presented = (new ApprovalCallPresenter($this->labels()))->present([$call], $this->german());
 
-        self::assertSame($lines, $presented[0]['previewLines']);
+        self::assertSame(array_slice($lines, 1), $presented[0]['previewLines']);
         self::assertSame('', $presented[0]['technicalDetails']);
     }
 

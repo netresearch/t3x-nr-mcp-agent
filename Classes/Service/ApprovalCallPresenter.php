@@ -25,12 +25,14 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  *   line ("Technical details: …", nr-llm 0.39 and later), taken out of
  *   `previewLines` so the card can put them behind "Show technical details".
  *
- * A tool without an editor action label still names its change: nr-llm's
- * previews (and those of its companion extensions) open with a line such as
- * "Seite löschen" (editorial rule 16). For such a call `actionLabel` is that
- * first line, it is taken out of `previewLines` so the card does not repeat
- * it, and `actionLabelFromPreview` says so. Not for a failed or withheld
- * preview, whose lines are the reason, and never the technical line.
+ * The preview names the change first: nr-llm's previews (and those of its
+ * companion extensions) open with a line such as "Seite löschen" (editorial
+ * rule 16). That line is per call and more specific than the tool's editor
+ * action label, so whenever a preview is present it becomes `actionLabel`,
+ * it is taken out of `previewLines` so the card does not repeat it, and
+ * `actionLabelFromPreview` says so. The editor action label is the fallback
+ * for a failed, withheld or empty preview, whose lines are the reason or
+ * nothing; the technical line never names the change.
  *
  * Display only. The decision the card sends carries the run's turn digest and
  * nothing of this payload, and the preview lines nr-llm stored with the run —
@@ -107,8 +109,8 @@ final readonly class ApprovalCallPresenter
     }
 
     /**
-     * The editor action label when there is one; otherwise the preview's first
-     * line, which names the change, taken out of the lines.
+     * The preview's first line, which names the change, taken out of the
+     * lines; the editor action label when there is no usable preview.
      *
      * @param list<string> $lines
      *
@@ -117,7 +119,7 @@ final readonly class ApprovalCallPresenter
     private function nameTheChange(string $editorActionLabel, array $lines, bool $previewFailed, string $technicalLabel): array
     {
         $first = $lines[0] ?? '';
-        if ($editorActionLabel !== '' || $previewFailed || $first === '' || $this->technicalDetailsOf($first, $technicalLabel) !== '') {
+        if ($previewFailed || $first === '' || $this->technicalDetailsOf($first, $technicalLabel) !== '') {
             return [$editorActionLabel, $lines, false];
         }
 

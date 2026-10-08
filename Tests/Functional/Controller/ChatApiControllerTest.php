@@ -242,8 +242,9 @@ class ChatApiControllerTest extends FunctionalTestCase
 
     /**
      * The card names the change, not the tool (editorial rules 14, 15, 22):
-     * the label comes from nr-llm's editor action declaration in the reader's
-     * language, and nr-llm's technical last preview line is handed over on
+     * the preview's first line names it, nr-llm's editor action declaration
+     * in the reader's language where there is no usable preview, and
+     * nr-llm's technical last preview line is handed over on
      * its own so the card can keep it behind "Show technical details". Wired
      * through the container against the installed nr-llm, so a renamed label
      * key or a service nr-llm stops providing shows up here.
@@ -262,8 +263,9 @@ class ChatApiControllerTest extends FunctionalTestCase
             configLabel: 'Demo',
             turnDigest: 'digest-6',
             pendingCalls: [
-                new PendingCallView('create_page_draft', '{"parent":157}', true, ['Titel: „test“', 'Technische Details: Seite 157']),
+                new PendingCallView('create_page_draft', '{"parent":157}', true, ['Neue Seite als Entwurf anlegen', 'Titel: „test“', 'Technische Details: Seite 157']),
                 new PendingCallView('delete_record', '{"uid":3}', true, ['Seite löschen', 'Seite: „Alt“']),
+                new PendingCallView('create_page_draft', '{"parent":158}', true, ['Die Vorschau ist fehlgeschlagen.'], previewFailed: true),
             ],
         ));
         $subject = new ChatApiController(
@@ -283,7 +285,8 @@ class ChatApiControllerTest extends FunctionalTestCase
         $request = (new ServerRequest())->withQueryParams(['conversationUid' => 6, 'after' => 1]);
         $calls   = json_decode((string) $subject->getMessages($request)->getBody(), true)['pendingApproval']['calls'];
 
-        self::assertSame('Seite als Entwurf anlegen', $calls[0]['actionLabel']);
+        // The preview's first line names the change, ahead of the declared label.
+        self::assertSame('Neue Seite als Entwurf anlegen', $calls[0]['actionLabel']);
         self::assertSame(['Titel: „test“'], $calls[0]['previewLines']);
         self::assertSame('Seite 157', $calls[0]['technicalDetails']);
         // nr-llm declares no editor action for delete_record: its preview's
@@ -291,6 +294,9 @@ class ChatApiControllerTest extends FunctionalTestCase
         self::assertSame('Seite löschen', $calls[1]['actionLabel']);
         self::assertTrue($calls[1]['actionLabelFromPreview']);
         self::assertSame(['Seite: „Alt“'], $calls[1]['previewLines']);
+        // Without a usable preview the declared label, in German, names it.
+        self::assertSame('Seite als Entwurf anlegen', $calls[2]['actionLabel']);
+        self::assertFalse($calls[2]['actionLabelFromPreview']);
     }
 
     /**

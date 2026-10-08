@@ -2136,7 +2136,8 @@ export class AiChatPanel extends LitElement {
      * authorisation as the approvals module, and the answer arrives here.
      *
      * The card names the change, not the tool: its heading and its approve
-     * button carry the tool's editor action label, the preview lines follow in
+     * button carry the change's name (the preview's first line, else the tool's
+     * editor action label), the preview lines follow in
      * nr-llm's order, and the tool name, its arguments and the technical
      * preview line sit in one closed "Show technical details" section
      * (editorial rules 10, 14-16, 22, 26). The cancel button says "Cancel".
@@ -2236,7 +2237,7 @@ export class AiChatPanel extends LitElement {
 
     /**
      * What the approve button says (editorial rule 22): the action it carries
-     * out, named by the tool's editor action label. The decision covers every
+     * out, named by the change's name the server resolved. The decision covers every
      * call of the turn, so a button naming one action is right only when the
      * turn has exactly one call; otherwise, and for a tool without a label,
      * the button says that the step(s) will be carried out.
