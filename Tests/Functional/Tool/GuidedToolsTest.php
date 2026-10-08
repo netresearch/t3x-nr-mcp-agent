@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\OpenPointRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
+use Netresearch\NrMcpAgent\EventListener\PageModuleHighlight;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
 use Netresearch\NrMcpAgent\Tool\HighlightElementTool;
@@ -31,8 +32,11 @@ use Netresearch\NrMcpAgent\Tool\SetProgressTool;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
+use TYPO3\CMS\Backend\Controller\Event\ModifyPageLayoutContentEvent;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\EventDispatcher\ListenerProvider;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
@@ -355,6 +359,26 @@ final class GuidedToolsTest extends FunctionalTestCase
         $linker = (new ReflectionProperty(ChatService::class, 'guidedState'))->getValue($this->get(ChatService::class));
 
         self::assertInstanceOf(GuidedStateLinker::class, $linker);
+    }
+
+    /**
+     * The page module loads the highlight receiver: without the listener the
+     * chat posts into a frame nobody listens in, and nothing else would fail.
+     */
+    #[Test]
+    public function thePageModuleLoadsTheHighlightReceiver(): void
+    {
+        $definitions = $this->get(ListenerProvider::class)->getAllListenerDefinitions();
+        self::assertSame(
+            PageModuleHighlight::class,
+            $definitions[ModifyPageLayoutContentEvent::class]['nr-mcp-agent/page-module-highlight']['service'] ?? null,
+        );
+
+        $this->get(PageModuleHighlight::class)();
+
+        $instructions = json_encode($this->get(PageRenderer::class)->getJavaScriptRenderer()->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        self::assertStringContainsString('@netresearch/nr-mcp-agent/page-highlight.js', $instructions);
+        self::assertFileExists(__DIR__ . '/../../../Resources/Public/JavaScript/page-highlight.js', 'the module mapping points into Resources/Public/JavaScript/');
     }
 
     #[Test]
