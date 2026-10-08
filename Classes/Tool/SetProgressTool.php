@@ -16,7 +16,9 @@ use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 
 /**
  * Where a guided process stands, for the chat header: a label and "point 2
- * of 5" (ADR-020). Setting the same progress twice changes nothing.
+ * of 5", or that it is complete (ADR-020). A completion report ends the tour:
+ * the chat drops the highlight and shows the process as done. Setting the same
+ * progress twice changes nothing.
  */
 final class SetProgressTool extends GuidedTool
 {
@@ -31,7 +33,8 @@ final class SetProgressTool extends GuidedTool
         return new ToolSpec(
             self::NAME,
             'Show the user where a guided process stands, in the chat header: a short label (for example the page'
-            . ' and language) and the current point of the total. Call it whenever the current point changes.'
+            . ' and language) and the current point of the total. Call it whenever the current point changes,'
+            . ' and once with completed = true when the process is finished; that ends the process.'
             . ' It changes nothing in TYPO3.',
             [
                 'type' => 'object',
@@ -39,6 +42,7 @@ final class SetProgressTool extends GuidedTool
                     'label' => ['type' => 'string', 'description' => 'Short label, at most 120 characters, e.g. "Über uns · Deutsch".'],
                     'current' => ['type' => 'integer', 'description' => 'The current point, 0 before the first.'],
                     'total' => ['type' => 'integer', 'description' => 'The number of points, at least 1.'],
+                    'completed' => ['type' => 'boolean', 'description' => 'True once the process is finished.'],
                 ],
                 'required' => ['label', 'current', 'total'],
             ],
@@ -55,6 +59,7 @@ final class SetProgressTool extends GuidedTool
         $label = self::text($arguments, 'label', 120);
         $current = self::int($arguments, 'current');
         $total = self::int($arguments, 'total');
+        $completed = ($arguments['completed'] ?? false) === true;
         if ($label === '' || $total < 1 || $current < 0 || $current > $total) {
             return ToolResult::error('Error: invalid progress — label must not be empty, total at least 1, and current between 0 and total.');
         }
@@ -63,8 +68,11 @@ final class SetProgressTool extends GuidedTool
             'label' => $label,
             'current' => $current,
             'total' => $total,
+            'completed' => $completed,
         ]);
 
-        return ToolResult::text(sprintf('Progress shown: %s, point %d of %d.', $label, $current, $total));
+        return ToolResult::text($completed
+            ? sprintf('Process shown as complete: %s.', $label)
+            : sprintf('Progress shown: %s, point %d of %d.', $label, $current, $total));
     }
 }

@@ -157,10 +157,8 @@ A skill can walk you through a page one point at a time. While it does:
     frame and is scrolled into view. The full-page chat module and the
     popped-out panel have no page module beside them and only show the
     progress.
-*   **Skipped points stay open.** A point you skip is kept with the page,
-    its language and the skill, beyond the conversation, so the process can
-    offer it again the next time it runs on the page. Everyone who may see
-    the page and edit that language can be offered them.
+*   **The end is shown.** When the process is finished, the header says
+    so and the highlight goes away.
 
 None of this changes a record. An administrator can switch the tools behind
 it off as the tool group ``nr_mcp_agent``.

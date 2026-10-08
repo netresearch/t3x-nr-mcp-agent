@@ -436,7 +436,7 @@ final class Conversation
     }
 
     /**
-     * @return array{progress: array{label: string, current: int, total: int}|null, highlight: array{table: string, uid: int}|null}
+     * @return array{progress: array{label: string, current: int, total: int, completed: bool}|null, highlight: array{table: string, uid: int}|null}
      */
     public function getGuidedState(): array
     {
@@ -446,7 +446,7 @@ final class Conversation
 
         return [
             'progress' => is_array($progress) && is_string($progress['label'] ?? null) && is_int($progress['current'] ?? null) && is_int($progress['total'] ?? null)
-                ? ['label' => $progress['label'], 'current' => $progress['current'], 'total' => $progress['total']]
+                ? ['label' => $progress['label'], 'current' => $progress['current'], 'total' => $progress['total'], 'completed' => ($progress['completed'] ?? false) === true]
                 : null,
             'highlight' => is_array($highlight) && ($highlight['table'] ?? null) === 'tt_content' && is_int($highlight['uid'] ?? null)
                 ? ['table' => 'tt_content', 'uid' => $highlight['uid']]
@@ -455,8 +455,8 @@ final class Conversation
     }
 
     /**
-     * @param array{label: string, current: int, total: int}|null $progress
-     * @param array{table: string, uid: int}|null                 $highlight
+     * @param array{label: string, current: int, total: int, completed: bool}|null $progress
+     * @param array{table: string, uid: int}|null                                  $highlight
      */
     public function setGuidedState(?array $progress, ?array $highlight): void
     {

@@ -511,6 +511,10 @@
                 <source>Point %d of %d</source>
                 <target>Punkt %d von %d</target>
             </trans-unit>
+            <trans-unit id="guided.completed" resname="guided.completed">
+                <source>done</source>
+                <target>abgeschlossen</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

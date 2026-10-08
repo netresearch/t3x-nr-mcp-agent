@@ -179,6 +179,12 @@ describe.each(SURFACES)('$name header', ({module: modulePath, tag, open}) => {
         expect(progress.textContent.replace(/\s+/g, ' ').trim()).toBe('Über uns · Deutsch · guided.progress');
     });
 
+    test('shows a completed process as done', async () => {
+        const el = await renderSurface(modulePath, tag, open, {progress: {label: 'Über uns · Deutsch', current: 5, total: 5, completed: true}, highlight: null});
+
+        expect(el.shadowRoot.querySelector('.guided-progress').textContent.replace(/\s+/g, ' ').trim()).toBe('Über uns · Deutsch · guided.completed');
+    });
+
     test('shows nothing without a guided process', async () => {
         const el = await renderSurface(modulePath, tag, open, {progress: null, highlight: null});
 

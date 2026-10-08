@@ -28,17 +28,14 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  *   page, a content element) and keep editorial notes about them. Without a
  *   declaration nr-llm treats an unknown group as SECRET_ADJACENT and
  *   withholds the tools from every cloud provider.
- * - Effect READ_ONLY, declared on purpose and recorded as a deviation from
- *   nr-llm ADR-111 in ADR-020: they write only the chat's own bookkeeping
- *   (progress, a highlight, open points), never a TYPO3 record, and every
- *   write is an upsert on a stable key, so a repeated call converges. A
- *   declared write would make each of them need an approval (nr-llm
- *   ADR-134), which is the opposite of what they are for.
+ * - Effect READ_ONLY, as nr-llm ADR-214 classifies progress and highlight:
+ *   they change no TYPO3 record; their only writes are the chat's own
+ *   bookkeeping, an upsert on the run's uuid.
  * - Enabled by default: a guided skill needs them. nr-llm offers every
  *   enabled tool to every run that does not narrow its tool list, so runs
  *   started outside the chat get them too; what such a run writes to the run
  *   state is never taken over and is removed by `ai-chat:cleanup` after a
- *   day, and an open point it records is an ordinary open point.
+ *   day.
  */
 abstract class GuidedTool implements ToolInterface, ToolDataClassInterface, ToolEffectInterface
 {

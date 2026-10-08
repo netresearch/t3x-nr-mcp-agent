@@ -5,9 +5,9 @@
 
 .. _adr-020:
 
-================================================================
-ADR-020: Guided processes report progress, focus and open points
-================================================================
+===============================================
+ADR-020: Guided processes report progress and focus
+===============================================
 
 **Status:** Proposed
 
@@ -23,8 +23,12 @@ point — needs three things from the chat that a free conversation does not:
     point: "Über uns · Deutsch · Punkt 2 von 5".
 -   **What it is about.** The content element of the current point is
     highlighted in the page module beside the chat.
--   **What is left.** A skipped point stays open beyond the conversation and
-    is offered again when the process runs on the page later.
+
+Open points — a skipped finding that stays open beyond the conversation — are
+not part of this decision. nr-llm ADR-214 has them recorded by this extension
+from the denial reason of the approval card, not by a tool the model calls,
+which needs the reason and the conversation's skill; they follow in their
+own change.
 
 The process itself is a skill; the chat provides capabilities any skill can
 use, and nr-llm runs and records the run. The model reaches capabilities
@@ -36,18 +40,22 @@ when the run returns.
 Decision
 ========
 
-Five tools, registered with nr-llm through ``ToolInterface``
+Two tools, registered with nr-llm through ``ToolInterface``
 (``Classes/Tool/``):
 
 =========================== ==================================================
 Tool                        Effect
 =========================== ==================================================
-``chat_set_progress``       Label, current point, total, for the header.
+``chat_set_progress``       Label, current point, total and a completion flag,
+                            for the header.
 ``chat_highlight_element``  One ``tt_content`` uid, for the page module.
-``chat_record_open_point``  Keep a point open, keyed per page, language, skill.
-``chat_list_open_points``   The open points of that scope.
-``chat_resolve_open_point`` Close one.
 =========================== ==================================================
+
+**A completion report ends the tour.** ``chat_set_progress`` with
+``completed`` shows the process as done in the header and drops the
+highlight. The conversation keeps ``completed`` in its guided state, which is
+where the end of a forced skill (nr-llm ADR-214, the release of the process
+pin) can be read once the conversation carries one.
 
 **Run state, keyed by the run.** Progress and highlight are written to
 ``tx_nrmcpagent_run_state`` under the run's uuid and the acting user. When the
@@ -82,50 +90,39 @@ TYPO3's own id ``element-tt_content-<uid>``. Anything else is ignored. The
 full-page chat module and the popped-out panel have no page module beside
 them and send nothing; the progress shows on every surface.
 
-**Open points are editorial notes about a page, not personal state.** They are
-unique per page, language, skill and key, so recording a point again — a
-retry, the same finding in the next conversation — updates the row. Everyone
-who may show the page and edit the language sees them, through the tools;
-the tools check that on every call, reading included, because the scope comes
-from the model. The user and run that last wrote a point are kept on it.
-Titles and details are written by a model and read by a model in a later
-run, possibly another user's: the list tool's description calls them data,
-not instructions, and they reach no TYPO3 record.
-
 **Group, data class, effect.** Group ``nr_mcp_agent`` (an administrator or a
-configuration's tool groups can switch all five off together), data class
+configuration's tool groups can switch both off together), data class
 ``EDITOR_CONTENT`` and enabled by default. Without a declared data class
 nr-llm treats an unknown group as secret-adjacent and withholds it from every
-cloud provider. The tools declare ``READ_ONLY``: they write only the chat's
-own bookkeeping, never a TYPO3 record, and every write is an upsert on a
-stable key. A declared write would require an approval for each call
-(nr-llm ADR-134) — an approval to move the progress bar.
+cloud provider. Both tools are reads (``READ_ONLY``), as nr-llm ADR-214 item 9
+classifies progress and highlight: they change no TYPO3 record, and their only
+writes are the chat's own bookkeeping, an upsert on the run's uuid. In a
+process run a read executes while the editor decides the pending write, so
+the header and the highlight can show what the card is about.
 
 Consequences
 ============
 
--   A skill can show progress, focus an element and keep open points without
-    the chat knowing the skill.
--   The tools live in this extension. nr-llm's draft for trusted process
-    skills places such tools in nr-llm; the run-keyed state makes a move
-    cheap, since nothing here depends on the conversation until the run
-    returns.
--   **Open question for nr-llm:** declaring ``READ_ONLY`` for tools that
-    write their own tables deviates from nr-llm ADR-111, which reserves it for
-    tools without side effects. It needs the nr-llm maintainers' agreement, or
-    an effect class for "writes only its own bookkeeping".
+-   A skill can show progress and focus an element without the chat knowing
+    the skill.
+-   **Placement:** nr-llm ADR-214 has nr-llm ship progress and highlight as
+    builtins, the progress report recorded as a run event and the highlight
+    limited to targets the run registered from its subject record. These tools
+    live here until then; the run-keyed state makes the switch cheap, since
+    nothing here depends on the conversation until the run returns. The
+    highlight here accepts any content element of the conversation's page the
+    user may see, which is wider than a registered target list.
 -   Progress appears at the pause, not live.
 -   The cross-frame delivery is tested at both ends against the contract
     (Jest); a browser run against a backend is still needed to prove it end to
     end.
--   Two new tables. Run-state rows live from a tool call until the run
+-   One new table. Run-state rows live from a tool call until the run
     returns to the chat; ``ai-chat:cleanup`` removes rows no chat took over
     after a day.
 -   **Open question for nr-llm:** nr-llm offers every enabled tool to every
     run that does not narrow its tool list (``ToolCallPolicy::explain()``
     falls back to the enabled set). Runs started outside the chat — AI Tasks,
-    other extensions — are therefore offered the five tools as well. Their
-    run state is never taken over; an open point they record is an ordinary
-    open point of the page. Restricting the tools to chat runs needs a way
-    for a tool to learn the run's caller, or a per-run tool list, from
-    nr-llm.
+    other extensions — are therefore offered the two tools as well. Their
+    run state is never taken over and is purged by ``ai-chat:cleanup``.
+    Restricting the tools to chat runs needs a way for a tool to learn the
+    run's caller, or a per-run tool list, from nr-llm.

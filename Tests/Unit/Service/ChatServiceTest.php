@@ -607,7 +607,7 @@ class ChatServiceTest extends TestCase
 
         $this->createChatService($result, guidedState: new GuidedStateLinker($runState))->processConversation($conversation);
 
-        self::assertSame(['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], $conversation->getGuidedState()['progress']);
+        self::assertSame(['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5, 'completed' => false], $conversation->getGuidedState()['progress']);
     }
 
     /**

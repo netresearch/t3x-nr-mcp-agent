@@ -33,13 +33,13 @@ final class ConversationGuidedStateTest extends TestCase
     public function theStateSurvivesTheDatabaseRow(): void
     {
         $conversation = new Conversation();
-        $conversation->setGuidedState(['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], ['table' => 'tt_content', 'uid' => 100]);
+        $conversation->setGuidedState(['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5, 'completed' => true], ['table' => 'tt_content', 'uid' => 100]);
 
         $row = $conversation->toRow();
         self::assertStringContainsString('Über uns', $row['guided_state']);
 
         self::assertSame(
-            ['progress' => ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], 'highlight' => ['table' => 'tt_content', 'uid' => 100]],
+            ['progress' => ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5, 'completed' => true], 'highlight' => ['table' => 'tt_content', 'uid' => 100]],
             Conversation::fromRow($row)->getGuidedState(),
         );
     }
@@ -48,7 +48,7 @@ final class ConversationGuidedStateTest extends TestCase
     public function clearingBothLeavesAnEmptyColumn(): void
     {
         $conversation = new Conversation();
-        $conversation->setGuidedState(['label' => 'x', 'current' => 1, 'total' => 1], null);
+        $conversation->setGuidedState(['label' => 'x', 'current' => 1, 'total' => 1, 'completed' => false], null);
         $conversation->setGuidedState(null, null);
 
         self::assertSame('', $conversation->toRow()['guided_state']);
