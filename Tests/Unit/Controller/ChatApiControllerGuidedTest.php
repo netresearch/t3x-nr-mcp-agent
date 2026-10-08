@@ -83,10 +83,10 @@ final class ChatApiControllerGuidedTest extends TestCase
     {
         $conversation = new Conversation();
         $conversation->setBeUser(2);
-        $conversation->setGuidedState(['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], ['table' => 'tt_content', 'uid' => 100]);
+        $conversation->setGuidedState(['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5, 'completed' => false], ['table' => 'tt_content', 'uid' => 100]);
 
         self::assertSame(
-            ['progress' => ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], 'highlight' => ['table' => 'tt_content', 'uid' => 100]],
+            ['progress' => ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5, 'completed' => false], 'highlight' => ['table' => 'tt_content', 'uid' => 100]],
             $this->messagesOf($conversation)['guided'] ?? null,
         );
     }

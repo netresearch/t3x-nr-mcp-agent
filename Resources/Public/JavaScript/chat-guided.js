@@ -34,7 +34,7 @@ export function renderProgress(chat) {
 
     return html`
         <span class="guided-progress" role="status">
-            ${progress.label} · ${lll('guided.progress', progress.current, progress.total)}
+            ${progress.label} · ${progress.completed ? lll('guided.completed') : lll('guided.progress', progress.current, progress.total)}
         </span>
     `;
 }

@@ -57,21 +57,3 @@ CREATE TABLE tx_nrmcpagent_run_state (
     PRIMARY KEY (uid),
     UNIQUE KEY run_uuid (run_uuid)
 );
-
-CREATE TABLE tx_nrmcpagent_open_point (
-    uid int(11) unsigned NOT NULL AUTO_INCREMENT,
-    page_uid int(11) unsigned DEFAULT 0 NOT NULL,
-    language_uid int(11) DEFAULT 0 NOT NULL,
-    skill_identifier varchar(100) DEFAULT '' NOT NULL,
-    point_key varchar(100) DEFAULT '' NOT NULL,
-    title varchar(255) DEFAULT '' NOT NULL,
-    details text,
-    status varchar(16) DEFAULT 'open' NOT NULL,
-    run_uuid varchar(64) DEFAULT '' NOT NULL,
-    be_user int(11) unsigned DEFAULT 0 NOT NULL,
-    tstamp int(11) unsigned DEFAULT 0 NOT NULL,
-    crdate int(11) unsigned DEFAULT 0 NOT NULL,
-
-    PRIMARY KEY (uid),
-    UNIQUE KEY point (page_uid, language_uid, skill_identifier, point_key)
-);

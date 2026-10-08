@@ -31,7 +31,7 @@ export function handleHighlightMessage(event, win = globalThis) {
     }
 
     const data = event.data;
-    if (!data || data.type !== HIGHLIGHT_MESSAGE || data.version !== 1 || data.table !== 'tt_content'
+    if (data?.type !== HIGHLIGHT_MESSAGE || data.version !== 1 || data.table !== 'tt_content'
         || !Number.isInteger(data.uid) || data.uid <= 0) {
         return false;
     }
@@ -72,6 +72,7 @@ function ensureStyle(doc) {
 
 // Only a framed page listens: the module frame beside the chat. The chat
 // window imports this file for the message type and must not react itself.
-if (globalThis.parent && globalThis.parent !== globalThis) {
-    globalThis.addEventListener('message', (event) => handleHighlightMessage(event));
+const own = globalThis.window;
+if (own && own.parent !== own) {
+    own.addEventListener('message', (event) => handleHighlightMessage(event));
 }

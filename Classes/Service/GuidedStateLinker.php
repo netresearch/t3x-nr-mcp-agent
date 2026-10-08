@@ -21,7 +21,8 @@ use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
  * that moment, not while the run works. Only state the conversation's owner
  * wrote is read, and a highlight counts only when the element is on the
  * conversation's page: the tool checked that the user may see the element,
- * this checks that it belongs to what the conversation is about.
+ * this checks that it belongs to what the conversation is about. A completion
+ * report ends the tour, so it also drops the highlight.
  */
 readonly class GuidedStateLinker
 {
@@ -37,10 +38,9 @@ readonly class GuidedStateLinker
         }
 
         $current = $conversation->getGuidedState();
-        $conversation->setGuidedState(
-            $this->progress($state['progress']) ?? $current['progress'],
-            $state['highlight'] !== null ? $this->highlight($state['highlight'], $conversation) : $current['highlight'],
-        );
+        $progress = $this->progress($state['progress']) ?? $current['progress'];
+        $highlight = $state['highlight'] !== null ? $this->highlight($state['highlight'], $conversation) : $current['highlight'];
+        $conversation->setGuidedState($progress, ($progress['completed'] ?? false) ? null : $highlight);
         // Taken over: the conversation holds it now, and the table stays small.
         $this->runState->delete($runUuid, $conversation->getBeUser());
     }
@@ -48,7 +48,7 @@ readonly class GuidedStateLinker
     /**
      * @param array<string, mixed>|null $progress
      *
-     * @return array{label: string, current: int, total: int}|null
+     * @return array{label: string, current: int, total: int, completed: bool}|null
      */
     private function progress(?array $progress): ?array
     {
@@ -57,7 +57,7 @@ readonly class GuidedStateLinker
         $total = $progress['total'] ?? null;
 
         return is_string($label) && is_int($current) && is_int($total)
-            ? ['label' => $label, 'current' => $current, 'total' => $total]
+            ? ['label' => $label, 'current' => $current, 'total' => $total, 'completed' => ($progress['completed'] ?? false) === true]
             : null;
     }
 

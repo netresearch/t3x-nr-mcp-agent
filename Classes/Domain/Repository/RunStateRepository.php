@@ -35,7 +35,7 @@ readonly class RunStateRepository
 
     /**
      * @param 'progress'|'highlight'  $field
-     * @param array<string, int|string> $value
+     * @param array<string, bool|int|string> $value
      */
     public function store(string $runUuid, int $beUser, string $field, array $value): void
     {

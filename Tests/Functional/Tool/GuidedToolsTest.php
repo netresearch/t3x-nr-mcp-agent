@@ -19,15 +19,11 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
-use Netresearch\NrMcpAgent\Domain\Repository\OpenPointRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 use Netresearch\NrMcpAgent\EventListener\PageModuleHighlight;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
 use Netresearch\NrMcpAgent\Tool\HighlightElementTool;
-use Netresearch\NrMcpAgent\Tool\ListOpenPointsTool;
-use Netresearch\NrMcpAgent\Tool\RecordOpenPointTool;
-use Netresearch\NrMcpAgent\Tool\ResolveOpenPointTool;
 use Netresearch\NrMcpAgent\Tool\SetProgressTool;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -64,6 +60,8 @@ final class GuidedToolsTest extends FunctionalTestCase
     private const EDITOR = 3;
 
     private const RUN = '7f0c6a52-6d1e-4b8f-9a35-0c2f7b1e4d10';
+
+    private const LABEL = 'Über uns · Deutsch';
 
     protected function setUp(): void
     {
@@ -103,9 +101,6 @@ final class GuidedToolsTest extends FunctionalTestCase
     {
         yield 'set progress' => [SetProgressTool::class];
         yield 'highlight element' => [HighlightElementTool::class];
-        yield 'record open point' => [RecordOpenPointTool::class];
-        yield 'list open points' => [ListOpenPointsTool::class];
-        yield 'resolve open point' => [ResolveOpenPointTool::class];
     }
 
     /**
@@ -141,17 +136,16 @@ final class GuidedToolsTest extends FunctionalTestCase
     #[DataProvider('tools')]
     public function withoutAUserNothingIsWritten(string $class): void
     {
-        $result = $this->call($class, ['label' => 'x', 'current' => 1, 'total' => 2, 'contentUid' => 100, 'pageUid' => 20, 'languageUid' => 0, 'skill' => 's', 'key' => 'k', 'title' => 't'], ToolExecutionContext::none());
+        $result = $this->call($class, ['label' => 'x', 'current' => 1, 'total' => 2, 'contentUid' => 100], ToolExecutionContext::none());
 
         self::assertTrue($result->isError);
         self::assertSame(0, $this->rows('tx_nrmcpagent_run_state'));
-        self::assertSame(0, $this->rows('tx_nrmcpagent_open_point'));
     }
 
     #[Test]
     public function progressOutsideARunIsRefused(): void
     {
-        $result = $this->call(SetProgressTool::class, ['label' => 'Über uns · Deutsch', 'current' => 1, 'total' => 5], $this->editorContext(null));
+        $result = $this->call(SetProgressTool::class, ['label' => self::LABEL, 'current' => 1, 'total' => 5], $this->editorContext(null));
 
         self::assertTrue($result->isError);
         self::assertSame(0, $this->rows('tx_nrmcpagent_run_state'));
@@ -160,13 +154,13 @@ final class GuidedToolsTest extends FunctionalTestCase
     #[Test]
     public function theSameProgressTwiceIsOneRow(): void
     {
-        $arguments = ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5];
+        $arguments = ['label' => self::LABEL, 'current' => 2, 'total' => 5];
         self::assertFalse($this->call(SetProgressTool::class, $arguments)->isError);
         self::assertFalse($this->call(SetProgressTool::class, $arguments)->isError);
 
         self::assertSame(1, $this->rows('tx_nrmcpagent_run_state'));
         self::assertSame(
-            ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5],
+            ['label' => self::LABEL, 'current' => 2, 'total' => 5, 'completed' => false],
             $this->get(RunStateRepository::class)->find(self::RUN, self::EDITOR)['progress'] ?? null,
         );
     }
@@ -227,74 +221,6 @@ final class GuidedToolsTest extends FunctionalTestCase
         self::assertSame(0, $this->rows('tx_nrmcpagent_run_state'));
     }
 
-    /**
-     * The open point survives the conversation: recorded twice it is one row
-     * with the later wording, listed in its scope only, gone from the list
-     * once resolved.
-     */
-    #[Test]
-    public function anOpenPointIsKeptOncePerScopeAndKey(): void
-    {
-        $scope = ['pageUid' => 20, 'languageUid' => 0, 'skill' => 'seo-check'];
-        self::assertFalse($this->call(RecordOpenPointTool::class, [...$scope, 'key' => 'meta-description', 'title' => 'Meta Description fehlt'])->isError);
-        self::assertFalse($this->call(RecordOpenPointTool::class, [...$scope, 'key' => 'meta-description', 'title' => 'Meta Description zu kurz', 'details' => 'Mindestens 120 Zeichen'])->isError);
-
-        self::assertSame(1, $this->rows('tx_nrmcpagent_open_point'));
-        $listed = json_decode($this->call(ListOpenPointsTool::class, $scope)->content, true);
-        self::assertSame(
-            ['points' => [['key' => 'meta-description', 'title' => 'Meta Description zu kurz', 'details' => 'Mindestens 120 Zeichen', 'status' => 'open']]],
-            $listed,
-        );
-
-        $otherSkill = json_decode($this->call(ListOpenPointsTool::class, [...$scope, 'skill' => 'accessibility'])->content, true);
-        self::assertSame(['points' => []], $otherSkill);
-
-        self::assertFalse($this->call(ResolveOpenPointTool::class, [...$scope, 'key' => 'meta-description'])->isError);
-        self::assertFalse($this->call(ResolveOpenPointTool::class, [...$scope, 'key' => 'meta-description'])->isError, 'resolving twice changes nothing');
-        self::assertSame(['points' => []], json_decode($this->call(ListOpenPointsTool::class, $scope)->content, true));
-        $all = json_decode($this->call(ListOpenPointsTool::class, [...$scope, 'includeResolved' => true])->content, true);
-        self::assertSame('resolved', $all['points'][0]['status'] ?? null);
-    }
-
-    #[Test]
-    public function resolvingAPointThatWasNeverRecordedIsAnError(): void
-    {
-        self::assertTrue($this->call(ResolveOpenPointTool::class, ['pageUid' => 20, 'languageUid' => 0, 'skill' => 'seo-check', 'key' => 'unknown'])->isError);
-    }
-
-    /**
-     * @return iterable<string, array{class-string<ToolInterface>, array<string, mixed>}>
-     */
-    public static function scopesTheEditorMayNotUse(): iterable
-    {
-        $point = ['key' => 'k', 'title' => 't'];
-        yield 'record on a page she may not show' => [RecordOpenPointTool::class, ['pageUid' => 30, 'languageUid' => 0, 'skill' => 's', ...$point]];
-        yield 'record in a language she may not edit' => [RecordOpenPointTool::class, ['pageUid' => 20, 'languageUid' => 1, 'skill' => 's', ...$point]];
-        yield 'record without a skill' => [RecordOpenPointTool::class, ['pageUid' => 20, 'languageUid' => 0, 'skill' => '', ...$point]];
-        yield 'list on a page she may not show' => [ListOpenPointsTool::class, ['pageUid' => 30, 'languageUid' => 0, 'skill' => 's']];
-        yield 'resolve on a page she may not show' => [ResolveOpenPointTool::class, ['pageUid' => 30, 'languageUid' => 0, 'skill' => 's', 'key' => 'k']];
-    }
-
-    /**
-     * Reading is checked as well as writing: a point names a page, and the
-     * list must not tell an editor about pages she may not show.
-     *
-     * @param class-string<ToolInterface> $class
-     * @param array<string, mixed>        $arguments
-     */
-    #[Test]
-    #[DataProvider('scopesTheEditorMayNotUse')]
-    public function aScopeTheEditorMayNotUseIsRefused(string $class, array $arguments): void
-    {
-        $this->get(OpenPointRepository::class)->record(['pageUid' => 30, 'languageUid' => 0, 'skill' => 's'], 'k', 'Interner Punkt', '', 'run', 1);
-
-        $result = $this->call($class, $arguments);
-
-        self::assertTrue($result->isError);
-        self::assertStringNotContainsString('Interner Punkt', $result->content);
-        self::assertSame(1, $this->rows('tx_nrmcpagent_open_point'));
-    }
-
     private function conversation(int $beUser, int $pageId): Conversation
     {
         $conversation = new Conversation();
@@ -311,17 +237,37 @@ final class GuidedToolsTest extends FunctionalTestCase
     #[Test]
     public function theChatTakesTheRunStateOverForItsUserAndPage(): void
     {
-        $this->call(SetProgressTool::class, ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5]);
+        $this->call(SetProgressTool::class, ['label' => self::LABEL, 'current' => 2, 'total' => 5]);
         $this->call(HighlightElementTool::class, ['contentUid' => 100]);
 
         $conversation = $this->conversation(self::EDITOR, 20);
         $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
 
         self::assertSame(
-            ['progress' => ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], 'highlight' => ['table' => 'tt_content', 'uid' => 100]],
+            ['progress' => ['label' => self::LABEL, 'current' => 2, 'total' => 5, 'completed' => false], 'highlight' => ['table' => 'tt_content', 'uid' => 100]],
             $conversation->getGuidedState(),
         );
         self::assertSame(0, $this->rows('tx_nrmcpagent_run_state'));
+    }
+
+    /**
+     * A completion report ends the tour: the header says so, and nothing is
+     * highlighted any more — not even an element the same run named.
+     */
+    #[Test]
+    public function aCompletionReportEndsTheTour(): void
+    {
+        $this->call(HighlightElementTool::class, ['contentUid' => 100]);
+        self::assertFalse($this->call(SetProgressTool::class, ['label' => self::LABEL, 'current' => 5, 'total' => 5, 'completed' => true])->isError);
+
+        $conversation = $this->conversation(self::EDITOR, 20);
+        $conversation->setGuidedState(['label' => self::LABEL, 'current' => 4, 'total' => 5, 'completed' => false], ['table' => 'tt_content', 'uid' => 100]);
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
+
+        self::assertSame(
+            ['progress' => ['label' => self::LABEL, 'current' => 5, 'total' => 5, 'completed' => true], 'highlight' => null],
+            $conversation->getGuidedState(),
+        );
     }
 
     /** An element of another page is not highlighted beside this one. */
@@ -340,7 +286,7 @@ final class GuidedToolsTest extends FunctionalTestCase
     #[Test]
     public function anotherUsersRunStateIsNotTakenOver(): void
     {
-        $this->call(SetProgressTool::class, ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5]);
+        $this->call(SetProgressTool::class, ['label' => self::LABEL, 'current' => 2, 'total' => 5]);
 
         $conversation = $this->conversation(1, 20);
         $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
