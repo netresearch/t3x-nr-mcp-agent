@@ -92,6 +92,7 @@ final class ChatApprovalTest extends TestCase
         ?AgentRunRepositoryInterface $runRepository = null,
         ?RunActivityRecorder $activityRecorder = null,
         bool $approveFiresStep = false,
+        ?LoggerInterface $logger = null,
     ): ChatService {
         $approveAnswer ??= $this->completed();
 
@@ -132,6 +133,7 @@ final class ChatApprovalTest extends TestCase
             new UploadMimeTypeMap(),
             $this->createMock(UserContextPrompt::class),
             $activityRecorder ?? $this->createMock(RunActivityRecorder::class),
+            logger: $logger,
         );
     }
 
@@ -466,7 +468,6 @@ final class ChatApprovalTest extends TestCase
     public function aReleasingRefusalStoresItsReasonAndLogsTheMessage(RuntimeException $refusal, ApprovalHandBackReason $reason): void
     {
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService($refusal);
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('warning')->with(
             self::anything(),
@@ -475,7 +476,7 @@ final class ChatApprovalTest extends TestCase
                 && ($context['run'] ?? null) === 'run-uuid-1234'
                 && ($context['message'] ?? null) === $refusal->getMessage()),
         );
-        $service->setLogger($logger);
+        $service = $this->createChatService($refusal, logger: $logger);
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);

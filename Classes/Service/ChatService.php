@@ -52,8 +52,7 @@ use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
-use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Resource\File;
@@ -70,10 +69,8 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * strong TYPO3-backend identity system prompt), and maps the run outcome back
  * onto the conversation. Tools are no longer sourced from MCP servers here.
  */
-final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface, LoggerAwareInterface
+final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface
 {
-    use LoggerAwareTrait;
-
     private const DECISION_APPROVE = 'approve';
 
     /**
@@ -178,6 +175,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly RunActivityRecorder $activityRecorder,
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     /**
