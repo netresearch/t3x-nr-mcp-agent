@@ -47,9 +47,9 @@ final class ChatApiControllerInputTest extends TestCase
     /** @var array<string, mixed> */
     private const SCHEMA = [
         'type' => 'object',
-        'title' => 'Soll die Meta Description übernommen werden?',
+        'title' => 'Mit welchem Punkt soll ich beginnen?',
         'properties' => [
-            'decision' => ['oneOf' => [['const' => 'accept', 'title' => 'Übernehmen'], ['const' => 'skip', 'title' => 'Überspringen']]],
+            'start' => ['oneOf' => [['const' => 'meta', 'title' => 'Meta Description'], ['const' => 'images', 'title' => 'Alternativtexte']]],
             'comment' => ['type' => 'string'],
         ],
     ];
@@ -164,7 +164,7 @@ final class ChatApiControllerInputTest extends TestCase
         self::assertIsArray($data['pendingInput']);
         self::assertSame('digest-abc', $data['pendingInput']['turnDigest']);
         self::assertSame('choice', $data['pendingInput']['kind']);
-        self::assertSame(['Übernehmen', 'Überspringen'], array_column($data['pendingInput']['options'], 'label'));
+        self::assertSame(['Meta Description', 'Alternativtexte'], array_column($data['pendingInput']['options'], 'label'));
         self::assertTrue($data['pendingInput']['freeText']);
         self::assertNull($data['pendingApproval'], 'a question is not an approval card');
     }
@@ -216,11 +216,11 @@ final class ChatApiControllerInputTest extends TestCase
         $this->asking();
         $this->question();
         $this->chatApproval->expects(self::once())->method('recordInput')
-            ->with(self::isInstanceOf(Conversation::class), ['decision' => 'accept'], 'digest-abc', 'Übernehmen')
+            ->with(self::isInstanceOf(Conversation::class), ['start' => 'meta'], 'digest-abc', 'Meta Description')
             ->willReturn(true);
         $this->processor->expects(self::once())->method('dispatch');
 
-        $response = $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "digest-abc", "choice": "accept"}'));
+        $response = $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "digest-abc", "choice": "meta"}'));
 
         self::assertSame(202, $response->getStatusCode());
     }
@@ -231,10 +231,10 @@ final class ChatApiControllerInputTest extends TestCase
         $this->asking();
         $this->question();
         $this->chatApproval->expects(self::once())->method('recordInput')
-            ->with(self::anything(), ['comment' => 'Kürzer, bitte.'], 'digest-abc', 'Kürzer, bitte.')
+            ->with(self::anything(), ['comment' => 'Erst die Bilder.'], 'digest-abc', 'Erst die Bilder.')
             ->willReturn(true);
 
-        $response = $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "digest-abc", "freeText": "Kürzer, bitte."}'));
+        $response = $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "digest-abc", "freeText": "Erst die Bilder."}'));
 
         self::assertSame(202, $response->getStatusCode());
     }
@@ -278,7 +278,7 @@ final class ChatApiControllerInputTest extends TestCase
         $conversation->setStatus(ConversationStatus::Idle);
         $this->chatApproval->expects(self::never())->method('recordInput');
 
-        $response = $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "d", "choice": "accept"}'));
+        $response = $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "d", "choice": "meta"}'));
 
         self::assertSame(409, $response->getStatusCode());
         self::assertSame(['error' => 'Diese Rückfrage ist nicht mehr offen.'], self::json($response));
@@ -291,7 +291,7 @@ final class ChatApiControllerInputTest extends TestCase
         $this->chatApproval->method('pendingInput')->willReturn(null);
         $this->chatApproval->expects(self::never())->method('recordInput');
 
-        self::assertSame(409, $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "d", "choice": "accept"}'))->getStatusCode());
+        self::assertSame(409, $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "d", "choice": "meta"}'))->getStatusCode());
     }
 
     #[Test]
@@ -314,7 +314,7 @@ final class ChatApiControllerInputTest extends TestCase
         $this->chatApproval->method('recordInput')->willReturn(false);
         $this->processor->expects(self::never())->method('dispatch');
 
-        self::assertSame(409, $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "d", "choice": "accept"}'))->getStatusCode());
+        self::assertSame(409, $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "d", "choice": "meta"}'))->getStatusCode());
     }
 
     #[Test]
@@ -323,7 +323,7 @@ final class ChatApiControllerInputTest extends TestCase
         $this->repository->method('findOneByUidAndBeUser')->willReturn(null);
         $this->chatApproval->expects(self::never())->method('recordInput');
 
-        self::assertSame(404, $this->subject->submitInput($this->request('{"conversationUid": 7, "turnDigest": "d", "choice": "accept"}'))->getStatusCode());
+        self::assertSame(404, $this->subject->submitInput($this->request('{"conversationUid": 7, "turnDigest": "d", "choice": "meta"}'))->getStatusCode());
     }
 
     // ---- the approval card's two denials ---------------------------------

@@ -23,11 +23,16 @@ user's values, bound to the question shown by a digest (nr-llm ADR-150).
 
 The chat did not handle that pause. ``ChatService::applyResult()`` mapped
 the ``AWAITING_INPUT`` outcome to ``failed`` with "The assistant run did not
-complete (awaiting_input)", and the approval card dropped an input view. A
-guided tour — analyse a page, then one point at a time, each with a proposal
-and the answers *Übernehmen*, *Andere Variante*, *Überspringen* — needs
-exactly this pause: the run asks, the editor presses a button or writes their
-own answer, the run goes on.
+complete (awaiting_input)", and the approval card dropped an input view.
+
+A guided tour — analyse a page, then one point at a time — has two kinds of
+interaction. Choices that change nothing (which point to start with, a
+summary or the next page) are questions the run asks. A proposed change with
+the answers *Übernehmen*, *Andere Variante* and *Überspringen* is a write,
+and a write goes through an approval: nr-llm forbids a writing tool from
+also asking for input (nr-llm ADR-134), and an approval's continuation
+carries no input. The chat needs both: the question answered with buttons,
+and the approval card denied with a reason.
 
 Decision
 ========
