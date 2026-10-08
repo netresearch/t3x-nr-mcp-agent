@@ -26,6 +26,9 @@ const PENDING = {
     turnDigest: 'digest-abc',
     configLabel: 'Demo agent',
     unreadableReason: null,
+    // A write in a process run: the card offers the three answers (ADR-018,
+    // nr-llm ADR-214). The plain card is covered at the end of this file.
+    answers: 'process',
     calls: [{
         name: 'update_page_metadata',
         // The change's name as the server resolves it: the preview's first
@@ -357,6 +360,36 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
     // NEXT-162. The link used to sit in the action row, button-shaped and
     // labelled "Grant approval", beside the two buttons that actually grant
     // it — and it opens the run's timeline, where nothing can be decided.
+    /**
+     * Outside a process run, or for a call that writes nothing, the card keeps
+     * approve and cancel (nr-llm ADR-214): "Andere Variante" and "Überspringen"
+     * mean something only to a process that proposes changes point by point.
+     */
+    test('a card outside a process run offers approve and cancel', async () => {
+        const el = await renderPending(modulePath, tag, open, {...PENDING, answers: 'plain'});
+        const decide = jest.fn().mockResolvedValue({status: 'processing'});
+        el.chat._api.decideApproval = decide;
+        el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
+
+        const buttons = [...el.shadowRoot.querySelectorAll('.approval-actions button')];
+        expect(buttons.map((b) => b.textContent.trim())).toEqual(['Seiten-Metadaten ändern', 'chat.approvalCancel']);
+
+        buttons[1].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        expect(decide).toHaveBeenCalledWith(1, false, 'digest-abc', '');
+        expect(el.shadowRoot.querySelector('.message.system').textContent).toContain('chat.approvalDenied');
+    });
+
+    test('a card without the answers field is a plain card', async () => {
+        const {answers: _omitted, ...withoutAnswers} = PENDING;
+        const el = await renderPending(modulePath, tag, open, withoutAnswers);
+
+        expect([...el.shadowRoot.querySelectorAll('.approval-actions button')].map((b) => b.textContent.trim()))
+            .toEqual(['Seiten-Metadaten ändern', 'chat.approvalCancel']);
+    });
+
     test('a card with a preview offers Approve and the two denials and no link at all', async () => {
         const el = await renderPending(modulePath, tag, open);
         const card = el.shadowRoot.querySelector('.approval-card');

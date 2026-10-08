@@ -91,10 +91,18 @@ that free text is always possible.
 Überspringen" for a proposed change is not one input pause: nr-llm forbids a
 tool that writes from also asking for input (nr-llm ADR-134), and an
 approval's continuation carries no input. The change goes through the
-approval card, where the approve button applies it. The card's denial is two
-buttons, *Andere Variante* and *Überspringen*; the reason (``variant`` or
-``skip``, ``DenyReason``) is recorded with the decision and its label goes
-into the transcript as the reader's message. ``ApprovalDecisionFactory``
+approval card, where the approve button applies it. In a process run, and
+only when a pending call writes (nr-llm ADR-214, item 9), the card's denial
+is two buttons, *Andere Variante* and *Überspringen*; every other card keeps
+*Abbrechen*. Whether a call writes is nr-llm's own resolution by tool name
+(``ToolEffectResolver``), in which an unknown tool counts as a write.
+Whether the conversation is a process run is asked through
+``ProcessRunDetectorInterface``; nothing implements it yet, so until a
+conversation carries the skill it runs, every card is a plain one. The
+server decides which answers a card has, and a reason sent for a card that
+does not offer it is a plain denial. The reason (``variant`` or ``skip``,
+``DenyReason``) is recorded with the decision and its label goes into the
+transcript as the reader's message. ``ApprovalDecisionFactory``
 hands the reason to nr-llm as soon as nr-llm's ``ApprovalDecision`` takes a
 string argument named ``denialReason`` (or ``reason``); until then the
 denial is a plain one, and the model learns the reason from the transcript
@@ -116,11 +124,38 @@ injection mitigation for submitted values. In the chat the submitter is the
 conversation's owner, who can already send the model any text as a message,
 so the answer adds no new way in.
 
+**A card decided elsewhere is closed, and a card left behind is cancelled.**
+Two changes to the approval card's life, both from nr-llm ADR-214, item 9:
+
+*   ``ChatService::reconcile()`` also looks at a conversation parked on a
+    card. When its run was released or denied in the Agent Runs inbox and has
+    finished there, the card is closed with the note ADR-017 introduced for
+    "weiter" — the records the run wrote, read from its ``tool_write``
+    events — and the conversation is idle. The poll and every new message
+    run this first, so a message after a release in the inbox continues from
+    what the run wrote instead of abandoning a decision already taken.
+*   A new message while the card waits cancels the run behind it
+    (``AgentRuntimeInterface::cancel()``) instead of only dropping the
+    reference. Left waiting, the run could still be released in the inbox and
+    write after the conversation had moved on. When the run was decided
+    elsewhere between the read and the cancel, the message is refused and
+    the card closed by the next reconcile. A "weiter" while the card waits
+    stays what ADR-017 made it: a hint to decide on the card, not a new turn.
+
 Consequences
 ============
 
-*   The approval card's *Abbrechen* is replaced by *Andere Variante* and
-    *Überspringen*; new column ``approval_deny_reason``.
+*   For a write in a process run, the approval card's *Abbrechen* is
+    replaced by *Andere Variante* and *Überspringen*; new column
+    ``approval_deny_reason``.
+*   nr-llm's ``cancel()`` cancels a run in any non-terminal state. The chat
+    reads the status first and cancels only a waiting run, but a release in
+    the inbox in the moment between the read and the cancel would be
+    cancelled while it runs. A cancel that only applies to a waiting run is
+    an open question for nr-llm.
+*   nr-llm ADR-214 records the released run as the predecessor of the next
+    turn. nr-llm has no predecessor parameter yet, so the chat stores none;
+    the note in the transcript carries what the next turn needs to know.
 *   New status ``awaiting_input``, new column ``pending_input``, new route
     ``ai_chat_conversation_input`` (``POST /ai-chat/conversations/input``).
     Run the database analyzer after upgrading.

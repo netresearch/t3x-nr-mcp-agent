@@ -924,24 +924,50 @@ class ChatApiControllerTest extends TestCase
     }
 
     /**
-     * A new turn abandons a pending approval. Otherwise the reference survives
-     * into Processing, where the approval link still reads it and the repair
-     * would hand the card back in the middle of the new turn.
+     * A new turn cancels the run a card waits on (nr-llm ADR-214) and drops
+     * the reference. Left waiting, the run could still be released in the
+     * Agent Runs inbox and write after the conversation had moved on; the
+     * reference would survive into Processing, where the approval link still
+     * reads it and the repair would hand the card back mid-turn.
      */
     #[Test]
-    public function sendingAMessageAbandonsAPendingApproval(): void
+    public function sendingAMessageCancelsAPendingApproval(): void
     {
         $conversation = new Conversation();
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-uuid-1234');
         $conversation->recordApprovalDecision(true, 'digest-abc');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->expects(self::once())->method('releasePendingRun')->with($conversation)->willReturn(true);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "never mind, do something else"}');
         $this->subject->sendMessage($request);
 
         self::assertSame('', $conversation->getApprovalRunUuid());
         self::assertSame('', $conversation->getApprovalDecision());
+    }
+
+    /**
+     * The run was released in the inbox between the reconcile and the cancel:
+     * it wins, nothing new starts beside it, and the card is closed by the
+     * reconcile that follows.
+     */
+    #[Test]
+    public function aMessageDoesNotStartBesideARunDecidedElsewhereMeanwhile(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->method('releasePendingRun')->willReturn(false);
+        $this->chatApproval->expects(self::exactly(2))->method('reconcile');
+        $this->repository->expects(self::never())->method('updateIf');
+        $this->processor->expects(self::never())->method('dispatch');
+
+        $response = $this->subject->sendMessage($this->createRequest('POST', '{"conversationUid": 1, "content": "never mind, do something else"}'));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
     }
 
     #[Test]

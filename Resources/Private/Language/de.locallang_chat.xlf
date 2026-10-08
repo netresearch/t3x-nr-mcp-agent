@@ -191,6 +191,14 @@
                 <source>Carry out all steps</source>
                 <target>Alle Schritte ausführen</target>
             </trans-unit>
+            <trans-unit id="chat.approvalCancel" resname="chat.approvalCancel">
+                <source>Cancel</source>
+                <target>Abbrechen</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
+                <source>Cancelled — the step was not carried out.</source>
+                <target>Abgebrochen — der Schritt wurde nicht ausgeführt.</target>
+            </trans-unit>
             <trans-unit id="chat.approvalVariant" resname="chat.approvalVariant">
                 <source>Another variant</source>
                 <target>Andere Variante</target>

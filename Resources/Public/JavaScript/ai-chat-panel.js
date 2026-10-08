@@ -11,7 +11,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
-import {chatReplyOptionsStyles, decisionLabel, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
+import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
@@ -2150,10 +2150,11 @@ export class AiChatPanel extends LitElement {
      * editor action label), the preview lines follow in
      * nr-llm's order, and the tool name, its arguments and the technical
      * preview line sit in one closed "Show technical details" section
-     * (editorial rules 10, 14-16, 22, 26). The denial is two buttons, "Another
-     * variant" and "Skip", which tell the run why the change was not taken (ADR-018).
+     * (editorial rules 10, 14-16, 22, 26). The denial is "Cancel", or, for a
+     * write in a process run, "Another variant" and "Skip", which tell the run
+     * why the change was not taken (ADR-018, nr-llm ADR-214).
      *
-     * Approve and the two denials are the only actions of a decidable card. The link to
+     * Approve and the denial buttons are the only actions of a decidable card. The link to
      * the run used to sit beside them, styled like a third button and labelled
      * "Grant approval", although it opens the run's timeline, where nothing can
      * be granted (NEXT-162). It is now a plain text link, and it is offered on
@@ -2200,10 +2201,7 @@ export class AiChatPanel extends LitElement {
                 <div class="approval-actions">
                     <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
                         @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
-                    <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this._decide(false, 'variant')}>${lll('chat.approvalVariant')}</button>
-                    <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this._decide(false, 'skip')}>${lll('chat.approvalSkip')}</button>
+                    ${renderDenyButtons(pending, this.chat.approvalBusy, (reason) => this._decide(false, reason))}
                 </div>
                 ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
             </div>

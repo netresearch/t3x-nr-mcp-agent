@@ -60,14 +60,19 @@ What the chat tells you besides the answer
     screen does not start a new run and does not approve anything:
     decide on the card. Without a card, the step is decided in AI Tasks;
     if you cannot open AI Tasks, ask someone who may approve there. If the
-    step was already decided in AI Tasks, the chat says so and names
-    the records the run wrote.
+    step was already decided in AI Tasks, the chat closes the card, says
+    so and names the records the run wrote; your message then continues
+    from there.
+*   **Any other message while the card is on screen** cancels the waiting
+    step, so it can no longer be approved anywhere, and starts a new
+    request.
 
 Answering a question in the chat
 --------------------------------
 
 A step can stop and ask you something before it goes on, for example
-whether a proposed text should be taken over. The question appears as the
+which point of a page it should start with. A proposed change is never
+asked this way: it waits on an approval card. The question appears as the
 assistant's message, and the possible answers appear as buttons directly
 above the input field. Press one to answer; the step continues with your
 answer, and the answer stays in the conversation as your message.
@@ -89,10 +94,12 @@ A step that writes data waits for your decision on a card in the chat.
 The card is headed with what the step does, for example **Create page
 draft** or **Delete page**, followed by what would change: where, the
 current state, the new state and the consequences. The approve button
-carries the same name, so it says what pressing it does. Two buttons
-leave everything as it is and tell the assistant why: **Another variant**
-asks for a different proposal, **Skip** moves on without this change.
-Your choice stays in the conversation as your message. The name is the first line of the step's
+carries the same name, so it says what pressing it does. **Cancel** leaves
+everything as it is. When a guided process proposes a change, two buttons
+take the place of **Cancel** and tell the assistant why the change is not
+taken: **Another variant** asks for a different proposal, **Skip** moves on
+without this change; your choice stays in the conversation as your
+message. The name is the first line of the step's
 preview when nr-llm marks that line as naming the change; otherwise it
 is the tool's editor action label, and without one the step is headed
 **Planned step** and approved with **Carry out step**. A turn with

@@ -30,7 +30,6 @@ use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
-use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -329,6 +328,11 @@ final readonly class ChatApiController
             }
         }
 
+        // A card whose run was released or denied in the Agent Runs inbox is
+        // closed first (nr-llm ADR-214): the message then continues from what
+        // that run wrote instead of abandoning a decision already taken.
+        $this->chatApproval->reconcile($conversation);
+
         $currentStatus = $conversation->getStatus();
         // "weiter" while a run waits for an approval is not a new request. Left
         // to the ordinary path below it abandoned the approval and started a
@@ -425,6 +429,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.editStale')], 409);
         }
 
+        $this->chatApproval->reconcile($conversation);
         $currentStatus = $conversation->getStatus();
         $refusal = $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
@@ -525,11 +530,24 @@ final readonly class ChatApiController
             $conversation->setViewContext(0, '');
         }
 
+        // A new turn while a card waits cancels the run behind it (nr-llm
+        // ADR-214): left waiting, it could still be released in the Agent Runs
+        // inbox and write after the conversation had moved on. A run decided
+        // there meanwhile wins; the poll then shows what it did.
+        if ($currentStatus === ConversationStatus::AwaitingApproval
+            && $conversation->getApprovalRunUuid() !== ''
+            && !$this->chatApproval->releasePendingRun($conversation)
+        ) {
+            $this->chatApproval->reconcile($conversation);
+
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->setErrorMessage('');
-        // A new turn abandons a pending approval: the reference would otherwise
-        // survive into Processing, where the approval link still reads it and
-        // reconcile() would hand the card back in the middle of the new turn.
+        // The reference would otherwise survive into Processing, where the
+        // approval link still reads it and reconcile() would hand the card back
+        // in the middle of the new turn.
         $conversation->setApprovalRunUuid('');
         $conversation->clearApprovalDecision();
 
@@ -692,11 +710,11 @@ final readonly class ChatApiController
      * and "habe alles freigegeben" is a belief about one — on the demo it was
      * written about runs decided in another module (conversations 79, 80).
      *
-     * Decided elsewhere and finished: the message and a note are appended —
-     * the note names the records the run wrote, so the next turn knows the
-     * page exists instead of drafting it again — and the conversation is idle.
      * Decided elsewhere and still running: the same answer as any busy row.
-     * Anything the run cannot tell (gone, unreadable): the ordinary path.
+     * Decided elsewhere and finished: reconcile() has already closed the card
+     * with a note naming the records the run wrote, and the message is an
+     * ordinary new turn that continues from there (nr-llm ADR-214). Anything
+     * the run cannot tell (gone, unreadable): the ordinary path.
      */
     private function continuePendingRun(Conversation $conversation, string $content): ?ResponseInterface
     {
@@ -714,34 +732,9 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
-        if ($pending['state'] !== ChatApprovalInterface::PENDING_RUN_SETTLED) {
-            return null;
-        }
-
-        // Stored as a notice code plus a language-neutral line, for the reason
-        // error_code exists (ADR-017): the reader gets a label in their own
-        // language, rendered from the code and the records; the model reads the
-        // line, which names the records so the next turn knows they exist.
-        $conversation->appendMessage(MessageRole::User, $content);
-        $conversation->appendMessage(
-            MessageRole::Assistant,
-            sprintf(
-                '[The pending step was decided outside this chat and its run has finished. Records it wrote: %s.]',
-                $pending['writes'] === [] ? 'none' : implode(', ', $pending['writes']),
-            ),
-            ChatService::NOTICE_RUN_FINISHED_OUTSIDE,
-            $pending['writes'],
-        );
-        $conversation->setStatus(ConversationStatus::Idle);
-        $conversation->setErrorMessage('');
-        $conversation->setApprovalRunUuid('');
-        $conversation->clearApprovalDecision();
-
-        if (!$this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval)) {
-            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
-        }
-
-        return new JsonResponse(['status' => ConversationStatus::Idle->value], 200);
+        // Decided elsewhere and finished is closed by reconcile() before this
+        // runs; anything the run cannot tell takes the ordinary path.
+        return null;
     }
 
     /**
@@ -868,6 +861,9 @@ final readonly class ChatApiController
             'turnDigest'       => $view->turnDigest ?? '',
             'configLabel'      => $view->configLabel,
             'unreadableReason' => $view->unreadableReason,
+            // "Übernehmen / Andere Variante / Überspringen" for a write in a
+            // process run, approve and cancel for every other card (ADR-018).
+            'answers'          => $this->chatApproval->offersProcessAnswers($conversation, $view) ? 'process' : 'plain',
             'calls'            => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
                 $language instanceof LanguageService ? $language : null,
@@ -1042,10 +1038,15 @@ final readonly class ChatApiController
         $digest = $body['turnDigest'] ?? '';
         $turnDigest = is_string($digest) ? $digest : '';
 
-        // A denial says why (ADR-018): another variant, or skip this point. An
-        // unknown value is a plain denial.
+        // A denial says why (ADR-018): another variant, or skip this point.
+        // Only a card that offers the two denials takes one; an unknown value,
+        // or a reason on any other card, is a plain denial.
         $reasonValue = $body['reason'] ?? '';
         $reason = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
+        $view = $reason !== null ? $this->chatApproval->pendingApproval($conversation) : null;
+        if ($view === null || !$this->chatApproval->offersProcessAnswers($conversation, $view)) {
+            $reason = null;
+        }
 
         if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest, $reason, $reason !== null ? $this->translate($reason->labelKey()) : '')) {
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);

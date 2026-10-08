@@ -43,6 +43,7 @@ use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
@@ -183,6 +184,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
         private readonly ?LoggerInterface $logger = null,
         private readonly ?ApprovalDecisionFactory $decisionFactory = null,
+        private readonly ?ProcessRunDetectorInterface $processRuns = null,
+        private readonly ?ToolEffectResolver $toolEffects = null,
     ) {}
 
     /**
@@ -381,6 +384,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     public function reconcile(Conversation $conversation): bool
     {
         $runUuid = $conversation->getApprovalRunUuid();
+        if ($runUuid !== '' && $conversation->getStatus() === ConversationStatus::AwaitingApproval) {
+            return $this->reconcileDecidedElsewhere($conversation);
+        }
+
         if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::Processing) {
             return false;
         }
@@ -456,6 +463,93 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // reachable, so a plain write would delete the answer and then claim the
         // run finished elsewhere.
         return $this->repository->updateIf($conversation, ConversationStatus::Processing);
+    }
+
+    /**
+     * A card whose run was decided somewhere else — released or denied in the
+     * Agent Runs inbox — and has finished there (nr-llm ADR-214, item 9).
+     *
+     * The conversation waits for a decision nobody will take in the chat any
+     * more, and nothing tells it: the run left WAITING_FOR_APPROVAL outside
+     * the chat. A note names the records the run wrote, so the next turn knows
+     * the change exists instead of proposing it again (ADR-017); the run's own
+     * answer is not carried back, nr-llm keeps none at the default privacy
+     * level. The conversation is idle afterwards. A run still waiting, or one
+     * being carried on right now, is left alone.
+     */
+    private function reconcileDecidedElsewhere(Conversation $conversation): bool
+    {
+        $pending = $this->inspectPendingRun($conversation);
+        if ($pending['state'] !== self::PENDING_RUN_SETTLED) {
+            return false;
+        }
+
+        // Stored as a notice code plus a language-neutral line (ADR-017): the
+        // reader gets a label in their own language, the model reads the line.
+        $conversation->appendMessage(
+            MessageRole::Assistant,
+            sprintf(
+                '[The pending step was decided outside this chat and its run has finished. Records it wrote: %s.]',
+                $pending['writes'] === [] ? 'none' : implode(', ', $pending['writes']),
+            ),
+            self::NOTICE_RUN_FINISHED_OUTSIDE,
+            $pending['writes'],
+        );
+        $conversation->setStatus(ConversationStatus::Idle);
+        $conversation->setErrorMessage('');
+        $conversation->setApprovalRunUuid('');
+        $conversation->clearApprovalDecision();
+
+        return $this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval);
+    }
+
+    /**
+     * Stop the run a card waits on, because a new message starts a new turn
+     * (nr-llm ADR-214, item 9).
+     *
+     * Clearing the reference alone left the run waiting in the Agent Runs
+     * inbox, where it could still be released — and write — after the
+     * conversation had moved on. Only a run that still waits is cancelled.
+     *
+     * Returns false when the run was decided elsewhere — it is being carried
+     * on right now, or it left WAITING_FOR_APPROVAL between the read and the
+     * cancel: the new message must not start beside it. A run that is gone or
+     * not readable is no reason to block the conversation.
+     */
+    public function releasePendingRun(Conversation $conversation): bool
+    {
+        $pending = $this->inspectPendingRun($conversation);
+        if ($pending['state'] === self::PENDING_RUN_BUSY) {
+            return false;
+        }
+
+        // A waiting run is cancelled. A cancel that fails means the run was
+        // claimed or settled between the read and the cancel — decided
+        // elsewhere after all; the caller reconciles and refuses the turn.
+        return $pending['state'] !== self::PENDING_RUN_WAITING || $this->agentRuntime->cancel($this->resolveActor($conversation->getBeUser()), $conversation->getApprovalRunUuid());
+    }
+
+    /**
+     * Whether the card offers "Übernehmen / Andere Variante / Überspringen"
+     * rather than approve and cancel (nr-llm ADR-214, item 9).
+     *
+     * Only in a process run, and only when a pending call writes. The effect is
+     * nr-llm's own resolution by name, in which an unknown tool counts as a
+     * write; without the resolver every call does.
+     */
+    public function offersProcessAnswers(Conversation $conversation, WaitingRunView $view): bool
+    {
+        if (!($this->processRuns?->isProcessRun($conversation) ?? false)) {
+            return false;
+        }
+
+        foreach ($view->pendingCalls as $call) {
+            if (!$this->toolEffects instanceof ToolEffectResolver || $this->toolEffects->effectFor($call->name)->isWrite()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

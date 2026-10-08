@@ -60,12 +60,25 @@ interface ChatApprovalInterface
     public function recordInput(Conversation $conversation, array $data, string $turnDigest, string $display): bool;
 
     /**
-     * Put a claimed conversation back in step with the run it waits on, for the
-     * case where the worker never picked the decision up.
+     * Put a conversation back in step with the run it waits on: a claimed one
+     * whose worker never picked the decision up, and one parked on a card whose
+     * run was decided and finished elsewhere.
      *
      * Returns true when the conversation was changed.
      */
     public function reconcile(Conversation $conversation): bool;
+
+    /**
+     * Cancel the run a card waits on before a new turn starts (nr-llm
+     * ADR-214). False when that run was decided elsewhere meanwhile.
+     */
+    public function releasePendingRun(Conversation $conversation): bool;
+
+    /**
+     * Whether the card for this view offers the three answers of a process
+     * run (ADR-018, nr-llm ADR-214) instead of approve and cancel.
+     */
+    public function offersProcessAnswers(Conversation $conversation, WaitingRunView $view): bool;
 
     /** The run still waits for a decision. */
     public const PENDING_RUN_WAITING = 'waiting';

@@ -298,37 +298,36 @@ final class ChatApiControllerFeedbackTest extends TestCase
 
     /**
      * Demo conversation 79: approved in AI Tasks, finished there, and "habe
-     * alles freigegeben" in the chat drafted the page again. Now the chat says
-     * what the run wrote, so the next turn knows the page exists.
+     * alles freigegeben" in the chat drafted the page again. The card is now
+     * closed first — reconcile() notes what the run wrote — and the message is
+     * an ordinary turn after that note, which continues the tour from there
+     * (nr-llm ADR-214).
      */
     #[Test]
-    public function goingOnAfterTheRunFinishedElsewhereAddsWhatItWroteAndStartsNoRun(): void
+    public function goingOnAfterTheRunFinishedElsewhereContinuesAfterTheNote(): void
     {
         $conversation = $this->parked();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
-        $this->chatApproval->method('inspectPendingRun')->willReturn([
-            'state' => ChatApprovalInterface::PENDING_RUN_SETTLED,
-            'writes' => ['pages:10073', 'tt_content:10077'],
-        ]);
-        $this->processor->expects(self::never())->method('dispatch');
+        $this->repository->method('updateIf')->willReturn(true);
+        $this->chatApproval->expects(self::once())->method('reconcile')->willReturnCallback(static function (Conversation $c): bool {
+            $c->appendMessage(MessageRole::Assistant, '[The pending step was decided outside this chat and its run has finished. Records it wrote: pages:10073.]', 'runFinishedOutside', ['pages:10073']);
+            $c->setStatus(ConversationStatus::Idle);
+            $c->setApprovalRunUuid('');
+
+            return true;
+        });
+        $this->chatApproval->expects(self::never())->method('inspectPendingRun');
+        $this->chatApproval->expects(self::never())->method('releasePendingRun');
+        $this->processor->expects(self::once())->method('dispatch');
 
         $response = $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "habe alles freigegeben"}'));
 
-        self::assertSame(200, $response->getStatusCode());
-        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
-        self::assertSame('', $conversation->getApprovalRunUuid());
-
-        $messages = $conversation->getDecodedMessages();
-        self::assertCount(3, $messages);
-        self::assertSame(['user', 'habe alles freigegeben'], [$messages[1]['role'], $messages[1]['content']]);
-        self::assertSame('assistant', $messages[2]['role']);
-        // Language-neutral for the model; the reader gets the label from the notice.
+        self::assertSame(202, $response->getStatusCode());
         self::assertSame(
-            '[The pending step was decided outside this chat and its run has finished. Records it wrote: pages:10073, tt_content:10077.]',
-            $messages[2]['content'],
+            ['user', 'assistant', 'user'],
+            array_column($conversation->getDecodedMessages(), 'role'),
         );
-        self::assertSame('runFinishedOutside', $messages[2]['notice'] ?? null);
-        self::assertSame(['pages:10073', 'tt_content:10077'], $messages[2]['noticeArgs'] ?? null);
+        self::assertSame('habe alles freigegeben', $conversation->getDecodedMessages()[2]['content']);
     }
 
     /**
@@ -362,16 +361,18 @@ final class ChatApiControllerFeedbackTest extends TestCase
     {
         $this->repository->method('findOneByUidAndBeUser')->willReturn($this->parked());
         $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_UNKNOWN, 'writes' => []]);
+        $this->chatApproval->method('releasePendingRun')->willReturn(true);
         $this->processor->expects(self::once())->method('dispatch');
 
         self::assertSame(202, $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "weiter"}'))->getStatusCode());
     }
 
     #[Test]
-    public function aNewRequestWhileAnApprovalIsPendingIsNotInspected(): void
+    public function aNewRequestWhileAnApprovalIsPendingCancelsItsRun(): void
     {
         $this->repository->method('findOneByUidAndBeUser')->willReturn($this->parked());
         $this->chatApproval->expects(self::never())->method('inspectPendingRun');
+        $this->chatApproval->expects(self::once())->method('releasePendingRun')->willReturn(true);
         $this->processor->expects(self::once())->method('dispatch');
 
         $response = $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "Es fehlt noch das Element für die neue Unterseite"}'));
