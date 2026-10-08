@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Controller;
 
+use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
@@ -338,6 +339,7 @@ final class ChatApiControllerInputTest extends TestCase
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-uuid-1234');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->method('pendingApproval')->willReturn(new WaitingRunView('run-uuid-1234', WaitingRunView::MODE_APPROVAL, 0, 'Chat'));
     }
 
     #[Test]
@@ -345,6 +347,7 @@ final class ChatApiControllerInputTest extends TestCase
     {
         $this->language([self::LLL . 'chat.approvalVariant' => 'Andere Variante']);
         $this->approver();
+        $this->chatApproval->method('offersProcessAnswers')->willReturn(true);
         $this->chatApproval->expects(self::once())->method('recordDecision')
             ->with(self::anything(), false, 'digest-abc', DenyReason::Variant, 'Andere Variante')
             ->willReturn(true);
@@ -364,5 +367,38 @@ final class ChatApiControllerInputTest extends TestCase
 
         $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": false, "turnDigest": "digest-abc", "reason": "drop table"}'));
         $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": true, "turnDigest": "digest-abc", "reason": "skip"}'));
+    }
+
+    /**
+     * The server says which answers a card has; the browser only renders them.
+     */
+    #[Test]
+    public function theCardSaysWhichAnswersItOffers(): void
+    {
+        $this->approver();
+        $this->chatApproval->method('offersProcessAnswers')->willReturnOnConsecutiveCalls(true, false);
+
+        $process = self::json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+        $plain = self::json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+
+        self::assertSame('process', $process['pendingApproval']['answers'] ?? null);
+        self::assertSame('plain', $plain['pendingApproval']['answers'] ?? null);
+    }
+
+    /**
+     * Outside a process run, or for a card that writes nothing, the card has
+     * only approve and cancel (nr-llm ADR-214): a reason sent anyway is a
+     * plain denial, and the transcript gets no reason line.
+     */
+    #[Test]
+    public function aReasonOnACardWithoutTheTwoDenialsIsAPlainDenial(): void
+    {
+        $this->approver();
+        $this->chatApproval->method('offersProcessAnswers')->willReturn(false);
+        $this->chatApproval->expects(self::once())->method('recordDecision')
+            ->with(self::anything(), false, 'digest-abc', null, '')
+            ->willReturn(true);
+
+        $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": false, "turnDigest": "digest-abc", "reason": "skip"}'));
     }
 }

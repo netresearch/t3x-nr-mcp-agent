@@ -75,7 +75,7 @@ describe.each(SURFACES)('$name card without an approve button', ({module: module
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
         buttons[0].click();
         await el.updateComplete;
-        expect(el.chat._api.decideApproval).toHaveBeenCalledWith(1, false, 'digest-1');
+        expect(el.chat._api.decideApproval).toHaveBeenCalledWith(1, false, 'digest-1', '');
     });
 
     test('an approvable card keeps its approve button and says nothing extra', async () => {

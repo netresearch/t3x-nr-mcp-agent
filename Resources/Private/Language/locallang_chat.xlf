@@ -146,6 +146,12 @@
             <trans-unit id="chat.approvalConfirmGenericAll" resname="chat.approvalConfirmGenericAll">
                 <source>Carry out all steps</source>
             </trans-unit>
+            <trans-unit id="chat.approvalCancel" resname="chat.approvalCancel">
+                <source>Cancel</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
+                <source>Cancelled — the step was not carried out.</source>
+            </trans-unit>
             <trans-unit id="chat.approvalVariant" resname="chat.approvalVariant">
                 <source>Another variant</source>
             </trans-unit>

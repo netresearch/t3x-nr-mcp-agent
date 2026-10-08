@@ -72,7 +72,11 @@ export function decisionLabel(taken) {
         return lll('chat.approvalGranted');
     }
 
-    return taken === 'variant' ? lll('chat.approvalDeniedVariant') : lll('chat.approvalDeniedSkip');
+    if (taken === 'variant') {
+        return lll('chat.approvalDeniedVariant');
+    }
+
+    return taken === 'skip' ? lll('chat.approvalDeniedSkip') : lll('chat.approvalDenied');
 }
 
 /**
@@ -211,4 +215,29 @@ export function readForm(form, fields) {
         }
     }
     return values;
+}
+
+/**
+ * The denial side of an approval card (ADR-018, nr-llm ADR-214): in a process
+ * run, a proposed write is answered with "Andere Variante" or "Überspringen",
+ * which tell the run why it was not taken; every other card keeps "Abbrechen".
+ *
+ * @param {object} pending the card as getMessages() returns it
+ * @param {boolean} busy whether a decision is on its way
+ * @param {(reason: string) => void} deny called with 'variant', 'skip' or ''
+ */
+export function renderDenyButtons(pending, busy, deny) {
+    if (pending?.answers === 'process') {
+        return html`
+            <button class="btn btn-sm" ?disabled=${busy}
+                @click=${() => deny('variant')}>${lll('chat.approvalVariant')}</button>
+            <button class="btn btn-sm" ?disabled=${busy}
+                @click=${() => deny('skip')}>${lll('chat.approvalSkip')}</button>
+        `;
+    }
+
+    return html`
+        <button class="btn btn-sm" ?disabled=${busy}
+            @click=${() => deny('')}>${lll('chat.approvalCancel')}</button>
+    `;
 }
