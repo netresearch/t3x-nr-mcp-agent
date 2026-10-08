@@ -504,12 +504,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
-     * Stop the run a card waits on, because a new message starts a new turn
-     * (nr-llm ADR-214, item 9).
+     * Stop the run a card waits on in a guided process, because a new message
+     * starts a new turn (nr-llm ADR-214, item 9).
      *
-     * Clearing the reference alone left the run waiting in the Agent Runs
-     * inbox, where it could still be released — and write — after the
-     * conversation had moved on. Only a run that still waits is cancelled.
+     * Clearing the reference alone would leave the tour's proposal waiting in
+     * the Agent Runs inbox, where it could still be released — and write —
+     * after the tour had moved on. Only a run that still waits is cancelled.
+     * An ordinary chat keeps the run waiting, as before: the inbox is where
+     * it can still be decided.
      *
      * Returns false when the run was decided elsewhere — it is being carried
      * on right now, or it left WAITING_FOR_APPROVAL between the read and the
@@ -518,6 +520,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     public function releasePendingRun(Conversation $conversation): bool
     {
+        if (!($this->processRuns?->isProcessRun($conversation) ?? false)) {
+            return true;
+        }
+
         $pending = $this->inspectPendingRun($conversation);
         if ($pending['state'] === self::PENDING_RUN_BUSY) {
             return false;

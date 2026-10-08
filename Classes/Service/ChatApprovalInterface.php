@@ -69,8 +69,9 @@ interface ChatApprovalInterface
     public function reconcile(Conversation $conversation): bool;
 
     /**
-     * Cancel the run a card waits on before a new turn starts (nr-llm
-     * ADR-214). False when that run was decided elsewhere meanwhile.
+     * Cancel the run a card waits on in a guided process before a new turn
+     * starts (nr-llm ADR-214); an ordinary chat leaves it waiting. False when
+     * the process's run was decided elsewhere meanwhile.
      */
     public function releasePendingRun(Conversation $conversation): bool;
 

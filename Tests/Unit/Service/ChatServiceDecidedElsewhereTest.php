@@ -51,8 +51,9 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  *
  * - Released or denied in the Agent Runs inbox and finished there: the card
  *   closes with a note of what the run wrote, and the conversation is idle.
- * - A new message while the card waits: the run is cancelled, unless it was
- *   decided elsewhere meanwhile.
+ * - A new message while a guided process's card waits: the run is
+ *   cancelled, unless it was decided elsewhere meanwhile. An ordinary chat
+ *   leaves it waiting.
  * - The three answers appear only for a write in a process run.
  */
 #[CoversClass(ChatService::class)]
@@ -181,7 +182,7 @@ final class ChatServiceDecidedElsewhereTest extends TestCase
     #[Test]
     public function aWaitingRunIsCancelled(): void
     {
-        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL);
+        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, processRuns: $this->processRun(true));
         $this->runtime->expects(self::once())->method('cancel')->with(self::anything(), self::RUN)->willReturn(true);
 
         self::assertTrue($service->releasePendingRun($this->parked()));
@@ -190,7 +191,7 @@ final class ChatServiceDecidedElsewhereTest extends TestCase
     #[Test]
     public function aRunCarriedOnElsewhereIsNeitherCancelledNorLeft(): void
     {
-        $service = $this->service(AgentRunStatus::RUNNING);
+        $service = $this->service(AgentRunStatus::RUNNING, processRuns: $this->processRun(true));
         $this->runtime->expects(self::never())->method('cancel');
 
         self::assertFalse($service->releasePendingRun($this->parked()));
@@ -200,7 +201,7 @@ final class ChatServiceDecidedElsewhereTest extends TestCase
     #[Test]
     public function aCancelThatLosesTheRaceRefusesTheTurn(): void
     {
-        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, statusAfterCancel: AgentRunStatus::RUNNING);
+        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, processRuns: $this->processRun(true), statusAfterCancel: AgentRunStatus::RUNNING);
         $this->runtime->expects(self::once())->method('cancel')->willReturn(false);
 
         self::assertFalse($service->releasePendingRun($this->parked()));
@@ -210,10 +211,21 @@ final class ChatServiceDecidedElsewhereTest extends TestCase
     #[Test]
     public function aRunThatCannotBeReadDoesNotBlockTheTurn(): void
     {
-        $service = $this->service(null);
+        $service = $this->service(null, processRuns: $this->processRun(true));
         $this->runtime->expects(self::never())->method('cancel');
 
         self::assertTrue($service->releasePendingRun($this->parked()));
+    }
+
+    /** An ordinary chat leaves the run waiting in the inbox, as before. */
+    #[Test]
+    public function outsideAGuidedProcessTheRunKeepsWaiting(): void
+    {
+        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, processRuns: $this->processRun(false));
+        $this->runtime->expects(self::never())->method('cancel');
+
+        self::assertTrue($service->releasePendingRun($this->parked()));
+        self::assertTrue($this->service(AgentRunStatus::RUNNING)->releasePendingRun($this->parked()), 'no detector: no process run, no 409');
     }
 
     // ---- which answers the card offers ------------------------------------

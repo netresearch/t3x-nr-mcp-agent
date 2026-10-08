@@ -530,10 +530,11 @@ final readonly class ChatApiController
             $conversation->setViewContext(0, '');
         }
 
-        // A new turn while a card waits cancels the run behind it (nr-llm
-        // ADR-214): left waiting, it could still be released in the Agent Runs
-        // inbox and write after the conversation had moved on. A run decided
-        // there meanwhile wins; the poll then shows what it did.
+        // A new turn while a guided process's card waits cancels the run
+        // behind it (nr-llm ADR-214): left waiting, it could still be released
+        // in the Agent Runs inbox and write after the tour had moved on. A run
+        // decided there meanwhile wins; the poll then shows what it did. An
+        // ordinary chat leaves the run waiting in the inbox.
         if ($currentStatus === ConversationStatus::AwaitingApproval
             && $conversation->getApprovalRunUuid() !== ''
             && !$this->chatApproval->releasePendingRun($conversation)
