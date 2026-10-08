@@ -26,7 +26,7 @@
     },
     "require": {
         "php": "^8.2",
-        "netresearch/nr-llm": "^0.37 || ^0.38 || ^0.39",
+        "netresearch/nr-llm": "^0.37 || ^0.38 || ^0.39 || ^0.40",
         "phpoffice/phpword": "^1.0",
         "smalot/pdfparser": "^2.0",
         "typo3/cms-backend": "^13.4 || ^14.3",
@@ -65,6 +65,15 @@
             "typo3/cms-composer-installers": true
         },
         "bin-dir": ".Build/bin",
+        "policy": {
+            "advisories": {
+                "ignore-id": {
+                    "PKSA-6j95-1jtb-x6wc": "enshrined/svg-sanitize is transitive via typo3/cms-core, which requires ~0.22; the advisory is fixed only in 1.0.0. Remove this ignore once typo3/cms-core allows the fix.",
+                    "PKSA-8j6w-3kr7-s9xk": "enshrined/svg-sanitize is transitive via typo3/cms-core, which requires ~0.22; the advisory is fixed only in 1.0.0. Remove this ignore once typo3/cms-core allows the fix.",
+                    "PKSA-cbx2-m9db-bmzd": "enshrined/svg-sanitize is transitive via typo3/cms-core, which requires ~0.22; the advisory is fixed only in 1.0.0. Remove this ignore once typo3/cms-core allows the fix."
+                }
+            }
+        },
         "sort-packages": true,
         "vendor-dir": ".Build/vendor",
         "platform": {

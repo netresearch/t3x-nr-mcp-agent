@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-08
+
+### Added
+
+- **The approval card names the change, not the tool (#195).** Its heading and its approve button carry the change's name in the reader's language — the first line of nr-llm's preview when nr-llm 0.40 or later marks it as a heading (`ApprovalPreviewHeadings`), else the tool's editor action label, else "Planned step" / "Carry out step"; a turn with several calls is approved with "Carry out all steps". "Deny" becomes "Cancel". The tool name, its arguments and nr-llm's technical preview line move into one closed "Show technical details" section, and the remaining preview lines follow the heading in nr-llm's order. With an nr-llm before 0.40 no preview line counts as a heading, and the card uses the action label. The poll payload gains `actionLabel` and `technicalDetails` per pending call and `mayDecideApproval` per conversation; the decision request is unchanged.
+
+### Changed
+
+- **nr-llm 0.40 is accepted.** `composer.json` requires `netresearch/nr-llm` `^0.37 || ^0.38 || ^0.39 || ^0.40`, `ext_emconf.php` declares `0.37.0-0.40.99`. On a 0.x version `^0.39` does not admit 0.40.0. nr-llm 0.40 changes no class or method this extension calls or implements; the floor stays at 0.37.
+- **The pending status says who can approve (#195).** A reader who may approve sees "Waiting for your approval"; a reader who may not sees that someone with access to AI Tasks has to approve, without the card and without the link into AI Tasks that would refuse them. The German strings name the module by its German title "KI-Aufgaben".
+- **A run nr-llm hands back still pending shows the chat's own sentence (#195).** For a stale turn, a run already resuming, an approver without the rights, an inactive configuration or a run no longer awaiting approval, the chat stores a reason code and shows a sentence in the reader's language, administrators included, instead of nr-llm's English exception message, which goes to the log with the run uuid.
+- **The "Nothing was saved in this step" note under an answer** is shown without the warning sign and the warning colour (#195).
+
+### Security
+
+- **`composer.json` accepts three `enshrined/svg-sanitize` advisories** (GHSA-9rjx-3jch-6vjf, GHSA-m9xh-6747-9r6f, GHSA-v383-3rw5-q8rf) in `config.policy.advisories.ignore-id`. They are fixed only in 1.0.0, and `typo3/cms-core` 13.4 and 14.3 require `~0.22`, so the fix belongs to TYPO3 core; the reason on each ignore says to remove it once core allows the fix.
+
 ## [0.15.4] - 2026-10-07
 
 ### Fixed

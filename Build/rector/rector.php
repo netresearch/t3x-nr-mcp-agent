@@ -10,6 +10,7 @@ declare(strict_types=1);
 use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
+use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
 use Ssch\TYPO3Rector\Set\Typo3LevelSetList;
 
 $configure = require_once __DIR__ . '/../../.Build/vendor/netresearch/typo3-ci-workflows/config/rector/rector.php';
@@ -33,5 +34,12 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         ],
         // Verbose instanceof checks not preferred over null checks
         FlipTypeControlToUseExclusiveTypeRector::class,
+        // nr-llm's ApprovalPreviewHeadings exists from 0.40 on; the recogniser
+        // names it as a string behind class_exists() so that nr-llm 0.37 to
+        // 0.39 stay supported. Rector proposes ::class whenever 0.40 or later
+        // is installed.
+        StringClassNameToClassConstantRector::class => [
+            __DIR__ . '/../../Classes/Service/NrLlmPreviewHeadingRecogniser.php',
+        ],
     ]);
 };
