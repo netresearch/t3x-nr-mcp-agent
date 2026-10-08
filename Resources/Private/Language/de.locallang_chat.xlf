@@ -515,6 +515,10 @@
                 <source>This language does not exist on the page's site or you may not edit it, so no conversation was started.</source>
                 <target>Diese Sprache gibt es auf der Website der Seite nicht oder du darfst sie nicht bearbeiten, deshalb wurde keine Unterhaltung gestartet.</target>
             </trans-unit>
+            <trans-unit id="error.skillSecondApprover" resname="error.skillSecondApprover">
+                <source>This chat's AI configuration needs a second person to approve every change, so a skill cannot start here.</source>
+                <target>Die KI-Konfiguration dieses Chats verlangt für jede Änderung die Freigabe durch eine zweite Person, deshalb kann hier kein Skill starten.</target>
+            </trans-unit>
             <trans-unit id="error.skillUnknown" resname="error.skillUnknown">
                 <source>This skill is not available in the chat.</source>
                 <target>Dieser Skill ist im Chat nicht verfügbar.</target>

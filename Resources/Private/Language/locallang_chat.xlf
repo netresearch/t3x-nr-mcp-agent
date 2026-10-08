@@ -391,6 +391,9 @@
             <trans-unit id="error.languageNotAccessible" resname="error.languageNotAccessible">
                 <source>This language does not exist on the page's site or you may not edit it, so no conversation was started.</source>
             </trans-unit>
+            <trans-unit id="error.skillSecondApprover" resname="error.skillSecondApprover">
+                <source>This chat's AI configuration needs a second person to approve every change, so a skill cannot start here.</source>
+            </trans-unit>
             <trans-unit id="error.skillUnknown" resname="error.skillUnknown">
                 <source>This skill is not available in the chat.</source>
             </trans-unit>

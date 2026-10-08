@@ -96,6 +96,18 @@ final class NrLlmSkillCatalogueTest extends TestCase
         self::assertSame('SEO einer Seite', $catalogue->find('seo-page-tour')['name'] ?? null);
     }
 
+    /** Four-eyes is read from the chat Task's own configuration. */
+    #[Test]
+    public function aConfigurationWithASecondApproverIsReported(): void
+    {
+        $task = self::task();
+        self::assertFalse($this->catalogue($task)->requiresSecondApprover());
+
+        $task->getConfiguration()?->setRequireSecondApprover(true);
+        self::assertTrue($this->catalogue($task)->requiresSecondApprover());
+        self::assertFalse($this->catalogue(null)->requiresSecondApprover());
+    }
+
     #[Test]
     public function withoutATaskThereIsNoCatalogue(): void
     {

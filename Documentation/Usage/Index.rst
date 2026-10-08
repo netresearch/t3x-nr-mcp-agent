@@ -143,6 +143,11 @@ chat. Pick one with the arrow keys and Enter, or with the mouse; nothing is
 sent. The conversation's skill is shown above the input, and the ``×``
 beside it removes it. Every later answer in the conversation uses it.
 
+When the chat's AI configuration needs a second person to approve every
+change, no skill can be started, and the chat says so: a guided process
+is decided on the chat's own approval card, where you cannot release
+your own change.
+
 Instructions for a conversation
 -------------------------------
 
