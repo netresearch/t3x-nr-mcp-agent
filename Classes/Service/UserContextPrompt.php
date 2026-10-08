@@ -103,6 +103,12 @@ readonly class UserContextPrompt
                 $context['pageId'],
                 json_encode($page['title'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             );
+
+            // The language version of the page the conversation is about
+            // (ADR-019), when it is known and the user may edit it.
+            if ($context['languageId'] >= 0 && $user->checkLanguageAccess($context['languageId'])) {
+                $lines[] = sprintf('- Language of the selected page: sys_language_uid %d', $context['languageId']);
+            }
         }
 
         if ($lines === []) {
