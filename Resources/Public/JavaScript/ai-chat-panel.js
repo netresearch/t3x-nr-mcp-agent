@@ -2186,7 +2186,7 @@ export class AiChatPanel extends LitElement {
      * preview is introduced as such, because its lines carry the reason.
      */
     _renderApprovalPreview(call) {
-        if (!call.previewLines || !call.previewLines.length) {
+        if (!call.previewLines?.length) {
             return nothing;
         }
 

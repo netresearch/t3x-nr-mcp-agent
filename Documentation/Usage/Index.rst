@@ -58,7 +58,8 @@ What the chat tells you besides the answer
 *   **This step is still waiting for a decision.** A message such as
     "weiter" or "habe alles freigegeben" while an approval card is on
     screen does not start a new run and does not approve anything:
-    decide on the card (without a card: in AI Tasks). If the
+    decide on the card. Without a card, the step is decided in AI Tasks;
+    if you cannot open AI Tasks, ask someone who may approve there. If the
     step was already decided in AI Tasks, the chat says so and names
     the records the run wrote.
 
