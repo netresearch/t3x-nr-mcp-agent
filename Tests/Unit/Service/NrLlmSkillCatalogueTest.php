@@ -27,9 +27,12 @@ use RuntimeException;
 #[CoversClass(NrLlmSkillCatalogue::class)]
 final class NrLlmSkillCatalogueTest extends TestCase
 {
-    private static function skill(string $identifier, string $name = '', bool $enabled = true): Skill
+    private static function skill(string $identifier, string $name = '', bool $enabled = true, int $uid = 0): Skill
     {
         $skill = new Skill();
+        if ($uid > 0) {
+            $skill->_setProperty('uid', $uid);
+        }
         $skill->setIdentifier($identifier);
         $skill->setName($name);
         $skill->setDescription('about ' . $identifier);
@@ -51,7 +54,7 @@ final class NrLlmSkillCatalogueTest extends TestCase
     private static function task(): Task
     {
         $configuration = new LlmConfiguration();
-        $configuration->addSkill(self::skill('seo-page-tour', 'SEO einer Seite'));
+        $configuration->addSkill(self::skill('seo-page-tour', 'SEO einer Seite', uid: 5));
         $configuration->addSkill(self::skill('switched-off', 'Aus', false));
         $task = new Task();
         $task->setConfiguration($configuration);
@@ -67,8 +70,8 @@ final class NrLlmSkillCatalogueTest extends TestCase
     {
         self::assertSame(
             [
-                ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour'],
-                ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour'],
+                ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour', 'uid' => 5],
+                ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour', 'uid' => 0],
             ],
             $this->catalogue(self::task())->catalogue(),
         );

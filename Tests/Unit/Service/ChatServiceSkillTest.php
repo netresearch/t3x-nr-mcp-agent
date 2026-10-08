@@ -34,6 +34,8 @@ use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use Netresearch\NrMcpAgent\Service\SkillInvocation;
+use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -49,7 +51,7 @@ final class ChatServiceSkillTest extends TestCase
 {
     private ?AgentRunRequest $request = null;
 
-    private function service(?SkillCatalogueInterface $skills): ChatService
+    private function service(?SkillCatalogueInterface $skills, ?SkillInvocationInterface $invocation = null): ChatService
     {
         $runtime = $this->createMock(AgentRuntimeInterface::class);
         $runtime->method('run')->willReturnCallback(function (AgentRunRequest $request): AgentRunResult {
@@ -84,14 +86,15 @@ final class ChatServiceSkillTest extends TestCase
             $this->createMock(UserContextPrompt::class),
             $this->createMock(RunActivityRecorder::class),
             skills: $skills,
+            skillInvocation: $invocation,
         );
     }
 
-    private static function conversation(string $skill): Conversation
+    private static function conversation(string $skill, int $skillUid = 0): Conversation
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
-        $conversation->setSkillIdentifier($skill);
+        $conversation->setSkillIdentifier($skill, $skillUid);
         $conversation->appendMessage(MessageRole::User, 'Los geht es');
 
         return $conversation;
@@ -119,6 +122,48 @@ final class ChatServiceSkillTest extends TestCase
 
         self::assertNotNull($this->request);
         self::assertNull($this->request->augmentation);
+    }
+
+    /**
+     * nr-llm ADR-214: a process skill starts as an invocation with the
+     * record it is about — the conversation's page — not as a forced skill.
+     */
+    #[Test]
+    public function anInvocationCarriesTheSkillAndThePage(): void
+    {
+        $invoked = null;
+        $invocation = $this->createMock(SkillInvocationInterface::class);
+        $invocation->expects(self::once())->method('withInvocation')->willReturnCallback(
+            static function (AgentRunRequest $request, SkillInvocation $given) use (&$invoked): AgentRunRequest {
+                $invoked = $given;
+
+                return $request;
+            },
+        );
+        $skills = $this->createMock(SkillCatalogueInterface::class);
+        $skills->expects(self::never())->method('augmentationFor');
+        $conversation = self::conversation('seo-page-tour', 42);
+        $conversation->setViewContext(10, 'web_layout');
+
+        $this->service($skills, $invocation)->processConversation($conversation);
+
+        self::assertEquals(new SkillInvocation('seo-page-tour', 42, 'pages', 10), $invoked);
+        self::assertNull($this->request?->augmentation, 'not also a forced skill');
+    }
+
+    /** Until nr-llm can take an invocation, the skill goes as a forced skill. */
+    #[Test]
+    public function withoutAnInvocationTheSkillIsForced(): void
+    {
+        $augmentation = new RunAugmentation(forcedSkills: [new Skill()]);
+        $invocation = $this->createMock(SkillInvocationInterface::class);
+        $invocation->method('withInvocation')->willReturn(null);
+        $skills = $this->createMock(SkillCatalogueInterface::class);
+        $skills->method('augmentationFor')->willReturn($augmentation);
+
+        $this->service($skills, $invocation)->processConversation(self::conversation('seo-page-tour'));
+
+        self::assertSame($augmentation, $this->request?->augmentation);
     }
 
     #[Test]
