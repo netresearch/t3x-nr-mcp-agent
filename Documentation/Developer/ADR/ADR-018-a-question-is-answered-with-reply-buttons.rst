@@ -140,11 +140,13 @@ Consequences
 *   For a write in a process run, the approval card's *Abbrechen* is
     replaced by *Andere Variante* and *Überspringen*; new column
     ``approval_deny_reason``.
-*   nr-llm's ``cancel()`` settles a run in any non-terminal state. The chat
-    reads the status first and cancels only a waiting run; a decision taken
-    in the moment between that read and the cancel would be cancelled while
-    it runs. A cancel that applies only to a waiting run is an open question
-    for nr-llm.
+*   The cancel is guarded on the run still waiting through
+    ``WaitingRunCancellerInterface``, the seam for nr-llm's
+    ``cancelIfWaiting()``. nr-llm does not have it yet and nothing implements
+    the interface; until then the chat reads the status and calls
+    ``cancel()``, which settles a run in any non-terminal state, so a
+    decision taken between that read and the cancel would be cancelled while
+    it runs. The claim comes first either way.
 *   New status ``awaiting_input``, new column ``pending_input``, new route
     ``ai_chat_conversation_input`` (``POST /ai-chat/conversations/input``).
     Run the database analyzer after upgrading.
