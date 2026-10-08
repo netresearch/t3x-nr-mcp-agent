@@ -18,7 +18,7 @@ use Throwable;
  * Injected rather than looked up in the container: nr-llm registers
  * ToolAvailabilityServiceInterface as a private service, which a container
  * lookup does not find. `editorActions()` exists in every nr-llm version this
- * extension supports (0.37 to 0.39).
+ * extension supports (0.37 to 0.40).
  *
  * `editorActions()` runs each tool's own declaration code. A label is only
  * presentation, so any failure there costs the card its action names and
