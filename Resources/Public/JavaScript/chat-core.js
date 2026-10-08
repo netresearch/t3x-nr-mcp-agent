@@ -294,6 +294,8 @@ export class ChatCoreController {
         this.pendingFile = null;
         this.approvalDecisionTaken = null;
         this.guided = {progress: null, highlight: null};
+        // Coming back to a conversation highlights its element again.
+        this._sentHighlight = '';
         this.systemPrompt = '';
         this.systemPromptOpen = false;
         this.editingIndex = -1;

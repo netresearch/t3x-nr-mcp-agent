@@ -119,4 +119,13 @@ Consequences
     (Jest); a browser run against a backend is still needed to prove it end to
     end.
 -   Two new tables. Run-state rows live from a tool call until the run
-    returns; a run that never returns leaves its row behind.
+    returns to the chat; ``ai-chat:cleanup`` removes rows no chat took over
+    after a day.
+-   **Open question for nr-llm:** nr-llm offers every enabled tool to every
+    run that does not narrow its tool list (``ToolCallPolicy::explain()``
+    falls back to the enabled set). Runs started outside the chat — AI Tasks,
+    other extensions — are therefore offered the five tools as well. Their
+    run state is never taken over; an open point they record is an ordinary
+    open point of the page. Restricting the tools to chat runs needs a way
+    for a tool to learn the run's caller, or a per-run tool list, from
+    nr-llm.

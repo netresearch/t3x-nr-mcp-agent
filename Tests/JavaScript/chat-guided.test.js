@@ -217,4 +217,25 @@ describe('the chat core keeps the guided state of the poll', () => {
 
         expect(chat.guided).toEqual(guided);
     });
+
+    test('coming back to a conversation highlights its element again', async () => {
+        const {ChatCoreController} = await import('../../Resources/Public/JavaScript/chat-core.js');
+        const host = {addController: () => {}, requestUpdate: () => {}, onScrollToBottom: () => {}, onFocusInput: () => {}};
+        const chat = new ChatCoreController(host);
+        const highlight = {table: 'tt_content', uid: 100};
+        chat._api = {getMessages: jest.fn().mockImplementation((uid) => Promise.resolve({
+            messages: [], totalCount: 0, status: 'idle', guided: {progress: null, highlight: uid === 1 ? highlight : null},
+        }))};
+        chat.startPollingIfNeeded = () => {};
+        const win = {location: {origin: ORIGIN}, frames: {list_frame: {postMessage: jest.fn()}}};
+
+        await chat.selectConversation(1);
+        sendHighlight(chat, win);
+        await chat.selectConversation(2);
+        sendHighlight(chat, win);
+        await chat.selectConversation(1);
+        sendHighlight(chat, win);
+
+        expect(win.frames.list_frame.postMessage).toHaveBeenCalledTimes(2);
+    });
 });
