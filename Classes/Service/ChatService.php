@@ -186,6 +186,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?ApprovalDecisionFactory $decisionFactory = null,
         private readonly ?ProcessRunDetectorInterface $processRuns = null,
         private readonly ?ToolEffectResolver $toolEffects = null,
+        private readonly ?WaitingRunCancellerInterface $runCanceller = null,
     ) {}
 
     /**
@@ -468,9 +469,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      *
      * Left waiting, the tour's proposal could still be decided after the
      * tour had moved on. Called after the claim, with the conversation as it
-     * was before it: only a run that still waits is cancelled, and nr-llm's
-     * cancel is the guard — it settles only a run that has not settled. An
-     * ordinary chat keeps the abandoned run waiting, as before.
+     * was before it. The cancel is guarded on the run still waiting
+     * (WaitingRunCancellerInterface); until nr-llm has that guard, the status
+     * is read first and cancel() called. An ordinary chat keeps the abandoned
+     * run waiting, as before.
      *
      * Returns false when the run is being carried on, or the cancel lost to
      * a decision taken meanwhile; the caller puts the row back.
@@ -483,18 +485,39 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $actor = $this->resolveActor($before->getBeUser());
-        $run = $this->agentRunRepository->findByUuid($runUuid);
-        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
-            // Gone or not readable: nothing the conversation could wait for.
+        $cancelled = $this->runCanceller instanceof WaitingRunCancellerInterface
+            ? $this->runCanceller->cancelIfWaiting($actor, $runUuid)
+            : $this->cancelIfWaitingByStatus($actor, $runUuid);
+        if ($cancelled) {
             return true;
         }
 
-        $status = AgentRunStatus::tryFrom($run->status);
-        if ($status === AgentRunStatus::WAITING_FOR_APPROVAL || $status === AgentRunStatus::WAITING_FOR_INPUT) {
-            return $this->agentRuntime->cancel($actor, $runUuid);
+        // Not cancelled: what the run is doing instead decides. Gone, not
+        // readable or settled is nothing the conversation could wait for.
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        $status = $run instanceof AgentRun && $actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
+            ? AgentRunStatus::tryFrom($run->status)
+            : null;
+
+        return $status === null || $status->isTerminal();
+    }
+
+    /**
+     * The fallback for nr-llm's guarded cancel: read the status, cancel a run
+     * that waits. A decision taken between the read and the cancel would be
+     * cancelled while it runs; that gap is what the guarded cancel closes.
+     */
+    private function cancelIfWaitingByStatus(AiActorContext $actor, string $runUuid): bool
+    {
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            return false;
         }
 
-        return $status !== AgentRunStatus::RUNNING && $status !== AgentRunStatus::QUEUED;
+        $status = AgentRunStatus::tryFrom($run->status);
+
+        return ($status === AgentRunStatus::WAITING_FOR_APPROVAL || $status === AgentRunStatus::WAITING_FOR_INPUT)
+            && $this->agentRuntime->cancel($actor, $runUuid);
     }
 
     /**

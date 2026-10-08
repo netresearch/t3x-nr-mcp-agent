@@ -35,6 +35,7 @@ use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\ProcessRunDetectorInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use Netresearch\NrMcpAgent\Service\WaitingRunCancellerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -65,6 +66,7 @@ final class ChatServiceTourRunTest extends TestCase
         ?AgentRunStatus $status,
         ?ProcessRunDetectorInterface $processRuns = null,
         ?ToolEffectResolver $toolEffects = null,
+        ?WaitingRunCancellerInterface $runCanceller = null,
     ): ChatService {
         $this->runtime = $this->createMock(AgentRuntimeInterface::class);
 
@@ -92,6 +94,7 @@ final class ChatServiceTourRunTest extends TestCase
             $this->createMock(RunActivityRecorder::class),
             processRuns: $processRuns,
             toolEffects: $toolEffects,
+            runCanceller: $runCanceller,
         );
     }
 
@@ -175,6 +178,31 @@ final class ChatServiceTourRunTest extends TestCase
         $this->runtime->expects(self::never())->method('cancel');
 
         self::assertTrue($service->releasePendingRun($this->parked()));
+    }
+
+    /**
+     * With nr-llm's guarded cancel the chat does not read and cancel itself:
+     * the guard decides, and a run it did not cancel is judged by its state.
+     *
+     * @return iterable<string, array{bool, AgentRunStatus, bool}>
+     */
+    public static function guardedCancels(): iterable
+    {
+        yield 'cancelled' => [true, AgentRunStatus::CANCELLED, true];
+        yield 'not waiting, being carried on' => [false, AgentRunStatus::RUNNING, false];
+        yield 'not waiting, decided and finished' => [false, AgentRunStatus::COMPLETED, true];
+    }
+
+    #[Test]
+    #[DataProvider('guardedCancels')]
+    public function theGuardedCancelDecidesWhenNrLlmHasIt(bool $cancelled, AgentRunStatus $statusAfter, bool $released): void
+    {
+        $canceller = $this->createMock(WaitingRunCancellerInterface::class);
+        $canceller->expects(self::once())->method('cancelIfWaiting')->with(self::anything(), self::RUN)->willReturn($cancelled);
+        $service = $this->service($statusAfter, processRuns: $this->processRun(true), runCanceller: $canceller);
+        $this->runtime->expects(self::never())->method('cancel');
+
+        self::assertSame($released, $service->releasePendingRun($this->parked()));
     }
 
     /** An ordinary chat leaves the run waiting in the inbox, as before. */
