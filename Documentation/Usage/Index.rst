@@ -304,6 +304,8 @@ Maximized, the panel lists every conversation in the sidebar instead.
 
 Panel height and state are stored in ``localStorage`` per user.
 
+..  _usage-dashboard:
+
 Dashboard widget
 ================
 
@@ -314,6 +316,50 @@ starts one there, and **Open the chat module** goes to the full-page view.
 For a user the chat is not available to, the widget says so instead of
 listing anything. Which groups may place the widget at all is set per
 backend group under *Dashboard widgets*, as for every other widget.
+
+AI assistant dashboard
+----------------------
+
+Editors can put together a dashboard for working with the assistant from
+the widgets in the *AI Assistant* group (*Add widget > AI Assistant*), or
+start from the **AI Assistant** preset when creating a dashboard, which
+holds all of them and the **AI Chat** widget.
+
+**Improve a page**
+    Choose a page, then press the button of a guided tour (by default
+    *Optimise SEO* and *Improve content*): the chat module opens and the
+    assistant starts that tour on that page, in its default language. The
+    page choice lists *Recommended* pages first, each with its reason, then
+    the most recently changed pages. Recommended are, for every tour, the
+    pages with open points of that tour, and for the SEO tour also the
+    pages without a meta description, with a title shorter than 30
+    characters, or without a social-media image (the SEO title and the
+    social-media image are checked only with EXT:seo installed) — at most
+    five, worked out from the stored pages, not by the assistant. Every page
+    offered is one whose content the editor may edit: in their web mounts,
+    with the *edit content* permission, not locked for editing, and in a
+    language the editor may edit. Folders, links, shortcuts, spacers and
+    translations are left out.
+
+**Frequent tasks**
+    Shortcuts into the chat, set by :confval:`dashboardQuickTasks` (none by
+    default). A task that works on one page asks for the page first, from
+    the same pages as *Improve a page*; any other task is a link.
+
+**Recommended for your website**
+    Improvement points that guided tours found and left open, each with a
+    link that starts the matching tour on its page, in the language the
+    point is about. A point is shown only when the editor may access its
+    page and edit that language. Until open points are recorded,
+    the widget says how they come about.
+
+Only tours and tasks the chat can actually start are offered: a configured
+skill that does not exist (yet), is not attached to the chat, or cannot run
+on this installation is left out, and a widget left empty says that nothing
+is set up yet. For a user the chat is not available to, each widget says so
+instead.
+Offering a page is not permission to change it: what the assistant does on
+the page is checked again when it does it.
 
 Error handling
 ==============

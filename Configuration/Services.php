@@ -8,12 +8,15 @@
 declare(strict_types=1);
 
 use Netresearch\NrMcpAgent\Dashboard\AiChatWidget;
+use Netresearch\NrMcpAgent\Dashboard\ImprovePageWidget;
+use Netresearch\NrMcpAgent\Dashboard\QuickTasksWidget;
+use Netresearch\NrMcpAgent\Dashboard\RecommendationsWidget;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Dashboard\WidgetRegistry;
 
 /**
- * The dashboard widget is registered only when EXT:dashboard is installed:
- * its class implements the dashboard's interfaces, which do not exist without
+ * The dashboard widgets are registered only when EXT:dashboard is installed:
+ * their classes implement the dashboard's interfaces, which do not exist without
  * it (Services.yaml excludes Classes/Dashboard/ for that reason). The
  * dashboard's own compiler pass adds the widget configuration argument.
  */
@@ -39,4 +42,28 @@ return static function (ContainerConfigurator $configurator): void {
             'height' => 'medium',
             'width' => 'small',
         ]);
+
+    // The AI assistant widgets (group and preset "AI Assistant",
+    // Configuration/Backend/DashboardWidgetGroups.php and DashboardPresets.php).
+    $ll = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:';
+    $assistantWidgets = [
+        'nrMcpAgentImprovePage' => [ImprovePageWidget::class, 'improve', 'medium', 'small'],
+        'nrMcpAgentQuickTasks' => [QuickTasksWidget::class, 'tasks', 'medium', 'small'],
+        'nrMcpAgentRecommendations' => [RecommendationsWidget::class, 'recommendations', 'medium', 'medium'],
+    ];
+    foreach ($assistantWidgets as $identifier => [$class, $labelPrefix, $height, $width]) {
+        $configurator->services()
+            ->set('dashboard.widget.' . $identifier)
+            ->class($class)
+            ->autowire()
+            ->tag('dashboard.widget', [
+                'identifier' => $identifier,
+                'groupNames' => 'nrMcpAgent',
+                'title' => $ll . $labelPrefix . '.title',
+                'description' => $ll . $labelPrefix . '.description',
+                'iconIdentifier' => 'module-nr-mcp-agent',
+                'height' => $height,
+                'width' => $width,
+            ]);
+    }
 };

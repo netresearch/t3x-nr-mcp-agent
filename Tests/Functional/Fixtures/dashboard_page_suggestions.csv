@@ -1,0 +1,23 @@
+"be_groups"
+,"uid","pid","title","allowed_languages","tstamp","crdate"
+,1,0,"Redaktion","",1710000000,1710000000
+"be_users"
+,"uid","pid","username","password","admin","db_mountpoints","options","usergroup","tstamp","crdate"
+,3,0,"mounted-editor","$2y$12$xxx",0,"20",3,"1",1710000000,1710000000
+"pages"
+,"uid","pid","title","seo_title","description","og_image","doktype","sys_language_uid","l10n_parent","perms_userid","perms_groupid","perms_user","perms_group","perms_everybody","deleted","hidden","editlock","tstamp"
+,20,0,"Bereich A mit einem ausreichend langen Titel","","Vorhanden",1,1,0,0,3,0,31,0,0,0,0,0,100
+,41,20,"Ohne Meta Description, sonst vollstaendig","","",1,1,0,0,3,0,31,0,0,0,0,0,410
+,42,20,"Kurzer Titel","","Vorhanden",1,1,0,0,3,0,31,0,0,0,0,0,420
+,43,20,"Ohne Social-Media-Bild, sonst vollstaendig","","Vorhanden",0,1,0,0,3,0,31,0,0,0,0,0,430
+,44,20,"Vollstaendige Seite mit langem Seitentitel","","Vorhanden",1,1,0,0,3,0,31,0,0,0,0,0,440
+,45,20,"Langer Seitentitel, aber kurzer SEO-Titel","Kurzer SEO-Titel","Vorhanden",1,1,0,0,3,0,31,0,0,0,0,0,450
+,46,20,"Kurz","Ein ausreichend langer SEO-Titel fuer Suchmaschinen","Vorhanden",1,1,0,0,3,0,31,0,0,0,0,0,460
+,47,20,"Nur ansehen, ohne Meta Description dazu","","",1,1,0,0,3,0,1,0,0,0,0,0,470
+,48,20,"Gesperrt fuer Bearbeitung, ohne Meta Description","","",1,1,0,0,3,0,31,0,0,0,0,1,480
+,49,20,"Zweite Seite ohne Meta Description, lang","","",1,1,0,0,3,0,31,0,0,0,0,0,490
+,50,20,"Dritte Seite ohne Meta Description, lang","","",1,1,0,0,3,0,31,0,0,0,0,0,500
+,51,20,"Ordner ohne Meta Description, sehr langer Titel","","",1,254,0,0,3,0,31,0,0,0,0,0,510
+,52,20,"Uebersetzung ohne Meta Description, langer Titel","","",1,1,1,44,3,0,31,0,0,0,0,0,520
+,53,20,"Seitentitel mit dreißig Zeichn","","Vorhanden",1,1,0,0,3,0,31,0,0,0,0,0,300
+,54,20,"Seitentitel, neunundzwanzig ß","","Vorhanden",1,1,0,0,3,0,31,0,0,0,0,0,290

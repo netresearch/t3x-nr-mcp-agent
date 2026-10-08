@@ -1,0 +1,30 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<f:layout name="Widget/Widget" />
+<f:section name="main">
+    <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
+    <f:if condition="{available}">
+        <f:then>
+            <f:if condition="{points}">
+                <f:then>
+                    <ul class="list-unstyled nr-mcp-agent-recommendations">
+                        <f:for each="{points}" as="point">
+                            <li class="mb-3">
+                                <p class="mb-1">{point.summary}</p>
+                                <a href="{point.uri}">{f:translate(key: '{ll}recommendations.start', arguments: {0: point.skillTitle, 1: point.pageTitle})}</a>
+                            </li>
+                        </f:for>
+                    </ul>
+                </f:then>
+                <f:else>
+                    <p>{f:translate(key: '{ll}recommendations.empty')}</p>
+                </f:else>
+            </f:if>
+        </f:then>
+        <f:else>
+            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+        </f:else>
+    </f:if>
+</f:section>
