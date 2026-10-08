@@ -241,6 +241,7 @@ export class ChatApp extends LitElement {
         .approval-technical p { margin: 4px 0 0; }
         .approval-warning { color: var(--nr-chat-status-warning); margin-left: 6px; }
         .approval-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+        .status-notice:focus-visible { outline: 2px solid var(--nr-chat-focus-ring); outline-offset: 2px; }
         .approval-run-link { display: inline-block; margin-top: 6px; font-size: 12px; }
         .approval-stale { margin: 4px 0; }
         .approval-card pre { margin: 4px 0 0; max-height: 12em; overflow: auto; }
@@ -782,7 +783,7 @@ export class ChatApp extends LitElement {
         if (this.chat.approvalDecisionTaken) {
             const granted = this.chat.approvalDecisionTaken === 'approved';
             return html`
-                <div class="message system status-notice" tabindex="-1" role="status"
+                <div class="message system status-notice" tabindex="-1"
                     style="color:${granted ? 'var(--nr-chat-status-success, #2e7d32)' : 'var(--nr-chat-status-info, #0277bd)'};">
                     ${granted ? lll('chat.approvalGranted') : lll('chat.approvalDenied')}
                 </div>
@@ -962,7 +963,7 @@ export class ChatApp extends LitElement {
                     <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
                         @click=${() => this._decide(false)}>${lll('chat.approvalCancel')}</button>
                 </div>
-                ${this._lacksPreview(pending) ? this._renderRunDetailsLink() : nothing}
+                ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
             </div>
         `;
     }

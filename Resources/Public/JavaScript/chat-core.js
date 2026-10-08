@@ -125,6 +125,9 @@ export class ChatCoreController {
      */
     mayDecideApproval = true;
 
+    /** The reason on screen sends the reader to the run, so the card links to it. */
+    errorPointsToRun = false;
+
     /**
      * Where an administrator fixes the failure on screen, and the link text;
      * both empty for anyone else and for an ordinary failure (ADR-017).
@@ -385,6 +388,9 @@ export class ChatCoreController {
     _setApprovalRight(data) {
         if (typeof data.mayDecideApproval === 'boolean') {
             this.mayDecideApproval = data.mayDecideApproval;
+        }
+        if (typeof data.errorPointsToRun === 'boolean') {
+            this.errorPointsToRun = data.errorPointsToRun;
         }
     }
 

@@ -25,14 +25,19 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  *   line ("Technical details: …", nr-llm 0.39 and later), taken out of
  *   `previewLines` so the card can put them behind "Show technical details".
  *
- * The preview names the change first: nr-llm's previews (and those of its
- * companion extensions) open with a line such as "Seite löschen" (editorial
- * rule 16). That line is per call and more specific than the tool's editor
- * action label, so whenever a preview is present it becomes `actionLabel`,
- * it is taken out of `previewLines` so the card does not repeat it, and
- * `actionLabelFromPreview` says so. The editor action label is the fallback
- * for a failed, withheld or empty preview, whose lines are the reason or
- * nothing; the technical line never names the change.
+ * What names the change, in this order:
+ *
+ * 1. The preview's first line, but only when it is positively one of the
+ *    heading labels nr-llm's previews open with ("Seite löschen", editorial
+ *    rule 16), resolved in the reader's language. It is per call and more
+ *    specific than the tool's label. It becomes `actionLabel`, leaves
+ *    `previewLines`, and `actionLabelFromPreview` says so. A first line
+ *    that is a summary ("Page [10002] "Home" — 1 field(s):", nr-llm up to
+ *    0.39) or a refusal ("Page not found or not permitted.") arrives with
+ *    the preview not marked failed, and must never become the approve
+ *    button, so position alone never decides.
+ * 2. The tool's editor action label.
+ * 3. Nothing ('') — the card's generic wording.
  *
  * Display only. The decision the card sends carries the run's turn digest and
  * nothing of this payload, and the preview lines nr-llm stored with the run —
@@ -52,6 +57,7 @@ final readonly class ApprovalCallPresenter
 
     public function __construct(
         private ?EditorActionLabelsInterface $editorActionLabels = null,
+        private ?PreviewHeadingLabelsInterface $previewHeadingLabels = null,
     ) {}
 
     /**
@@ -73,6 +79,10 @@ final readonly class ApprovalCallPresenter
     {
         $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
         $technicalLabel  = $this->resolve(self::TECHNICAL_DETAILS_LABEL, $language);
+        $headings        = array_map(
+            fn(string $reference): string => $this->resolve($reference, $language),
+            $this->previewHeadingLabels?->labelReferences() ?? [],
+        );
 
         $presented = [];
         foreach ($calls as $call) {
@@ -85,7 +95,7 @@ final readonly class ApprovalCallPresenter
                 $this->resolve($labelReferences[$call->name] ?? '', $language),
                 $lines,
                 $call->previewFailed,
-                $technicalLabel,
+                $headings,
             );
 
             $presented[] = [
@@ -109,21 +119,44 @@ final readonly class ApprovalCallPresenter
     }
 
     /**
-     * The preview's first line, which names the change, taken out of the
-     * lines; the editor action label when there is no usable preview.
+     * The preview's first line when it is a heading, taken out of the lines;
+     * otherwise the editor action label, which may be ''.
      *
      * @param list<string> $lines
+     * @param list<string> $headings heading labels in the reader's language
      *
      * @return array{string, list<string>, bool} the label, the remaining lines, whether the label came from them
      */
-    private function nameTheChange(string $editorActionLabel, array $lines, bool $previewFailed, string $technicalLabel): array
+    private function nameTheChange(string $editorActionLabel, array $lines, bool $previewFailed, array $headings): array
     {
         $first = $lines[0] ?? '';
-        if ($previewFailed || $first === '' || $this->technicalDetailsOf($first, $technicalLabel) !== '') {
+        if ($previewFailed || !$this->isHeading($first, $headings)) {
             return [$editorActionLabel, $lines, false];
         }
 
         return [$first, array_slice($lines, 1), true];
+    }
+
+    /**
+     * Whether `$line` is one of the heading labels: equal to it, or, for a
+     * label with `%s` / `%d` placeholders, matching it with any text there.
+     *
+     * @param list<string> $headings
+     */
+    private function isHeading(string $line, array $headings): bool
+    {
+        if ($line === '') {
+            return false;
+        }
+
+        foreach ($headings as $heading) {
+            $pattern = '/^' . str_replace(['%s', '%d'], ['.+', '\\d+'], preg_quote($heading, '/')) . '$/u';
+            if ($heading === $line || preg_match($pattern, $line) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

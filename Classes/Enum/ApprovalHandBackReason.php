@@ -60,6 +60,15 @@ enum ApprovalHandBackReason: string
         };
     }
 
+    /**
+     * Whether the sentence sends the reader to the run in AI Tasks, where the
+     * answer or the run's state now is; the card then offers the link.
+     */
+    public function pointsToRun(): bool
+    {
+        return $this === self::AlreadyResuming || $this === self::NotAwaitingApproval;
+    }
+
     /** The key of the reader-facing sentence in locallang_chat.xlf. */
     public function labelKey(): string
     {

@@ -261,6 +261,9 @@ final readonly class ChatApiController
             // notice cannot tell "decide below" from "someone else decides",
             // and a link into a module the reader cannot open is no next step.
             'mayDecideApproval' => $this->mayDecideApprovals(),
+            // A hand-back whose sentence points to the run in AI Tasks: the
+            // card offers the link even though it has a preview.
+            'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
             'systemPrompt' => $conversation->getSystemPrompt(),
             'activity' => $conversation->getActivity(),
         ]);

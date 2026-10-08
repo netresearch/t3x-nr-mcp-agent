@@ -225,6 +225,9 @@ final class ChatApiControllerFeedbackTest extends TestCase
 
         self::assertSame($reason->labelKey(), $data['errorMessage']);
         self::assertSame('', $data['errorLink']);
+        // Only the two sentences that send the reader to AI Tasks get the link.
+        $pointsToRun = in_array($reason, [ApprovalHandBackReason::AlreadyResuming, ApprovalHandBackReason::NotAwaitingApproval], true);
+        self::assertSame($pointsToRun, $data['errorPointsToRun']);
     }
 
     #[Test]

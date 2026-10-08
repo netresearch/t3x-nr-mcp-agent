@@ -476,6 +476,38 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         el.chat.stopPolling();
     });
 
+    /**
+     * A hand-back that sends the reader to the run in AI Tasks ("already
+     * resuming", "no longer waiting") must offer the link it points to, even
+     * on a card with a preview.
+     */
+    test('a reason that points to the run brings the run link onto the card', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        expect(el.shadowRoot.querySelector('.approval-card a')).toBeNull();
+
+        el.chat.errorPointsToRun = true;
+        el.chat.errorMessage = 'error.handBack.alreadyResuming';
+        el.requestUpdate();
+        await el.updateComplete;
+
+        const link = el.shadowRoot.querySelector('.approval-card a.approval-run-link');
+        expect(link).not.toBeNull();
+        expect(link.textContent).toContain('chat.approvalOpen');
+    });
+
+    /** Focus announces the decision's answer; a live region on top would say it twice. */
+    test('the decision notice is not also a live region', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat.approvalDecisionTaken = 'approved';
+        el.requestUpdate();
+        await el.updateComplete;
+
+        const notice = el.shadowRoot.querySelector('.status-notice');
+        expect(notice.textContent).toContain('chat.approvalGranted');
+        expect(notice.hasAttribute('role')).toBe(false);
+        expect(notice.getAttribute('tabindex')).toBe('-1');
+    });
+
     /** The card title is a heading for screen readers, without looking like one. */
     test('the card title is announced as a heading', async () => {
         const el = await renderPending(modulePath, tag, open);
