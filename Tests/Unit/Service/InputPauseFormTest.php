@@ -29,22 +29,23 @@ use PHPUnit\Framework\TestCase;
 final class InputPauseFormTest extends TestCase
 {
     /**
-     * The shape the concept describes: one proposal, three fixed answers with
-     * labels, and the user's own words as a fourth.
+     * A choice that writes nothing: which point of a tour to start with,
+     * three labelled answers, and the user's own words as a fourth. A
+     * proposed change is never asked this way — it is an approval (ADR-018).
      *
      * @return array<string, mixed>
      */
-    private static function proposalSchema(): array
+    private static function choiceSchema(): array
     {
         return [
             'type' => 'object',
-            'title' => 'Soll die neue Meta Description übernommen werden?',
+            'title' => 'Mit welchem Punkt soll ich beginnen?',
             'properties' => [
-                'decision' => [
+                'start' => [
                     'oneOf' => [
-                        ['const' => 'accept', 'title' => 'Übernehmen'],
-                        ['const' => 'variant', 'title' => 'Andere Variante'],
-                        ['const' => 'skip', 'title' => 'Überspringen'],
+                        ['const' => 'meta', 'title' => 'Meta Description'],
+                        ['const' => 'headings', 'title' => 'Überschriften'],
+                        ['const' => 'images', 'title' => 'Alternativtexte'],
                     ],
                 ],
                 'comment' => ['type' => 'string'],
@@ -55,27 +56,27 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function labelledOptionsBecomeButtonsInTheirOrder(): void
     {
-        $form = InputPauseForm::fromSchema(self::proposalSchema());
+        $form = InputPauseForm::fromSchema(self::choiceSchema());
 
         self::assertSame(InputPauseForm::KIND_CHOICE, $form->kind);
         self::assertSame(
             [
-                ['value' => 'accept', 'label' => 'Übernehmen'],
-                ['value' => 'variant', 'label' => 'Andere Variante'],
-                ['value' => 'skip', 'label' => 'Überspringen'],
+                ['value' => 'meta', 'label' => 'Meta Description'],
+                ['value' => 'headings', 'label' => 'Überschriften'],
+                ['value' => 'images', 'label' => 'Alternativtexte'],
             ],
             $form->options,
         );
-        self::assertSame('Soll die neue Meta Description übernommen werden?', $form->question);
+        self::assertSame('Mit welchem Punkt soll ich beginnen?', $form->question);
         self::assertTrue($form->toArray()['freeText']);
     }
 
     #[Test]
     public function aButtonAnswersWithItsValueAndShowsItsLabel(): void
     {
-        $submission = InputPauseForm::fromSchema(self::proposalSchema())->submission(['choice' => 'accept']);
+        $submission = InputPauseForm::fromSchema(self::choiceSchema())->submission(['choice' => 'meta']);
 
-        self::assertSame(['data' => ['decision' => 'accept'], 'display' => 'Übernehmen'], $submission);
+        self::assertSame(['data' => ['start' => 'meta'], 'display' => 'Meta Description'], $submission);
     }
 
     /**
@@ -85,7 +86,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aValueThatWasNotOfferedIsRefused(): void
     {
-        self::assertNull(InputPauseForm::fromSchema(self::proposalSchema())->submission(['choice' => 'delete everything']));
+        self::assertNull(InputPauseForm::fromSchema(self::choiceSchema())->submission(['choice' => 'delete everything']));
     }
 
     /** The same value with another JSON type is another value. */
@@ -101,15 +102,15 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function typedTextGoesIntoTheFreeTextProperty(): void
     {
-        $submission = InputPauseForm::fromSchema(self::proposalSchema())->submission(['freeText' => '  Kürzer, bitte.  ']);
+        $submission = InputPauseForm::fromSchema(self::choiceSchema())->submission(['freeText' => '  Erst die Bilder, bitte.  ']);
 
-        self::assertSame(['data' => ['comment' => 'Kürzer, bitte.'], 'display' => 'Kürzer, bitte.'], $submission);
+        self::assertSame(['data' => ['comment' => 'Erst die Bilder, bitte.'], 'display' => 'Erst die Bilder, bitte.'], $submission);
     }
 
     #[Test]
     public function emptyFreeTextIsNoAnswer(): void
     {
-        self::assertNull(InputPauseForm::fromSchema(self::proposalSchema())->submission(['freeText' => '   ']));
+        self::assertNull(InputPauseForm::fromSchema(self::choiceSchema())->submission(['freeText' => '   ']));
     }
 
     /**
@@ -119,13 +120,13 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aRequiredChoiceOffersNoFreeTextAnswer(): void
     {
-        $schema = self::proposalSchema();
-        $schema['required'] = ['decision'];
+        $schema = self::choiceSchema();
+        $schema['required'] = ['start'];
         $form = InputPauseForm::fromSchema($schema);
 
         self::assertSame(InputPauseForm::KIND_CHOICE, $form->kind);
         self::assertFalse($form->toArray()['freeText']);
-        self::assertNull($form->submission(['freeText' => 'Kürzer, bitte.']));
+        self::assertNull($form->submission(['freeText' => 'Erst die Bilder, bitte.']));
     }
 
     #[Test]
@@ -149,7 +150,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aRequiredFreeTextPropertyMakesAForm(): void
     {
-        $schema = self::proposalSchema();
+        $schema = self::choiceSchema();
         $schema['required'] = ['comment'];
 
         self::assertSame(InputPauseForm::KIND_FORM, InputPauseForm::fromSchema($schema)->kind);
@@ -198,9 +199,9 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function anUnreadablePauseOffersNothing(): void
     {
-        self::assertSame(InputPauseForm::KIND_UNSUPPORTED, (new InputPause('run', '', self::proposalSchema(), 'state-unreadable'))->form()->kind);
-        self::assertSame(InputPauseForm::KIND_UNSUPPORTED, (new InputPause('run', '', self::proposalSchema()))->form()->kind);
-        self::assertSame(InputPauseForm::KIND_CHOICE, (new InputPause('run', 'digest', self::proposalSchema()))->form()->kind);
+        self::assertSame(InputPauseForm::KIND_UNSUPPORTED, (new InputPause('run', '', self::choiceSchema(), 'state-unreadable'))->form()->kind);
+        self::assertSame(InputPauseForm::KIND_UNSUPPORTED, (new InputPause('run', '', self::choiceSchema()))->form()->kind);
+        self::assertSame(InputPauseForm::KIND_CHOICE, (new InputPause('run', 'digest', self::choiceSchema()))->form()->kind);
     }
 
     /**

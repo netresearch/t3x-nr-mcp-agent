@@ -79,9 +79,9 @@ final class ChatInputTest extends TestCase
     /** @var array<string, mixed> */
     private const SCHEMA = [
         'type' => 'object',
-        'title' => 'Soll die Meta Description übernommen werden?',
+        'title' => 'Mit welchem Punkt soll ich beginnen?',
         'properties' => [
-            'decision' => ['oneOf' => [['const' => 'accept', 'title' => 'Übernehmen'], ['const' => 'skip', 'title' => 'Überspringen']]],
+            'start' => ['oneOf' => [['const' => 'meta', 'title' => 'Meta Description'], ['const' => 'images', 'title' => 'Alternativtexte']]],
             'comment' => ['type' => 'string'],
         ],
     ];
@@ -151,7 +151,7 @@ final class ChatInputTest extends TestCase
         );
     }
 
-    private function completed(string $text = 'Die Meta Description ist gespeichert.'): AgentRunResult
+    private function completed(string $text = 'Ich beginne mit der Meta Description.'): AgentRunResult
     {
         return new AgentRunResult(
             AgentRunOutcome::COMPLETED,
@@ -179,7 +179,7 @@ final class ChatInputTest extends TestCase
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Prüfe die Seite');
-        $conversation->appendMessage(MessageRole::Assistant, 'Soll die Meta Description übernommen werden?');
+        $conversation->appendMessage(MessageRole::Assistant, 'Mit welchem Punkt soll ich beginnen?');
         $conversation->setStatus(ConversationStatus::AwaitingInput);
         $conversation->setApprovalRunUuid(self::RUN);
 
@@ -237,7 +237,7 @@ final class ChatInputTest extends TestCase
 
         $last = self::lastMessages($conversation, 1)[0];
         self::assertSame('assistant', $last['role']);
-        self::assertSame('Soll die Meta Description übernommen werden?', $last['content']);
+        self::assertSame('Mit welchem Punkt soll ich beginnen?', $last['content']);
     }
 
     #[Test]
@@ -261,16 +261,16 @@ final class ChatInputTest extends TestCase
         $conversation = $this->asking();
         $conversation->setErrorMessage('', InputHandBackReason::StaleTurn->value);
 
-        self::assertTrue($this->service()->recordInput($conversation, ['decision' => 'accept'], 'digest-abc', 'Übernehmen'));
+        self::assertTrue($this->service()->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description'));
 
         self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
         self::assertTrue($conversation->hasPendingInputSubmission());
-        self::assertSame(['decision' => 'accept'], $conversation->getPendingInputData());
+        self::assertSame(['start' => 'meta'], $conversation->getPendingInputData());
         self::assertSame('digest-abc', $conversation->getApprovalTurnDigest());
         self::assertSame(self::RUN, $conversation->getApprovalRunUuid());
         self::assertSame('', $conversation->getErrorCode(), 'the reason a refusal left belongs to the question just answered');
         $last = self::lastMessages($conversation, 1)[0];
-        self::assertSame(['user', 'Übernehmen'], [$last['role'], $last['content']]);
+        self::assertSame(['user', 'Meta Description'], [$last['role'], $last['content']]);
         self::assertNull($this->submitted, 'the request must not hand the answer over itself');
     }
 
@@ -280,7 +280,7 @@ final class ChatInputTest extends TestCase
         $conversation = $this->asking();
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
 
-        self::assertFalse($this->service()->recordInput($conversation, ['decision' => 'accept'], 'digest-abc', 'Übernehmen'));
+        self::assertFalse($this->service()->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description'));
         self::assertFalse($conversation->hasPendingInputSubmission());
         self::assertSame(2, $conversation->getMessageCount());
     }
@@ -288,7 +288,7 @@ final class ChatInputTest extends TestCase
     #[Test]
     public function aLostClaimRecordsNothing(): void
     {
-        self::assertFalse($this->service(claimSucceeds: false)->recordInput($this->asking(), ['decision' => 'accept'], 'digest-abc', 'Übernehmen'));
+        self::assertFalse($this->service(claimSucceeds: false)->recordInput($this->asking(), ['start' => 'meta'], 'digest-abc', 'Meta Description'));
     }
 
     // ---- what the worker then does ----------------------------------------
@@ -298,13 +298,13 @@ final class ChatInputTest extends TestCase
     {
         $conversation = $this->asking();
         $service = $this->service();
-        $service->recordInput($conversation, ['decision' => 'accept'], 'digest-abc', 'Übernehmen');
+        $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
 
         self::assertSame(self::RUN, $this->submittedRun);
         self::assertNotNull($this->submitted);
-        self::assertSame(['decision' => 'accept'], $this->submitted->data);
+        self::assertSame(['start' => 'meta'], $this->submitted->data);
         self::assertSame('digest-abc', $this->submitted->turnDigest);
         self::assertSame(1, $this->submitted->submittedByBeUser);
         self::assertFalse($this->approveCalled, 'an answer is not an approval');
@@ -315,14 +315,14 @@ final class ChatInputTest extends TestCase
     {
         $conversation = $this->asking();
         $service = $this->service();
-        $service->recordInput($conversation, ['decision' => 'accept'], 'digest-abc', 'Übernehmen');
+        $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
         self::assertFalse($conversation->hasPendingApprovalDecision());
         self::assertSame(
-            [['user', 'Übernehmen'], ['assistant', 'Die Meta Description ist gespeichert.']],
+            [['user', 'Meta Description'], ['assistant', 'Ich beginne mit der Meta Description.']],
             array_map(static fn(array $m): array => [$m['role'], $m['content']], self::lastMessages($conversation, 2)),
         );
     }
@@ -335,7 +335,7 @@ final class ChatInputTest extends TestCase
     {
         $conversation = $this->asking();
         $service = $this->service(submitAnswer: $this->asks());
-        $service->recordInput($conversation, ['decision' => 'accept'], 'digest-abc', 'Übernehmen');
+        $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
 
@@ -373,7 +373,7 @@ final class ChatInputTest extends TestCase
         );
         $conversation = $this->asking();
         $service = $this->service(submitAnswer: $refusal, logger: $logger);
-        $service->recordInput($conversation, ['decision' => 'accept'], 'digest-abc', 'Übernehmen');
+        $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
 
@@ -382,7 +382,7 @@ final class ChatInputTest extends TestCase
         self::assertSame($reason->value, $conversation->getErrorCode());
         self::assertSame('', $conversation->getErrorMessage());
         self::assertFalse($conversation->hasPendingApprovalDecision());
-        self::assertSame('Soll die Meta Description übernommen werden?', self::lastMessages($conversation, 1)[0]['content']);
+        self::assertSame('Mit welchem Punkt soll ich beginnen?', self::lastMessages($conversation, 1)[0]['content']);
     }
 
     #[Test]
@@ -390,7 +390,7 @@ final class ChatInputTest extends TestCase
     {
         $conversation = $this->asking();
         $service = $this->service(submitAnswer: new RuntimeException('provider down'));
-        $service->recordInput($conversation, ['decision' => 'accept'], 'digest-abc', 'Übernehmen');
+        $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
 
@@ -413,7 +413,7 @@ final class ChatInputTest extends TestCase
         $runRepository->method('findByUuid')->willReturn($this->runWith(AgentRunStatus::WAITING_FOR_INPUT));
         $conversation = $this->asking();
         $service = $this->service(runRepository: $runRepository);
-        $service->recordInput($conversation, ['decision' => 'accept'], 'digest-abc', 'Übernehmen');
+        $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
         (new ReflectionClass($conversation))->getProperty('tstamp')->setValue($conversation, time() - 600);
 
         self::assertTrue($service->reconcile($conversation));

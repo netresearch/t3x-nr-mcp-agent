@@ -45,17 +45,17 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
 {
     private const RUN = '6f1c4a52-9b2e-4c7d-8e1f-0a3b5c7d9e21';
 
-    private const ACCEPT = 'Übernehmen';
+    private const ACCEPT = 'Meta Description';
 
     /** @var array<string, mixed> */
     private const SCHEMA = [
         'type' => 'object',
-        'title' => 'Soll die neue Meta Description übernommen werden?',
+        'title' => 'Mit welchem Punkt soll ich beginnen?',
         'properties' => [
-            'decision' => ['oneOf' => [
-                ['const' => 'accept', 'title' => self::ACCEPT],
-                ['const' => 'variant', 'title' => 'Andere Variante'],
-                ['const' => 'skip', 'title' => 'Überspringen'],
+            'start' => ['oneOf' => [
+                ['const' => 'meta', 'title' => self::ACCEPT],
+                ['const' => 'headings', 'title' => 'Überschriften'],
+                ['const' => 'images', 'title' => 'Alternativtexte'],
             ]],
             'comment' => ['type' => 'string'],
         ],
@@ -157,7 +157,7 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
 
         self::assertSame((new PendingTurnDigest())->forInputState($this->state), $pending['turnDigest']);
         self::assertSame('choice', $pending['kind']);
-        self::assertSame([self::ACCEPT, 'Andere Variante', 'Überspringen'], array_column($pending['options'], 'label'));
+        self::assertSame([self::ACCEPT, 'Überschriften', 'Alternativtexte'], array_column($pending['options'], 'label'));
         self::assertTrue($pending['freeText']);
     }
 
@@ -166,14 +166,14 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
     {
         $digest = $this->pendingInput()['turnDigest'];
 
-        $response = $this->subject->submitInput($this->post(['turnDigest' => $digest, 'choice' => 'accept']));
+        $response = $this->subject->submitInput($this->post(['turnDigest' => $digest, 'choice' => 'meta']));
 
         self::assertSame(202, $response->getStatusCode());
         $stored = $this->repository->findByUid($this->conversationUid);
         self::assertNotNull($stored);
         self::assertSame(ConversationStatus::Processing, $stored->getStatus());
         self::assertTrue($stored->hasPendingInputSubmission());
-        self::assertSame(['decision' => 'accept'], $stored->getPendingInputData());
+        self::assertSame(['start' => 'meta'], $stored->getPendingInputData());
         self::assertSame($digest, $stored->getApprovalTurnDigest());
         $messages = $stored->getDecodedMessages();
         self::assertSame(['user', self::ACCEPT], [$messages[2]['role'] ?? null, $messages[2]['content'] ?? null]);

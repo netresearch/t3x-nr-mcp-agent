@@ -21,11 +21,11 @@ const CHOICE = {
     runUuid: 'run-uuid-1234',
     turnDigest: 'digest-abc',
     kind: 'choice',
-    question: 'Soll die neue Meta Description übernommen werden?',
+    question: 'Mit welchem Punkt soll ich beginnen?',
     options: [
-        {value: 'accept', label: 'Übernehmen'},
-        {value: 'variant', label: 'Andere Variante'},
-        {value: 'skip', label: 'Überspringen'},
+        {value: 'meta', label: 'Meta Description'},
+        {value: 'headings', label: 'Überschriften'},
+        {value: 'images', label: 'Alternativtexte'},
     ],
     freeText: true,
     fields: [],
@@ -98,7 +98,7 @@ describe.each(SURFACES)('$name reply options', ({module: modulePath, tag, open})
         const buttons = [...group.querySelectorAll('button')];
         expect(buttons.map((b) => b.localName)).toEqual(['button', 'button', 'button']);
         expect(buttons.map((b) => b.getAttribute('type'))).toEqual(['button', 'button', 'button']);
-        expect(buttons.map((b) => b.textContent.trim())).toEqual(['Übernehmen', 'Andere Variante', 'Überspringen']);
+        expect(buttons.map((b) => b.textContent.trim())).toEqual(['Meta Description', 'Überschriften', 'Alternativtexte']);
 
         // Above the input: the options come before the textarea in the document.
         const position = group.compareDocumentPosition(textarea(el));
@@ -115,7 +115,7 @@ describe.each(SURFACES)('$name reply options', ({module: modulePath, tag, open})
         await el.updateComplete;
 
         expect(submit).toHaveBeenCalledTimes(1);
-        expect(submit).toHaveBeenCalledWith(1, 'digest-abc', {choice: 'accept'});
+        expect(submit).toHaveBeenCalledWith(1, 'digest-abc', {choice: 'meta'});
     });
 
     test('the buttons are disabled while an answer is on its way', async () => {
@@ -131,8 +131,8 @@ describe.each(SURFACES)('$name reply options', ({module: modulePath, tag, open})
         el.chat._api.submitInput = submit;
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
 
-        const first = el.chat.submitInput({choice: 'accept'});
-        await el.chat.submitInput({choice: 'skip'});
+        const first = el.chat.submitInput({choice: 'meta'});
+        await el.chat.submitInput({choice: 'images'});
         release({status: 'processing'});
         await first;
 
@@ -149,11 +149,11 @@ describe.each(SURFACES)('$name reply options', ({module: modulePath, tag, open})
 
         expect(textarea(el).getAttribute('placeholder')).toBe('input.freeTextPlaceholder');
 
-        el.chat.inputValue = 'Bitte kürzer formulieren';
+        el.chat.inputValue = 'Erst die Bilder, bitte';
         el.chat.hasInput = true;
         await el.chat.handleSend();
 
-        expect(submit).toHaveBeenCalledWith(1, 'digest-abc', {freeText: 'Bitte kürzer formulieren'});
+        expect(submit).toHaveBeenCalledWith(1, 'digest-abc', {freeText: 'Erst die Bilder, bitte'});
         expect(send).not.toHaveBeenCalled();
         expect(el.chat.inputValue).toBe('');
     });
