@@ -23,6 +23,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
@@ -1026,7 +1027,12 @@ final readonly class ChatApiController
         $digest = $body['turnDigest'] ?? '';
         $turnDigest = is_string($digest) ? $digest : '';
 
-        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest)) {
+        // A denial says why (ADR-018): another variant, or skip this point. An
+        // unknown value is a plain denial.
+        $reasonValue = $body['reason'] ?? '';
+        $reason = $approve ? null : DenyReason::tryFrom(is_string($reasonValue) ? $reasonValue : '');
+
+        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest, $reason, $reason !== null ? $this->translate($reason->labelKey()) : '')) {
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 

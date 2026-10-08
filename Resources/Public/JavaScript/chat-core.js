@@ -145,8 +145,9 @@ export class ChatCoreController {
     pendingApproval = null;
 
     /**
-     * What was just decided here: 'approved', 'denied', or null when no decision
-     * of this reader's is in flight.
+     * What was just decided here: 'approved', 'variant' or 'skip' (the two
+     * denials the card offers, ADR-018), 'denied', or null when no decision of
+     * this reader's is in flight.
      *
      * The chat used to answer a decision with nothing of its own: the card
      * vanished, the spinner came back, and the only durable confirmation was the
@@ -325,7 +326,11 @@ export class ChatCoreController {
      * neither the confirmation nor, on the error path, the reason. Same guard
      * pollMessages() uses on its own response.
      */
-    async decideApproval(approve) {
+    /**
+     * @param {boolean} approve
+     * @param {''|'variant'|'skip'} [reason] why a denial was given (ADR-018)
+     */
+    async decideApproval(approve, reason = '') {
         const uid = this.activeUid;
         if (!this.pendingApproval || this.approvalBusy || !uid) {
             return;
@@ -334,7 +339,7 @@ export class ChatCoreController {
         this.approvalBusy = true;
         this.host.requestUpdate();
         try {
-            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '');
+            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '', reason);
             if (uid !== this.activeUid) {
                 return;
             }
@@ -342,7 +347,7 @@ export class ChatCoreController {
             // Say what happened before the reload, and drop the card and the
             // notice that asked for the decision: both describe a state this
             // click has just left, and the server has cleared the notice too.
-            this.approvalDecisionTaken = approve ? 'approved' : 'denied';
+            this.approvalDecisionTaken = approve ? 'approved' : (reason || 'denied');
             this.errorMessage = '';
             this.pendingApproval = null;
             this.host.requestUpdate();

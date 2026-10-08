@@ -12,6 +12,7 @@ namespace Netresearch\NrMcpAgent\Domain\Model;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 
 /**
@@ -112,6 +113,12 @@ final class Conversation
      */
     private string $pendingInput = '';
 
+    /**
+     * Why a denial was given on the card — 'variant' or 'skip' — or empty
+     * (ADR-018). Kept with the decision for the worker.
+     */
+    private string $approvalDenyReason = '';
+
     private int $tstamp = 0;
 
     /** @phpstan-ignore-next-line property.onlyWritten */
@@ -143,6 +150,7 @@ final class Conversation
         $conversation->approvalDecision = (string) self::val($row, 'approval_decision', '');
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
         $conversation->pendingInput = (string) self::val($row, 'pending_input', '');
+        $conversation->approvalDenyReason = (string) self::val($row, 'approval_deny_reason', '');
         $conversation->tstamp = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate = (int) self::val($row, 'crdate', 0);
         return $conversation;
@@ -186,6 +194,7 @@ final class Conversation
             'approval_decision' => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
             'pending_input' => $this->pendingInput,
+            'approval_deny_reason' => $this->approvalDenyReason,
         ];
     }
 
@@ -333,6 +342,7 @@ final class Conversation
             $this->approvalDecision = '';
             $this->approvalTurnDigest = '';
             $this->pendingInput = '';
+            $this->approvalDenyReason = '';
         }
     }
 
@@ -501,8 +511,9 @@ final class Conversation
      * and a decision without the digest the card carried would be verified
      * against whatever the turn looks like by then.
      */
-    public function recordApprovalDecision(bool $approve, string $turnDigest): void
+    public function recordApprovalDecision(bool $approve, string $turnDigest, ?DenyReason $reason = null): void
     {
+        $this->approvalDenyReason = $approve || $reason === null ? '' : $reason->value;
         $this->approvalDecision = $approve ? 'approve' : 'deny';
         $this->approvalTurnDigest = $turnDigest;
     }
@@ -512,6 +523,12 @@ final class Conversation
         $this->approvalDecision = '';
         $this->approvalTurnDigest = '';
         $this->pendingInput = '';
+        $this->approvalDenyReason = '';
+    }
+
+    public function getApprovalDenyReason(): ?DenyReason
+    {
+        return DenyReason::tryFrom($this->approvalDenyReason);
     }
 
     /**

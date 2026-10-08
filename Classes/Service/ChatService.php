@@ -29,7 +29,6 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
-use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
@@ -52,6 +51,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Exception\ChatException;
@@ -182,6 +182,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?ApprovalDecisionFactory $decisionFactory = null,
     ) {}
 
     /**
@@ -414,6 +415,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         if ($status === AgentRunStatus::WAITING_FOR_APPROVAL) {
             $conversation->clearApprovalDecision();
+            $conversation->dropInputAnswer();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
 
@@ -556,7 +558,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * here: a check before the claim can pass on a turn a concurrent approval
      * has already replaced.
      */
-    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest): bool
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = ''): bool
     {
         if ($conversation->getApprovalRunUuid() === ''
             || $conversation->getStatus() !== ConversationStatus::AwaitingApproval
@@ -569,7 +571,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // not treat AwaitingApproval as busy, so without it both writers would
         // think they own the row.
         $conversation->setStatus(ConversationStatus::Processing);
-        $conversation->recordApprovalDecision($approve, $turnDigest);
+        $conversation->recordApprovalDecision($approve, $turnDigest, $reason);
+        // "Andere Variante" or "Überspringen" stays in the transcript, so the
+        // next turn knows what was asked for even while nr-llm's denial result
+        // cannot carry the reason. Taken out again on a hand-back.
+        if (!$approve && $display !== '') {
+            $conversation->appendInputAnswer($display);
+        }
 
         // Whatever the field says about the waiting run — the reason a refused
         // decision wrote back, or the notice the pause used to write before
@@ -733,10 +741,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
                 $runUuid,
-                new ApprovalDecision(
+                ($this->decisionFactory ?? new ApprovalDecisionFactory())->create(
                     $approved,
                     $conversation->getBeUser(),
                     $conversation->getApprovalTurnDigest(),
+                    $conversation->getApprovalDenyReason(),
                 ),
                 static function (RunStep $step) use ($recordDecision, $recordStep): void {
                     $recordDecision();
@@ -752,6 +761,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // decide again. Marking it Failed would hide the card AND offer a
             // Retry that starts a second run over the same transcript.
             $conversation->clearApprovalDecision();
+            $conversation->dropInputAnswer();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
             // nr-llm's message is a developer's English sentence and may name

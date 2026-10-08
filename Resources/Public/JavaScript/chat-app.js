@@ -794,7 +794,7 @@ export class ChatApp extends LitElement {
             return html`
                 <div class="message system status-notice" tabindex="-1"
                     style="color:${granted ? 'var(--nr-chat-status-success, #2e7d32)' : 'var(--nr-chat-status-info, #0277bd)'};">
-                    ${granted ? lll('chat.approvalGranted') : lll('chat.approvalDenied')}
+                    ${granted ? lll('chat.approvalGranted') : (this.chat.approvalDecisionTaken === 'variant' ? lll('chat.approvalDeniedVariant') : lll('chat.approvalDeniedSkip'))}
                 </div>
             `;
         }
@@ -920,9 +920,10 @@ export class ChatApp extends LitElement {
      * editor action label), the preview lines follow in
      * nr-llm's order, and the tool name, its arguments and the technical
      * preview line sit in one closed "Show technical details" section
-     * (editorial rules 10, 14-16, 22, 26). The cancel button says "Cancel".
+     * (editorial rules 10, 14-16, 22, 26). The denial is two buttons, "Another
+     * variant" and "Skip", which tell the run why the change was not taken (ADR-018).
      *
-     * Approve and cancel are the only actions of a decidable card. The link to
+     * Approve and the two denials are the only actions of a decidable card. The link to
      * the run used to sit beside them, styled like a third button and labelled
      * "Grant approval", although it opens the run's timeline, where nothing can
      * be granted (NEXT-162). It is now a plain text link, and it is offered on
@@ -970,7 +971,9 @@ export class ChatApp extends LitElement {
                     <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
                         @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
                     <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this._decide(false)}>${lll('chat.approvalCancel')}</button>
+                        @click=${() => this._decide(false, 'variant')}>${lll('chat.approvalVariant')}</button>
+                    <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
+                        @click=${() => this._decide(false, 'skip')}>${lll('chat.approvalSkip')}</button>
                 </div>
                 ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
             </div>
@@ -1004,9 +1007,9 @@ export class ChatApp extends LitElement {
      * would otherwise fall back to the document body. Not when the reader has
      * switched conversations meanwhile: the answer is not on screen then.
      */
-    async _decide(approve) {
+    async _decide(approve, reason = '') {
         const uid = this.chat.activeUid;
-        await this.chat.decideApproval(approve);
+        await this.chat.decideApproval(approve, reason);
         if (uid !== this.chat.activeUid) {
             return;
         }

@@ -125,9 +125,6 @@
             <trans-unit id="chat.approvalGranted" resname="chat.approvalGranted">
                 <source>Approval granted — the assistant is carrying the step out.</source>
             </trans-unit>
-            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
-                <source>Cancelled — the step was not carried out.</source>
-            </trans-unit>
             <trans-unit id="chat.approvalPreviewUnavailable" resname="chat.approvalPreviewUnavailable">
                 <source>No preview — you are deciding without one</source>
             </trans-unit>
@@ -149,8 +146,17 @@
             <trans-unit id="chat.approvalConfirmGenericAll" resname="chat.approvalConfirmGenericAll">
                 <source>Carry out all steps</source>
             </trans-unit>
-            <trans-unit id="chat.approvalCancel" resname="chat.approvalCancel">
-                <source>Cancel</source>
+            <trans-unit id="chat.approvalVariant" resname="chat.approvalVariant">
+                <source>Another variant</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalSkip" resname="chat.approvalSkip">
+                <source>Skip</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalDeniedVariant" resname="chat.approvalDeniedVariant">
+                <source>Not carried out — another variant is asked for.</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalDeniedSkip" resname="chat.approvalDeniedSkip">
+                <source>Skipped — the step was not carried out.</source>
             </trans-unit>
             <trans-unit id="chat.approvalTechnicalDetails" resname="chat.approvalTechnicalDetails">
                 <source>Show technical details</source>
@@ -220,7 +226,7 @@
                 <source>Access denied</source>
             </trans-unit>
             <trans-unit id="error.approvalStillPending" resname="error.approvalStillPending">
-                <source>This step is still waiting for a decision. Approve or cancel it on the card — a message does not approve it.</source>
+                <source>This step is still waiting for a decision. Decide on the card — a message does not approve it.</source>
             </trans-unit>
             <trans-unit id="error.approvalStillPendingElsewhere" resname="error.approvalStillPendingElsewhere">
                 <source>This step is still waiting for an approval you cannot give yourself. Ask someone with access to AI Tasks to approve it — a message here does not approve it.</source>
