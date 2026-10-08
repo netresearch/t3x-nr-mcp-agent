@@ -45,13 +45,15 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
 {
     private const RUN = '6f1c4a52-9b2e-4c7d-8e1f-0a3b5c7d9e21';
 
+    private const ACCEPT = 'Übernehmen';
+
     /** @var array<string, mixed> */
     private const SCHEMA = [
         'type' => 'object',
         'title' => 'Soll die neue Meta Description übernommen werden?',
         'properties' => [
             'decision' => ['oneOf' => [
-                ['const' => 'accept', 'title' => 'Übernehmen'],
+                ['const' => 'accept', 'title' => self::ACCEPT],
                 ['const' => 'variant', 'title' => 'Andere Variante'],
                 ['const' => 'skip', 'title' => 'Überspringen'],
             ]],
@@ -155,7 +157,7 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
 
         self::assertSame((new PendingTurnDigest())->forInputState($this->state), $pending['turnDigest']);
         self::assertSame('choice', $pending['kind']);
-        self::assertSame(['Übernehmen', 'Andere Variante', 'Überspringen'], array_column($pending['options'], 'label'));
+        self::assertSame([self::ACCEPT, 'Andere Variante', 'Überspringen'], array_column($pending['options'], 'label'));
         self::assertTrue($pending['freeText']);
     }
 
@@ -174,7 +176,7 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
         self::assertSame(['decision' => 'accept'], $stored->getPendingInputData());
         self::assertSame($digest, $stored->getApprovalTurnDigest());
         $messages = $stored->getDecodedMessages();
-        self::assertSame(['user', 'Übernehmen'], [$messages[2]['role'] ?? null, $messages[2]['content'] ?? null]);
+        self::assertSame(['user', self::ACCEPT], [$messages[2]['role'] ?? null, $messages[2]['content'] ?? null]);
     }
 
     #[Test]

@@ -605,12 +605,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     public function pendingInput(Conversation $conversation): ?InputPause
     {
         $runUuid = $conversation->getApprovalRunUuid();
-        if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::AwaitingInput) {
-            return null;
-        }
-
         $actor = $this->resolveActor($conversation->getBeUser());
-        $view = $this->pendingApprovalReader->read($actor, $runUuid);
+        $view = $runUuid !== '' && $conversation->getStatus() === ConversationStatus::AwaitingInput
+            ? $this->pendingApprovalReader->read($actor, $runUuid)
+            : null;
         if ($view === null || $view->mode === WaitingRunView::MODE_APPROVAL) {
             return null;
         }

@@ -11,7 +11,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
-import {chatReplyOptionsStyles, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
+import {chatReplyOptionsStyles, decisionLabel, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
@@ -2020,10 +2020,11 @@ export class AiChatPanel extends LitElement {
 
         if (this.chat.approvalDecisionTaken) {
             const granted = this.chat.approvalDecisionTaken === 'approved';
+            // The two denials (ADR-018) confirm in their own words.
             return html`
                 <div class="message system status-notice" tabindex="-1"
                     style="color:${granted ? 'var(--nr-chat-status-success, #2e7d32)' : 'var(--nr-chat-status-info, #0277bd)'};">
-                    ${granted ? lll('chat.approvalGranted') : (this.chat.approvalDecisionTaken === 'variant' ? lll('chat.approvalDeniedVariant') : lll('chat.approvalDeniedSkip'))}
+                    ${decisionLabel(this.chat.approvalDecisionTaken)}
                 </div>
             `;
         }
