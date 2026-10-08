@@ -63,9 +63,10 @@ What the chat tells you besides the answer
     step was already decided in AI Tasks, the chat closes the card, says
     so and names the records the run wrote; your message then continues
     from there.
-*   **Any other message while the card is on screen** cancels the waiting
-    step, so it can no longer be approved anywhere, and starts a new
-    request.
+*   **Any other message while the card is on screen** starts a new
+    request. In a guided process it also cancels the waiting step, so it
+    can no longer be approved anywhere; otherwise the step stays waiting in
+    AI Tasks.
 
 Answering a question in the chat
 --------------------------------

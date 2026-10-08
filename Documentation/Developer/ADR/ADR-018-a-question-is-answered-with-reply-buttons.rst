@@ -134,13 +134,15 @@ Two changes to the approval card's life, both from nr-llm ADR-214, item 9:
     events — and the conversation is idle. The poll and every new message
     run this first, so a message after a release in the inbox continues from
     what the run wrote instead of abandoning a decision already taken.
-*   A new message while the card waits cancels the run behind it
-    (``AgentRuntimeInterface::cancel()``) instead of only dropping the
-    reference. Left waiting, the run could still be released in the inbox and
-    write after the conversation had moved on. When the run was decided
-    elsewhere between the read and the cancel, the message is refused and
-    the card closed by the next reconcile. A "weiter" while the card waits
-    stays what ADR-017 made it: a hint to decide on the card, not a new turn.
+*   In a guided process, a new message while the card waits cancels the run
+    behind it (``AgentRuntimeInterface::cancel()``) instead of only dropping
+    the reference. Left waiting, the tour's proposal could still be released
+    in the inbox and write after the tour had moved on. Only a run that still
+    waits is cancelled; one being carried on, or decided elsewhere between
+    the read and the cancel, refuses the message as busy, and the next
+    reconcile closes the card. An ordinary chat keeps the run waiting in the
+    inbox, as before. A "weiter" while the card waits stays what ADR-017 made
+    it: a hint to decide on the card, not a new turn.
 
 Consequences
 ============
