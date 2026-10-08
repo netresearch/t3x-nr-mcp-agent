@@ -44,6 +44,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
@@ -51,6 +52,8 @@ use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Resource\File;
@@ -67,8 +70,10 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * strong TYPO3-backend identity system prompt), and maps the run outcome back
  * onto the conversation. Tools are no longer sourced from MCP servers here.
  */
-final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface
+final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface, LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     private const DECISION_APPROVE = 'approve';
 
     /**
@@ -618,7 +623,17 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
-            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()));
+            // nr-llm's message is a developer's English sentence and may name
+            // internals: the reader gets a sentence of the chat's own, chosen
+            // by the code, and the exception goes to the log.
+            $reason = ApprovalHandBackReason::fromException($e);
+            $this->logger?->warning('nr-llm handed run {run} back still pending ({reason}): {message}', [
+                'run'       => $runUuid,
+                'reason'    => $reason->value,
+                'message'   => $e->getMessage(),
+                'exception' => $e,
+            ]);
+            $conversation->setErrorMessage('', $reason->value);
             $this->persist($conversation);
 
             return;

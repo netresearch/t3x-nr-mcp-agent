@@ -225,6 +225,24 @@
             <trans-unit id="error.approvalStillPendingElsewhere" resname="error.approvalStillPendingElsewhere">
                 <source>This step is still waiting for an approval you cannot give yourself. Ask someone with access to AI Tasks to approve it — a message here does not approve it.</source>
             </trans-unit>
+            <trans-unit id="error.handBack.staleTurn" resname="error.handBack.staleTurn">
+                <source>The conversation moved on after this card was shown, so nothing was carried out. Check the card and decide again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.alreadyResuming" resname="error.handBack.alreadyResuming">
+                <source>This step is already being carried out after an earlier decision. Wait a moment — the answer appears here.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.approverNotPermitted" resname="error.handBack.approverNotPermitted">
+                <source>You may not approve this step, so nothing was carried out. Ask someone with access to AI Tasks to approve it.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.configurationInactive" resname="error.handBack.configurationInactive">
+                <source>The AI configuration of this chat is switched off, so nothing was carried out. The step waits until it is switched on again; then decide again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.notAwaitingApproval" resname="error.handBack.notAwaitingApproval">
+                <source>This step no longer waits for a decision, so nothing was carried out. Reload the conversation to see where it stands.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.unknown" resname="error.handBack.unknown">
+                <source>The decision could not be carried out, so nothing was changed. Decide again; if it fails again, contact an administrator.</source>
+            </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
             </trans-unit>

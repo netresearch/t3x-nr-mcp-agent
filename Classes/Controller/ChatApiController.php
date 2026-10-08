@@ -20,6 +20,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
@@ -744,6 +745,14 @@ final readonly class ChatApiController
     private function presentError(string $message, string $code): array
     {
         $plain = ['errorMessage' => $message, 'errorLink' => '', 'errorLinkLabel' => ''];
+
+        // A run nr-llm handed back still pending: the stored reason is a code
+        // only, rendered for every reader alike (administrators included) —
+        // nr-llm's own message is in the log, never on screen.
+        $handBack = ApprovalHandBackReason::tryFrom($code);
+        if ($handBack !== null) {
+            return ['errorMessage' => $this->translate($handBack->labelKey()), 'errorLink' => '', 'errorLinkLabel' => ''];
+        }
 
         $kind = ConversationErrorCode::tryFrom($code);
         if ($kind === null || $message === '') {

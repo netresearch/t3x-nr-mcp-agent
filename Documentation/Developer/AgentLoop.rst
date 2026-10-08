@@ -84,8 +84,10 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
     the reader's language -- a stored sentence is frozen in the language
     of the moment it was written (NEXT-159). The field is not always
     empty in this state: when nr-llm refuses a recorded decision and
-    hands the run back still pending, the reason is written there and
-    shown after the label. The notice says what is pending, not where to
+    hands the run back still pending, the reason is stored as an error
+    code (``ApprovalHandBackReason``) and shown after the label as the
+    chat's own sentence for it in the reader's language. nr-llm's
+    exception message goes to the log and is never shown. The notice says what is pending, not where to
     grant it -- the decision is offered on the card directly beneath it,
     and pointing past that into the AI Tasks module is what led to the
     same write being approved twice.
