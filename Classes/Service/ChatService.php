@@ -384,10 +384,6 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     public function reconcile(Conversation $conversation): bool
     {
         $runUuid = $conversation->getApprovalRunUuid();
-        if ($runUuid !== '' && $conversation->getStatus() === ConversationStatus::AwaitingApproval) {
-            return $this->reconcileDecidedElsewhere($conversation);
-        }
-
         if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::Processing) {
             return false;
         }
@@ -466,73 +462,39 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
-     * A card whose run was decided somewhere else — released or denied in the
-     * Agent Runs inbox — and has finished there (nr-llm ADR-214, item 9).
+     * Cancel the run a guided process waits on — for a card or for an answer
+     * — because a new message has claimed the conversation for a new turn
+     * (nr-llm ADR-214, item 9).
      *
-     * The conversation waits for a decision nobody will take in the chat any
-     * more, and nothing tells it: the run left WAITING_FOR_APPROVAL outside
-     * the chat. A note names the records the run wrote, so the next turn knows
-     * the change exists instead of proposing it again (ADR-017); the run's own
-     * answer is not carried back, nr-llm keeps none at the default privacy
-     * level. The conversation is idle afterwards. A run still waiting, or one
-     * being carried on right now, is left alone.
+     * Left waiting, the tour's proposal could still be decided after the
+     * tour had moved on. Called after the claim, with the conversation as it
+     * was before it: only a run that still waits is cancelled, and nr-llm's
+     * cancel is the guard — it settles only a run that has not settled. An
+     * ordinary chat keeps the abandoned run waiting, as before.
+     *
+     * Returns false when the run is being carried on, or the cancel lost to
+     * a decision taken meanwhile; the caller puts the row back.
      */
-    private function reconcileDecidedElsewhere(Conversation $conversation): bool
+    public function releasePendingRun(Conversation $before): bool
     {
-        $pending = $this->inspectPendingRun($conversation);
-        if ($pending['state'] !== self::PENDING_RUN_SETTLED) {
-            return false;
-        }
-
-        // Stored as a notice code plus a language-neutral line (ADR-017): the
-        // reader gets a label in their own language, the model reads the line.
-        $conversation->appendMessage(
-            MessageRole::Assistant,
-            sprintf(
-                '[The pending step was decided outside this chat and its run has finished. Records it wrote: %s.]',
-                $pending['writes'] === [] ? 'none' : implode(', ', $pending['writes']),
-            ),
-            self::NOTICE_RUN_FINISHED_OUTSIDE,
-            $pending['writes'],
-        );
-        $conversation->setStatus(ConversationStatus::Idle);
-        $conversation->setErrorMessage('');
-        $conversation->setApprovalRunUuid('');
-        $conversation->clearApprovalDecision();
-
-        return $this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval);
-    }
-
-    /**
-     * Stop the run a card waits on in a guided process, because a new message
-     * starts a new turn (nr-llm ADR-214, item 9).
-     *
-     * Clearing the reference alone would leave the tour's proposal waiting in
-     * the Agent Runs inbox, where it could still be released — and write —
-     * after the tour had moved on. Only a run that still waits is cancelled.
-     * An ordinary chat keeps the run waiting, as before: the inbox is where
-     * it can still be decided.
-     *
-     * Returns false when the run was decided elsewhere — it is being carried
-     * on right now, or it left WAITING_FOR_APPROVAL between the read and the
-     * cancel: the new message must not start beside it. A run that is gone or
-     * not readable is no reason to block the conversation.
-     */
-    public function releasePendingRun(Conversation $conversation): bool
-    {
-        if (!($this->processRuns?->isProcessRun($conversation) ?? false)) {
+        $runUuid = $before->getApprovalRunUuid();
+        if ($runUuid === '' || !($this->processRuns?->isProcessRun($before) ?? false)) {
             return true;
         }
 
-        $pending = $this->inspectPendingRun($conversation);
-        if ($pending['state'] === self::PENDING_RUN_BUSY) {
-            return false;
+        $actor = $this->resolveActor($before->getBeUser());
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            // Gone or not readable: nothing the conversation could wait for.
+            return true;
         }
 
-        // A waiting run is cancelled. A cancel that fails means the run was
-        // claimed or settled between the read and the cancel — decided
-        // elsewhere after all; the caller reconciles and refuses the turn.
-        return $pending['state'] !== self::PENDING_RUN_WAITING || $this->agentRuntime->cancel($this->resolveActor($conversation->getBeUser()), $conversation->getApprovalRunUuid());
+        $status = AgentRunStatus::tryFrom($run->status);
+        if ($status === AgentRunStatus::WAITING_FOR_APPROVAL || $status === AgentRunStatus::WAITING_FOR_INPUT) {
+            return $this->agentRuntime->cancel($actor, $runUuid);
+        }
+
+        return $status !== AgentRunStatus::RUNNING && $status !== AgentRunStatus::QUEUED;
     }
 
     /**

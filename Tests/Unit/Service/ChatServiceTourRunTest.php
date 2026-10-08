@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
-use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
@@ -46,18 +45,15 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
- * A card whose run is decided outside the chat, and a card the chat leaves
- * (nr-llm ADR-214, item 9).
+ * The runs of a guided process (nr-llm ADR-214, item 9).
  *
- * - Released or denied in the Agent Runs inbox and finished there: the card
- *   closes with a note of what the run wrote, and the conversation is idle.
- * - A new message while a guided process's card waits: the run is
- *   cancelled, unless it was decided elsewhere meanwhile. An ordinary chat
- *   leaves it waiting.
+ * - A new message while a tour's run waits on a card or a question cancels
+ *   that run, unless it is being carried on or was decided meanwhile. An
+ *   ordinary chat leaves it waiting.
  * - The three answers appear only for a write in a process run.
  */
 #[CoversClass(ChatService::class)]
-final class ChatServiceDecidedElsewhereTest extends TestCase
+final class ChatServiceTourRunTest extends TestCase
 {
     private const RUN = 'run-uuid-1234';
 
@@ -65,24 +61,15 @@ final class ChatServiceDecidedElsewhereTest extends TestCase
 
     private ConversationRepository&MockObject $repository;
 
-    /**
-     * @param list<AgentRunEvent> $events
-     */
     private function service(
         ?AgentRunStatus $status,
-        array $events = [],
         ?ProcessRunDetectorInterface $processRuns = null,
         ?ToolEffectResolver $toolEffects = null,
-        ?AgentRunStatus $statusAfterCancel = null,
     ): ChatService {
         $this->runtime = $this->createMock(AgentRuntimeInterface::class);
-        $this->runtime->method('events')->willReturn($events);
 
         $runs = $this->createMock(AgentRunRepositoryInterface::class);
-        $runs->method('findByUuid')->willReturnOnConsecutiveCalls(
-            $status !== null ? $this->agentRun($status) : null,
-            $statusAfterCancel !== null ? $this->agentRun($statusAfterCancel) : ($status !== null ? $this->agentRun($status) : null),
-        );
+        $runs->method('findByUuid')->willReturn($status !== null ? $this->agentRun($status) : null);
 
         $this->repository = $this->createMock(ConversationRepository::class);
 
@@ -130,78 +117,51 @@ final class ChatServiceDecidedElsewhereTest extends TestCase
         return $conversation;
     }
 
-    // ---- a card decided in the inbox --------------------------------------
-
-    #[Test]
-    public function aCardReleasedInTheInboxClosesWithWhatTheRunWrote(): void
-    {
-        $service = $this->service(AgentRunStatus::COMPLETED, [
-            new AgentRunEvent(0, 45, 3, 'tool_write', 1, 0.0, ['writeTargetTable' => 'pages', 'writeTargetUid' => 10073], 0),
-        ]);
-        $conversation = $this->parked();
-        $this->repository->expects(self::once())->method('updateIf')
-            ->with($conversation, ConversationStatus::AwaitingApproval)->willReturn(true);
-
-        self::assertTrue($service->reconcile($conversation));
-
-        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
-        self::assertSame('', $conversation->getApprovalRunUuid());
-        $last = $conversation->getDecodedMessages()[1] ?? [];
-        self::assertSame('assistant', $last['role'] ?? null);
-        self::assertSame(
-            '[The pending step was decided outside this chat and its run has finished. Records it wrote: pages:10073.]',
-            $last['content'] ?? null,
-        );
-        self::assertSame(ChatService::NOTICE_RUN_FINISHED_OUTSIDE, $last['notice'] ?? null);
-    }
+    // ---- a new message while a tour's run waits ---------------------------
 
     /**
      * @return iterable<string, array{AgentRunStatus}>
      */
-    public static function runsNotSettled(): iterable
+    public static function waitingRuns(): iterable
     {
-        yield 'still waiting' => [AgentRunStatus::WAITING_FOR_APPROVAL];
-        yield 'being carried on' => [AgentRunStatus::RUNNING];
+        yield 'on a card' => [AgentRunStatus::WAITING_FOR_APPROVAL];
+        yield 'on a question' => [AgentRunStatus::WAITING_FOR_INPUT];
     }
 
     #[Test]
-    #[DataProvider('runsNotSettled')]
-    public function aCardWhoseRunHasNotSettledStays(AgentRunStatus $status): void
+    #[DataProvider('waitingRuns')]
+    public function aWaitingRunIsCancelled(AgentRunStatus $status): void
     {
-        $service = $this->service($status);
-        $conversation = $this->parked();
-        $this->repository->expects(self::never())->method('updateIf');
-
-        self::assertFalse($service->reconcile($conversation));
-        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
-        self::assertSame(1, $conversation->getMessageCount());
-    }
-
-    // ---- a new message while the card waits -------------------------------
-
-    #[Test]
-    public function aWaitingRunIsCancelled(): void
-    {
-        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, processRuns: $this->processRun(true));
+        $service = $this->service($status, processRuns: $this->processRun(true));
         $this->runtime->expects(self::once())->method('cancel')->with(self::anything(), self::RUN)->willReturn(true);
 
         self::assertTrue($service->releasePendingRun($this->parked()));
     }
 
-    #[Test]
-    public function aRunCarriedOnElsewhereIsNeitherCancelledNorLeft(): void
+    /**
+     * @return iterable<string, array{AgentRunStatus}>
+     */
+    public static function busyRuns(): iterable
     {
-        $service = $this->service(AgentRunStatus::RUNNING, processRuns: $this->processRun(true));
+        yield 'running' => [AgentRunStatus::RUNNING];
+        yield 'queued' => [AgentRunStatus::QUEUED];
+    }
+
+    #[Test]
+    #[DataProvider('busyRuns')]
+    public function aRunBeingCarriedOnIsNeitherCancelledNorLeft(AgentRunStatus $status): void
+    {
+        $service = $this->service($status, processRuns: $this->processRun(true));
         $this->runtime->expects(self::never())->method('cancel');
 
         self::assertFalse($service->releasePendingRun($this->parked()));
     }
 
-    /** Released in the inbox between the read and the cancel: that release wins. */
+    /** Decided on the card between the read and the cancel: that decision wins. */
     #[Test]
     public function aCancelThatLosesTheRaceRefusesTheTurn(): void
     {
-        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, processRuns: $this->processRun(true), statusAfterCancel: AgentRunStatus::RUNNING);
+        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, processRuns: $this->processRun(true));
         $this->runtime->expects(self::once())->method('cancel')->willReturn(false);
 
         self::assertFalse($service->releasePendingRun($this->parked()));

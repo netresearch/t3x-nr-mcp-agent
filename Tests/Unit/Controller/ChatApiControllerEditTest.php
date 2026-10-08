@@ -206,40 +206,17 @@ final class ChatApiControllerEditTest extends TestCase
     }
 
     #[Test]
-    public function editingCancelsAPendingApprovalLikeANewMessage(): void
+    public function editingAbandonsAPendingApprovalLikeANewMessage(): void
     {
         $conversation = $this->conversation($this->transcript(), ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-1');
-        $this->chatApproval->expects(self::once())->method('releasePendingRun')->with($conversation)->willReturn(true);
+        $this->chatApproval->expects(self::once())->method('releasePendingRun')->willReturn(true);
 
         $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']));
 
         self::assertSame(202, $response->getStatusCode());
         self::assertNotNull($this->claimed);
         self::assertSame('', $this->claimed->getApprovalRunUuid());
-    }
-
-    /**
-     * A card whose run was released in the inbox is closed before the edit
-     * claims the turn (nr-llm ADR-214): the edit then starts from an idle
-     * conversation and has no waiting run to cancel.
-     */
-    #[Test]
-    public function editingAfterAReleaseElsewhereReconcilesFirst(): void
-    {
-        $conversation = $this->conversation($this->transcript(), ConversationStatus::AwaitingApproval);
-        $conversation->setApprovalRunUuid('run-1');
-        $this->chatApproval->expects(self::once())->method('reconcile')->willReturnCallback(static function (Conversation $c): bool {
-            $c->setStatus(ConversationStatus::Idle);
-            $c->setApprovalRunUuid('');
-
-            return true;
-        });
-        $this->chatApproval->expects(self::never())->method('releasePendingRun');
-
-        $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']));
-
-        self::assertSame(202, $response->getStatusCode());
     }
 
     #[Test]

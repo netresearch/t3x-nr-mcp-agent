@@ -124,25 +124,15 @@ injection mitigation for submitted values. In the chat the submitter is the
 conversation's owner, who can already send the model any text as a message,
 so the answer adds no new way in.
 
-**A card decided elsewhere is closed, and a card left behind is cancelled.**
-Two changes to the approval card's life, both from nr-llm ADR-214, item 9:
-
-*   ``ChatService::reconcile()`` also looks at a conversation parked on a
-    card. When its run was released or denied in the Agent Runs inbox and has
-    finished there, the card is closed with the note ADR-017 introduced for
-    "weiter" — the records the run wrote, read from its ``tool_write``
-    events — and the conversation is idle. The poll and every new message
-    run this first, so a message after a release in the inbox continues from
-    what the run wrote instead of abandoning a decision already taken.
-*   In a guided process, a new message while the card waits cancels the run
-    behind it (``AgentRuntimeInterface::cancel()``) instead of only dropping
-    the reference. Left waiting, the tour's proposal could still be released
-    in the inbox and write after the tour had moved on. Only a run that still
-    waits is cancelled; one being carried on, or decided elsewhere between
-    the read and the cancel, refuses the message as busy, and the next
-    reconcile closes the card. An ordinary chat keeps the run waiting in the
-    inbox, as before. A "weiter" while the card waits stays what ADR-017 made
-    it: a hint to decide on the card, not a new turn.
+**A tour's waiting run is cancelled by a new message.** In a process run, a
+message while the run waits on a card or a question claims the conversation
+and then cancels the run (``AgentRuntimeInterface::cancel()``), so the
+tour's proposal cannot be decided after the tour has moved on (nr-llm
+ADR-214, item 9). Only a run that still waits is cancelled; when it is being
+carried on, or a decision on the card won the race, the row goes back to
+what it was and the message is refused as busy. An ordinary chat keeps the
+abandoned run waiting, as before. A "weiter" while the card waits stays what
+ADR-017 made it: a hint to decide on the card, not a new turn.
 
 Consequences
 ============
@@ -150,14 +140,11 @@ Consequences
 *   For a write in a process run, the approval card's *Abbrechen* is
     replaced by *Andere Variante* and *Überspringen*; new column
     ``approval_deny_reason``.
-*   nr-llm's ``cancel()`` cancels a run in any non-terminal state. The chat
-    reads the status first and cancels only a waiting run, but a release in
-    the inbox in the moment between the read and the cancel would be
-    cancelled while it runs. A cancel that only applies to a waiting run is
-    an open question for nr-llm.
-*   nr-llm ADR-214 records the released run as the predecessor of the next
-    turn. nr-llm has no predecessor parameter yet, so the chat stores none;
-    the note in the transcript carries what the next turn needs to know.
+*   nr-llm's ``cancel()`` settles a run in any non-terminal state. The chat
+    reads the status first and cancels only a waiting run; a decision taken
+    in the moment between that read and the cancel would be cancelled while
+    it runs. A cancel that applies only to a waiting run is an open question
+    for nr-llm.
 *   New status ``awaiting_input``, new column ``pending_input``, new route
     ``ai_chat_conversation_input`` (``POST /ai-chat/conversations/input``).
     Run the database analyzer after upgrading.

@@ -30,6 +30,7 @@ use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -328,11 +329,9 @@ final readonly class ChatApiController
             }
         }
 
-        // A card whose run was released or denied in the Agent Runs inbox is
-        // closed first (nr-llm ADR-214): the message then continues from what
-        // that run wrote instead of abandoning a decision already taken.
-        $this->chatApproval->reconcile($conversation);
-
+        // The row as it was, to put back if a guided process's waiting run
+        // cannot be cancelled after the claim (queueTurn()).
+        $before = clone $conversation;
         $currentStatus = $conversation->getStatus();
         // "weiter" while a run waits for an approval is not a new request. Left
         // to the ordinary path below it abandoned the approval and started a
@@ -369,7 +368,7 @@ final readonly class ChatApiController
             $conversation->appendMessage(MessageRole::User, $content);
         }
 
-        return $this->queueTurn($conversation, $currentStatus, $body);
+        return $this->queueTurn($conversation, $currentStatus, $body, $before);
     }
 
     /**
@@ -429,7 +428,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.editStale')], 409);
         }
 
-        $this->chatApproval->reconcile($conversation);
+        $before = clone $conversation;
         $currentStatus = $conversation->getStatus();
         $refusal = $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
@@ -447,7 +446,7 @@ final readonly class ChatApiController
         $original['createdAt'] = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
         $conversation->setMessages([...array_slice($messages, 0, $index), $original]);
 
-        return $this->queueTurn($conversation, $currentStatus, $body);
+        return $this->queueTurn($conversation, $currentStatus, $body, $before);
     }
 
     /**
@@ -515,9 +514,10 @@ final readonly class ChatApiController
     /**
      * Claim the conversation for a new turn and hand it to the worker.
      *
-     * @param array<string, mixed> $body the request body, for the view context
+     * @param array<string, mixed> $body   the request body, for the view context
+     * @param Conversation         $before the row before this request changed it
      */
-    private function queueTurn(Conversation $conversation, ConversationStatus $currentStatus, array $body): ResponseInterface
+    private function queueTurn(Conversation $conversation, ConversationStatus $currentStatus, array $body, Conversation $before): ResponseInterface
     {
         // Where the user is in the backend, for this turn (NEXT-172). Only
         // shape is checked here; the worker decides what the user may see.
@@ -530,25 +530,11 @@ final readonly class ChatApiController
             $conversation->setViewContext(0, '');
         }
 
-        // A new turn while a guided process's card waits cancels the run
-        // behind it (nr-llm ADR-214): left waiting, it could still be released
-        // in the Agent Runs inbox and write after the tour had moved on. A run
-        // decided there meanwhile wins; the poll then shows what it did. An
-        // ordinary chat leaves the run waiting in the inbox.
-        if ($currentStatus === ConversationStatus::AwaitingApproval
-            && $conversation->getApprovalRunUuid() !== ''
-            && !$this->chatApproval->releasePendingRun($conversation)
-        ) {
-            $this->chatApproval->reconcile($conversation);
-
-            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
-        }
-
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->setErrorMessage('');
-        // The reference would otherwise survive into Processing, where the
-        // approval link still reads it and reconcile() would hand the card back
-        // in the middle of the new turn.
+        // A new turn abandons a pending approval: the reference would otherwise
+        // survive into Processing, where the approval link still reads it and
+        // reconcile() would hand the card back in the middle of the new turn.
         $conversation->setApprovalRunUuid('');
         $conversation->clearApprovalDecision();
 
@@ -556,6 +542,19 @@ final readonly class ChatApiController
         // preventing race conditions with concurrent requests or worker dequeue.
         $claimed = $this->repository->updateIf($conversation, $currentStatus);
         if (!$claimed) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        // A guided process's run waiting on a card or a question is cancelled
+        // now that the conversation is claimed (nr-llm ADR-214): left waiting,
+        // its proposal could still be decided after the tour moved on. When
+        // the run is being carried on, or a decision won the race, the row
+        // goes back to what it was and the message is refused as busy.
+        if (($currentStatus === ConversationStatus::AwaitingApproval || $currentStatus === ConversationStatus::AwaitingInput)
+            && !$this->chatApproval->releasePendingRun($before)
+        ) {
+            $this->repository->updateIf($before, ConversationStatus::Processing);
+
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
@@ -711,11 +710,11 @@ final readonly class ChatApiController
      * and "habe alles freigegeben" is a belief about one — on the demo it was
      * written about runs decided in another module (conversations 79, 80).
      *
+     * Decided elsewhere and finished: the message and a note are appended —
+     * the note names the records the run wrote, so the next turn knows the
+     * page exists instead of drafting it again — and the conversation is idle.
      * Decided elsewhere and still running: the same answer as any busy row.
-     * Decided elsewhere and finished: reconcile() has already closed the card
-     * with a note naming the records the run wrote, and the message is an
-     * ordinary new turn that continues from there (nr-llm ADR-214). Anything
-     * the run cannot tell (gone, unreadable): the ordinary path.
+     * Anything the run cannot tell (gone, unreadable): the ordinary path.
      */
     private function continuePendingRun(Conversation $conversation, string $content): ?ResponseInterface
     {
@@ -733,9 +732,34 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
-        // Decided elsewhere and finished is closed by reconcile() before this
-        // runs; anything the run cannot tell takes the ordinary path.
-        return null;
+        if ($pending['state'] !== ChatApprovalInterface::PENDING_RUN_SETTLED) {
+            return null;
+        }
+
+        // Stored as a notice code plus a language-neutral line, for the reason
+        // error_code exists (ADR-017): the reader gets a label in their own
+        // language, rendered from the code and the records; the model reads the
+        // line, which names the records so the next turn knows they exist.
+        $conversation->appendMessage(MessageRole::User, $content);
+        $conversation->appendMessage(
+            MessageRole::Assistant,
+            sprintf(
+                '[The pending step was decided outside this chat and its run has finished. Records it wrote: %s.]',
+                $pending['writes'] === [] ? 'none' : implode(', ', $pending['writes']),
+            ),
+            ChatService::NOTICE_RUN_FINISHED_OUTSIDE,
+            $pending['writes'],
+        );
+        $conversation->setStatus(ConversationStatus::Idle);
+        $conversation->setErrorMessage('');
+        $conversation->setApprovalRunUuid('');
+        $conversation->clearApprovalDecision();
+
+        if (!$this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval)) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        return new JsonResponse(['status' => ConversationStatus::Idle->value], 200);
     }
 
     /**
