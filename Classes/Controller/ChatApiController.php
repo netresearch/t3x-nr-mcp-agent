@@ -55,6 +55,13 @@ final readonly class ChatApiController
 {
     private const ERROR_FILE_NOT_FOUND = 'File not found';
 
+    /**
+     * The backend group permission that lets an editor decide approvals in
+     * their own conversations (ADR-021), as TYPO3 stores it in
+     * `be_groups.custom_options`: the customPermOptions key and the item.
+     */
+    public const PERMISSION_APPROVE_OWN = 'tx_nrmcpagent:approve_own_changes';
+
     private const LANGUAGE_FILE = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf';
 
     /** The length the conversation model keeps; longer input is refused rather than cut. */
@@ -262,7 +269,7 @@ final readonly class ChatApiController
             // Whether this reader may decide approvals at all. Without it the
             // notice cannot tell "decide below" from "someone else decides",
             // and a link into a module the reader cannot open is no next step.
-            'mayDecideApproval' => $this->mayDecideApprovals(),
+            'mayDecideApproval' => $this->mayDecideApprovals($conversation),
             // A hand-back whose sentence points to the run in AI Tasks: the
             // card offers the link even though it has a preview.
             'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
@@ -664,14 +671,77 @@ final readonly class ChatApiController
      * way (nr-llm re-evaluates the tool policy against them), but who may
      * release the fence is not something this extension gets to widen on its own.
      */
-    private function mayDecideApprovals(): bool
+    private function mayDecideApprovals(?Conversation $conversation = null): bool
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
         if (!$backendUser instanceof BackendUserAuthentication) {
             return false;
         }
 
+        return $this->decidesEveryApproval($backendUser)
+            || ($conversation instanceof Conversation && $this->decidesOwnApprovals($backendUser, $conversation));
+    }
+
+    /** An administrator, or a user of the AI Tasks module: the original rule. */
+    private function decidesEveryApproval(BackendUserAuthentication $backendUser): bool
+    {
         return $backendUser->isAdmin() || (bool) $backendUser->check('modules', 'nrllm_aitasks');
+    }
+
+    /**
+     * An editor holding the chat's own permission, in their own conversation
+     * (ADR-021). Added beside the module rule, not instead of it: everyone who
+     * could decide before still can.
+     */
+    private function decidesOwnApprovals(BackendUserAuthentication $backendUser, Conversation $conversation): bool
+    {
+        $uid = $backendUser->user['uid'] ?? null;
+
+        return is_numeric($uid)
+            && (int) $uid === $conversation->getBeUser()
+            && $backendUser->check('custom_options', self::PERMISSION_APPROVE_OWN);
+    }
+
+    /**
+     * Why the reader may decide this approval but not approve it, or '' when
+     * they may approve it (ADR-021):
+     *
+     * - `secondApprover`: the run's configuration requires a second person
+     *   (nr-llm ADR-172), and in the chat the reader is always the run's
+     *   initiator.
+     * - `preview`: the reader decides by the chat's own permission, and a
+     *   pending call has no preview nr-llm produced with the reader's rights.
+     *   A successful preview is the chat's stand-in for "holds the record
+     *   permissions the write needs": the tool computed it as this user, and a
+     *   plan it refused shows up as a failed preview. It is a proxy — the
+     *   write itself still runs as the conversation's owner, where TYPO3's
+     *   DataHandler decides.
+     */
+    private function approveBlockedReason(Conversation $conversation, ?WaitingRunView $view): string
+    {
+        if ($this->chatApproval->requiresSecondApprover($conversation)) {
+            return 'secondApprover';
+        }
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $byOwnPermission = $backendUser instanceof BackendUserAuthentication && !$this->decidesEveryApproval($backendUser);
+
+        return $byOwnPermission && !$this->everyCallPreviewed($view) ? 'preview' : '';
+    }
+
+    private function everyCallPreviewed(?WaitingRunView $view): bool
+    {
+        if ($view === null || $view->mode !== WaitingRunView::MODE_APPROVAL || $view->pendingCalls === []) {
+            return false;
+        }
+
+        foreach ($view->pendingCalls as $call) {
+            if (!$call->toolStillRegistered || $call->previewFailed || $call->previewLines === []) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -698,7 +768,7 @@ final readonly class ChatApiController
             // Only a reader who may decide gets the card (buildPendingApproval),
             // so only they are sent to it.
             return new JsonResponse([
-                'error' => $this->translate($this->mayDecideApprovals() ? 'error.approvalStillPending' : 'error.approvalStillPendingElsewhere'),
+                'error' => $this->translate($this->mayDecideApprovals($conversation) ? 'error.approvalStillPending' : 'error.approvalStillPendingElsewhere'),
             ], 409);
         }
 
@@ -832,7 +902,7 @@ final readonly class ChatApiController
      */
     private function buildPendingApproval(Conversation $conversation): ?array
     {
-        if (!$this->mayDecideApprovals()) {
+        if (!$this->mayDecideApprovals($conversation)) {
             // No card for someone who cannot decide: buttons they may not press
             // are worse than the prose alone.
             return null;
@@ -860,6 +930,9 @@ final readonly class ChatApiController
             'turnDigest'       => $view->turnDigest ?? '',
             'configLabel'      => $view->configLabel,
             'unreadableReason' => $view->unreadableReason,
+            // Whether the approve button is offered; the two ways to say no
+            // always are (ADR-021).
+            'approveBlocked'   => $this->approveBlockedReason($conversation, $view),
             'calls'            => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
                 $language instanceof LanguageService ? $language : null,
@@ -917,16 +990,14 @@ final readonly class ChatApiController
             return $conversation;
         }
 
-        if (!$this->mayDecideApprovals()) {
-            return new JsonResponse(['error' => $this->translate('error.approvalNotAllowed')], 403);
-        }
-
-        if ($conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
-            return new JsonResponse(['error' => $this->translate('error.notAwaitingApproval')], 409);
-        }
-
         $body = $this->parseBody($request);
         $approve = (bool) ($body['approve'] ?? false);
+
+        $refusal = $this->refuseDecision($conversation, $approve);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
         $digest = $body['turnDigest'] ?? '';
         $turnDigest = is_string($digest) ? $digest : '';
 
@@ -940,6 +1011,29 @@ final readonly class ChatApiController
         // is recorded, not yet carried out; the chat's poll reports the outcome,
         // and reconciles the conversation if the worker never takes it.
         return new JsonResponse(['status' => $conversation->getStatus()->value], 202);
+    }
+
+    /**
+     * Why this reader may not take this decision now, or null. Checked again
+     * here, from the run as it waits now, never from what the card showed.
+     */
+    private function refuseDecision(Conversation $conversation, bool $approve): ?ResponseInterface
+    {
+        if (!$this->mayDecideApprovals($conversation)) {
+            return new JsonResponse(['error' => $this->translate('error.approvalNotAllowed')], 403);
+        }
+
+        if ($conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
+            return new JsonResponse(['error' => $this->translate('error.notAwaitingApproval')], 409);
+        }
+
+        $blocked = $approve ? $this->approveBlockedReason($conversation, $this->chatApproval->pendingApproval($conversation)) : '';
+
+        return match ($blocked) {
+            'secondApprover' => new JsonResponse(['error' => $this->translate('error.handBack.secondApprover')], 409),
+            'preview' => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
+            default => null,
+        };
     }
 
     /**

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -177,6 +178,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?LlmConfigurationRepository $configurations = null,
     ) {}
 
     /**
@@ -432,6 +434,25 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // reachable, so a plain write would delete the answer and then claim the
         // run finished elsewhere.
         return $this->repository->updateIf($conversation, ConversationStatus::Processing);
+    }
+
+    /**
+     * Read from the run's own configuration, not from the chat's current
+     * Task: a run keeps the configuration it started with. False when the run
+     * or the configuration cannot be read — nr-llm still enforces the rule,
+     * and the refusal then comes back as a hand-back.
+     */
+    public function requiresSecondApprover(Conversation $conversation): bool
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+        $run = $runUuid !== '' ? $this->agentRunRepository->findByUuid($runUuid) : null;
+        if (!$run instanceof AgentRun || !$this->configurations instanceof LlmConfigurationRepository) {
+            return false;
+        }
+
+        $configuration = $this->configurations->findByUid($run->configurationUid);
+
+        return $configuration instanceof LlmConfiguration && $configuration->requiresSecondApprover();
     }
 
     /**

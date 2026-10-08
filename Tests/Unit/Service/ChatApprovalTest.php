@@ -12,7 +12,9 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -95,6 +97,7 @@ final class ChatApprovalTest extends TestCase
         ?RunActivityRecorder $activityRecorder = null,
         bool $approveFiresStep = false,
         ?LoggerInterface $logger = null,
+        ?LlmConfigurationRepository $configurations = null,
     ): ChatService {
         $approveAnswer ??= $this->completed();
 
@@ -136,6 +139,7 @@ final class ChatApprovalTest extends TestCase
             $this->createMock(UserContextPrompt::class),
             $activityRecorder ?? $this->createMock(RunActivityRecorder::class),
             logger: $logger,
+            configurations: $configurations,
         );
     }
 
@@ -470,6 +474,36 @@ final class ChatApprovalTest extends TestCase
         self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
         self::assertSame('handBack.secondApprover', $conversation->getErrorCode());
         self::assertFalse($conversation->isResumable(), 'no Retry next to a run that waits for a colleague');
+    }
+
+    /**
+     * Four-eyes is read from the configuration the run belongs to, by the
+     * run's own configuration uid — a run keeps its configuration even when
+     * the chat's Task points elsewhere by now.
+     */
+    #[Test]
+    public function fourEyesIsReadFromTheRunsOwnConfiguration(): void
+    {
+        $run = $this->runWith(AgentRunStatus::WAITING_FOR_APPROVAL);
+        (new ReflectionClass($run))->getProperty('configurationUid')->setValue($run, 7);
+        $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
+        $runRepository->method('findByUuid')->willReturn($run);
+        $strict = $this->createMock(LlmConfiguration::class);
+        $strict->method('requiresSecondApprover')->willReturn(true);
+        $configurations = $this->createMock(LlmConfigurationRepository::class);
+        $configurations->expects(self::once())->method('findByUid')->with(7)->willReturn($strict);
+
+        self::assertTrue($this->createChatService(runRepository: $runRepository, configurations: $configurations)->requiresSecondApprover($this->parkedConversation()));
+    }
+
+    #[Test]
+    public function withoutAReadableRunOrConfigurationFourEyesIsLeftToNrLlm(): void
+    {
+        $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
+        $runRepository->method('findByUuid')->willReturn(null);
+
+        self::assertFalse($this->createChatService(runRepository: $runRepository, configurations: $this->createMock(LlmConfigurationRepository::class))->requiresSecondApprover($this->parkedConversation()));
+        self::assertFalse($this->createChatService()->requiresSecondApprover($this->parkedConversation()));
     }
 
     public static function releasingRefusals(): iterable

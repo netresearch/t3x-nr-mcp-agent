@@ -388,6 +388,24 @@
             <trans-unit id="widget.openModule" resname="widget.openModule">
                 <source>Open the chat module</source>
             </trans-unit>
+            <trans-unit id="permission.header" resname="permission.header">
+                <source>AI Chat</source>
+            </trans-unit>
+            <trans-unit id="permission.approveOwn" resname="permission.approveOwn">
+                <source>Approve own changes in the chat</source>
+            </trans-unit>
+            <trans-unit id="permission.approveOwn.description" resname="permission.approveOwn.description">
+                <source>Decide the approvals of the user's own chat conversations, for changes whose preview nr-llm could build with the user's rights. Administrators and users of the AI Tasks module decide every approval anyway.</source>
+            </trans-unit>
+            <trans-unit id="error.approvalNeedsPreview" resname="error.approvalNeedsPreview">
+                <source>You may not approve this change yourself: its preview could not be built with your rights. You can deny it, or someone with access to AI Tasks can approve it.</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalOwnNeedsPreview" resname="chat.approvalOwnNeedsPreview">
+                <source>You cannot approve this change yourself, because its preview could not be built with your rights. You can deny it here; someone with access to AI Tasks can approve it.</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalSecondApprover" resname="chat.approvalSecondApprover">
+                <source>This change needs a second person: whoever started the step may not approve it. A colleague can approve it in AI Tasks; you can deny it here.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

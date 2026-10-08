@@ -77,6 +77,14 @@ is the tool's editor action label, and without one the step is headed
 **Planned step** and approved with **Carry out step**. A turn with
 several steps is approved as a whole with **Carry out all steps**.
 
+Administrators and users of **AI > AI Tasks** decide every approval. An
+editor whose backend group holds **Approve own changes in the chat** (under
+*Custom module options*) decides the approvals of their own conversations,
+and may approve a change only when the card shows its preview — the preview
+is built with the editor's own rights. Where the AI configuration requires a
+second approver, the card offers only the denial and a colleague approves
+the step in AI Tasks.
+
 The tool's internal name, its arguments and the record identifiers are
 under **Show technical details**, which is closed until you open it.
 
