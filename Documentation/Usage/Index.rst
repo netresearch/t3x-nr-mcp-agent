@@ -89,8 +89,10 @@ A step that writes data waits for your decision on a card in the chat.
 The card is headed with what the step does, for example **Create page
 draft** or **Delete page**, followed by what would change: where, the
 current state, the new state and the consequences. The approve button
-carries the same name, so it says what pressing it does; **Cancel**
-leaves everything as it is. The name is the first line of the step's
+carries the same name, so it says what pressing it does. Two buttons
+leave everything as it is and tell the assistant why: **Another variant**
+asks for a different proposal, **Skip** moves on without this change.
+Your choice stays in the conversation as your message. The name is the first line of the step's
 preview when nr-llm marks that line as naming the change; otherwise it
 is the tool's editor action label, and without one the step is headed
 **Planned step** and approved with **Carry out step**. A turn with

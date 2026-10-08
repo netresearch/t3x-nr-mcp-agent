@@ -23,10 +23,12 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
@@ -38,6 +40,7 @@ use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
@@ -71,6 +74,8 @@ final class ChatInputTest extends TestCase
 
     private bool $approveCalled = false;
 
+    private ?ApprovalDecision $approved = null;
+
     /** @var array<string, mixed> */
     private const SCHEMA = [
         'type' => 'object',
@@ -91,8 +96,12 @@ final class ChatInputTest extends TestCase
     ): ChatService {
         $agentRuntime = $this->createMock(AgentRuntimeInterface::class);
         $agentRuntime->method('run')->willReturn($runAnswer ?? $this->completed());
-        $agentRuntime->method('approve')->willReturnCallback(function (): AgentRunResult {
+        $agentRuntime->method('approve')->willReturnCallback(function (mixed $actor, string $runUuid, ApprovalDecision $decision) use ($submitAnswer): AgentRunResult {
             $this->approveCalled = true;
+            $this->approved = $decision;
+            if ($submitAnswer instanceof RuntimeException) {
+                throw $submitAnswer;
+            }
 
             return $this->completed();
         });
@@ -460,5 +469,89 @@ final class ChatInputTest extends TestCase
         $reader->method('read')->willReturn(new WaitingRunView(self::RUN, WaitingRunView::MODE_APPROVAL, 0, 'Demo', 'digest-abc'));
 
         self::assertNull($this->service(reader: $reader)->pendingInput($this->asking()));
+    }
+
+    // ---- a denial with a reason (the approval card's two denial buttons) ---
+
+    private function parked(): Conversation
+    {
+        $conversation = $this->asking();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid(self::RUN);
+
+        return $conversation;
+    }
+
+    /**
+     * "Andere Variante" is recorded as a denial with its reason, and the label
+     * goes into the transcript so the next turn knows what was asked for.
+     */
+    #[Test]
+    public function aDenialKeepsItsReasonAndShowsTheButtonsLabel(): void
+    {
+        $conversation = $this->parked();
+
+        self::assertTrue($this->service()->recordDecision($conversation, false, 'digest-abc', DenyReason::Variant, 'Andere Variante'));
+
+        self::assertSame('deny', $conversation->getApprovalDecision());
+        self::assertSame(DenyReason::Variant, $conversation->getApprovalDenyReason());
+        self::assertSame(['user', 'Andere Variante'], [self::lastMessages($conversation, 1)[0]['role'], self::lastMessages($conversation, 1)[0]['content']]);
+    }
+
+    #[Test]
+    public function anApprovalCarriesNoReasonAndAddsNoLine(): void
+    {
+        $conversation = $this->parked();
+
+        $this->service()->recordDecision($conversation, true, 'digest-abc', DenyReason::Skip, 'Überspringen');
+
+        self::assertNull($conversation->getApprovalDenyReason());
+        self::assertSame(2, $conversation->getMessageCount());
+    }
+
+    /**
+     * nr-llm's decision does not take a reason yet: the worker hands over a
+     * plain denial, which is what keeps the chat working on today's nr-llm.
+     */
+    #[Test]
+    public function withoutAReasonInNrLlmTheWorkerSendsAPlainDenial(): void
+    {
+        $conversation = $this->parked();
+        $service = $this->service();
+        $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Skip, 'Überspringen');
+
+        $service->processConversation($conversation);
+
+        self::assertNotNull($this->approved);
+        self::assertFalse($this->approved->approved);
+        self::assertSame('digest-abc', $this->approved->turnDigest);
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+    }
+
+    /** A refusal brings the card back, and the reason line goes with the decision. */
+    #[Test]
+    public function aHandedBackDenialTakesItsLineBackOut(): void
+    {
+        $conversation = $this->parked();
+        $service = $this->service(submitAnswer: new StaleApprovalTurnException(self::RUN, 'stale'));
+        $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Variant, 'Andere Variante');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame(2, $conversation->getMessageCount());
+        self::assertNull($conversation->getApprovalDenyReason());
+    }
+
+    #[Test]
+    public function settlingTheConversationForgetsTheReason(): void
+    {
+        $conversation = $this->parked();
+        $conversation->recordApprovalDecision(false, 'digest-abc', DenyReason::Skip);
+
+        $conversation->setStatus(ConversationStatus::Idle);
+
+        self::assertNull($conversation->getApprovalDenyReason());
+        self::assertArrayHasKey('approval_deny_reason', $conversation->toRow());
     }
 }

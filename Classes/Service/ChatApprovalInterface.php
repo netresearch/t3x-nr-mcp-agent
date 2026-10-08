@@ -11,6 +11,7 @@ namespace Netresearch\NrMcpAgent\Service;
 
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 
 /**
  * Reading and deciding the approval a conversation is parked on.
@@ -36,8 +37,11 @@ interface ChatApprovalInterface
      *
      * Returns false when there was nothing to decide or the claim was lost to
      * another writer — a click that arrived late is not an error to report.
+     *
+     * @param DenyReason|null $reason  why a denial was given on the card (ADR-018)
+     * @param string          $display the transcript line for that reason; empty adds none
      */
-    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest): bool;
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = ''): bool;
 
     /**
      * The question the conversation's run waits for an answer to (ADR-018), or

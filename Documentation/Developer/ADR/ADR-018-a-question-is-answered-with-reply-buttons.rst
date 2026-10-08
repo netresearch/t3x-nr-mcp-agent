@@ -82,6 +82,20 @@ pending approval behind; the reply options say so ("A message of your own
 ends the question"). Refusing the message instead would break the promise
 that free text is always possible.
 
+**A write is never a question.** "Übernehmen / Andere Variante /
+Überspringen" for a proposed change is not one input pause: nr-llm forbids a
+tool that writes from also asking for input (nr-llm ADR-134), and an
+approval's continuation carries no input. The change goes through the
+approval card, where the approve button applies it. The card's denial is two
+buttons, *Andere Variante* and *Überspringen*; the reason (``variant`` or
+``skip``, ``DenyReason``) is recorded with the decision and its label goes
+into the transcript as the reader's message. ``ApprovalDecisionFactory``
+hands the reason to nr-llm as soon as nr-llm's ``ApprovalDecision`` takes a
+string argument named ``denialReason`` (or ``reason``); until then the
+denial is a plain one, and the model learns the reason from the transcript
+on the next turn. Input pauses with reply buttons stay for choices that
+write nothing.
+
 **The option check is the chat's.** nr-llm validates a submission by
 structure only (nr-llm ADR-105). Membership in the offered options, and the
 type of a form field, are checked before the answer is recorded; otherwise a
@@ -100,6 +114,8 @@ so the answer adds no new way in.
 Consequences
 ============
 
+*   The approval card's *Abbrechen* is replaced by *Andere Variante* and
+    *Überspringen*; new column ``approval_deny_reason``.
 *   New status ``awaiting_input``, new column ``pending_input``, new route
     ``ai_chat_conversation_input`` (``POST /ai-chat/conversations/input``).
     Run the database analyzer after upgrading.

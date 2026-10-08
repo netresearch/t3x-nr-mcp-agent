@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
@@ -29,6 +30,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
 use stdClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -322,5 +324,45 @@ final class ChatApiControllerInputTest extends TestCase
         $this->chatApproval->expects(self::never())->method('recordInput');
 
         self::assertSame(404, $this->subject->submitInput($this->request('{"conversationUid": 7, "turnDigest": "d", "choice": "accept"}'))->getStatusCode());
+    }
+
+    // ---- the approval card's two denials ---------------------------------
+
+    private function approver(): void
+    {
+        $backendUser = $this->createMock(BackendUserAuthentication::class);
+        $backendUser->user = ['uid' => 1, 'usergroup' => '1,2'];
+        $backendUser->method('isAdmin')->willReturn(true);
+        $GLOBALS['BE_USER'] = $backendUser;
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+    }
+
+    #[Test]
+    public function aDenialCarriesItsReasonAndTheButtonsLabel(): void
+    {
+        $this->language([self::LLL . 'chat.approvalVariant' => 'Andere Variante']);
+        $this->approver();
+        $this->chatApproval->expects(self::once())->method('recordDecision')
+            ->with(self::anything(), false, 'digest-abc', DenyReason::Variant, 'Andere Variante')
+            ->willReturn(true);
+
+        $response = $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": false, "turnDigest": "digest-abc", "reason": "variant"}'));
+
+        self::assertSame(202, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function anUnknownReasonIsAPlainDenialAndAnApprovalHasNone(): void
+    {
+        $this->approver();
+        $this->chatApproval->expects(self::exactly(2))->method('recordDecision')
+            ->with(self::anything(), self::anything(), 'digest-abc', null, '')
+            ->willReturn(true);
+
+        $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": false, "turnDigest": "digest-abc", "reason": "drop table"}'));
+        $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": true, "turnDigest": "digest-abc", "reason": "skip"}'));
     }
 }
