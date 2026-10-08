@@ -174,6 +174,16 @@ export class ChatCoreController {
     /** @type {string[]} */
     supportedFormats = [];
 
+    /**
+     * What a guided process shows (ADR-020): its progress, and the content
+     * element it is about.
+     * @type {{progress: {label: string, current: number, total: number}|null, highlight: {table: string, uid: number}|null}}
+     */
+    guided = {progress: null, highlight: null};
+
+    /** The highlight last sent to the page module, so it is sent once. */
+    _sentHighlight = '';
+
     /** The active conversation's own instructions; empty when it has none. */
     systemPrompt = '';
     /** True while the instructions editor is open. */
@@ -283,6 +293,7 @@ export class ChatCoreController {
         this.expandedTools = new Set();
         this.pendingFile = null;
         this.approvalDecisionTaken = null;
+        this.guided = {progress: null, highlight: null};
         this.systemPrompt = '';
         this.systemPromptOpen = false;
         this.editingIndex = -1;
@@ -366,6 +377,7 @@ export class ChatCoreController {
             this._setApprovalRight(data);
             this.pendingApproval = data.pendingApproval || null;
             this.systemPrompt = data.systemPrompt || '';
+            this.guided = data.guided || {progress: null, highlight: null};
             this.activity = data.activity || [];
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
@@ -436,6 +448,9 @@ export class ChatCoreController {
                 this.approvalUrl = data.approvalUrl || '';
                 this._setApprovalRight(data);
                 this.pendingApproval = data.pendingApproval || null;
+                if (data.guided) {
+                    this.guided = data.guided;
+                }
                 this._knownMessageCount = data.totalCount;
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>

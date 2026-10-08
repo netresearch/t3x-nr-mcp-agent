@@ -9,6 +9,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
+import {chatGuidedStyles, renderProgress} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 /**
@@ -24,7 +25,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -699,6 +700,7 @@ export class ChatApp extends LitElement {
                 <h1 class="main-title">
                     ${conv?.title || lll('conversations.newConversation')}
                 </h1>
+                ${renderProgress(this.chat)}
                 <button class="btn btn-sm" @click=${() => this.chat.handleTogglePin()}
                     title="${conv?.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                     ${conv?.pinned ? '\u{1F4CC}' : lll('conversations.pin')}

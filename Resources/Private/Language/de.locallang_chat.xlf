@@ -535,6 +535,10 @@
                 <source>This change needs a second person: whoever started the step may not approve it. A colleague can approve it in AI Tasks; you can deny it here.</source>
                 <target>Diese Änderung braucht eine zweite Person: Wer den Schritt gestartet hat, darf ihn nicht freigeben. Eine Kollegin oder ein Kollege kann ihn in KI-Aufgaben freigeben; ablehnen kannst du ihn hier.</target>
             </trans-unit>
+            <trans-unit id="guided.progress" resname="guided.progress">
+                <source>Point %d of %d</source>
+                <target>Punkt %d von %d</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

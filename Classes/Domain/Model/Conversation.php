@@ -59,6 +59,13 @@ final class Conversation
      */
     private string $activity = '';
 
+    /**
+     * What the guided-state tools last reported for this conversation's runs
+     * (ADR-020): the progress for the header and the element to highlight, as
+     * JSON. Taken over from the run's state when a run returns.
+     */
+    private string $guidedState = '';
+
     private bool $archived = false;
 
     private bool $pinned = false;
@@ -109,23 +116,24 @@ final class Conversation
      */
     public static function fromRow(array $row): self
     {
-        $conversation                     = new self();
-        $conversation->uid                = (int) self::val($row, 'uid', 0);
-        $conversation->beUser             = (int) self::val($row, 'be_user', 0);
-        $conversation->title              = (string) self::val($row, 'title', '');
-        $conversation->messages           = (string) self::val($row, 'messages', '');
-        $conversation->messageCount       = (int) self::val($row, 'message_count', 0);
-        $conversation->status             = (string) self::val($row, 'status', 'idle');
-        $conversation->currentRequestId   = (string) self::val($row, 'current_request_id', '');
-        $conversation->systemPrompt       = (string) self::val($row, 'system_prompt', '');
-        $conversation->viewContext        = (string) self::val($row, 'view_context', '');
-        $conversation->activity           = (string) self::val($row, 'activity', '');
-        $conversation->archived           = (bool) self::val($row, 'archived', false);
-        $conversation->pinned             = (bool) self::val($row, 'pinned', false);
-        $conversation->errorMessage       = (string) self::val($row, 'error_message', '');
-        $conversation->errorCode          = (string) self::val($row, 'error_code', '');
-        $conversation->approvalRunUuid    = (string) self::val($row, 'approval_run_uuid', '');
-        $conversation->approvalDecision   = (string) self::val($row, 'approval_decision', '');
+        $conversation = new self();
+        $conversation->uid = (int) self::val($row, 'uid', 0);
+        $conversation->beUser = (int) self::val($row, 'be_user', 0);
+        $conversation->title = (string) self::val($row, 'title', '');
+        $conversation->messages = (string) self::val($row, 'messages', '');
+        $conversation->messageCount = (int) self::val($row, 'message_count', 0);
+        $conversation->status = (string) self::val($row, 'status', 'idle');
+        $conversation->currentRequestId = (string) self::val($row, 'current_request_id', '');
+        $conversation->systemPrompt = (string) self::val($row, 'system_prompt', '');
+        $conversation->viewContext = (string) self::val($row, 'view_context', '');
+        $conversation->activity = (string) self::val($row, 'activity', '');
+        $conversation->guidedState = (string) self::val($row, 'guided_state', '');
+        $conversation->archived = (bool) self::val($row, 'archived', false);
+        $conversation->pinned = (bool) self::val($row, 'pinned', false);
+        $conversation->errorMessage = (string) self::val($row, 'error_message', '');
+        $conversation->errorCode = (string) self::val($row, 'error_code', '');
+        $conversation->approvalRunUuid = (string) self::val($row, 'approval_run_uuid', '');
+        $conversation->approvalDecision = (string) self::val($row, 'approval_decision', '');
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
         $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate             = (int) self::val($row, 'crdate', 0);
@@ -157,19 +165,20 @@ final class Conversation
     public function toRow(): array
     {
         return [
-            'be_user'              => $this->beUser,
-            'title'                => $this->title,
-            'messages'             => $this->messages,
-            'message_count'        => $this->messageCount,
-            'status'               => $this->status,
-            'current_request_id'   => $this->currentRequestId,
-            'view_context'         => $this->viewContext,
-            'archived'             => (int) $this->archived,
-            'pinned'               => (int) $this->pinned,
-            'error_message'        => $this->errorMessage,
-            'error_code'           => $this->errorCode,
-            'approval_run_uuid'    => $this->approvalRunUuid,
-            'approval_decision'    => $this->approvalDecision,
+            'be_user' => $this->beUser,
+            'title' => $this->title,
+            'messages' => $this->messages,
+            'message_count' => $this->messageCount,
+            'status' => $this->status,
+            'current_request_id' => $this->currentRequestId,
+            'view_context' => $this->viewContext,
+            'guided_state' => $this->guidedState,
+            'archived' => (int) $this->archived,
+            'pinned' => (int) $this->pinned,
+            'error_message' => $this->errorMessage,
+            'error_code' => $this->errorCode,
+            'approval_run_uuid' => $this->approvalRunUuid,
+            'approval_decision' => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
         ];
     }
@@ -426,6 +435,36 @@ final class Conversation
         }
 
         return $entries;
+    }
+
+    /**
+     * @return array{progress: array{label: string, current: int, total: int}|null, highlight: array{table: string, uid: int}|null}
+     */
+    public function getGuidedState(): array
+    {
+        $decoded = $this->guidedState !== '' ? json_decode($this->guidedState, true) : null;
+        $progress = is_array($decoded) ? ($decoded['progress'] ?? null) : null;
+        $highlight = is_array($decoded) ? ($decoded['highlight'] ?? null) : null;
+
+        return [
+            'progress' => is_array($progress) && is_string($progress['label'] ?? null) && is_int($progress['current'] ?? null) && is_int($progress['total'] ?? null)
+                ? ['label' => $progress['label'], 'current' => $progress['current'], 'total' => $progress['total']]
+                : null,
+            'highlight' => is_array($highlight) && ($highlight['table'] ?? null) === 'tt_content' && is_int($highlight['uid'] ?? null)
+                ? ['table' => 'tt_content', 'uid' => $highlight['uid']]
+                : null,
+        ];
+    }
+
+    /**
+     * @param array{label: string, current: int, total: int}|null $progress
+     * @param array{table: string, uid: int}|null                 $highlight
+     */
+    public function setGuidedState(?array $progress, ?array $highlight): void
+    {
+        $this->guidedState = $progress === null && $highlight === null
+            ? ''
+            : json_encode(['progress' => $progress, 'highlight' => $highlight], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
 
     public function isArchived(): bool
