@@ -97,24 +97,26 @@ final readonly class ApprovalCallPresenter
      */
     private function splitTechnicalLine(array $lines, string $label): array
     {
+        $details = $lines === [] ? '' : $this->technicalDetailsOf($lines[array_key_last($lines)], $label);
+
+        return $details === '' ? [$lines, ''] : [array_slice($lines, 0, -1), $details];
+    }
+
+    /**
+     * The identifiers `$line` carries when it is the technical line, else ''.
+     * A label without text before its placeholder would match every line, so
+     * it matches none.
+     */
+    private function technicalDetailsOf(string $line, string $label): string
+    {
         $placeholder = strpos($label, '%s');
-        if ($lines === [] || $placeholder === false) {
-            return [$lines, ''];
+        $prefix      = $placeholder === false ? '' : substr($label, 0, $placeholder);
+        $suffix      = $placeholder === false ? '' : substr($label, $placeholder + 2);
+        if ($prefix === '' || !str_starts_with($line, $prefix) || !str_ends_with($line, $suffix)) {
+            return '';
         }
 
-        $prefix = substr($label, 0, $placeholder);
-        $suffix = substr($label, $placeholder + 2);
-        $last   = $lines[array_key_last($lines)];
-        if ($prefix === '' || !str_starts_with($last, $prefix) || !str_ends_with($last, $suffix)) {
-            return [$lines, ''];
-        }
-
-        $details = substr($last, strlen($prefix), strlen($last) - strlen($prefix) - strlen($suffix));
-        if ($details === '') {
-            return [$lines, ''];
-        }
-
-        return [array_slice($lines, 0, -1), $details];
+        return substr($line, strlen($prefix), strlen($line) - strlen($prefix) - strlen($suffix));
     }
 
     private function resolve(string $reference, ?LanguageService $language): string

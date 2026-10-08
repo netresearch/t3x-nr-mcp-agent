@@ -32,6 +32,9 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 class ChatApiControllerTest extends FunctionalTestCase
 {
+    /** A conversation parked for approval; its own fixture so the shared one keeps its counts. */
+    private const AWAITING_APPROVAL_FIXTURE = '/../Fixtures/conversation_awaiting_approval.csv';
+
     // nr_mcp_agent depends on filelist (the FAL picker's element browser).
     protected array $coreExtensionsToLoad = ['filelist'];
 
@@ -179,7 +182,7 @@ class ChatApiControllerTest extends FunctionalTestCase
     {
         // Its own fixture: adding the row to the shared one would move the
         // counts three other tests assert on.
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/conversation_awaiting_approval.csv');
+        $this->importCSVDataSet(__DIR__ . self::AWAITING_APPROVAL_FIXTURE);
 
         $this->subject = $this->subjectWithPendingApproval(new WaitingRunView(
             runUuid: 'run-uuid-6',
@@ -215,7 +218,7 @@ class ChatApiControllerTest extends FunctionalTestCase
     #[Test]
     public function getMessagesTellsTheCardWhichCallWasHandedBackAsStale(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/conversation_awaiting_approval.csv');
+        $this->importCSVDataSet(__DIR__ . self::AWAITING_APPROVAL_FIXTURE);
 
         $this->subject = $this->subjectWithPendingApproval(new WaitingRunView(
             runUuid: 'run-uuid-6',
@@ -248,7 +251,7 @@ class ChatApiControllerTest extends FunctionalTestCase
     #[Test]
     public function getMessagesNamesTheActionAndSeparatesTheTechnicalLine(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/conversation_awaiting_approval.csv');
+        $this->importCSVDataSet(__DIR__ . self::AWAITING_APPROVAL_FIXTURE);
         $this->setUpLanguageServiceFor('de');
 
         $approval = $this->createMock(ChatApprovalInterface::class);

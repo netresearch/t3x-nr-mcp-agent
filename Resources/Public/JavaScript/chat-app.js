@@ -930,12 +930,7 @@ export class ChatApp extends LitElement {
                         ${call.previewStale ? html`
                             <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
                         ` : nothing}
-                        ${call.previewLines && call.previewLines.length ? html`
-                            <div class="approval-preview">
-                                ${call.previewFailed ? html`<strong>${lll('chat.approvalPreviewUnavailable')}</strong>` : nothing}
-                                <ul>${call.previewLines.map((line) => html`<li>${line}</li>`)}</ul>
-                            </div>
-                        ` : nothing}
+                        ${this._renderApprovalPreview(call)}
                         <details class="approval-technical">
                             <summary>${lll('chat.approvalTechnicalDetails')}</summary>
                             ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
@@ -952,6 +947,27 @@ export class ChatApp extends LitElement {
                         @click=${() => this.chat.decideApproval(false)}>${lll('chat.approvalCancel')}</button>
                 </div>
                 ${this._lacksPreview(pending) ? this._renderRunDetailsLink() : nothing}
+            </div>
+        `;
+    }
+
+    /**
+     * The preview lines of one call, in nr-llm's order. A failed or withheld
+     * preview is introduced as such, because its lines carry the reason.
+     */
+    _renderApprovalPreview(call) {
+        if (!call.previewLines || !call.previewLines.length) {
+            return nothing;
+        }
+
+        const unavailable = call.previewFailed
+            ? html`<strong>${lll('chat.approvalPreviewUnavailable')}</strong>`
+            : nothing;
+
+        return html`
+            <div class="approval-preview">
+                ${unavailable}
+                <ul>${call.previewLines.map((line) => html`<li>${line}</li>`)}</ul>
             </div>
         `;
     }
