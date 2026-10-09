@@ -81,6 +81,17 @@ identities and field names (at most 20), and the read tool
 the page, leaving out points on tables the user may not read. Neither holds
 a value or the proposal's text.
 
+**Site-wide, for the dashboard.** ``OpenPointVisibility::visibleForCurrentUser()``
+lists the open points the current backend user may see across the site,
+newest first, the limit counted after the visibility rule. Each
+``VisibleOpenPoint`` carries the page, the target record's language, the
+skill's uid and nr-llm's stored identifier, the target and the date, and a
+German sentence built from the TCA labels and the page title ("<Feld> fehlt
+auf „<Seite>“" for an empty field, "<Feld> auf „<Seite>“ offen" otherwise),
+never model text. The visibility rule also leaves out a point on a field the
+user's groups may not edit (``exclude`` without ``non_exclude_fields``),
+for every reader.
+
 **Process runs.** ``SkillProcessRunDetector`` implements
 ``ProcessRunDetectorInterface`` (ADR-018): a conversation with a skill runs
 a guided process unless nr-llm marks the skill as plain
