@@ -37,3 +37,4 @@ consequences of each decision.
     ADR-019-a-conversation-starts-about-a-page-with-a-skill
     ADR-020-guided-state-tools
     ADR-021-editors-approve-their-own-changes
+    ADR-022-open-points-of-guided-processes

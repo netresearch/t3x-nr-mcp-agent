@@ -7,7 +7,7 @@
 
 ## Overview
 
-PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), `Tool/` (the guided-state tools registered with nr-llm, ADR-020), `EventListener/` (loads the page module's highlight receiver), `Updates/` (upgrade wizards: one-off corrections of stored rows after a release), plus `Backend/`, `Dashboard/` (the optional dashboard widget, registered from `Configuration/Services.php`), `Configuration/`, `Utility/`, `Exception/`.
+PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), `Tool/` (the guided-state tools registered with nr-llm, ADR-020, and the open-point list, ADR-022), `EventListener/` (loads the page module's highlight receiver), `Updates/` (upgrade wizards: one-off corrections of stored rows after a release), plus `Backend/`, `Dashboard/` (the optional dashboard widget, registered from `Configuration/Services.php`), `Configuration/`, `Utility/`, `Exception/`.
 
 ## Setup
 

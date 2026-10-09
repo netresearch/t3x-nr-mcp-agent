@@ -60,6 +60,7 @@ use Netresearch\NrMcpAgent\Enum\ProcessRefusal;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
+use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Psr\Log\LoggerInterface;
@@ -204,6 +205,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?GuidedStateLinker $guidedState = null,
         private readonly ?SkillCatalogueInterface $skills = null,
         private readonly ?SkillInvocationInterface $skillInvocation = null,
+        private readonly ?OpenPointTrackerInterface $openPoints = null,
     ) {}
 
     /**
@@ -923,6 +925,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             }
         };
         $recordStep = $this->activityRecorder->onStep($conversation);
+        // The card the decision answers, read before nr-llm acts on it: an
+        // open point is keyed by what that card showed (ADR-022).
+        $denyReason = $conversation->getApprovalDenyReason();
+        $cardTarget = $this->openPoints?->cardTarget(
+            $conversation,
+            $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid),
+        );
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
@@ -981,6 +990,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $this->persist($conversation);
 
             return;
+        }
+
+        // nr-llm accepted the decision: only now may it record or close an
+        // open point. A failure here costs the open point, not the answer.
+        try {
+            $this->openPoints?->settle($conversation, $approved, $denyReason, $cardTarget, $result);
+        } catch (Throwable $e) {
+            $this->logger?->warning('Open point of run {run} not settled: {message}', [
+                'run'       => $runUuid,
+                'message'   => $e->getMessage(),
+                'exception' => $e,
+            ]);
         }
 
         $conversation->clearApprovalDecision();
@@ -1538,6 +1559,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $unavailable = $this->buildUnavailableToolsContext($conversation, $configuration);
         if ($unavailable !== '') {
             $parts[] = $unavailable;
+        }
+
+        // A process started on a record is offered the points it left open
+        // there before (nr-llm ADR-214, item 9; ADR-022).
+        $openPoints = $this->openPoints?->promptFor($conversation) ?? '';
+        if ($openPoints !== '') {
+            $parts[] = $openPoints;
         }
 
         // The user's own context — answer language and where they are in the
