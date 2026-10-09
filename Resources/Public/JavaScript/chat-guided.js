@@ -33,6 +33,20 @@ export const chatGuidedStyles = css`
     .guided-count {
         flex: none;
     }
+    .guided-end {
+        flex: none;
+        padding: 0 4px;
+        border: 0;
+        background: none;
+        color: inherit;
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+    }
+    .guided-end:disabled {
+        cursor: default;
+        opacity: .5;
+    }
     .guided-announcement {
         position: absolute;
         width: 1px;
@@ -88,6 +102,22 @@ export function renderProgress(chat) {
 }
 
 /**
+ * The × that ends the guided process (ADR-023): beside the header's progress,
+ * while a conversation runs a skill about a page. Ending it withdraws a
+ * proposal still waiting; what was applied stays.
+ */
+export function renderEndTour(chat) {
+    if (!chat.tour) {
+        return nothing;
+    }
+
+    return html`<button type="button" class="guided-end" data-action="end-tour"
+        ?disabled=${chat.endingTour || chat.isProcessing()}
+        @click=${() => chat.endTour()}
+        aria-label="${lll('guided.endTour')}" title="${lll('guided.endTour')}">&times;</button>`;
+}
+
+/**
  * Ask the page module to highlight the conversation's current element, once
  * per element. Only the floating panel has the page module beside it; the
  * message goes to the backend's module frame, same origin only.
@@ -111,5 +141,26 @@ export function sendHighlight(chat, win = globalThis) {
     chat._sentHighlight = key;
     chat.highlightAnnounced = String(highlight.uid);
     frame.postMessage({type: HIGHLIGHT_MESSAGE, version: 1, table: highlight.table, uid: highlight.uid}, win.location.origin);
+    return true;
+}
+
+/**
+ * Ask the page module to remove the mark, when the guided process has ended.
+ * Only what this chat marked is cleared.
+ *
+ * @param {object} chat the ChatCoreController
+ * @param {Window} [win] the window the panel lives in
+ * @returns {boolean} whether a message was posted
+ */
+export function clearSentHighlight(chat, win = globalThis) {
+    const had = chat._sentHighlight !== '';
+    chat._sentHighlight = '';
+    chat.highlightAnnounced = '';
+    const frame = win.frames?.list_frame;
+    if (!had || !frame) {
+        return false;
+    }
+
+    frame.postMessage({type: HIGHLIGHT_MESSAGE, version: 1, clear: true}, win.location.origin);
     return true;
 }

@@ -671,6 +671,10 @@
                 <source>done</source>
                 <target>abgeschlossen</target>
             </trans-unit>
+            <trans-unit id="guided.endTour" resname="guided.endTour">
+                <source>End tour</source>
+                <target>Rundgang beenden</target>
+            </trans-unit>
             <trans-unit id="guided.analysing" resname="guided.analysing">
                 <source>Analysing</source>
                 <target>Analyse läuft</target>

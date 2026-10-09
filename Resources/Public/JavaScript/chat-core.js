@@ -4,6 +4,7 @@
 import {ApiClient} from '@netresearch/nr-mcp-agent/api-client.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
+import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
@@ -218,6 +219,8 @@ export class ChatCoreController {
 
     /** The content element the page module was last asked to mark, for the announcement. */
     highlightAnnounced = '';
+    /** Whether the request ending the tour is under way (ADR-023). */
+    endingTour = false;
 
     /** The highlight last sent to the page module, so it is sent once. */
     _sentHighlight = '';
@@ -930,8 +933,52 @@ export class ChatCoreController {
         await this._setSkill(entry.identifier);
     }
 
+    /**
+     * Remove the conversation's skill. While it runs a tour, removing it ends
+     * the tour, so a waiting proposal is withdrawn the same way as by the
+     * header's × (ADR-023).
+     */
     async clearSkill() {
+        if (this.tour) {
+            await this.endTour();
+            return;
+        }
         await this._setSkill('');
+    }
+
+    /**
+     * End the guided process (ADR-023): the server withdraws a waiting
+     * proposal through the guarded cancel and clears the skill; applied
+     * changes and the outcomes shown stay. Focus goes to the input.
+     */
+    async endTour() {
+        const uid = this.activeUid;
+        if (!uid || this.endingTour) return;
+        this.endingTour = true;
+        this.host.requestUpdate();
+        try {
+            const data = await this._api.endTour(uid);
+            if (uid !== this.activeUid) return;
+            this.skill = null;
+            this.tour = null;
+            this.guided = {progress: null, highlight: null};
+            this.pendingApproval = null;
+            this.pendingInput = null;
+            this.approvalDecisionTaken = null;
+            if (data.status) {
+                this.status = data.status;
+                this.conversations = this.conversations.map(c => c.uid === uid ? {...c, status: data.status} : c);
+            }
+            clearSentHighlight(this);
+            this.errorMessage = '';
+            this.host.onFocusInput();
+        } catch (e) {
+            if (uid !== this.activeUid) return;
+            this.errorMessage = e.message;
+        } finally {
+            this.endingTour = false;
+            this.host.requestUpdate();
+        }
     }
 
     async _setSkill(identifier) {

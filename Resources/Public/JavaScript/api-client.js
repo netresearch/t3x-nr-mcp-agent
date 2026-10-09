@@ -49,6 +49,16 @@ export class ApiClient {
     }
 
     /**
+     * End the guided process the conversation runs (ADR-023): a waiting
+     * proposal is withdrawn, applied changes stay.
+     * @param {number} conversationUid
+     * @returns {Promise<{status: string, skill: null}>}
+     */
+    async endTour(conversationUid) {
+        return this._post('ai_chat_conversation_end_tour', {conversationUid});
+    }
+
+    /**
      * @param {number} conversationUid
      * @param {number} after – message index offset
      * @returns {Promise<{status: string, messages: Array, totalCount: number, errorMessage: string}>}

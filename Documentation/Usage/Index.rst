@@ -166,7 +166,8 @@ conversation's own, so reloading opens it again.
 Typing ``/`` at the start of the input lists the skills available in the
 chat. Pick one with the arrow keys and Enter, or with the mouse; nothing is
 sent. The conversation's skill is shown above the input, and the ``×``
-beside it removes it. Every later answer in the conversation uses it.
+beside it removes it; in a guided process about a page this ends the
+process (see below). Every later answer in the conversation uses it.
 
 When the chat's AI configuration needs a second person to approve every
 change, no skill can be started, and the chat says so: a guided process
@@ -213,6 +214,13 @@ A skill can walk you through a page one point at a time. While it does:
     what you skipped.
 *   **The end is shown.** When the process is finished, the header says
     so and the highlight goes away.
+*   **You can end it at any point.** The ``×`` beside the progress ends
+    the process, and so does removing the conversation's skill. A proposal
+    still waiting for your answer is withdrawn and changes nothing; changes
+    already applied stay, and so do the outcomes shown in the chat and the
+    open points. The highlight goes away and the input gets the focus. While
+    the assistant works or a decision is being carried out, the process
+    cannot be ended.
 *   **Skipped proposals stay open.** A change you answer with **Skip** is
     kept as an open point of that page: the record and field it was about,
     never its text. The next time the process runs on the page, it is

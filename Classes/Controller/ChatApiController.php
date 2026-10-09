@@ -32,6 +32,7 @@ use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
+use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Service\TourContext;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
@@ -90,6 +91,7 @@ final readonly class ChatApiController
         private ?SiteFinder $siteFinder = null,
         private ?SkillCatalogueInterface $skills = null,
         private ?TourContext $tourContext = null,
+        private ?ProcessPinReleaseInterface $pinRelease = null,
     ) {}
 
     /**
@@ -399,6 +401,66 @@ final readonly class ChatApiController
         $conversation->setSkillIdentifier($skill, $skillUid);
 
         return new JsonResponse(['skill' => $this->presentSkill($conversation)]);
+    }
+
+    /**
+     * POST /ai-chat/conversations/end-tour – the × of a guided process (ADR-023).
+     *
+     * Ends the tour the conversation runs: a run that waits on a proposal or a
+     * question is withdrawn through the guarded cancel (nr-llm ADR-214, item
+     * 10), the skill and the guided state are cleared, and the process pin is
+     * released where nr-llm can (ProcessPinReleaseInterface). Changes already
+     * applied stay: nothing here writes to a record. While a turn or a
+     * decision is being carried out, the tour cannot be ended (409); the same
+     * when the guarded cancel loses to a decision taken meanwhile, and then the
+     * row goes back to what it was.
+     */
+    public function endTour(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $body = $this->parseBody($request);
+        $conversation = $this->findConversationOrFail($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $current = $conversation->getStatus();
+        if ($this->isBusy($current)) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        if ($conversation->getSkillIdentifier() === '') {
+            return new JsonResponse(['status' => $current->value, 'skill' => null]);
+        }
+
+        $before = clone $conversation;
+        $waiting = $current === ConversationStatus::AwaitingApproval || $current === ConversationStatus::AwaitingInput;
+        $conversation->setSkillIdentifier('', 0);
+        $conversation->setGuidedState(null, null);
+        if ($waiting) {
+            $conversation->setStatus(ConversationStatus::Idle);
+            $conversation->setApprovalRunUuid('');
+            $conversation->clearApprovalDecision();
+            $conversation->setErrorMessage('');
+        }
+
+        if (!$this->repository->updateIf($conversation, $current)) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        if ($waiting && !$this->chatApproval->releasePendingRun($before)) {
+            $this->repository->updateIf($before, ConversationStatus::Idle);
+
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        $this->pinRelease?->release($before);
+
+        return new JsonResponse(['status' => $conversation->getStatus()->value, 'skill' => null]);
     }
 
     /**

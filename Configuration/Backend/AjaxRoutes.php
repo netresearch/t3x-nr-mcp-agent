@@ -55,6 +55,11 @@ return [
         'target' => ChatApiController::class . '::updateSkill',
         'methods' => ['POST'],
     ],
+    'ai_chat_conversation_end_tour' => [
+        'path' => '/ai-chat/conversations/end-tour',
+        'target' => ChatApiController::class . '::endTour',
+        'methods' => ['POST'],
+    ],
     'ai_chat_conversation_approve' => [
         'path' => '/ai-chat/conversations/approve',
         'target' => ChatApiController::class . '::decideApproval',
