@@ -209,6 +209,13 @@ export class ChatCoreController {
      */
     cardOutcomes = [];
 
+    /**
+     * The page and language a guided process runs on (ADR-023), for the
+     * header; null outside one.
+     * @type {{pageTitle: string, languageName: string}|null}
+     */
+    tour = null;
+
     /** The highlight last sent to the page module, so it is sent once. */
     _sentHighlight = '';
 
@@ -342,6 +349,7 @@ export class ChatCoreController {
         this.approvalDecisionTaken = null;
         this.guided = {progress: null, highlight: null};
         this.cardOutcomes = [];
+        this.tour = null;
         // Coming back to a conversation highlights its element again.
         this._sentHighlight = '';
         this.pendingInput = null;
@@ -494,6 +502,7 @@ export class ChatCoreController {
             this.systemPrompt = data.systemPrompt || '';
             this.guided = data.guided || {progress: null, highlight: null};
             this.cardOutcomes = data.cardOutcomes || [];
+            this.tour = data.tour || null;
             this.skill = data.skill || null;
             this.activity = data.activity || [];
             if (data.pendingApproval) {
@@ -570,6 +579,9 @@ export class ChatCoreController {
                 }
                 if (data.cardOutcomes) {
                     this.cardOutcomes = data.cardOutcomes;
+                }
+                if ('tour' in data) {
+                    this.tour = data.tour || null;
                 }
                 this.pendingInput = data.pendingInput || null;
                 this._knownMessageCount = data.totalCount;

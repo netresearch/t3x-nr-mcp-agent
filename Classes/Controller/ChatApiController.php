@@ -33,6 +33,7 @@ use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use Netresearch\NrMcpAgent\Service\TourContext;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -88,6 +89,7 @@ final readonly class ChatApiController
         // without a language check and without skills (ADR-019).
         private ?SiteFinder $siteFinder = null,
         private ?SkillCatalogueInterface $skills = null,
+        private ?TourContext $tourContext = null,
     ) {}
 
     /**
@@ -508,6 +510,11 @@ final readonly class ChatApiController
                 ($GLOBALS['LANG'] ?? null) instanceof LanguageService ? $GLOBALS['LANG'] : null,
             ),
             'skill' => $this->presentSkill($conversation),
+            // The page and language a guided process is about, for the header
+            // (ADR-023): from the conversation, never from the model.
+            'tour' => ($GLOBALS['BE_USER'] ?? null) instanceof BackendUserAuthentication
+                ? ($this->tourContext ?? new TourContext($this->siteFinder))->of($conversation, $GLOBALS['BE_USER'])
+                : null,
             'activity' => $conversation->getActivity(),
         ]);
     }

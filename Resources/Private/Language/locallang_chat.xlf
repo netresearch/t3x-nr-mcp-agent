@@ -508,6 +508,9 @@
             <trans-unit id="guided.completed" resname="guided.completed">
                 <source>done</source>
             </trans-unit>
+            <trans-unit id="guided.analysing" resname="guided.analysing">
+                <source>Analysing</source>
+            </trans-unit>
             <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
                 <source>You may not open this page, so no conversation was started about it.</source>
             </trans-unit>
