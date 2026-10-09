@@ -315,6 +315,10 @@
                 <source>This step no longer waits for a decision, so nothing was carried out. AI Tasks shows where the run stands.</source>
                 <target>Dieser Schritt wartet nicht mehr auf eine Entscheidung, deshalb wurde nichts ausgeführt. Den aktuellen Stand des Laufs zeigt KI-Aufgaben.</target>
             </trans-unit>
+            <trans-unit id="error.handBack.secondApprover" resname="error.handBack.secondApprover">
+                <source>This change needs a second person: for this AI configuration, whoever started the step may not approve it. A colleague can approve it in AI Tasks; you can still deny it here.</source>
+                <target>Diese Änderung braucht eine zweite Person: Für diese KI-Konfiguration darf nicht freigeben, wer den Schritt gestartet hat. Eine Kollegin oder ein Kollege kann ihn in KI-Aufgaben freigeben; ablehnen kannst du ihn hier.</target>
+            </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
                 <target>Der KI-Anbieter ist nicht eingerichtet. Bitte an die Administration wenden.</target>
@@ -506,6 +510,30 @@
             <trans-unit id="widget.openModule" resname="widget.openModule">
                 <source>Open the chat module</source>
                 <target>Chat-Modul öffnen</target>
+            </trans-unit>
+            <trans-unit id="permission.header" resname="permission.header">
+                <source>AI Chat</source>
+                <target>KI-Chat</target>
+            </trans-unit>
+            <trans-unit id="permission.approveOwn" resname="permission.approveOwn">
+                <source>Approve own changes in the chat</source>
+                <target>Eigene Änderungen im Chat freigeben</target>
+            </trans-unit>
+            <trans-unit id="permission.approveOwn.description" resname="permission.approveOwn.description">
+                <source>Decide the approvals of the user's own chat conversations, for changes whose preview nr-llm could build with the user's rights. Administrators and users of the AI Tasks module decide every approval anyway.</source>
+                <target>Freigaben in den eigenen Chat-Unterhaltungen entscheiden, für Änderungen, deren Vorschau nr-llm mit den eigenen Rechten erstellen konnte. Administratoren und Nutzer des Moduls KI-Aufgaben entscheiden ohnehin jede Freigabe.</target>
+            </trans-unit>
+            <trans-unit id="error.approvalNeedsPreview" resname="error.approvalNeedsPreview">
+                <source>You may not approve this change yourself: its preview could not be built with your rights. You can deny it, or someone with access to AI Tasks can approve it.</source>
+                <target>Du darfst diese Änderung nicht selbst freigeben: Ihre Vorschau ließ sich mit deinen Rechten nicht erstellen. Du kannst sie ablehnen, oder jemand mit Zugriff auf KI-Aufgaben gibt sie frei.</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalOwnNeedsPreview" resname="chat.approvalOwnNeedsPreview">
+                <source>You cannot approve this change yourself, because its preview could not be built with your rights. You can deny it here; someone with access to AI Tasks can approve it.</source>
+                <target>Diese Änderung kannst du nicht selbst freigeben, weil sich ihre Vorschau mit deinen Rechten nicht erstellen ließ. Ablehnen kannst du sie hier; freigeben kann sie jemand mit Zugriff auf KI-Aufgaben.</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalSecondApprover" resname="chat.approvalSecondApprover">
+                <source>This change needs a second person: whoever started the step may not approve it. A colleague can approve it in AI Tasks; you can deny it here.</source>
+                <target>Diese Änderung braucht eine zweite Person: Wer den Schritt gestartet hat, darf ihn nicht freigeben. Eine Kollegin oder ein Kollege kann ihn in KI-Aufgaben freigeben; ablehnen kannst du ihn hier.</target>
             </trans-unit>
         </body>
     </file>
