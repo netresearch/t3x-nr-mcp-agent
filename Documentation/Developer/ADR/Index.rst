@@ -38,3 +38,4 @@ consequences of each decision.
     ADR-020-guided-state-tools
     ADR-021-editors-approve-their-own-changes
     ADR-022-open-points-of-guided-processes
+    ADR-023-the-chat-guides-a-process
