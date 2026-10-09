@@ -10,6 +10,7 @@ import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
 import {chatGuidedStyles, renderProgress} from '@netresearch/nr-mcp-agent/chat-guided.js';
+import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 /**
@@ -25,7 +26,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -408,7 +409,7 @@ export class ChatApp extends LitElement {
         .status-processing, .status-tool_loop {
             background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text);
         }
-        .status-badge.status-awaiting_approval { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
+        .status-badge.status-awaiting_approval, .status-badge.status-awaiting_input { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
         .status-failed { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
 
         .empty-state {
@@ -738,6 +739,7 @@ export class ChatApp extends LitElement {
                 ${this._renderStatusNotice(isResumable)}
             </div>
 
+            ${renderReplyOptions(this.chat)}
             ${this._renderFileBadge()}
             <div class="input-area">
                 ${this._renderAttachmentMenu()}
@@ -746,8 +748,8 @@ export class ChatApp extends LitElement {
                         .value=${this.chat.inputValue}
                         @input=${this._handleInput}
                         @keydown=${this._handleKeydown}
-                        placeholder="${lll('chat.placeholder')}"
-                        aria-label="${lll('chat.placeholder')}"
+                        placeholder="${replyPlaceholder(this.chat)}"
+                        aria-label="${replyPlaceholder(this.chat)}"
                         ?disabled=${!this.chat.available}
                         maxlength=${this.maxLength > 0 ? this.maxLength : nothing}
                         rows="2"
@@ -782,12 +784,20 @@ export class ChatApp extends LitElement {
     _renderStatusNotice(isResumable) {
         const dismiss = () => { this.chat.errorMessage = ''; this.requestUpdate(); };
 
+        // A question shows its answers, and the reason it is open again, above
+        // the input (ADR-018); an error line here would offer a Retry that
+        // steps past it.
+        if (this.chat.status === 'awaiting_input') {
+            return nothing;
+        }
+
         if (this.chat.approvalDecisionTaken) {
             const granted = this.chat.approvalDecisionTaken === 'approved';
+            // The two denials (ADR-018) confirm in their own words.
             return html`
                 <div class="message system status-notice" tabindex="-1"
                     style="color:${granted ? 'var(--nr-chat-status-success, #2e7d32)' : 'var(--nr-chat-status-info, #0277bd)'};">
-                    ${granted ? lll('chat.approvalGranted') : lll('chat.approvalDenied')}
+                    ${decisionLabel(this.chat.approvalDecisionTaken)}
                 </div>
             `;
         }
@@ -913,9 +923,11 @@ export class ChatApp extends LitElement {
      * editor action label), the preview lines follow in
      * nr-llm's order, and the tool name, its arguments and the technical
      * preview line sit in one closed "Show technical details" section
-     * (editorial rules 10, 14-16, 22, 26). The cancel button says "Cancel".
+     * (editorial rules 10, 14-16, 22, 26). The denial is "Cancel", or, for a
+     * write in a process run, "Another variant" and "Skip", which tell the run
+     * why the change was not taken (ADR-018, nr-llm ADR-214).
      *
-     * Approve and cancel are the only actions of a decidable card. The link to
+     * Approve and the denial buttons are the only actions of a decidable card. The link to
      * the run used to sit beside them, styled like a third button and labelled
      * "Grant approval", although it opens the run's timeline, where nothing can
      * be granted (NEXT-162). It is now a plain text link, and it is offered on
@@ -962,8 +974,7 @@ export class ChatApp extends LitElement {
                 <div class="approval-actions">
                     <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
                         @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
-                    <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this._decide(false)}>${lll('chat.approvalCancel')}</button>
+                    ${renderDenyButtons(pending, this.chat.approvalBusy, (reason) => this._decide(false, reason))}
                 </div>
                 ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
             </div>
@@ -997,9 +1008,9 @@ export class ChatApp extends LitElement {
      * would otherwise fall back to the document body. Not when the reader has
      * switched conversations meanwhile: the answer is not on screen then.
      */
-    async _decide(approve) {
+    async _decide(approve, reason = '') {
         const uid = this.chat.activeUid;
-        await this.chat.decideApproval(approve);
+        await this.chat.decideApproval(approve, reason);
         if (uid !== this.chat.activeUid) {
             return;
         }

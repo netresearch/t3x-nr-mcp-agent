@@ -23,6 +23,8 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
+use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
@@ -54,6 +56,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class ChatApiController
 {
     private const ERROR_FILE_NOT_FOUND = 'File not found';
+
+    private const ERROR_MESSAGE_TOO_LONG = 'Message too long (max %d characters)';
 
     private const LANGUAGE_FILE = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf';
 
@@ -226,7 +230,10 @@ final readonly class ChatApiController
             // until they reload. Polling has already stopped by then
             // (awaiting_approval is not a processing status), so nothing repairs
             // it. Fall through once and answer with the card.
-            $isAwaitingApproval = $meta['status'] === ConversationStatus::AwaitingApproval->value;
+            // The same holds for a question (ADR-018): the poll that first sees
+            // it must answer with the reply buttons.
+            $isAwaitingApproval = $meta['status'] === ConversationStatus::AwaitingApproval->value
+                || $meta['status'] === ConversationStatus::AwaitingInput->value;
 
             if ($meta['message_count'] <= $afterIndex && !$mayNeedRepair && !$isAwaitingApproval) {
                 return new JsonResponse([
@@ -259,6 +266,7 @@ final readonly class ChatApiController
             ...$this->presentError($conversation->getErrorMessage(), $conversation->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
+            'pendingInput' => $this->buildPendingInput($conversation),
             // Whether this reader may decide approvals at all. Without it the
             // notice cannot tell "decide below" from "someone else decides",
             // and a link into a module the reader cannot open is no next step.
@@ -297,7 +305,7 @@ final readonly class ChatApiController
 
         $maxLength = $this->config->getMaxMessageLength();
         if ($maxLength > 0 && mb_strlen($content) > $maxLength) {
-            return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
+            return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
         }
 
         $fileUid = isset($body['fileUid']) ? (int) $body['fileUid'] : null;
@@ -323,6 +331,9 @@ final readonly class ChatApiController
             }
         }
 
+        // The row as it was, to put back if a guided process's waiting run
+        // cannot be cancelled after the claim (queueTurn()).
+        $before = clone $conversation;
         $currentStatus = $conversation->getStatus();
         // "weiter" while a run waits for an approval is not a new request. Left
         // to the ordinary path below it abandoned the approval and started a
@@ -359,7 +370,7 @@ final readonly class ChatApiController
             $conversation->appendMessage(MessageRole::User, $content);
         }
 
-        return $this->queueTurn($conversation, $currentStatus, $body);
+        return $this->queueTurn($conversation, $currentStatus, $body, $before);
     }
 
     /**
@@ -394,7 +405,7 @@ final readonly class ChatApiController
 
         $maxLength = $this->config->getMaxMessageLength();
         if ($maxLength > 0 && mb_strlen($content) > $maxLength) {
-            return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
+            return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
         }
 
         $rawIndex = $body['index'] ?? null;
@@ -419,6 +430,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.editStale')], 409);
         }
 
+        $before = clone $conversation;
         $currentStatus = $conversation->getStatus();
         $refusal = $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
@@ -436,7 +448,7 @@ final readonly class ChatApiController
         $original['createdAt'] = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
         $conversation->setMessages([...array_slice($messages, 0, $index), $original]);
 
-        return $this->queueTurn($conversation, $currentStatus, $body);
+        return $this->queueTurn($conversation, $currentStatus, $body, $before);
     }
 
     /**
@@ -504,9 +516,10 @@ final readonly class ChatApiController
     /**
      * Claim the conversation for a new turn and hand it to the worker.
      *
-     * @param array<string, mixed> $body the request body, for the view context
+     * @param array<string, mixed> $body   the request body, for the view context
+     * @param Conversation         $before the row before this request changed it
      */
-    private function queueTurn(Conversation $conversation, ConversationStatus $currentStatus, array $body): ResponseInterface
+    private function queueTurn(Conversation $conversation, ConversationStatus $currentStatus, array $body, Conversation $before): ResponseInterface
     {
         // Where the user is in the backend, for this turn (NEXT-172). Only
         // shape is checked here; the worker decides what the user may see.
@@ -531,6 +544,19 @@ final readonly class ChatApiController
         // preventing race conditions with concurrent requests or worker dequeue.
         $claimed = $this->repository->updateIf($conversation, $currentStatus);
         if (!$claimed) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        // A guided process's run waiting on a card or a question is cancelled
+        // now that the conversation is claimed (nr-llm ADR-214): left waiting,
+        // its proposal could still be decided after the tour moved on. When
+        // the run is being carried on, or a decision won the race, the row
+        // goes back to what it was and the message is refused as busy.
+        if (($currentStatus === ConversationStatus::AwaitingApproval || $currentStatus === ConversationStatus::AwaitingInput)
+            && !$this->chatApproval->releasePendingRun($before)
+        ) {
+            $this->repository->updateIf($before, ConversationStatus::Processing);
+
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
@@ -756,7 +782,7 @@ final readonly class ChatApiController
         // A run nr-llm handed back still pending: the stored reason is a code
         // only, rendered for every reader alike (administrators included) —
         // nr-llm's own message is in the log, never on screen.
-        $handBack = ApprovalHandBackReason::tryFrom($code);
+        $handBack = ApprovalHandBackReason::tryFrom($code) ?? InputHandBackReason::tryFrom($code);
         if ($handBack !== null) {
             return ['errorMessage' => $this->translate($handBack->labelKey()), 'errorLink' => '', 'errorLinkLabel' => ''];
         }
@@ -862,6 +888,9 @@ final readonly class ChatApiController
             'turnDigest'       => $view->turnDigest ?? '',
             'configLabel'      => $view->configLabel,
             'unreadableReason' => $view->unreadableReason,
+            // "Übernehmen / Andere Variante / Überspringen" for a write in a
+            // process run, approve and cancel for every other card (ADR-018).
+            'answers'          => $this->chatApproval->offersProcessAnswers($conversation, $view) ? 'process' : 'plain',
             'calls'            => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
                 $language instanceof LanguageService ? $language : null,
@@ -891,6 +920,110 @@ final readonly class ChatApiController
         }
 
         return $this->languageServiceFactory->createFromUserPreferences($backendUser);
+    }
+
+    /**
+     * The question the run waits for an answer to, as the reply buttons render
+     * it (ADR-018); null when nothing is asked.
+     *
+     * Not gated by mayDecideApprovals(): an answer releases no write fence.
+     * nr-llm forbids a tool that asks for input from declaring a write (nr-llm
+     * ADR-105, ADR-134), the owner may act on their own run, and nr-llm checks
+     * that they may run the tool the question belongs to (nr-llm ADR-150).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildPendingInput(Conversation $conversation): ?array
+    {
+        $pause = $this->chatApproval->pendingInput($conversation);
+        if ($pause === null) {
+            return null;
+        }
+
+        return [
+            'runUuid' => $pause->runUuid,
+            'turnDigest' => $pause->turnDigest,
+            ...$pause->form()->toArray(),
+        ];
+    }
+
+    /**
+     * POST /ai-chat/conversations/input – Answer the question a run asks.
+     *
+     * Body: `conversationUid`, `turnDigest`, and the answer — `choice` (one of
+     * the offered values), `freeText`, or `fields` for a form (ADR-018).
+     *
+     * The answer is checked against the question as it stands now and then
+     * recorded; a worker hands it to the runtime, as with an approval, because
+     * submitInput() drives the whole continuation. 202 like every path that
+     * hands work to the worker.
+     */
+    public function submitInput(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        // Read as plain JSON: a form answer nests its fields, which the
+        // string-or-int shape parseBody() promises does not describe.
+        $decoded = json_decode((string) $request->getBody(), true);
+        $body = [];
+        foreach (is_array($decoded) ? $decoded : [] as $key => $value) {
+            if (is_string($key)) {
+                $body[$key] = $value;
+            }
+        }
+
+        $uid = $body['conversationUid'] ?? 0;
+        $conversation = $this->findConversationOrFail($request, ['conversationUid' => is_int($uid) || is_string($uid) ? $uid : 0]);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $submission = $this->acceptedAnswer($conversation, $body);
+        if ($submission instanceof ResponseInterface) {
+            return $submission;
+        }
+
+        // The digest the question was shown with travels back as it came; the
+        // runtime compares it with the question it is suspended on now.
+        $digest = $body['turnDigest'] ?? '';
+        if (!$this->chatApproval->recordInput($conversation, $submission['data'], is_string($digest) ? $digest : '', $submission['display'])) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        $this->processor->dispatch($conversation->getUid());
+
+        return new JsonResponse(['status' => $conversation->getStatus()->value], 202);
+    }
+
+    /**
+     * The answer as the run will receive it, or the refusal: the conversation
+     * asks nothing (any more), free text is too long, or the answer is not one
+     * the question offers.
+     *
+     * @param array<string, mixed> $body
+     *
+     * @return array{data: array<string, mixed>, display: string}|ResponseInterface
+     */
+    private function acceptedAnswer(Conversation $conversation, array $body): array|ResponseInterface
+    {
+        $pause = $conversation->getStatus() === ConversationStatus::AwaitingInput
+            ? $this->chatApproval->pendingInput($conversation)
+            : null;
+        if ($pause === null) {
+            return new JsonResponse(['error' => $this->translate('error.notAwaitingInput')], 409);
+        }
+
+        $freeText = $body['freeText'] ?? null;
+        $maxLength = $this->config->getMaxMessageLength();
+        if (is_string($freeText) && $maxLength > 0 && mb_strlen(trim($freeText)) > $maxLength) {
+            return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
+        }
+
+        return $pause->form()->submission($body, [$this->translate('input.yes'), $this->translate('input.no')])
+            ?? new JsonResponse(['error' => $this->translate('error.inputNotOffered')], 400);
     }
 
     /**
@@ -932,7 +1065,17 @@ final readonly class ChatApiController
         $digest = $body['turnDigest'] ?? '';
         $turnDigest = is_string($digest) ? $digest : '';
 
-        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest)) {
+        // A denial says why (ADR-018): another variant, or skip this point.
+        // Only a card that offers the two denials takes one; an unknown value,
+        // or a reason on any other card, is a plain denial.
+        $reasonValue = $body['reason'] ?? '';
+        $reason = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
+        $view = $reason !== null ? $this->chatApproval->pendingApproval($conversation) : null;
+        if ($view === null || !$this->chatApproval->offersProcessAnswers($conversation, $view)) {
+            $reason = null;
+        }
+
+        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest, $reason, $reason !== null ? $this->translate($reason->labelKey()) : '')) {
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
