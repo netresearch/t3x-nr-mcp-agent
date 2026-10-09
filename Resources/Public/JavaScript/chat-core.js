@@ -4,6 +4,10 @@
 import {ApiClient} from '@netresearch/nr-mcp-agent/api-client.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
+import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
+
+/** How often the page module's page is read while it matters (ADR-023). */
+const PAGE_WATCH_MS = 1000;
 
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
@@ -50,9 +54,18 @@ export function currentBackendContext(win = globalThis.top ?? globalThis) {
         }
 
         const frame = win.frames?.list_frame;
-        const id = new URLSearchParams(frame?.location?.search ?? '').get('id');
+        const params = new URLSearchParams(frame?.location?.search ?? '');
+        const id = params.get('id');
         if (id && /^\d+$/.test(id)) {
             context.pageId = Number.parseInt(id, 10);
+            // The page's language, where the module URL carries it: `language`
+            // (TYPO3 13) or the first of `languages[]` (14). The page module
+            // often keeps it in its module data instead; then none is sent and
+            // the server keeps the one the conversation started with (ADR-019).
+            const language = params.get('language') ?? params.get('languages[0]') ?? params.getAll('languages[]')[0];
+            if (language && /^\d+$/.test(language)) {
+                context.languageId = Number.parseInt(language, 10);
+            }
         }
     } catch {
         // Cross-origin or not a backend window: send no context.
@@ -145,8 +158,9 @@ export class ChatCoreController {
     pendingApproval = null;
 
     /**
-     * What was just decided here: 'approved', 'denied', or null when no decision
-     * of this reader's is in flight.
+     * What was just decided here: 'approved', 'variant' or 'skip' (the two
+     * denials the card offers, ADR-018), 'denied', or null when no decision of
+     * this reader's is in flight.
      *
      * The chat used to answer a decision with nothing of its own: the card
      * vanished, the spinner came back, and the only durable confirmation was the
@@ -158,6 +172,17 @@ export class ChatCoreController {
      * arrives.
      */
     approvalDecisionTaken = null;
+
+    /**
+     * The question the run waits for an answer to, as the reply buttons
+     * render it (ADR-018); null when nothing is asked.
+     * @type {{runUuid: string, turnDigest: string, kind: string, question: string, options: Array<{value: *, label: string}>, freeText: boolean, fields: Array<object>}|null}
+     */
+    pendingInput = null;
+
+    /** True while an answer is on its way, so it cannot be sent twice. */
+    inputBusy = false;
+
     inputValue = '';
     hasInput = false;
     loading = true;
@@ -173,6 +198,58 @@ export class ChatCoreController {
     maxFileSize = 0;
     /** @type {string[]} */
     supportedFormats = [];
+
+    /**
+     * What a guided process shows (ADR-020): its progress, and the content
+     * element it is about.
+     * @type {{progress: {label: string, current: number, total: number}|null, highlight: {table: string, uid: number}|null}}
+     */
+    guided = {progress: null, highlight: null};
+
+    /**
+     * What became of each proposal of the guided process (ADR-023): the
+     * outcome, the transcript position and what it was about.
+     * @type {Array<{outcome: string, after: number, subject: string, record: string}>}
+     */
+    cardOutcomes = [];
+
+    /**
+     * The page and language a guided process runs on (ADR-023), for the
+     * header; null outside one.
+     * @type {{pageTitle: string, languageName: string}|null}
+     */
+    tour = null;
+
+    /** The content element the page module was last asked to mark, for the announcement. */
+    highlightAnnounced = '';
+    /** Whether the request ending the tour is under way (ADR-023). */
+    endingTour = false;
+    /**
+     * What the chat may offer to start a guided process anew, from the server
+     * (ADR-023): `{skill, choosePage}`, or null where nr-llm cannot start a
+     * run with an invocation.
+     */
+    tourStart = null;
+    /** Where "Fertig" leads at the end of a process; '' without a dashboard. */
+    dashboardUrl = '';
+    /** The page the page module beside the panel shows (ADR-023). */
+    backendPage = {pageId: 0};
+    /** A page the user chose not to switch the tour to. */
+    pageKept = 0;
+    _pageWatchTimer = null;
+
+    /** The highlight last sent to the page module, so it is sent once. */
+    _sentHighlight = '';
+
+    /** The active conversation's skill (ADR-019), or null. @type {{identifier: string, name: string}|null} */
+    skill = null;
+
+    /** The skills the user can pick; null until loaded. @type {Array<{identifier: string, name: string, description: string}>|null} */
+    skills = null;
+
+    /** Whether the "/" list is open, and which of its entries is highlighted. */
+    slashOpen = false;
+    slashIndex = 0;
 
     /** The active conversation's own instructions; empty when it has none. */
     systemPrompt = '';
@@ -257,8 +334,17 @@ export class ChatCoreController {
             // A link that names a conversation (the dashboard widget's, when
             // the panel is not available) opens that one.
             const initial = Number(this.host.initialConversationUid?.() ?? 0);
+            const start = this.host.initialStartContext?.() ?? null;
             if (initial > 0 && this.conversations.some((c) => c.uid === initial)) {
                 await this.selectConversation(initial);
+            } else if (start && this.available) {
+                // A link that starts a conversation about a page, with a
+                // skill (ADR-019). The host is told the new uid so a reload
+                // opens it instead of starting another one.
+                const uid = await this.handleNewConversation(start);
+                if (uid) {
+                    this.host.onStartContextConsumed?.(uid);
+                }
             }
         } catch (e) {
             if (signal?.aborted) return;
@@ -283,6 +369,18 @@ export class ChatCoreController {
         this.expandedTools = new Set();
         this.pendingFile = null;
         this.approvalDecisionTaken = null;
+        this.guided = {progress: null, highlight: null};
+        this.cardOutcomes = [];
+        this.tour = null;
+        this.tourStart = null;
+        this.dashboardUrl = '';
+        this.pageKept = 0;
+        // Coming back to a conversation highlights its element again.
+        this._sentHighlight = '';
+        this.highlightAnnounced = '';
+        this.pendingInput = null;
+        this.skill = null;
+        this.slashOpen = false;
         this.systemPrompt = '';
         this.systemPromptOpen = false;
         this.editingIndex = -1;
@@ -313,7 +411,11 @@ export class ChatCoreController {
      * neither the confirmation nor, on the error path, the reason. Same guard
      * pollMessages() uses on its own response.
      */
-    async decideApproval(approve) {
+    /**
+     * @param {boolean} approve
+     * @param {''|'variant'|'skip'} [reason] why a denial was given (ADR-018)
+     */
+    async decideApproval(approve, reason = '') {
         const uid = this.activeUid;
         if (!this.pendingApproval || this.approvalBusy || !uid) {
             return;
@@ -322,7 +424,7 @@ export class ChatCoreController {
         this.approvalBusy = true;
         this.host.requestUpdate();
         try {
-            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '');
+            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '', reason);
             if (uid !== this.activeUid) {
                 return;
             }
@@ -330,7 +432,7 @@ export class ChatCoreController {
             // Say what happened before the reload, and drop the card and the
             // notice that asked for the decision: both describe a state this
             // click has just left, and the server has cleared the notice too.
-            this.approvalDecisionTaken = approve ? 'approved' : 'denied';
+            this.approvalDecisionTaken = approve ? 'approved' : (reason || 'denied');
             this.errorMessage = '';
             this.pendingApproval = null;
             this.host.requestUpdate();
@@ -345,6 +447,63 @@ export class ChatCoreController {
             this.errorMessage = e.message;
         } finally {
             this.approvalBusy = false;
+            this.host.requestUpdate();
+        }
+    }
+
+    /** Whether the run waits for an answer the reply buttons can give. */
+    isAwaitingInput() {
+        return this.status === 'awaiting_input' && this.pendingInput !== null;
+    }
+
+    /**
+     * Whether text typed into the input is the answer to the question rather
+     * than a message of its own: only when the question declares a free-text
+     * answer (ADR-018). Otherwise a sent message leaves the question behind,
+     * as a message leaves a pending approval behind.
+     */
+    answersAsFreeText() {
+        return this.isAwaitingInput() && this.pendingInput.kind === 'choice' && this.pendingInput.freeText === true;
+    }
+
+    /**
+     * Send an answer to the question and follow the conversation.
+     *
+     * The server records the answer and a worker hands it to the run, as with
+     * an approval; the outcome arrives through the poll. Bound to the
+     * conversation the answer was given in, for the reason decideApproval()
+     * gives.
+     *
+     * @param {{choice: *}|{freeText: string}|{fields: Object<string, *>}} answer
+     * @returns {Promise<boolean>} whether the answer was taken
+     */
+    async submitInput(answer) {
+        const uid = this.activeUid;
+        if (!this.isAwaitingInput() || this.inputBusy || !uid) {
+            return false;
+        }
+
+        this.inputBusy = true;
+        this.host.requestUpdate();
+        try {
+            await this._api.submitInput(uid, this.pendingInput.turnDigest || '', answer);
+            if (uid !== this.activeUid) {
+                return false;
+            }
+
+            this.pendingInput = null;
+            this.errorMessage = '';
+            this.host.requestUpdate();
+            await this.loadMessages();
+            this.startPollingIfNeeded();
+            return true;
+        } catch (e) {
+            if (uid === this.activeUid) {
+                this.errorMessage = e.message;
+            }
+            return false;
+        } finally {
+            this.inputBusy = false;
             this.host.requestUpdate();
         }
     }
@@ -365,7 +524,14 @@ export class ChatCoreController {
             this.approvalUrl = data.approvalUrl || '';
             this._setApprovalRight(data);
             this.pendingApproval = data.pendingApproval || null;
+            this.pendingInput = data.pendingInput || null;
             this.systemPrompt = data.systemPrompt || '';
+            this.guided = data.guided || {progress: null, highlight: null};
+            this.cardOutcomes = data.cardOutcomes || [];
+            this.tour = data.tour || null;
+            this.tourStart = data.tourStart || null;
+            this.dashboardUrl = data.dashboardUrl || '';
+            this.skill = data.skill || null;
             this.activity = data.activity || [];
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
@@ -436,6 +602,22 @@ export class ChatCoreController {
                 this.approvalUrl = data.approvalUrl || '';
                 this._setApprovalRight(data);
                 this.pendingApproval = data.pendingApproval || null;
+                if (data.guided) {
+                    this.guided = data.guided;
+                }
+                if (data.cardOutcomes) {
+                    this.cardOutcomes = data.cardOutcomes;
+                }
+                if ('tour' in data) {
+                    this.tour = data.tour || null;
+                }
+                if ('tourStart' in data) {
+                    this.tourStart = data.tourStart || null;
+                }
+                if ('dashboardUrl' in data) {
+                    this.dashboardUrl = data.dashboardUrl || '';
+                }
+                this.pendingInput = data.pendingInput || null;
                 this._knownMessageCount = data.totalCount;
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>
@@ -524,6 +706,16 @@ export class ChatCoreController {
         if (this.maxLength > 0 && content.length > this.maxLength) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);
             this.host.requestUpdate();
+            return;
+        }
+
+        if (this.answersAsFreeText() && !this.pendingFile) {
+            if (await this.submitInput({freeText: content})) {
+                this.inputValue = '';
+                this.hasInput = false;
+                this.host.onResetInput();
+                this.host.requestUpdate();
+            }
             return;
         }
 
@@ -698,15 +890,233 @@ export class ChatCoreController {
         }
     }
 
-    async handleNewConversation() {
+    /**
+     * @param {{pageUid?: number, languageUid?: number, skill?: string}|null} [start]
+     * @returns {Promise<number|null>} the new conversation's uid
+     */
+    async handleNewConversation(start = null) {
         try {
-            const data = await this._api.createConversation();
+            const data = await this._api.createConversation(start ?? {});
             await this.loadConversations();
             await this.selectConversation(data.uid);
+            return data.uid;
         } catch (e) {
             this.errorMessage = e.message;
             this.host.requestUpdate();
+            return null;
         }
+    }
+
+    // ── Skills ("/" in the input, ADR-019) ────────────────────────────
+
+    /**
+     * Open or close the list as the input changes: open while the input is a
+     * "/" followed by no space, which is the start of a skill's identifier.
+     */
+    updateSlash() {
+        const open = /^\/\S*$/.test(this.inputValue) && this.activeUid !== null;
+        if (open !== this.slashOpen) {
+            this.slashOpen = open;
+            this.slashIndex = 0;
+            if (open && this.skills === null) {
+                // loadSkills() handles its own failure; the list renders
+                // "loading" until it settles.
+                void this.loadSkills();
+            }
+        } else if (open) {
+            this.slashIndex = 0;
+        }
+        this.host.requestUpdate();
+    }
+
+    closeSlash() {
+        this.slashOpen = false;
+        this.host.requestUpdate();
+    }
+
+    async loadSkills() {
+        try {
+            const data = await this._api.listSkills();
+            this.skills = data.skills || [];
+        } catch {
+            this.skills = [];
+        }
+        this.host.requestUpdate();
+    }
+
+    /** The skills whose identifier or name contains what follows the "/". */
+    slashMatches() {
+        const query = this.inputValue.slice(1).toLowerCase();
+        return (this.skills || []).filter((s) => s.identifier.toLowerCase().includes(query)
+            || s.name.toLowerCase().includes(query));
+    }
+
+    /** Make the skill the conversation's; the "/" text is not sent. */
+    async selectSkill(entry) {
+        this.slashOpen = false;
+        this.inputValue = '';
+        this.hasInput = false;
+        this.host.onResetInput();
+        await this._setSkill(entry.identifier);
+    }
+
+    /**
+     * Remove the conversation's skill. While it runs a tour, removing it ends
+     * the tour, so a waiting proposal is withdrawn the same way as by the
+     * header's × (ADR-023).
+     */
+    async clearSkill() {
+        if (this.tour) {
+            await this.endTour();
+            return;
+        }
+        await this._setSkill('');
+    }
+
+    /**
+     * End the guided process (ADR-023): the server withdraws a waiting
+     * proposal through the guarded cancel and clears the skill; applied
+     * changes and the outcomes shown stay. Focus goes to the input.
+     */
+    async endTour() {
+        const uid = this.activeUid;
+        if (!uid || this.endingTour) return;
+        this.endingTour = true;
+        this.host.requestUpdate();
+        try {
+            const data = await this._api.endTour(uid);
+            if (uid !== this.activeUid) return;
+            this.skill = null;
+            this.tour = null;
+            this.tourStart = null;
+            this.dashboardUrl = '';
+            this.guided = {progress: null, highlight: null};
+            this.pendingApproval = null;
+            this.pendingInput = null;
+            this.approvalDecisionTaken = null;
+            if (data.status) {
+                this.status = data.status;
+                this.conversations = this.conversations.map(c => c.uid === uid ? {...c, status: data.status} : c);
+            }
+            clearSentHighlight(this);
+            this.errorMessage = '';
+            this.host.onFocusInput();
+        } catch (e) {
+            if (uid !== this.activeUid) return;
+            this.errorMessage = e.message;
+        } finally {
+            this.endingTour = false;
+            this.host.requestUpdate();
+        }
+    }
+
+    async _setSkill(identifier) {
+        const uid = this.activeUid;
+        if (!uid) return;
+        try {
+            const data = await this._api.updateSkill(uid, identifier);
+            if (uid !== this.activeUid) return;
+            this.skill = data.skill || null;
+            this.errorMessage = '';
+        } catch (e) {
+            if (uid !== this.activeUid) return;
+            this.errorMessage = e.message;
+        } finally {
+            this.host.requestUpdate();
+        }
+    }
+
+    // ── Starting a guided process anew (ADR-023) ─────────────────────
+
+    /**
+     * Whether the page the page module shows matters now: while the chat asks
+     * for a page, and while a process runs on one.
+     */
+    needsBackendPage() {
+        return Boolean(this.tourStart?.choosePage || this.tour);
+    }
+
+    /**
+     * Follow the page module beside the panel while it matters, by reading
+     * its URL; stop when it no longer does.
+     *
+     * @param {() => {pageId: number, languageId?: number}} [read]
+     */
+    syncPageWatch(read = currentBackendContext) {
+        if (!this.needsBackendPage()) {
+            this.stopPageWatch();
+            return;
+        }
+        this.refreshBackendPage(read);
+        if (!this._pageWatchTimer) {
+            this._pageWatchTimer = setInterval(() => this.refreshBackendPage(read), PAGE_WATCH_MS);
+        }
+    }
+
+    /** @param {() => {pageId: number, languageId?: number}} [read] */
+    refreshBackendPage(read = currentBackendContext) {
+        const context = read();
+        const pageId = context.pageId || 0;
+        const languageId = context.languageId;
+        if (pageId !== this.backendPage.pageId || languageId !== this.backendPage.languageId) {
+            this.backendPage = languageId === undefined ? {pageId} : {pageId, languageId};
+            this.host.requestUpdate();
+        }
+    }
+
+    stopPageWatch() {
+        if (this._pageWatchTimer) {
+            clearInterval(this._pageWatchTimer);
+            this._pageWatchTimer = null;
+        }
+    }
+
+    /**
+     * The process asks for a page: check the one the page module shows. The
+     * turn carries that page as the run's subject, as every message does.
+     */
+    async checkBackendPage() {
+        if (!this.tourStart?.choosePage || this.backendPage.pageId <= 0) return;
+        this.inputValue = lll('guided.checkPage');
+        this.hasInput = true;
+        await this.handleSend();
+    }
+
+    /** At the end of a process: the same process in a new conversation, which asks for a page. */
+    async chooseAnotherPage() {
+        const skill = this.tourStart?.skill;
+        if (!skill) return;
+        await this.handleNewConversation({skill});
+    }
+
+    /**
+     * Whether the page module shows another page than the running process,
+     * one the user has not chosen to stay away from.
+     */
+    pageChanged() {
+        const pageId = this.backendPage.pageId;
+
+        return Boolean(this.tour) && pageId > 0 && pageId !== this.tour.pageUid && pageId !== this.pageKept;
+    }
+
+    /** End the process here and start it on the page the page module shows. */
+    async switchToBackendPage() {
+        const skill = this.tourStart?.skill;
+        const {pageId, languageId} = this.backendPage;
+        if (!skill || !this.pageChanged()) return;
+        await this.endTour();
+        if (this.tour) return;
+        const start = {pageUid: pageId, skill};
+        if (Number.isInteger(languageId) && languageId >= 0) {
+            start.languageUid = languageId;
+        }
+        await this.handleNewConversation(start);
+    }
+
+    /** Stay with the process's page; this page is not offered again. */
+    keepTourPage() {
+        this.pageKept = this.backendPage.pageId;
+        this.host.requestUpdate();
     }
 
     async handleResume() {

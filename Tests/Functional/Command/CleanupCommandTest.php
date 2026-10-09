@@ -402,6 +402,24 @@ class CleanupCommandTest extends FunctionalTestCase
     }
 
     /**
+     * A guided-state row no chat took over is removed after a day; a fresh
+     * one, of a run that may still return, stays (ADR-020).
+     */
+    #[Test]
+    public function runStateNoChatTookOverIsRemovedAfterADay(): void
+    {
+        $conn = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_run_state');
+        $conn->insert('tx_nrmcpagent_run_state', ['run_uuid' => 'stale', 'be_user' => 1, 'progress' => '{}', 'tstamp' => time() - 90000, 'crdate' => time() - 90000]);
+        $conn->insert('tx_nrmcpagent_run_state', ['run_uuid' => 'fresh', 'be_user' => 1, 'progress' => '{}', 'tstamp' => time() - 60, 'crdate' => time() - 60]);
+
+        $tester = new CommandTester($this->get(CleanupCommand::class));
+        $tester->execute([]);
+
+        self::assertSame(0, $tester->getStatusCode());
+        self::assertSame(['fresh'], $conn->executeQuery('SELECT run_uuid FROM tx_nrmcpagent_run_state')->fetchFirstColumn());
+    }
+
+    /**
      * @return array<string, mixed>|false
      */
     private function fetchRow(int $uid): array|false

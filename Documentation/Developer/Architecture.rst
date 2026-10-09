@@ -272,6 +272,15 @@ The conversation lifecycle is modeled as a state enum:
     conversation here; the state is retained for backward
     compatibility.
 
+``awaiting_approval``
+    The run paused before a write and waits for a decision
+    on the approval card.
+
+``awaiting_input``
+    The run paused because a tool asks the user for an
+    answer; the chat offers it as reply buttons above the
+    input (ADR-018).
+
 ``failed``
     An error occurred. The user can retry by sending
     a new message.
@@ -282,6 +291,10 @@ State transitions::
     idle --> processing --> locked --> failed   (error)
     idle --> processing --> locked --> awaiting_approval
                                                  (run paused)
+    idle --> processing --> locked --> awaiting_input
+                                                 (run asks)
+    awaiting_input --> processing --> locked --> ...
+                                                 (answered)
     processing|locked|tool_loop --> failed      (cleanup timeout)
 
 File attachment flow

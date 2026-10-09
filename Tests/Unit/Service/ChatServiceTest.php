@@ -31,9 +31,12 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
+use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
@@ -85,6 +88,8 @@ class ChatServiceTest extends TestCase
         ?TaskRepository $taskRepository = null,
         ?UserContextPrompt $userContextPrompt = null,
         ?RunActivityRecorder $activityRecorder = null,
+        ?GuidedStateLinker $guidedState = null,
+        ?OpenPointTrackerInterface $openPoints = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -124,7 +129,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class));
+        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState, openPoints: $openPoints);
     }
 
     /**
@@ -576,6 +581,38 @@ class ChatServiceTest extends TestCase
     }
 
     /**
+     * @return iterable<string, array{AgentRunResult}>
+     */
+    public static function returnedRuns(): iterable
+    {
+        yield 'completed' => [new AgentRunResult(AgentRunOutcome::COMPLETED, 'run-uuid', [], new ToolLoopResult('Fertig', [], 1, false, new UsageStatistics(1, 1, 2)))];
+        yield 'waiting for an approval' => [new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid', [])];
+        yield 'failed' => [new AgentRunResult(AgentRunOutcome::FAILED, 'run-uuid', [], error: new RuntimeException('boom'))];
+    }
+
+    /**
+     * Whatever way a run returns, what the guided-state tools reported during
+     * it reaches the conversation (ADR-020): the header shows the progress
+     * when the run pauses for an approval, not only when it completes.
+     */
+    #[Test]
+    #[DataProvider('returnedRuns')]
+    public function aReturnedRunHandsItsGuidedStateToTheConversation(AgentRunResult $result): void
+    {
+        $runState = $this->createMock(RunStateRepository::class);
+        $runState->expects(self::once())->method('find')->with('run-uuid', 7)
+            ->willReturn(['progress' => ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5], 'highlight' => null]);
+
+        $conversation = new Conversation();
+        $conversation->setBeUser(7);
+        $conversation->appendMessage(MessageRole::User, 'Prüfe die Seite');
+
+        $this->createChatService($result, guidedState: new GuidedStateLinker($runState))->processConversation($conversation);
+
+        self::assertSame(['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5, 'completed' => false], $conversation->getGuidedState()['progress']);
+    }
+
+    /**
      * A turn that fails before the runtime returns never reaches applyResult().
      */
     #[Test]
@@ -810,6 +847,38 @@ class ChatServiceTest extends TestCase
         $system = $this->capturedSystemPrompt();
         self::assertStringContainsString('You are a TYPO3 assistant.', $system);
         self::assertStringContainsString('Always wrap record fields', $system);
+    }
+
+    /** A process started on a page is offered what it left open there (ADR-022). */
+    #[Test]
+    public function theOpenPointsOfTheProcessAreOfferedBeforeTheUsersInstructions(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSystemPrompt('Only custom instructions');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $openPoints = $this->createMock(OpenPointTrackerInterface::class);
+        $openPoints->expects(self::once())->method('promptFor')->with($conversation)->willReturn('Open points: - tt_content 12, field bodytext');
+
+        $this->createChatService(openPoints: $openPoints)->processConversation($conversation);
+
+        $system = $this->capturedSystemPrompt();
+        self::assertStringContainsString('Open points: - tt_content 12, field bodytext', $system);
+        self::assertLessThan(strpos($system, '<user_instructions>'), strpos($system, 'Open points:'));
+    }
+
+    #[Test]
+    public function withoutOpenPointsThePromptHasNoSuchSection(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $openPoints = $this->createMock(OpenPointTrackerInterface::class);
+        $openPoints->method('promptFor')->willReturn('');
+
+        $this->createChatService(openPoints: $openPoints)->processConversation($conversation);
+
+        self::assertStringNotContainsString('Open points', $this->capturedSystemPrompt());
     }
 
     #[Test]

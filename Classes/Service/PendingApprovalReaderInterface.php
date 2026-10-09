@@ -28,4 +28,15 @@ interface PendingApprovalReaderInterface
      * are deliberately indistinguishable from the outside.
      */
     public function read(AiActorContext $actor, string $runUuid): ?WaitingRunView;
+
+    /**
+     * The input schema a run waiting for the user's answer is suspended on
+     * (nr-llm ADR-105), or null under the same conditions as read(), and when
+     * the run is not an input pause or its schema is not an object of
+     * properties. The view read() returns flattens labelled options away, and
+     * the chat needs their labels for its buttons (ADR-018).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function inputSchema(AiActorContext $actor, string $runUuid): ?array;
 }

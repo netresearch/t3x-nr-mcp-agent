@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service;
 
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
+use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
+use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTarget;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
 /**
@@ -80,6 +82,8 @@ final readonly class ApprovalCallPresenter
      *     previewStale: bool,
      *     argumentsJson: string,
      *     actionLabelFromPreview: bool,
+     *     affected: array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>}|null,
+     *     structured: list<array{field: string, label: string, current: string|null, proposed: string, measure: array{count: int, min: int|null, max: int|null}|null}>|null,
      * }>
      */
     public function present(array $calls, ?LanguageService $language, ?LanguageService $previewLanguage): array
@@ -115,10 +119,103 @@ final readonly class ApprovalCallPresenter
                 // click, and only the approvals module said why.
                 'previewStale'        => $call->previewStale,
                 'argumentsJson'       => $call->argumentsJson,
+                // The proposal block of a process card (ADR-023): what the
+                // write is about, from nr-llm's structured target, and its
+                // current and proposed values where nr-llm structures them.
+                'affected'            => $this->affected($call, $language),
+                'structured'          => $call->previewFailed ? null : StructuredPreview::of($call),
             ];
         }
 
         return $presented;
+    }
+
+    /**
+     * The record and fields the write names, from nr-llm's `pendingTarget`
+     * (nr-llm PR 1024), with the table's and the fields' labels from the TCA in
+     * the reader's language: schema labels, no record content. Null without a
+     * target — a create, a tool that names none, an nr-llm before 0.41.
+     *
+     * @return array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>}|null
+     */
+    private function affected(PendingCallView $call, ?LanguageService $language): ?array
+    {
+        $target = NrLlmCardTarget::ofCall($call);
+        if (!$target instanceof OpenPointTarget) {
+            return null;
+        }
+
+        return [
+            'table'       => $target->table,
+            'uid'         => $target->uid,
+            'fields'      => $target->fields,
+            'tableLabel'  => $this->tableLabel($target->table, $language),
+            'fieldLabels' => $this->fieldLabels($target->table, $target->fields, $language),
+        ];
+    }
+
+    /**
+     * The conversation's proposal outcomes as the chat shows them (ADR-023):
+     * where each happened, what became of it, and what it was about in the
+     * reader's language — the fields' labels, else the change's name, and the
+     * record.
+     *
+     * @param list<array{outcome: string, after: int, tool: string, table: string, uid: int, fields: list<string>}> $outcomes
+     *
+     * @return list<array{outcome: string, after: int, subject: string, record: string}>
+     */
+    public function presentOutcomes(array $outcomes, ?LanguageService $language): array
+    {
+        $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
+        $presented = [];
+        foreach ($outcomes as $entry) {
+            $fields = $entry['table'] !== '' ? implode(', ', $this->fieldLabels($entry['table'], $entry['fields'], $language)) : '';
+            $presented[] = [
+                'outcome' => $entry['outcome'],
+                'after'   => $entry['after'],
+                'subject' => $fields !== '' ? $fields : $this->resolve($labelReferences[$entry['tool']] ?? '', $language),
+                'record'  => $entry['table'] !== '' && $entry['uid'] > 0 ? $this->tableLabel($entry['table'], $language) . ' ' . $entry['uid'] : '',
+            ];
+        }
+
+        return $presented;
+    }
+
+    private function tableLabel(string $table, ?LanguageService $language): string
+    {
+        $ctrl = $this->tca($table)['ctrl'] ?? null;
+        $title = is_array($ctrl) && is_string($ctrl['title'] ?? null) ? $this->resolve($ctrl['title'], $language) : '';
+
+        return $title !== '' ? $title : $table;
+    }
+
+    /**
+     * @param list<string> $fields
+     *
+     * @return list<string>
+     */
+    private function fieldLabels(string $table, array $fields, ?LanguageService $language): array
+    {
+        $columns = $this->tca($table)['columns'] ?? null;
+        $labels = [];
+        foreach ($fields as $field) {
+            $column = is_array($columns) ? ($columns[$field] ?? null) : null;
+            $label = is_array($column) && is_string($column['label'] ?? null) ? $this->resolve($column['label'], $language) : '';
+            $labels[] = $label !== '' ? $label : $field;
+        }
+
+        return $labels;
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private function tca(string $table): array
+    {
+        $tca = $GLOBALS['TCA'] ?? null;
+        $config = is_array($tca) ? ($tca[$table] ?? null) : null;
+
+        return is_array($config) ? $config : [];
     }
 
     /**

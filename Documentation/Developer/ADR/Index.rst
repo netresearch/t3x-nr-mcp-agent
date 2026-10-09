@@ -33,3 +33,8 @@ consequences of each decision.
     ADR-015-llm-task-per-backend-group
     ADR-016-messages-in-their-own-table
     ADR-017-the-chat-states-what-the-run-did
+    ADR-018-a-question-is-answered-with-reply-buttons
+    ADR-019-a-conversation-starts-about-a-page-with-a-skill
+    ADR-020-guided-state-tools
+    ADR-022-open-points-of-guided-processes
+    ADR-023-the-chat-guides-a-process

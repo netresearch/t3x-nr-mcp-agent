@@ -125,9 +125,6 @@
             <trans-unit id="chat.approvalGranted" resname="chat.approvalGranted">
                 <source>Approval granted — the assistant is carrying the step out.</source>
             </trans-unit>
-            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
-                <source>Cancelled — the step was not carried out.</source>
-            </trans-unit>
             <trans-unit id="chat.approvalPreviewUnavailable" resname="chat.approvalPreviewUnavailable">
                 <source>No preview — you are deciding without one</source>
             </trans-unit>
@@ -151,6 +148,75 @@
             </trans-unit>
             <trans-unit id="chat.approvalCancel" resname="chat.approvalCancel">
                 <source>Cancel</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
+                <source>Cancelled — the step was not carried out.</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalVariant" resname="chat.approvalVariant">
+                <source>Another variant</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalSkip" resname="chat.approvalSkip">
+                <source>Skip</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalApply" resname="chat.approvalApply">
+                <source>Apply</source>
+            </trans-unit>
+            <trans-unit id="chat.proposalAffected" resname="chat.proposalAffected">
+                <source>Affected</source>
+            </trans-unit>
+            <trans-unit id="chat.proposalCurrent" resname="chat.proposalCurrent">
+                <source>Current</source>
+            </trans-unit>
+            <trans-unit id="chat.proposalProposed" resname="chat.proposalProposed">
+                <source>Proposed</source>
+            </trans-unit>
+            <trans-unit id="chat.proposalEmpty" resname="chat.proposalEmpty">
+                <source>(empty)</source>
+            </trans-unit>
+            <trans-unit id="chat.proposalLength" resname="chat.proposalLength">
+                <source>Length</source>
+            </trans-unit>
+            <trans-unit id="chat.proposalCharacters" resname="chat.proposalCharacters">
+                <source>characters</source>
+            </trans-unit>
+            <trans-unit id="chat.proposalTarget" resname="chat.proposalTarget">
+                <source>target</source>
+            </trans-unit>
+            <trans-unit id="chat.proposalOutOfRange" resname="chat.proposalOutOfRange">
+                <source>outside the target</source>
+            </trans-unit>
+            <trans-unit id="chat.outcomeApplied" resname="chat.outcomeApplied">
+                <source>saved.</source>
+            </trans-unit>
+            <trans-unit id="chat.outcomeCheck" resname="chat.outcomeCheck">
+                <source>Saved, please check:</source>
+            </trans-unit>
+            <trans-unit id="chat.outcomeNotApplied" resname="chat.outcomeNotApplied">
+                <source>Not saved:</source>
+            </trans-unit>
+            <trans-unit id="chat.outcomeChange" resname="chat.outcomeChange">
+                <source>Change</source>
+            </trans-unit>
+            <trans-unit id="chat.summaryLabel" resname="chat.summaryLabel">
+                <source>Summary of the guided process</source>
+            </trans-unit>
+            <trans-unit id="chat.summaryApplied" resname="chat.summaryApplied">
+                <source>Applied</source>
+            </trans-unit>
+            <trans-unit id="chat.summaryCheck" resname="chat.summaryCheck">
+                <source>Applied – please check</source>
+            </trans-unit>
+            <trans-unit id="chat.summarySkipped" resname="chat.summarySkipped">
+                <source>Skipped</source>
+            </trans-unit>
+            <trans-unit id="chat.summaryNotApplied" resname="chat.summaryNotApplied">
+                <source>Not saved</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalDeniedVariant" resname="chat.approvalDeniedVariant">
+                <source>Not carried out — another variant is asked for.</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalDeniedSkip" resname="chat.approvalDeniedSkip">
+                <source>Skipped — the step was not carried out.</source>
             </trans-unit>
             <trans-unit id="chat.approvalTechnicalDetails" resname="chat.approvalTechnicalDetails">
                 <source>Show technical details</source>
@@ -220,7 +286,7 @@
                 <source>Access denied</source>
             </trans-unit>
             <trans-unit id="error.approvalStillPending" resname="error.approvalStillPending">
-                <source>This step is still waiting for a decision. Approve or cancel it on the card — a message does not approve it.</source>
+                <source>This step is still waiting for a decision. Decide on the card — a message does not approve it.</source>
             </trans-unit>
             <trans-unit id="error.approvalStillPendingElsewhere" resname="error.approvalStillPendingElsewhere">
                 <source>This step is still waiting for an approval you cannot give yourself. Ask someone with access to AI Tasks to approve it — a message here does not approve it.</source>
@@ -239,6 +305,30 @@
             </trans-unit>
             <trans-unit id="error.handBack.notAwaitingApproval" resname="error.handBack.notAwaitingApproval">
                 <source>This step no longer waits for a decision, so nothing was carried out. AI Tasks shows where the run stands.</source>
+            </trans-unit>
+            <trans-unit id="error.notAwaitingInput" resname="error.notAwaitingInput">
+                <source>This question is no longer open.</source>
+            </trans-unit>
+            <trans-unit id="error.inputNotOffered" resname="error.inputNotOffered">
+                <source>This answer does not fit the question. Choose one of the answers offered.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputStale" resname="error.handBack.inputStale">
+                <source>The question changed after it was shown, so the answer was not taken. Answer again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputInvalid" resname="error.handBack.inputInvalid">
+                <source>The answer does not fit the question, so it was not taken. Answer again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputNotPermitted" resname="error.handBack.inputNotPermitted">
+                <source>Your own permissions do not cover the step this question belongs to, so the answer was not taken.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputAlreadyResuming" resname="error.handBack.inputAlreadyResuming">
+                <source>This question was already answered, so this answer was not taken. The result appears in AI Tasks, under this run.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputConfigOff" resname="error.handBack.inputConfigOff">
+                <source>The AI configuration of this chat is switched off, so the answer was not taken. The question waits until it is switched on again; then answer again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.notAwaitingInput" resname="error.handBack.notAwaitingInput">
+                <source>This question no longer waits for an answer, so nothing was taken. AI Tasks shows where the run stands.</source>
             </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
@@ -361,6 +451,33 @@
             <trans-unit id="activity.waiting" resname="activity.waiting">
                 <source>Waiting for your approval</source>
             </trans-unit>
+            <trans-unit id="input.groupLabel" resname="input.groupLabel">
+                <source>Reply options</source>
+            </trans-unit>
+            <trans-unit id="input.chooseAnswer" resname="input.chooseAnswer">
+                <source>Choose an answer</source>
+            </trans-unit>
+            <trans-unit id="input.freeTextPlaceholder" resname="input.freeTextPlaceholder">
+                <source>Write your own answer...</source>
+            </trans-unit>
+            <trans-unit id="input.formSubmit" resname="input.formSubmit">
+                <source>Send answer</source>
+            </trans-unit>
+            <trans-unit id="input.messageEndsQuestion" resname="input.messageEndsQuestion">
+                <source>A message of your own ends the question.</source>
+            </trans-unit>
+            <trans-unit id="input.unsupported" resname="input.unsupported">
+                <source>The chat cannot show this question.</source>
+            </trans-unit>
+            <trans-unit id="input.yes" resname="input.yes">
+                <source>Yes</source>
+            </trans-unit>
+            <trans-unit id="input.no" resname="input.no">
+                <source>No</source>
+            </trans-unit>
+            <trans-unit id="activity.waitingInput" resname="activity.waitingInput">
+                <source>Waiting for your answer</source>
+            </trans-unit>
             <trans-unit id="activity.working" resname="activity.working">
                 <source>Working…</source>
             </trans-unit>
@@ -384,6 +501,84 @@
             </trans-unit>
             <trans-unit id="widget.openModule" resname="widget.openModule">
                 <source>Open the chat module</source>
+            </trans-unit>
+            <trans-unit id="guided.progress" resname="guided.progress">
+                <source>Point %d of %d</source>
+            </trans-unit>
+            <trans-unit id="guided.completed" resname="guided.completed">
+                <source>done</source>
+            </trans-unit>
+            <trans-unit id="guided.choosePage" resname="guided.choosePage">
+                <source>Choose a page</source>
+            </trans-unit>
+            <trans-unit id="guided.choosePageHint" resname="guided.choosePageHint">
+                <source>Select the page to check in the page tree, then confirm it here.</source>
+            </trans-unit>
+            <trans-unit id="guided.checkPage" resname="guided.checkPage">
+                <source>Check this page</source>
+            </trans-unit>
+            <trans-unit id="guided.chooseAnotherPage" resname="guided.chooseAnotherPage">
+                <source>Choose another page</source>
+            </trans-unit>
+            <trans-unit id="guided.finish" resname="guided.finish">
+                <source>Done</source>
+            </trans-unit>
+            <trans-unit id="guided.toDashboard" resname="guided.toDashboard">
+                <source>Go to the dashboard</source>
+            </trans-unit>
+            <trans-unit id="guided.pageChanged" resname="guided.pageChanged">
+                <source>Another page selected</source>
+            </trans-unit>
+            <trans-unit id="guided.switchPage" resname="guided.switchPage">
+                <source>Switch to the new page</source>
+            </trans-unit>
+            <trans-unit id="guided.keepPage" resname="guided.keepPage">
+                <source>Stay with “%s”</source>
+            </trans-unit>
+            <trans-unit id="guided.endTour" resname="guided.endTour">
+                <source>End tour</source>
+            </trans-unit>
+            <trans-unit id="guided.analysing" resname="guided.analysing">
+                <source>Analysing</source>
+            </trans-unit>
+            <trans-unit id="highlight.label" resname="highlight.label">
+                <source>Concerns the current proposal</source>
+            </trans-unit>
+            <trans-unit id="guided.highlightAnnounced" resname="guided.highlightAnnounced">
+                <source>Marked in the page module: content element</source>
+            </trans-unit>
+            <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
+                <source>You may not open this page, so no conversation was started about it.</source>
+            </trans-unit>
+            <trans-unit id="error.languageNotAccessible" resname="error.languageNotAccessible">
+                <source>This language does not exist on the page's site or you may not edit it, so no conversation was started.</source>
+            </trans-unit>
+            <trans-unit id="error.skillSecondApprover" resname="error.skillSecondApprover">
+                <source>This chat's AI configuration needs a second person to approve every change, so a skill cannot start here.</source>
+            </trans-unit>
+            <trans-unit id="error.skillUnknown" resname="error.skillUnknown">
+                <source>This skill is not available in the chat.</source>
+            </trans-unit>
+            <trans-unit id="skills.listLabel" resname="skills.listLabel">
+                <source>Skills</source>
+            </trans-unit>
+            <trans-unit id="skills.loading" resname="skills.loading">
+                <source>Loading skills…</source>
+            </trans-unit>
+            <trans-unit id="skills.none" resname="skills.none">
+                <source>No skills available</source>
+            </trans-unit>
+            <trans-unit id="skills.active" resname="skills.active">
+                <source>Skill:</source>
+            </trans-unit>
+            <trans-unit id="skills.remove" resname="skills.remove">
+                <source>Remove skill</source>
+            </trans-unit>
+            <trans-unit id="openPoint.missing" resname="openPoint.missing">
+                <source>%1$s is missing on “%2$s”</source>
+            </trans-unit>
+            <trans-unit id="openPoint.open" resname="openPoint.open">
+                <source>%1$s open on “%2$s”</source>
             </trans-unit>
         </body>
     </file>
