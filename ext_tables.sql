@@ -13,6 +13,8 @@ CREATE TABLE tx_nrmcpagent_conversation (
     current_request_id varchar(64) DEFAULT '' NOT NULL,
     system_prompt text,
     view_context varchar(255) DEFAULT '' NOT NULL,
+    skill_identifier varchar(100) DEFAULT '' NOT NULL,
+    skill_uid int(11) unsigned DEFAULT 0 NOT NULL,
     activity text,
     archived tinyint(1) unsigned DEFAULT 0 NOT NULL,
     pinned tinyint(1) unsigned DEFAULT 0 NOT NULL,

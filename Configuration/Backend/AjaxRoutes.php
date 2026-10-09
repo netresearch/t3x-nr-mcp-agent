@@ -45,6 +45,16 @@ return [
         'target' => ChatApiController::class . '::updateSystemPrompt',
         'methods' => ['POST'],
     ],
+    'ai_chat_skills' => [
+        'path' => '/ai-chat/skills',
+        'target' => ChatApiController::class . '::listSkills',
+        'methods' => ['GET'],
+    ],
+    'ai_chat_conversation_skill' => [
+        'path' => '/ai-chat/conversations/skill',
+        'target' => ChatApiController::class . '::updateSkill',
+        'methods' => ['POST'],
+    ],
     'ai_chat_conversation_approve' => [
         'path' => '/ai-chat/conversations/approve',
         'target' => ChatApiController::class . '::decideApproval',

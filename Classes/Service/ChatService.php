@@ -176,6 +176,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?SkillCatalogueInterface $skills = null,
+        private readonly ?SkillInvocationInterface $skillInvocation = null,
     ) {}
 
     /**
@@ -322,14 +324,47 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The options object carries nothing but the caller source: every model
         // parameter stays on the LlmConfiguration, so toArray() is empty and no
         // provider option is overridden by naming ourselves here.
-        $result = $this->agentRuntime->run(new AgentRunRequest(
-            configuration: $configuration,
-            messages: $messages,
-            actor: $this->resolveActor($conversation->getBeUser()),
-            options: (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
-        ), $this->activityRecorder->onStep($conversation));
+        $result = $this->agentRuntime->run(
+            $this->runRequest($conversation, $configuration, $messages, $operation),
+            $this->activityRecorder->onStep($conversation),
+        );
 
         $this->applyResult($conversation, $result);
+    }
+
+    /**
+     * The run request for a turn, with the conversation's skill.
+     *
+     * nr-llm ADR-214 passes a process skill as an invocation with the record
+     * it is about — here the conversation's page. Where nothing can start a
+     * run with an invocation (SkillInvocationInterface), the skill goes as a
+     * forced skill on every turn, as before (ADR-019); none when it is gone or
+     * nr-llm cannot take one.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private function runRequest(Conversation $conversation, LlmConfiguration $configuration, array $messages, string $operation): AgentRunRequest
+    {
+        $base = [
+            'configuration' => $configuration,
+            'messages' => $messages,
+            'actor' => $this->resolveActor($conversation->getBeUser()),
+            'options' => (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
+        ];
+
+        $identifier = $conversation->getSkillIdentifier();
+        if ($identifier !== '' && $this->skillInvocation instanceof SkillInvocationInterface) {
+            $pageId = $conversation->getViewContext()['pageId'];
+            $invoked = $this->skillInvocation->withInvocation(
+                new AgentRunRequest(...$base),
+                new SkillInvocation($identifier, $conversation->getSkillUid(), $pageId > 0 ? 'pages' : null, $pageId > 0 ? $pageId : null),
+            );
+            if ($invoked instanceof AgentRunRequest) {
+                return $invoked;
+            }
+        }
+
+        return new AgentRunRequest(...$base, augmentation: $this->skills?->augmentationFor($identifier));
     }
 
     /**
