@@ -36,6 +36,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
+use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
@@ -88,6 +89,7 @@ class ChatServiceTest extends TestCase
         ?UserContextPrompt $userContextPrompt = null,
         ?RunActivityRecorder $activityRecorder = null,
         ?GuidedStateLinker $guidedState = null,
+        ?OpenPointTrackerInterface $openPoints = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -127,7 +129,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState);
+        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState, openPoints: $openPoints);
     }
 
     /**
@@ -845,6 +847,38 @@ class ChatServiceTest extends TestCase
         $system = $this->capturedSystemPrompt();
         self::assertStringContainsString('You are a TYPO3 assistant.', $system);
         self::assertStringContainsString('Always wrap record fields', $system);
+    }
+
+    /** A process started on a page is offered what it left open there (ADR-022). */
+    #[Test]
+    public function theOpenPointsOfTheProcessAreOfferedBeforeTheUsersInstructions(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSystemPrompt('Only custom instructions');
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $openPoints = $this->createMock(OpenPointTrackerInterface::class);
+        $openPoints->expects(self::once())->method('promptFor')->with($conversation)->willReturn('Open points: - tt_content 12, field bodytext');
+
+        $this->createChatService(openPoints: $openPoints)->processConversation($conversation);
+
+        $system = $this->capturedSystemPrompt();
+        self::assertStringContainsString('Open points: - tt_content 12, field bodytext', $system);
+        self::assertLessThan(strpos($system, '<user_instructions>'), strpos($system, 'Open points:'));
+    }
+
+    #[Test]
+    public function withoutOpenPointsThePromptHasNoSuchSection(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $openPoints = $this->createMock(OpenPointTrackerInterface::class);
+        $openPoints->method('promptFor')->willReturn('');
+
+        $this->createChatService(openPoints: $openPoints)->processConversation($conversation);
+
+        self::assertStringNotContainsString('Open points', $this->capturedSystemPrompt());
     }
 
     #[Test]

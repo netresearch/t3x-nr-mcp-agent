@@ -203,6 +203,13 @@ A skill can walk you through a page one point at a time. While it does:
     progress.
 *   **The end is shown.** When the process is finished, the header says
     so and the highlight goes away.
+*   **Skipped proposals stay open.** A change you answer with **Skip** is
+    kept as an open point of that page: the record and field it was about,
+    never its text. The next time the process runs on the page, it is
+    offered again. It stays open until a change to the same record and
+    field is applied in full, in any conversation; a change that was only
+    partly applied leaves it open. A proposal you leave behind with a
+    message of your own is not kept.
 
 None of this changes a record. An administrator can switch the tools behind
 it off as the tool group ``nr_mcp_agent``.
