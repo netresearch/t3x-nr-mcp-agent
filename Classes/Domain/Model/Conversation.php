@@ -12,6 +12,7 @@ namespace Netresearch\NrMcpAgent\Domain\Model;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 
 /**
@@ -22,6 +23,12 @@ final class Conversation
 {
     /** Prefix of a legacy transcript the upgrade wizard could not decode and left in place. */
     public const UNDECODABLE_MARKER = '!undecodable:';
+
+    /** The recorded decision that is an answer to a question (ADR-018). */
+    public const DECISION_INPUT = 'input';
+
+    /** The notice on the user message that holds an answer to a question (ADR-018). */
+    public const NOTICE_INPUT_ANSWER = 'inputAnswer';
 
     private int $uid = 0;
 
@@ -51,6 +58,17 @@ final class Conversation
     private string $viewContext = '';
 
     /**
+     * The skill the conversation was started with or switched to, by its
+     * nr-llm identifier; empty for none (ADR-019). Passed to every run of the
+     * conversation as the invoked skill. Written on its own column like the
+     * instructions, so a turn that settles later cannot put an old one back.
+     */
+    private string $skillIdentifier = '';
+
+    /** The skill's record uid, when the catalogue knew it (0 otherwise). */
+    private int $skillUid = 0;
+
+    /**
      * What the agent did in the current turn, as a JSON list of step
      * summaries (NEXT-172). Written column by column while the turn runs
      * ({@see \Netresearch\NrMcpAgent\Service\RunActivityRecorder}) and
@@ -58,6 +76,13 @@ final class Conversation
      * of the turn must not put back the list it started with.
      */
     private string $activity = '';
+
+    /**
+     * What the guided-state tools last reported for this conversation's runs
+     * (ADR-020): the progress for the header and the element to highlight, as
+     * JSON. Taken over from the run's state when a run returns.
+     */
+    private string $guidedState = '';
 
     private bool $archived = false;
 
@@ -87,7 +112,8 @@ final class Conversation
 
     /**
      * The decision a user made in the request, waiting for the worker to carry
-     * it out: 'approve', 'deny', or empty when nothing is pending.
+     * it out: 'approve', 'deny', 'input' for an answer to a question
+     * (ADR-018), or empty when nothing is pending.
      */
     private string $approvalDecision = '';
 
@@ -96,6 +122,20 @@ final class Conversation
      * hands the runtime exactly what the reader saw (ADR-132).
      */
     private string $approvalTurnDigest = '';
+
+    /**
+     * The answer a user gave to a run that asked for input, as JSON, waiting
+     * for the worker to hand it to the runtime (ADR-018). Recorded with the
+     * decision 'input' and the digest of the question it answers, the way an
+     * approval decision is recorded.
+     */
+    private string $pendingInput = '';
+
+    /**
+     * Why a denial was given on the card — 'variant' or 'skip' — or empty
+     * (ADR-018). Kept with the decision for the worker.
+     */
+    private string $approvalDenyReason = '';
 
     private int $tstamp = 0;
 
@@ -119,7 +159,10 @@ final class Conversation
         $conversation->currentRequestId = (string) self::val($row, 'current_request_id', '');
         $conversation->systemPrompt = (string) self::val($row, 'system_prompt', '');
         $conversation->viewContext = (string) self::val($row, 'view_context', '');
+        $conversation->skillIdentifier = (string) self::val($row, 'skill_identifier', '');
+        $conversation->skillUid = (int) self::val($row, 'skill_uid', 0);
         $conversation->activity = (string) self::val($row, 'activity', '');
+        $conversation->guidedState = (string) self::val($row, 'guided_state', '');
         $conversation->archived = (bool) self::val($row, 'archived', false);
         $conversation->pinned = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage = (string) self::val($row, 'error_message', '');
@@ -127,6 +170,8 @@ final class Conversation
         $conversation->approvalRunUuid = (string) self::val($row, 'approval_run_uuid', '');
         $conversation->approvalDecision = (string) self::val($row, 'approval_decision', '');
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
+        $conversation->pendingInput = (string) self::val($row, 'pending_input', '');
+        $conversation->approvalDenyReason = (string) self::val($row, 'approval_deny_reason', '');
         $conversation->tstamp = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate = (int) self::val($row, 'crdate', 0);
         return $conversation;
@@ -162,6 +207,7 @@ final class Conversation
             'status' => $this->status,
             'current_request_id' => $this->currentRequestId,
             'view_context' => $this->viewContext,
+            'guided_state' => $this->guidedState,
             'archived' => (int) $this->archived,
             'pinned' => (int) $this->pinned,
             'error_message' => $this->errorMessage,
@@ -169,6 +215,8 @@ final class Conversation
             'approval_run_uuid' => $this->approvalRunUuid,
             'approval_decision' => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
+            'pending_input' => $this->pendingInput,
+            'approval_deny_reason' => $this->approvalDenyReason,
         ];
     }
 
@@ -315,6 +363,8 @@ final class Conversation
             $this->approvalRunUuid = '';
             $this->approvalDecision = '';
             $this->approvalTurnDigest = '';
+            $this->pendingInput = '';
+            $this->approvalDenyReason = '';
         }
     }
 
@@ -339,15 +389,16 @@ final class Conversation
     }
 
     /**
-     * @return array{pageId: int, module: string}
+     * @return array{pageId: int, module: string, languageId: int}
      */
     public function getViewContext(): array
     {
         $decoded = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
         $pageId = is_array($decoded) && is_int($decoded['pageId'] ?? null) ? $decoded['pageId'] : 0;
         $module = is_array($decoded) && is_string($decoded['module'] ?? null) ? $decoded['module'] : '';
+        $languageId = is_array($decoded) && is_int($decoded['languageId'] ?? null) ? $decoded['languageId'] : -1;
 
-        return ['pageId' => max(0, $pageId), 'module' => $module];
+        return ['pageId' => max(0, $pageId), 'module' => $module, 'languageId' => max(-1, $languageId)];
     }
 
     /**
@@ -356,16 +407,49 @@ final class Conversation
      * Whether the user may see the page or the module is decided when the turn
      * runs, not here.
      */
-    public function setViewContext(int $pageId, string $module): void
+    public function setViewContext(int $pageId, string $module, int $languageId = -1): void
     {
         $pageId = max(0, $pageId);
         if (preg_match('/^\w{1,100}$/', $module) !== 1) {
             $module = '';
         }
 
+        // The page's language (sys_language_uid), -1 when unknown. Only kept
+        // with a page: a language without a page says nothing.
+        $context = ['pageId' => $pageId, 'module' => $module];
+        if ($pageId > 0 && $languageId >= 0) {
+            $context['languageId'] = $languageId;
+        }
+
         $this->viewContext = $pageId === 0 && $module === ''
             ? ''
-            : json_encode(['pageId' => $pageId, 'module' => $module], JSON_THROW_ON_ERROR);
+            : json_encode($context, JSON_THROW_ON_ERROR);
+    }
+
+    public function getSkillIdentifier(): string
+    {
+        return $this->skillIdentifier;
+    }
+
+    /**
+     * Only an identifier made of the characters nr-llm skill identifiers use
+     * is kept; anything else is stored as none. Whether the skill exists is
+     * decided by the caller and, at run time, by nr-llm.
+     */
+    public function setSkillIdentifier(string $identifier, int $uid = 0): void
+    {
+        $this->skillIdentifier = self::isSkillIdentifier($identifier) ? $identifier : '';
+        $this->skillUid = $this->skillIdentifier !== '' ? max(0, $uid) : 0;
+    }
+
+    public function getSkillUid(): int
+    {
+        return $this->skillUid;
+    }
+
+    public static function isSkillIdentifier(string $identifier): bool
+    {
+        return preg_match('/^[A-Za-z0-9][A-Za-z0-9._:\/-]{0,99}$/', $identifier) === 1;
     }
 
     /**
@@ -426,6 +510,36 @@ final class Conversation
         return $entries;
     }
 
+    /**
+     * @return array{progress: array{label: string, current: int, total: int, completed: bool}|null, highlight: array{table: string, uid: int}|null}
+     */
+    public function getGuidedState(): array
+    {
+        $decoded = $this->guidedState !== '' ? json_decode($this->guidedState, true) : null;
+        $progress = is_array($decoded) ? ($decoded['progress'] ?? null) : null;
+        $highlight = is_array($decoded) ? ($decoded['highlight'] ?? null) : null;
+
+        return [
+            'progress' => is_array($progress) && is_string($progress['label'] ?? null) && is_int($progress['current'] ?? null) && is_int($progress['total'] ?? null)
+                ? ['label' => $progress['label'], 'current' => $progress['current'], 'total' => $progress['total'], 'completed' => ($progress['completed'] ?? false) === true]
+                : null,
+            'highlight' => is_array($highlight) && ($highlight['table'] ?? null) === 'tt_content' && is_int($highlight['uid'] ?? null)
+                ? ['table' => 'tt_content', 'uid' => $highlight['uid']]
+                : null,
+        ];
+    }
+
+    /**
+     * @param array{label: string, current: int, total: int, completed: bool}|null $progress
+     * @param array{table: string, uid: int}|null                                  $highlight
+     */
+    public function setGuidedState(?array $progress, ?array $highlight): void
+    {
+        $this->guidedState = $progress === null && $highlight === null
+            ? ''
+            : json_encode(['progress' => $progress, 'highlight' => $highlight], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
     public function isArchived(): bool
     {
         return $this->archived;
@@ -483,8 +597,9 @@ final class Conversation
      * and a decision without the digest the card carried would be verified
      * against whatever the turn looks like by then.
      */
-    public function recordApprovalDecision(bool $approve, string $turnDigest): void
+    public function recordApprovalDecision(bool $approve, string $turnDigest, ?DenyReason $reason = null): void
     {
+        $this->approvalDenyReason = $approve || $reason === null ? '' : $reason->value;
         $this->approvalDecision = $approve ? 'approve' : 'deny';
         $this->approvalTurnDigest = $turnDigest;
     }
@@ -493,6 +608,87 @@ final class Conversation
     {
         $this->approvalDecision = '';
         $this->approvalTurnDigest = '';
+        $this->pendingInput = '';
+        $this->approvalDenyReason = '';
+    }
+
+    public function getApprovalDenyReason(): ?DenyReason
+    {
+        return DenyReason::tryFrom($this->approvalDenyReason);
+    }
+
+    /**
+     * Record the answer to a run that asked for input, for the worker to hand
+     * to the runtime (ADR-018).
+     *
+     * Stored as a decision of its own kind, so everything that guards a
+     * recorded decision — the Retry refusal, the worker's routing, the reconcile
+     * of a worker that never came — guards the answer too. The digest is the
+     * one the question was shown with: nr-llm refuses an answer to a question
+     * that has changed since (nr-llm ADR-150).
+     *
+     * @param array<string, mixed> $data the values, keyed by the schema's property names
+     */
+    public function recordInputSubmission(array $data, string $turnDigest): void
+    {
+        $this->approvalDecision = self::DECISION_INPUT;
+        $this->approvalTurnDigest = $turnDigest;
+        $this->pendingInput = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Put the user's answer to a question into the transcript, marked so that
+     * it can be taken out again if nr-llm hands the question back unanswered.
+     *
+     * The answer is shown at once, as a sent message is; it is also what the
+     * model reads on later turns, where the question's run is not in the
+     * transcript. The notice key is ignored by nr-llm's message factory, so it
+     * does not reach the model.
+     */
+    public function appendInputAnswer(string $display): void
+    {
+        $this->appendMessage(MessageRole::User, $display, self::NOTICE_INPUT_ANSWER);
+    }
+
+    /**
+     * Take the last answer back out when the question it answered is open
+     * again: an answer next to the same question, still waiting, would read
+     * as if it had been given.
+     */
+    public function dropInputAnswer(): void
+    {
+        $messages = $this->getDecodedMessages();
+        $last = end($messages);
+        if (is_array($last) && ($last['notice'] ?? null) === self::NOTICE_INPUT_ANSWER) {
+            array_pop($messages);
+            $this->setMessages($messages);
+        }
+    }
+
+    /** Whether the recorded decision is an answer to a question rather than an approval. */
+    public function hasPendingInputSubmission(): bool
+    {
+        return $this->approvalDecision === self::DECISION_INPUT && $this->hasPendingApprovalDecision();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getPendingInputData(): array
+    {
+        $decoded = $this->pendingInput !== '' ? json_decode($this->pendingInput, true) : null;
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $data = [];
+        foreach ($decoded as $key => $value) {
+            if (is_string($key)) {
+                $data[$key] = $value;
+            }
+        }
+
+        return $data;
     }
 
     /** Whether a decision is recorded and still waiting to be carried out. */
