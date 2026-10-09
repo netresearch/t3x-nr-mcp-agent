@@ -1,0 +1,22 @@
+"be_groups"
+,"uid","pid","title","allowed_languages","tstamp","crdate"
+,1,0,"Redaktion","",1710000000,1710000000
+,2,0,"Redaktion nur Englisch","1",1710000000,1710000000
+"be_users"
+,"uid","pid","username","password","admin","db_mountpoints","options","usergroup","tstamp","crdate"
+,1,0,"admin","$2y$12$xxx",1,"",0,"",1710000000,1710000000
+,3,0,"mounted-editor","$2y$12$xxx",0,"20",3,"1",1710000000,1710000000
+,4,0,"translation-editor","$2y$12$xxx",0,"20",3,"2",1710000000,1710000000
+"pages"
+,"uid","pid","title","doktype","sys_language_uid","l10n_parent","perms_userid","perms_groupid","perms_user","perms_group","perms_everybody","deleted","hidden","tstamp","editlock"
+,20,0,"Bereich A",1,0,0,3,0,31,0,0,0,0,100,0
+,21,20,"Inhalt A",1,0,0,3,0,31,0,0,0,0,300,0
+,22,20,"Gesperrt",1,0,0,1,0,31,0,0,0,0,400,0
+,23,20,"Ordner",254,0,0,3,0,31,0,0,0,0,600,0
+,24,20,"Geloescht",1,0,0,3,0,31,0,0,1,0,700,0
+,25,20,"Translation",1,1,21,3,0,31,0,0,0,0,800,0
+,26,20,"<img src=x onerror=alert(1)>",1,0,0,3,0,31,0,0,0,0,200,0
+,27,20,"Versteckt",1,0,0,3,0,31,0,0,0,1,150,0
+,30,0,"Fremder Bereich",1,0,0,3,0,31,0,0,0,0,500,0
+,28,20,"Nur ansehen",1,0,0,3,0,1,0,0,0,0,900,0
+,29,20,"Gesperrt fuer Bearbeitung",1,0,0,3,0,31,0,0,0,0,950,1

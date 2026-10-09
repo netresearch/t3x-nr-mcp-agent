@@ -1,0 +1,56 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<f:layout name="Widget/Widget" />
+<f:section name="main">
+    <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
+    <f:if condition="{available}">
+        <f:then>
+            <f:if condition="{skills}">
+                <f:then>
+                    <f:if condition="{suggestions} || {pages}">
+                        <f:then>
+                            <form action="{form.action}" method="get" class="nr-mcp-agent-improve">
+                                <f:for each="{form.hidden}" as="value" key="name">
+                                    <input type="hidden" name="{name}" value="{value}" />
+                                </f:for>
+                                <f:comment>The pages offered are default-language versions.</f:comment>
+                                <input type="hidden" name="{form.languageField}" value="0" />
+                                <div class="mb-3">
+                                    <f:variable name="pageLabel" value="{f:translate(key: '{ll}improve.page')}" />
+                                    <f:render partial="Widget/PageSelect" arguments="{id: '{idPrefix}-page', name: form.pageField, label: pageLabel, labelHidden: 0, describedBy: '{idPrefix}-page-hint', pages: pages, suggestions: suggestions}" />
+                                    <p id="{idPrefix}-page-hint" class="form-text">
+                                        <f:if condition="{suggestions}">
+                                            <f:then>{f:translate(key: '{ll}page.hintSuggested')}</f:then>
+                                            <f:else>{f:translate(key: '{ll}page.hint')}</f:else>
+                                        </f:if>
+                                    </p>
+                                </div>
+                                <fieldset>
+                                    <legend class="form-label fs-6">{f:translate(key: '{ll}improve.legend')}</legend>
+                                    <f:comment>One submit button per tour: the pressed button sends the tour as "skill". Works by keyboard and without JavaScript.</f:comment>
+                                    <f:for each="{skills}" as="skill" iteration="i">
+                                        <div class="mb-2">
+                                            <button type="submit" class="btn btn-primary" name="{form.skillField}" value="{skill.identifier}" aria-describedby="{idPrefix}-skill-{i.index}-description">{skill.title}</button>
+                                            <span id="{idPrefix}-skill-{i.index}-description" class="d-block text-variant small">{skill.description}</span>
+                                        </div>
+                                    </f:for>
+                                </fieldset>
+                            </form>
+                        </f:then>
+                        <f:else>
+                            <p>{f:translate(key: '{ll}page.none')}</p>
+                        </f:else>
+                    </f:if>
+                </f:then>
+                <f:else>
+                    <p>{f:translate(key: '{ll}improve.noSkills')}</p>
+                </f:else>
+            </f:if>
+        </f:then>
+        <f:else>
+            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+        </f:else>
+    </f:if>
+</f:section>

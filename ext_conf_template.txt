@@ -27,3 +27,9 @@ maxActiveConversationsPerUser = 3
 
 # cat=basic/files; type=string; label=Folder for chat attachments in the default storage, relative to its root. A per-user subfolder is created inside it, so one user's attachments are never mixed with another's.
 attachmentFolder = ai-chat
+
+# cat=basic/dashboard; type=string; label=Guided tours offered by the "Improve a page" dashboard widget: comma-separated skills, each either a bare slug (seo-optimieren: the catalogue skill whose identifier ends in :seo-optimieren, the most trusted source first, then the lowest source uid) or a catalogue identifier (3:seo-optimieren: exactly that one). Each needs the labels skill.<key>.title and skill.<key>.description in locallang_dashboard.xlf (or an override of it), where <key> is the identifier with every character other than a letter, digit, - or _ replaced by _. An identifier without a title, or one the chat cannot start for the user, is not shown.
+dashboardGuidedSkills = seo-optimieren,inhalt-verbessern
+
+# cat=basic/dashboard; type=string; label=Entries of the "Frequent tasks" dashboard widget: comma-separated skills (slug or catalogue identifier, as for the guided tours), each followed by |page when the task works on one page, e.g. neue-seite,3:meta-beschreibungen|page. Empty by default: the guided tours are not repeated here. The label is task.<key>, else skill.<key>.title, in locallang_dashboard.xlf (or an override of it); an entry without a label, or one the chat cannot start for the user, is not shown.
+dashboardQuickTasks =
