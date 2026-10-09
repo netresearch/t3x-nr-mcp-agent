@@ -281,17 +281,31 @@ final class OpenPointsTest extends FunctionalTestCase
         self::assertSame(['bodytext'], array_map(static fn(VisibleOpenPoint $point): string => $point->field, $this->siteWide(1)), 'the limit cuts');
     }
 
+    /**
+     * The summary is in the user's backend language: template and labels.
+     * This instance has no core language packs, so the header's label is
+     * pointed at a label this extension ships in German.
+     *
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function backendLanguages(): iterable
+    {
+        yield 'German' => ['de', 'KI-Chat auf „Über uns“ offen', '%s fehlt auf „Über uns“'];
+        yield 'English' => ['', 'AI Chat open on “Über uns”', '%s is missing on “Über uns”'];
+    }
+
     #[Test]
-    public function eachPointCarriesItsPageLanguageSkillAndAGermanSummaryFromTheTcaLabels(): void
+    #[DataProvider('backendLanguages')]
+    public function eachPointCarriesItsPageLanguageSkillAndASummaryInTheUsersLanguage(string $lang, string $headerSummary, string $bodySummary): void
     {
         $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrllm_skill')->insert('tx_nrllm_skill', [
             'uid' => 7, 'pid' => 0, 'source' => 3, 'identifier' => '3:seo/page-tour', 'name' => 'SEO', 'enabled' => 1,
         ]);
+        $this->get(ConnectionPool::class)->getConnectionForTable('be_users')->update('be_users', ['lang' => $lang], ['uid' => self::EDITOR]);
+        $GLOBALS['TCA']['tt_content']['columns']['header']['label'] = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:panel.title';
         $this->point(20, 'tt_content', 100, 'header', 100);
         $this->point(20, 'tt_content', 100, 'bodytext', 200);
-        $german = $this->get(LanguageServiceFactory::class)->create('de');
-        $headerLabel = trim($german->sL($GLOBALS['TCA']['tt_content']['columns']['header']['label']));
-        $bodyLabel = trim($german->sL($GLOBALS['TCA']['tt_content']['columns']['bodytext']['label']));
+        $bodyLabel = trim($this->get(LanguageServiceFactory::class)->create($lang !== '' ? $lang : 'en')->sL($GLOBALS['TCA']['tt_content']['columns']['bodytext']['label']));
 
         [$body, $header] = $this->siteWide(10);
 
@@ -300,9 +314,9 @@ final class OpenPointsTest extends FunctionalTestCase
         self::assertSame(7, $header->skillUid);
         self::assertSame('3:seo/page-tour', $header->skillIdentifier);
         self::assertSame(100, $header->crdate);
-        self::assertNotSame('', $headerLabel);
-        self::assertSame($headerLabel . ' auf „Über uns“ offen', $header->summary, 'the header has a value');
-        self::assertSame($bodyLabel . ' fehlt auf „Über uns“', $body->summary, 'the fixture\'s bodytext is empty');
+        self::assertNotSame('', $bodyLabel);
+        self::assertSame($headerSummary, $header->summary, 'the header has a value');
+        self::assertSame(sprintf($bodySummary, $bodyLabel), $body->summary, 'the fixture\'s bodytext is empty');
     }
 
     #[Test]
