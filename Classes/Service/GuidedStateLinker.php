@@ -19,15 +19,18 @@ use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
  * Called when a run returns — completed, paused or failed — because only then
  * does the chat know the run's uuid; the header and the highlight follow at
  * that moment, not while the run works. Only state the conversation's owner
- * wrote is read, and a highlight counts only when the element is on the
- * conversation's page: the tool checked that the user may see the element,
- * this checks that it belongs to what the conversation is about. A completion
+ * wrote is read, and a highlight counts only when the policy allows it — the
+ * element is on the conversation's page until nr-llm registers a run's
+ * subject targets (HighlightTargetPolicyInterface): the tool checked that the
+ * user may see the element, this checks that it belongs to what the
+ * conversation is about. A completion
  * report ends the tour, so it also drops the highlight.
  */
 readonly class GuidedStateLinker
 {
     public function __construct(
         private RunStateRepository $runState,
+        private ?HighlightTargetPolicyInterface $highlightPolicy = null,
     ) {}
 
     public function absorb(Conversation $conversation, string $runUuid): void
@@ -70,9 +73,10 @@ readonly class GuidedStateLinker
     {
         $uid = $highlight['uid'] ?? null;
         $pid = $highlight['pid'] ?? null;
-        $page = $conversation->getViewContext()['pageId'];
+        $table = $highlight['table'] ?? null;
 
-        return ($highlight['table'] ?? null) === 'tt_content' && is_int($uid) && is_int($pid) && $page > 0 && $pid === $page
+        return $table === 'tt_content' && is_int($uid) && is_int($pid)
+            && ($this->highlightPolicy ?? new ConversationPageHighlightPolicy())->allows($conversation, $table, $uid, $pid)
             ? ['table' => 'tt_content', 'uid' => $uid]
             : null;
     }

@@ -194,13 +194,23 @@ Guided processes
 A skill can walk you through a page one point at a time. While it does:
 
 *   **The header shows where it stands** -- for example
-    "Über uns · Deutsch · Punkt 2 von 5". It changes when the assistant
+    "Über uns · Deutsch · Punkt 2 von 5": the page and its language from
+    the conversation, then the point. When space is short the page name is
+    shortened first; the point is always shown in full. Before the first
+    point the header says "Analyse läuft". It changes when the assistant
     stops to ask you or to propose a change, not while it works.
 *   **The element is highlighted.** With the floating panel open next to
     the page module, the content element the current point is about gets a
-    frame and is scrolled into view. The full-page chat module and the
-    popped-out panel have no page module beside them and only show the
-    progress.
+    frame and the label "Betrifft den aktuellen Vorschlag", and is scrolled
+    into view; a screen reader hears which element is marked. The full-page
+    chat module and the popped-out panel have no page module beside them and
+    only show the progress.
+*   **Each proposal shows its outcome.** A proposal is shown as a block with
+    what is affected and, where nr-llm provides it, the current and the
+    proposed value with its length. After you answer "Übernehmen", the chat
+    says itself whether the change was saved, saved but worth checking, or
+    not saved. At the end it summarises what was applied, what to check and
+    what you skipped.
 *   **The end is shown.** When the process is finished, the header says
     so and the highlight goes away.
 *   **Skipped proposals stay open.** A change you answer with **Skip** is

@@ -216,6 +216,9 @@ export class ChatCoreController {
      */
     tour = null;
 
+    /** The content element the page module was last asked to mark, for the announcement. */
+    highlightAnnounced = '';
+
     /** The highlight last sent to the page module, so it is sent once. */
     _sentHighlight = '';
 
@@ -352,6 +355,7 @@ export class ChatCoreController {
         this.tour = null;
         // Coming back to a conversation highlights its element again.
         this._sentHighlight = '';
+        this.highlightAnnounced = '';
         this.pendingInput = null;
         this.skill = null;
         this.slashOpen = false;

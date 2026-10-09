@@ -511,6 +511,12 @@
             <trans-unit id="guided.analysing" resname="guided.analysing">
                 <source>Analysing</source>
             </trans-unit>
+            <trans-unit id="highlight.label" resname="highlight.label">
+                <source>Concerns the current proposal</source>
+            </trans-unit>
+            <trans-unit id="guided.highlightAnnounced" resname="guided.highlightAnnounced">
+                <source>Marked in the page module: content element</source>
+            </trans-unit>
             <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
                 <source>You may not open this page, so no conversation was started about it.</source>
             </trans-unit>

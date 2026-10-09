@@ -675,6 +675,14 @@
                 <source>Analysing</source>
                 <target>Analyse läuft</target>
             </trans-unit>
+            <trans-unit id="highlight.label" resname="highlight.label">
+                <source>Concerns the current proposal</source>
+                <target>Betrifft den aktuellen Vorschlag</target>
+            </trans-unit>
+            <trans-unit id="guided.highlightAnnounced" resname="guided.highlightAnnounced">
+                <source>Marked in the page module: content element</source>
+                <target>Im Seitenmodul markiert: Inhaltselement</target>
+            </trans-unit>
             <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
                 <source>You may not open this page, so no conversation was started about it.</source>
                 <target>Du darfst diese Seite nicht öffnen, deshalb wurde keine Unterhaltung zu ihr gestartet.</target>
