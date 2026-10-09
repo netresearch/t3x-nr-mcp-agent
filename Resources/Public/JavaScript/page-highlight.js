@@ -8,7 +8,9 @@
  * The contract, and nothing else is accepted:
  *
  *   {type: 'nr-mcp-agent:highlight', version: 1, table: 'tt_content', uid: <positive integer>}
+ *   {type: 'nr-mcp-agent:highlight', version: 1, clear: true}
  *
+ * The second removes the mark, when the guided process has ended (ADR-023).
  * from the same origin, posted by the window that holds this frame — the
  * backend window with the chat panel. The element is found by the id TYPO3
  * gives every content element in the page module (`element-tt_content-<uid>`
@@ -35,6 +37,10 @@ export function handleHighlightMessage(event, win = globalThis) {
     }
 
     const data = event.data;
+    if (data?.type === HIGHLIGHT_MESSAGE && data.version === 1 && data.clear === true) {
+        clearHighlight(win.document);
+        return true;
+    }
     if (data?.type !== HIGHLIGHT_MESSAGE || data.version !== 1 || data.table !== 'tt_content'
         || !Number.isInteger(data.uid) || data.uid <= 0) {
         return false;
@@ -64,8 +70,7 @@ export function highlightLabel(doc) {
  * @param {number} uid
  */
 export function highlightContentElement(doc, uid) {
-    doc.querySelectorAll(`.${HIGHLIGHT_CLASS}`).forEach((el) => el.classList.remove(HIGHLIGHT_CLASS));
-    doc.querySelectorAll(`.${LABEL_CLASS}`).forEach((el) => el.remove());
+    clearHighlight(doc);
     const element = doc.getElementById(`element-tt_content-${uid}`);
     if (!element) {
         return false;
@@ -79,6 +84,16 @@ export function highlightContentElement(doc, uid) {
     element.prepend(badge);
     element.scrollIntoView?.({block: 'center', behavior: 'smooth'});
     return true;
+}
+
+/**
+ * Remove the mark and the badge, wherever they are.
+ *
+ * @param {Document} doc
+ */
+export function clearHighlight(doc) {
+    doc.querySelectorAll(`.${HIGHLIGHT_CLASS}`).forEach((el) => el.classList.remove(HIGHLIGHT_CLASS));
+    doc.querySelectorAll(`.${LABEL_CLASS}`).forEach((el) => el.remove());
 }
 
 function ensureStyle(doc) {
