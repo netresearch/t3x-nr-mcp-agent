@@ -13,8 +13,10 @@ namespace Netresearch\NrMcpAgent\Service\Assistant;
  * Where the "Recommended for your website" dashboard widget reads the open
  * improvement points from.
  *
- * Bound to NullOpenPointReader in Configuration/Services.yaml until the store
- * of open points exists; the store's reader replaces that alias.
+ * Bound to VisibleOpenPointReader in Configuration/Services.yaml, which reads
+ * the chat's store of open points and returns nothing while that store does
+ * not exist. NullOpenPointReader is the reader for an installation that wants
+ * no points.
  *
  * Contract for an implementation:
  * - return open (not yet resolved) points only, newest first, at most $limit;

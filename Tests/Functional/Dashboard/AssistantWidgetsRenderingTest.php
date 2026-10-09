@@ -27,6 +27,8 @@ use Netresearch\NrMcpAgent\Service\Assistant\NullOpenPointReader;
 use Netresearch\NrMcpAgent\Service\Assistant\OpenPoint;
 use Netresearch\NrMcpAgent\Service\Assistant\OpenPointReaderInterface;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
+use Netresearch\NrMcpAgent\Service\Assistant\VisibleOpenPointReader;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Assistant\VisibleOpenPointReaderTest;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
@@ -378,8 +380,8 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     }
 
     /**
-     * A point's summary is written by a model through a tool, the page title
-     * by an editor: both reach the page as text.
+     * A point's summary holds a page title, which an editor wrote, and so
+     * does the link text: both reach the page as text.
      */
     #[Test]
     public function aRecommendationLinksToItsTourAndEscapesItsText(): void
@@ -443,5 +445,42 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         self::assertNotNull($pages->findAccessible(60), 'precondition: user 4 may see page 60');
         self::assertStringNotContainsString('fremder Sprache', $this->render(RecommendationsWidget::class, $reader));
         self::assertSame([], $pointUids($provider->suggest('seo-optimieren')));
+    }
+
+    /**
+     * The chat's store (OpenPointVisibility, here a double) feeds both readers
+     * of open points: its point appears in the widget and among the page
+     * suggestions, under the trusted source's identifier even when the store
+     * names another source. A point whose skill is gone appears in neither.
+     */
+    #[Test]
+    public function theStoresPointsAppearInBothReaders(): void
+    {
+        $reader = new VisibleOpenPointReader(VisibleOpenPointReaderTest::visibility([
+            VisibleOpenPointReaderTest::point(21, 0, '7:seo-optimieren', 'Beschreibung fehlt auf „Bereich B“'),
+            VisibleOpenPointReaderTest::point(20, 0, '', 'Seitentitel fehlt auf „Bereich A“'),
+        ]));
+        $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
+        $provider = new DeterministicPageSuggestionProvider($reader, $pages, $this->get(LanguageServiceFactory::class));
+
+        $html = $this->render(RecommendationsWidget::class, $reader);
+        self::assertStringContainsString('Beschreibung fehlt auf „Bereich B“', $html);
+        self::assertStringContainsString('href="' . htmlspecialchars($this->chatStart()->build('3:seo-optimieren', 21, 0)) . '"', $html);
+        self::assertStringNotContainsString('Seitentitel fehlt', $html);
+
+        $points = array_values(array_map(
+            static fn($s): int => $s->pageUid,
+            array_filter($provider->suggest('seo-optimieren'), static fn($s): bool => $s->reason === 'Open point from a guided tour'),
+        ));
+        self::assertSame([21], $points);
+    }
+
+    /** Without the store, the widget shows no point and says how points come about. */
+    #[Test]
+    public function withoutTheStoreTheReaderShowsNoPoint(): void
+    {
+        $html = $this->render(RecommendationsWidget::class, new VisibleOpenPointReader(null));
+
+        self::assertStringContainsString('No open recommendations. When the AI assistant finds something to improve during a guided tour, it appears here.', $html);
     }
 }

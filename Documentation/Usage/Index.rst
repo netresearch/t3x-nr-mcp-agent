@@ -347,11 +347,13 @@ holds all of them and the **AI Chat** widget.
     the same pages as *Improve a page*; any other task is a link.
 
 **Recommended for your website**
-    Improvement points that guided tours found and left open, each with a
-    link that starts the matching tour on its page, in the language the
+    Open points: changes a guided tour proposed that an editor skipped,
+    until a change to the same record and field is applied. Each comes with
+    a link that starts the matching tour on its page, in the language the
     point is about. A point is shown only when the editor may access its
-    page and edit that language. Until open points are recorded,
-    the widget says how they come about.
+    page, read the changed record and field, and edit that language; a
+    point whose skill no longer exists is not shown. Until open points are
+    recorded, the widget says how they come about.
 
 Only tours and tasks the chat can actually start are offered: a configured
 skill that does not exist (yet), is not attached to the chat, or cannot run
