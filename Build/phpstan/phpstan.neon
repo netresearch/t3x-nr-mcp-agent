@@ -29,8 +29,10 @@ parameters:
           path: ../../Classes/Document/Extractor/XlsxExtractor.php
         # nr-llm 0.41 (ADR-214, nr-llm PR 1024) adds ApprovalDenialReason, the
         # decision's denialReason and the guarded cancel. The adapters check for
-        # them at runtime; the locked nr-llm may predate them. Unmatched once
-        # the lock carries 0.41: drop these entries then.
+        # them at runtime, so they work on nr-llm before and after 0.41: the
+        # first entries cover the symbols an earlier nr-llm lacks, the
+        # alwaysTrue/alreadyNarrowedType ones the same checks against 0.41.
+        # Drop the checks and these entries once the lock requires 0.41.
         - identifier: class.notFound
           path: ../../Classes/Service/ApprovalDecisionFactory.php
           reportUnmatched: false
@@ -51,6 +53,15 @@ parameters:
           reportUnmatched: false
         - identifier: argument.type
           path: ../../Classes/Service/NrLlmWaitingRunCanceller.php
+          reportUnmatched: false
+        - identifier: instanceof.alwaysTrue
+          path: ../../Classes/Service/NrLlmWaitingRunCanceller.php
+          reportUnmatched: false
+        - identifier: function.alreadyNarrowedType
+          path: ../../Classes/Service/NrLlmWaitingRunCanceller.php
+          reportUnmatched: false
+        - identifier: function.alreadyNarrowedType
+          path: ../../Classes/Service/PendingCallEffect.php
           reportUnmatched: false
 
 services:
