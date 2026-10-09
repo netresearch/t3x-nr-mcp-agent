@@ -83,7 +83,7 @@ final readonly class ApprovalCallPresenter
      *     argumentsJson: string,
      *     actionLabelFromPreview: bool,
      *     affected: array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>}|null,
-     *     structured: list<array{field: string, current: string, proposed: string, measure: array{count: int, min: int, max: int}|null}>|null,
+     *     structured: list<array{field: string, label: string, current: string|null, proposed: string, measure: array{count: int, min: int|null, max: int|null}|null}>|null,
      * }>
      */
     public function present(array $calls, ?LanguageService $language, ?LanguageService $previewLanguage): array

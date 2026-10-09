@@ -109,17 +109,34 @@ final class ApprovalProposalTest extends TestCase
     }
 
     #[Test]
-    public function theStructuredEntriesKeepFieldValuesAndMeasure(): void
+    public function theStructuredEntriesKeepLabelValuesAndMeasure(): void
     {
         $entries = [
-            (object) ['field' => 'description', 'current' => '', 'proposed' => 'Neu', 'measure' => (object) ['count' => 152, 'min' => 140, 'max' => 160]],
-            ['field' => 'title', 'current' => 'Home', 'proposed' => 'Start'],
+            ['field' => 'description', 'label' => 'Beschreibung', 'current' => null, 'proposed' => 'Neu', 'measure' => ['count' => 152, 'min' => 140, 'max' => 160]],
+            ['field' => 'title', 'label' => 'Titel', 'current' => 'Home', 'proposed' => 'Start', 'measure' => null],
+            ['field' => 'abstract', 'label' => '', 'current' => '', 'proposed' => 'Kurz', 'measure' => ['count' => 4, 'min' => null, 'max' => null]],
         ];
 
         self::assertSame([
-            ['field' => 'description', 'current' => '', 'proposed' => 'Neu', 'measure' => ['count' => 152, 'min' => 140, 'max' => 160]],
-            ['field' => 'title', 'current' => 'Home', 'proposed' => 'Start', 'measure' => null],
+            ['field' => 'description', 'label' => 'Beschreibung', 'current' => null, 'proposed' => 'Neu', 'measure' => ['count' => 152, 'min' => 140, 'max' => 160]],
+            ['field' => 'title', 'label' => 'Titel', 'current' => 'Home', 'proposed' => 'Start', 'measure' => null],
+            ['field' => 'abstract', 'label' => '', 'current' => '', 'proposed' => 'Kurz', 'measure' => ['count' => 4, 'min' => null, 'max' => null]],
         ], StructuredPreview::fromEntries($entries));
+    }
+
+    /**
+     * Raw values pass through unchanged: the chat renders them as text, so a
+     * script in a proposed value or in stored rich text is shown, not run.
+     */
+    #[Test]
+    public function rawValuesPassThroughUnchanged(): void
+    {
+        $structured = StructuredPreview::fromEntries([
+            ['field' => 'bodytext', 'label' => 'Text', 'current' => '<p>Alt</p>', 'proposed' => '<script>alert(1)</script>', 'measure' => null],
+        ]);
+
+        self::assertSame('<p>Alt</p>', $structured[0]['current'] ?? null);
+        self::assertSame('<script>alert(1)</script>', $structured[0]['proposed'] ?? null);
     }
 
     /**
@@ -129,8 +146,11 @@ final class ApprovalProposalTest extends TestCase
     {
         yield 'none' => [[]];
         yield 'not a list' => ['description: Neu'];
-        yield 'a value that is no string' => [[['field' => 'description', 'current' => '', 'proposed' => 3]]];
+        yield 'an object, not nr-llm\'s array' => [[(object) ['field' => 'description', 'current' => '', 'proposed' => 'Neu']]];
+        yield 'a proposed value that is no string' => [[['field' => 'description', 'current' => '', 'proposed' => 3]]];
+        yield 'a current value that is no string' => [[['field' => 'description', 'current' => 3, 'proposed' => 'Neu']]];
         yield 'no field' => [[['current' => '', 'proposed' => 'Neu']]];
+        yield 'an empty field' => [[['field' => '', 'current' => '', 'proposed' => 'Neu']]];
         yield 'one good, one not' => [[['field' => 'title', 'current' => 'a', 'proposed' => 'b'], ['field' => 'description']]];
     }
 
@@ -140,6 +160,45 @@ final class ApprovalProposalTest extends TestCase
     public function anEntryShapedOtherwiseFallsBackToTheLines(mixed $entries): void
     {
         self::assertNull(StructuredPreview::fromEntries($entries));
+    }
+
+    /**
+     * Against nr-llm's own view (PR 1036): the presenter passes on what
+     * `structuredPreviewArray()` returns, labels and raw values included.
+     */
+    #[Test]
+    public function thePresenterPassesOnNrLlmsStructuredPreview(): void
+    {
+        if (!method_exists(PendingCallView::class, 'structuredPreviewArray')) {
+            self::markTestSkipped('Needs nr-llm with PendingCallView::structuredPreviewArray() (nr-llm PR 1036).');
+        }
+
+        $proposal = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldProposal';
+        $measure = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldMeasure';
+        $call = new PendingCallView('update_page_metadata', '{}', true, ['Seite: „Home“'], structuredPreview: [
+            new $proposal('description', 'Beschreibung', null, '<script>alert(1)</script>', new $measure(25, 140, 160)),
+        ]);
+
+        self::assertSame(
+            [['field' => 'description', 'label' => 'Beschreibung', 'current' => null, 'proposed' => '<script>alert(1)</script>', 'measure' => ['count' => 25, 'min' => 140, 'max' => 160]]],
+            $this->present($call)['structured'],
+        );
+    }
+
+    /** A failed preview has no structure to show, whatever nr-llm carries. */
+    #[Test]
+    public function aFailedPreviewShowsNoStructure(): void
+    {
+        if (!method_exists(PendingCallView::class, 'structuredPreviewArray')) {
+            self::markTestSkipped('Needs nr-llm with PendingCallView::structuredPreviewArray() (nr-llm PR 1036).');
+        }
+
+        $proposal = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldProposal';
+        $call = new PendingCallView('update_page_metadata', '{}', true, ['Keine Vorschau'], previewFailed: true, structuredPreview: [
+            new $proposal('description', 'Beschreibung', null, 'Neu'),
+        ]);
+
+        self::assertNull($this->present($call)['structured']);
     }
 
     /**

@@ -15,6 +15,10 @@ import {lll} from '@typo3/core/lit-helper.js';
  * structured target with the schema's labels, and "Aktuell" / "Vorschlag" and
  * the length are nr-llm's structured preview. Where nr-llm carries no
  * structured preview, the block shows nr-llm's preview lines as they are.
+ *
+ * The values are raw: stored rich text carries its HTML and the proposed
+ * value is model-chosen text. They are only ever bound as text, so markup in
+ * them is shown, never interpreted.
  */
 
 export const chatProposalStyles = css`
@@ -61,17 +65,42 @@ export function affectedText(affected) {
 }
 
 /**
- * @param {{count: number, min: number, max: number}} measure
+ * The configured range as text: "140–160", "≥ 140" or "≤ 160".
+ *
+ * @param {number|null} min
+ * @param {number|null} max
+ */
+function rangeText(min, max) {
+    if (min !== null && max !== null) {
+        return `${min}–${max}`;
+    }
+
+    return min !== null ? `≥ ${min}` : `≤ ${max}`;
+}
+
+/**
+ * The length, and against the range where one is configured.
+ *
+ * @param {{count: number, min: number|null, max: number|null}} measure
  * @param {string} suffix the field's name when the proposal changes several
  */
 function renderMeasure(measure, suffix) {
-    const within = measure.count >= measure.min && measure.count <= measure.max;
+    const min = Number.isInteger(measure.min) ? measure.min : null;
+    const max = Number.isInteger(measure.max) ? measure.max : null;
+    const ranged = min !== null || max !== null;
+    const within = (min === null || measure.count >= min) && (max === null || measure.count <= max);
 
     return html`
         <dt>${lll('chat.proposalLength')}${suffix}</dt>
-        <dd class="proposal-measure" data-within=${within ? 'true' : 'false'}>${measure.count} ${lll('chat.proposalCharacters')}
-            (${lll('chat.proposalTarget')} ${measure.min}–${measure.max}${within ? '' : html`, ${lll('chat.proposalOutOfRange')}`})</dd>
+        <dd class="proposal-measure" data-within=${ranged ? (within ? 'true' : 'false') : nothing}>${measure.count} ${lll('chat.proposalCharacters')}${ranged
+            ? html` (${lll('chat.proposalTarget')} ${rangeText(min, max)}${within ? '' : html`, ${lll('chat.proposalOutOfRange')}`})`
+            : nothing}</dd>
     `;
+}
+
+/** A value as text; an empty or missing one says so. */
+function valueText(value) {
+    return value === null || value === undefined || value === '' ? lll('chat.proposalEmpty') : String(value);
 }
 
 /**
@@ -82,8 +111,9 @@ function renderStructured(call) {
     const several = call.structured.length > 1;
 
     return call.structured.map((entry) => {
+        // nr-llm's label in the reader's language; else the schema's, else the column.
         const index = labels.indexOf(entry.field);
-        const label = index >= 0 ? call.affected.fieldLabels[index] : entry.field;
+        const label = entry.label || (index >= 0 ? call.affected.fieldLabels[index] : entry.field);
 
         // With several fields, each term names its field; a <dd> without its
         // <dt> would not be a valid description list.
@@ -91,9 +121,9 @@ function renderStructured(call) {
 
         return html`
             <dt>${lll('chat.proposalCurrent')}${suffix}</dt>
-            <dd>${entry.current === '' ? lll('chat.proposalEmpty') : entry.current}</dd>
+            <dd>${valueText(entry.current)}</dd>
             <dt>${lll('chat.proposalProposed')}${suffix}</dt>
-            <dd>${entry.proposed === '' ? lll('chat.proposalEmpty') : entry.proposed}</dd>
+            <dd>${valueText(entry.proposed)}</dd>
             ${entry.measure ? renderMeasure(entry.measure, suffix) : nothing}
         `;
     });

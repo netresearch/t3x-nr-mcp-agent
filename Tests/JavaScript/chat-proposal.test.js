@@ -149,6 +149,67 @@ describe.each(SURFACES)('$name proposal', ({module: modulePath, tag, open}) => {
         ]);
     });
 
+    test('nr-llm\'s label names the field, and a value stored as NULL reads as empty', async () => {
+        const call = {
+            ...CALL,
+            affected: {...CALL.affected, fields: ['description', 'title'], fieldLabels: ['Beschreibung (Schema)', 'Titel (Schema)']},
+            structured: [
+                {field: 'description', label: 'Beschreibung', current: null, proposed: 'b', measure: null},
+                {field: 'title', label: '', current: 'c', proposed: 'd', measure: null},
+            ],
+        };
+        const el = await render(modulePath, tag, open, {...PROPOSAL, calls: [call]});
+
+        expect(facts(el).slice(1)).toEqual([
+            ['chat.proposalCurrent · Beschreibung', 'chat.proposalEmpty'],
+            ['chat.proposalProposed · Beschreibung', 'b'],
+            ['chat.proposalCurrent · Titel (Schema)', 'c'],
+            ['chat.proposalProposed · Titel (Schema)', 'd'],
+        ]);
+    });
+
+    test('a length without a configured range is the count alone', async () => {
+        const structured = [{field: 'description', label: 'Beschreibung', current: '', proposed: 'Kurz', measure: {count: 4, min: null, max: null}}];
+        const el = await render(modulePath, tag, open, {...PROPOSAL, calls: [{...CALL, structured}]});
+        const measure = el.shadowRoot.querySelector('.proposal-measure');
+
+        expect(measure.textContent.replace(/\s+/g, ' ').trim()).toBe('4 chat.proposalCharacters');
+        expect(measure.hasAttribute('data-within')).toBe(false);
+    });
+
+    test.each([
+        [{count: 120, min: 140, max: null}, '≥ 140', 'false'],
+        [{count: 150, min: null, max: 160}, '≤ 160', 'true'],
+    ])('a range with one bound (%j) is checked against that bound', async (measureValue, range, within) => {
+        const structured = [{field: 'description', label: 'Beschreibung', current: '', proposed: 'x', measure: measureValue}];
+        const el = await render(modulePath, tag, open, {...PROPOSAL, calls: [{...CALL, structured}]});
+        const measure = el.shadowRoot.querySelector('.proposal-measure');
+
+        expect(measure.textContent).toContain(`chat.proposalTarget ${range}`);
+        expect(measure.dataset.within).toBe(within);
+    });
+
+    test('markup in a value is shown as text, never run', async () => {
+        const structured = [{
+            field: 'bodytext',
+            label: 'Text',
+            current: '<p>Alt</p><img src="x" onerror="globalThis.__nrPwned = true">',
+            proposed: '<script>globalThis.__nrPwned = true</script>Neu',
+            measure: null,
+        }];
+        const el = await render(modulePath, tag, open, {...PROPOSAL, calls: [{...CALL, structured}]});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const block = el.shadowRoot.querySelector('.proposal');
+
+        expect(block.querySelector('script, img')).toBeNull();
+        expect(block.querySelector('.proposal-facts p')).toBeNull();
+        expect(facts(el).slice(1)).toEqual([
+            ['chat.proposalCurrent', '<p>Alt</p><img src="x" onerror="globalThis.__nrPwned = true">'],
+            ['chat.proposalProposed', '<script>globalThis.__nrPwned = true</script>Neu'],
+        ]);
+        expect(globalThis.__nrPwned).toBeUndefined();
+    });
+
     test('the three answers sit directly under the block, the details after them', async () => {
         const el = await render(modulePath, tag, open, PROPOSAL);
         const card = el.shadowRoot.querySelector('.proposal-card');
