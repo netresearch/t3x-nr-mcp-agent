@@ -68,13 +68,33 @@ final class NrLlmSkillCatalogueTest extends TestCase
     #[Test]
     public function theCatalogueListsTheEnabledSkillsOfConfigurationAndTask(): void
     {
+        // nr-llm 0.41 marks process skills (nr-llm PR 1025) and these are
+        // none; an earlier nr-llm has no marker.
+        $process = method_exists(Skill::class, 'isProcess') ? false : null;
+
         self::assertSame(
             [
-                ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour', 'uid' => 5, 'process' => null],
-                ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour', 'uid' => 0, 'process' => null],
+                ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour', 'uid' => 5, 'process' => $process],
+                ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour', 'uid' => 0, 'process' => $process],
             ],
             $this->catalogue(self::task())->catalogue(),
         );
+    }
+
+    #[Test]
+    public function aSkillNrLlmMarksAsAProcessIsListedAsOne(): void
+    {
+        if (!method_exists(Skill::class, 'setProcess')) {
+            self::markTestSkipped('Needs nr-llm 0.41 (Skill::isProcess(), nr-llm PR 1025).');
+        }
+
+        $task = self::task();
+        $tour = self::skill('guided-tour', 'Rundgang', uid: 9);
+        $tour->setProcess(true);
+        $task->addSkill($tour);
+
+        self::assertTrue($this->catalogue($task)->find('guided-tour')['process'] ?? null);
+        self::assertFalse($this->catalogue($task)->find('content-tour')['process'] ?? null);
     }
 
     #[Test]
