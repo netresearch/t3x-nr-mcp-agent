@@ -136,22 +136,26 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
     });
 
     /**
-     * Editorial rule 22: the button says what it does. The denial is two
-     * buttons that say why the change is not taken (ADR-018): another variant,
-     * or skip this point.
+     * Editorial rule 22: on a plain card the button says what it does. A
+     * proposal of a guided process says "Übernehmen" instead, and its denial
+     * is two buttons that say why the change is not taken (ADR-018, ADR-023;
+     * chat-proposal.test.js covers the proposal).
      */
     test('the approve button names the action and the two others say why not', async () => {
+        const plain = await renderPending(modulePath, tag, open, {...PENDING, answers: 'plain'});
+        expect(plain.shadowRoot.querySelector('.approval-actions button').textContent.trim()).toBe('Seiten-Metadaten ändern');
+
         const el = await renderPending(modulePath, tag, open);
         const [approve, variant, skip] = el.shadowRoot.querySelectorAll('.approval-actions button');
 
         expect(approve.localName).toBe('button');
-        expect(approve.textContent.trim()).toBe('Seiten-Metadaten ändern');
+        expect(approve.textContent.trim()).toBe('chat.approvalApply');
         expect(variant.textContent.trim()).toBe('chat.approvalVariant');
         expect(skip.textContent.trim()).toBe('chat.approvalSkip');
     });
 
     test('a tool without an action label gets the generic heading and button', async () => {
-        const pending = {...PENDING, calls: [{...PENDING.calls[0], name: 'delete_record', actionLabel: ''}]};
+        const pending = {...PENDING, answers: 'plain', calls: [{...PENDING.calls[0], name: 'delete_record', actionLabel: ''}]};
         const el = await renderPending(modulePath, tag, open, pending);
         const card = el.shadowRoot.querySelector('.approval-card');
 
@@ -167,7 +171,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
      * nothing to see.
      */
     test('a change named by its preview names the heading and the button, and counts as a preview', async () => {
-        const pending = {...PENDING, calls: [{
+        const pending = {...PENDING, answers: 'plain', calls: [{
             ...PENDING.calls[0], name: 'delete_record', actionLabel: 'Seite löschen',
             actionLabelFromPreview: true, previewLines: [],
         }]};

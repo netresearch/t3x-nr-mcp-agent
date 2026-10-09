@@ -90,6 +90,14 @@ parameters:
         - identifier: function.alreadyNarrowedType
           path: ../../Classes/Service/OpenPoint/NrLlmCardTarget.php
           reportUnmatched: false
+        # A structured preview on nr-llm's PendingCallView is being added
+        # (ADR-023); the seam reads it where it exists.
+        - identifier: function.impossibleType
+          path: ../../Classes/Service/StructuredPreview.php
+          reportUnmatched: false
+        - identifier: function.alreadyNarrowedType
+          path: ../../Classes/Service/StructuredPreview.php
+          reportUnmatched: false
 
 services:
     -

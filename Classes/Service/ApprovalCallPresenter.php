@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service;
 
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
+use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
+use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTarget;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
 /**
@@ -80,6 +82,8 @@ final readonly class ApprovalCallPresenter
      *     previewStale: bool,
      *     argumentsJson: string,
      *     actionLabelFromPreview: bool,
+     *     affected: array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>}|null,
+     *     structured: list<array{field: string, current: string, proposed: string, measure: array{count: int, min: int, max: int}|null}>|null,
      * }>
      */
     public function present(array $calls, ?LanguageService $language, ?LanguageService $previewLanguage): array
@@ -115,10 +119,52 @@ final readonly class ApprovalCallPresenter
                 // click, and only the approvals module said why.
                 'previewStale'        => $call->previewStale,
                 'argumentsJson'       => $call->argumentsJson,
+                // The proposal block of a process card (ADR-023): what the
+                // write is about, from nr-llm's structured target, and its
+                // current and proposed values where nr-llm structures them.
+                'affected'            => $this->affected($call, $language),
+                'structured'          => $call->previewFailed ? null : StructuredPreview::of($call),
             ];
         }
 
         return $presented;
+    }
+
+    /**
+     * The record and fields the write names, from nr-llm's `pendingTarget`
+     * (nr-llm PR 1024), with the table's and the fields' labels from the TCA in
+     * the reader's language: schema labels, no record content. Null without a
+     * target — a create, a tool that names none, an nr-llm before 0.41.
+     *
+     * @return array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>}|null
+     */
+    private function affected(PendingCallView $call, ?LanguageService $language): ?array
+    {
+        $target = NrLlmCardTarget::ofCall($call);
+        if (!$target instanceof OpenPointTarget) {
+            return null;
+        }
+
+        $tca = $GLOBALS['TCA'] ?? null;
+        $config = is_array($tca) ? ($tca[$target->table] ?? null) : null;
+        $ctrl = is_array($config) ? ($config['ctrl'] ?? null) : null;
+        $columns = is_array($config) ? ($config['columns'] ?? null) : null;
+        $title = is_array($ctrl) && is_string($ctrl['title'] ?? null) ? $this->resolve($ctrl['title'], $language) : '';
+
+        $fieldLabels = [];
+        foreach ($target->fields as $field) {
+            $column = is_array($columns) ? ($columns[$field] ?? null) : null;
+            $label = is_array($column) && is_string($column['label'] ?? null) ? $this->resolve($column['label'], $language) : '';
+            $fieldLabels[] = $label !== '' ? $label : $field;
+        }
+
+        return [
+            'table'       => $target->table,
+            'uid'         => $target->uid,
+            'fields'      => $target->fields,
+            'tableLabel'  => $title !== '' ? $title : $target->table,
+            'fieldLabels' => $fieldLabels,
+        ];
     }
 
     /**

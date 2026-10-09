@@ -13,6 +13,7 @@ import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, 
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
 import {chatGuidedStyles, renderProgress, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
+import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
@@ -53,7 +54,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -2187,6 +2188,10 @@ export class AiChatPanel extends LitElement {
             `;
         }
 
+        if (isProposal(pending)) {
+            return this._renderProposalCard(pending);
+        }
+
         return html`
             <div class="approval-card">
                 ${pending.calls.map((call) => html`
@@ -2213,6 +2218,39 @@ export class AiChatPanel extends LitElement {
                         @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
                     ${renderDenyButtons(pending, this.chat.approvalBusy, (reason) => this._decide(false, reason))}
                 </div>
+                ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
+            </div>
+        `;
+    }
+
+    /**
+     * A write in a process run (ADR-023): the proposal block, the three
+     * answers directly below it, and the technical details last.
+     */
+    _renderProposalCard(pending) {
+        const call = pending.calls[0];
+
+        return html`
+            <div class="approval-card proposal-card">
+                ${call.toolStillRegistered ? nothing : html`
+                    <p class="approval-warning approval-stale">${lll('chat.approvalToolGone')}</p>
+                `}
+                ${call.previewStale ? html`
+                    <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
+                ` : nothing}
+                ${renderProposal(call, (c) => this._renderApprovalPreview(c))}
+                <div class="approval-actions">
+                    <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
+                        @click=${() => this._decide(true)}>${lll('chat.approvalApply')}</button>
+                    ${renderDenyButtons(pending, this.chat.approvalBusy, (reason) => this._decide(false, reason))}
+                </div>
+                <details class="approval-technical">
+                    <summary>${lll('chat.approvalTechnicalDetails')}</summary>
+                    ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
+                    <p>${lll('chat.approvalTool')} <code>${call.name}</code></p>
+                    <p>${lll('chat.approvalArguments')}</p>
+                    <pre><code>${call.argumentsJson}</code></pre>
+                </details>
                 ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
             </div>
         `;
