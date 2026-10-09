@@ -14,8 +14,9 @@ namespace Netresearch\NrMcpAgent\Service\OpenPoint;
  * ({@see OpenPointVisibility::visibleForCurrentUser()}, ADR-022): for the
  * dashboard's recommendations and the page suggestions' ranking.
  *
- * Identities and schema labels only. `$summary` is one German sentence built
- * from the TCA labels and the page title, never model text.
+ * Identities and schema labels only. `$summary` is one sentence in the
+ * user's backend language, built from the TCA labels and the page title,
+ * never model text.
  */
 final readonly class VisibleOpenPoint
 {

@@ -481,6 +481,12 @@
             <trans-unit id="skills.remove" resname="skills.remove">
                 <source>Remove skill</source>
             </trans-unit>
+            <trans-unit id="openPoint.missing" resname="openPoint.missing">
+                <source>%1$s is missing on “%2$s”</source>
+            </trans-unit>
+            <trans-unit id="openPoint.open" resname="openPoint.open">
+                <source>%1$s open on “%2$s”</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
