@@ -185,6 +185,33 @@
             <trans-unit id="chat.proposalOutOfRange" resname="chat.proposalOutOfRange">
                 <source>outside the target</source>
             </trans-unit>
+            <trans-unit id="chat.outcomeApplied" resname="chat.outcomeApplied">
+                <source>saved.</source>
+            </trans-unit>
+            <trans-unit id="chat.outcomeCheck" resname="chat.outcomeCheck">
+                <source>Saved, please check:</source>
+            </trans-unit>
+            <trans-unit id="chat.outcomeNotApplied" resname="chat.outcomeNotApplied">
+                <source>Not saved:</source>
+            </trans-unit>
+            <trans-unit id="chat.outcomeChange" resname="chat.outcomeChange">
+                <source>Change</source>
+            </trans-unit>
+            <trans-unit id="chat.summaryLabel" resname="chat.summaryLabel">
+                <source>Summary of the guided process</source>
+            </trans-unit>
+            <trans-unit id="chat.summaryApplied" resname="chat.summaryApplied">
+                <source>Applied</source>
+            </trans-unit>
+            <trans-unit id="chat.summaryCheck" resname="chat.summaryCheck">
+                <source>Applied – please check</source>
+            </trans-unit>
+            <trans-unit id="chat.summarySkipped" resname="chat.summarySkipped">
+                <source>Skipped</source>
+            </trans-unit>
+            <trans-unit id="chat.summaryNotApplied" resname="chat.summaryNotApplied">
+                <source>Not saved</source>
+            </trans-unit>
             <trans-unit id="chat.approvalDeniedVariant" resname="chat.approvalDeniedVariant">
                 <source>Not carried out — another variant is asked for.</source>
             </trans-unit>

@@ -14,6 +14,7 @@ import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat
 import {chatGuidedStyles, renderProgress, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
+import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
@@ -54,7 +55,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -1939,7 +1940,9 @@ export class AiChatPanel extends LitElement {
         return html`
             ${renderInstructionsEditor(this.chat)}
             <div class="panel-messages" aria-live="polite" aria-relevant="additions">
-                ${this.chat.messages.map((msg, idx) => this._renderMessage(msg, idx))}
+                ${this.chat.messages.map((msg, idx) => html`${renderOutcomeLines(this.chat, idx)}${this._renderMessage(msg, idx)}`)}
+                ${renderOutcomeLines(this.chat, this.chat.messages.length)}
+                ${renderSummary(this.chat)}
                 ${this.chat.isProcessing() ? html`
                     <div class="message-row assistant" aria-label="${lll('chat.processing')}">
                         <div class="avatar avatar-assistant">${AVATAR_ASSISTANT(14)}</div>

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
+use Netresearch\NrMcpAgent\Service\EditorActionLabelsInterface;
 use Netresearch\NrMcpAgent\Service\StructuredPreview;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -139,6 +140,35 @@ final class ApprovalProposalTest extends TestCase
     public function anEntryShapedOtherwiseFallsBackToTheLines(mixed $entries): void
     {
         self::assertNull(StructuredPreview::fromEntries($entries));
+    }
+
+    /**
+     * The status lines and the summary name what a proposal was about in the
+     * reader's language: the fields' labels and the record, or, for a create,
+     * the change's name.
+     */
+    #[Test]
+    public function outcomesAreNamedByTheSchemasLabelsOrTheChangesName(): void
+    {
+        $labels = $this->createMock(EditorActionLabelsInterface::class);
+        $labels->method('labelReferences')->willReturn(['create_page_draft' => 'LLL:create']);
+        $language = $this->createMock(LanguageService::class);
+        $language->method('sL')->willReturnCallback(static fn(string $reference): string => match ($reference) {
+            'LLL:core:pages.title' => 'Seite',
+            'LLL:core:pages.description' => 'Beschreibung',
+            'LLL:create' => 'Seite anlegen',
+            default => '',
+        });
+
+        $presented = (new ApprovalCallPresenter($labels))->presentOutcomes([
+            ['outcome' => 'applied', 'after' => 2, 'tool' => 'update_page_metadata', 'table' => 'pages', 'uid' => 3, 'fields' => ['description']],
+            ['outcome' => 'skipped', 'after' => 4, 'tool' => 'create_page_draft', 'table' => '', 'uid' => 0, 'fields' => []],
+        ], $language);
+
+        self::assertSame([
+            ['outcome' => 'applied', 'after' => 2, 'subject' => 'Beschreibung', 'record' => 'Seite 3'],
+            ['outcome' => 'skipped', 'after' => 4, 'subject' => 'Seite anlegen', 'record' => ''],
+        ], $presented);
     }
 
     #[Test]
