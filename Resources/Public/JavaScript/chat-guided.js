@@ -12,6 +12,8 @@ import {HIGHLIGHT_MESSAGE} from '@netresearch/nr-mcp-agent/page-highlight.js';
  */
 export const chatGuidedStyles = css`
     .guided-progress {
+        display: inline-flex;
+        max-width: 100%;
         font-size: 11px;
         font-weight: normal;
         color: var(--nr-chat-text-variant);
@@ -20,22 +22,47 @@ export const chatGuidedStyles = css`
         text-overflow: ellipsis;
         min-width: 0;
     }
+    /* Short of space, the page name gives way first; the count never does. */
+    .guided-page {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .guided-language,
+    .guided-count {
+        flex: none;
+    }
 `;
 
 /**
- * "<label> · Punkt 2 von 5", or nothing without progress. A status region, so
- * a screen reader hears when the point changes.
+ * Where a guided process stands, as a status region, so a screen reader hears
+ * when the point changes (ADR-020, ADR-023).
+ *
+ * In a conversation about a page with a skill: "<Seite> · <Sprache> ·
+ * Punkt 2 von 5" — page and language from the conversation (`chat.tour`), the
+ * language by its name; before the first progress report "Analyse läuft".
+ * Otherwise the process's own label, as before.
  */
 export function renderProgress(chat) {
     const progress = chat.guided?.progress;
-    if (!progress) {
+    const tour = chat.tour;
+    if (!progress && !tour) {
         return nothing;
     }
 
+    const state = !progress
+        ? lll('guided.analysing')
+        : (progress.completed ? lll('guided.completed') : lll('guided.progress', progress.current, progress.total));
+
+    if (!tour) {
+        return html`<span class="guided-progress" role="status">${progress.label} · ${state}</span>`;
+    }
+
     return html`
-        <span class="guided-progress" role="status">
-            ${progress.label} · ${progress.completed ? lll('guided.completed') : lll('guided.progress', progress.current, progress.total)}
-        </span>
+        <span class="guided-progress" role="status"><span class="guided-page">${tour.pageTitle}</span>${tour.languageName
+            ? html`<span class="guided-language">&nbsp;· ${tour.languageName}</span>`
+            : nothing}<span class="guided-count">&nbsp;· ${state}</span></span>
     `;
 }
 
