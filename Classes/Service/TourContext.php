@@ -32,7 +32,10 @@ readonly class TourContext
      * language is the conversation's, else the site's default, named by its
      * title, never its id; '' for a page outside every site.
      *
-     * @return array{pageTitle: string, languageName: string}|null
+     * The page's uid and language travel along, so the chat can tell when the
+     * page module shows another page (ADR-023).
+     *
+     * @return array{pageUid: int, languageUid: int, pageTitle: string, languageName: string}|null
      */
     public function of(Conversation $conversation, BackendUserAuthentication $user): ?array
     {
@@ -55,7 +58,14 @@ readonly class TourContext
 
         $title = $row['title'] ?? '';
 
-        return ['pageTitle' => is_string($title) ? $title : '', 'languageName' => $this->languageName($pageUid, max(0, $context['languageId']))];
+        $languageUid = max(0, $context['languageId']);
+
+        return [
+            'pageUid' => $pageUid,
+            'languageUid' => $languageUid,
+            'pageTitle' => is_string($title) ? $title : '',
+            'languageName' => $this->languageName($pageUid, $languageUid),
+        ];
     }
 
     private function languageName(int $pageUid, int $languageUid): string

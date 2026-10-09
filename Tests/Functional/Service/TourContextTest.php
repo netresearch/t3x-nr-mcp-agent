@@ -68,14 +68,14 @@ final class TourContextTest extends FunctionalTestCase
     {
         $user = $this->setUpBackendUser(3);
 
-        self::assertSame(['pageTitle' => 'Über uns', 'languageName' => 'English'], (new TourContext($this->siteFinder()))->of(self::conversation(20, 1), $user));
-        self::assertSame(['pageTitle' => 'Über uns', 'languageName' => 'Deutsch'], (new TourContext($this->siteFinder()))->of(self::conversation(20), $user), 'no language: the site\'s default');
+        self::assertSame(['pageUid' => 20, 'languageUid' => 1, 'pageTitle' => 'Über uns', 'languageName' => 'English'], (new TourContext($this->siteFinder()))->of(self::conversation(20, 1), $user));
+        self::assertSame(['pageUid' => 20, 'languageUid' => 0, 'pageTitle' => 'Über uns', 'languageName' => 'Deutsch'], (new TourContext($this->siteFinder()))->of(self::conversation(20), $user), 'no language: the site\'s default');
     }
 
     #[Test]
     public function aPageOutsideEverySiteHasNoLanguageName(): void
     {
-        self::assertSame(['pageTitle' => 'Über uns', 'languageName' => ''], (new TourContext(null))->of(self::conversation(20), $this->setUpBackendUser(3)));
+        self::assertSame(['pageUid' => 20, 'languageUid' => 0, 'pageTitle' => 'Über uns', 'languageName' => ''], (new TourContext(null))->of(self::conversation(20), $this->setUpBackendUser(3)));
     }
 
     #[Test]
