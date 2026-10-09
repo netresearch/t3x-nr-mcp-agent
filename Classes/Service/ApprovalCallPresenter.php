@@ -145,26 +145,77 @@ final readonly class ApprovalCallPresenter
             return null;
         }
 
-        $tca = $GLOBALS['TCA'] ?? null;
-        $config = is_array($tca) ? ($tca[$target->table] ?? null) : null;
-        $ctrl = is_array($config) ? ($config['ctrl'] ?? null) : null;
-        $columns = is_array($config) ? ($config['columns'] ?? null) : null;
-        $title = is_array($ctrl) && is_string($ctrl['title'] ?? null) ? $this->resolve($ctrl['title'], $language) : '';
-
-        $fieldLabels = [];
-        foreach ($target->fields as $field) {
-            $column = is_array($columns) ? ($columns[$field] ?? null) : null;
-            $label = is_array($column) && is_string($column['label'] ?? null) ? $this->resolve($column['label'], $language) : '';
-            $fieldLabels[] = $label !== '' ? $label : $field;
-        }
-
         return [
             'table'       => $target->table,
             'uid'         => $target->uid,
             'fields'      => $target->fields,
-            'tableLabel'  => $title !== '' ? $title : $target->table,
-            'fieldLabels' => $fieldLabels,
+            'tableLabel'  => $this->tableLabel($target->table, $language),
+            'fieldLabels' => $this->fieldLabels($target->table, $target->fields, $language),
         ];
+    }
+
+    /**
+     * The conversation's proposal outcomes as the chat shows them (ADR-023):
+     * where each happened, what became of it, and what it was about in the
+     * reader's language — the fields' labels, else the change's name, and the
+     * record.
+     *
+     * @param list<array{outcome: string, after: int, tool: string, table: string, uid: int, fields: list<string>}> $outcomes
+     *
+     * @return list<array{outcome: string, after: int, subject: string, record: string}>
+     */
+    public function presentOutcomes(array $outcomes, ?LanguageService $language): array
+    {
+        $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
+        $presented = [];
+        foreach ($outcomes as $entry) {
+            $fields = $entry['table'] !== '' ? implode(', ', $this->fieldLabels($entry['table'], $entry['fields'], $language)) : '';
+            $presented[] = [
+                'outcome' => $entry['outcome'],
+                'after'   => $entry['after'],
+                'subject' => $fields !== '' ? $fields : $this->resolve($labelReferences[$entry['tool']] ?? '', $language),
+                'record'  => $entry['table'] !== '' && $entry['uid'] > 0 ? $this->tableLabel($entry['table'], $language) . ' ' . $entry['uid'] : '',
+            ];
+        }
+
+        return $presented;
+    }
+
+    private function tableLabel(string $table, ?LanguageService $language): string
+    {
+        $ctrl = $this->tca($table)['ctrl'] ?? null;
+        $title = is_array($ctrl) && is_string($ctrl['title'] ?? null) ? $this->resolve($ctrl['title'], $language) : '';
+
+        return $title !== '' ? $title : $table;
+    }
+
+    /**
+     * @param list<string> $fields
+     *
+     * @return list<string>
+     */
+    private function fieldLabels(string $table, array $fields, ?LanguageService $language): array
+    {
+        $columns = $this->tca($table)['columns'] ?? null;
+        $labels = [];
+        foreach ($fields as $field) {
+            $column = is_array($columns) ? ($columns[$field] ?? null) : null;
+            $label = is_array($column) && is_string($column['label'] ?? null) ? $this->resolve($column['label'], $language) : '';
+            $labels[] = $label !== '' ? $label : $field;
+        }
+
+        return $labels;
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private function tca(string $table): array
+    {
+        $tca = $GLOBALS['TCA'] ?? null;
+        $config = is_array($tca) ? ($tca[$table] ?? null) : null;
+
+        return is_array($config) ? $config : [];
     }
 
     /**

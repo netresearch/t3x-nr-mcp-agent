@@ -67,10 +67,10 @@ parameters:
         # target and a write step's completeness, read by the open-point
         # adapters (ADR-022). Same rule as above, in both directions.
         - identifier: function.impossibleType
-          path: ../../Classes/Service/OpenPoint/AppliedWrite.php
+          path: ../../Classes/Service/OpenPoint/ApprovedCallReading.php
           reportUnmatched: false
         - identifier: class.notFound
-          path: ../../Classes/Service/OpenPoint/AppliedWrite.php
+          path: ../../Classes/Service/OpenPoint/ApprovedCallReading.php
           reportUnmatched: false
         - identifier: function.impossibleType
           path: ../../Classes/Service/OpenPoint/NrLlmCardTarget.php
@@ -85,7 +85,7 @@ parameters:
           path: ../../Classes/Service/OpenPoint/NrLlmCardTarget.php
           reportUnmatched: false
         - identifier: function.alreadyNarrowedType
-          path: ../../Classes/Service/OpenPoint/AppliedWrite.php
+          path: ../../Classes/Service/OpenPoint/ApprovedCallReading.php
           reportUnmatched: false
         - identifier: function.alreadyNarrowedType
           path: ../../Classes/Service/OpenPoint/NrLlmCardTarget.php

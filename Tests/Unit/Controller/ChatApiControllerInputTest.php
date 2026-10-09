@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Controller;
 
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
@@ -329,7 +332,7 @@ final class ChatApiControllerInputTest extends TestCase
 
     // ---- the approval card's two denials ---------------------------------
 
-    private function approver(): void
+    private function approver(?WaitingRunView $view = null): void
     {
         $backendUser = $this->createMock(BackendUserAuthentication::class);
         $backendUser->user = ['uid' => 1, 'usergroup' => '1,2'];
@@ -339,7 +342,7 @@ final class ChatApiControllerInputTest extends TestCase
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-uuid-1234');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
-        $this->chatApproval->method('pendingApproval')->willReturn(new WaitingRunView('run-uuid-1234', WaitingRunView::MODE_APPROVAL, 0, 'Chat'));
+        $this->chatApproval->method('pendingApproval')->willReturn($view ?? new WaitingRunView('run-uuid-1234', WaitingRunView::MODE_APPROVAL, 0, 'Chat'));
     }
 
     #[Test]
@@ -367,6 +370,41 @@ final class ChatApiControllerInputTest extends TestCase
 
         $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": false, "turnDigest": "digest-abc", "reason": "drop table"}'));
         $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": true, "turnDigest": "digest-abc", "reason": "skip"}'));
+    }
+
+    /**
+     * A proposal of a guided process carries its tool and target to the
+     * worker, which records what became of it (ADR-023); any other card
+     * carries none.
+     */
+    #[Test]
+    public function aProcessCardsCallTravelsWithTheDecision(): void
+    {
+        $call = property_exists(PendingCallView::class, 'pendingTarget')
+            ? new PendingCallView('update_page_metadata', '{}', true, pendingTarget: new PendingWriteTarget(new RecordReference('pages', 3), ['description']))
+            : new PendingCallView('update_page_metadata', '{}', true);
+        $this->approver(new WaitingRunView('run-uuid-1234', WaitingRunView::MODE_APPROVAL, 0, 'Chat', 'digest-abc', [$call]));
+        $this->chatApproval->method('offersProcessAnswers')->willReturn(true);
+        $expected = property_exists(PendingCallView::class, 'pendingTarget')
+            ? ['tool' => 'update_page_metadata', 'table' => 'pages', 'uid' => 3, 'fields' => ['description']]
+            : ['tool' => 'update_page_metadata', 'table' => '', 'uid' => 0, 'fields' => []];
+        $this->chatApproval->expects(self::once())->method('recordDecision')
+            ->with(self::anything(), true, 'digest-abc', null, '', $expected)
+            ->willReturn(true);
+
+        $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": true, "turnDigest": "digest-abc"}'));
+    }
+
+    #[Test]
+    public function anOrdinaryCardCarriesNoCall(): void
+    {
+        $this->approver(new WaitingRunView('run-uuid-1234', WaitingRunView::MODE_APPROVAL, 0, 'Chat', 'digest-abc', [new PendingCallView('update_page_metadata', '{}', true)]));
+        $this->chatApproval->method('offersProcessAnswers')->willReturn(false);
+        $this->chatApproval->expects(self::once())->method('recordDecision')
+            ->with(self::anything(), true, 'digest-abc', null, '', null)
+            ->willReturn(true);
+
+        $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": true, "turnDigest": "digest-abc"}'));
     }
 
     /**

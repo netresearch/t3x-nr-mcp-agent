@@ -243,6 +243,42 @@
                 <source>outside the target</source>
                 <target>außerhalb des Ziels</target>
             </trans-unit>
+            <trans-unit id="chat.outcomeApplied" resname="chat.outcomeApplied">
+                <source>saved.</source>
+                <target>gespeichert.</target>
+            </trans-unit>
+            <trans-unit id="chat.outcomeCheck" resname="chat.outcomeCheck">
+                <source>Saved, please check:</source>
+                <target>Gespeichert, bitte prüfen:</target>
+            </trans-unit>
+            <trans-unit id="chat.outcomeNotApplied" resname="chat.outcomeNotApplied">
+                <source>Not saved:</source>
+                <target>Nicht gespeichert:</target>
+            </trans-unit>
+            <trans-unit id="chat.outcomeChange" resname="chat.outcomeChange">
+                <source>Change</source>
+                <target>Änderung</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryLabel" resname="chat.summaryLabel">
+                <source>Summary of the guided process</source>
+                <target>Zusammenfassung des Rundgangs</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryApplied" resname="chat.summaryApplied">
+                <source>Applied</source>
+                <target>Übernommen</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryCheck" resname="chat.summaryCheck">
+                <source>Applied – please check</source>
+                <target>Übernommen – bitte prüfen</target>
+            </trans-unit>
+            <trans-unit id="chat.summarySkipped" resname="chat.summarySkipped">
+                <source>Skipped</source>
+                <target>Übersprungen</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryNotApplied" resname="chat.summaryNotApplied">
+                <source>Not saved</source>
+                <target>Nicht gespeichert</target>
+            </trans-unit>
             <trans-unit id="chat.approvalDeniedVariant" resname="chat.approvalDeniedVariant">
                 <source>Not carried out — another variant is asked for.</source>
                 <target>Nicht ausgeführt — eine andere Variante ist angefragt.</target>

@@ -202,6 +202,13 @@ export class ChatCoreController {
      */
     guided = {progress: null, highlight: null};
 
+    /**
+     * What became of each proposal of the guided process (ADR-023): the
+     * outcome, the transcript position and what it was about.
+     * @type {Array<{outcome: string, after: number, subject: string, record: string}>}
+     */
+    cardOutcomes = [];
+
     /** The highlight last sent to the page module, so it is sent once. */
     _sentHighlight = '';
 
@@ -334,6 +341,7 @@ export class ChatCoreController {
         this.pendingFile = null;
         this.approvalDecisionTaken = null;
         this.guided = {progress: null, highlight: null};
+        this.cardOutcomes = [];
         // Coming back to a conversation highlights its element again.
         this._sentHighlight = '';
         this.pendingInput = null;
@@ -485,6 +493,7 @@ export class ChatCoreController {
             this.pendingInput = data.pendingInput || null;
             this.systemPrompt = data.systemPrompt || '';
             this.guided = data.guided || {progress: null, highlight: null};
+            this.cardOutcomes = data.cardOutcomes || [];
             this.skill = data.skill || null;
             this.activity = data.activity || [];
             if (data.pendingApproval) {
@@ -558,6 +567,9 @@ export class ChatCoreController {
                 this.pendingApproval = data.pendingApproval || null;
                 if (data.guided) {
                     this.guided = data.guided;
+                }
+                if (data.cardOutcomes) {
+                    this.cardOutcomes = data.cardOutcomes;
                 }
                 this.pendingInput = data.pendingInput || null;
                 this._knownMessageCount = data.totalCount;

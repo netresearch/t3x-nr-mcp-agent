@@ -40,8 +40,10 @@ interface ChatApprovalInterface
      *
      * @param DenyReason|null $reason  why a denial was given on the card (ADR-018)
      * @param string          $display the transcript line for that reason; empty adds none
+     * @param array{tool: string, table: string, uid: int, fields: list<string>}|null $card
+     *                                 a process card's call, for the outcome record (ADR-023); null for any other card
      */
-    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = ''): bool;
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = '', ?array $card = null): bool;
 
     /**
      * The question the conversation's run waits for an answer to (ADR-018), or

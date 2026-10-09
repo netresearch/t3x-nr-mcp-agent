@@ -55,8 +55,10 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
 use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
+use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
@@ -685,7 +687,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * here: a check before the claim can pass on a turn a concurrent approval
      * has already replaced.
      */
-    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = ''): bool
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = '', ?array $card = null): bool
     {
         if ($conversation->getApprovalRunUuid() === ''
             || $conversation->getStatus() !== ConversationStatus::AwaitingApproval
@@ -699,6 +701,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // think they own the row.
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->recordApprovalDecision($approve, $turnDigest, $reason);
+        // A process card's tool and target travel with the decision, so the
+        // worker can record what became of the proposal (ADR-023).
+        $conversation->setApprovalCard($card);
         // "Andere Variante" or "Überspringen" stays in the transcript, so the
         // next turn knows what was asked for even while nr-llm's denial result
         // cannot carry the reason. Taken out again on a hand-back.
@@ -865,6 +870,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The card the decision answers, read before nr-llm acts on it: an
         // open point is keyed by what that card showed (ADR-022).
         $denyReason = $conversation->getApprovalDenyReason();
+        $card = $conversation->getApprovalCard();
         $cardTarget = $this->openPoints?->cardTarget(
             $conversation,
             $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid),
@@ -931,6 +937,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 'message'   => $e->getMessage(),
                 'exception' => $e,
             ]);
+        }
+
+        // What became of a proposal of a guided process, for the chat's own
+        // status line and summary (ADR-023), before the model's answer lands.
+        $outcome = match (true) {
+            $approved => ApprovedCallReading::of($result),
+            $denyReason === DenyReason::Skip => ProposalOutcome::Skipped,
+            $denyReason === DenyReason::Variant => ProposalOutcome::Variant,
+            default => null,
+        };
+        if ($card !== null && $outcome instanceof ProposalOutcome) {
+            $conversation->appendCardOutcome($outcome, $card);
         }
 
         $conversation->clearApprovalDecision();

@@ -14,6 +14,7 @@ use DateTimeInterface;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
 
 /**
  * Simple DTO/Value Object — no Extbase, no AbstractEntity.
@@ -83,6 +84,20 @@ final class Conversation
      * JSON. Taken over from the run's state when a run returns.
      */
     private string $guidedState = '';
+
+    /**
+     * The process card a recorded decision answers (ADR-023): its tool and
+     * the record and fields it names, as JSON, kept from the request until
+     * the worker has recorded the outcome. Empty for any other card.
+     */
+    private string $approvalCard = '';
+
+    /**
+     * What became of each proposal of this conversation's guided process
+     * (ADR-023), as JSON: the outcome, where in the transcript it happened,
+     * and the record and fields the card named.
+     */
+    private string $cardOutcomes = '';
 
     private bool $archived = false;
 
@@ -163,6 +178,8 @@ final class Conversation
         $conversation->skillUid = (int) self::val($row, 'skill_uid', 0);
         $conversation->activity = (string) self::val($row, 'activity', '');
         $conversation->guidedState = (string) self::val($row, 'guided_state', '');
+        $conversation->approvalCard = (string) self::val($row, 'approval_card', '');
+        $conversation->cardOutcomes = (string) self::val($row, 'card_outcomes', '');
         $conversation->archived = (bool) self::val($row, 'archived', false);
         $conversation->pinned = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage = (string) self::val($row, 'error_message', '');
@@ -208,6 +225,8 @@ final class Conversation
             'current_request_id' => $this->currentRequestId,
             'view_context' => $this->viewContext,
             'guided_state' => $this->guidedState,
+            'approval_card' => $this->approvalCard,
+            'card_outcomes' => $this->cardOutcomes,
             'archived' => (int) $this->archived,
             'pinned' => (int) $this->pinned,
             'error_message' => $this->errorMessage,
@@ -610,6 +629,78 @@ final class Conversation
         $this->approvalTurnDigest = '';
         $this->pendingInput = '';
         $this->approvalDenyReason = '';
+        $this->approvalCard = '';
+    }
+
+    /**
+     * @param array{tool: string, table: string, uid: int, fields: list<string>}|null $card
+     */
+    public function setApprovalCard(?array $card): void
+    {
+        $this->approvalCard = $card === null ? '' : json_encode($card, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return array{tool: string, table: string, uid: int, fields: list<string>}|null
+     */
+    public function getApprovalCard(): ?array
+    {
+        $decoded = $this->approvalCard !== '' ? json_decode($this->approvalCard, true) : null;
+
+        return is_array($decoded) ? $this->cardOf($decoded) : null;
+    }
+
+    /**
+     * @param array{tool: string, table: string, uid: int, fields: list<string>} $card
+     */
+    public function appendCardOutcome(ProposalOutcome $outcome, array $card): void
+    {
+        $outcomes = $this->getCardOutcomes();
+        $outcomes[] = ['outcome' => $outcome->value, 'after' => $this->messageCount] + $card;
+        $this->cardOutcomes = json_encode($outcomes, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return list<array{outcome: string, after: int, tool: string, table: string, uid: int, fields: list<string>}>
+     */
+    public function getCardOutcomes(): array
+    {
+        $decoded = $this->cardOutcomes !== '' ? json_decode($this->cardOutcomes, true) : null;
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $outcomes = [];
+        foreach ($decoded as $entry) {
+            $card = is_array($entry) ? $this->cardOf($entry) : null;
+            $outcome = is_array($entry) && is_string($entry['outcome'] ?? null) ? ProposalOutcome::tryFrom($entry['outcome']) : null;
+            $after = is_array($entry) ? ($entry['after'] ?? null) : null;
+            if ($card !== null && $outcome instanceof ProposalOutcome && is_int($after)) {
+                $outcomes[] = ['outcome' => $outcome->value, 'after' => $after] + $card;
+            }
+        }
+
+        return $outcomes;
+    }
+
+    /**
+     * @param array<mixed> $entry
+     *
+     * @return array{tool: string, table: string, uid: int, fields: list<string>}|null
+     */
+    private function cardOf(array $entry): ?array
+    {
+        $fields = $entry['fields'] ?? null;
+        if (!is_string($entry['tool'] ?? null) || !is_string($entry['table'] ?? null) || !is_int($entry['uid'] ?? null) || !is_array($fields)) {
+            return null;
+        }
+
+        return [
+            'tool'   => $entry['tool'],
+            'table'  => $entry['table'],
+            'uid'    => $entry['uid'],
+            'fields' => array_values(array_filter($fields, is_string(...))),
+        ];
     }
 
     public function getApprovalDenyReason(): ?DenyReason

@@ -31,6 +31,7 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
@@ -500,6 +501,12 @@ final readonly class ChatApiController
             'systemPrompt' => $conversation->getSystemPrompt(),
             // Progress for the header and the element to highlight (ADR-020).
             'guided' => $conversation->getGuidedState(),
+            // What became of each proposal of the guided process, for the
+            // chat's own status lines and summary (ADR-023).
+            'cardOutcomes' => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->presentOutcomes(
+                $conversation->getCardOutcomes(),
+                ($GLOBALS['LANG'] ?? null) instanceof LanguageService ? $GLOBALS['LANG'] : null,
+            ),
             'skill' => $this->presentSkill($conversation),
             'activity' => $conversation->getActivity(),
         ]);
@@ -1303,12 +1310,17 @@ final readonly class ChatApiController
         // or a reason on any other card, is a plain denial.
         $reasonValue = $body['reason'] ?? '';
         $reason = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
-        $view = $reason !== null ? $this->chatApproval->pendingApproval($conversation) : null;
-        if ($view === null || !$this->chatApproval->offersProcessAnswers($conversation, $view)) {
+        $view = $this->chatApproval->pendingApproval($conversation);
+        $processCard = $view !== null && $this->chatApproval->offersProcessAnswers($conversation, $view);
+        if (!$processCard) {
             $reason = null;
         }
 
-        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest, $reason, $reason !== null ? $this->translate($reason->labelKey()) : '')) {
+        // A proposal of a guided process carries its tool and target to the
+        // worker, which records what became of it (ADR-023).
+        $card = $processCard ? $this->cardSnapshot($view) : null;
+
+        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest, $reason, $reason !== null ? $this->translate($reason->labelKey()) : '', $card)) {
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
@@ -1318,6 +1330,30 @@ final readonly class ChatApiController
         // is recorded, not yet carried out; the chat's poll reports the outcome,
         // and reconciles the conversation if the worker never takes it.
         return new JsonResponse(['status' => $conversation->getStatus()->value], 202);
+    }
+
+    /**
+     * The one call of a process card, as the outcome record keeps it: its
+     * tool, and the record and fields nr-llm's target names ('' and 0 for a
+     * create, which names none). Null for a card with more than one call.
+     *
+     * @return array{tool: string, table: string, uid: int, fields: list<string>}|null
+     */
+    private function cardSnapshot(?WaitingRunView $view): ?array
+    {
+        if ($view === null || count($view->pendingCalls) !== 1) {
+            return null;
+        }
+
+        $call = $view->pendingCalls[0];
+        $target = NrLlmCardTarget::ofCall($call);
+
+        return [
+            'tool'   => $call->name,
+            'table'  => $target->table ?? '',
+            'uid'    => $target->uid ?? 0,
+            'fields' => $target->fields ?? [],
+        ];
     }
 
     /**
