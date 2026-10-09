@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\GuardedCancelResult;
 use Netresearch\NrMcpAgent\Service\NrLlmWaitingRunCanceller;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -18,8 +20,9 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The adapter to nr-llm's guarded cancel (nr-llm ADR-214, PR 1024): used
- * where the installed nr-llm has it, null where it does not.
+ * The adapter to nr-llm's guarded cancel (nr-llm ADR-214, nr-llm PR 1024,
+ * 0.41): used where the installed nr-llm has it, null where it does not. Each
+ * half runs where the installed nr-llm has that shape.
  */
 #[CoversClass(NrLlmWaitingRunCanceller::class)]
 final class NrLlmWaitingRunCancellerTest extends TestCase
@@ -28,40 +31,44 @@ final class NrLlmWaitingRunCancellerTest extends TestCase
     public function withoutTheGuardedCancelItAnswersNull(): void
     {
         $runtime = $this->createMock(AgentRuntimeInterface::class);
+        if (NrLlmWaitingRunCanceller::isAvailable($runtime)) {
+            self::markTestSkipped('Pins the fallback for an nr-llm without cancelIfWaiting().');
+        }
+
         $runtime->expects(self::never())->method('cancel');
 
         self::assertNull((new NrLlmWaitingRunCanceller($runtime))->cancelIfWaiting(AiActorContext::backendUser(1), 'run'));
     }
 
     /**
-     * @return iterable<string, array{bool}>
+     * @return iterable<string, array{bool, AgentRunStatus|null}>
      */
     public static function outcomes(): iterable
     {
-        yield 'cancelled' => [true];
-        yield 'not waiting' => [false];
+        yield 'cancelled' => [true, AgentRunStatus::CANCELLED];
+        yield 'carried on' => [false, AgentRunStatus::RUNNING];
+        yield 'handed back, still waiting' => [false, AgentRunStatus::WAITING_FOR_APPROVAL];
+        yield 'finished' => [false, AgentRunStatus::COMPLETED];
+        yield 'unknown or not the initiator' => [false, null];
     }
 
     #[Test]
     #[DataProvider('outcomes')]
-    public function itPassesTheGuardedOutcomeOn(bool $cancelled): void
+    public function itPassesNrLlmsResultOn(bool $cancelled, ?AgentRunStatus $status): void
     {
-        $runtime = $this->createMock(RuntimeWithGuardedCancel::class);
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        if (!NrLlmWaitingRunCanceller::isAvailable($runtime)) {
+            self::markTestSkipped('Needs nr-llm 0.41 (cancelIfWaiting(), nr-llm PR 1024).');
+        }
+
         $runtime->expects(self::once())->method('cancelIfWaiting')->with(self::anything(), 'run')
-            ->willReturn(new GuardedCancelResultFixture($cancelled));
+            ->willReturn(new GuardedCancelResult($cancelled, $status));
         $runtime->expects(self::never())->method('cancel');
 
-        self::assertSame($cancelled, (new NrLlmWaitingRunCanceller($runtime))->cancelIfWaiting(AiActorContext::backendUser(1), 'run'));
+        $result = (new NrLlmWaitingRunCanceller($runtime))->cancelIfWaiting(AiActorContext::backendUser(1), 'run');
+
+        self::assertNotNull($result);
+        self::assertSame($cancelled, $result->cancelled);
+        self::assertSame($status, $result->status);
     }
-}
-
-/** The shape nr-llm PR 1024 adds to AgentRuntimeInterface. */
-abstract class RuntimeWithGuardedCancel implements AgentRuntimeInterface
-{
-    abstract public function cancelIfWaiting(AiActorContext $actor, string $runUuid): GuardedCancelResultFixture;
-}
-
-final readonly class GuardedCancelResultFixture
-{
-    public function __construct(public bool $cancelled) {}
 }

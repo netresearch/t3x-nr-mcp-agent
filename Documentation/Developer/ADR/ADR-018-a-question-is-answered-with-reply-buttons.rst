@@ -94,8 +94,10 @@ approval's continuation carries no input. The change goes through the
 approval card, where the approve button applies it. In a process run, and
 only when a pending call writes (nr-llm ADR-214, item 9), the card's denial
 is two buttons, *Andere Variante* and *Überspringen*; every other card keeps
-*Abbrechen*. Whether a call writes is nr-llm's own resolution by tool name
-(``ToolEffectResolver``), in which an unknown tool counts as a write.
+*Abbrechen*. Whether a call writes is what nr-llm's view states for it
+(``PendingCallView::$declaresWrite``, nr-llm 0.41); on an earlier nr-llm it
+is nr-llm's own resolution by tool name (``ToolEffectResolver``). In both an
+unknown tool counts as a write.
 Whether the conversation is a process run is asked through
 ``ProcessRunDetectorInterface``; nothing implements it yet, so until a
 conversation carries the skill it runs, every card is a plain one. The
@@ -103,12 +105,11 @@ server decides which answers a card has, and a reason sent for a card that
 does not offer it is a plain denial. The reason (``variant`` or ``skip``,
 ``DenyReason``) is recorded with the decision and its label goes into the
 transcript as the reader's message. ``ApprovalDecisionFactory``
-hands the reason to nr-llm as soon as nr-llm's ``ApprovalDecision`` takes an
-argument named ``denialReason``: typed as nr-llm's ``ApprovalDenialReason``
-enum (nr-llm ADR-214) it gets the case of the same value, typed as a string
-the value. Until a released nr-llm has it, the denial is a plain one, and
-the model learns the reason from the transcript on the next turn. Input pauses with reply buttons stay for choices that
-write nothing.
+hands the reason to nr-llm as its ``ApprovalDenialReason`` (nr-llm ADR-214,
+nr-llm 0.41) through ``ApprovalDecision``'s ``denialReason``. On an earlier
+nr-llm the denial is a plain one, and the model learns the reason from the
+transcript on the next turn. Input pauses with reply buttons stay for
+choices that write nothing.
 
 **The option check is the chat's.** nr-llm validates a submission by
 structure only (nr-llm ADR-105). Membership in the offered options, and the
@@ -143,8 +144,11 @@ Consequences
     ``approval_deny_reason``.
 *   The cancel is guarded on the run still waiting through
     ``WaitingRunCancellerInterface``; ``NrLlmWaitingRunCanceller`` calls
-    nr-llm's ``AgentRuntimeInterface::cancelIfWaiting()`` where the installed
-    nr-llm has it. Where it does not, the chat reads the status and calls
+    nr-llm's ``AgentRuntimeInterface::cancelIfWaiting()`` (nr-llm 0.41) where
+    the installed nr-llm has it, and the run status nr-llm reports with a lost
+    attempt decides: queued, running or still waiting keeps the conversation
+    (409), an ended or unknown run releases it. Where it does not, the chat
+    reads the status and calls
     ``cancel()``, which settles a run in any non-terminal state, so a
     decision taken between that read and the cancel would be cancelled while
     it runs. The claim comes first either way.
