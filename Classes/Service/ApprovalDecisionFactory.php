@@ -9,21 +9,23 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
+use BackedEnum;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrMcpAgent\Enum\DenyReason;
 use ReflectionClass;
 use ReflectionNamedType;
+use ReflectionType;
 
 /**
  * Builds the decision handed to nr-llm's approve(), with the reason a denial
  * was given when nr-llm can carry one (ADR-018).
  *
- * The seam exists because nr-llm's ApprovalDecision does not take a reason
- * yet: the denial result the model reads is fixed text. The reason travels
- * as a constructor argument named `denialReason` (or `reason`) the moment
- * nr-llm adds one that accepts a string; until then the decision is a plain
- * denial. Read by reflection so this extension keeps working on every
- * supported nr-llm, with and without the argument.
+ * nr-llm's ApprovalDecision gains a `denialReason` argument typed as its enum
+ * `ApprovalDenialReason` (cases `variant`, `skip`; nr-llm ADR-214, nr-llm
+ * PR 1024). Until a release carries it, the decision is a plain denial. The
+ * argument is read by reflection, so this extension works on every supported
+ * nr-llm: a string-typed argument takes the value, a backed-enum-typed one the
+ * case of that value, anything else nothing.
  */
 class ApprovalDecisionFactory
 {
@@ -31,33 +33,63 @@ class ApprovalDecisionFactory
 
     public function create(bool $approved, int $decidedBy, string $turnDigest, ?DenyReason $reason = null): ApprovalDecision
     {
-        $parameter = $approved || $reason === null ? null : $this->reasonParameter();
-        if ($parameter === null) {
+        $argument = $approved || $reason === null ? null : $this->reasonArgument($reason);
+        if ($argument === null) {
             return new ApprovalDecision($approved, $decidedBy, $turnDigest);
         }
 
-        $named = [$parameter => $reason->value];
-
-        return new ApprovalDecision($approved, $decidedBy, $turnDigest, ...$named);
+        return new ApprovalDecision($approved, $decidedBy, $turnDigest, ...$argument);
     }
 
     /** Whether nr-llm's decision can carry a denial reason. */
     public function carriesReason(): bool
     {
-        return $this->reasonParameter() !== null;
+        return $this->reasonArgument(DenyReason::Skip) !== null;
     }
 
-    protected function reasonParameter(): ?string
+    /**
+     * The named argument that carries the reason, or null when nr-llm's
+     * decision has none it can take.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function reasonArgument(DenyReason $reason): ?array
     {
         $constructor = (new ReflectionClass(ApprovalDecision::class))->getConstructor();
         foreach ($constructor?->getParameters() ?? [] as $parameter) {
-            $type = $parameter->getType();
-            if (in_array($parameter->getName(), self::REASON_PARAMETERS, true)
-                && $type instanceof ReflectionNamedType
-                && $type->getName() === 'string'
-            ) {
-                return $parameter->getName();
+            if (!in_array($parameter->getName(), self::REASON_PARAMETERS, true)) {
+                continue;
             }
+
+            $value = self::valueFor($parameter->getType(), $reason);
+            if ($value !== null) {
+                return [$parameter->getName() => $value];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The reason as the parameter type takes it: the string value, or the
+     * case of a string-backed enum with that value; null for any other type
+     * or an enum without that case.
+     */
+    public static function valueFor(?ReflectionType $type, DenyReason $reason): string|BackedEnum|null
+    {
+        if (!$type instanceof ReflectionNamedType) {
+            return null;
+        }
+
+        if ($type->getName() === 'string') {
+            return $reason->value;
+        }
+
+        $class = $type->getName();
+        if (!$type->isBuiltin() && enum_exists($class) && is_subclass_of($class, BackedEnum::class)) {
+            $case = $class::tryFrom($reason->value);
+
+            return $case instanceof BackedEnum ? $case : null;
         }
 
         return null;

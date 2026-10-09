@@ -103,10 +103,11 @@ server decides which answers a card has, and a reason sent for a card that
 does not offer it is a plain denial. The reason (``variant`` or ``skip``,
 ``DenyReason``) is recorded with the decision and its label goes into the
 transcript as the reader's message. ``ApprovalDecisionFactory``
-hands the reason to nr-llm as soon as nr-llm's ``ApprovalDecision`` takes a
-string argument named ``denialReason`` (or ``reason``); until then the
-denial is a plain one, and the model learns the reason from the transcript
-on the next turn. Input pauses with reply buttons stay for choices that
+hands the reason to nr-llm as soon as nr-llm's ``ApprovalDecision`` takes an
+argument named ``denialReason``: typed as nr-llm's ``ApprovalDenialReason``
+enum (nr-llm ADR-214) it gets the case of the same value, typed as a string
+the value. Until a released nr-llm has it, the denial is a plain one, and
+the model learns the reason from the transcript on the next turn. Input pauses with reply buttons stay for choices that
 write nothing.
 
 **The option check is the chat's.** nr-llm validates a submission by
@@ -141,9 +142,9 @@ Consequences
     replaced by *Andere Variante* and *Überspringen*; new column
     ``approval_deny_reason``.
 *   The cancel is guarded on the run still waiting through
-    ``WaitingRunCancellerInterface``, the seam for nr-llm's
-    ``cancelIfWaiting()``. nr-llm does not have it yet and nothing implements
-    the interface; until then the chat reads the status and calls
+    ``WaitingRunCancellerInterface``; ``NrLlmWaitingRunCanceller`` calls
+    nr-llm's ``AgentRuntimeInterface::cancelIfWaiting()`` where the installed
+    nr-llm has it. Where it does not, the chat reads the status and calls
     ``cancel()``, which settles a run in any non-terminal state, so a
     decision taken between that read and the cancel would be cancelled while
     it runs. The claim comes first either way.
