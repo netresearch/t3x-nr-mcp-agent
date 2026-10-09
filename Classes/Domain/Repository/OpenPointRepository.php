@@ -115,6 +115,39 @@ readonly class OpenPointRepository
         return $points;
     }
 
+    /**
+     * All open points, newest first, one page of them.
+     *
+     * @return list<array{skillUid: int, subjectTable: string, subjectUid: int, targetTable: string, targetUid: int, field: string, crdate: int}>
+     */
+    public function findRecent(int $offset, int $count): array
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $rows = $qb->select('skill_uid', 'subject_table', 'subject_uid', 'target_table', 'target_uid', 'target_field', 'crdate')
+            ->from(self::TABLE)
+            ->orderBy('crdate', 'DESC')
+            ->addOrderBy('uid', 'DESC')
+            ->setFirstResult(max(0, $offset))
+            ->setMaxResults(max(1, $count))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $points = [];
+        foreach ($rows as $row) {
+            $points[] = [
+                'skillUid'     => $this->int($row['skill_uid'] ?? 0),
+                'subjectTable' => is_string($row['subject_table'] ?? null) ? $row['subject_table'] : '',
+                'subjectUid'   => $this->int($row['subject_uid'] ?? 0),
+                'targetTable'  => is_string($row['target_table'] ?? null) ? $row['target_table'] : '',
+                'targetUid'    => $this->int($row['target_uid'] ?? 0),
+                'field'        => is_string($row['target_field'] ?? null) ? $row['target_field'] : '',
+                'crdate'       => $this->int($row['crdate'] ?? 0),
+            ];
+        }
+
+        return $points;
+    }
+
     private function int(mixed $value): int
     {
         return is_numeric($value) ? (int) $value : 0;

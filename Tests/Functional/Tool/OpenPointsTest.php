@@ -20,12 +20,14 @@ use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTarget;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTracker;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointVisibility;
+use Netresearch\NrMcpAgent\Service\OpenPoint\VisibleOpenPoint;
 use Netresearch\NrMcpAgent\Service\SkillProcessRunDetector;
 use Netresearch\NrMcpAgent\Tool\ListOpenPointsTool;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
@@ -240,6 +242,99 @@ final class OpenPointsTest extends FunctionalTestCase
         $result = $this->get(ListOpenPointsTool::class)->execute(['pageUid' => 20], ToolExecutionContext::none());
 
         self::assertTrue($result->isError);
+    }
+
+    // ---- site-wide, for the dashboard -------------------------------------
+
+    private function point(int $page, string $table, int $uid, string $field, int $crdate, int $skill = 7): void
+    {
+        $this->repository()->record($skill, 'pages', $page, new OpenPointTarget($table, $uid, $field !== '' ? [$field] : []), self::EDITOR, 5);
+        $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE)->update(
+            self::TABLE,
+            ['crdate' => $crdate],
+            ['subject_uid' => $page, 'target_table' => $table, 'target_uid' => $uid, 'target_field' => $field, 'skill_uid' => $skill],
+        );
+    }
+
+    /**
+     * @return list<VisibleOpenPoint>
+     */
+    private function siteWide(int $limit): array
+    {
+        return $this->get(OpenPointVisibility::class)->visibleFor($this->setUpBackendUser(self::EDITOR), $limit);
+    }
+
+    /** An invisible point is left out before the limit counts, not after. */
+    #[Test]
+    public function aNewerInvisiblePointDoesNotShrinkTheLimit(): void
+    {
+        $this->point(20, 'tt_content', 100, 'header', 100);
+        $this->point(20, 'tt_content', 100, 'bodytext', 200);
+        $this->point(30, 'tt_content', 101, 'header', 300);
+
+        $points = $this->siteWide(2);
+
+        self::assertSame([['tt_content', 100, 'bodytext'], ['tt_content', 100, 'header']], array_map(
+            static fn(VisibleOpenPoint $point): array => [$point->targetTable, $point->targetUid, $point->field],
+            $points,
+        ));
+        self::assertSame(['bodytext'], array_map(static fn(VisibleOpenPoint $point): string => $point->field, $this->siteWide(1)), 'the limit cuts');
+    }
+
+    #[Test]
+    public function eachPointCarriesItsPageLanguageSkillAndAGermanSummaryFromTheTcaLabels(): void
+    {
+        $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrllm_skill')->insert('tx_nrllm_skill', [
+            'uid' => 7, 'pid' => 0, 'source' => 3, 'identifier' => '3:seo/page-tour', 'name' => 'SEO', 'enabled' => 1,
+        ]);
+        $this->point(20, 'tt_content', 100, 'header', 100);
+        $this->point(20, 'tt_content', 100, 'bodytext', 200);
+        $german = $this->get(LanguageServiceFactory::class)->create('de');
+        $headerLabel = trim($german->sL($GLOBALS['TCA']['tt_content']['columns']['header']['label']));
+        $bodyLabel = trim($german->sL($GLOBALS['TCA']['tt_content']['columns']['bodytext']['label']));
+
+        [$body, $header] = $this->siteWide(10);
+
+        self::assertSame(20, $header->pageUid);
+        self::assertSame(0, $header->languageUid);
+        self::assertSame(7, $header->skillUid);
+        self::assertSame('3:seo/page-tour', $header->skillIdentifier);
+        self::assertSame(100, $header->crdate);
+        self::assertNotSame('', $headerLabel);
+        self::assertSame($headerLabel . ' auf „Über uns“ offen', $header->summary, 'the header has a value');
+        self::assertSame($bodyLabel . ' fehlt auf „Über uns“', $body->summary, 'the fixture\'s bodytext is empty');
+    }
+
+    #[Test]
+    public function aDeletedTargetAndAnotherLanguageAreLeftOut(): void
+    {
+        $this->point(20, 'tt_content', 100, 'header', 100);
+        $this->point(20, 'tt_content', 102, 'header', 200);
+        $this->get(ConnectionPool::class)->getConnectionForTable('tt_content')->update('tt_content', ['deleted' => 1], ['uid' => 100]);
+
+        self::assertSame([], $this->siteWide(10));
+    }
+
+    /** A field the editor's group may not edit (`exclude`, no `non_exclude_fields`) stays hidden. */
+    #[Test]
+    public function aPointOnAnExcludedFieldIsLeftOut(): void
+    {
+        self::assertTrue((bool) ($GLOBALS['TCA']['tt_content']['columns']['hidden']['exclude'] ?? false), 'precondition: core excludes tt_content.hidden');
+        $this->point(20, 'tt_content', 100, 'hidden', 300);
+        $this->point(20, 'tt_content', 100, 'header', 100);
+
+        self::assertSame(['header'], array_map(static fn(VisibleOpenPoint $point): string => $point->field, $this->siteWide(10)));
+        self::assertSame(['header'], array_column($this->get(OpenPointVisibility::class)->forPage($this->setUpBackendUser(self::EDITOR), 20) ?? [], 'field'));
+    }
+
+    #[Test]
+    public function withoutABackendUserThereIsNothing(): void
+    {
+        $this->point(20, 'tt_content', 100, 'header', 100);
+        unset($GLOBALS['BE_USER']);
+
+        self::assertSame([], $this->get(OpenPointVisibility::class)->visibleForCurrentUser(10));
+        self::assertSame([], $this->siteWide(0));
     }
 
     // ---- wiring ------------------------------------------------------------
