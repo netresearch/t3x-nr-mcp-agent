@@ -27,6 +27,14 @@ parameters:
           path: ../../Classes/Document/Extractor/XlsxExtractor.php
         - identifier: argument.type
           path: ../../Classes/Document/Extractor/XlsxExtractor.php
+        # A structured preview on nr-llm's PendingCallView is being added
+        # (ADR-023); the seam reads it where it exists.
+        - identifier: function.impossibleType
+          path: ../../Classes/Service/StructuredPreview.php
+          reportUnmatched: false
+        - identifier: function.alreadyNarrowedType
+          path: ../../Classes/Service/StructuredPreview.php
+          reportUnmatched: false
 
 services:
     -

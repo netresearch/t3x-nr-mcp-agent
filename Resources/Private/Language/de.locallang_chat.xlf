@@ -207,6 +207,42 @@
                 <source>Skip</source>
                 <target>Überspringen</target>
             </trans-unit>
+            <trans-unit id="chat.approvalApply" resname="chat.approvalApply">
+                <source>Apply</source>
+                <target>Übernehmen</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalAffected" resname="chat.proposalAffected">
+                <source>Affected</source>
+                <target>Betroffen</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalCurrent" resname="chat.proposalCurrent">
+                <source>Current</source>
+                <target>Aktuell</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalProposed" resname="chat.proposalProposed">
+                <source>Proposed</source>
+                <target>Vorschlag</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalEmpty" resname="chat.proposalEmpty">
+                <source>(empty)</source>
+                <target>(leer)</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalLength" resname="chat.proposalLength">
+                <source>Length</source>
+                <target>Länge</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalCharacters" resname="chat.proposalCharacters">
+                <source>characters</source>
+                <target>Zeichen</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalTarget" resname="chat.proposalTarget">
+                <source>target</source>
+                <target>Ziel</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalOutOfRange" resname="chat.proposalOutOfRange">
+                <source>outside the target</source>
+                <target>außerhalb des Ziels</target>
+            </trans-unit>
             <trans-unit id="chat.approvalDeniedVariant" resname="chat.approvalDeniedVariant">
                 <source>Not carried out — another variant is asked for.</source>
                 <target>Nicht ausgeführt — eine andere Variante ist angefragt.</target>
