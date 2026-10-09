@@ -362,6 +362,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
     {
         $this->repository->method('findOneByUidAndBeUser')->willReturn($this->parked());
         $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_UNKNOWN, 'writes' => []]);
+        $this->chatApproval->method('releasePendingRun')->willReturn(true);
         $this->processor->expects(self::once())->method('dispatch');
 
         self::assertSame(202, $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "weiter"}'))->getStatusCode());
@@ -372,6 +373,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
     {
         $this->repository->method('findOneByUidAndBeUser')->willReturn($this->parked());
         $this->chatApproval->expects(self::never())->method('inspectPendingRun');
+        $this->chatApproval->method('releasePendingRun')->willReturn(true);
         $this->processor->expects(self::once())->method('dispatch');
 
         $response = $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "Es fehlt noch das Element für die neue Unterseite"}'));

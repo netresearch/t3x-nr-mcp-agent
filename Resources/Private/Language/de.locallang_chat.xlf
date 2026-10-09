@@ -163,10 +163,6 @@
                 <source>Approval granted — the assistant is carrying the step out.</source>
                 <target>Freigabe erteilt — der Assistent führt den Schritt aus.</target>
             </trans-unit>
-            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
-                <source>Cancelled — the step was not carried out.</source>
-                <target>Abgebrochen — der Schritt wurde nicht ausgeführt.</target>
-            </trans-unit>
             <trans-unit id="chat.approvalPreviewUnavailable" resname="chat.approvalPreviewUnavailable">
                 <source>No preview — you are deciding without one</source>
                 <target>Keine Vorschau — die Entscheidung fällt ohne</target>
@@ -198,6 +194,26 @@
             <trans-unit id="chat.approvalCancel" resname="chat.approvalCancel">
                 <source>Cancel</source>
                 <target>Abbrechen</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalDenied" resname="chat.approvalDenied">
+                <source>Cancelled — the step was not carried out.</source>
+                <target>Abgebrochen — der Schritt wurde nicht ausgeführt.</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalVariant" resname="chat.approvalVariant">
+                <source>Another variant</source>
+                <target>Andere Variante</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalSkip" resname="chat.approvalSkip">
+                <source>Skip</source>
+                <target>Überspringen</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalDeniedVariant" resname="chat.approvalDeniedVariant">
+                <source>Not carried out — another variant is asked for.</source>
+                <target>Nicht ausgeführt — eine andere Variante ist angefragt.</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalDeniedSkip" resname="chat.approvalDeniedSkip">
+                <source>Skipped — the step was not carried out.</source>
+                <target>Übersprungen — der Schritt wurde nicht ausgeführt.</target>
             </trans-unit>
             <trans-unit id="chat.approvalTechnicalDetails" resname="chat.approvalTechnicalDetails">
                 <source>Show technical details</source>
@@ -288,8 +304,8 @@
                 <target>Zugriff verweigert</target>
             </trans-unit>
             <trans-unit id="error.approvalStillPending" resname="error.approvalStillPending">
-                <source>This step is still waiting for a decision. Approve or cancel it on the card — a message does not approve it.</source>
-                <target>Dieser Schritt wartet noch auf eine Entscheidung. Bitte auf der Karte freigeben oder abbrechen – eine Nachricht erteilt keine Freigabe.</target>
+                <source>This step is still waiting for a decision. Decide on the card — a message does not approve it.</source>
+                <target>Dieser Schritt wartet noch auf eine Entscheidung. Bitte auf der Karte entscheiden – eine Nachricht erteilt keine Freigabe.</target>
             </trans-unit>
             <trans-unit id="error.approvalStillPendingElsewhere" resname="error.approvalStillPendingElsewhere">
                 <source>This step is still waiting for an approval you cannot give yourself. Ask someone with access to AI Tasks to approve it — a message here does not approve it.</source>
@@ -314,6 +330,38 @@
             <trans-unit id="error.handBack.notAwaitingApproval" resname="error.handBack.notAwaitingApproval">
                 <source>This step no longer waits for a decision, so nothing was carried out. AI Tasks shows where the run stands.</source>
                 <target>Dieser Schritt wartet nicht mehr auf eine Entscheidung, deshalb wurde nichts ausgeführt. Den aktuellen Stand des Laufs zeigt KI-Aufgaben.</target>
+            </trans-unit>
+            <trans-unit id="error.notAwaitingInput" resname="error.notAwaitingInput">
+                <source>This question is no longer open.</source>
+                <target>Diese Rückfrage ist nicht mehr offen.</target>
+            </trans-unit>
+            <trans-unit id="error.inputNotOffered" resname="error.inputNotOffered">
+                <source>This answer does not fit the question. Choose one of the answers offered.</source>
+                <target>Diese Antwort passt nicht zur Rückfrage. Bitte eine der angebotenen Antworten wählen.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputStale" resname="error.handBack.inputStale">
+                <source>The question changed after it was shown, so the answer was not taken. Answer again.</source>
+                <target>Die Rückfrage hat sich nach dem Anzeigen geändert, deshalb wurde die Antwort nicht übernommen. Bitte erneut antworten.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputInvalid" resname="error.handBack.inputInvalid">
+                <source>The answer does not fit the question, so it was not taken. Answer again.</source>
+                <target>Die Antwort passt nicht zur Rückfrage, deshalb wurde sie nicht übernommen. Bitte erneut antworten.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputNotPermitted" resname="error.handBack.inputNotPermitted">
+                <source>Your own permissions do not cover the step this question belongs to, so the answer was not taken.</source>
+                <target>Deine eigenen Rechte decken den Schritt nicht ab, zu dem diese Rückfrage gehört, deshalb wurde die Antwort nicht übernommen.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputAlreadyResuming" resname="error.handBack.inputAlreadyResuming">
+                <source>This question was already answered, so this answer was not taken. The result appears in AI Tasks, under this run.</source>
+                <target>Diese Rückfrage wurde bereits beantwortet, deshalb wurde diese Antwort nicht übernommen. Das Ergebnis erscheint in KI-Aufgaben bei diesem Lauf.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputConfigOff" resname="error.handBack.inputConfigOff">
+                <source>The AI configuration of this chat is switched off, so the answer was not taken. The question waits until it is switched on again; then answer again.</source>
+                <target>Die KI-Konfiguration dieses Chats ist ausgeschaltet, deshalb wurde die Antwort nicht übernommen. Die Rückfrage wartet, bis sie wieder eingeschaltet ist; danach bitte erneut antworten.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.notAwaitingInput" resname="error.handBack.notAwaitingInput">
+                <source>This question no longer waits for an answer, so nothing was taken. AI Tasks shows where the run stands.</source>
+                <target>Diese Rückfrage wartet nicht mehr auf eine Antwort, deshalb wurde nichts übernommen. Den aktuellen Stand des Laufs zeigt KI-Aufgaben.</target>
             </trans-unit>
             <trans-unit id="error.providerNotConfigured" resname="error.providerNotConfigured">
                 <source>The AI provider is not set up. Please contact your administrator.</source>
@@ -474,6 +522,42 @@
             <trans-unit id="activity.waiting" resname="activity.waiting">
                 <source>Waiting for your approval</source>
                 <target>Wartet auf deine Freigabe</target>
+            </trans-unit>
+            <trans-unit id="input.groupLabel" resname="input.groupLabel">
+                <source>Reply options</source>
+                <target>Antwortmöglichkeiten</target>
+            </trans-unit>
+            <trans-unit id="input.chooseAnswer" resname="input.chooseAnswer">
+                <source>Choose an answer</source>
+                <target>Bitte eine Antwort wählen</target>
+            </trans-unit>
+            <trans-unit id="input.freeTextPlaceholder" resname="input.freeTextPlaceholder">
+                <source>Write your own answer...</source>
+                <target>Eigene Antwort schreiben...</target>
+            </trans-unit>
+            <trans-unit id="input.formSubmit" resname="input.formSubmit">
+                <source>Send answer</source>
+                <target>Antwort senden</target>
+            </trans-unit>
+            <trans-unit id="input.messageEndsQuestion" resname="input.messageEndsQuestion">
+                <source>A message of your own ends the question.</source>
+                <target>Eine eigene Nachricht beendet die Rückfrage.</target>
+            </trans-unit>
+            <trans-unit id="input.unsupported" resname="input.unsupported">
+                <source>The chat cannot show this question.</source>
+                <target>Diese Rückfrage kann der Chat nicht anzeigen.</target>
+            </trans-unit>
+            <trans-unit id="input.yes" resname="input.yes">
+                <source>Yes</source>
+                <target>Ja</target>
+            </trans-unit>
+            <trans-unit id="input.no" resname="input.no">
+                <source>No</source>
+                <target>Nein</target>
+            </trans-unit>
+            <trans-unit id="activity.waitingInput" resname="activity.waitingInput">
+                <source>Waiting for your answer</source>
+                <target>Wartet auf deine Antwort</target>
             </trans-unit>
             <trans-unit id="activity.working" resname="activity.working">
                 <source>Working…</source>

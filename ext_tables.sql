@@ -21,6 +21,8 @@ CREATE TABLE tx_nrmcpagent_conversation (
     approval_run_uuid varchar(64) DEFAULT '' NOT NULL,
     approval_decision varchar(8) DEFAULT '' NOT NULL,
     approval_turn_digest varchar(64) DEFAULT '' NOT NULL,
+    pending_input text,
+    approval_deny_reason varchar(16) DEFAULT '' NOT NULL,
     tstamp int(11) unsigned DEFAULT 0 NOT NULL,
     crdate int(11) unsigned DEFAULT 0 NOT NULL,
 
