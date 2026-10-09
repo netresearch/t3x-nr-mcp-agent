@@ -723,6 +723,14 @@
                 <source>Remove skill</source>
                 <target>Skill entfernen</target>
             </trans-unit>
+            <trans-unit id="openPoint.missing" resname="openPoint.missing">
+                <source>%1$s is missing on “%2$s”</source>
+                <target>%1$s fehlt auf „%2$s“</target>
+            </trans-unit>
+            <trans-unit id="openPoint.open" resname="openPoint.open">
+                <source>%1$s open on “%2$s”</source>
+                <target>%1$s auf „%2$s“ offen</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

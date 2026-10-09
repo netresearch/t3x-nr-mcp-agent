@@ -34,6 +34,8 @@ readonly class OpenPointVisibility
     /** How many stored points are read per round while filling a site-wide list. */
     private const BATCH = 100;
 
+    private const LABELS = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:';
+
     public function __construct(
         private OpenPointRepository $repository,
         private ?SkillRepository $skills = null,
@@ -122,7 +124,7 @@ readonly class OpenPointVisibility
             static fn(array $entry): int => $entry[0]['skillUid'],
             $visible,
         ))));
-        $german = $this->germanLabels();
+        $labels = $this->labelsFor($user);
 
         return array_map(fn(array $entry): VisibleOpenPoint => new VisibleOpenPoint(
             $entry[0]['subjectUid'],
@@ -133,7 +135,7 @@ readonly class OpenPointVisibility
             $entry[0]['targetUid'],
             $entry[0]['field'],
             $entry[0]['crdate'],
-            $this->summary($entry[0]['targetTable'], $entry[0]['field'], $entry[1], $entry[2]['empty'], $german),
+            $this->summary($entry[0]['targetTable'], $entry[0]['field'], $entry[1], $entry[2]['empty'], $labels),
         ), $visible);
     }
 
@@ -204,13 +206,14 @@ readonly class OpenPointVisibility
     }
 
     /**
-     * One German sentence from the schema's labels and the page title:
-     * "<Feld> fehlt auf „<Seite>“" for an empty field, else
-     * "<Feld> auf „<Seite>“ offen"; for a whole record the table's label.
+     * One sentence in the user's backend language, from the schema's labels
+     * and the page title: "<Field> is missing on “<Page>”" for an empty field,
+     * else "<Field> open on “<Page>”"; for a whole record the table's label.
+     * The templates are `openPoint.missing` and `openPoint.open`.
      *
      * @param array<mixed> $page
      */
-    private function summary(string $table, string $field, array $page, bool $empty, ?LanguageService $german): string
+    private function summary(string $table, string $field, array $page, bool $empty, ?LanguageService $labels): string
     {
         $config = $this->tca($table);
         $columns = is_array($config['columns'] ?? null) ? $config['columns'] : [];
@@ -219,22 +222,29 @@ readonly class OpenPointVisibility
         $reference = $field !== ''
             ? (is_string($column['label'] ?? null) ? $column['label'] : '')
             : (is_string($ctrl['title'] ?? null) ? $ctrl['title'] : '');
-        $label = $reference !== '' && $german instanceof LanguageService ? trim($german->sL($reference)) : '';
+        $label = $reference !== '' && $labels instanceof LanguageService ? trim($labels->sL($reference)) : '';
         if ($label === '') {
             $label = $field !== '' ? $field : $table;
         }
 
         $title = is_string($page['title'] ?? null) ? $page['title'] : '';
 
-        return $empty
-            ? sprintf('%s fehlt auf „%s“', $label, $title)
-            : sprintf('%s auf „%s“ offen', $label, $title);
+        $key = $empty ? 'openPoint.missing' : 'openPoint.open';
+        $template = $labels instanceof LanguageService ? $labels->sL(self::LABELS . $key) : '';
+        if ($template === '') {
+            $template = $empty ? '%1$s is missing on “%2$s”' : '%1$s open on “%2$s”';
+        }
+
+        return sprintf($template, $label, $title);
     }
 
-    private function germanLabels(): ?LanguageService
+    /**
+     * The labels in the user's backend language.
+     */
+    private function labelsFor(BackendUserAuthentication $user): ?LanguageService
     {
         try {
-            return $this->languageServiceFactory?->create('de');
+            return $this->languageServiceFactory?->createFromUserPreferences($user);
         } catch (Throwable) {
             return null;
         }
