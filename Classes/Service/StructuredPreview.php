@@ -13,38 +13,41 @@ use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 
 /**
  * The structured preview of a pending write, when nr-llm's view carries one
- * (ADR-023): per field the current and the proposed value, and for a value
- * with a length rule its count and range.
+ * (ADR-023; nr-llm ADR-214, item 9): per field its label, the value stored
+ * now, the proposed value and, where nr-llm measured it, its length against
+ * the configured range.
  *
- * nr-llm has no such member yet; it is being added as an optional interface
- * on writers whose result the view carries. This reads
- * `PendingCallView::$structuredPreview` where it exists, as a list of entries
- * shaped `{field, current, proposed, measure?: {count, min, max}}`, objects or
- * arrays. **ASSUMPTION:** that member name and shape are the ones agreed for
- * the nr-llm change; if they differ, this class is the one place to adapt.
- * Without it, or with an entry that does not have that shape, the card shows
- * the preview lines as nr-llm wrote them. Nothing is ever parsed from those
- * lines.
+ * Read from `PendingCallView::structuredPreviewArray()` where nr-llm has it
+ * (nr-llm PR 1036). Without it, without entries, or with an entry that is not
+ * shaped as nr-llm documents it, the card shows the preview lines as nr-llm
+ * wrote them. Nothing is ever parsed from those lines.
+ *
+ * The values are raw: a rich-text field carries its stored HTML, and the
+ * proposed value is model-chosen text. They pass through here unchanged and
+ * the chat renders them as text only.
+ *
+ * @phpstan-type Entry array{field: string, label: string, current: string|null, proposed: string, measure: array{count: int, min: int|null, max: int|null}|null}
  */
 final class StructuredPreview
 {
     /**
-     * @return list<array{field: string, current: string, proposed: string, measure: array{count: int, min: int, max: int}|null}>|null
+     * @return list<Entry>|null
      */
     public static function of(PendingCallView $call): ?array
     {
-        if (!property_exists($call, 'structuredPreview')) {
+        $read = [$call, 'structuredPreviewArray'];
+        if (!is_callable($read)) {
             return null;
         }
 
-        return self::fromEntries($call->structuredPreview);
+        return self::fromEntries($read());
     }
 
     /**
      * The entries in the card's shape, or null when there are none or one of
-     * them is not shaped as agreed.
+     * them is not shaped as nr-llm documents it.
      *
-     * @return list<array{field: string, current: string, proposed: string, measure: array{count: int, min: int, max: int}|null}>|null
+     * @return list<Entry>|null
      */
     public static function fromEntries(mixed $entries): ?array
     {
@@ -54,19 +57,20 @@ final class StructuredPreview
 
         $fields = [];
         foreach ($entries as $entry) {
-            $entry = is_object($entry) ? get_object_vars($entry) : $entry;
             if (!is_array($entry)
                 || !is_string($entry['field'] ?? null)
-                || !is_string($entry['current'] ?? null)
+                || $entry['field'] === ''
                 || !is_string($entry['proposed'] ?? null)
+                || !is_string($entry['current'] ?? null) && ($entry['current'] ?? null) !== null
             ) {
-                // One entry nr-llm did not shape as agreed: show the lines.
+                // One entry nr-llm did not shape as documented: show the lines.
                 return null;
             }
 
             $fields[] = [
                 'field'    => $entry['field'],
-                'current'  => $entry['current'],
+                'label'    => is_string($entry['label'] ?? null) ? $entry['label'] : '',
+                'current'  => $entry['current'] ?? null,
                 'proposed' => $entry['proposed'],
                 'measure'  => self::measure($entry['measure'] ?? null),
             ];
@@ -76,15 +80,21 @@ final class StructuredPreview
     }
 
     /**
-     * @return array{count: int, min: int, max: int}|null
+     * @return array{count: int, min: int|null, max: int|null}|null
      */
     private static function measure(mixed $measure): ?array
     {
-        $measure = is_object($measure) ? get_object_vars($measure) : $measure;
-        if (!is_array($measure) || !is_int($measure['count'] ?? null) || !is_int($measure['min'] ?? null) || !is_int($measure['max'] ?? null)) {
+        if (!is_array($measure) || !is_int($measure['count'] ?? null)) {
             return null;
         }
 
-        return ['count' => $measure['count'], 'min' => $measure['min'], 'max' => $measure['max']];
+        $min = $measure['min'] ?? null;
+        $max = $measure['max'] ?? null;
+
+        return [
+            'count' => $measure['count'],
+            'min'   => is_int($min) ? $min : null,
+            'max'   => is_int($max) ? $max : null,
+        ];
     }
 }
