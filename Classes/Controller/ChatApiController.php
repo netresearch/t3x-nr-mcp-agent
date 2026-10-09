@@ -267,7 +267,12 @@ final readonly class ChatApiController
 
         // A guided process is decided on the chat card only (nr-llm ADR-214),
         // where the owner cannot release their own write under four-eyes.
-        if ($this->skills instanceof SkillCatalogueInterface && $this->skills->requiresSecondApprover()) {
+        // Where nr-llm marks process skills, only those are refused; where it
+        // does not, every skill counts as one.
+        if ($this->skills instanceof SkillCatalogueInterface
+            && ($this->skills->find($skill)['process'] ?? null) !== false
+            && $this->skills->requiresSecondApprover()
+        ) {
             return new JsonResponse(['error' => $this->translate('error.skillSecondApprover')], 409);
         }
 

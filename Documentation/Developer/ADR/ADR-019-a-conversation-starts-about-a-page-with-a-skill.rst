@@ -71,7 +71,10 @@ rather than as a forced skill on every turn, and skips process skills on
 the forced path. nr-llm has no invocation API yet, so the run request is
 built through ``SkillInvocationInterface``, which nothing implements; with
 no implementation, or when it answers null, the skill goes as a forced skill
-as before. The invocation carries the conversation's page as the subject
+as before. nr-llm skips a skill marked as a process on the forced path,
+so on an nr-llm that marks process skills but cannot take an invocation, a
+process skill reaches no run until the invocation API ships. The
+invocation carries the conversation's page as the subject
 record (``pages``, uid). The skill's uid is resolved from the catalogue and
 kept beside the identifier (new column ``skill_uid``, 0 when the catalogue
 did not know it).
@@ -81,8 +84,9 @@ process only on the chat card; where the configuration requires a second
 approver (nr-llm ADR-172), the run's owner cannot release their own write
 there. A skill is therefore refused at the start and when it is picked
 (409, ``error.skillSecondApprover``) when the chat Task's configuration
-requires a second approver. Every catalogue skill counts as a process
-here: nr-llm does not mark process skills yet. A skill picked before the
+requires a second approver. Where the installed nr-llm marks process
+skills (``Skill::isProcess()``, nr-llm ADR-214), only those are refused;
+where it does not, every catalogue skill counts as a process. A skill picked before the
 configuration was switched to four-eyes keeps running.
 
 Consequences

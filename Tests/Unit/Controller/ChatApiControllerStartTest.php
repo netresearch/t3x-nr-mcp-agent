@@ -40,7 +40,9 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 #[CoversClass(ChatApiController::class)]
 final class ChatApiControllerStartTest extends TestCase
 {
-    private const SKILL = ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'Geführt', 'uid' => 17];
+    private const SKILL = ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'Geführt', 'uid' => 17, 'process' => null];
+
+    private const PLAIN_SKILL = ['identifier' => 'tone-check', 'name' => 'Tonalität', 'description' => 'Kein Ablauf', 'uid' => 18, 'process' => false];
 
     private ConversationRepository&MockObject $repository;
 
@@ -90,9 +92,9 @@ final class ChatApiControllerStartTest extends TestCase
         $skills = $this->createMock(SkillCatalogueInterface::class);
         $skills->method('isAvailable')->willReturn($available);
         $skills->method('requiresSecondApprover')->willReturn($secondApprover);
-        $skills->method('catalogue')->willReturn($available ? [self::SKILL] : []);
+        $skills->method('catalogue')->willReturn($available ? [self::SKILL, self::PLAIN_SKILL] : []);
         $skills->method('find')->willReturnCallback(
-            static fn(string $identifier): ?array => $available && $identifier === self::SKILL['identifier'] ? self::SKILL : null,
+            static fn(string $identifier): ?array => $available ? ([self::SKILL['identifier'] => self::SKILL, self::PLAIN_SKILL['identifier'] => self::PLAIN_SKILL][$identifier] ?? null) : null,
         );
 
         return $skills;
@@ -150,6 +152,19 @@ final class ChatApiControllerStartTest extends TestCase
         self::assertSame(201, $subject->createConversation($this->request('{}'))->getStatusCode());
     }
 
+    /**
+     * Where nr-llm marks process skills (nr-llm PR 1025), a skill marked as
+     * no process is no tour and starts on a four-eyes configuration; one with
+     * no marker counts as a process.
+     */
+    #[Test]
+    public function aSkillMarkedAsNoProcessStartsUnderFourEyes(): void
+    {
+        $response = $this->subject($this->catalogue(secondApprover: true))->createConversation($this->request('{"skill": "tone-check"}'));
+
+        self::assertSame(201, $response->getStatusCode());
+    }
+
     #[Test]
     public function aSkillOutsideTheCatalogueIsRefused(): void
     {
@@ -191,7 +206,7 @@ final class ChatApiControllerStartTest extends TestCase
     #[Test]
     public function theSlashListShowsTheCatalogue(): void
     {
-        self::assertSame(['available' => true, 'skills' => [self::SKILL]], self::json($this->subject($this->catalogue())->listSkills()));
+        self::assertSame(['available' => true, 'skills' => [self::SKILL, self::PLAIN_SKILL]], self::json($this->subject($this->catalogue())->listSkills()));
         self::assertSame(['available' => false, 'skills' => []], self::json($this->subject($this->catalogue(false))->listSkills()));
         self::assertSame(['available' => false, 'skills' => []], self::json($this->subject(null)->listSkills()));
     }
