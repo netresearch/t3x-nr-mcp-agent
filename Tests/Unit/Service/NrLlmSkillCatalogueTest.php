@@ -70,8 +70,8 @@ final class NrLlmSkillCatalogueTest extends TestCase
     {
         self::assertSame(
             [
-                ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour', 'uid' => 5],
-                ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour', 'uid' => 0],
+                ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour', 'uid' => 5, 'process' => null],
+                ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour', 'uid' => 0, 'process' => null],
             ],
             $this->catalogue(self::task())->catalogue(),
         );
