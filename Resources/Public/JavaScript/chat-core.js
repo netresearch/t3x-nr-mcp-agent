@@ -6,6 +6,9 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
 import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 
+/** How often the page module's page is read while it matters (ADR-023). */
+const PAGE_WATCH_MS = 1000;
+
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
 /**
@@ -221,6 +224,19 @@ export class ChatCoreController {
     highlightAnnounced = '';
     /** Whether the request ending the tour is under way (ADR-023). */
     endingTour = false;
+    /**
+     * What the chat may offer to start a guided process anew, from the server
+     * (ADR-023): `{skill, choosePage}`, or null where nr-llm cannot start a
+     * run with an invocation.
+     */
+    tourStart = null;
+    /** Where "Fertig" leads at the end of a process; '' without a dashboard. */
+    dashboardUrl = '';
+    /** The page the page module beside the panel shows (ADR-023). */
+    backendPage = {pageId: 0};
+    /** A page the user chose not to switch the tour to. */
+    pageKept = 0;
+    _pageWatchTimer = null;
 
     /** The highlight last sent to the page module, so it is sent once. */
     _sentHighlight = '';
@@ -356,6 +372,9 @@ export class ChatCoreController {
         this.guided = {progress: null, highlight: null};
         this.cardOutcomes = [];
         this.tour = null;
+        this.tourStart = null;
+        this.dashboardUrl = '';
+        this.pageKept = 0;
         // Coming back to a conversation highlights its element again.
         this._sentHighlight = '';
         this.highlightAnnounced = '';
@@ -510,6 +529,8 @@ export class ChatCoreController {
             this.guided = data.guided || {progress: null, highlight: null};
             this.cardOutcomes = data.cardOutcomes || [];
             this.tour = data.tour || null;
+            this.tourStart = data.tourStart || null;
+            this.dashboardUrl = data.dashboardUrl || '';
             this.skill = data.skill || null;
             this.activity = data.activity || [];
             if (data.pendingApproval) {
@@ -589,6 +610,12 @@ export class ChatCoreController {
                 }
                 if ('tour' in data) {
                     this.tour = data.tour || null;
+                }
+                if ('tourStart' in data) {
+                    this.tourStart = data.tourStart || null;
+                }
+                if ('dashboardUrl' in data) {
+                    this.dashboardUrl = data.dashboardUrl || '';
                 }
                 this.pendingInput = data.pendingInput || null;
                 this._knownMessageCount = data.totalCount;
@@ -961,6 +988,8 @@ export class ChatCoreController {
             if (uid !== this.activeUid) return;
             this.skill = null;
             this.tour = null;
+            this.tourStart = null;
+            this.dashboardUrl = '';
             this.guided = {progress: null, highlight: null};
             this.pendingApproval = null;
             this.pendingInput = null;
@@ -995,6 +1024,99 @@ export class ChatCoreController {
         } finally {
             this.host.requestUpdate();
         }
+    }
+
+    // ── Starting a guided process anew (ADR-023) ─────────────────────
+
+    /**
+     * Whether the page the page module shows matters now: while the chat asks
+     * for a page, and while a process runs on one.
+     */
+    needsBackendPage() {
+        return Boolean(this.tourStart?.choosePage || this.tour);
+    }
+
+    /**
+     * Follow the page module beside the panel while it matters, by reading
+     * its URL; stop when it no longer does.
+     *
+     * @param {() => {pageId: number, languageId?: number}} [read]
+     */
+    syncPageWatch(read = currentBackendContext) {
+        if (!this.needsBackendPage()) {
+            this.stopPageWatch();
+            return;
+        }
+        this.refreshBackendPage(read);
+        if (!this._pageWatchTimer) {
+            this._pageWatchTimer = setInterval(() => this.refreshBackendPage(read), PAGE_WATCH_MS);
+        }
+    }
+
+    /** @param {() => {pageId: number, languageId?: number}} [read] */
+    refreshBackendPage(read = currentBackendContext) {
+        const context = read();
+        const pageId = context.pageId || 0;
+        const languageId = context.languageId;
+        if (pageId !== this.backendPage.pageId || languageId !== this.backendPage.languageId) {
+            this.backendPage = languageId === undefined ? {pageId} : {pageId, languageId};
+            this.host.requestUpdate();
+        }
+    }
+
+    stopPageWatch() {
+        if (this._pageWatchTimer) {
+            clearInterval(this._pageWatchTimer);
+            this._pageWatchTimer = null;
+        }
+    }
+
+    /**
+     * The process asks for a page: check the one the page module shows. The
+     * turn carries that page as the run's subject, as every message does.
+     */
+    async checkBackendPage() {
+        if (!this.tourStart?.choosePage || this.backendPage.pageId <= 0) return;
+        this.inputValue = lll('guided.checkPage');
+        this.hasInput = true;
+        await this.handleSend();
+    }
+
+    /** At the end of a process: the same process in a new conversation, which asks for a page. */
+    async chooseAnotherPage() {
+        const skill = this.tourStart?.skill;
+        if (!skill) return;
+        await this.handleNewConversation({skill});
+    }
+
+    /**
+     * Whether the page module shows another page than the running process,
+     * one the user has not chosen to stay away from.
+     */
+    pageChanged() {
+        const pageId = this.backendPage.pageId;
+
+        return Boolean(this.tour) && pageId > 0 && pageId !== this.tour.pageUid && pageId !== this.pageKept;
+    }
+
+    /** End the process here and start it on the page the page module shows. */
+    async switchToBackendPage() {
+        const skill = this.tourStart?.skill;
+        const {pageId, languageId} = this.backendPage;
+        if (!skill || !this.pageChanged()) return;
+        await this.endTour();
+        if (this.tour) return;
+        const start = {pageUid: pageId, skill};
+        if (Number.isInteger(languageId) && languageId >= 0) {
+            start.languageUid = languageId;
+        }
+        await this.handleNewConversation(start);
+    }
+
+    /** Stay with the process's page; this page is not offered again. */
+    keepTourPage() {
+        this.pageKept = this.backendPage.pageId;
+        this.host.requestUpdate();
     }
 
     async handleResume() {

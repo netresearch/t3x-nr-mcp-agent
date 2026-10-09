@@ -671,6 +671,42 @@
                 <source>done</source>
                 <target>abgeschlossen</target>
             </trans-unit>
+            <trans-unit id="guided.choosePage" resname="guided.choosePage">
+                <source>Choose a page</source>
+                <target>Seite wählen</target>
+            </trans-unit>
+            <trans-unit id="guided.choosePageHint" resname="guided.choosePageHint">
+                <source>Select the page to check in the page tree, then confirm it here.</source>
+                <target>Wählen Sie im Seitenbaum die Seite, die geprüft werden soll, und bestätigen Sie sie hier.</target>
+            </trans-unit>
+            <trans-unit id="guided.checkPage" resname="guided.checkPage">
+                <source>Check this page</source>
+                <target>Diese Seite prüfen</target>
+            </trans-unit>
+            <trans-unit id="guided.chooseAnotherPage" resname="guided.chooseAnotherPage">
+                <source>Choose another page</source>
+                <target>Andere Seite wählen</target>
+            </trans-unit>
+            <trans-unit id="guided.finish" resname="guided.finish">
+                <source>Done</source>
+                <target>Fertig</target>
+            </trans-unit>
+            <trans-unit id="guided.toDashboard" resname="guided.toDashboard">
+                <source>Go to the dashboard</source>
+                <target>Zum Dashboard</target>
+            </trans-unit>
+            <trans-unit id="guided.pageChanged" resname="guided.pageChanged">
+                <source>Another page selected</source>
+                <target>Andere Seite ausgewählt</target>
+            </trans-unit>
+            <trans-unit id="guided.switchPage" resname="guided.switchPage">
+                <source>Switch to the new page</source>
+                <target>Zur neuen Seite wechseln</target>
+            </trans-unit>
+            <trans-unit id="guided.keepPage" resname="guided.keepPage">
+                <source>Stay with “%s”</source>
+                <target>Bei „%s“ bleiben</target>
+            </trans-unit>
             <trans-unit id="guided.endTour" resname="guided.endTour">
                 <source>End tour</source>
                 <target>Rundgang beenden</target>

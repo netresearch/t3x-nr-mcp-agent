@@ -34,6 +34,7 @@ use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use Netresearch\NrMcpAgent\Service\TourContext;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
@@ -92,6 +93,9 @@ final readonly class ChatApiController
         private ?SkillCatalogueInterface $skills = null,
         private ?TourContext $tourContext = null,
         private ?ProcessPinReleaseInterface $pinRelease = null,
+        // Without it the chat offers no new start of a guided process: no
+        // page choice, no "Andere Seite wählen" (ADR-023).
+        private ?SkillInvocationInterface $skillInvocation = null,
     ) {}
 
     /**
@@ -577,8 +581,48 @@ final readonly class ChatApiController
             'tour' => ($GLOBALS['BE_USER'] ?? null) instanceof BackendUserAuthentication
                 ? ($this->tourContext ?? new TourContext($this->siteFinder))->of($conversation, $GLOBALS['BE_USER'])
                 : null,
+            // Whether and how the chat may start a guided process anew
+            // (ADR-023): null unless nr-llm can start a run with an invocation.
+            'tourStart' => $this->tourStart($conversation),
+            // Where "Fertig" leads once the process is finished: the dashboard,
+            // when it is installed.
+            'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
             'activity' => $conversation->getActivity(),
         ]);
+    }
+
+    /**
+     * What the chat may offer to start a guided process anew (ADR-023): the
+     * page choice for a process without a page, "Andere Seite wählen" at its
+     * end, and the switch to another page. Only where a run can be started
+     * with an invocation (nr-llm ADR-214): nr-llm skips a process skill on
+     * the forced path, so without one a new start would run without its
+     * process. A skill the catalogue does not mark counts as a process, as
+     * elsewhere.
+     *
+     * @return array{skill: string, choosePage: bool}|null
+     */
+    private function tourStart(Conversation $conversation): ?array
+    {
+        $identifier = $conversation->getSkillIdentifier();
+        if (!$this->skillInvocation instanceof SkillInvocationInterface
+            || $identifier === ''
+            || ($this->skills?->find($identifier)['process'] ?? null) === false
+        ) {
+            return null;
+        }
+
+        return ['skill' => $identifier, 'choosePage' => $conversation->getViewContext()['pageId'] <= 0];
+    }
+
+    /** The dashboard module's URL, '' where EXT:dashboard is not installed. */
+    private function dashboardUrl(): string
+    {
+        try {
+            return (string) $this->uriBuilder->buildUriFromRoute('dashboard');
+        } catch (RouteNotFoundException) {
+            return '';
+        }
     }
 
     /**

@@ -47,6 +47,20 @@ export const chatGuidedStyles = css`
         cursor: default;
         opacity: .5;
     }
+    .guided-block {
+        margin: 0 0 8px;
+        padding: 6px 0 6px 12px;
+        border-left: 3px solid var(--typo3-component-primary-color, #0078e6);
+    }
+    .guided-block p {
+        margin: 0 0 6px;
+    }
+    .guided-block .guided-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+    }
     .guided-announcement {
         position: absolute;
         width: 1px;
@@ -163,4 +177,84 @@ export function clearSentHighlight(chat, win = globalThis) {
 
     frame.postMessage({type: HIGHLIGHT_MESSAGE, version: 1, clear: true}, win.location.origin);
     return true;
+}
+
+/**
+ * The process has no page yet (ADR-023, page choice): it asks for one, and
+ * "Diese Seite prüfen" starts it on the page the page module shows. Only where
+ * nr-llm can start a run with an invocation (`chat.tourStart`); without a page
+ * module beside the chat the button stays disabled and the text says where to
+ * choose.
+ */
+export function renderPageChoice(chat) {
+    if (!chat.tourStart?.choosePage) {
+        return nothing;
+    }
+
+    return html`
+        <div class="guided-block guided-choice" role="group" aria-labelledby="nr-chat-guided-choice">
+            <p id="nr-chat-guided-choice"><strong>${lll('guided.choosePage')}</strong></p>
+            <p>${lll('guided.choosePageHint')}</p>
+            <div class="guided-actions">
+                <button type="button" class="btn btn-sm btn-primary" data-action="check-page"
+                    ?disabled=${chat.backendPage.pageId <= 0 || chat.sending || chat.isProcessing()}
+                    @click=${() => chat.checkBackendPage()}>${lll('guided.checkPage')}</button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * The end of a process (ADR-023): "Andere Seite wählen" starts it anew in a
+ * new conversation that asks for a page, only where nr-llm can start one;
+ * "Fertig" ends it, and the dashboard is linked where it is installed.
+ */
+export function renderTourEnd(chat) {
+    if (!chat.tour || chat.guided?.progress?.completed !== true) {
+        return nothing;
+    }
+
+    return html`
+        <div class="guided-block guided-end-actions" role="group" aria-label="${lll('guided.completed')}">
+            <div class="guided-actions">
+                ${chat.tourStart ? html`
+                    <button type="button" class="btn btn-sm btn-default" data-action="choose-another-page"
+                        ?disabled=${chat.endingTour || chat.isProcessing()}
+                        @click=${() => chat.chooseAnotherPage()}>${lll('guided.chooseAnotherPage')}</button>
+                ` : nothing}
+                <button type="button" class="btn btn-sm btn-primary" data-action="finish-tour"
+                    ?disabled=${chat.endingTour || chat.isProcessing()}
+                    @click=${() => chat.endTour()}>${lll('guided.finish')}</button>
+                ${chat.dashboardUrl ? html`
+                    <a class="btn btn-sm btn-link" data-action="dashboard" href="${chat.dashboardUrl}" target="_top">${lll('guided.toDashboard')}</a>
+                ` : nothing}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * The page module shows another page than the running process (ADR-023):
+ * stay with the process's page, or, where nr-llm can start a process, end it
+ * and start it on the new page. A status region, so the change is announced.
+ */
+export function renderPageChange(chat) {
+    const changed = chat.pageChanged();
+
+    return html`
+        <div role="status" class="guided-page-change-region">${changed ? html`
+            <div class="guided-block guided-page-change">
+                <p><strong>${lll('guided.pageChanged')}</strong></p>
+                <div class="guided-actions">
+                    ${chat.tourStart ? html`
+                        <button type="button" class="btn btn-sm btn-primary" data-action="switch-page"
+                            ?disabled=${chat.endingTour || chat.isProcessing()}
+                            @click=${() => chat.switchToBackendPage()}>${lll('guided.switchPage')}</button>
+                    ` : nothing}
+                    <button type="button" class="btn btn-sm btn-default" data-action="keep-page"
+                        @click=${() => chat.keepTourPage()}>${lll('guided.keepPage', chat.tour.pageTitle)}</button>
+                </div>
+            </div>
+        ` : nothing}</div>
+    `;
 }

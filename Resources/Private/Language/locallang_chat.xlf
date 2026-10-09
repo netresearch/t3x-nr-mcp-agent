@@ -508,6 +508,33 @@
             <trans-unit id="guided.completed" resname="guided.completed">
                 <source>done</source>
             </trans-unit>
+            <trans-unit id="guided.choosePage" resname="guided.choosePage">
+                <source>Choose a page</source>
+            </trans-unit>
+            <trans-unit id="guided.choosePageHint" resname="guided.choosePageHint">
+                <source>Select the page to check in the page tree, then confirm it here.</source>
+            </trans-unit>
+            <trans-unit id="guided.checkPage" resname="guided.checkPage">
+                <source>Check this page</source>
+            </trans-unit>
+            <trans-unit id="guided.chooseAnotherPage" resname="guided.chooseAnotherPage">
+                <source>Choose another page</source>
+            </trans-unit>
+            <trans-unit id="guided.finish" resname="guided.finish">
+                <source>Done</source>
+            </trans-unit>
+            <trans-unit id="guided.toDashboard" resname="guided.toDashboard">
+                <source>Go to the dashboard</source>
+            </trans-unit>
+            <trans-unit id="guided.pageChanged" resname="guided.pageChanged">
+                <source>Another page selected</source>
+            </trans-unit>
+            <trans-unit id="guided.switchPage" resname="guided.switchPage">
+                <source>Switch to the new page</source>
+            </trans-unit>
+            <trans-unit id="guided.keepPage" resname="guided.keepPage">
+                <source>Stay with “%s”</source>
+            </trans-unit>
             <trans-unit id="guided.endTour" resname="guided.endTour">
                 <source>End tour</source>
             </trans-unit>

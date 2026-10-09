@@ -11,7 +11,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
-import {chatGuidedStyles, renderEndTour, renderHighlightAnnouncement, renderProgress, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
+import {chatGuidedStyles, renderEndTour, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
@@ -883,9 +883,13 @@ export class AiChatPanel extends LitElement {
         super.disconnectedCallback();
         document.removeEventListener('keydown', this._keydownHandler);
         document.removeEventListener('click', this._closeAttachMenu);
+        this.chat.stopPageWatch();
     }
 
     updated(changed) {
+        // Which page the page module beside the panel shows, while the guided
+        // process asks for one or runs on one (ADR-023).
+        this.chat.syncPageWatch();
         // The page module beside the panel shows the element the guided
         // process is about (ADR-020).
         if (sendHighlight(this.chat, this.ownerDocument?.defaultView ?? globalThis)) {
@@ -2428,6 +2432,9 @@ export class AiChatPanel extends LitElement {
     _renderInput() {
         return html`
             ${renderReplyOptions(this.chat)}
+            ${renderPageChange(this.chat)}
+            ${renderPageChoice(this.chat)}
+            ${renderTourEnd(this.chat)}
             ${renderActiveSkill(this.chat)}
             ${renderSlashList(this.chat)}
             ${this._renderFileBadge()}

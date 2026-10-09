@@ -9,7 +9,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
-import {chatGuidedStyles, renderEndTour, renderProgress} from '@netresearch/nr-mcp-agent/chat-guided.js';
+import {chatGuidedStyles, renderEndTour, renderPageChange, renderPageChoice, renderProgress, renderTourEnd} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
@@ -780,6 +780,9 @@ export class ChatApp extends LitElement {
             </div>
 
             ${renderReplyOptions(this.chat)}
+            ${renderPageChange(this.chat)}
+            ${renderPageChoice(this.chat)}
+            ${renderTourEnd(this.chat)}
             ${renderActiveSkill(this.chat)}
             ${renderSlashList(this.chat)}
             ${this._renderFileBadge()}
