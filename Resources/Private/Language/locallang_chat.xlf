@@ -385,6 +385,12 @@
             <trans-unit id="widget.openModule" resname="widget.openModule">
                 <source>Open the chat module</source>
             </trans-unit>
+            <trans-unit id="guided.progress" resname="guided.progress">
+                <source>Point %d of %d</source>
+            </trans-unit>
+            <trans-unit id="guided.completed" resname="guided.completed">
+                <source>done</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

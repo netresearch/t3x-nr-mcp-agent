@@ -14,6 +14,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     system_prompt text,
     view_context varchar(255) DEFAULT '' NOT NULL,
     activity text,
+    guided_state text,
     archived tinyint(1) unsigned DEFAULT 0 NOT NULL,
     pinned tinyint(1) unsigned DEFAULT 0 NOT NULL,
     error_message text,
@@ -42,4 +43,17 @@ CREATE TABLE tx_nrmcpagent_message (
 
     PRIMARY KEY (uid),
     UNIQUE KEY conversation_sorting (conversation, sorting)
+);
+
+CREATE TABLE tx_nrmcpagent_run_state (
+    uid int(11) unsigned NOT NULL AUTO_INCREMENT,
+    run_uuid varchar(64) DEFAULT '' NOT NULL,
+    be_user int(11) unsigned DEFAULT 0 NOT NULL,
+    progress text,
+    highlight text,
+    tstamp int(11) unsigned DEFAULT 0 NOT NULL,
+    crdate int(11) unsigned DEFAULT 0 NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY run_uuid (run_uuid)
 );
