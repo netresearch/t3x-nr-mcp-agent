@@ -11,7 +11,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
-import {chatGuidedStyles, renderProgress, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
+import {chatGuidedStyles, renderHighlightAnnouncement, renderProgress, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
@@ -888,7 +888,10 @@ export class AiChatPanel extends LitElement {
     updated(changed) {
         // The page module beside the panel shows the element the guided
         // process is about (ADR-020).
-        sendHighlight(this.chat, this.ownerDocument?.defaultView ?? globalThis);
+        if (sendHighlight(this.chat, this.ownerDocument?.defaultView ?? globalThis)) {
+            // The announcement of the new mark renders on the next pass.
+            this.requestUpdate();
+        }
         if (changed.has('state') || changed.has('_height') || changed.has('_width') || changed.has('_posX') || changed.has('_posY')) {
             this._applySize();
         }
@@ -1579,6 +1582,7 @@ export class AiChatPanel extends LitElement {
                  @dblclick=${(e) => this._onHeaderDblClick(e)}>
                 <span class="title">${title}</span>
                 ${renderProgress(this.chat)}
+                ${renderHighlightAnnouncement(this.chat)}
                 ${this.chat.status ? html`
                     <span class="status-badge status-${displayStatus(this.chat.status)}" title="${displayStatus(this.chat.status)}">${STATUS_ICONS[displayStatus(this.chat.status)] ?? displayStatus(this.chat.status)}</span>
                 ` : nothing}

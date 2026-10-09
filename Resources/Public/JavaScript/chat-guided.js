@@ -33,7 +33,28 @@ export const chatGuidedStyles = css`
     .guided-count {
         flex: none;
     }
+    .guided-announcement {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
 `;
+
+/**
+ * Says to a screen reader which element the page module beside the panel now
+ * marks (ADR-023): a fixed sentence and the element's uid, set when the
+ * highlight was sent. The region is always present, so the change is
+ * announced.
+ */
+export function renderHighlightAnnouncement(chat) {
+    return html`<span class="guided-announcement" role="status">${chat.highlightAnnounced
+        ? `${lll('guided.highlightAnnounced')} ${chat.highlightAnnounced}`
+        : ''}</span>`;
+}
 
 /**
  * Where a guided process stands, as a status region, so a screen reader hears
@@ -88,6 +109,7 @@ export function sendHighlight(chat, win = globalThis) {
     }
 
     chat._sentHighlight = key;
+    chat.highlightAnnounced = String(highlight.uid);
     frame.postMessage({type: HIGHLIGHT_MESSAGE, version: 1, table: highlight.table, uid: highlight.uid}, win.location.origin);
     return true;
 }
