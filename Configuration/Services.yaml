@@ -13,9 +13,15 @@ services:
     exclude: '../Classes/Dashboard/*'
 
   # Seams of the AI assistant dashboard widgets. Each alias is the point to
-  # re-bind: the open-points store replaces NullOpenPointReader here.
+  # re-bind.
+  # Open points come from the chat's store. "@?" injects null while the store
+  # (OpenPointVisibility) does not exist, and then there are no points.
   Netresearch\NrMcpAgent\Service\Assistant\OpenPointReaderInterface:
-    alias: Netresearch\NrMcpAgent\Service\Assistant\NullOpenPointReader
+    alias: Netresearch\NrMcpAgent\Service\Assistant\VisibleOpenPointReader
+
+  Netresearch\NrMcpAgent\Service\Assistant\VisibleOpenPointReader:
+    arguments:
+      $visibility: '@?Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointVisibility'
 
   Netresearch\NrMcpAgent\Service\Assistant\GuidedSkillProviderInterface:
     alias: Netresearch\NrMcpAgent\Service\Assistant\ConfiguredGuidedSkillProvider
