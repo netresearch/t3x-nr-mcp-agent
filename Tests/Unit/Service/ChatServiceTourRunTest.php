@@ -35,6 +35,7 @@ use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\ProcessRunDetectorInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use Netresearch\NrMcpAgent\Service\WaitingRunCancel;
 use Netresearch\NrMcpAgent\Service\WaitingRunCancellerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -184,25 +185,30 @@ final class ChatServiceTourRunTest extends TestCase
      * With nr-llm's guarded cancel the chat does not read and cancel itself:
      * the guard decides, and a run it did not cancel is judged by its state.
      *
-     * @return iterable<string, array{bool|null, AgentRunStatus, bool}>
+     * The row's status is what the chat would read itself; the guarded result
+     * must win over it, so the two disagree in every guarded case.
+     *
+     * @return iterable<string, array{WaitingRunCancel|null, AgentRunStatus, bool}>
      */
     public static function guardedCancels(): iterable
     {
-        yield 'cancelled' => [true, AgentRunStatus::CANCELLED, true];
-        yield 'not waiting, being carried on' => [false, AgentRunStatus::RUNNING, false];
-        yield 'not waiting, decided and finished' => [false, AgentRunStatus::COMPLETED, true];
+        yield 'cancelled' => [new WaitingRunCancel(true, AgentRunStatus::CANCELLED), AgentRunStatus::RUNNING, true];
+        yield 'not waiting, being carried on' => [new WaitingRunCancel(false, AgentRunStatus::RUNNING), AgentRunStatus::COMPLETED, false];
+        yield 'handed back, still waiting' => [new WaitingRunCancel(false, AgentRunStatus::WAITING_FOR_APPROVAL), AgentRunStatus::COMPLETED, false];
+        yield 'not waiting, decided and finished' => [new WaitingRunCancel(false, AgentRunStatus::COMPLETED), AgentRunStatus::RUNNING, true];
+        yield 'unknown to nr-llm' => [new WaitingRunCancel(false, null), AgentRunStatus::RUNNING, true];
         // nr-llm without the guarded cancel: the status read and cancel()
         yield 'no guarded cancel, waiting' => [null, AgentRunStatus::WAITING_FOR_APPROVAL, true];
     }
 
     #[Test]
     #[DataProvider('guardedCancels')]
-    public function theGuardedCancelDecidesWhenNrLlmHasIt(?bool $cancelled, AgentRunStatus $statusAfter, bool $released): void
+    public function theGuardedCancelDecidesWhenNrLlmHasIt(?WaitingRunCancel $guarded, AgentRunStatus $statusRead, bool $released): void
     {
         $canceller = $this->createMock(WaitingRunCancellerInterface::class);
-        $canceller->expects(self::once())->method('cancelIfWaiting')->with(self::anything(), self::RUN)->willReturn($cancelled);
-        $service = $this->service($statusAfter, processRuns: $this->processRun(true), runCanceller: $canceller);
-        $this->runtime->expects($cancelled === null ? self::once() : self::never())->method('cancel')->willReturn(true);
+        $canceller->expects(self::once())->method('cancelIfWaiting')->with(self::anything(), self::RUN)->willReturn($guarded);
+        $service = $this->service($statusRead, processRuns: $this->processRun(true), runCanceller: $canceller);
+        $this->runtime->expects($guarded === null ? self::once() : self::never())->method('cancel')->willReturn(true);
 
         self::assertSame($released, $service->releasePendingRun($this->parked()));
     }
@@ -233,16 +239,23 @@ final class ChatServiceTourRunTest extends TestCase
         return new ToolEffectResolver(new ToolRegistry($tools));
     }
 
-    private function view(string ...$tools): WaitingRunView
+    private static function viewHasDeclaresWrite(): bool
     {
-        return new WaitingRunView(
-            self::RUN,
-            WaitingRunView::MODE_APPROVAL,
-            0,
-            'Chat',
-            'digest',
-            array_map(static fn(string $name): PendingCallView => new PendingCallView($name, '{}', true), $tools),
-        );
+        return property_exists(PendingCallView::class, 'declaresWrite');
+    }
+
+    /**
+     * A card with one pending call. `$declaresWrite` is what nr-llm 0.41's
+     * view factory states for the call; an earlier nr-llm's view has no such
+     * member, and the chat resolves the effect by name instead.
+     */
+    private function view(string $tool, bool $declaresWrite): WaitingRunView
+    {
+        $call = self::viewHasDeclaresWrite()
+            ? new PendingCallView($tool, '{}', true, declaresWrite: $declaresWrite)
+            : new PendingCallView($tool, '{}', true);
+
+        return new WaitingRunView(self::RUN, WaitingRunView::MODE_APPROVAL, 0, 'Chat', 'digest', [$call]);
     }
 
     private function processRun(bool $isProcess): ProcessRunDetectorInterface
@@ -258,7 +271,7 @@ final class ChatServiceTourRunTest extends TestCase
     {
         $service = $this->service(null, processRuns: $this->processRun(true), toolEffects: $this->effects(ToolEffect::IDEMPOTENT_WRITE));
 
-        self::assertTrue($service->offersProcessAnswers($this->parked(), $this->view('tool_0')));
+        self::assertTrue($service->offersProcessAnswers($this->parked(), $this->view('tool_0', declaresWrite: true)));
     }
 
     #[Test]
@@ -266,7 +279,7 @@ final class ChatServiceTourRunTest extends TestCase
     {
         $service = $this->service(null, processRuns: $this->processRun(true), toolEffects: $this->effects(ToolEffect::READ_ONLY));
 
-        self::assertFalse($service->offersProcessAnswers($this->parked(), $this->view('tool_0')));
+        self::assertFalse($service->offersProcessAnswers($this->parked(), $this->view('tool_0', declaresWrite: false)));
     }
 
     /** nr-llm resolves an unknown tool name as a write, and so does the card. */
@@ -275,7 +288,7 @@ final class ChatServiceTourRunTest extends TestCase
     {
         $service = $this->service(null, processRuns: $this->processRun(true), toolEffects: $this->effects(ToolEffect::READ_ONLY));
 
-        self::assertTrue($service->offersProcessAnswers($this->parked(), $this->view('tool_removed')));
+        self::assertTrue($service->offersProcessAnswers($this->parked(), $this->view('tool_removed', declaresWrite: true)));
     }
 
     #[Test]
@@ -283,7 +296,25 @@ final class ChatServiceTourRunTest extends TestCase
     {
         $effects = $this->effects(ToolEffect::IDEMPOTENT_WRITE);
 
-        self::assertFalse($this->service(null, processRuns: $this->processRun(false), toolEffects: $effects)->offersProcessAnswers($this->parked(), $this->view('tool_0')));
-        self::assertFalse($this->service(null, toolEffects: $effects)->offersProcessAnswers($this->parked(), $this->view('tool_0')), 'no detector: no process run');
+        self::assertFalse($this->service(null, processRuns: $this->processRun(false), toolEffects: $effects)->offersProcessAnswers($this->parked(), $this->view('tool_0', declaresWrite: true)));
+        self::assertFalse($this->service(null, toolEffects: $effects)->offersProcessAnswers($this->parked(), $this->view('tool_0', declaresWrite: true)), 'no detector: no process run');
+    }
+
+    /**
+     * With nr-llm 0.41 the card follows what nr-llm's view declares, in both
+     * directions, and not the chat's own resolution by name.
+     */
+    #[Test]
+    public function theViewsDeclarationWinsOverTheResolver(): void
+    {
+        if (!self::viewHasDeclaresWrite()) {
+            self::markTestSkipped('Needs nr-llm 0.41 (PendingCallView::$declaresWrite, nr-llm PR 1024).');
+        }
+
+        $readsByName = $this->service(null, processRuns: $this->processRun(true), toolEffects: $this->effects(ToolEffect::READ_ONLY));
+        $writesByName = $this->service(null, processRuns: $this->processRun(true), toolEffects: $this->effects(ToolEffect::IDEMPOTENT_WRITE));
+
+        self::assertTrue($readsByName->offersProcessAnswers($this->parked(), $this->view('tool_0', declaresWrite: true)));
+        self::assertFalse($writesByName->offersProcessAnswers($this->parked(), $this->view('tool_0', declaresWrite: false)));
     }
 }

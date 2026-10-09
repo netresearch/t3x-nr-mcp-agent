@@ -509,9 +509,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $actor = $this->resolveActor($before->getBeUser());
-        $cancelled = $this->runCanceller?->cancelIfWaiting($actor, $runUuid)
-            ?? $this->cancelIfWaitingByStatus($actor, $runUuid);
-        if ($cancelled) {
+        $guarded = $this->runCanceller?->cancelIfWaiting($actor, $runUuid);
+        if ($guarded instanceof WaitingRunCancel) {
+            return $guarded->releasesConversation();
+        }
+
+        if ($this->cancelIfWaitingByStatus($actor, $runUuid)) {
             return true;
         }
 
@@ -547,9 +550,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Whether the card offers "Übernehmen / Andere Variante / Überspringen"
      * rather than approve and cancel (nr-llm ADR-214, item 9).
      *
-     * Only in a process run, and only when a pending call writes. The effect is
-     * nr-llm's own resolution by name, in which an unknown tool counts as a
-     * write; without the resolver every call does.
+     * Only in a process run, and only when a pending call writes. nr-llm's
+     * view says so per call (`PendingCallView::$declaresWrite`, nr-llm PR
+     * 1024, 0.41). On an nr-llm without it the effect is nr-llm's own
+     * resolution by name; in both an unknown tool counts as a write, and
+     * without the resolver every call does.
      */
     public function offersProcessAnswers(Conversation $conversation, WaitingRunView $view): bool
     {
@@ -558,7 +563,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         foreach ($view->pendingCalls as $call) {
-            if (!$this->toolEffects instanceof ToolEffectResolver || $this->toolEffects->effectFor($call->name)->isWrite()) {
+            if (PendingCallEffect::declaresWrite($call, $this->toolEffects)) {
                 return true;
             }
         }
