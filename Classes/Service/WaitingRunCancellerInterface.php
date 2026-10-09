@@ -16,17 +16,18 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
  * (nr-llm ADR-214): one guarded transition, so a decision taken at the same
  * moment wins instead of being cancelled while it runs.
  *
- * nr-llm's `cancelIfWaiting()` does not exist yet, so nothing implements
- * this interface. Without an implementation the chat reads the run's status
- * and calls `AgentRuntimeInterface::cancel()`, which settles a run in any
- * state that has not finished; a decision landing between the read and the
- * cancel is the gap this interface closes.
+ * `NrLlmWaitingRunCanceller` calls nr-llm's
+ * `AgentRuntimeInterface::cancelIfWaiting()` (nr-llm PR 1024) where the
+ * installed nr-llm has it. Where it does not, it answers null, and the chat
+ * reads the run's status and calls `cancel()`, which settles a run in any
+ * state that has not finished.
  */
 interface WaitingRunCancellerInterface
 {
     /**
      * True when the run was waiting and is cancelled now; false when it was
-     * not waiting (any more), or the actor may not cancel it.
+     * not waiting (any more), or the actor may not cancel it; null when the
+     * installed nr-llm has no guarded cancel.
      */
-    public function cancelIfWaiting(AiActorContext $actor, string $runUuid): bool;
+    public function cancelIfWaiting(AiActorContext $actor, string $runUuid): ?bool;
 }

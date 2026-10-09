@@ -485,9 +485,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $actor = $this->resolveActor($before->getBeUser());
-        $cancelled = $this->runCanceller instanceof WaitingRunCancellerInterface
-            ? $this->runCanceller->cancelIfWaiting($actor, $runUuid)
-            : $this->cancelIfWaitingByStatus($actor, $runUuid);
+        $cancelled = $this->runCanceller?->cancelIfWaiting($actor, $runUuid)
+            ?? $this->cancelIfWaitingByStatus($actor, $runUuid);
         if ($cancelled) {
             return true;
         }

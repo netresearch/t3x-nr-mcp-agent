@@ -11,6 +11,7 @@ namespace Netresearch\NrMcpAgent\Tests\Functional\Service;
 
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\NrLlmUnavailableToolsReader;
+use Netresearch\NrMcpAgent\Service\NrLlmWaitingRunCanceller;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -43,5 +44,14 @@ final class ChatServiceWiringTest extends FunctionalTestCase
         $reader = (new ReflectionProperty(ChatService::class, 'unavailableTools'))->getValue($service);
 
         self::assertInstanceOf(NrLlmUnavailableToolsReader::class, $reader);
+    }
+
+    /** The guarded cancel of a tour's waiting run (ADR-018) arrives the same way. */
+    #[Test]
+    public function theContainerHandsTheChatTheGuardedCancel(): void
+    {
+        $canceller = (new ReflectionProperty(ChatService::class, 'runCanceller'))->getValue($this->get(ChatService::class));
+
+        self::assertInstanceOf(NrLlmWaitingRunCanceller::class, $canceller);
     }
 }

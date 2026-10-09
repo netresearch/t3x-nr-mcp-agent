@@ -184,23 +184,25 @@ final class ChatServiceTourRunTest extends TestCase
      * With nr-llm's guarded cancel the chat does not read and cancel itself:
      * the guard decides, and a run it did not cancel is judged by its state.
      *
-     * @return iterable<string, array{bool, AgentRunStatus, bool}>
+     * @return iterable<string, array{bool|null, AgentRunStatus, bool}>
      */
     public static function guardedCancels(): iterable
     {
         yield 'cancelled' => [true, AgentRunStatus::CANCELLED, true];
         yield 'not waiting, being carried on' => [false, AgentRunStatus::RUNNING, false];
         yield 'not waiting, decided and finished' => [false, AgentRunStatus::COMPLETED, true];
+        // nr-llm without the guarded cancel: the status read and cancel()
+        yield 'no guarded cancel, waiting' => [null, AgentRunStatus::WAITING_FOR_APPROVAL, true];
     }
 
     #[Test]
     #[DataProvider('guardedCancels')]
-    public function theGuardedCancelDecidesWhenNrLlmHasIt(bool $cancelled, AgentRunStatus $statusAfter, bool $released): void
+    public function theGuardedCancelDecidesWhenNrLlmHasIt(?bool $cancelled, AgentRunStatus $statusAfter, bool $released): void
     {
         $canceller = $this->createMock(WaitingRunCancellerInterface::class);
         $canceller->expects(self::once())->method('cancelIfWaiting')->with(self::anything(), self::RUN)->willReturn($cancelled);
         $service = $this->service($statusAfter, processRuns: $this->processRun(true), runCanceller: $canceller);
-        $this->runtime->expects(self::never())->method('cancel');
+        $this->runtime->expects($cancelled === null ? self::once() : self::never())->method('cancel')->willReturn(true);
 
         self::assertSame($released, $service->releasePendingRun($this->parked()));
     }
