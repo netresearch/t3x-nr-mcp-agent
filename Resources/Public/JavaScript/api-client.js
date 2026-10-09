@@ -26,9 +26,26 @@ export class ApiClient {
         return this._get('ai_chat_conversations');
     }
 
-    /** @returns {Promise<{uid: number}>} */
-    async createConversation() {
-        return this._post('ai_chat_conversation_create', {});
+    /**
+     * @param {{pageUid?: number, languageUid?: number, skill?: string}} [start] what the conversation is about (ADR-019)
+     * @returns {Promise<{uid: number}>}
+     */
+    async createConversation(start = {}) {
+        return this._post('ai_chat_conversation_create', start);
+    }
+
+    /** @returns {Promise<{available: boolean, skills: Array<{identifier: string, name: string, description: string}>}>} */
+    async listSkills() {
+        return this._get('ai_chat_skills');
+    }
+
+    /**
+     * @param {number} conversationUid
+     * @param {string} skill an identifier from listSkills(); empty removes the skill
+     * @returns {Promise<{skill: {identifier: string, name: string}|null}>}
+     */
+    async updateSkill(conversationUid, skill) {
+        return this._post('ai_chat_conversation_skill', {conversationUid, skill});
     }
 
     /**
