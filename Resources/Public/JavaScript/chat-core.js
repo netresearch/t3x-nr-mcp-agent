@@ -50,9 +50,18 @@ export function currentBackendContext(win = globalThis.top ?? globalThis) {
         }
 
         const frame = win.frames?.list_frame;
-        const id = new URLSearchParams(frame?.location?.search ?? '').get('id');
+        const params = new URLSearchParams(frame?.location?.search ?? '');
+        const id = params.get('id');
         if (id && /^\d+$/.test(id)) {
             context.pageId = Number.parseInt(id, 10);
+            // The page's language, where the module URL carries it: `language`
+            // (TYPO3 13) or the first of `languages[]` (14). The page module
+            // often keeps it in its module data instead; then none is sent and
+            // the server keeps the one the conversation started with (ADR-019).
+            const language = params.get('language') ?? params.get('languages[0]') ?? params.getAll('languages[]')[0];
+            if (language && /^\d+$/.test(language)) {
+                context.languageId = Number.parseInt(language, 10);
+            }
         }
     } catch {
         // Cross-origin or not a backend window: send no context.
@@ -145,8 +154,9 @@ export class ChatCoreController {
     pendingApproval = null;
 
     /**
-     * What was just decided here: 'approved', 'denied', or null when no decision
-     * of this reader's is in flight.
+     * What was just decided here: 'approved', 'variant' or 'skip' (the two
+     * denials the card offers, ADR-018), 'denied', or null when no decision of
+     * this reader's is in flight.
      *
      * The chat used to answer a decision with nothing of its own: the card
      * vanished, the spinner came back, and the only durable confirmation was the
@@ -158,6 +168,17 @@ export class ChatCoreController {
      * arrives.
      */
     approvalDecisionTaken = null;
+
+    /**
+     * The question the run waits for an answer to, as the reply buttons
+     * render it (ADR-018); null when nothing is asked.
+     * @type {{runUuid: string, turnDigest: string, kind: string, question: string, options: Array<{value: *, label: string}>, freeText: boolean, fields: Array<object>}|null}
+     */
+    pendingInput = null;
+
+    /** True while an answer is on its way, so it cannot be sent twice. */
+    inputBusy = false;
+
     inputValue = '';
     hasInput = false;
     loading = true;
@@ -173,6 +194,26 @@ export class ChatCoreController {
     maxFileSize = 0;
     /** @type {string[]} */
     supportedFormats = [];
+
+    /**
+     * What a guided process shows (ADR-020): its progress, and the content
+     * element it is about.
+     * @type {{progress: {label: string, current: number, total: number}|null, highlight: {table: string, uid: number}|null}}
+     */
+    guided = {progress: null, highlight: null};
+
+    /** The highlight last sent to the page module, so it is sent once. */
+    _sentHighlight = '';
+
+    /** The active conversation's skill (ADR-019), or null. @type {{identifier: string, name: string}|null} */
+    skill = null;
+
+    /** The skills the user can pick; null until loaded. @type {Array<{identifier: string, name: string, description: string}>|null} */
+    skills = null;
+
+    /** Whether the "/" list is open, and which of its entries is highlighted. */
+    slashOpen = false;
+    slashIndex = 0;
 
     /** The active conversation's own instructions; empty when it has none. */
     systemPrompt = '';
@@ -257,8 +298,17 @@ export class ChatCoreController {
             // A link that names a conversation (the dashboard widget's, when
             // the panel is not available) opens that one.
             const initial = Number(this.host.initialConversationUid?.() ?? 0);
+            const start = this.host.initialStartContext?.() ?? null;
             if (initial > 0 && this.conversations.some((c) => c.uid === initial)) {
                 await this.selectConversation(initial);
+            } else if (start && this.available) {
+                // A link that starts a conversation about a page, with a
+                // skill (ADR-019). The host is told the new uid so a reload
+                // opens it instead of starting another one.
+                const uid = await this.handleNewConversation(start);
+                if (uid) {
+                    this.host.onStartContextConsumed?.(uid);
+                }
             }
         } catch (e) {
             if (signal?.aborted) return;
@@ -283,6 +333,12 @@ export class ChatCoreController {
         this.expandedTools = new Set();
         this.pendingFile = null;
         this.approvalDecisionTaken = null;
+        this.guided = {progress: null, highlight: null};
+        // Coming back to a conversation highlights its element again.
+        this._sentHighlight = '';
+        this.pendingInput = null;
+        this.skill = null;
+        this.slashOpen = false;
         this.systemPrompt = '';
         this.systemPromptOpen = false;
         this.editingIndex = -1;
@@ -313,7 +369,11 @@ export class ChatCoreController {
      * neither the confirmation nor, on the error path, the reason. Same guard
      * pollMessages() uses on its own response.
      */
-    async decideApproval(approve) {
+    /**
+     * @param {boolean} approve
+     * @param {''|'variant'|'skip'} [reason] why a denial was given (ADR-018)
+     */
+    async decideApproval(approve, reason = '') {
         const uid = this.activeUid;
         if (!this.pendingApproval || this.approvalBusy || !uid) {
             return;
@@ -322,7 +382,7 @@ export class ChatCoreController {
         this.approvalBusy = true;
         this.host.requestUpdate();
         try {
-            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '');
+            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '', reason);
             if (uid !== this.activeUid) {
                 return;
             }
@@ -330,7 +390,7 @@ export class ChatCoreController {
             // Say what happened before the reload, and drop the card and the
             // notice that asked for the decision: both describe a state this
             // click has just left, and the server has cleared the notice too.
-            this.approvalDecisionTaken = approve ? 'approved' : 'denied';
+            this.approvalDecisionTaken = approve ? 'approved' : (reason || 'denied');
             this.errorMessage = '';
             this.pendingApproval = null;
             this.host.requestUpdate();
@@ -345,6 +405,63 @@ export class ChatCoreController {
             this.errorMessage = e.message;
         } finally {
             this.approvalBusy = false;
+            this.host.requestUpdate();
+        }
+    }
+
+    /** Whether the run waits for an answer the reply buttons can give. */
+    isAwaitingInput() {
+        return this.status === 'awaiting_input' && this.pendingInput !== null;
+    }
+
+    /**
+     * Whether text typed into the input is the answer to the question rather
+     * than a message of its own: only when the question declares a free-text
+     * answer (ADR-018). Otherwise a sent message leaves the question behind,
+     * as a message leaves a pending approval behind.
+     */
+    answersAsFreeText() {
+        return this.isAwaitingInput() && this.pendingInput.kind === 'choice' && this.pendingInput.freeText === true;
+    }
+
+    /**
+     * Send an answer to the question and follow the conversation.
+     *
+     * The server records the answer and a worker hands it to the run, as with
+     * an approval; the outcome arrives through the poll. Bound to the
+     * conversation the answer was given in, for the reason decideApproval()
+     * gives.
+     *
+     * @param {{choice: *}|{freeText: string}|{fields: Object<string, *>}} answer
+     * @returns {Promise<boolean>} whether the answer was taken
+     */
+    async submitInput(answer) {
+        const uid = this.activeUid;
+        if (!this.isAwaitingInput() || this.inputBusy || !uid) {
+            return false;
+        }
+
+        this.inputBusy = true;
+        this.host.requestUpdate();
+        try {
+            await this._api.submitInput(uid, this.pendingInput.turnDigest || '', answer);
+            if (uid !== this.activeUid) {
+                return false;
+            }
+
+            this.pendingInput = null;
+            this.errorMessage = '';
+            this.host.requestUpdate();
+            await this.loadMessages();
+            this.startPollingIfNeeded();
+            return true;
+        } catch (e) {
+            if (uid === this.activeUid) {
+                this.errorMessage = e.message;
+            }
+            return false;
+        } finally {
+            this.inputBusy = false;
             this.host.requestUpdate();
         }
     }
@@ -365,7 +482,10 @@ export class ChatCoreController {
             this.approvalUrl = data.approvalUrl || '';
             this._setApprovalRight(data);
             this.pendingApproval = data.pendingApproval || null;
+            this.pendingInput = data.pendingInput || null;
             this.systemPrompt = data.systemPrompt || '';
+            this.guided = data.guided || {progress: null, highlight: null};
+            this.skill = data.skill || null;
             this.activity = data.activity || [];
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
@@ -436,6 +556,10 @@ export class ChatCoreController {
                 this.approvalUrl = data.approvalUrl || '';
                 this._setApprovalRight(data);
                 this.pendingApproval = data.pendingApproval || null;
+                if (data.guided) {
+                    this.guided = data.guided;
+                }
+                this.pendingInput = data.pendingInput || null;
                 this._knownMessageCount = data.totalCount;
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>
@@ -524,6 +648,16 @@ export class ChatCoreController {
         if (this.maxLength > 0 && content.length > this.maxLength) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);
             this.host.requestUpdate();
+            return;
+        }
+
+        if (this.answersAsFreeText() && !this.pendingFile) {
+            if (await this.submitInput({freeText: content})) {
+                this.inputValue = '';
+                this.hasInput = false;
+                this.host.onResetInput();
+                this.host.requestUpdate();
+            }
             return;
         }
 
@@ -698,13 +832,92 @@ export class ChatCoreController {
         }
     }
 
-    async handleNewConversation() {
+    /**
+     * @param {{pageUid?: number, languageUid?: number, skill?: string}|null} [start]
+     * @returns {Promise<number|null>} the new conversation's uid
+     */
+    async handleNewConversation(start = null) {
         try {
-            const data = await this._api.createConversation();
+            const data = await this._api.createConversation(start ?? {});
             await this.loadConversations();
             await this.selectConversation(data.uid);
+            return data.uid;
         } catch (e) {
             this.errorMessage = e.message;
+            this.host.requestUpdate();
+            return null;
+        }
+    }
+
+    // ── Skills ("/" in the input, ADR-019) ────────────────────────────
+
+    /**
+     * Open or close the list as the input changes: open while the input is a
+     * "/" followed by no space, which is the start of a skill's identifier.
+     */
+    updateSlash() {
+        const open = /^\/\S*$/.test(this.inputValue) && this.activeUid !== null;
+        if (open !== this.slashOpen) {
+            this.slashOpen = open;
+            this.slashIndex = 0;
+            if (open && this.skills === null) {
+                // loadSkills() handles its own failure; the list renders
+                // "loading" until it settles.
+                void this.loadSkills();
+            }
+        } else if (open) {
+            this.slashIndex = 0;
+        }
+        this.host.requestUpdate();
+    }
+
+    closeSlash() {
+        this.slashOpen = false;
+        this.host.requestUpdate();
+    }
+
+    async loadSkills() {
+        try {
+            const data = await this._api.listSkills();
+            this.skills = data.skills || [];
+        } catch {
+            this.skills = [];
+        }
+        this.host.requestUpdate();
+    }
+
+    /** The skills whose identifier or name contains what follows the "/". */
+    slashMatches() {
+        const query = this.inputValue.slice(1).toLowerCase();
+        return (this.skills || []).filter((s) => s.identifier.toLowerCase().includes(query)
+            || s.name.toLowerCase().includes(query));
+    }
+
+    /** Make the skill the conversation's; the "/" text is not sent. */
+    async selectSkill(entry) {
+        this.slashOpen = false;
+        this.inputValue = '';
+        this.hasInput = false;
+        this.host.onResetInput();
+        await this._setSkill(entry.identifier);
+    }
+
+    async clearSkill() {
+        await this._setSkill('');
+    }
+
+    async _setSkill(identifier) {
+        const uid = this.activeUid;
+        if (!uid) return;
+        try {
+            const data = await this._api.updateSkill(uid, identifier);
+            if (uid !== this.activeUid) return;
+            this.skill = data.skill || null;
+            this.errorMessage = '';
+        } catch (e) {
+            if (uid !== this.activeUid) return;
+            this.errorMessage = e.message;
+        } finally {
             this.host.requestUpdate();
         }
     }

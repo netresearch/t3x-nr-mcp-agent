@@ -13,7 +13,10 @@ CREATE TABLE tx_nrmcpagent_conversation (
     current_request_id varchar(64) DEFAULT '' NOT NULL,
     system_prompt text,
     view_context varchar(255) DEFAULT '' NOT NULL,
+    skill_identifier varchar(100) DEFAULT '' NOT NULL,
+    skill_uid int(11) unsigned DEFAULT 0 NOT NULL,
     activity text,
+    guided_state text,
     archived tinyint(1) unsigned DEFAULT 0 NOT NULL,
     pinned tinyint(1) unsigned DEFAULT 0 NOT NULL,
     error_message text,
@@ -21,6 +24,8 @@ CREATE TABLE tx_nrmcpagent_conversation (
     approval_run_uuid varchar(64) DEFAULT '' NOT NULL,
     approval_decision varchar(8) DEFAULT '' NOT NULL,
     approval_turn_digest varchar(64) DEFAULT '' NOT NULL,
+    pending_input text,
+    approval_deny_reason varchar(16) DEFAULT '' NOT NULL,
     tstamp int(11) unsigned DEFAULT 0 NOT NULL,
     crdate int(11) unsigned DEFAULT 0 NOT NULL,
 
@@ -42,4 +47,35 @@ CREATE TABLE tx_nrmcpagent_message (
 
     PRIMARY KEY (uid),
     UNIQUE KEY conversation_sorting (conversation, sorting)
+);
+
+CREATE TABLE tx_nrmcpagent_run_state (
+    uid int(11) unsigned NOT NULL AUTO_INCREMENT,
+    run_uuid varchar(64) DEFAULT '' NOT NULL,
+    be_user int(11) unsigned DEFAULT 0 NOT NULL,
+    progress text,
+    highlight text,
+    tstamp int(11) unsigned DEFAULT 0 NOT NULL,
+    crdate int(11) unsigned DEFAULT 0 NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY run_uuid (run_uuid)
+);
+
+CREATE TABLE tx_nrmcpagent_open_point (
+    uid int(11) unsigned NOT NULL AUTO_INCREMENT,
+    skill_uid int(11) unsigned DEFAULT 0 NOT NULL,
+    subject_table varchar(64) DEFAULT '' NOT NULL,
+    subject_uid int(11) unsigned DEFAULT 0 NOT NULL,
+    target_table varchar(64) DEFAULT '' NOT NULL,
+    target_uid int(11) unsigned DEFAULT 0 NOT NULL,
+    target_field varchar(64) DEFAULT '' NOT NULL,
+    be_user int(11) unsigned DEFAULT 0 NOT NULL,
+    conversation int(11) unsigned DEFAULT 0 NOT NULL,
+    crdate int(11) unsigned DEFAULT 0 NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY open_point (skill_uid, subject_table, subject_uid, target_table, target_uid, target_field),
+    KEY target (target_table, target_uid, target_field),
+    KEY subject (subject_table, subject_uid)
 );

@@ -67,4 +67,18 @@ final readonly class NrLlmPendingApprovalReader implements PendingApprovalReader
 
         return $views[0] ?? null;
     }
+
+    public function inputSchema(AiActorContext $actor, string $runUuid): ?array
+    {
+        if ($runUuid === '') {
+            return null;
+        }
+
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            return null;
+        }
+
+        return $this->waitingRunViewFactory->inputSchemaForRun($run);
+    }
 }

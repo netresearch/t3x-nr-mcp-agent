@@ -29,16 +29,21 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
-use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
+use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
+use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
@@ -47,9 +52,12 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
+use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
+use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Psr\Log\LoggerInterface;
@@ -176,6 +184,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?ApprovalDecisionFactory $decisionFactory = null,
+        private readonly ?ProcessRunDetectorInterface $processRuns = null,
+        private readonly ?ToolEffectResolver $toolEffects = null,
+        private readonly ?WaitingRunCancellerInterface $runCanceller = null,
+        private readonly ?GuidedStateLinker $guidedState = null,
+        private readonly ?SkillCatalogueInterface $skills = null,
+        private readonly ?SkillInvocationInterface $skillInvocation = null,
+        private readonly ?OpenPointTrackerInterface $openPoints = null,
     ) {}
 
     /**
@@ -253,6 +269,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // A recorded decision is the other kind of work a claimed conversation
         // can carry. It is not a turn over the transcript, so it never reaches
         // runAgentTurn().
+        if ($conversation->hasPendingInputSubmission()) {
+            $this->performRecordedInput($conversation);
+
+            return;
+        }
+
         if ($conversation->hasPendingApprovalDecision()) {
             $this->performRecordedDecision($conversation);
 
@@ -322,14 +344,47 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The options object carries nothing but the caller source: every model
         // parameter stays on the LlmConfiguration, so toArray() is empty and no
         // provider option is overridden by naming ourselves here.
-        $result = $this->agentRuntime->run(new AgentRunRequest(
-            configuration: $configuration,
-            messages: $messages,
-            actor: $this->resolveActor($conversation->getBeUser()),
-            options: (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
-        ), $this->activityRecorder->onStep($conversation));
+        $result = $this->agentRuntime->run(
+            $this->runRequest($conversation, $configuration, $messages, $operation),
+            $this->activityRecorder->onStep($conversation),
+        );
 
         $this->applyResult($conversation, $result);
+    }
+
+    /**
+     * The run request for a turn, with the conversation's skill.
+     *
+     * nr-llm ADR-214 passes a process skill as an invocation with the record
+     * it is about — here the conversation's page. Where nothing can start a
+     * run with an invocation (SkillInvocationInterface), the skill goes as a
+     * forced skill on every turn, as before (ADR-019); none when it is gone or
+     * nr-llm cannot take one.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private function runRequest(Conversation $conversation, LlmConfiguration $configuration, array $messages, string $operation): AgentRunRequest
+    {
+        $base = [
+            'configuration' => $configuration,
+            'messages' => $messages,
+            'actor' => $this->resolveActor($conversation->getBeUser()),
+            'options' => (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
+        ];
+
+        $identifier = $conversation->getSkillIdentifier();
+        if ($identifier !== '' && $this->skillInvocation instanceof SkillInvocationInterface) {
+            $pageId = $conversation->getViewContext()['pageId'];
+            $invoked = $this->skillInvocation->withInvocation(
+                new AgentRunRequest(...$base),
+                new SkillInvocation($identifier, $conversation->getSkillUid(), $pageId > 0 ? 'pages' : null, $pageId > 0 ? $pageId : null),
+            );
+            if ($invoked instanceof AgentRunRequest) {
+                return $invoked;
+            }
+        }
+
+        return new AgentRunRequest(...$base, augmentation: $this->skills?->augmentationFor($identifier));
     }
 
     /**
@@ -402,6 +457,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         if ($status === AgentRunStatus::WAITING_FOR_APPROVAL) {
             $conversation->clearApprovalDecision();
+            $conversation->dropInputAnswer();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
 
@@ -412,12 +468,23 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return $this->repository->updateIf($conversation, ConversationStatus::Processing);
         }
 
+        // The same for an answer to a question (ADR-018): the run still waits
+        // for it, so the question comes back — without the answer the request
+        // put into the transcript, which nobody delivered.
+        if ($status === AgentRunStatus::WAITING_FOR_INPUT) {
+            $conversation->clearApprovalDecision();
+            $conversation->dropInputAnswer();
+            $conversation->setStatus(ConversationStatus::AwaitingInput);
+            $conversation->setApprovalRunUuid($runUuid);
+
+            return $this->repository->updateIf($conversation, ConversationStatus::Processing);
+        }
+
         if ($status === AgentRunStatus::RUNNING || $status === AgentRunStatus::QUEUED) {
             return false;
         }
 
-        // Settled: completed, failed, cancelled, or waiting for an input this
-        // chat does not handle. The answer, if there was one, went to the run
+        // Settled: completed, failed or cancelled. The answer, if there was one, went to the run
         // and not to this transcript — say so rather than leave a spinner.
         $conversation->clearApprovalDecision();
         $conversation->setStatus(ConversationStatus::Failed);
@@ -431,6 +498,91 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // reachable, so a plain write would delete the answer and then claim the
         // run finished elsewhere.
         return $this->repository->updateIf($conversation, ConversationStatus::Processing);
+    }
+
+    /**
+     * Cancel the run a guided process waits on — for a card or for an answer
+     * — because a new message has claimed the conversation for a new turn
+     * (nr-llm ADR-214, item 9).
+     *
+     * Left waiting, the tour's proposal could still be decided after the
+     * tour had moved on. Called after the claim, with the conversation as it
+     * was before it. The cancel is guarded on the run still waiting
+     * (WaitingRunCancellerInterface); until nr-llm has that guard, the status
+     * is read first and cancel() called. An ordinary chat keeps the abandoned
+     * run waiting, as before.
+     *
+     * Returns false when the run is being carried on, or the cancel lost to
+     * a decision taken meanwhile; the caller puts the row back.
+     */
+    public function releasePendingRun(Conversation $before): bool
+    {
+        $runUuid = $before->getApprovalRunUuid();
+        if ($runUuid === '' || !($this->processRuns?->isProcessRun($before) ?? false)) {
+            return true;
+        }
+
+        $actor = $this->resolveActor($before->getBeUser());
+        $guarded = $this->runCanceller?->cancelIfWaiting($actor, $runUuid);
+        if ($guarded instanceof WaitingRunCancel) {
+            return $guarded->releasesConversation();
+        }
+
+        if ($this->cancelIfWaitingByStatus($actor, $runUuid)) {
+            return true;
+        }
+
+        // Not cancelled: what the run is doing instead decides. Gone, not
+        // readable or settled is nothing the conversation could wait for.
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        $status = $run instanceof AgentRun && $actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
+            ? AgentRunStatus::tryFrom($run->status)
+            : null;
+
+        return $status === null || $status->isTerminal();
+    }
+
+    /**
+     * The fallback for nr-llm's guarded cancel: read the status, cancel a run
+     * that waits. A decision taken between the read and the cancel would be
+     * cancelled while it runs; that gap is what the guarded cancel closes.
+     */
+    private function cancelIfWaitingByStatus(AiActorContext $actor, string $runUuid): bool
+    {
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            return false;
+        }
+
+        $status = AgentRunStatus::tryFrom($run->status);
+
+        return ($status === AgentRunStatus::WAITING_FOR_APPROVAL || $status === AgentRunStatus::WAITING_FOR_INPUT)
+            && $this->agentRuntime->cancel($actor, $runUuid);
+    }
+
+    /**
+     * Whether the card offers "Übernehmen / Andere Variante / Überspringen"
+     * rather than approve and cancel (nr-llm ADR-214, item 9).
+     *
+     * Only in a process run, and only when a pending call writes. nr-llm's
+     * view says so per call (`PendingCallView::$declaresWrite`, nr-llm PR
+     * 1024, 0.41). On an nr-llm without it the effect is nr-llm's own
+     * resolution by name; in both an unknown tool counts as a write, and
+     * without the resolver every call does.
+     */
+    public function offersProcessAnswers(Conversation $conversation, WaitingRunView $view): bool
+    {
+        if (!($this->processRuns?->isProcessRun($conversation) ?? false)) {
+            return false;
+        }
+
+        foreach ($view->pendingCalls as $call) {
+            if (PendingCallEffect::declaresWrite($call, $this->toolEffects)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -533,7 +685,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * here: a check before the claim can pass on a turn a concurrent approval
      * has already replaced.
      */
-    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest): bool
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = ''): bool
     {
         if ($conversation->getApprovalRunUuid() === ''
             || $conversation->getStatus() !== ConversationStatus::AwaitingApproval
@@ -546,7 +698,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // not treat AwaitingApproval as busy, so without it both writers would
         // think they own the row.
         $conversation->setStatus(ConversationStatus::Processing);
-        $conversation->recordApprovalDecision($approve, $turnDigest);
+        $conversation->recordApprovalDecision($approve, $turnDigest, $reason);
+        // "Andere Variante" or "Überspringen" stays in the transcript, so the
+        // next turn knows what was asked for even while nr-llm's denial result
+        // cannot carry the reason. Taken out again on a hand-back.
+        if (!$approve && $display !== '') {
+            $conversation->appendInputAnswer($display);
+        }
 
         // Whatever the field says about the waiting run — the reason a refused
         // decision wrote back, or the notice the pause used to write before
@@ -560,6 +718,114 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $conversation->setErrorMessage('');
 
         return $this->repository->updateIf($conversation, ConversationStatus::AwaitingApproval);
+    }
+
+    /**
+     * The question the conversation's run waits for an answer to (ADR-018).
+     *
+     * Read through the same reader as the approval card: nr-llm's inbox view
+     * carries the digest the runtime verifies (nr-llm ADR-150), the schema
+     * comes beside it because the view flattens labelled options away. A view
+     * nr-llm cannot render is passed on with its reason, so the chat can say
+     * why there is nothing to answer instead of showing nothing.
+     */
+    public function pendingInput(Conversation $conversation): ?InputPause
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+        $actor = $this->resolveActor($conversation->getBeUser());
+        $view = $runUuid !== '' && $conversation->getStatus() === ConversationStatus::AwaitingInput
+            ? $this->pendingApprovalReader->read($actor, $runUuid)
+            : null;
+        if ($view === null || $view->mode === WaitingRunView::MODE_APPROVAL) {
+            return null;
+        }
+
+        if ($view->mode !== WaitingRunView::MODE_INPUT) {
+            return new InputPause($runUuid, '', [], $view->unreadableReason ?? 'unreadable');
+        }
+
+        $schema = $this->pendingApprovalReader->inputSchema($actor, $runUuid);
+
+        return $schema === null
+            ? new InputPause($runUuid, '', [], 'schema-unreadable')
+            : new InputPause($runUuid, $view->turnDigest ?? '', $schema);
+    }
+
+    /**
+     * Record the answer and claim the conversation, in one compare-and-swap,
+     * for the reason recordDecision() gives: a message sent at the same moment
+     * must not also think it owns the row.
+     */
+    public function recordInput(Conversation $conversation, array $data, string $turnDigest, string $display): bool
+    {
+        if ($conversation->getApprovalRunUuid() === ''
+            || $conversation->getStatus() !== ConversationStatus::AwaitingInput
+        ) {
+            return false;
+        }
+
+        $conversation->setStatus(ConversationStatus::Processing);
+        $conversation->recordInputSubmission($data, $turnDigest);
+        $conversation->setErrorMessage('');
+        $conversation->appendInputAnswer($display);
+
+        return $this->repository->updateIf($conversation, ConversationStatus::AwaitingInput);
+    }
+
+    /**
+     * Hand a recorded answer to the runtime and carry the run to its end, in
+     * the worker — submitInput() drives the continuation like approve() does.
+     *
+     * The answer is submitted as the conversation's owner, who is also the
+     * run's owner: nr-llm checks that the submitter may run the tool the
+     * question belongs to (nr-llm ADR-150), and the digest the question was
+     * shown with travels along unchanged.
+     */
+    private function performRecordedInput(Conversation $conversation): void
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+
+        try {
+            $result = $this->agentRuntime->submitInput(
+                $this->resolveActor($conversation->getBeUser()),
+                $runUuid,
+                new InputSubmission(
+                    $conversation->getPendingInputData(),
+                    $conversation->getBeUser(),
+                    $conversation->getApprovalTurnDigest(),
+                ),
+                $this->activityRecorder->onStep($conversation),
+            );
+        } catch (StaleInputTurnException|InvalidInputSubmissionException|SubmitterNotPermittedException|RunAlreadyResumingException|RunConfigurationInactiveException|RunNotAwaitingInputException $e) {
+            // These leave the run waiting for its answer: the question comes
+            // back with the reason, in the reader's language, and the answer
+            // that was not taken leaves the transcript.
+            $reason = InputHandBackReason::fromException($e);
+            $this->logger?->warning('nr-llm handed run {run} back still waiting for input ({reason}): {message}', [
+                'run'       => $runUuid,
+                'reason'    => $reason->value,
+                'message'   => $e->getMessage(),
+                'exception' => $e,
+            ]);
+            $conversation->clearApprovalDecision();
+            $conversation->dropInputAnswer();
+            $conversation->setStatus(ConversationStatus::AwaitingInput);
+            $conversation->setApprovalRunUuid($runUuid);
+            $conversation->setErrorMessage('', $reason->value);
+            $this->persist($conversation);
+
+            return;
+        } catch (Throwable $e) {
+            $conversation->clearApprovalDecision();
+            $conversation->setStatus(ConversationStatus::Failed);
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
+            $this->persist($conversation);
+
+            return;
+        }
+
+        $conversation->clearApprovalDecision();
+        $this->applyResult($conversation, $result);
     }
 
     /**
@@ -596,14 +862,22 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             }
         };
         $recordStep = $this->activityRecorder->onStep($conversation);
+        // The card the decision answers, read before nr-llm acts on it: an
+        // open point is keyed by what that card showed (ADR-022).
+        $denyReason = $conversation->getApprovalDenyReason();
+        $cardTarget = $this->openPoints?->cardTarget(
+            $conversation,
+            $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid),
+        );
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
                 $runUuid,
-                new ApprovalDecision(
+                ($this->decisionFactory ?? new ApprovalDecisionFactory())->create(
                     $approved,
                     $conversation->getBeUser(),
                     $conversation->getApprovalTurnDigest(),
+                    $conversation->getApprovalDenyReason(),
                 ),
                 static function (RunStep $step) use ($recordDecision, $recordStep): void {
                     $recordDecision();
@@ -619,6 +893,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // decide again. Marking it Failed would hide the card AND offer a
             // Retry that starts a second run over the same transcript.
             $conversation->clearApprovalDecision();
+            $conversation->dropInputAnswer();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
             // nr-llm's message is a developer's English sentence and may name
@@ -644,6 +919,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $this->persist($conversation);
 
             return;
+        }
+
+        // nr-llm accepted the decision: only now may it record or close an
+        // open point. A failure here costs the open point, not the answer.
+        try {
+            $this->openPoints?->settle($conversation, $approved, $denyReason, $cardTarget, $result);
+        } catch (Throwable $e) {
+            $this->logger?->warning('Open point of run {run} not settled: {message}', [
+                'run'       => $runUuid,
+                'message'   => $e->getMessage(),
+                'exception' => $e,
+            ]);
         }
 
         $conversation->clearApprovalDecision();
@@ -683,6 +970,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function applyResult(Conversation $conversation, AgentRunResult $result): void
     {
+        // Whatever the outcome, what the guided-state tools reported during
+        // the run is taken over now — the first moment the chat knows the run
+        // (ADR-020).
+        $this->guidedState?->absorb($conversation, $result->runUuid);
+
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
             $answer = $result->loopResult->finalContent;
             $conversation->appendMessage(
@@ -720,6 +1012,26 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // open.
         if ($result->outcome === AgentRunOutcome::AWAITING_APPROVAL) {
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
+            $conversation->setErrorMessage('');
+            $conversation->setApprovalRunUuid($result->runUuid);
+            $this->persist($conversation);
+            return;
+        }
+
+        // A run that asks the user something is not a failure either
+        // (ADR-018). It used to end here as "did not complete
+        // (awaiting_input)". The question, when the schema states one, goes
+        // into the transcript as the assistant's: the reader sees what is asked
+        // above the reply buttons, and later turns see what the answer was to.
+        if ($result->outcome === AgentRunOutcome::AWAITING_INPUT && $result->runUuid !== '') {
+            $question = $result->suspendedState !== null
+                ? InputPauseForm::fromSchema($result->suspendedState->inputSchema)->question
+                : '';
+            if ($question !== '') {
+                $conversation->appendMessage(MessageRole::Assistant, $question);
+            }
+
+            $conversation->setStatus(ConversationStatus::AwaitingInput);
             $conversation->setErrorMessage('');
             $conversation->setApprovalRunUuid($result->runUuid);
             $this->persist($conversation);
@@ -1076,6 +1388,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $unavailable = $this->buildUnavailableToolsContext($conversation, $configuration);
         if ($unavailable !== '') {
             $parts[] = $unavailable;
+        }
+
+        // A process started on a record is offered the points it left open
+        // there before (nr-llm ADR-214, item 9; ADR-022).
+        $openPoints = $this->openPoints?->promptFor($conversation) ?? '';
+        if ($openPoints !== '') {
+            $parts[] = $openPoints;
         }
 
         // The user's own context — answer language and where they are in the
