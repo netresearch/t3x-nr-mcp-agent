@@ -21,6 +21,7 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -936,12 +937,59 @@ class ChatApiControllerTest extends TestCase
         $conversation->setApprovalRunUuid('run-uuid-1234');
         $conversation->recordApprovalDecision(true, 'digest-abc');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('updateIf')->willReturn(true);
+        // The run behind the card, as the conversation knew it before the claim.
+        $this->chatApproval->expects(self::once())->method('releasePendingRun')
+            ->with(self::callback(static fn(Conversation $before): bool => $before->getApprovalRunUuid() === 'run-uuid-1234'))
+            ->willReturn(true);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "never mind, do something else"}');
-        $this->subject->sendMessage($request);
+        self::assertSame(202, $this->subject->sendMessage($request)->getStatusCode());
 
         self::assertSame('', $conversation->getApprovalRunUuid());
         self::assertSame('', $conversation->getApprovalDecision());
+    }
+
+    /**
+     * nr-llm ADR-214: in a guided process the waiting run is cancelled after
+     * the claim. When it cannot be — it is being carried on, or a decision
+     * won the race — the row goes back to what it was and nothing starts.
+     *
+     * @return iterable<string, array{ConversationStatus}>
+     */
+    public static function waitingStatuses(): iterable
+    {
+        yield 'waiting for approval' => [ConversationStatus::AwaitingApproval];
+        yield 'waiting for an answer' => [ConversationStatus::AwaitingInput];
+    }
+
+    #[Test]
+    #[DataProvider('waitingStatuses')]
+    public function aTourRunThatCannotBeCancelledPutsTheRowBack(ConversationStatus $status): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Prüfe die Seite');
+        $conversation->setStatus($status);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->method('releasePendingRun')->willReturn(false);
+        $writes = [];
+        $this->repository->method('updateIf')->willReturnCallback(static function (Conversation $c, ConversationStatus $expected) use (&$writes): bool {
+            $writes[] = [$expected, $c->getStatus(), $c->getApprovalRunUuid(), $c->getMessageCount()];
+
+            return true;
+        });
+        $this->processor->expects(self::never())->method('dispatch');
+
+        $response = $this->subject->sendMessage($this->createRequest('POST', '{"conversationUid": 1, "content": "Mach etwas anderes"}'));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame([
+            // the claim
+            [$status, ConversationStatus::Processing, '', 2],
+            // and the row as it was
+            [ConversationStatus::Processing, $status, 'run-uuid-1234', 1],
+        ], $writes);
     }
 
     #[Test]

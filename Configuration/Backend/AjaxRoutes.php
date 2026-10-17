@@ -45,9 +45,29 @@ return [
         'target' => ChatApiController::class . '::updateSystemPrompt',
         'methods' => ['POST'],
     ],
+    'ai_chat_skills' => [
+        'path' => '/ai-chat/skills',
+        'target' => ChatApiController::class . '::listSkills',
+        'methods' => ['GET'],
+    ],
+    'ai_chat_conversation_skill' => [
+        'path' => '/ai-chat/conversations/skill',
+        'target' => ChatApiController::class . '::updateSkill',
+        'methods' => ['POST'],
+    ],
+    'ai_chat_conversation_end_tour' => [
+        'path' => '/ai-chat/conversations/end-tour',
+        'target' => ChatApiController::class . '::endTour',
+        'methods' => ['POST'],
+    ],
     'ai_chat_conversation_approve' => [
         'path' => '/ai-chat/conversations/approve',
         'target' => ChatApiController::class . '::decideApproval',
+        'methods' => ['POST'],
+    ],
+    'ai_chat_conversation_input' => [
+        'path' => '/ai-chat/conversations/input',
+        'target' => ChatApiController::class . '::submitInput',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_resume' => [

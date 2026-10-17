@@ -26,6 +26,9 @@ const PENDING = {
     turnDigest: 'digest-abc',
     configLabel: 'Demo agent',
     unreadableReason: null,
+    // A write in a process run: the card offers the three answers (ADR-018,
+    // nr-llm ADR-214). The plain card is covered at the end of this file.
+    answers: 'process',
     calls: [{
         name: 'update_page_metadata',
         // The change's name as the server resolves it: the preview's first
@@ -132,18 +135,27 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         expect(defaultView(el.shadowRoot.querySelector('.approval-card'))).not.toContain('Seite 10002, Feld description');
     });
 
-    /** Editorial rule 22: the button says what it does, and "Cancel" replaces "Deny". */
-    test('the approve button names the action and the other one cancels', async () => {
+    /**
+     * Editorial rule 22: on a plain card the button says what it does. A
+     * proposal of a guided process says "Übernehmen" instead, and its denial
+     * is two buttons that say why the change is not taken (ADR-018, ADR-023;
+     * chat-proposal.test.js covers the proposal).
+     */
+    test('the approve button names the action and the two others say why not', async () => {
+        const plain = await renderPending(modulePath, tag, open, {...PENDING, answers: 'plain'});
+        expect(plain.shadowRoot.querySelector('.approval-actions button').textContent.trim()).toBe('Seiten-Metadaten ändern');
+
         const el = await renderPending(modulePath, tag, open);
-        const [approve, cancel] = el.shadowRoot.querySelectorAll('.approval-actions button');
+        const [approve, variant, skip] = el.shadowRoot.querySelectorAll('.approval-actions button');
 
         expect(approve.localName).toBe('button');
-        expect(approve.textContent.trim()).toBe('Seiten-Metadaten ändern');
-        expect(cancel.textContent.trim()).toBe('chat.approvalCancel');
+        expect(approve.textContent.trim()).toBe('chat.approvalApply');
+        expect(variant.textContent.trim()).toBe('chat.approvalVariant');
+        expect(skip.textContent.trim()).toBe('chat.approvalSkip');
     });
 
     test('a tool without an action label gets the generic heading and button', async () => {
-        const pending = {...PENDING, calls: [{...PENDING.calls[0], name: 'delete_record', actionLabel: ''}]};
+        const pending = {...PENDING, answers: 'plain', calls: [{...PENDING.calls[0], name: 'delete_record', actionLabel: ''}]};
         const el = await renderPending(modulePath, tag, open, pending);
         const card = el.shadowRoot.querySelector('.approval-card');
 
@@ -159,7 +171,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
      * nothing to see.
      */
     test('a change named by its preview names the heading and the button, and counts as a preview', async () => {
-        const pending = {...PENDING, calls: [{
+        const pending = {...PENDING, answers: 'plain', calls: [{
             ...PENDING.calls[0], name: 'delete_record', actionLabel: 'Seite löschen',
             actionLabelFromPreview: true, previewLines: [],
         }]};
@@ -195,14 +207,14 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
 
         const buttons = [...el.shadowRoot.querySelectorAll('.approval-actions button')];
-        expect(buttons).toHaveLength(2);
+        expect(buttons).toHaveLength(3);
         buttons[0].click();
         await el.updateComplete;
 
-        expect(decide).toHaveBeenCalledWith(1, true, 'digest-abc');
+        expect(decide).toHaveBeenCalledWith(1, true, 'digest-abc', '');
     });
 
-    test('denying sends the opposite decision, not a second approval', async () => {
+    test.each([[1, 'variant'], [2, 'skip']])('denial button %i sends a denial with the reason %s', async (index, reason) => {
         const el = await renderPending(modulePath, tag, open);
         const decide = jest.fn().mockResolvedValue({status: 'processing'});
         // Through the real chain: the button calls the controller, which calls
@@ -210,10 +222,10 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         el.chat._api.decideApproval = decide;
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
 
-        [...el.shadowRoot.querySelectorAll('.approval-actions button')][1].click();
+        [...el.shadowRoot.querySelectorAll('.approval-actions button')][index].click();
         await el.updateComplete;
 
-        expect(decide).toHaveBeenCalledWith(1, false, 'digest-abc');
+        expect(decide).toHaveBeenCalledWith(1, false, 'digest-abc', reason);
     });
 
     test('after deciding, the conversation is followed rather than awaited', async () => {
@@ -266,17 +278,16 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         expect(el.shadowRoot.querySelector('.approval-actions')).toBeNull();
     });
 
-    test('denying says the step was not carried out', async () => {
+    test.each([[1, 'chat.approvalDeniedVariant'], [2, 'chat.approvalDeniedSkip']])('denial button %i confirms with %s', async (index, label) => {
         const el = await renderPending(modulePath, tag, open);
         el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
 
-        el.shadowRoot.querySelectorAll('.approval-actions button')[1].click();
+        el.shadowRoot.querySelectorAll('.approval-actions button')[index].click();
         await new Promise((resolve) => setTimeout(resolve, 0));
         await el.updateComplete;
 
-        expect(el.shadowRoot.querySelector('.message.system').textContent)
-            .toContain('chat.approvalDenied');
+        expect(el.shadowRoot.querySelector('.message.system').textContent).toContain(label);
     });
 
     /**
@@ -330,7 +341,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
         expect(el.chat.approvalDecisionTaken).toBeNull();
         expect(el.chat.loadMessages).not.toHaveBeenCalled();
-        expect(el.chat._api.decideApproval).toHaveBeenCalledWith(1, true, 'digest-abc');
+        expect(el.chat._api.decideApproval).toHaveBeenCalledWith(1, true, 'digest-abc', '');
     });
 
     test('a run whose state cannot be read says so instead of offering a decision', async () => {
@@ -353,11 +364,41 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
     // NEXT-162. The link used to sit in the action row, button-shaped and
     // labelled "Grant approval", beside the two buttons that actually grant
     // it — and it opens the run's timeline, where nothing can be decided.
-    test('a card with a preview offers Approve and Deny and no link at all', async () => {
+    /**
+     * Outside a process run, or for a call that writes nothing, the card keeps
+     * approve and cancel (nr-llm ADR-214): "Andere Variante" and "Überspringen"
+     * mean something only to a process that proposes changes point by point.
+     */
+    test('a card outside a process run offers approve and cancel', async () => {
+        const el = await renderPending(modulePath, tag, open, {...PENDING, answers: 'plain'});
+        const decide = jest.fn().mockResolvedValue({status: 'processing'});
+        el.chat._api.decideApproval = decide;
+        el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
+
+        const buttons = [...el.shadowRoot.querySelectorAll('.approval-actions button')];
+        expect(buttons.map((b) => b.textContent.trim())).toEqual(['Seiten-Metadaten ändern', 'chat.approvalCancel']);
+
+        buttons[1].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        expect(decide).toHaveBeenCalledWith(1, false, 'digest-abc', '');
+        expect(el.shadowRoot.querySelector('.message.system').textContent).toContain('chat.approvalDenied');
+    });
+
+    test('a card without the answers field is a plain card', async () => {
+        const {answers: _omitted, ...withoutAnswers} = PENDING;
+        const el = await renderPending(modulePath, tag, open, withoutAnswers);
+
+        expect([...el.shadowRoot.querySelectorAll('.approval-actions button')].map((b) => b.textContent.trim()))
+            .toEqual(['Seiten-Metadaten ändern', 'chat.approvalCancel']);
+    });
+
+    test('a card with a preview offers Approve and the two denials and no link at all', async () => {
         const el = await renderPending(modulePath, tag, open);
         const card = el.shadowRoot.querySelector('.approval-card');
 
-        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(2);
+        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(3);
         expect(card.querySelector('a')).toBeNull();
     });
 
@@ -376,7 +417,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         // Secondary: a second button-shaped element is what made it compete.
         expect(links[0].classList.contains('btn')).toBe(false);
         expect(card.querySelector('.approval-actions a')).toBeNull();
-        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(2);
+        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(3);
     });
 
     test('one call without a preview is enough, even beside one that has it', async () => {

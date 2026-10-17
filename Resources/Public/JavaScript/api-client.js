@@ -26,9 +26,36 @@ export class ApiClient {
         return this._get('ai_chat_conversations');
     }
 
-    /** @returns {Promise<{uid: number}>} */
-    async createConversation() {
-        return this._post('ai_chat_conversation_create', {});
+    /**
+     * @param {{pageUid?: number, languageUid?: number, skill?: string}} [start] what the conversation is about (ADR-019)
+     * @returns {Promise<{uid: number}>}
+     */
+    async createConversation(start = {}) {
+        return this._post('ai_chat_conversation_create', start);
+    }
+
+    /** @returns {Promise<{available: boolean, skills: Array<{identifier: string, name: string, description: string}>}>} */
+    async listSkills() {
+        return this._get('ai_chat_skills');
+    }
+
+    /**
+     * @param {number} conversationUid
+     * @param {string} skill an identifier from listSkills(); empty removes the skill
+     * @returns {Promise<{skill: {identifier: string, name: string}|null}>}
+     */
+    async updateSkill(conversationUid, skill) {
+        return this._post('ai_chat_conversation_skill', {conversationUid, skill});
+    }
+
+    /**
+     * End the guided process the conversation runs (ADR-023): a waiting
+     * proposal is withdrawn, applied changes stay.
+     * @param {number} conversationUid
+     * @returns {Promise<{status: string, skill: null}>}
+     */
+    async endTour(conversationUid) {
+        return this._post('ai_chat_conversation_end_tour', {conversationUid});
     }
 
     /**
@@ -116,8 +143,24 @@ export class ApiClient {
      * the state it claims, so a decision made on a stale card is refused rather
      * than applied to a turn that has since been replaced.
      */
-    async decideApproval(conversationUid, approve, turnDigest) {
-        return this._post('ai_chat_conversation_approve', {conversationUid, approve, turnDigest});
+    async decideApproval(conversationUid, approve, turnDigest, reason = '') {
+        const body = {conversationUid, approve, turnDigest};
+        if (!approve && reason) {
+            body.reason = reason;
+        }
+        return this._post('ai_chat_conversation_approve', body);
+    }
+
+    /**
+     * Answer the question a conversation's run asks (ADR-018).
+     *
+     * @param {number} conversationUid
+     * @param {string} turnDigest the digest the question arrived with
+     * @param {{choice: *}|{freeText: string}|{fields: Object<string, *>}} answer
+     * @returns {Promise<{status: string}>}
+     */
+    async submitInput(conversationUid, turnDigest, answer) {
+        return this._post('ai_chat_conversation_input', {conversationUid, turnDigest, ...answer});
     }
 
     async resumeConversation(conversationUid) {

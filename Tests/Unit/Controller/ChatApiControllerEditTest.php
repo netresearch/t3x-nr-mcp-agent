@@ -39,6 +39,8 @@ final class ChatApiControllerEditTest extends TestCase
     private ChatProcessorInterface&MockObject $processor;
     private ChatApiController $subject;
 
+    private ChatApprovalInterface&MockObject $chatApproval;
+
     /** The conversation as the claim wrote it, or null when nothing was claimed. */
     private ?Conversation $claimed = null;
 
@@ -56,13 +58,14 @@ final class ChatApiControllerEditTest extends TestCase
         $config->method('getMaxMessageLength')->willReturn(50);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
         $chatService = $this->createMock(ChatCapabilitiesInterface::class);
+        $this->chatApproval = $this->createMock(ChatApprovalInterface::class);
 
         $this->subject = new ChatApiController(
             $this->repository,
             $this->processor,
             $config,
             $chatService,
-            $this->createMock(ChatApprovalInterface::class),
+            $this->chatApproval,
             $this->createMock(ResourceFactory::class),
             $this->createMock(StorageRepository::class),
             new DocumentExtractorRegistry([]),
@@ -207,6 +210,7 @@ final class ChatApiControllerEditTest extends TestCase
     {
         $conversation = $this->conversation($this->transcript(), ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-1');
+        $this->chatApproval->expects(self::once())->method('releasePendingRun')->willReturn(true);
 
         $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']));
 
@@ -227,7 +231,7 @@ final class ChatApiControllerEditTest extends TestCase
         ]));
 
         self::assertNotNull($this->claimed);
-        self::assertSame(['pageId' => 12, 'module' => 'web_layout'], $this->claimed->getViewContext());
+        self::assertSame(['pageId' => 12, 'module' => 'web_layout', 'languageId' => -1], $this->claimed->getViewContext());
     }
 
     #[Test]
@@ -243,7 +247,7 @@ final class ChatApiControllerEditTest extends TestCase
         ]));
 
         self::assertNotNull($this->claimed);
-        self::assertSame(['pageId' => 0, 'module' => ''], $this->claimed->getViewContext());
+        self::assertSame(['pageId' => 0, 'module' => '', 'languageId' => -1], $this->claimed->getViewContext());
     }
 
     #[Test]
@@ -255,7 +259,7 @@ final class ChatApiControllerEditTest extends TestCase
         $this->subject->sendMessage($this->request(['conversationUid' => 1, 'content' => 'hi']));
 
         self::assertNotNull($this->claimed);
-        self::assertSame(['pageId' => 0, 'module' => ''], $this->claimed->getViewContext());
+        self::assertSame(['pageId' => 0, 'module' => '', 'languageId' => -1], $this->claimed->getViewContext());
     }
 
     #[Test]

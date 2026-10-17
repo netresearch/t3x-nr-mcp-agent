@@ -11,6 +11,7 @@ namespace Netresearch\NrMcpAgent\Service;
 
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 
 /**
  * Reading and deciding the approval a conversation is parked on.
@@ -36,8 +37,29 @@ interface ChatApprovalInterface
      *
      * Returns false when there was nothing to decide or the claim was lost to
      * another writer — a click that arrived late is not an error to report.
+     *
+     * @param DenyReason|null $reason  why a denial was given on the card (ADR-018)
+     * @param string          $display the transcript line for that reason; empty adds none
+     * @param array{tool: string, table: string, uid: int, fields: list<string>}|null $card
+     *                                 a process card's call, for the outcome record (ADR-023); null for any other card
      */
-    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest): bool;
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = '', ?array $card = null): bool;
+
+    /**
+     * The question the conversation's run waits for an answer to (ADR-018), or
+     * null when nothing is asked or the actor may not read the run.
+     */
+    public function pendingInput(Conversation $conversation): ?InputPause;
+
+    /**
+     * Record the user's answer and claim the conversation for the worker, as
+     * recordDecision() does for an approval: submitInput() drives the whole
+     * continuation too. The answer is put into the transcript at once.
+     *
+     * @param array<string, mixed> $data    the values, already checked against the question's form
+     * @param string               $display the transcript line for the answer
+     */
+    public function recordInput(Conversation $conversation, array $data, string $turnDigest, string $display): bool;
 
     /**
      * Put a claimed conversation back in step with the run it waits on, for the
@@ -46,6 +68,22 @@ interface ChatApprovalInterface
      * Returns true when the conversation was changed.
      */
     public function reconcile(Conversation $conversation): bool;
+
+    /**
+     * Cancel the run a guided process waits on (a card or a question), after
+     * a new message has claimed the conversation (nr-llm ADR-214); an
+     * ordinary chat leaves it waiting. False when the run is being carried on
+     * or was decided meanwhile: the caller puts the row back.
+     *
+     * @param Conversation $before the conversation as it was before the claim
+     */
+    public function releasePendingRun(Conversation $before): bool;
+
+    /**
+     * Whether the card for this view offers the three answers of a process
+     * run (ADR-018, nr-llm ADR-214) instead of approve and cancel.
+     */
+    public function offersProcessAnswers(Conversation $conversation, WaitingRunView $view): bool;
 
     /** The run still waits for a decision. */
     public const PENDING_RUN_WAITING = 'waiting';
