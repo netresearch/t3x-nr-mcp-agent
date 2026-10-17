@@ -11,6 +11,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
+import {chatGuidedStyles, renderProgress, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
@@ -50,7 +51,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -881,6 +882,9 @@ export class AiChatPanel extends LitElement {
     }
 
     updated(changed) {
+        // The page module beside the panel shows the element the guided
+        // process is about (ADR-020).
+        sendHighlight(this.chat, this.ownerDocument?.defaultView ?? globalThis);
         if (changed.has('state') || changed.has('_height') || changed.has('_width') || changed.has('_posX') || changed.has('_posY')) {
             this._applySize();
         }
@@ -1566,6 +1570,7 @@ export class AiChatPanel extends LitElement {
                  @click=${(e) => this._onHeaderClick(e)}
                  @dblclick=${(e) => this._onHeaderDblClick(e)}>
                 <span class="title">${title}</span>
+                ${renderProgress(this.chat)}
                 ${this.chat.status ? html`
                     <span class="status-badge status-${displayStatus(this.chat.status)}" title="${displayStatus(this.chat.status)}">${STATUS_ICONS[displayStatus(this.chat.status)] ?? displayStatus(this.chat.status)}</span>
                 ` : nothing}

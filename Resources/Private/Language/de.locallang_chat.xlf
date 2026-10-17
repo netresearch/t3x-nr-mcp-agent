@@ -507,6 +507,14 @@
                 <source>Open the chat module</source>
                 <target>Chat-Modul öffnen</target>
             </trans-unit>
+            <trans-unit id="guided.progress" resname="guided.progress">
+                <source>Point %d of %d</source>
+                <target>Punkt %d von %d</target>
+            </trans-unit>
+            <trans-unit id="guided.completed" resname="guided.completed">
+                <source>done</source>
+                <target>abgeschlossen</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
