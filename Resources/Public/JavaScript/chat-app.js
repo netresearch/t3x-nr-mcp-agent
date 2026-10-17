@@ -957,14 +957,35 @@ export class ChatApp extends LitElement {
                         </details>
                     </div>
                 `)}
+                ${this._renderApproveBlocked(pending)}
                 <div class="approval-actions">
-                    <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
-                        @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
+                    ${pending.approveBlocked ? nothing : html`
+                        <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
+                            @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
+                    `}
                     <button class="btn btn-sm" ?disabled=${this.chat.approvalBusy}
                         @click=${() => this._decide(false)}>${lll('chat.approvalCancel')}</button>
                 </div>
                 ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
             </div>
+        `;
+    }
+
+    /**
+     * Why the card offers no approve button, when it does not (ADR-021): the
+     * configuration requires a second person, or the reader decides by the
+     * chat's own permission and a change has no preview built with their
+     * rights. The way to deny stays.
+     */
+    _renderApproveBlocked(pending) {
+        if (!pending.approveBlocked) {
+            return nothing;
+        }
+
+        const label = pending.approveBlocked === 'secondApprover' ? 'chat.approvalSecondApprover' : 'chat.approvalOwnNeedsPreview';
+        return html`
+            <p class="approval-warning approval-blocked">${lll(label)}</p>
+            ${this._renderRunDetailsLink()}
         `;
     }
 

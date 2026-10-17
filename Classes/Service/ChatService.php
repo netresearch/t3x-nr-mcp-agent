@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -34,6 +35,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
@@ -176,6 +178,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ConfigurationResolver $configurationResolver = new ConfigurationResolver(),
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?LlmConfigurationRepository $configurations = null,
     ) {}
 
     /**
@@ -434,6 +437,25 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
+     * Read from the run's own configuration, not from the chat's current
+     * Task: a run keeps the configuration it started with. False when the run
+     * or the configuration cannot be read — nr-llm still enforces the rule,
+     * and the refusal then comes back as a hand-back.
+     */
+    public function requiresSecondApprover(Conversation $conversation): bool
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+        $run = $runUuid !== '' ? $this->agentRunRepository->findByUuid($runUuid) : null;
+        if (!$run instanceof AgentRun || !$this->configurations instanceof LlmConfigurationRepository) {
+            return false;
+        }
+
+        $configuration = $this->configurations->findByUid($run->configurationUid);
+
+        return $configuration instanceof LlmConfiguration && $configuration->requiresSecondApprover();
+    }
+
+    /**
      * Where the parked run stands, for a "go on" message (ADR-017).
      *
      * Asked when the reader writes "weiter" or "habe alles freigegeben" while
@@ -611,10 +633,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 },
             );
             $recordDecision();
-        } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException|RunConfigurationInactiveException $e) {
-            // These five RELEASE the run rather than consume it: it is still
+        } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException|RunConfigurationInactiveException|SelfApprovalDeniedException $e) {
+            // These six RELEASE the run rather than consume it: it is still
             // pending and still decidable. A deactivated configuration is one
-            // of them (nr-llm 0.37): the run waits until it is active again. Put the conversation back where it
+            // of them (nr-llm 0.37): the run waits until it is active again.
+            // So is an approval four-eyes refuses (nr-llm ADR-172): the run
+            // waits for a colleague, and the reader may still deny it. Put the conversation back where it
             // was, with the reason, so the card returns and the reader can
             // decide again. Marking it Failed would hide the card AND offer a
             // Retry that starts a second run over the same transcript.
