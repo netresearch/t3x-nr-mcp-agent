@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" datatype="plaintext" original="messages" date="2026-10-08T00:00:00Z" product-name="nr_mcp_agent">
+        <body>
+            <trans-unit id="preset.title" resname="preset.title">
+                <source>AI Assistant</source>
+            </trans-unit>
+            <trans-unit id="preset.description" resname="preset.description">
+                <source>Improve your website with the AI assistant: start guided tours, frequent tasks and open recommendations, and return to your recent chats.</source>
+            </trans-unit>
+            <trans-unit id="group.title" resname="group.title">
+                <source>AI Assistant</source>
+            </trans-unit>
+            <trans-unit id="improve.title" resname="improve.title">
+                <source>Improve a page</source>
+            </trans-unit>
+            <trans-unit id="improve.description" resname="improve.description">
+                <source>Choose a page and a guided tour; the AI assistant goes through it with you step by step.</source>
+            </trans-unit>
+            <trans-unit id="improve.legend" resname="improve.legend">
+                <source>What would you like to improve?</source>
+            </trans-unit>
+            <trans-unit id="improve.page" resname="improve.page">
+                <source>Page</source>
+            </trans-unit>
+            <trans-unit id="improve.noSkills" resname="improve.noSkills">
+                <source>No guided tours are set up yet. Your administrator can set them up.</source>
+            </trans-unit>
+            <trans-unit id="page.hint" resname="page.hint">
+                <source>The most recently changed pages you may edit.</source>
+            </trans-unit>
+            <trans-unit id="page.hintSuggested" resname="page.hintSuggested">
+                <source>Recommended: pages with open points or missing details for search engines. Below them, the most recently changed pages you may edit.</source>
+            </trans-unit>
+            <trans-unit id="page.suggested" resname="page.suggested">
+                <source>Recommended</source>
+            </trans-unit>
+            <trans-unit id="page.recent" resname="page.recent">
+                <source>Recently changed</source>
+            </trans-unit>
+            <trans-unit id="suggestion.reason.openPoint" resname="suggestion.reason.openPoint">
+                <source>Open point from a guided tour</source>
+            </trans-unit>
+            <trans-unit id="suggestion.reason.missingDescription" resname="suggestion.reason.missingDescription">
+                <source>Meta description missing</source>
+            </trans-unit>
+            <trans-unit id="suggestion.reason.shortTitle" resname="suggestion.reason.shortTitle">
+                <source>Page title too short</source>
+            </trans-unit>
+            <trans-unit id="suggestion.reason.missingSocialImage" resname="suggestion.reason.missingSocialImage">
+                <source>Social media image missing</source>
+            </trans-unit>
+            <trans-unit id="page.none" resname="page.none">
+                <source>No page found that you may edit.</source>
+            </trans-unit>
+            <trans-unit id="page.untitled" resname="page.untitled">
+                <source>Page without a title</source>
+            </trans-unit>
+            <trans-unit id="tasks.title" resname="tasks.title">
+                <source>Frequent tasks</source>
+            </trans-unit>
+            <trans-unit id="tasks.description" resname="tasks.description">
+                <source>Start the tasks you do most often directly in the AI chat.</source>
+            </trans-unit>
+            <trans-unit id="tasks.pageHint" resname="tasks.pageHint">
+                <source>For tasks on one page, choose the page first. Offered are the most recently changed pages you may edit.</source>
+            </trans-unit>
+            <trans-unit id="tasks.pageFor" resname="tasks.pageFor">
+                <source>Page for “%s”</source>
+            </trans-unit>
+            <trans-unit id="tasks.empty" resname="tasks.empty">
+                <source>No frequent tasks are set up yet. Your administrator can set them up.</source>
+            </trans-unit>
+            <trans-unit id="recommendations.title" resname="recommendations.title">
+                <source>Recommended for your website</source>
+            </trans-unit>
+            <trans-unit id="recommendations.description" resname="recommendations.description">
+                <source>Improvements the AI assistant found during guided tours and that are still open.</source>
+            </trans-unit>
+            <trans-unit id="recommendations.empty" resname="recommendations.empty">
+                <source>No open recommendations. When the AI assistant finds something to improve during a guided tour, it appears here.</source>
+            </trans-unit>
+            <trans-unit id="recommendations.start" resname="recommendations.start">
+                <source>%1$s on “%2$s”</source>
+            </trans-unit>
+            <trans-unit id="skill.seo-optimieren.title" resname="skill.seo-optimieren.title">
+                <source>Optimise SEO</source>
+            </trans-unit>
+            <trans-unit id="skill.seo-optimieren.description" resname="skill.seo-optimieren.description">
+                <source>Check and improve the page title, meta description and headings for search engines.</source>
+            </trans-unit>
+            <trans-unit id="skill.inhalt-verbessern.title" resname="skill.inhalt-verbessern.title">
+                <source>Improve content</source>
+            </trans-unit>
+            <trans-unit id="skill.inhalt-verbessern.description" resname="skill.inhalt-verbessern.description">
+                <source>Check the texts of the page for clarity, structure and spelling, and improve them.</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

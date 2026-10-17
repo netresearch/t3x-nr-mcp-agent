@@ -303,6 +303,62 @@ Security
     conversations per user. Prevents a single user from
     overloading the system. Set to ``0`` for unlimited.
 
+Dashboard
+=========
+
+These settings fill the AI assistant dashboard widgets (see
+:ref:`usage-dashboard`). The chat's skill catalogue names a skill by nr-llm's
+``<source uid>:<path>``, such as ``3:seo-optimieren``, so the same skill has
+a different identifier on every installation. A setting names a skill in one
+of two ways:
+
+*   a bare slug without ``:``, such as ``seo-optimieren``: the catalogue
+    skill whose identifier is ``<source uid>:seo-optimieren``. Where several
+    sources carry the slug, the source with the highest trust level wins
+    (nr-llm's skill trust: first party, verified, community, untrusted),
+    then the one with the lowest source uid;
+*   a catalogue identifier, such as ``3:seo-optimieren``: exactly that skill.
+
+Letters, digits and ``._:/-`` are accepted, starting with a letter or digit
+and at most 100 characters; any other entry is ignored.
+
+What an editor reads for a skill comes from
+``EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf``:
+``skill.<key>.title``, ``skill.<key>.description`` and, for a frequent task,
+``task.<key>``. ``<key>`` is the identifier with every character other than
+a letter, digit, ``-`` or ``_`` replaced by ``_``: ``3:skills/seo`` is
+labelled by ``skill.3_skills_seo.title``. A catalogue identifier without
+labels of its own uses those of its slug, so ``3:seo-optimieren`` reads
+``skill.seo-optimieren.title``. For a skill of your own, add
+these labels through a language override
+(``$GLOBALS['TYPO3_CONF_VARS']['SYS']['locallangXMLOverride']``). An entry
+without a title is left out rather than shown by its identifier.
+
+An entry is offered only when the chat can start its skill for the user
+looking at the dashboard: the skill is in the chat's skill catalogue for
+that user, nr-llm can pass a skill to a run, and the configuration does not
+require a second person to approve every change. Otherwise the entry is
+left out, and a widget left with nothing to offer says that nothing is set
+up yet. A configured skill that does not exist therefore never leads to a
+link the chat would refuse.
+
+..  confval:: dashboardGuidedSkills
+    :type: string
+    :default: seo-optimieren,inhalt-verbessern
+
+    The guided tours the *Improve a page* widget offers, comma-separated,
+    in this order.
+
+..  confval:: dashboardQuickTasks
+    :type: string
+    :default: (empty)
+
+    The entries of the *Frequent tasks* widget, comma-separated. Append
+    ``|page`` to a task that works on one page: the widget then asks for
+    the page first. Without it the entry is a link that starts the task in
+    the chat. Empty by default, so the preset does not repeat the guided
+    tours; the widget then says that no task is set up yet.
+
 Worker mode production setup
 ============================
 

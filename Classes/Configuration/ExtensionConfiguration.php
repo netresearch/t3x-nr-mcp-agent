@@ -189,6 +189,64 @@ class ExtensionConfiguration
         return $folder;
     }
 
+    /**
+     * The guided tours the "Improve a page" dashboard widget offers, as skill
+     * identifiers in the configured order.
+     *
+     * An identifier is either the one the chat's skill catalogue uses (nr-llm's
+     * `<source uid>:<path>`, e.g. `3:seo-optimieren`) or a bare slug that
+     * CatalogueSkillResolver matches against the part after `<source uid>:`. Only what the chat accepts as an identifier is
+     * kept — letters, digits and `._:/-`, starting with a letter or digit, at
+     * most 100 characters; anything else is dropped rather than passed on.
+     *
+     * @return list<string>
+     */
+    public function getDashboardGuidedSkills(): array
+    {
+        $skills = [];
+        foreach (explode(',', $this->getString('dashboardGuidedSkills', 'seo-optimieren,inhalt-verbessern')) as $entry) {
+            $skill = trim($entry);
+            if ($this->isSkillIdentifier($skill) && !in_array($skill, $skills, true)) {
+                $skills[] = $skill;
+            }
+        }
+
+        return $skills;
+    }
+
+    /**
+     * The entries of the "Frequent tasks" dashboard widget: comma-separated
+     * skill identifiers, each optionally followed by `|page` when the task
+     * works on one page and the widget has to ask which.
+     *
+     * @return list<array{skill: string, needsPage: bool}>
+     */
+    public function getDashboardQuickTasks(): array
+    {
+        $tasks = [];
+        foreach (explode(',', $this->getString('dashboardQuickTasks', '')) as $entry) {
+            $parts = array_map(trim(...), explode('|', $entry));
+            $skill = $parts[0];
+            if (!$this->isSkillIdentifier($skill) || count($parts) > 2) {
+                continue;
+            }
+
+            $flag = $parts[1] ?? '';
+            if ($flag !== '' && $flag !== 'page') {
+                continue;
+            }
+
+            $tasks[] = ['skill' => $skill, 'needsPage' => $flag === 'page'];
+        }
+
+        return $tasks;
+    }
+
+    private function isSkillIdentifier(string $value): bool
+    {
+        return preg_match('/^[A-Za-z0-9][A-Za-z0-9._:\/-]{0,99}$/', $value) === 1;
+    }
+
     private function getString(string $key, string $default): string
     {
         $value = $this->config[$key] ?? $default;
