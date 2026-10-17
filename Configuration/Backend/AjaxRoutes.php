@@ -50,6 +50,11 @@ return [
         'target' => ChatApiController::class . '::decideApproval',
         'methods' => ['POST'],
     ],
+    'ai_chat_conversation_input' => [
+        'path' => '/ai-chat/conversations/input',
+        'target' => ChatApiController::class . '::submitInput',
+        'methods' => ['POST'],
+    ],
     'ai_chat_conversation_resume' => [
         'path' => '/ai-chat/conversations/resume',
         'target' => ChatApiController::class . '::resumeConversation',

@@ -30,5 +30,16 @@ enum ConversationStatus: string
      */
     case AwaitingApproval = 'awaiting_approval';
 
+    /**
+     * The run paused because a tool asks the user for an answer (nr-llm
+     * ADR-105). The chat offers the answer as reply buttons above the input
+     * (ADR-018).
+     *
+     * Not counted as active and not resumable, for the reason given for
+     * AwaitingApproval: the run is parked on the user's answer, and restarting
+     * it would leave the question behind unanswered.
+     */
+    case AwaitingInput = 'awaiting_input';
+
     case Failed = 'failed';
 }

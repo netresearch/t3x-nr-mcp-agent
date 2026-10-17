@@ -63,6 +63,26 @@ What the chat tells you besides the answer
     step was already decided in AI Tasks, the chat says so and names
     the records the run wrote.
 
+Answering a question in the chat
+--------------------------------
+
+A step can stop and ask you something before it goes on, for example
+which point of a page it should start with. A proposed change is never
+asked this way: it waits on an approval card. The question appears as the
+assistant's message, and the possible answers appear as buttons directly
+above the input field. Press one to answer; the step continues with your
+answer, and the answer stays in the conversation as your message.
+
+When the question allows an answer in your own words, the input field says
+**Write your own answer** and what you send is the answer. Otherwise a
+message you send ends the question and starts a new request. A question
+with several fields is shown as a small form with a **Send answer**
+button. If the chat cannot show a question, it says so.
+
+When the question changed after it was shown, or your answer could not be
+taken, the question comes back with the reason above the buttons; answer
+again.
+
 Approving a step in the chat
 ----------------------------
 
@@ -70,8 +90,13 @@ A step that writes data waits for your decision on a card in the chat.
 The card is headed with what the step does, for example **Create page
 draft** or **Delete page**, followed by what would change: where, the
 current state, the new state and the consequences. The approve button
-carries the same name, so it says what pressing it does; **Cancel**
-leaves everything as it is. The name is the first line of the step's
+carries the same name, so it says what pressing it does. **Cancel** leaves
+everything as it is. When a guided process proposes a change, two buttons
+take the place of **Cancel** and tell the assistant why the change is not
+taken: **Another variant** asks for a different proposal, **Skip** moves on
+without this change; your choice stays in the conversation as your
+message. In a guided process, a message of your own while a proposal or a
+question waits cancels that step. The name is the first line of the step's
 preview when nr-llm marks that line as naming the change; otherwise it
 is the tool's editor action label, and without one the step is headed
 **Planned step** and approved with **Carry out step**. A turn with
