@@ -227,7 +227,7 @@ final class ChatApiControllerEditTest extends TestCase
         ]));
 
         self::assertNotNull($this->claimed);
-        self::assertSame(['pageId' => 12, 'module' => 'web_layout'], $this->claimed->getViewContext());
+        self::assertSame(['pageId' => 12, 'module' => 'web_layout', 'languageId' => -1], $this->claimed->getViewContext());
     }
 
     #[Test]
@@ -243,7 +243,7 @@ final class ChatApiControllerEditTest extends TestCase
         ]));
 
         self::assertNotNull($this->claimed);
-        self::assertSame(['pageId' => 0, 'module' => ''], $this->claimed->getViewContext());
+        self::assertSame(['pageId' => 0, 'module' => '', 'languageId' => -1], $this->claimed->getViewContext());
     }
 
     #[Test]
@@ -255,7 +255,7 @@ final class ChatApiControllerEditTest extends TestCase
         $this->subject->sendMessage($this->request(['conversationUid' => 1, 'content' => 'hi']));
 
         self::assertNotNull($this->claimed);
-        self::assertSame(['pageId' => 0, 'module' => ''], $this->claimed->getViewContext());
+        self::assertSame(['pageId' => 0, 'module' => '', 'languageId' => -1], $this->claimed->getViewContext());
     }
 
     #[Test]

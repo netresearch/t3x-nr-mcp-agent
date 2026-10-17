@@ -11,6 +11,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
+import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
@@ -50,7 +51,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatSlashStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -1521,9 +1522,13 @@ export class AiChatPanel extends LitElement {
         }
         e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+        this.chat.updateSlash();
     }
 
     _handleKeydown(e) {
+        if (handleSlashKeydown(this.chat, e)) {
+            return;
+        }
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             this.chat.handleSend().catch(() => {});
@@ -2361,6 +2366,8 @@ export class AiChatPanel extends LitElement {
 
     _renderInput() {
         return html`
+            ${renderActiveSkill(this.chat)}
+            ${renderSlashList(this.chat)}
             ${this._renderFileBadge()}
             <div class="panel-input">
                 ${this._renderAttachmentMenu()}
@@ -2369,6 +2376,11 @@ export class AiChatPanel extends LitElement {
                         .value=${this.chat.inputValue}
                         @input=${this._handleInput}
                         @keydown=${this._handleKeydown}
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-controls="${SLASH_LIST_ID}"
+                        aria-expanded="${slashAria(this.chat).expanded}"
+                        aria-activedescendant="${slashAria(this.chat).activedescendant || nothing}"
                         placeholder="${lll('chat.placeholder')}"
                         aria-label="${lll('chat.placeholder')}"
                         ?disabled=${!this.chat.available || this.chat.isProcessing()}

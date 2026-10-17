@@ -507,6 +507,42 @@
                 <source>Open the chat module</source>
                 <target>Chat-Modul öffnen</target>
             </trans-unit>
+            <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
+                <source>You may not open this page, so no conversation was started about it.</source>
+                <target>Du darfst diese Seite nicht öffnen, deshalb wurde keine Unterhaltung zu ihr gestartet.</target>
+            </trans-unit>
+            <trans-unit id="error.languageNotAccessible" resname="error.languageNotAccessible">
+                <source>This language does not exist on the page's site or you may not edit it, so no conversation was started.</source>
+                <target>Diese Sprache gibt es auf der Website der Seite nicht oder du darfst sie nicht bearbeiten, deshalb wurde keine Unterhaltung gestartet.</target>
+            </trans-unit>
+            <trans-unit id="error.skillSecondApprover" resname="error.skillSecondApprover">
+                <source>This chat's AI configuration needs a second person to approve every change, so a skill cannot start here.</source>
+                <target>Die KI-Konfiguration dieses Chats verlangt für jede Änderung die Freigabe durch eine zweite Person, deshalb kann hier kein Skill starten.</target>
+            </trans-unit>
+            <trans-unit id="error.skillUnknown" resname="error.skillUnknown">
+                <source>This skill is not available in the chat.</source>
+                <target>Dieser Skill ist im Chat nicht verfügbar.</target>
+            </trans-unit>
+            <trans-unit id="skills.listLabel" resname="skills.listLabel">
+                <source>Skills</source>
+                <target>Skills</target>
+            </trans-unit>
+            <trans-unit id="skills.loading" resname="skills.loading">
+                <source>Loading skills…</source>
+                <target>Skills werden geladen…</target>
+            </trans-unit>
+            <trans-unit id="skills.none" resname="skills.none">
+                <source>No skills available</source>
+                <target>Keine Skills verfügbar</target>
+            </trans-unit>
+            <trans-unit id="skills.active" resname="skills.active">
+                <source>Skill:</source>
+                <target>Skill:</target>
+            </trans-unit>
+            <trans-unit id="skills.remove" resname="skills.remove">
+                <source>Remove skill</source>
+                <target>Skill entfernen</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

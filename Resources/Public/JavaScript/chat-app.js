@@ -9,6 +9,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
+import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
 /**
@@ -24,7 +25,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatSlashStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -517,6 +518,36 @@ export class ChatApp extends LitElement {
 
     // ── Callback hooks for ChatCoreController ──────────────────────────
 
+    /**
+     * What the module URL asks a new conversation to be about (ADR-019):
+     * `&pageUid=<uid>`, `&languageUid=<uid>` and `&skill=<identifier>`. Null
+     * without either a page or a skill, and when the URL names a conversation.
+     *
+     * @returns {{pageUid?: number, languageUid?: number, skill?: string}|null}
+     */
+    initialStartContext() {
+        const params = new URLSearchParams(globalThis.location.search);
+        if (params.get('conversation')) return null;
+        const start = {};
+        const page = params.get('pageUid') ?? '';
+        const language = params.get('languageUid') ?? '';
+        const skill = params.get('skill') ?? '';
+        if (/^\d+$/.test(page) && Number(page) > 0) {
+            start.pageUid = Number(page);
+            if (/^\d+$/.test(language)) start.languageUid = Number(language);
+        }
+        if (skill !== '') start.skill = skill;
+        return Object.keys(start).length > 0 ? start : null;
+    }
+
+    /** Point the URL at the conversation it started, so a reload opens it again. */
+    onStartContextConsumed(uid) {
+        const url = new URL(globalThis.location.href);
+        ['pageUid', 'languageUid', 'skill'].forEach((key) => url.searchParams.delete(key));
+        url.searchParams.set('conversation', String(uid));
+        globalThis.history?.replaceState?.(globalThis.history.state, '', url.toString());
+    }
+
     /** The conversation the module URL names (`&conversation=<uid>`), or 0. */
     initialConversationUid() {
         return Number.parseInt(new URLSearchParams(globalThis.location.search).get('conversation') ?? '', 10) || 0;
@@ -561,9 +592,13 @@ export class ChatApp extends LitElement {
         }
         e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+        this.chat.updateSlash();
     }
 
     _handleKeydown(e) {
+        if (handleSlashKeydown(this.chat, e)) {
+            return;
+        }
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             this.chat.handleSend().catch(() => {});
@@ -736,6 +771,8 @@ export class ChatApp extends LitElement {
                 ${this._renderStatusNotice(isResumable)}
             </div>
 
+            ${renderActiveSkill(this.chat)}
+            ${renderSlashList(this.chat)}
             ${this._renderFileBadge()}
             <div class="input-area">
                 ${this._renderAttachmentMenu()}
@@ -744,6 +781,11 @@ export class ChatApp extends LitElement {
                         .value=${this.chat.inputValue}
                         @input=${this._handleInput}
                         @keydown=${this._handleKeydown}
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-controls="${SLASH_LIST_ID}"
+                        aria-expanded="${slashAria(this.chat).expanded}"
+                        aria-activedescendant="${slashAria(this.chat).activedescendant || nothing}"
                         placeholder="${lll('chat.placeholder')}"
                         aria-label="${lll('chat.placeholder')}"
                         ?disabled=${!this.chat.available}

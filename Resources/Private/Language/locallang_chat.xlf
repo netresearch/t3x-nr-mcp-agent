@@ -385,6 +385,33 @@
             <trans-unit id="widget.openModule" resname="widget.openModule">
                 <source>Open the chat module</source>
             </trans-unit>
+            <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
+                <source>You may not open this page, so no conversation was started about it.</source>
+            </trans-unit>
+            <trans-unit id="error.languageNotAccessible" resname="error.languageNotAccessible">
+                <source>This language does not exist on the page's site or you may not edit it, so no conversation was started.</source>
+            </trans-unit>
+            <trans-unit id="error.skillSecondApprover" resname="error.skillSecondApprover">
+                <source>This chat's AI configuration needs a second person to approve every change, so a skill cannot start here.</source>
+            </trans-unit>
+            <trans-unit id="error.skillUnknown" resname="error.skillUnknown">
+                <source>This skill is not available in the chat.</source>
+            </trans-unit>
+            <trans-unit id="skills.listLabel" resname="skills.listLabel">
+                <source>Skills</source>
+            </trans-unit>
+            <trans-unit id="skills.loading" resname="skills.loading">
+                <source>Loading skills…</source>
+            </trans-unit>
+            <trans-unit id="skills.none" resname="skills.none">
+                <source>No skills available</source>
+            </trans-unit>
+            <trans-unit id="skills.active" resname="skills.active">
+                <source>Skill:</source>
+            </trans-unit>
+            <trans-unit id="skills.remove" resname="skills.remove">
+                <source>Remove skill</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
