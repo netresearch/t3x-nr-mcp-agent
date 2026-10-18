@@ -112,9 +112,14 @@ beside the floating panel shows, read from its URL while it matters.
 -   The overview of findings is the skill's own text. The number of points
     in it is the *m* the process reports with ``chat_set_progress``.
 -   Where a source is missing, the process invents nothing. The next steps
-    are a choice; its skip option reads "Ohne <Thema> weiter", so that
-    *Überspringen* keeps its one meaning. This needs a choice builtin in
-    nr-llm, which does not exist yet; it is not built here.
+    are a choice through nr-llm's choice builtin ``ask_choice`` (nr-llm PR
+    1029), shown with the reply buttons of ADR-018: the options are the
+    call's own, rendered as text, and the button sends its option as the
+    answer. Its skip option is worded by the skill ("Ohne <Thema> weiter"),
+    so that *Überspringen* keeps its one meaning; the chat adds no wording.
+    The same holds for plain choices such as "Los geht's" / "Fertig" after
+    the overview. Nothing in the chat is specific to the tool: its schema is
+    a choice under ADR-018's contract.
 -   The page choice confirms with *Diese Seite prüfen* rather than
     starting on the click in the page tree, so browsing the tree starts
     nothing.

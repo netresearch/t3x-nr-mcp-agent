@@ -303,6 +303,21 @@ Security
     conversations per user. Prevents a single user from
     overloading the system. Set to ``0`` for unlimited.
 
+Choices in guided processes
+===========================
+
+A guided process asks its plain choices -- which point first, whether to
+continue, how to go on when a source is missing -- through nr-llm's tool
+``ask_choice``. The chat shows its answers as reply buttons above the
+input. nr-llm ships ``ask_choice`` switched off: enable it under
+**AI > Operation > Tools** in nr-llm before a process relies on it.
+Without it a process cannot ask such a choice and has to put it into its
+answer instead. ``ask_choice`` needs an nr-llm that has it (nr-llm PR 1029).
+
+The answers are the options the process passes, shown as they are. A
+"go on without" option, such as "Ohne Bild weiter", is worded by the
+process's skill, not by the chat.
+
 Worker mode production setup
 ============================
 
