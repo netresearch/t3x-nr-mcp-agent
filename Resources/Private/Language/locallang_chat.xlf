@@ -212,6 +212,9 @@
             <trans-unit id="chat.processDropped.predecessorGone" resname="chat.processDropped.predecessorGone">
                 <source>The guided process has ended: the run it continued from is no longer available. The conversation goes on without it.</source>
             </trans-unit>
+            <trans-unit id="chat.processDropped.refusedTooOften" resname="chat.processDropped.refusedTooOften">
+                <source>The guided process has ended: it could not be continued too many times in a row. The conversation goes on without it.</source>
+            </trans-unit>
             <trans-unit id="chat.processDropped.other" resname="chat.processDropped.other">
                 <source>The guided process has ended. The conversation goes on without it.</source>
             </trans-unit>

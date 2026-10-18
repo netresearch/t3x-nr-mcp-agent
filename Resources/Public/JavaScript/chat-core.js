@@ -9,7 +9,7 @@ export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']
 
 /**
  * The label for each reason nr-llm gives when it drops a guided process
- * (nr-llm DroppedSourceReason, ADR-228). Only these three are given for a
+ * (nr-llm DroppedSourceReason, ADR-228). Only these four are given for a
  * process; `deactivated` and `gone` concern a forced skill or snippet, which
  * the chat does not report. A reason nr-llm adds later gets the generic label.
  */
@@ -17,6 +17,7 @@ const PROCESS_DROPPED_LABELS = new Map([
     ['detached', 'chat.processDropped.detached'],
     ['configuration_changed', 'chat.processDropped.configurationChanged'],
     ['predecessor_gone', 'chat.processDropped.predecessorGone'],
+    ['refused_too_often', 'chat.processDropped.refusedTooOften'],
 ]);
 
 /**

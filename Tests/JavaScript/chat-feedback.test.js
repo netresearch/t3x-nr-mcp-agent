@@ -129,6 +129,7 @@ describe.each(SURFACES)('$name feedback', ({module: modulePath, tag, open}) => {
         ['detached', 'chat.processDropped.detached'],
         ['configuration_changed', 'chat.processDropped.configurationChanged'],
         ['predecessor_gone', 'chat.processDropped.predecessorGone'],
+        ['refused_too_often', 'chat.processDropped.refusedTooOften'],
         // A reason nr-llm adds later, and one that is a property of every
         // object: both get the generic sentence, never another reason's.
         ['some_future_reason', 'chat.processDropped.other'],
@@ -149,7 +150,7 @@ describe.each(SURFACES)('$name feedback', ({module: modulePath, tag, open}) => {
 
         const text = el.shadowRoot.textContent;
         expect(text).toContain(label);
-        for (const other of ['detached', 'configurationChanged', 'predecessorGone', 'other']) {
+        for (const other of ['detached', 'configurationChanged', 'predecessorGone', 'refusedTooOften', 'other']) {
             if (`chat.processDropped.${other}` !== label) {
                 expect(text).not.toContain(`chat.processDropped.${other}`);
             }
