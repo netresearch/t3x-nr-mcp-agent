@@ -8,6 +8,18 @@ import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
 /**
+ * The label for each reason nr-llm gives when it drops a guided process
+ * (nr-llm DroppedSourceReason, ADR-228). Only these three are given for a
+ * process; `deactivated` and `gone` concern a forced skill or snippet, which
+ * the chat does not report. A reason nr-llm adds later gets the generic label.
+ */
+const PROCESS_DROPPED_LABELS = new Map([
+    ['detached', 'chat.processDropped.detached'],
+    ['configuration_changed', 'chat.processDropped.configurationChanged'],
+    ['predecessor_gone', 'chat.processDropped.predecessorGone'],
+]);
+
+/**
  * The status a conversation is shown with.
  *
  * `locked` means ai-chat:process or ai-chat:worker has claimed the turn and is
@@ -1243,9 +1255,7 @@ export class ChatCoreController {
     formatRunNotice(msg) {
         if (msg.notice === 'processDropped') {
             const reason = Array.isArray(msg.noticeArgs) ? msg.noticeArgs[0] : '';
-            return reason === 'configuration_changed'
-                ? lll('chat.processDropped.configurationChanged')
-                : lll('chat.processDropped.detached');
+            return lll(PROCESS_DROPPED_LABELS.get(reason) ?? 'chat.processDropped.other');
         }
         if (msg.notice !== 'runFinishedOutside') return null;
         const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];

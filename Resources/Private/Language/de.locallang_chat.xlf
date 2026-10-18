@@ -275,6 +275,14 @@
                 <source>The guided process has ended: the chat now runs on another configuration. The conversation goes on without it.</source>
                 <target>Der geführte Ablauf ist beendet: Der Chat läuft jetzt mit einer anderen Konfiguration. Die Unterhaltung geht ohne ihn weiter.</target>
             </trans-unit>
+            <trans-unit id="chat.processDropped.predecessorGone" resname="chat.processDropped.predecessorGone">
+                <source>The guided process has ended: the run it continued from is no longer available. The conversation goes on without it.</source>
+                <target>Der geführte Ablauf ist beendet: Der Lauf, an den er anschloss, ist nicht mehr verfügbar. Die Unterhaltung geht ohne ihn weiter.</target>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.other" resname="chat.processDropped.other">
+                <source>The guided process has ended. The conversation goes on without it.</source>
+                <target>Der geführte Ablauf ist beendet. Die Unterhaltung geht ohne ihn weiter.</target>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">

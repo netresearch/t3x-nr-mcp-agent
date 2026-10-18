@@ -91,12 +91,14 @@ A turn whose skill has left the catalogue still names its predecessor, so
 nr-llm can report that it dropped the process.
 
 **A dropped process is said once.** When nr-llm drops the process — its skill
-was detached from the configuration, or the turn runs on another
-configuration — it records a ``dropped`` step with the reason, which the run
-result carries on every outcome. The chat adds one line before the answer,
-stored language-neutral with the notice ``processDropped`` and the reason;
-the reader sees the label in their own language, and the model is not sent
-the line. nr-llm records no process for such a run, so the next turn
+was detached from the configuration, the turn runs on another configuration,
+or the run it continues from is gone or not the user's — it records a
+``dropped`` step with the reason, which the run result carries on every
+outcome. The chat adds one line before the answer, stored language-neutral
+with the notice ``processDropped`` and the reason; the reader sees a sentence
+for that reason in their own language (``detached``,
+``configuration_changed``, ``predecessor_gone``; a generic one for a reason
+the chat does not know), and the model is not sent the line. nr-llm records no process for such a run, so the next turn
 continues none. ``DroppedSource`` and ``DroppedSourceReason`` are marked
 internal in nr-llm; the chat reads them until nr-llm declares them API.
 
