@@ -239,6 +239,12 @@ A skill can walk you through a page one point at a time. While it does:
     open points. The highlight goes away and the input gets the focus. While
     the assistant works or a decision is being carried out, the process
     cannot be ended.
+*   **A decision that cannot be taken right now comes back.** When nr-llm
+    cannot check the process just then, the proposal stays and the chat
+    asks you to try again. When the AI configuration requires a second
+    person to approve every change, nr-llm ends the process at the first
+    decision: the chat says so, the proposal is not applied, and the
+    conversation can go on without the process.
 *   **Skipped proposals stay open.** A change you answer with **Skip** is
     kept as an open point of that page: the record and field it was about,
     never its text. The next time the process runs on the page, it is

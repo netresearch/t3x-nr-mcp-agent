@@ -84,6 +84,13 @@ shown and the open points stay. The page module's mark is removed through
 a clear message, the second shape of the highlight contract. Removing the
 skill above the input during a process takes the same path.
 
+**nr-llm's refusals of a process decision.** When nr-llm refuses a
+decision because the run is a guided process (nr-llm PR 1029), the chat
+keeps the conversation usable: a run that still waits brings its card or
+question back with the chat's own sentence; a run nr-llm stopped because
+the configuration requires a second approver leaves the conversation idle,
+and ends the process as the × does, with the reason.
+
 **Starting anew is the chat's, behind one gate.** A process without a page
 asks for one; at its end, *Andere Seite wählen* starts it in a new
 conversation; when the page module shows another page, *Zur neuen Seite

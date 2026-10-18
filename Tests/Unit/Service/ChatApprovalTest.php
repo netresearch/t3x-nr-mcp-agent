@@ -608,6 +608,43 @@ final class ChatApprovalTest extends TestCase
         self::assertSame('', $conversation->getErrorMessage());
     }
 
+    /**
+     * A stopped run ends the guided process: its skill and its header go, as
+     * when the editor ends it (ADR-023). A run that still waits keeps both.
+     */
+    #[Test]
+    public function aStoppedProcessRunEndsTheTour(): void
+    {
+        $exception = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $conversation = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+        $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], ['table' => 'tt_content', 'uid' => 9]);
+        $service = $this->createChatService($exception);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame('', $conversation->getSkillIdentifier());
+        self::assertSame(0, $conversation->getSkillUid());
+        self::assertSame(['progress' => null, 'highlight' => null], $conversation->getGuidedState());
+    }
+
+    #[Test]
+    public function aWaitingProcessRunKeepsTheTour(): void
+    {
+        $exception = ProcessRefusalTest::raised(ProcessRefusal::VerdictUnavailable, 'run-uuid-1234');
+        $conversation = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+        $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], null);
+        $service = $this->createChatService($exception);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame('3:seo/page-tour', $conversation->getSkillIdentifier());
+        self::assertSame(2, $conversation->getGuidedState()['progress']['current'] ?? null);
+    }
+
     #[Test]
     public function anUnexpectedErrorStillFailsTheConversation(): void
     {

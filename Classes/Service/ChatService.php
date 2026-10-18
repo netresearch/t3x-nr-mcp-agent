@@ -1060,7 +1060,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $conversation->withdrawDecision();
         if ($stopped) {
             // Idle clears the run's reference with the other approval fields.
+            // The process has ended: its skill and its header go too, as when
+            // the editor ends it (ADR-023); what was applied stays.
             $conversation->setStatus(ConversationStatus::Idle);
+            $conversation->setSkillIdentifier('', 0);
+            $conversation->setGuidedState(null, null);
         } else {
             $conversation->setStatus($waiting);
             $conversation->setApprovalRunUuid($runUuid);
