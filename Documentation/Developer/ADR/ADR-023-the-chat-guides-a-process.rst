@@ -95,6 +95,48 @@ path, so a new start without an invocation would run without its process.
 „<Seite>“ bleiben* do not depend on it. The page is the one the page module
 beside the floating panel shows, read from its URL while it matters.
 
+**What else the process keeps fixed.**
+
+-   The three answers keep their names in every process: *Übernehmen*,
+    *Andere Variante*, *Überspringen*; labels per action are not used. A
+    tool that proposes an image is to name its variant answer itself
+    ("Anderes Bild"); nr-llm has no way to declare it yet, so the chat
+    shows *Andere Variante* for every tool.
+-   The overview of findings is the skill's own text. The number of points
+    in it is the *m* the process reports with ``chat_set_progress``.
+-   Where a source is missing, the process invents nothing. The next steps
+    are a choice; its skip option reads "Ohne <Thema> weiter", so that
+    *Überspringen* keeps its one meaning. This needs a choice builtin in
+    nr-llm, which does not exist yet; it is not built here.
+-   The page choice confirms with *Diese Seite prüfen* rather than
+    starting on the click in the page tree, so browsing the tree starts
+    nothing.
+-   Suggested pages come from a deterministic provider, never from the
+    model, at most five, each a page the user may edit in that language:
+    for the SEO process pages without a meta description, with a title
+    shorter than 30 characters or without a social image, open points
+    first; for the content process its open points only.
+-   Context actions such as "Kürzer" or "Sachlicher formulieren" are not
+    part of this release.
+
+**Not adopted, for now.**
+
+-   Site-wide scan tiles, and the widgets "Website prüfen" and "Website
+    bearbeiten" (bulk operations): no scanner exists, and bulk writes
+    conflict with one write per turn.
+-   Markers in the page tree: the tree is core UI, and a dot has no text
+    alternative.
+-   An analysis checklist with ticking checkboxes: no tool reports progress
+    per criterion, and the chat's Markdown strips ``input``. Instead, the
+    header shows the label "Analyse läuft" without a count.
+-   Internal links set on other pages within one proposal: one
+    approval-bound call per turn, and the targets lie outside the subject
+    page.
+-   "CTA nicht ändern" as a fourth answer on the card: *Überspringen* means
+    "jetzt nicht". A "dismiss, record nothing" answer would need its own
+    ADR decision.
+-   A site selector and "Einstellungen" in the dashboard header.
+
 **Seams.** Where nr-llm does not have what a decision needs, the chat reads
 it through one class or interface and falls back:
 
@@ -125,5 +167,5 @@ Consequences
     skill on nr-llm 0.41 runs without its process.
 -   Suggested pages for the choice and *Nächste Seite prüfen* come from the
     dashboard's page suggestions and are not part of the chat yet.
--   The three answers keep one meaning each: a context action ("Kürzer")
-    is a message of its own, which withdraws the waiting proposal.
+-   The three answers keep one meaning each. A context action, once one is
+    built, is a message of its own, which withdraws the waiting proposal.
