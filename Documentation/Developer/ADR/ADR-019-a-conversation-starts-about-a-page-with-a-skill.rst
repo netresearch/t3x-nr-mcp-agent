@@ -100,17 +100,6 @@ the line. nr-llm records no process for such a run, so the next turn
 continues none. ``DroppedSource`` and ``DroppedSourceReason`` are marked
 internal in nr-llm; the chat reads them until nr-llm declares them API.
 
-**No new turn while the run waits.** A message or an edit while the
-conversation's run waits for a decision or an input, or is being carried on,
-is refused like any busy conversation (409, ``error.conversationProcessing``):
-the new turn would name an unfinished run as its predecessor, which nr-llm
-refuses for a process, and the turn after that refusal would go on without
-it. A run that has finished, or one the chat cannot read, lets the message
-through, so a conversation whose run was decided elsewhere does not stay
-locked. The input is disabled while the card shows the waiting decision.
-This replaces the earlier rule that a new message abandons a pending
-approval (ADR-017).
-
 **No skill on a four-eyes configuration.** nr-llm ADR-214 decides a guided
 process only on the chat card; where the configuration requires a second
 approver (nr-llm ADR-172), the run's owner cannot release their own write

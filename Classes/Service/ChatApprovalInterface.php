@@ -93,10 +93,7 @@ interface ChatApprovalInterface
     /** The run still waits for a decision. */
     public const PENDING_RUN_WAITING = 'waiting';
 
-    /**
-     * The run was decided elsewhere and is being carried on right now, or it
-     * waits for something the chat does not decide (an input).
-     */
+    /** The run was decided elsewhere and is being carried on right now. */
     public const PENDING_RUN_BUSY = 'busy';
 
     /** The run was decided elsewhere and has finished. */

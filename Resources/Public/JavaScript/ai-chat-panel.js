@@ -2420,14 +2420,14 @@ export class AiChatPanel extends LitElement {
                         aria-activedescendant="${slashAria(this.chat).activedescendant || nothing}"
                         placeholder="${replyPlaceholder(this.chat)}"
                         aria-label="${replyPlaceholder(this.chat)}"
-                        ?disabled=${!this.chat.available || !this.chat.acceptsNewTurn()}
+                        ?disabled=${!this.chat.available || this.chat.isProcessing()}
                         rows="2"
                     ></textarea>
                     <button class="btn-send"
                             @click=${() => this.chat.handleSend()}
                             aria-label="${lll('chat.send')}"
                             title="${lll('chat.send')}"
-                            ?disabled=${!this.chat.hasInput || this.chat.sending || !this.chat.acceptsNewTurn() || !this.chat.available}>
+                            ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isProcessing() || !this.chat.available}>
                         ${this.chat.sending ? html`<span class="spinner" style="width:12px;height:12px;border-width:2px;"></span>` : ICON_SEND(14)}
                     </button>
                 </div>

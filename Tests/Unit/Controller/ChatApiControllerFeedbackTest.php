@@ -429,66 +429,17 @@ final class ChatApiControllerFeedbackTest extends TestCase
         self::assertSame(202, $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "weiter"}'))->getStatusCode());
     }
 
-    /**
-     * A new message while the run waits would follow an unfinished run, which
-     * nr-llm refuses for a guided process (ADR-228) — and the turn after that
-     * refusal would go on without the process. It is refused like any busy
-     * conversation, and the card stays (ADR-019).
-     */
     #[Test]
-    public function aNewRequestWhileTheRunStillWaitsIsBusy(): void
+    public function aNewRequestWhileAnApprovalIsPendingIsNotInspected(): void
     {
-        $conversation = $this->parked();
-        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
-        $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_WAITING, 'writes' => []]);
-        $this->processor->expects(self::never())->method('dispatch');
-        $this->repository->expects(self::never())->method('updateIf');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($this->parked());
+        $this->chatApproval->expects(self::never())->method('inspectPendingRun');
+        $this->chatApproval->method('releasePendingRun')->willReturn(true);
+        $this->processor->expects(self::once())->method('dispatch');
 
         $response = $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "Es fehlt noch das Element für die neue Unterseite"}'));
 
-        self::assertSame(409, $response->getStatusCode());
-        self::assertSame('error.conversationProcessing', $this->json($response)['error']);
-        self::assertSame('ccc12670-2f8d-4595-a89c-d81291ff5820', $conversation->getApprovalRunUuid());
-        self::assertSame(1, $conversation->getMessageCount());
-    }
-
-    /** Waiting for an input, or carried on elsewhere: also not finished. */
-    #[Test]
-    public function aNewRequestWhileTheRunIsNotFinishedIsBusy(): void
-    {
-        $this->repository->method('findOneByUidAndBeUser')->willReturn($this->parked());
-        $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_BUSY, 'writes' => []]);
-        $this->processor->expects(self::never())->method('dispatch');
-
-        self::assertSame(409, $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "Und das Element?"}'))->getStatusCode());
-    }
-
-    /** A run that finished elsewhere does not keep the conversation locked. */
-    #[Test]
-    public function aNewRequestAfterTheRunFinishedIsAnOrdinaryTurn(): void
-    {
-        $this->repository->method('findOneByUidAndBeUser')->willReturn($this->parked());
-        $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_SETTLED, 'writes' => []]);
-        $this->repository->method('updateIf')->willReturn(true);
-        $this->processor->expects(self::once())->method('dispatch');
-
-        self::assertSame(202, $this->subject->sendMessage($this->request('{"conversationUid": 1, "content": "Und das Element?"}'))->getStatusCode());
-    }
-
-    #[Test]
-    public function anEditWhileTheRunStillWaitsIsBusy(): void
-    {
-        $conversation = $this->parked();
-        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
-        $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_WAITING, 'writes' => []]);
-        $this->processor->expects(self::never())->method('dispatch');
-
-        $response = $this->subject->editMessage($this->request(
-            '{"conversationUid": 1, "index": 0, "content": "Lege die Seite an", "expectedContent": "Lege unter der Seite 10011 eine versteckte Unterseite an.", "messageCount": 1}',
-        ));
-
-        self::assertSame(409, $response->getStatusCode());
-        self::assertSame('error.conversationProcessing', $this->json($response)['error']);
+        self::assertSame(202, $response->getStatusCode());
     }
 
     #[Test]

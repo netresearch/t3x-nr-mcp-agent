@@ -680,15 +680,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return ['state' => self::PENDING_RUN_WAITING, 'writes' => []];
         }
 
-        if ($status === null) {
-            return $unknown;
+        if ($status === AgentRunStatus::RUNNING || $status === AgentRunStatus::QUEUED) {
+            return ['state' => self::PENDING_RUN_BUSY, 'writes' => []];
         }
 
-        // Running, queued, or waiting for an input: not finished, so not a
-        // run a new turn may follow (nr-llm ADR-228 refuses a continuation of
-        // a process run that has not ended).
-        if (!$status->isTerminal()) {
-            return ['state' => self::PENDING_RUN_BUSY, 'writes' => []];
+        if ($status === null || !$status->isTerminal()) {
+            return $unknown;
         }
 
         $writes = [];
