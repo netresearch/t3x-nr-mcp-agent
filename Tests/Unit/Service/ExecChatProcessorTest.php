@@ -89,7 +89,7 @@ class ExecChatProcessorTest extends TestCase
         self::assertNotNull($constructor);
 
         $types = array_map(
-            static fn(ReflectionParameter $p): string => (string) $p->getType(),
+            static fn (ReflectionParameter $p): string => (string) $p->getType(),
             $constructor->getParameters(),
         );
         self::assertSame(
@@ -129,7 +129,7 @@ class ExecChatProcessorTest extends TestCase
     public function missingBinaryIsLoggedAndFailsTheClaimedConversation(): void
     {
         $exception = new Typo3CliBinaryNotFoundException('The TYPO3 console binary was not found at "/x/vendor/bin/typo3"');
-        $resolver = $this->createMock(Typo3CliBinaryResolver::class);
+        $resolver  = $this->createMock(Typo3CliBinaryResolver::class);
         $resolver->method('resolve')->willThrowException($exception);
 
         $conversation = new Conversation();
@@ -147,7 +147,7 @@ class ExecChatProcessorTest extends TestCase
             ->method('error')
             ->with(
                 self::stringContains('not started'),
-                self::callback(static fn(array $context): bool => $context['uid'] === 42
+                self::callback(static fn (array $context): bool => $context['uid'] === 42
                     && $context['exception'] === $exception
                     && str_contains((string) $context['reason'], '/x/vendor/bin/typo3')),
             );

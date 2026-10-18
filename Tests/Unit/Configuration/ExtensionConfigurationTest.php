@@ -24,10 +24,10 @@ class ExtensionConfigurationTest extends TestCase
         // Provide a mock for GeneralUtility::makeInstance
         $mock = $this->createMock(Typo3ExtensionConfiguration::class);
         $mock->method('get')->with('nr_mcp_agent')->willReturn([
-            'llmTaskUid' => '42',
-            'processingStrategy' => 'worker',
-            'allowedGroups' => '1,3,5',
-            'maxMessageLength' => '5000',
+            'llmTaskUid'                    => '42',
+            'processingStrategy'            => 'worker',
+            'allowedGroups'                 => '1,3,5',
+            'maxMessageLength'              => '5000',
             'maxActiveConversationsPerUser' => '2',
         ]);
         GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
@@ -46,9 +46,6 @@ class ExtensionConfigurationTest extends TestCase
         $config = new ExtensionConfiguration();
         self::assertSame([1, 3, 5], $config->getAllowedGroupIds());
     }
-
-
-
 
     /**
      * The default is what every installation that has never seen the setting
@@ -183,7 +180,6 @@ class ExtensionConfigurationTest extends TestCase
         self::assertSame(50, $config->getMaxConversationsPerUser());
     }
 
-
     #[Test]
     public function getProcessingStrategyReturnsWorkerWhenConfigured(): void
     {
@@ -223,7 +219,6 @@ class ExtensionConfigurationTest extends TestCase
         self::assertSame(2, $config->getMaxActiveConversationsPerUser());
     }
 
-
     #[Test]
     public function getAllowedGroupIdsReturnsSingleValue(): void
     {
@@ -240,7 +235,6 @@ class ExtensionConfigurationTest extends TestCase
         self::assertSame([42], $config->getAllowedGroupIds());
     }
 
-
     #[Test]
     public function nonScalarConfigValueFallsBackToDefault(): void
     {
@@ -249,7 +243,7 @@ class ExtensionConfigurationTest extends TestCase
 
         $mock = $this->createMock(Typo3ExtensionConfiguration::class);
         $mock->method('get')->with('nr_mcp_agent')->willReturn([
-            'llmTaskUid' => ['nested' => 'array'],
+            'llmTaskUid'       => ['nested' => 'array'],
             'maxMessageLength' => new stdClass(),
         ]);
         GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);

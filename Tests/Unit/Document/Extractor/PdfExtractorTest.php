@@ -17,11 +17,12 @@ use RuntimeException;
 class PdfExtractorTest extends TestCase
 {
     private PdfExtractor $subject;
+
     private string $fixtures;
 
     protected function setUp(): void
     {
-        $this->subject = new PdfExtractor();
+        $this->subject  = new PdfExtractor();
         $this->fixtures = __DIR__ . '/../../../Fixtures/Documents';
     }
 

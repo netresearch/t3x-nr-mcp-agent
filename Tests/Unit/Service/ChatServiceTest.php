@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorInterface;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -91,6 +92,7 @@ class ChatServiceTest extends TestCase
             $config = $this->createStub(ExtensionConfiguration::class);
             $config->method('getLlmTaskUid')->willReturn(1);
         }
+
         $resourceFactory ??= $this->createMock(ResourceFactory::class);
         $siteFinder ??= $this->createMock(SiteFinder::class);
         $registry ??= new DocumentExtractorRegistry([]);
@@ -100,13 +102,14 @@ class ChatServiceTest extends TestCase
         $agentRuntime->method('run')->willReturnCallback(
             function (AgentRunRequest $request, mixed $onStep = null) use ($result): AgentRunResult {
                 $this->capturedRequest = $request;
-                $this->capturedOnStep = $onStep;
+                $this->capturedOnStep  = $onStep;
+
                 return $result ?? $this->completedResult();
             },
         );
 
         if ($taskRepository === null) {
-            $model = $this->createMock(LlmModel::class);
+            $model               = $this->createMock(LlmModel::class);
             $this->configuration = $this->createMock(LlmConfiguration::class);
             // The chat checks the Configuration is active before it runs it.
             $this->configuration->method('isActive')->willReturn(true);
@@ -136,6 +139,7 @@ class ChatServiceTest extends TestCase
         $system = $this->capturedRequest->messages[0] ?? null;
         self::assertInstanceOf(ChatMessage::class, $system);
         self::assertTrue($system->isSystem());
+
         return $system->content;
     }
 
@@ -149,8 +153,9 @@ class ChatServiceTest extends TestCase
         self::assertNotNull($this->capturedRequest);
         // Copy out of the readonly property before end() moves the array pointer.
         $messages = $this->capturedRequest->messages;
-        $last = end($messages);
+        $last     = end($messages);
         self::assertIsArray($last);
+
         return $last;
     }
 
@@ -197,7 +202,7 @@ class ChatServiceTest extends TestCase
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
         self::assertSame(2, $conversation->getMessageCount());
-        $messages = $conversation->getDecodedMessages();
+        $messages  = $conversation->getDecodedMessages();
         $assistant = end($messages);
         self::assertSame('assistant', $assistant['role']);
         self::assertSame('Final answer.', $assistant['content']);
@@ -231,8 +236,8 @@ class ChatServiceTest extends TestCase
         $conversation->setBeUser(42);
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
-        $backendUser = $this->createStub(BackendUserAuthentication::class);
-        $backendUser->user = ['uid' => 42];
+        $backendUser                = $this->createStub(BackendUserAuthentication::class);
+        $backendUser->user          = ['uid' => 42];
         $backendUser->userGroupsUID = [1, 2];
         $backendUser->method('isAdmin')->willReturn(true);
         $GLOBALS['BE_USER'] = $backendUser;
@@ -289,10 +294,10 @@ class ChatServiceTest extends TestCase
         // claimForProcess() take as "free": a second consumer could claim the
         // turn while this one was running it.
         $conversation = Conversation::fromRow([
-            'uid' => 10,
-            'be_user' => 7,
-            'status' => 'locked',
-            'messages' => json_encode([['role' => 'user', 'content' => 'Hi']]),
+            'uid'           => 10,
+            'be_user'       => 7,
+            'status'        => 'locked',
+            'messages'      => json_encode([['role' => 'user', 'content' => 'Hi']]),
             'message_count' => 1,
         ]);
 
@@ -652,10 +657,10 @@ class ChatServiceTest extends TestCase
     {
         // ai-chat:process and ai-chat:worker hand over the row as Locked.
         $conversation = Conversation::fromRow([
-            'uid' => 4,
-            'be_user' => 1,
-            'status' => 'locked',
-            'messages' => json_encode([['role' => 'user', 'content' => 'Hi again']]),
+            'uid'           => 4,
+            'be_user'       => 1,
+            'status'        => 'locked',
+            'messages'      => json_encode([['role' => 'user', 'content' => 'Hi again']]),
             'message_count' => 1,
         ]);
 
@@ -670,10 +675,10 @@ class ChatServiceTest extends TestCase
     public function resumeConversationReRunsResumableConversation(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 3,
-            'be_user' => 1,
-            'status' => 'failed',
-            'messages' => json_encode([['role' => 'user', 'content' => 'Hi again']]),
+            'uid'           => 3,
+            'be_user'       => 1,
+            'status'        => 'failed',
+            'messages'      => json_encode([['role' => 'user', 'content' => 'Hi again']]),
             'message_count' => 1,
         ]);
 
@@ -689,10 +694,10 @@ class ChatServiceTest extends TestCase
     public function resumeConversationSetsFailedWhenNoLlmTaskConfigured(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 1,
-            'be_user' => 1,
-            'status' => 'failed',
-            'messages' => json_encode([['role' => 'user', 'content' => 'Hi']]),
+            'uid'           => 1,
+            'be_user'       => 1,
+            'status'        => 'failed',
+            'messages'      => json_encode([['role' => 'user', 'content' => 'Hi']]),
             'message_count' => 1,
         ]);
 
@@ -742,10 +747,10 @@ class ChatServiceTest extends TestCase
     public function resumedTurnIsReportedUnderItsOwnOperation(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 7,
-            'be_user' => 1,
-            'status' => 'failed',
-            'messages' => json_encode([['role' => 'user', 'content' => 'Hi again']]),
+            'uid'           => 7,
+            'be_user'       => 1,
+            'status'        => 'failed',
+            'messages'      => json_encode([['role' => 'user', 'content' => 'Hi again']]),
             'message_count' => 1,
         ]);
 
@@ -802,7 +807,7 @@ class ChatServiceTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $service = $this->createChatService(prompts: [
-            'system_prompt' => 'You are a TYPO3 assistant.',
+            'system_prompt'   => 'You are a TYPO3 assistant.',
             'prompt_template' => 'Always wrap record fields in the data parameter.',
         ]);
         $service->processConversation($conversation);
@@ -821,7 +826,7 @@ class ChatServiceTest extends TestCase
         $conversation->appendMessage(MessageRole::User, 'Hello');
 
         $service = $this->createChatService(prompts: [
-            'system_prompt' => 'Admin rule from the configuration.',
+            'system_prompt'   => 'Admin rule from the configuration.',
             'prompt_template' => 'Admin rule from the task.',
         ]);
         $service->processConversation($conversation);
@@ -830,7 +835,7 @@ class ChatServiceTest extends TestCase
         // The administrator's prompts stay in force (NEXT-172 decision); the
         // user's instructions come after them and are marked as the user's.
         $config = strpos($system, 'Admin rule from the configuration.');
-        $task = strpos($system, 'Admin rule from the task.');
+        $task   = strpos($system, 'Admin rule from the task.');
         $custom = strpos($system, 'Only custom instructions');
         self::assertNotFalse($config);
         self::assertNotFalse($task);
@@ -998,9 +1003,9 @@ class ChatServiceTest extends TestCase
         $service = $this->createChatService(siteFinder: $siteFinder);
         $service->processConversation($conversation);
 
-        $lines = explode("\n", $this->capturedSystemPrompt());
-        $uid0Line = array_values(array_filter($lines, static fn(string $l) => str_contains($l, 'sys_language_uid=0')))[0] ?? '';
-        $uid1Line = array_values(array_filter($lines, static fn(string $l) => str_contains($l, 'sys_language_uid=1')))[0] ?? '';
+        $lines    = explode("\n", $this->capturedSystemPrompt());
+        $uid0Line = array_values(array_filter($lines, static fn (string $l): bool => str_contains($l, 'sys_language_uid=0')))[0] ?? '';
+        $uid1Line = array_values(array_filter($lines, static fn (string $l): bool => str_contains($l, 'sys_language_uid=1')))[0] ?? '';
         self::assertStringContainsString('(default)', $uid0Line);
         self::assertStringNotContainsString('(default)', $uid1Line);
     }
@@ -1109,9 +1114,9 @@ class ChatServiceTest extends TestCase
         $service->processConversation($conversation);
 
         $content = $this->capturedSystemPrompt();
-        $pos0 = strpos($content, 'sys_language_uid=0');
-        $pos1 = strpos($content, 'sys_language_uid=1');
-        $pos2 = strpos($content, 'sys_language_uid=2');
+        $pos0    = strpos($content, 'sys_language_uid=0');
+        $pos1    = strpos($content, 'sys_language_uid=1');
+        $pos2    = strpos($content, 'sys_language_uid=2');
         self::assertNotFalse($pos0);
         self::assertNotFalse($pos1);
         self::assertNotFalse($pos2);
@@ -1162,8 +1167,8 @@ class ChatServiceTest extends TestCase
         $service = $this->createChatService(siteFinder: $siteFinder);
         $service->processConversation($conversation);
 
-        $content = $this->capturedSystemPrompt();
-        $headerPos = strpos($content, 'Available site languages');
+        $content     = $this->capturedSystemPrompt();
+        $headerPos   = strpos($content, 'Available site languages');
         $langLinePos = strpos($content, 'sys_language_uid=0');
         self::assertNotFalse($headerPos);
         self::assertNotFalse($langLinePos);
@@ -1206,14 +1211,14 @@ class ChatServiceTest extends TestCase
         $resourceFactory->method('getFileObject')->with(42)->willReturn($mockFile);
 
         $conversation = Conversation::fromRow([
-            'uid' => 1,
-            'be_user' => 1,
-            'status' => 'idle',
+            'uid'      => 1,
+            'be_user'  => 1,
+            'status'   => 'idle',
             'messages' => json_encode([[
-                'role' => 'user',
-                'content' => 'What is in this image?',
-                'fileUid' => 42,
-                'fileName' => 'photo.jpg',
+                'role'         => 'user',
+                'content'      => 'What is in this image?',
+                'fileUid'      => 42,
+                'fileName'     => 'photo.jpg',
                 'fileMimeType' => 'image/jpeg',
             ]]),
             'message_count' => 1,
@@ -1259,14 +1264,14 @@ class ChatServiceTest extends TestCase
         $resourceFactory->method('getFileObject')->with(42)->willReturn($mockFile);
 
         $conversation = Conversation::fromRow([
-            'uid' => 1,
-            'be_user' => 1,
-            'status' => 'idle',
+            'uid'      => 1,
+            'be_user'  => 1,
+            'status'   => 'idle',
             'messages' => json_encode([[
-                'role' => 'user',
-                'content' => 'Put this in a content element',
-                'fileUid' => 42,
-                'fileName' => 'photo.jpg',
+                'role'         => 'user',
+                'content'      => 'Put this in a content element',
+                'fileUid'      => 42,
+                'fileName'     => 'photo.jpg',
                 'fileMimeType' => 'image/jpeg',
             ]]),
             'message_count' => 1,
@@ -1305,14 +1310,14 @@ class ChatServiceTest extends TestCase
         $provider->method('supportsDocuments')->willReturn(true);
 
         $conversation = Conversation::fromRow([
-            'uid' => 1,
-            'be_user' => 1,
-            'status' => 'idle',
+            'uid'      => 1,
+            'be_user'  => 1,
+            'status'   => 'idle',
             'messages' => json_encode([[
-                'role' => 'user',
-                'content' => 'Summarize this PDF',
-                'fileUid' => 99,
-                'fileName' => 'report.pdf',
+                'role'         => 'user',
+                'content'      => 'Summarize this PDF',
+                'fileUid'      => 99,
+                'fileName'     => 'report.pdf',
                 'fileMimeType' => 'application/pdf',
             ]]),
             'message_count' => 1,
@@ -1337,14 +1342,14 @@ class ChatServiceTest extends TestCase
         $resourceFactory->method('getFileObject')->willThrowException(new RuntimeException('File not found'));
 
         $conversation = Conversation::fromRow([
-            'uid' => 1,
-            'be_user' => 1,
-            'status' => 'idle',
+            'uid'      => 1,
+            'be_user'  => 1,
+            'status'   => 'idle',
             'messages' => json_encode([[
-                'role' => 'user',
-                'content' => 'Look at this',
-                'fileUid' => 77,
-                'fileName' => 'deleted.png',
+                'role'         => 'user',
+                'content'      => 'Look at this',
+                'fileUid'      => 77,
+                'fileName'     => 'deleted.png',
                 'fileMimeType' => 'image/png',
             ]]),
             'message_count' => 1,
@@ -1365,7 +1370,7 @@ class ChatServiceTest extends TestCase
     {
         $provider = $this->createMock(ProviderInterface::class);
 
-        $extractor = $this->createMock(\Netresearch\NrMcpAgent\Document\DocumentExtractorInterface::class);
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
         $extractor->method('isAvailable')->willReturn(true);
         $extractor->method('getSupportedMimeTypes')->willReturn(['text/plain']);
         $extractor->method('extract')->willReturn('Hello TXT');
@@ -1404,7 +1409,7 @@ class ChatServiceTest extends TestCase
         $provider->method('getSupportedDocumentFormats')->willReturn(['pdf']);
 
         $service = $this->createChatService(provider: $provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertTrue($caps['visionSupported']);
         self::assertSame(20 * 1024 * 1024, $caps['maxFileSize']);
@@ -1421,7 +1426,7 @@ class ChatServiceTest extends TestCase
         $provider->method('getMaxImageSize')->willReturn(10 * 1024 * 1024);
 
         $service = $this->createChatService(provider: $provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertTrue($caps['visionSupported']);
         self::assertContains('png', $caps['supportedFormats']);
@@ -1434,7 +1439,7 @@ class ChatServiceTest extends TestCase
         $provider = $this->createMock(ProviderInterface::class);
 
         $service = $this->createChatService(provider: $provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertFalse($caps['visionSupported']);
         self::assertSame(0, $caps['maxFileSize']);
@@ -1448,7 +1453,7 @@ class ChatServiceTest extends TestCase
         $taskRepository->method('findByUid')->willReturn(null);
 
         $service = $this->createChatService(taskRepository: $taskRepository);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertFalse($caps['visionSupported']);
         self::assertSame(0, $caps['maxFileSize']);

@@ -101,10 +101,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * adds — falls back to the value itself.
      */
     private const UNAVAILABLE_REASONS = [
-        'toolDisabled' => 'switched off by an administrator',
-        'requiresAdmin' => 'for administrators only',
+        'toolDisabled'       => 'switched off by an administrator',
+        'requiresAdmin'      => 'for administrators only',
         'configurationGroup' => 'not part of the tool groups this chat is configured with',
-        'trustZone' => 'withheld because this AI provider may not receive the data it returns',
+        'trustZone'          => 'withheld because this AI provider may not receive the data it returns',
     ];
 
     /**
@@ -187,7 +187,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         try {
             $configuration = $this->resolveConfiguration($this->resolveActor($this->currentBackendUserUid()));
-            $provider = $this->resolveProvider($configuration);
+            $provider      = $this->resolveProvider($configuration);
             if ($provider instanceof VisionCapableInterface && $provider->supportsVision()) {
                 $documentFormats = $provider instanceof DocumentCapableInterface && $provider->supportsDocuments()
                     ? $provider->getSupportedDocumentFormats()
@@ -203,8 +203,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 ]);
 
                 return [
-                    'visionSupported' => true,
-                    'maxFileSize' => $provider->getMaxImageSize(),
+                    'visionSupported'  => true,
+                    'maxFileSize'      => $provider->getMaxImageSize(),
                     'supportedFormats' => array_values(array_unique(array_merge(
                         $providerFormats,
                         $extractionFormats,
@@ -216,8 +216,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return [
-            'visionSupported' => false,
-            'maxFileSize' => 0,
+            'visionSupported'  => false,
+            'maxFileSize'      => 0,
             'supportedFormats' => $extractionFormats,
         ];
     }
@@ -271,6 +271,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 ConversationErrorCode::ChatNotConfigured->value,
             );
             $this->persist($conversation);
+
             return;
         }
 
@@ -460,7 +461,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $actor = $this->resolveActor($conversation->getBeUser());
-        $run = $this->agentRunRepository->findByUuid($runUuid);
+        $run   = $this->agentRunRepository->findByUuid($runUuid);
         if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
             return $unknown;
         }
@@ -485,7 +486,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             }
 
             $table = $event->payload['writeTargetTable'] ?? null;
-            $uid = $event->payload['writeTargetUid'] ?? null;
+            $uid   = $event->payload['writeTargetUid'] ?? null;
             if (is_string($table) && $table !== '' && is_int($uid) && $uid > 0) {
                 $writes[] = $table . ':' . $uid;
             }
@@ -589,7 +590,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // step of the continuation, or once approve() returns if none fires. A
         // decision the runtime refuses never appears in the list.
         $decisionRecorded = false;
-        $recordDecision = function () use (&$decisionRecorded, $conversation, $approved): void {
+        $recordDecision   = function () use (&$decisionRecorded, $conversation, $approved): void {
             if (!$decisionRecorded) {
                 $decisionRecorded = true;
                 $this->activityRecorder->recordDecision($conversation, $approved);
@@ -653,7 +654,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private function currentBackendUserUid(): int
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
-        $uid = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
+        $uid         = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
 
         return is_numeric($uid) ? (int) $uid : 0;
     }
@@ -665,7 +666,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $liveUid = $backendUser->user['uid'] ?? null;
             if (is_numeric($liveUid) && (int) $liveUid === $beUserUid) {
                 $groupIds = array_values(array_map(
-                    static fn(mixed $id): int => is_numeric($id) ? (int) $id : 0,
+                    static fn (mixed $id): int => is_numeric($id) ? (int) $id : 0,
                     $backendUser->userGroupsUID,
                 ));
 
@@ -698,6 +699,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // looking failed.
             $conversation->setErrorMessage('');
             $this->persist($conversation);
+
             return;
         }
 
@@ -723,6 +725,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->setErrorMessage('');
             $conversation->setApprovalRunUuid($result->runUuid);
             $this->persist($conversation);
+
             return;
         }
 
@@ -843,7 +846,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         return match ($result->outcome) {
             AgentRunOutcome::GUARDRAIL_BLOCKED,
             AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED => 'The request was blocked by a safety guardrail.',
-            default => sprintf('The assistant run did not complete (%s).', $result->outcome->value),
+            default                                      => sprintf('The assistant run did not complete (%s).', $result->outcome->value),
         };
     }
 
@@ -857,7 +860,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private function resolveConfiguration(AiActorContext $actor): LlmConfiguration
     {
         $taskUid = $this->config->getLlmTaskUid();
-        $task = $this->taskRepository->findByUid($taskUid);
+        $task    = $this->taskRepository->findByUid($taskUid);
         if ($task === null) {
             throw new ChatNotConfiguredException(sprintf('nr-llm Task with uid %d not found', $taskUid));
         }
@@ -889,7 +892,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $this->resolvedPrompts = [
-            'system_prompt' => $configuration->getSystemPrompt(),
+            'system_prompt'   => $configuration->getSystemPrompt(),
             'prompt_template' => $task->getPromptTemplate(),
         ];
 
@@ -918,6 +921,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * the multimodal content arrays expected by the LLM API.
      *
      * @param list<array<string, mixed>> $messages
+     *
      * @return list<array<string, mixed>>
      */
     private function buildLlmMessages(array $messages, ProviderInterface $provider): array
@@ -943,13 +947,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $fileUid = is_numeric($msg['fileUid']) ? (int) $msg['fileUid'] : 0;
                 }
 
-                $file = $this->resourceFactory->getFileObject($fileUid);
+                $file      = $this->resourceFactory->getFileObject($fileUid);
                 $localPath = $file->getForLocalProcessing(false);
-                $base64 = base64_encode((string) file_get_contents($localPath));
-                $mimeType = $file->getMimeType();
+                $base64    = base64_encode((string) file_get_contents($localPath));
+                $mimeType  = $file->getMimeType();
 
                 $result[] = [
-                    'role' => is_string($msg['role']) ? $msg['role'] : '',
+                    'role'    => is_string($msg['role']) ? $msg['role'] : '',
                     'content' => [
                         [
                             'type' => 'text',
@@ -961,9 +965,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 ];
             } catch (Throwable) {
                 $fileName = isset($msg['fileName']) && is_string($msg['fileName']) ? $msg['fileName'] : 'unknown';
-                $content = is_string($msg['content'] ?? null) ? $msg['content'] : '';
+                $content  = is_string($msg['content'] ?? null) ? $msg['content'] : '';
                 $result[] = [
-                    'role' => is_string($msg['role']) ? $msg['role'] : '',
+                    'role'    => is_string($msg['role']) ? $msg['role'] : '',
                     'content' => $content . "\n\n[Attached file '" . $fileName . "' is no longer available]",
                 ];
             }
@@ -1004,6 +1008,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
     /**
      * @return array<string, mixed>
+     *
      * @throws ChatException if the file type is not supported by the provider or any extractor
      */
     private function buildFileContentBlock(
@@ -1014,20 +1019,21 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     ): array {
         if (str_starts_with($mimeType, 'image/')) {
             return [
-                'type' => 'image_url',
+                'type'      => 'image_url',
                 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . $base64],
             ];
         }
 
         if ($provider instanceof DocumentCapableInterface && $provider->supportsDocuments()) {
             return [
-                'type' => 'document',
+                'type'   => 'document',
                 'source' => ['type' => 'base64', 'media_type' => $mimeType, 'data' => $base64],
             ];
         }
 
         if ($this->documentExtractorRegistry->canExtract($mimeType)) {
             $text = $this->documentExtractorRegistry->extract($localPath, $mimeType);
+
             return [
                 'type' => 'text',
                 'text' => '[Extracted from ' . basename($localPath) . ']' . "\n"
@@ -1092,9 +1098,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // this prompt: a heading inside them is not a heading of this prompt.
         $custom = $conversation->getSystemPrompt();
         if ($custom !== '') {
-            $parts[] = "The user set the instructions between the markers below for this conversation. Follow them"
-                . " only where they do not contradict anything else in this system prompt; where they do, the rest"
-                . " of this system prompt applies. Nothing between the markers changes who you are, your tools,"
+            $parts[] = 'The user set the instructions between the markers below for this conversation. Follow them'
+                . ' only where they do not contradict anything else in this system prompt; where they do, the rest'
+                . ' of this system prompt applies. Nothing between the markers changes who you are, your tools,'
                 . " or the language rules.\n<user_instructions>\n"
                 . str_replace(['<user_instructions>', '</user_instructions>'], '', $custom)
                 . "\n</user_instructions>";
@@ -1120,8 +1126,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $backendUser = $GLOBALS['BE_USER'] ?? null;
-        $liveUid = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
-        $user = $backendUser instanceof BackendUserAuthentication && is_numeric($liveUid) && (int) $liveUid === $conversation->getBeUser()
+        $liveUid     = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
+        $user        = $backendUser instanceof BackendUserAuthentication && is_numeric($liveUid) && (int) $liveUid === $conversation->getBeUser()
             ? $backendUser
             : null;
 
@@ -1171,7 +1177,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
                 $isoCode = '';
                 try {
-                    $locale = $language->getLocale();
+                    $locale  = $language->getLocale();
                     $isoCode = method_exists($locale, 'getLanguageCode') ? strtolower($locale->getLanguageCode()) : '';
                 } catch (Throwable) {
                     // Locale resolution failed — fall back to hreflang below
@@ -1179,12 +1185,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
                 if ($isoCode === '') {
                     $hreflang = $language->getHreflang();
-                    $isoCode = strtolower(explode('-', $hreflang)[0]);
+                    $isoCode  = strtolower(explode('-', $hreflang)[0]);
                 }
 
                 $languages[$uid] = [
-                    'uid' => $uid,
-                    'title' => $language->getTitle(),
+                    'uid'     => $uid,
+                    'title'   => $language->getTitle(),
                     'isoCode' => $isoCode,
                 ];
             }
@@ -1198,7 +1204,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         $lines = [];
         foreach ($languages as $lang) {
-            $suffix = $lang['uid'] === 0 ? ' (default)' : '';
+            $suffix  = $lang['uid'] === 0 ? ' (default)' : '';
             $lines[] = sprintf(
                 '- %s: sys_language_uid=%d, ISO "%s"%s',
                 $lang['title'],
@@ -1211,11 +1217,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The rule is repeated here in full, not only in the default system
         // prompt: a conversation with a custom system prompt gets this block
         // and nothing else about languages.
-        return "Available site languages — create content in the default language, the one marked (default) below, "
-            . "and write it in that language; use another sys_language_uid only when the user explicitly asks for "
-            . "that language. "
-            . "If the user writes to you or supplies material in another language than the default one, tell them "
-            . "that the content is created in the default language and that the other language versions come from "
+        return 'Available site languages — create content in the default language, the one marked (default) below, '
+            . 'and write it in that language; use another sys_language_uid only when the user explicitly asks for '
+            . 'that language. '
+            . 'If the user writes to you or supplies material in another language than the default one, tell them '
+            . 'that the content is created in the default language and that the other language versions come from '
             . "the translation tools of the CMS:\n"
             . implode("\n", $lines);
     }

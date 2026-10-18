@@ -12,6 +12,7 @@ namespace Netresearch\NrMcpAgent\Tests\Architecture;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\BuildStep;
 use PHPat\Test\PHPat;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 final class LayerDependencyTest
 {
@@ -23,7 +24,7 @@ final class LayerDependencyTest
     {
         return PHPat::rule()
             ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Domain'))
-            ->shouldNotDependOn()
+            ->shouldNot()->dependOn()
             ->classes(
                 Selector::inNamespace(self::CONTROLLER_NAMESPACE),
                 Selector::inNamespace(self::COMMAND_NAMESPACE),
@@ -35,8 +36,8 @@ final class LayerDependencyTest
     {
         return PHPat::rule()
             ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Service'))
-            ->shouldNotDependOn()
-            ->classes(Selector::classname('TYPO3\CMS\Core\Database\ConnectionPool'))
+            ->shouldNot()->dependOn()
+            ->classes(Selector::classname(ConnectionPool::class))
             ->because('Services must use repositories instead of accessing the database directly');
     }
 
@@ -44,7 +45,7 @@ final class LayerDependencyTest
     {
         return PHPat::rule()
             ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Service'))
-            ->shouldNotDependOn()
+            ->shouldNot()->dependOn()
             ->classes(Selector::inNamespace(self::CONTROLLER_NAMESPACE))
             ->because('Service layer must not depend on the HTTP layer');
     }
@@ -53,7 +54,7 @@ final class LayerDependencyTest
     {
         return PHPat::rule()
             ->classes(Selector::inNamespace(self::CONTROLLER_NAMESPACE))
-            ->shouldNotDependOn()
+            ->shouldNot()->dependOn()
             ->classes(Selector::inNamespace(self::COMMAND_NAMESPACE))
             ->because('Controllers reach background processing through ChatProcessorInterface, never by invoking a CLI command class');
     }

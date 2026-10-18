@@ -48,7 +48,7 @@ class CleanupCommandTest extends TestCase
     #[Test]
     public function constructorRequiresConnectionPoolAndExtensionConfiguration(): void
     {
-        $reflection = new ReflectionClass(CleanupCommand::class);
+        $reflection  = new ReflectionClass(CleanupCommand::class);
         $constructor = $reflection->getConstructor();
 
         self::assertNotNull($constructor);
@@ -61,7 +61,7 @@ class CleanupCommandTest extends TestCase
     #[Test]
     public function configureAddsDeleteAfterDaysOption(): void
     {
-        [$command] = $this->createCommand([0]);
+        [$command]  = $this->createCommand([0]);
         $definition = $command->getDefinition();
 
         self::assertTrue($definition->hasOption('delete-after-days'));
@@ -80,6 +80,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -99,6 +100,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -118,6 +120,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -136,6 +139,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -155,6 +159,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput(['--delete-after-days' => '0']);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -173,6 +178,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -194,6 +200,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -203,6 +210,7 @@ class CleanupCommandTest extends TestCase
 
     /**
      * @param list<int> $executeStatementResults ordered return values for each getQueryBuilderForTable call
+     *
      * @return array{0: CleanupCommand, 1: ConnectionPool&MockObject, 2: ExtensionConfiguration&MockObject}
      */
     private function createCommand(array $executeStatementResults): array

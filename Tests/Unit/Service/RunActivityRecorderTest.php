@@ -59,8 +59,9 @@ final class RunActivityRecorderTest extends TestCase
     public function modelRoundsAndToolCallsAreRecordedAsTheyHappen(): void
     {
         $conversation = $this->conversation();
-        $recorder = $this->recorder();
+        $recorder     = $this->recorder();
         $recorder->start($conversation);
+
         $onStep = $recorder->onStep($conversation);
 
         $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 812.6));
@@ -88,8 +89,8 @@ final class RunActivityRecorderTest extends TestCase
     public function argumentsAndResultsNeverReachTheColumn(): void
     {
         $conversation = $this->conversation();
-        $recorder = $this->recorder();
-        $onStep = $recorder->onStep($conversation);
+        $recorder     = $this->recorder();
+        $onStep       = $recorder->onStep($conversation);
 
         $onStep(new RunStep(
             kind: RunStep::KIND_TOOL,
@@ -110,8 +111,9 @@ final class RunActivityRecorderTest extends TestCase
     public function stepsThatAreNotModelRoundsOrToolCallsAreLeftOut(): void
     {
         $conversation = $this->conversation();
-        $recorder = $this->recorder();
+        $recorder     = $this->recorder();
         $recorder->start($conversation);
+
         $onStep = $recorder->onStep($conversation);
 
         $onStep(new RunStep(kind: RunStep::KIND_REQUEST, round: 0, durationMs: 0, messagesSent: [['role' => 'user', 'content' => 'x']]));
@@ -137,10 +139,10 @@ final class RunActivityRecorderTest extends TestCase
     public function theListIsCapped(): void
     {
         $conversation = $this->conversation();
-        $recorder = $this->recorder();
-        $onStep = $recorder->onStep($conversation);
+        $recorder     = $this->recorder();
+        $onStep       = $recorder->onStep($conversation);
 
-        for ($i = 1; $i <= RunActivityRecorder::MAX_ENTRIES + 5; $i++) {
+        for ($i = 1; $i <= RunActivityRecorder::MAX_ENTRIES + 5; ++$i) {
             $onStep(new RunStep(kind: RunStep::KIND_LLM, round: $i, durationMs: 1));
         }
 
@@ -166,7 +168,7 @@ final class RunActivityRecorderTest extends TestCase
         $repository = $this->createMock(ConversationRepository::class);
         $repository->method('updateActivity')->willThrowException(new RuntimeException('Lock wait timeout exceeded'));
         $recorder = new RunActivityRecorder($repository);
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger   = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('warning');
         $recorder->setLogger($logger);
         $conversation = $this->conversation();

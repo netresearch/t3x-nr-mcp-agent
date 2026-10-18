@@ -47,7 +47,7 @@ final class ProcessChatCommandTest extends FunctionalTestCase
         self::assertNotNull($repository->dequeueForWorker('worker_1'));
         $before = $this->row(2);
 
-        $tester = new CommandTester($this->get(ProcessChatCommand::class));
+        $tester   = new CommandTester($this->get(ProcessChatCommand::class));
         $exitCode = $tester->execute(['conversationUid' => '2']);
 
         self::assertSame(0, $exitCode);
@@ -63,7 +63,7 @@ final class ProcessChatCommandTest extends FunctionalTestCase
     {
         $before = $this->row(1);
 
-        $tester = new CommandTester($this->get(ProcessChatCommand::class));
+        $tester   = new CommandTester($this->get(ProcessChatCommand::class));
         $exitCode = $tester->execute(['conversationUid' => '1']);
 
         self::assertSame(0, $exitCode);

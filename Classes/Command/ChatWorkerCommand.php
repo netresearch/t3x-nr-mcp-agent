@@ -42,8 +42,8 @@ final class ChatWorkerCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $pollIntervalOpt = $input->getOption('poll-interval');
-        $pollInterval = (is_numeric($pollIntervalOpt) ? (int) $pollIntervalOpt : 200) * 1000; // to microseconds
-        $workerId = 'worker_' . getmypid() . '_' . bin2hex(random_bytes(4));
+        $pollInterval    = (is_numeric($pollIntervalOpt) ? (int) $pollIntervalOpt : 200) * 1000; // to microseconds
+        $workerId        = 'worker_' . getmypid() . '_' . bin2hex(random_bytes(4));
 
         $output->writeln(sprintf('<info>AI Chat worker %s started. Polling every %dms</info>', $workerId, $pollInterval / 1000));
 
@@ -87,5 +87,4 @@ final class ChatWorkerCommand extends Command
             }
         }
     }
-
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Architecture;
 
+use Netresearch\NrMcpAgent\Service\ChatService;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
@@ -31,9 +32,9 @@ final class DocumentExtractorArchitectureTest
     {
         return PHPat::rule()
             ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Document'))
-            ->shouldNotDependOn()
+            ->shouldNot()->dependOn()
             ->classes(
-                Selector::classname(\Netresearch\NrMcpAgent\Service\ChatService::class),
+                Selector::classname(ChatService::class),
                 Selector::inNamespace('Netresearch\NrMcpAgent\Controller'),
             );
     }

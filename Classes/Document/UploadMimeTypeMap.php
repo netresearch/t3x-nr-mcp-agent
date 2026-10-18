@@ -54,7 +54,8 @@ final readonly class UploadMimeTypeMap
      * The subset of `$extensions` this map can translate, lower-cased and
      * de-duplicated, order preserved.
      *
-     * @param  iterable<string> $extensions
+     * @param iterable<string> $extensions
+     *
      * @return list<string>
      */
     public function knownExtensions(iterable $extensions): array
@@ -73,7 +74,8 @@ final readonly class UploadMimeTypeMap
     /**
      * The MIME types for `$extensions`, skipping any this map does not know.
      *
-     * @param  iterable<string> $extensions
+     * @param iterable<string> $extensions
+     *
      * @return list<string>
      */
     public function toMimeTypes(iterable $extensions): array

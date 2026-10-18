@@ -28,7 +28,7 @@ interface DocumentExtractorInterface
     /**
      * Lightweight open/header check. Does NOT extract full text.
      *
-     * @throws RuntimeException if the file is corrupt, unreadable, or encrypted.
+     * @throws RuntimeException if the file is corrupt, unreadable, or encrypted
      */
     public function validate(string $path): void;
 

@@ -21,12 +21,13 @@ use TYPO3\CMS\Core\Page\PageRenderer;
 class ChatToolbarItemTest extends TestCase
 {
     private ExtensionConfiguration $config;
+
     private PageRenderer $pageRenderer;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->config = $this->createMock(ExtensionConfiguration::class);
+        $this->config       = $this->createMock(ExtensionConfiguration::class);
         $this->pageRenderer = $this->createMock(PageRenderer::class);
     }
 
@@ -43,7 +44,7 @@ class ChatToolbarItemTest extends TestCase
 
     private function setUpBeUser(int $uid = 1, string $usergroup = '1,2', bool $isAdmin = false): void
     {
-        $beUser = $this->createMock(BackendUserAuthentication::class);
+        $beUser       = $this->createMock(BackendUserAuthentication::class);
         $beUser->user = ['uid' => $uid, 'usergroup' => $usergroup];
         $beUser->method('isAdmin')->willReturn($isAdmin);
         $GLOBALS['BE_USER'] = $beUser;
@@ -61,7 +62,7 @@ class ChatToolbarItemTest extends TestCase
     public function getItemRendersButtonWithBadgeContainer(): void
     {
         $subject = $this->createSubject();
-        $html = $subject->getItem();
+        $html    = $subject->getItem();
 
         self::assertStringContainsString('ai-chat-toolbar-btn', $html);
         self::assertStringContainsString('ai-chat-badge', $html);
@@ -161,7 +162,7 @@ class ChatToolbarItemTest extends TestCase
     public function getAdditionalAttributesContainsToolbarClass(): void
     {
         $subject = $this->createSubject();
-        $attrs = $subject->getAdditionalAttributes();
+        $attrs   = $subject->getAdditionalAttributes();
         self::assertStringContainsString('ai-chat-toolbar', $attrs['class']);
     }
 }

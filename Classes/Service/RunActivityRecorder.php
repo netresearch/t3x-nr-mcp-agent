@@ -77,12 +77,12 @@ class RunActivityRecorder implements LoggerAwareInterface
             }
 
             $entry = [
-                'kind' => $step->kind,
+                'kind'  => $step->kind,
                 'round' => $step->round,
-                'ms' => (int) round($step->durationMs),
+                'ms'    => (int) round($step->durationMs),
             ];
             if ($step->kind === RunStep::KIND_TOOL) {
-                $entry['tool'] = $step->toolName ?? '';
+                $entry['tool']  = $step->toolName ?? '';
                 $entry['error'] = $step->toolIsError === true;
             }
 
@@ -101,7 +101,7 @@ class RunActivityRecorder implements LoggerAwareInterface
      */
     private function append(Conversation $conversation, array $entry): void
     {
-        $entries = $conversation->getActivity();
+        $entries   = $conversation->getActivity();
         $entries[] = $entry;
         $conversation->setActivity(array_slice($entries, -self::MAX_ENTRIES));
         $this->write($conversation);
@@ -117,7 +117,7 @@ class RunActivityRecorder implements LoggerAwareInterface
             $this->repository->updateActivity($conversation->getUid(), $conversation->getActivityJson());
         } catch (Throwable $e) {
             $this->logger?->warning('Could not record the chat activity of conversation {uid}: {message}', [
-                'uid' => $conversation->getUid(),
+                'uid'     => $conversation->getUid(),
                 'message' => $e->getMessage(),
             ]);
         }

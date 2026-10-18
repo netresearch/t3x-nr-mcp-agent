@@ -32,11 +32,12 @@ final readonly class ExecChatProcessor implements ChatProcessorInterface
             $cmd = $this->buildCommand($conversationUid);
         } catch (Typo3CliBinaryNotFoundException $e) {
             $this->logger->error('AI chat worker for conversation {uid} not started: {reason}', [
-                'uid' => $conversationUid,
-                'reason' => $e->getMessage(),
+                'uid'       => $conversationUid,
+                'reason'    => $e->getMessage(),
                 'exception' => $e,
             ]);
             $this->markFailed($conversationUid);
+
             return;
         }
 
@@ -58,7 +59,7 @@ final readonly class ExecChatProcessor implements ChatProcessorInterface
     public function buildCommand(int $conversationUid): string
     {
         $typo3Bin = $this->binaryResolver->resolve();
-        $logFile = Environment::getProjectPath() . '/var/log/ai-chat-process.log';
+        $logFile  = Environment::getProjectPath() . '/var/log/ai-chat-process.log';
 
         // PHP_BINARY may be php-fpm in web context — resolve CLI binary instead.
         $phpBin = $this->resolvePhpCliBinary();
@@ -106,7 +107,7 @@ final readonly class ExecChatProcessor implements ChatProcessorInterface
         }
 
         // Try php CLI binary in same directory (e.g. /usr/bin/php8.4 alongside /usr/sbin/php-fpm8.4)
-        $version = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+        $version    = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
         $candidates = [
             '/usr/bin/php' . $version,
             '/usr/bin/php',

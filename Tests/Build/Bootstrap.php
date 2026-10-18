@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+use TYPO3\TestingFramework\Core\Testbase;
+
 /*
  * Combined bootstrap for unit, functional, and architecture tests.
  *
@@ -16,8 +18,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../.Build/vendor/autoload.php';
 
-(static function () {
-    $testbase = new \TYPO3\TestingFramework\Core\Testbase();
+(static function (): void {
+    $testbase = new Testbase();
     $testbase->defineOriginalRootPath();
     $testbase->createDirectory(ORIGINAL_ROOT . 'typo3temp/var/tests');
     $testbase->createDirectory(ORIGINAL_ROOT . 'typo3temp/var/transient');

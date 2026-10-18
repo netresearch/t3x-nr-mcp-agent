@@ -48,6 +48,7 @@ class ExtensionConfiguration
      * the authenticated user.
      *
      * @param list<int>|null $groupIds the user's effective group ids; null reads the current backend user
+     *
      * @internal the $groupIds parameter is for tests
      */
     public function getLlmTaskUid(?array $groupIds = null): int
@@ -93,7 +94,7 @@ class ExtensionConfiguration
             }
 
             $groupUid = (int) $parts[0];
-            $taskUid = (int) $parts[1];
+            $taskUid  = (int) $parts[1];
             if ($groupUid > 0 && $taskUid > 0) {
                 $pairs[] = [$groupUid, $taskUid];
             }
@@ -111,7 +112,7 @@ class ExtensionConfiguration
         }
 
         return array_values(array_map(
-            static fn(mixed $id): int => is_numeric($id) ? (int) $id : 0,
+            static fn (mixed $id): int => is_numeric($id) ? (int) $id : 0,
             $backendUser->userGroupsUID,
         ));
     }
@@ -131,8 +132,6 @@ class ExtensionConfiguration
 
         return array_map(intval(...), explode(',', $groups));
     }
-
-
 
     public function getMaxConversationsPerUser(): int
     {
@@ -177,7 +176,7 @@ class ExtensionConfiguration
      */
     public function getAttachmentFolder(): string
     {
-        $folder = trim($this->getString('attachmentFolder', 'ai-chat'), " \t\n\r/");
+        $folder   = trim($this->getString('attachmentFolder', 'ai-chat'), " \t\n\r/");
         $segments = explode('/', $folder);
 
         foreach ($segments as $segment) {
@@ -192,6 +191,7 @@ class ExtensionConfiguration
     private function getString(string $key, string $default): string
     {
         $value = $this->config[$key] ?? $default;
+
         return is_scalar($value) ? (string) $value : $default;
     }
 }

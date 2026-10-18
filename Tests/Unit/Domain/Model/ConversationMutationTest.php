@@ -84,7 +84,7 @@ class ConversationMutationTest extends TestCase
     #[Test]
     public function toRowContainsAllExpectedKeys(): void
     {
-        $c = Conversation::fromRow(['uid' => 1, 'be_user' => 2, 'status' => 'idle', 'messages' => '[]', 'message_count' => 0, 'title' => 'T', 'system_prompt' => 'S']);
+        $c   = Conversation::fromRow(['uid' => 1, 'be_user' => 2, 'status' => 'idle', 'messages' => '[]', 'message_count' => 0, 'title' => 'T', 'system_prompt' => 'S']);
         $row = $c->toRow();
 
         self::assertArrayHasKey('be_user', $row);
@@ -105,6 +105,7 @@ class ConversationMutationTest extends TestCase
     {
         $c = Conversation::fromRow(['uid' => 1, 'be_user' => 3, 'status' => 'idle', 'messages' => '[]', 'message_count' => 0]);
         $c->setTitle('My Title');
+
         $row = $c->toRow();
 
         self::assertSame(3, $row['be_user']);
@@ -200,8 +201,8 @@ class ConversationMutationTest extends TestCase
     public function hasPendingToolCallsReturnsFalseWhenLastMessageHasNoToolCalls(): void
     {
         $c = Conversation::fromRow([
-            'uid' => 1, 'be_user' => 1, 'status' => 'processing',
-            'messages' => json_encode([['role' => 'assistant', 'content' => 'done']]),
+            'uid'           => 1, 'be_user' => 1, 'status' => 'processing',
+            'messages'      => json_encode([['role' => 'assistant', 'content' => 'done']]),
             'message_count' => 1,
         ]);
         self::assertFalse($c->hasPendingToolCalls());
@@ -212,7 +213,7 @@ class ConversationMutationTest extends TestCase
     {
         // Kills LogicalAnd: role check must be verified independently
         $c = Conversation::fromRow([
-            'uid' => 1, 'be_user' => 1, 'status' => 'processing',
+            'uid'      => 1, 'be_user' => 1, 'status' => 'processing',
             'messages' => json_encode([
                 ['role' => 'user', 'content' => 'Hello', 'tool_calls' => [['id' => 'tc_1']]],
             ]),
@@ -226,7 +227,7 @@ class ConversationMutationTest extends TestCase
     {
         // Kills LogicalAnd: !empty() check must matter
         $c = Conversation::fromRow([
-            'uid' => 1, 'be_user' => 1, 'status' => 'processing',
+            'uid'      => 1, 'be_user' => 1, 'status' => 'processing',
             'messages' => json_encode([
                 ['role' => 'assistant', 'content' => '', 'tool_calls' => []],
             ]),
@@ -239,7 +240,7 @@ class ConversationMutationTest extends TestCase
     public function hasPendingToolCallsReturnsTrueWhenAllConditionsMet(): void
     {
         $c = Conversation::fromRow([
-            'uid' => 1, 'be_user' => 1, 'status' => 'processing',
+            'uid'      => 1, 'be_user' => 1, 'status' => 'processing',
             'messages' => json_encode([
                 ['role' => 'user', 'content' => 'Hello'],
                 ['role' => 'assistant', 'content' => '', 'tool_calls' => [['id' => 'tc_1', 'function' => ['name' => 'test']]]],
@@ -282,7 +283,7 @@ class ConversationMutationTest extends TestCase
         $c = Conversation::fromRow(['uid' => 1, 'be_user' => 1, 'status' => 'processing', 'messages' => $messages, 'message_count' => 1]);
 
         $decoded = $c->getDecodedMessages();
-        $args = $decoded[0]['tool_calls'][0]['function']['arguments'];
+        $args    = $decoded[0]['tool_calls'][0]['function']['arguments'];
         self::assertIsString($args, 'arguments must be re-encoded to JSON string');
         self::assertSame(['key' => 'value'], json_decode($args, true));
     }
@@ -316,7 +317,7 @@ class ConversationMutationTest extends TestCase
         ]);
         $c = Conversation::fromRow(['uid' => 1, 'be_user' => 1, 'status' => 'processing', 'messages' => $messages, 'message_count' => 1]);
 
-        $decoded = $c->getDecodedMessages();
+        $decoded   = $c->getDecodedMessages();
         $validCall = $decoded[0]['tool_calls'][1];
         self::assertIsString($validCall['function']['arguments']);
         self::assertSame(['x' => 1], json_decode($validCall['function']['arguments'], true));

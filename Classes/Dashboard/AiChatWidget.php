@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Dashboard;
 
 use IntlDateFormatter;
+use LogicException;
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -44,7 +45,8 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
     /** How many conversations the widget lists. */
     public const LIMIT = 5;
 
-    private ServerRequestInterface $request;
+    /** Set by the dashboard's WidgetRegistry right after it creates the widget. */
+    private ?ServerRequestInterface $request = null;
 
     /**
      * @param array<string, mixed> $options
@@ -65,7 +67,8 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
 
     public function renderWidgetContent(): string
     {
-        $view = $this->backendViewFactory->create($this->request, ['typo3/cms-dashboard', 'netresearch/nr-mcp-agent']);
+        $request = $this->request ?? throw new LogicException('setRequest() must be called before renderWidgetContent()', 1792329208);
+        $view    = $this->backendViewFactory->create($request, ['typo3/cms-dashboard', 'netresearch/nr-mcp-agent']);
         $view->assignMultiple([
             ...$this->templateVariables(),
             'configuration' => $this->configuration,
@@ -85,7 +88,7 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
         $available = $this->chatAccess->checkAccess();
 
         return [
-            'available' => $available,
+            'available'     => $available,
             'conversations' => $available ? $this->recentConversations() : [],
         ];
     }
@@ -96,8 +99,8 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
     private function recentConversations(): array
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
-        $rawUid = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
-        $uid = is_numeric($rawUid) ? (int) $rawUid : 0;
+        $rawUid      = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
+        $uid         = is_numeric($rawUid) ? (int) $rawUid : 0;
         if ($uid === 0) {
             return [];
         }
@@ -115,13 +118,13 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
             date_default_timezone_get(),
         );
 
-        return array_map(static fn(Conversation $c): array => [
-            'uid' => $c->getUid(),
-            'title' => $c->getTitle(),
+        return array_map(static fn (Conversation $c): array => [
+            'uid'    => $c->getUid(),
+            'title'  => $c->getTitle(),
             'status' => $c->getStatus()->value,
             'pinned' => $c->isPinned(),
             'tstamp' => $c->getTstamp(),
-            'date' => (string) $formatter->format($c->getTstamp()),
+            'date'   => (string) $formatter->format($c->getTstamp()),
         ], $conversations);
     }
 

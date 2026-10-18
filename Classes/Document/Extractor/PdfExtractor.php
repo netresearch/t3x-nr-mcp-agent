@@ -34,8 +34,8 @@ final class PdfExtractor implements DocumentExtractorInterface
     public function validate(string $path): void
     {
         try {
-            $parser = new Parser();
-            $pdf = $parser->parseFile($path);
+            $parser  = new Parser();
+            $pdf     = $parser->parseFile($path);
             $details = $pdf->getDetails();
             if (isset($details['Encrypt'])) {
                 throw new DocumentExtractionException('PDF is encrypted and cannot be processed', 1743000031);
@@ -51,6 +51,7 @@ final class PdfExtractor implements DocumentExtractorInterface
     {
         try {
             $parser = new Parser();
+
             return $parser->parseFile($path)->getText();
         } catch (Throwable $e) {
             throw new DocumentExtractionException('PDF extraction failed: ' . $e->getMessage(), 1743000032, $e);

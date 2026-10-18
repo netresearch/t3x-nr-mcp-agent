@@ -17,11 +17,12 @@ use RuntimeException;
 class DocxExtractorTest extends TestCase
 {
     private DocxExtractor $subject;
+
     private string $fixtures;
 
     protected function setUp(): void
     {
-        $this->subject = new DocxExtractor();
+        $this->subject  = new DocxExtractor();
         $this->fixtures = __DIR__ . '/../../../Fixtures/Documents';
     }
 

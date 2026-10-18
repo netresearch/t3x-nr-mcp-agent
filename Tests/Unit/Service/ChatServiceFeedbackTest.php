@@ -70,7 +70,7 @@ final class ChatServiceFeedbackTest extends TestCase
 
     /**
      * @param list<array{name: string, reason: string}>|null $unavailable null = no reader wired
-     * @param list<AgentRunEvent>                           $events
+     * @param list<AgentRunEvent>                            $events
      */
     private function createChatService(
         ?AgentRunResult $result = null,
@@ -170,7 +170,7 @@ final class ChatServiceFeedbackTest extends TestCase
     private function lastMessage(Conversation $conversation): array
     {
         $messages = $conversation->getDecodedMessages();
-        $last = end($messages);
+        $last     = end($messages);
         self::assertIsArray($last);
 
         return $last;
@@ -303,7 +303,7 @@ final class ChatServiceFeedbackTest extends TestCase
             writeTarget: new RecordReference('tt_content', 10162),
         );
         $withWrite = new AgentRunResult(AgentRunOutcome::COMPLETED, '', [$write], new ToolLoopResult(self::FALSE_SUCCESS, [], 1, false, new UsageStatistics(1, 1, 2)));
-        $without = new AgentRunResult(AgentRunOutcome::COMPLETED, '', [], new ToolLoopResult(self::FALSE_SUCCESS, [], 1, false, new UsageStatistics(1, 1, 2)));
+        $without   = new AgentRunResult(AgentRunOutcome::COMPLETED, '', [], new ToolLoopResult(self::FALSE_SUCCESS, [], 1, false, new UsageStatistics(1, 1, 2)));
 
         $first = $this->conversation('10041');
         $this->createChatService($withWrite)->processConversation($first);
@@ -383,7 +383,7 @@ final class ChatServiceFeedbackTest extends TestCase
     public function aProviderWithoutAnApiKeyIsStoredWithItsCode(): void
     {
         $conversation = $this->conversation('what is the last LLM eror about?');
-        $failure = new AgentRunResult(
+        $failure      = new AgentRunResult(
             AgentRunOutcome::FAILED,
             'run-uuid',
             [],
@@ -401,7 +401,7 @@ final class ChatServiceFeedbackTest extends TestCase
     public function aProviderFailureWrappedByTheRuntimeIsStillRecognised(): void
     {
         $conversation = $this->conversation('Hallo');
-        $failure = new AgentRunResult(
+        $failure      = new AgentRunResult(
             AgentRunOutcome::FAILED,
             'run-uuid',
             [],
@@ -420,7 +420,7 @@ final class ChatServiceFeedbackTest extends TestCase
     #[Test]
     public function aMissingTaskIsStoredAsAChatThatIsNotSetUp(): void
     {
-        $conversation = $this->conversation('Hallo');
+        $conversation   = $this->conversation('Hallo');
         $taskRepository = $this->createMock(TaskRepository::class);
         $taskRepository->method('findByUid')->willReturn(null);
 
@@ -433,7 +433,7 @@ final class ChatServiceFeedbackTest extends TestCase
     public function anyOtherFailureCarriesNoCode(): void
     {
         $conversation = $this->conversation('Hallo');
-        $failure = new AgentRunResult(AgentRunOutcome::FAILED, 'run-uuid', [], error: new RuntimeException('provider exploded'));
+        $failure      = new AgentRunResult(AgentRunOutcome::FAILED, 'run-uuid', [], error: new RuntimeException('provider exploded'));
 
         $this->createChatService($failure)->processConversation($conversation);
 
@@ -503,7 +503,7 @@ final class ChatServiceFeedbackTest extends TestCase
 
     private function agentRun(AgentRunStatus $status, int $beUser = 2): AgentRun
     {
-        $run = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
+        $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
         foreach (['uid' => 45, 'uuid' => 'ccc12670-2f8d-4595-a89c-d81291ff5820', 'beUser' => $beUser, 'status' => $status->value] as $name => $value) {
             $reflection->getProperty($name)->setValue($run, $value);

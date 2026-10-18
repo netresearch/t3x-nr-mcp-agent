@@ -60,7 +60,7 @@ class ChatWorkerCommandTest extends TestCase
     #[Test]
     public function constructorAcceptsCorrectDependencies(): void
     {
-        $reflection = new ReflectionClass(ChatWorkerCommand::class);
+        $reflection  = new ReflectionClass(ChatWorkerCommand::class);
         $constructor = $reflection->getConstructor();
 
         self::assertNotNull($constructor);
@@ -78,7 +78,7 @@ class ChatWorkerCommandTest extends TestCase
     #[Test]
     public function configureAddsPollIntervalOption(): void
     {
-        $command = $this->createWorkerCommand();
+        $command    = $this->createWorkerCommand();
         $definition = $command->getDefinition();
 
         self::assertTrue($definition->hasOption('poll-interval'));
@@ -109,7 +109,7 @@ class ChatWorkerCommandTest extends TestCase
     public function pollIntervalOptionDescription(): void
     {
         $command = $this->createWorkerCommand();
-        $option = $command->getDefinition()->getOption('poll-interval');
+        $option  = $command->getDefinition()->getOption('poll-interval');
 
         self::assertSame('Poll interval in milliseconds', $option->getDescription());
     }
@@ -117,7 +117,7 @@ class ChatWorkerCommandTest extends TestCase
     private function createWorkerCommand(): ChatWorkerCommand
     {
         $chatRepository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
+        $config         = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(0);
 
         $configuration = $this->createMock(LlmConfiguration::class);
@@ -132,8 +132,8 @@ class ChatWorkerCommandTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($this->createMock(ProviderInterface::class));
 
-        $chatService = new ChatService($chatRepository, $config, $this->createMock(AgentRuntimeInterface::class), $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->createMock(UserContextPrompt::class), $this->createMock(RunActivityRecorder::class));
-        $repository = $this->createMock(ConversationRepository::class);
+        $chatService    = new ChatService($chatRepository, $config, $this->createMock(AgentRuntimeInterface::class), $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $this->createMock(ResourceFactory::class), $this->createMock(SiteFinder::class), new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->createMock(UserContextPrompt::class), $this->createMock(RunActivityRecorder::class));
+        $repository     = $this->createMock(ConversationRepository::class);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
         return new ChatWorkerCommand($chatService, $repository, $connectionPool);

@@ -78,11 +78,11 @@ readonly class Typo3CliBinaryResolver
     private function composerBinDir(string $composerRoot): string
     {
         $composerRoot = rtrim($composerRoot, '/');
-        $config = $this->readComposerConfig($composerRoot . '/composer.json');
+        $config       = $this->readComposerConfig($composerRoot . '/composer.json');
 
         $vendorDir = is_string($config['vendor-dir'] ?? null) ? $config['vendor-dir'] : 'vendor';
-        $binDir = is_string($config['bin-dir'] ?? null) ? $config['bin-dir'] : rtrim($vendorDir, '/') . '/bin';
-        $binDir = str_replace('{$vendor-dir}', rtrim($vendorDir, '/'), $binDir);
+        $binDir    = is_string($config['bin-dir'] ?? null) ? $config['bin-dir'] : rtrim($vendorDir, '/') . '/bin';
+        $binDir    = str_replace('{$vendor-dir}', rtrim($vendorDir, '/'), $binDir);
 
         if (str_starts_with($binDir, '/')) {
             return rtrim($binDir, '/');
@@ -100,7 +100,7 @@ readonly class Typo3CliBinaryResolver
     private function readComposerConfig(string $composerJsonFile): array
     {
         $content = is_file($composerJsonFile) ? file_get_contents($composerJsonFile) : false;
-        $json = is_string($content) ? json_decode($content, true) : null;
+        $json    = is_string($content) ? json_decode($content, true) : null;
 
         return is_array($json) && is_array($json['config'] ?? null) ? $json['config'] : [];
     }

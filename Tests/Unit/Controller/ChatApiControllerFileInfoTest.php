@@ -32,6 +32,7 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 class ChatApiControllerFileInfoTest extends TestCase
 {
     private ChatApiController $subject;
+
     private ResourceFactory $resourceFactory;
 
     protected function setUp(): void
@@ -42,8 +43,8 @@ class ChatApiControllerFileInfoTest extends TestCase
 
         $chatService = $this->createMock(ChatCapabilitiesInterface::class);
         $chatService->method('getProviderCapabilities')->willReturn([
-            'visionSupported' => false,
-            'maxFileSize' => 0,
+            'visionSupported'  => false,
+            'maxFileSize'      => 0,
             'supportedFormats' => [],
         ]);
 
@@ -67,7 +68,7 @@ class ChatApiControllerFileInfoTest extends TestCase
             $this->createMock(UriBuilder::class),
         );
 
-        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']       = new stdClass();
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => ''];
     }
 
@@ -81,6 +82,7 @@ class ChatApiControllerFileInfoTest extends TestCase
     {
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getQueryParams')->willReturn($params);
+
         return $request;
     }
 

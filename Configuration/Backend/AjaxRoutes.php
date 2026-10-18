@@ -11,58 +11,58 @@ use Netresearch\NrMcpAgent\Controller\ChatApiController;
 
 return [
     'ai_chat_status' => [
-        'path' => '/ai-chat/status',
-        'target' => ChatApiController::class . '::getStatus',
+        'path'    => '/ai-chat/status',
+        'target'  => ChatApiController::class . '::getStatus',
         'methods' => ['GET'],
     ],
     'ai_chat_conversations' => [
-        'path' => '/ai-chat/conversations',
-        'target' => ChatApiController::class . '::listConversations',
+        'path'    => '/ai-chat/conversations',
+        'target'  => ChatApiController::class . '::listConversations',
         'methods' => ['GET'],
     ],
     'ai_chat_conversation_create' => [
-        'path' => '/ai-chat/conversations/create',
-        'target' => ChatApiController::class . '::createConversation',
+        'path'    => '/ai-chat/conversations/create',
+        'target'  => ChatApiController::class . '::createConversation',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_messages' => [
-        'path' => '/ai-chat/conversations/messages',
-        'target' => ChatApiController::class . '::getMessages',
+        'path'    => '/ai-chat/conversations/messages',
+        'target'  => ChatApiController::class . '::getMessages',
         'methods' => ['GET'],
     ],
     'ai_chat_conversation_send' => [
-        'path' => '/ai-chat/conversations/send',
-        'target' => ChatApiController::class . '::sendMessage',
+        'path'    => '/ai-chat/conversations/send',
+        'target'  => ChatApiController::class . '::sendMessage',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_edit' => [
-        'path' => '/ai-chat/conversations/edit',
-        'target' => ChatApiController::class . '::editMessage',
+        'path'    => '/ai-chat/conversations/edit',
+        'target'  => ChatApiController::class . '::editMessage',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_system_prompt' => [
-        'path' => '/ai-chat/conversations/system-prompt',
-        'target' => ChatApiController::class . '::updateSystemPrompt',
+        'path'    => '/ai-chat/conversations/system-prompt',
+        'target'  => ChatApiController::class . '::updateSystemPrompt',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_approve' => [
-        'path' => '/ai-chat/conversations/approve',
-        'target' => ChatApiController::class . '::decideApproval',
+        'path'    => '/ai-chat/conversations/approve',
+        'target'  => ChatApiController::class . '::decideApproval',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_resume' => [
-        'path' => '/ai-chat/conversations/resume',
-        'target' => ChatApiController::class . '::resumeConversation',
+        'path'    => '/ai-chat/conversations/resume',
+        'target'  => ChatApiController::class . '::resumeConversation',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_archive' => [
-        'path' => '/ai-chat/conversations/archive',
-        'target' => ChatApiController::class . '::archiveConversation',
+        'path'    => '/ai-chat/conversations/archive',
+        'target'  => ChatApiController::class . '::archiveConversation',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_pin' => [
-        'path' => '/ai-chat/conversations/pin',
-        'target' => ChatApiController::class . '::togglePin',
+        'path'    => '/ai-chat/conversations/pin',
+        'target'  => ChatApiController::class . '::togglePin',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_rename' => [
@@ -71,13 +71,13 @@ return [
         'methods' => ['POST'],
     ],
     'ai_chat_file_upload' => [
-        'path' => '/ai-chat/file-upload',
-        'target' => ChatApiController::class . '::fileUpload',
+        'path'    => '/ai-chat/file-upload',
+        'target'  => ChatApiController::class . '::fileUpload',
         'methods' => ['POST'],
     ],
     'ai_chat_file_info' => [
-        'path' => '/ai-chat/file-info',
-        'target' => ChatApiController::class . '::fileInfo',
+        'path'    => '/ai-chat/file-info',
+        'target'  => ChatApiController::class . '::fileInfo',
         'methods' => ['GET'],
     ],
 ];

@@ -36,7 +36,9 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 final class ChatApiControllerEditTest extends TestCase
 {
     private ConversationRepository&MockObject $repository;
+
     private ChatProcessorInterface&MockObject $processor;
+
     private ChatApiController $subject;
 
     /** The conversation as the claim wrote it, or null when nothing was claimed. */
@@ -48,10 +50,11 @@ final class ChatApiControllerEditTest extends TestCase
         $this->repository = $this->createMock(ConversationRepository::class);
         $this->repository->method('updateIf')->willReturnCallback(function (Conversation $c): bool {
             $this->claimed = clone $c;
+
             return true;
         });
         $this->processor = $this->createMock(ChatProcessorInterface::class);
-        $config = $this->createMock(ExtensionConfiguration::class);
+        $config          = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getMaxMessageLength')->willReturn(50);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
@@ -70,7 +73,7 @@ final class ChatApiControllerEditTest extends TestCase
             $this->createMock(UriBuilder::class),
         );
 
-        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']       = new stdClass();
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => ''];
     }
 
@@ -222,8 +225,8 @@ final class ChatApiControllerEditTest extends TestCase
 
         $this->subject->sendMessage($this->request([
             'conversationUid' => 1,
-            'content' => 'summarise this page',
-            'context' => ['pageId' => 12, 'module' => 'web_layout'],
+            'content'         => 'summarise this page',
+            'context'         => ['pageId' => 12, 'module' => 'web_layout'],
         ]));
 
         self::assertNotNull($this->claimed);
@@ -238,8 +241,8 @@ final class ChatApiControllerEditTest extends TestCase
 
         $this->subject->sendMessage($this->request([
             'conversationUid' => 1,
-            'content' => 'hi',
-            'context' => ['pageId' => '12; drop', 'module' => '../x'],
+            'content'         => 'hi',
+            'context'         => ['pageId' => '12; drop', 'module' => '../x'],
         ]));
 
         self::assertNotNull($this->claimed);
@@ -411,7 +414,7 @@ final class ChatApiControllerEditTest extends TestCase
         $this->conversation($this->transcript());
         $this->processor->expects(self::never())->method('dispatch');
 
-        $moved = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x', 'expectedContent' => 'first question', 'messageCount' => 6]));
+        $moved   = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x', 'expectedContent' => 'first question', 'messageCount' => 6]));
         $changed = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x', 'expectedContent' => 'what I saw', 'messageCount' => 4]));
         $unknown = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => 'x']));
 
@@ -465,13 +468,13 @@ final class ChatApiControllerEditTest extends TestCase
     public function aPollWithoutNewMessagesStillCarriesTheActivity(): void
     {
         $this->repository->method('findPollStatus')->willReturn([
-            'status' => 'processing',
-            'message_count' => 1,
-            'error_message' => '',
-            'error_code' => '',
+            'status'            => 'processing',
+            'message_count'     => 1,
+            'error_message'     => '',
+            'error_code'        => '',
             'approval_run_uuid' => '',
-            'tstamp' => time(),
-            'activity' => [['kind' => 'llm', 'round' => 1, 'ms' => 900]],
+            'tstamp'            => time(),
+            'activity'          => [['kind' => 'llm', 'round' => 1, 'ms' => 900]],
         ]);
         $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
 

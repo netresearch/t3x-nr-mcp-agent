@@ -49,7 +49,7 @@ final class ApprovalLinkTargetTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']       = new stdClass();
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '1,2'];
     }
 
@@ -74,11 +74,11 @@ final class ApprovalLinkTargetTest extends TestCase
 
         $repository = $this->createMock(ConversationRepository::class);
         $repository->method('findPollStatus')->willReturn([
-            'status' => 'awaiting_approval',
-            'message_count' => 5,
-            'error_message' => 'This step writes data.',
+            'status'            => 'awaiting_approval',
+            'message_count'     => 5,
+            'error_message'     => 'This step writes data.',
             'approval_run_uuid' => 'run-uuid-1234',
-            'tstamp' => 1710000000,
+            'tstamp'            => 1710000000,
         ]);
         // A parked conversation no longer answers from the poll fast path — it
         // falls through so the approval card can be built, and the link comes
@@ -119,7 +119,7 @@ final class ApprovalLinkTargetTest extends TestCase
             );
 
             $parameters = array_map(
-                static fn(ReflectionParameter $p): string => $p->getName(),
+                static fn (ReflectionParameter $p): string => $p->getName(),
                 (new ReflectionMethod(AgentRunController::class, 'showAction'))->getParameters(),
             );
             self::assertContains('runUuid', $parameters, 'showAction cannot name a run any more.');

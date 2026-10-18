@@ -31,12 +31,12 @@ return static function (ContainerConfigurator $configurator): void {
         ->class(AiChatWidget::class)
         ->autowire()
         ->tag('dashboard.widget', [
-            'identifier' => 'nrMcpAgentAiChat',
-            'groupNames' => 'general',
-            'title' => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.title',
-            'description' => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.description',
+            'identifier'     => 'nrMcpAgentAiChat',
+            'groupNames'     => 'general',
+            'title'          => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.title',
+            'description'    => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.description',
             'iconIdentifier' => 'module-nr-mcp-agent',
-            'height' => 'medium',
-            'width' => 'small',
+            'height'         => 'medium',
+            'width'          => 'small',
         ]);
 };

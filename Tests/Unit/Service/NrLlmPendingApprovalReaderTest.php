@@ -93,7 +93,7 @@ final class NrLlmPendingApprovalReaderTest extends TestCase
 
     private function runOwnedBy(int $beUser): AgentRun
     {
-        $run = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
+        $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
         foreach (['uuid' => 'run-uuid-1234', 'beUser' => $beUser, 'status' => 'waiting_for_approval'] as $name => $value) {
             $property = $reflection->getProperty($name);

@@ -30,7 +30,9 @@ final class ApprovalCallPresenterTest extends TestCase
 
     /** nr-llm's heading labels as netresearch/t3x-nr-llm#1016 names them. */
     private const HEADING_CREATE = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.createPage.heading';
+
     private const HEADING_DELETE = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.deleteRecord.headingPage';
+
     private const HEADING_UPDATE = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.updatePage.heading';
 
     /**
@@ -40,13 +42,13 @@ final class ApprovalCallPresenterTest extends TestCase
     private function german(): LanguageService
     {
         $language = $this->createMock(LanguageService::class);
-        $language->method('sL')->willReturnCallback(static fn(string $reference): string => match ($reference) {
-            self::LABEL                                  => ' Seite als Entwurf anlegen ',
-            self::HEADING_CREATE                         => 'Neue Seite als Entwurf anlegen',
-            self::HEADING_DELETE                         => 'Seite löschen',
-            self::HEADING_UPDATE                         => 'Metadaten der Seite ändern',
+        $language->method('sL')->willReturnCallback(static fn (string $reference): string => match ($reference) {
+            self::LABEL                                    => ' Seite als Entwurf anlegen ',
+            self::HEADING_CREATE                           => 'Neue Seite als Entwurf anlegen',
+            self::HEADING_DELETE                           => 'Seite löschen',
+            self::HEADING_UPDATE                           => 'Metadaten der Seite ändern',
             ApprovalCallPresenter::TECHNICAL_DETAILS_LABEL => 'Technische Details: %s',
-            default                                      => '',
+            default                                        => '',
         });
 
         return $language;
@@ -69,8 +71,8 @@ final class ApprovalCallPresenterTest extends TestCase
         $references = [self::HEADING_CREATE, self::HEADING_DELETE, self::HEADING_UPDATE];
         $recogniser = $this->createMock(PreviewHeadingRecogniserInterface::class);
         $recogniser->method('isHeading')->willReturnCallback(
-            static fn(string $line, LanguageService $language): bool => trim($line) !== ''
-                && in_array(trim($line), array_map(static fn(string $reference): string => trim($language->sL($reference)), $references), true),
+            static fn (string $line, LanguageService $language): bool => trim($line) !== ''
+                && in_array(trim($line), array_map(static fn (string $reference): string => trim($language->sL($reference)), $references), true),
         );
 
         return $recogniser;
@@ -370,9 +372,9 @@ final class ApprovalCallPresenterTest extends TestCase
     public function aLabelWithTextAfterThePlaceholderIsMatchedOnBothEnds(): void
     {
         $language = $this->createMock(LanguageService::class);
-        $language->method('sL')->willReturnCallback(static fn(string $reference): string => match ($reference) {
+        $language->method('sL')->willReturnCallback(static fn (string $reference): string => match ($reference) {
             ApprovalCallPresenter::TECHNICAL_DETAILS_LABEL => '(Technisch: %s)',
-            default                                      => '',
+            default                                        => '',
         });
         $matching = new PendingCallView('a', '{}', true, ['Ändern', 'Titel', '(Technisch: Seite 1)']);
         $open     = new PendingCallView('b', '{}', true, ['Ändern', 'Titel', '(Technisch: Seite 1']);

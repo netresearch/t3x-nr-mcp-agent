@@ -24,6 +24,7 @@ class DocumentExtractorRegistryTest extends TestCase
         $mock->method('getSupportedFileExtensions')->willReturn($extensions);
         $mock->method('isAvailable')->willReturn($available);
         $mock->method('extract')->willReturn($text);
+
         return $mock;
     }
 
@@ -48,7 +49,7 @@ class DocumentExtractorRegistryTest extends TestCase
         ]);
 
         $exts = $registry->getAvailableExtensions();
-        self::assertSame(1, count(array_filter($exts, fn($e) => $e === 'txt')));
+        self::assertSame(1, count(array_filter($exts, fn (string $e): bool => $e === 'txt')));
         self::assertSame(range(0, count($exts) - 1), array_keys($exts));
     }
 
@@ -140,7 +141,7 @@ class DocumentExtractorRegistryTest extends TestCase
 
         $mimes = $registry->getAvailableMimeTypes();
 
-        self::assertSame(1, count(array_filter($mimes, fn($m) => $m === 'text/plain')));
+        self::assertSame(1, count(array_filter($mimes, fn (string $m): bool => $m === 'text/plain')));
         self::assertSame(range(0, count($mimes) - 1), array_keys($mimes));
     }
 }

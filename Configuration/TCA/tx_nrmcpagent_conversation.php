@@ -9,15 +9,15 @@ declare(strict_types=1);
 
 return [
     'ctrl' => [
-        'title' => 'AI Chat Conversation',
-        'label' => 'title',
-        'tstamp' => 'tstamp',
-        'crdate' => 'crdate',
-        'delete' => 'deleted',
-        'readOnly' => true,
-        'adminOnly' => true,
-        'rootLevel' => 1,
-        'iconfile' => 'EXT:nr_mcp_agent/Resources/Public/Icons/ModuleIcon.svg',
+        'title'        => 'AI Chat Conversation',
+        'label'        => 'title',
+        'tstamp'       => 'tstamp',
+        'crdate'       => 'crdate',
+        'delete'       => 'deleted',
+        'readOnly'     => true,
+        'adminOnly'    => true,
+        'rootLevel'    => 1,
+        'iconfile'     => 'EXT:nr_mcp_agent/Resources/Public/Icons/ModuleIcon.svg',
         'searchFields' => 'title',
     ],
     'types' => [
@@ -25,31 +25,31 @@ return [
     ],
     'columns' => [
         'title' => [
-            'label' => 'Title',
+            'label'  => 'Title',
             'config' => ['type' => 'input', 'readOnly' => true],
         ],
         'be_user' => [
-            'label' => 'Backend User',
+            'label'  => 'Backend User',
             'config' => ['type' => 'group', 'allowed' => 'be_users', 'maxitems' => 1, 'readOnly' => true],
         ],
         'status' => [
-            'label' => 'Status',
+            'label'  => 'Status',
             'config' => ['type' => 'input', 'readOnly' => true],
         ],
         'message_count' => [
-            'label' => 'Messages',
+            'label'  => 'Messages',
             'config' => ['type' => 'number', 'readOnly' => true],
         ],
         'error_message' => [
-            'label' => 'Error',
+            'label'  => 'Error',
             'config' => ['type' => 'text', 'readOnly' => true],
         ],
         'archived' => [
-            'label' => 'Archived',
+            'label'  => 'Archived',
             'config' => ['type' => 'check', 'readOnly' => true],
         ],
         'pinned' => [
-            'label' => 'Pinned',
+            'label'  => 'Pinned',
             'config' => ['type' => 'check', 'readOnly' => true],
         ],
     ],

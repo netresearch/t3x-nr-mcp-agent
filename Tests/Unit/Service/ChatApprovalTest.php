@@ -64,8 +64,6 @@ final class ChatApprovalTest extends TestCase
 {
     private ?ApprovalDecision $capturedDecision = null;
 
-    private mixed $capturedOnStep = null;
-
     private ?string $capturedRunUuid = null;
 
     private function parkedConversation(string $runUuid = 'run-uuid-1234'): Conversation
@@ -86,7 +84,7 @@ final class ChatApprovalTest extends TestCase
     }
 
     private function createChatService(
-        AgentRunResult|RuntimeException $approveAnswer = null,
+        AgentRunResult|RuntimeException|null $approveAnswer = null,
         ?PendingApprovalReaderInterface $reader = null,
         bool $claimSucceeds = true,
         ?AgentRunRepositoryInterface $runRepository = null,
@@ -99,12 +97,12 @@ final class ChatApprovalTest extends TestCase
         $agentRuntime = $this->createMock(AgentRuntimeInterface::class);
         $agentRuntime->method('approve')->willReturnCallback(
             function (mixed $actor, string $runUuid, ApprovalDecision $decision, mixed $onStep = null) use ($approveAnswer, $approveFiresStep): AgentRunResult {
-                $this->capturedRunUuid = $runUuid;
-                $this->capturedOnStep = $onStep;
+                $this->capturedRunUuid  = $runUuid;
                 $this->capturedDecision = $decision;
                 if ($approveAnswer instanceof RuntimeException) {
                     throw $approveAnswer;
                 }
+
                 if ($approveFiresStep && $onStep instanceof Closure) {
                     $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 5.0));
                 }
@@ -161,7 +159,7 @@ final class ChatApprovalTest extends TestCase
 
     private function runWith(AgentRunStatus $status, int $beUser = 1): AgentRun
     {
-        $run = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
+        $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
         foreach (['uuid' => 'run-uuid-1234', 'beUser' => $beUser, 'status' => $status->value] as $name => $value) {
             $reflection->getProperty($name)->setValue($run, $value);
@@ -220,7 +218,7 @@ final class ChatApprovalTest extends TestCase
     public function aCompletedContinuationLeavesNoError(): void
     {
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService($this->completed('Done — the page is created.'));
+        $service      = $this->createChatService($this->completed('Done — the page is created.'));
         $service->recordDecision($conversation, true, 'digest-abc');
         // Whatever the claim did, put a reason back: this asserts about the
         // completion, not about recordDecision().
@@ -278,7 +276,7 @@ final class ChatApprovalTest extends TestCase
     public function theWorkerHandsTheRecordedDecisionToTheRuntime(): void
     {
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService();
+        $service      = $this->createChatService();
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -297,8 +295,8 @@ final class ChatApprovalTest extends TestCase
     public function theDecisionIsListedBeforeTheContinuationsFirstStep(): void
     {
         $conversation = $this->parkedConversation();
-        $recorder = $this->loggingRecorder();
-        $service = $this->createChatService(activityRecorder: $recorder, approveFiresStep: true);
+        $recorder     = $this->loggingRecorder();
+        $service      = $this->createChatService(activityRecorder: $recorder, approveFiresStep: true);
         $service->recordDecision($conversation, false, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -310,8 +308,8 @@ final class ChatApprovalTest extends TestCase
     public function aContinuationWithoutStepsStillListsTheDecision(): void
     {
         $conversation = $this->parkedConversation();
-        $recorder = $this->loggingRecorder();
-        $service = $this->createChatService(activityRecorder: $recorder);
+        $recorder     = $this->loggingRecorder();
+        $service      = $this->createChatService(activityRecorder: $recorder);
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -327,8 +325,8 @@ final class ChatApprovalTest extends TestCase
     public function aRefusedDecisionIsNotListed(): void
     {
         $conversation = $this->parkedConversation();
-        $recorder = $this->loggingRecorder();
-        $service = $this->createChatService(new StaleApprovalTurnException('run-uuid-1234', 'The review is stale'), activityRecorder: $recorder);
+        $recorder     = $this->loggingRecorder();
+        $service      = $this->createChatService(new StaleApprovalTurnException('run-uuid-1234', 'The review is stale'), activityRecorder: $recorder);
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -368,7 +366,7 @@ final class ChatApprovalTest extends TestCase
     public function theWorkerCarriesADenialThrough(): void
     {
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService();
+        $service      = $this->createChatService();
         $service->recordDecision($conversation, false, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -385,7 +383,7 @@ final class ChatApprovalTest extends TestCase
     public function theAnswerArrivesInTheConversation(): void
     {
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService($this->completed('Done — the description is set.'));
+        $service      = $this->createChatService($this->completed('Done — the description is set.'));
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -395,7 +393,7 @@ final class ChatApprovalTest extends TestCase
         self::assertSame('', $conversation->getApprovalDecision());
 
         $messages = $conversation->getDecodedMessages();
-        $last = end($messages);
+        $last     = end($messages);
         self::assertIsArray($last);
         self::assertSame('Done — the description is set.', $last['content'] ?? null);
     }
@@ -410,7 +408,7 @@ final class ChatApprovalTest extends TestCase
     public function aReleasingRefusalLeavesTheConversationDecidable(): void
     {
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService(
+        $service      = $this->createChatService(
             new StaleApprovalTurnException('run-uuid-1234', 'The review is stale'),
         );
         $service->recordDecision($conversation, true, 'digest-stale');
@@ -434,7 +432,7 @@ final class ChatApprovalTest extends TestCase
     public function aDeactivatedConfigurationLeavesTheConversationDecidable(): void
     {
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService(RunConfigurationInactiveException::forRun('run-uuid-1234'));
+        $service      = $this->createChatService(RunConfigurationInactiveException::forRun('run-uuid-1234'));
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -468,10 +466,10 @@ final class ChatApprovalTest extends TestCase
     public function aReleasingRefusalStoresItsReasonAndLogsTheMessage(RuntimeException $refusal, ApprovalHandBackReason $reason): void
     {
         $conversation = $this->parkedConversation();
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger       = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('warning')->with(
             self::anything(),
-            self::callback(static fn(array $context): bool => ($context['exception'] ?? null) === $refusal
+            self::callback(static fn (array $context): bool => ($context['exception'] ?? null) === $refusal
                 && ($context['reason'] ?? null) === $reason->value
                 && ($context['run'] ?? null) === 'run-uuid-1234'
                 && ($context['message'] ?? null) === $refusal->getMessage()),
@@ -490,7 +488,7 @@ final class ChatApprovalTest extends TestCase
     public function anUnexpectedErrorStillFailsTheConversation(): void
     {
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService(new RuntimeException('the database went away'));
+        $service      = $this->createChatService(new RuntimeException('the database went away'));
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -510,7 +508,7 @@ final class ChatApprovalTest extends TestCase
     #[Test]
     public function aWorkerThatNeverCameHandsTheCardBack(): void
     {
-        $conversation = $this->parkedConversation();
+        $conversation  = $this->parkedConversation();
         $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
         $runRepository->method('findByUuid')->willReturn($this->runWith(AgentRunStatus::WAITING_FOR_APPROVAL));
 
@@ -535,7 +533,7 @@ final class ChatApprovalTest extends TestCase
     #[Test]
     public function aFreshlyClaimedConversationIsNotReverted(): void
     {
-        $conversation = $this->parkedConversation();
+        $conversation  = $this->parkedConversation();
         $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
         $runRepository->expects(self::never())->method('findByUuid');
 
@@ -556,7 +554,7 @@ final class ChatApprovalTest extends TestCase
     #[Test]
     public function aRunningContinuationIsLeftAlone(): void
     {
-        $conversation = $this->parkedConversation();
+        $conversation  = $this->parkedConversation();
         $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
         $runRepository->method('findByUuid')->willReturn($this->runWith(AgentRunStatus::RUNNING));
 
@@ -577,7 +575,7 @@ final class ChatApprovalTest extends TestCase
     #[Test]
     public function aRunThatSettledElsewhereStopsTheSpinnerAndSaysSo(): void
     {
-        $conversation = $this->parkedConversation();
+        $conversation  = $this->parkedConversation();
         $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
         $runRepository->method('findByUuid')->willReturn($this->runWith(AgentRunStatus::COMPLETED));
 
@@ -597,7 +595,7 @@ final class ChatApprovalTest extends TestCase
     #[Test]
     public function aRunOfAnotherUserIsNotReconciled(): void
     {
-        $conversation = $this->parkedConversation();
+        $conversation  = $this->parkedConversation();
         $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
         $runRepository->method('findByUuid')->willReturn($this->runWith(AgentRunStatus::WAITING_FOR_APPROVAL, 99));
 

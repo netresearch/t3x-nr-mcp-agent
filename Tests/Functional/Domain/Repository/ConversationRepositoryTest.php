@@ -13,6 +13,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 class ConversationRepositoryTest extends FunctionalTestCase
@@ -108,6 +109,7 @@ class ConversationRepositoryTest extends FunctionalTestCase
     {
         $conversation = $this->subject->findByUid(1);
         $conversation->setTitle('Updated title');
+
         $this->subject->update($conversation);
 
         $reloaded = $this->subject->findByUid(1);
@@ -245,7 +247,7 @@ class ConversationRepositoryTest extends FunctionalTestCase
     public function updateIfReturnsFalseForDeletedRow(): void
     {
         // Conv 5 is deleted
-        $conn = $this->get(\TYPO3\CMS\Core\Database\ConnectionPool::class)
+        $conn = $this->get(ConnectionPool::class)
             ->getConnectionForTable('tx_nrmcpagent_conversation');
         // Read the raw row to build a Conversation (findByUid filters deleted rows)
         $row = $conn->executeQuery(
@@ -268,10 +270,11 @@ class ConversationRepositoryTest extends FunctionalTestCase
         $older->setBeUser(1);
         $older->setTitle('Older conv');
         $older->setStatus(ConversationStatus::Processing);
+
         $olderUid = $this->subject->add($older);
 
         // Update tstamp to be older than Conv 2
-        $conn = $this->get(\TYPO3\CMS\Core\Database\ConnectionPool::class)
+        $conn = $this->get(ConnectionPool::class)
             ->getConnectionForTable('tx_nrmcpagent_conversation');
         $conn->update('tx_nrmcpagent_conversation', ['tstamp' => 1700000000], ['uid' => $olderUid]);
 
@@ -371,6 +374,7 @@ class ConversationRepositoryTest extends FunctionalTestCase
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->setErrorMessage('API key identifier is required for provider OpenAI', 'providerNotConfigured');
+
         $uid = $this->subject->add($conversation);
 
         self::assertSame('providerNotConfigured', $this->subject->findPollStatus($uid, 1)['error_code'] ?? null);
@@ -378,7 +382,7 @@ class ConversationRepositoryTest extends FunctionalTestCase
 
         $listed = array_values(array_filter(
             $this->subject->findByBeUser(1),
-            static fn(Conversation $c): bool => $c->getUid() === $uid,
+            static fn (Conversation $c): bool => $c->getUid() === $uid,
         ));
         self::assertSame('providerNotConfigured', $listed[0]->getErrorCode());
     }
@@ -411,10 +415,11 @@ class ConversationRepositoryTest extends FunctionalTestCase
         $conversation->setBeUser(1);
         $conversation->setTitle('With messages');
         $conversation->setMessages([['role' => 'user', 'content' => 'Hello']]);
+
         $uid = $this->subject->add($conversation);
 
         // findByBeUser uses LIST_COLUMNS which excludes 'messages'
-        $list = $this->subject->findByBeUser(1);
+        $list  = $this->subject->findByBeUser(1);
         $found = null;
         foreach ($list as $item) {
             if ($item->getUid() === $uid) {
@@ -422,6 +427,7 @@ class ConversationRepositoryTest extends FunctionalTestCase
                 break;
             }
         }
+
         self::assertNotNull($found);
         // messages should be empty since LIST_COLUMNS does not include it
         self::assertSame('', $found->getMessages());

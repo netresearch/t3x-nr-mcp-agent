@@ -43,82 +43,82 @@ class CleanupCommandTest extends FunctionalTestCase
         // Insert a conversation stuck in "processing" for >5 minutes
         $oldTstamp = time() - 600; // 10 minutes ago
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Stuck processing',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'processing',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Stuck processing',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'processing',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 0,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => $oldTstamp,
-            'crdate' => $oldTstamp,
+            'system_prompt'      => '',
+            'archived'           => 0,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => $oldTstamp,
+            'crdate'             => $oldTstamp,
         ]);
         $stuckUid = (int) $conn->lastInsertId();
 
         // Insert a conversation stuck in "locked" for >5 minutes
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Stuck locked',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'locked',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Stuck locked',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'locked',
             'current_request_id' => 'worker_1',
-            'system_prompt' => '',
-            'archived' => 0,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => $oldTstamp,
-            'crdate' => $oldTstamp,
+            'system_prompt'      => '',
+            'archived'           => 0,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => $oldTstamp,
+            'crdate'             => $oldTstamp,
         ]);
         $lockedUid = (int) $conn->lastInsertId();
 
         // Insert a conversation stuck in "tool_loop" for >5 minutes
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Stuck tool_loop',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'tool_loop',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Stuck tool_loop',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'tool_loop',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 0,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => $oldTstamp,
-            'crdate' => $oldTstamp,
+            'system_prompt'      => '',
+            'archived'           => 0,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => $oldTstamp,
+            'crdate'             => $oldTstamp,
         ]);
         $toolLoopUid = (int) $conn->lastInsertId();
 
         // Insert a recent "processing" conversation that should NOT be timed out
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Recent processing',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'processing',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Recent processing',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'processing',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 0,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => time(),
-            'crdate' => time(),
+            'system_prompt'      => '',
+            'archived'           => 0,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => time(),
+            'crdate'             => time(),
         ]);
         $recentUid = (int) $conn->lastInsertId();
 
         $command = $this->get(CleanupCommand::class);
-        $tester = new CommandTester($command);
+        $tester  = new CommandTester($command);
         $tester->execute([]);
 
         self::assertSame(0, $tester->getStatusCode());
@@ -153,25 +153,25 @@ class CleanupCommandTest extends FunctionalTestCase
     #[Test]
     public function aConversationLeftProcessingForWeeksWithoutARunIsReset(): void
     {
-        $conn = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
-        $lastWrite = (int) strtotime('2026-08-21T07:29:11+00:00');
+        $conn      = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
+        $lastWrite = strtotime('2026-08-21T07:29:11+00:00');
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Lege unter der Seite mit der id 10011 eine neue, zunächst versteckte Unterseite an',
+            'pid'      => 0,
+            'be_user'  => 1,
+            'title'    => 'Lege unter der Seite mit der id 10011 eine neue, zunächst versteckte Unterseite an',
             'messages' => (string) json_encode([
                 ['role' => 'user', 'content' => 'Es fehlt noch das Element für die neue Unterseite', 'createdAt' => '2026-08-21T07:25:24+00:00'],
                 ['role' => 'assistant', 'content' => 'Das fehlende Element ist jetzt angelegt.', 'createdAt' => '2026-08-21T07:25:42+00:00'],
                 ['role' => 'user', 'content' => 'jetzt hat es geklappt', 'createdAt' => '2026-08-21T07:29:11+00:00'],
             ]),
-            'message_count' => 3,
-            'status' => 'processing',
-            'error_message' => 'API key identifier is required for provider OpenAI',
-            'error_code' => 'providerNotConfigured',
+            'message_count'     => 3,
+            'status'            => 'processing',
+            'error_message'     => 'API key identifier is required for provider OpenAI',
+            'error_code'        => 'providerNotConfigured',
             'approval_run_uuid' => '',
-            'deleted' => 0,
-            'tstamp' => $lastWrite,
-            'crdate' => $lastWrite,
+            'deleted'           => 0,
+            'tstamp'            => $lastWrite,
+            'crdate'            => $lastWrite,
         ]);
         $uid = (int) $conn->lastInsertId();
 
@@ -192,44 +192,44 @@ class CleanupCommandTest extends FunctionalTestCase
         // Insert an old idle conversation (older than 30 days)
         $oldTstamp = time() - (31 * 86400);
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Old idle',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'idle',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Old idle',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'idle',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 0,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => $oldTstamp,
-            'crdate' => $oldTstamp,
+            'system_prompt'      => '',
+            'archived'           => 0,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => $oldTstamp,
+            'crdate'             => $oldTstamp,
         ]);
         $oldIdleUid = (int) $conn->lastInsertId();
 
         // Insert a recent idle conversation that should NOT be archived
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Recent idle',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'idle',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Recent idle',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'idle',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 0,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => time(),
-            'crdate' => time(),
+            'system_prompt'      => '',
+            'archived'           => 0,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => time(),
+            'crdate'             => time(),
         ]);
         $recentIdleUid = (int) $conn->lastInsertId();
 
         $command = $this->get(CleanupCommand::class);
-        $tester = new CommandTester($command);
+        $tester  = new CommandTester($command);
         $tester->execute([]);
 
         self::assertSame(0, $tester->getStatusCode());
@@ -254,44 +254,44 @@ class CleanupCommandTest extends FunctionalTestCase
         // Insert an old archived conversation (older than 90 days)
         $oldTstamp = time() - (91 * 86400);
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Old archived',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'idle',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Old archived',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'idle',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 1,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => $oldTstamp,
-            'crdate' => $oldTstamp,
+            'system_prompt'      => '',
+            'archived'           => 1,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => $oldTstamp,
+            'crdate'             => $oldTstamp,
         ]);
         $oldArchivedUid = (int) $conn->lastInsertId();
 
         // Insert a recently archived conversation that should NOT be deleted
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Recent archived',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'idle',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Recent archived',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'idle',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 1,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => time(),
-            'crdate' => time(),
+            'system_prompt'      => '',
+            'archived'           => 1,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => time(),
+            'crdate'             => time(),
         ]);
         $recentArchivedUid = (int) $conn->lastInsertId();
 
         $command = $this->get(CleanupCommand::class);
-        $tester = new CommandTester($command);
+        $tester  = new CommandTester($command);
         $tester->execute([]);
 
         self::assertSame(0, $tester->getStatusCode());
@@ -316,26 +316,26 @@ class CleanupCommandTest extends FunctionalTestCase
         // Insert archived conversation from 10 days ago
         $tstamp = time() - (10 * 86400);
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => '10 day old archived',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'idle',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => '10 day old archived',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'idle',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 1,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 0,
-            'tstamp' => $tstamp,
-            'crdate' => $tstamp,
+            'system_prompt'      => '',
+            'archived'           => 1,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 0,
+            'tstamp'             => $tstamp,
+            'crdate'             => $tstamp,
         ]);
         $uid = (int) $conn->lastInsertId();
 
         // Use --delete-after-days=5 so 10-day-old archived conv gets deleted
         $command = $this->get(CleanupCommand::class);
-        $tester = new CommandTester($command);
+        $tester  = new CommandTester($command);
         $tester->execute(['--delete-after-days' => '5']);
 
         self::assertSame(0, $tester->getStatusCode());
@@ -351,7 +351,7 @@ class CleanupCommandTest extends FunctionalTestCase
     {
         // No data inserted — all counts should be 0
         $command = $this->get(CleanupCommand::class);
-        $tester = new CommandTester($command);
+        $tester  = new CommandTester($command);
         $tester->execute([]);
 
         self::assertSame(0, $tester->getStatusCode());
@@ -370,25 +370,25 @@ class CleanupCommandTest extends FunctionalTestCase
         // Insert a stuck but soft-deleted conversation
         $oldTstamp = time() - 600;
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Deleted stuck',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'processing',
+            'pid'                => 0,
+            'be_user'            => 1,
+            'title'              => 'Deleted stuck',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'processing',
             'current_request_id' => '',
-            'system_prompt' => '',
-            'archived' => 0,
-            'pinned' => 0,
-            'error_message' => '',
-            'deleted' => 1,
-            'tstamp' => $oldTstamp,
-            'crdate' => $oldTstamp,
+            'system_prompt'      => '',
+            'archived'           => 0,
+            'pinned'             => 0,
+            'error_message'      => '',
+            'deleted'            => 1,
+            'tstamp'             => $oldTstamp,
+            'crdate'             => $oldTstamp,
         ]);
         $uid = (int) $conn->lastInsertId();
 
         $command = $this->get(CleanupCommand::class);
-        $tester = new CommandTester($command);
+        $tester  = new CommandTester($command);
         $tester->execute([]);
 
         self::assertSame(0, $tester->getStatusCode());
@@ -409,6 +409,7 @@ class CleanupCommandTest extends FunctionalTestCase
         /** @var ConnectionPool $pool */
         $pool = $this->get(ConnectionPool::class);
         $conn = $pool->getConnectionForTable(self::TABLE);
+
         return $conn->executeQuery(
             'SELECT * FROM ' . self::TABLE . ' WHERE uid = ?',
             [$uid],

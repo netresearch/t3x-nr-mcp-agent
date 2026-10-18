@@ -47,12 +47,13 @@ final class ProcessChatCommand extends Command
         // Claim the turn in one UPDATE, as ai-chat:worker does: a second
         // ai-chat:process for the same conversation, or a worker that took it
         // first, leaves this one with nothing to do.
-        $claimId = 'process_' . getmypid() . '_' . bin2hex(random_bytes(4));
+        $claimId      = 'process_' . getmypid() . '_' . bin2hex(random_bytes(4));
         $conversation = $this->repository->claimForProcess($uid, $claimId);
 
         if ($conversation === null) {
             if ($this->repository->findByUid($uid) === null) {
                 $output->writeln('<error>Conversation not found</error>');
+
                 return Command::FAILURE;
             }
 
@@ -62,6 +63,7 @@ final class ProcessChatCommand extends Command
                 '<info>Conversation %d is not in processing state: another process or worker has claimed it, or the turn is over. Nothing to do.</info>',
                 $uid,
             ));
+
             return Command::SUCCESS;
         }
 
@@ -81,6 +83,7 @@ final class ProcessChatCommand extends Command
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage($message);
             $this->repository->update($conversation);
+
             return Command::FAILURE;
         }
 

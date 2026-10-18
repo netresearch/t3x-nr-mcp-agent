@@ -65,8 +65,8 @@ readonly class UserContextPrompt
      */
     private function answerLanguage(BackendUserAuthentication $user): string
     {
-        $locale = $this->locales->createLocaleFromUserPreferences($user);
-        $code = strtolower($locale->getLanguageCode());
+        $locale    = $this->locales->createLocaleFromUserPreferences($user);
+        $code      = strtolower($locale->getLanguageCode());
         $languages = $this->locales->getLanguages();
         // TYPO3 13 keys English as "default", 14 as "en".
         $name = $languages[$code] ?? ($code === 'en' ? ($languages['default'] ?? 'English') : $code);
@@ -85,7 +85,7 @@ readonly class UserContextPrompt
     private function viewContext(Conversation $conversation, BackendUserAuthentication $user): string
     {
         $context = $conversation->getViewContext();
-        $lines = [];
+        $lines   = [];
 
         $moduleTitle = $this->moduleTitle($context['module'], $user);
         if ($moduleTitle !== null) {

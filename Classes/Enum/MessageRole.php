@@ -11,7 +11,7 @@ namespace Netresearch\NrMcpAgent\Enum;
 
 enum MessageRole: string
 {
-    case User = 'user';
+    case User      = 'user';
     case Assistant = 'assistant';
-    case Tool = 'tool';
+    case Tool      = 'tool';
 }

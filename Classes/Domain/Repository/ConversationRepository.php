@@ -49,7 +49,7 @@ readonly class ConversationRepository
 
     public function findByUid(int $uid): ?Conversation
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $row = $qb->select('*')
             ->from(self::TABLE)
             ->where(
@@ -85,12 +85,13 @@ readonly class ConversationRepository
         }
 
         $rows = $qb->executeQuery()->fetchAllAssociative();
+
         return array_map(Conversation::fromRow(...), $rows);
     }
 
     public function findOneByUidAndBeUser(int $uid, int $beUserUid): ?Conversation
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $row = $qb->select('*')
             ->from(self::TABLE)
             ->where(
@@ -106,7 +107,7 @@ readonly class ConversationRepository
 
     public function countActiveByBeUser(int $beUserUid): int
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb          = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $fetchResult = $qb->count('uid')
             ->from(self::TABLE)
             ->where(
@@ -128,11 +129,11 @@ readonly class ConversationRepository
 
     public function add(Conversation $conversation): int
     {
-        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $data = $this->rowData($conversation);
+        $conn             = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $data             = $this->rowData($conversation);
         $data['messages'] = '';
-        $data['crdate'] = $data['tstamp'];
-        $data['pid'] = 0;
+        $data['crdate']   = $data['tstamp'];
+        $data['pid']      = 0;
         // A new row races nobody, so the instructions are written with it;
         // later only updateSystemPrompt() writes them (see toRow()).
         $data['system_prompt'] = $conversation->getSystemPrompt();
@@ -177,7 +178,7 @@ readonly class ConversationRepository
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
             'archived' => (int) $archived,
-            'tstamp' => time(),
+            'tstamp'   => time(),
         ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 
@@ -213,7 +214,7 @@ readonly class ConversationRepository
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
             'system_prompt' => $systemPrompt,
-            'tstamp' => time(),
+            'tstamp'        => time(),
         ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 
@@ -235,7 +236,7 @@ readonly class ConversationRepository
      */
     public function findPollStatus(int $uid, int $beUserUid): ?array
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $row = $qb->select('status', 'message_count', 'error_message', 'error_code', 'approval_run_uuid', 'tstamp', 'activity')
             ->from(self::TABLE)
             ->where(
@@ -250,13 +251,13 @@ readonly class ConversationRepository
             return null;
         }
 
-        $status = $row['status'] ?? '';
-        $messageCount = $row['message_count'] ?? 0;
-        $errorMessage = $row['error_message'] ?? '';
-        $errorCode = $row['error_code'] ?? '';
+        $status          = $row['status'] ?? '';
+        $messageCount    = $row['message_count'] ?? 0;
+        $errorMessage    = $row['error_message'] ?? '';
+        $errorCode       = $row['error_code'] ?? '';
         $approvalRunUuid = $row['approval_run_uuid'] ?? '';
-        $tstamp = $row['tstamp'] ?? 0;
-        $activity = $row['activity'] ?? '';
+        $tstamp          = $row['tstamp'] ?? 0;
+        $activity        = $row['activity'] ?? '';
 
         if (is_int($messageCount)) {
             $messageCountInt = $messageCount;
@@ -265,13 +266,13 @@ readonly class ConversationRepository
         }
 
         return [
-            'status' => is_string($status) ? $status : '',
-            'message_count' => $messageCountInt,
-            'error_message' => is_string($errorMessage) ? $errorMessage : '',
-            'error_code' => is_string($errorCode) ? $errorCode : '',
+            'status'            => is_string($status) ? $status : '',
+            'message_count'     => $messageCountInt,
+            'error_message'     => is_string($errorMessage) ? $errorMessage : '',
+            'error_code'        => is_string($errorCode) ? $errorCode : '',
             'approval_run_uuid' => is_string($approvalRunUuid) ? $approvalRunUuid : '',
-            'tstamp' => is_numeric($tstamp) ? (int) $tstamp : 0,
-            'activity' => Conversation::decodeActivity(is_string($activity) ? $activity : ''),
+            'tstamp'            => is_numeric($tstamp) ? (int) $tstamp : 0,
+            'activity'          => Conversation::decodeActivity(is_string($activity) ? $activity : ''),
         ];
     }
 
@@ -288,10 +289,10 @@ readonly class ConversationRepository
         $data = $this->rowData($conversation);
 
         $columns = [];
-        $params = [];
+        $params  = [];
         foreach ($data as $col => $val) {
             $columns[] = $col . ' = ?';
-            $params[] = $val;
+            $params[]  = $val;
         }
 
         // WHERE uid = ? AND status = ? AND deleted = 0
@@ -414,7 +415,7 @@ readonly class ConversationRepository
 
     private function findLockedBy(string $claimId): ?Conversation
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $row = $qb->select('*')
             ->from(self::TABLE)
             ->where(
@@ -440,7 +441,7 @@ readonly class ConversationRepository
     private function hydrate(array $row): Conversation
     {
         $conversation = Conversation::fromRow($row);
-        $messages = $this->loadMessages($conversation->getUid());
+        $messages     = $this->loadMessages($conversation->getUid());
         if ($messages !== []) {
             $conversation->setMessages($messages);
         }
@@ -453,7 +454,7 @@ readonly class ConversationRepository
      */
     private function loadMessages(int $conversationUid): array
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::MESSAGE_TABLE);
+        $qb       = $this->connectionPool->getQueryBuilderForTable(self::MESSAGE_TABLE);
         $payloads = $qb->select('payload')
             ->from(self::MESSAGE_TABLE)
             ->where($qb->expr()->eq('conversation', $qb->createNamedParameter($conversationUid, Connection::PARAM_INT)))
@@ -489,12 +490,12 @@ readonly class ConversationRepository
         foreach ($messages as $position => $message) {
             $role = $message['role'] ?? '';
             $conn->insert(self::MESSAGE_TABLE, [
-                'pid' => 0,
+                'pid'          => 0,
                 'conversation' => $conversationUid,
-                'sorting' => $position,
-                'role' => is_string($role) ? mb_substr($role, 0, 20) : '',
-                'payload' => json_encode($message, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-                'crdate' => $now,
+                'sorting'      => $position,
+                'role'         => is_string($role) ? mb_substr($role, 0, 20) : '',
+                'payload'      => json_encode($message, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                'crdate'       => $now,
             ]);
         }
     }
@@ -515,7 +516,9 @@ readonly class ConversationRepository
      * again is safe.
      *
      * @template T
+     *
      * @param callable(): T $work
+     *
      * @return T
      */
     private function transactional(Connection $conn, callable $work): mixed
@@ -525,7 +528,7 @@ readonly class ConversationRepository
         // inner part would run outside the transaction that was lost.
         $attempts = $conn->getTransactionNestingLevel() === 0 ? self::TRANSACTION_ATTEMPTS : 1;
 
-        for ($attempt = 1; ; ++$attempt) {
+        for ($attempt = 1;; ++$attempt) {
             $conn->beginTransaction();
             try {
                 $result = $work();
@@ -661,7 +664,7 @@ readonly class ConversationRepository
         $moved = 0;
         foreach ($uids as $uid) {
             $uid = is_numeric($uid) ? (int) $uid : 0;
-            $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+            $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
             $qb->getRestrictions()->removeAll();
             $blob = $qb->select('messages')
                 ->from(self::TABLE)
@@ -703,16 +706,16 @@ readonly class ConversationRepository
 
         return $this->transactional($conn, function () use ($conn, $uid, $blob): bool {
             $messages = $this->decodeLegacyTranscript($blob);
-            $claim = $messages === null
+            $claim    = $messages === null
                 // Not a JSON list: the conversation could not be opened
                 // before either. The value is kept behind the marker, the
                 // conversation shows as failed and archived instead of
                 // erroring, and the wizard does not pick it up again.
                 ? [
-                    'messages' => self::UNDECODABLE_MARKER . $blob,
-                    'status' => ConversationStatus::Failed->value,
+                    'messages'      => self::UNDECODABLE_MARKER . $blob,
+                    'status'        => ConversationStatus::Failed->value,
                     'error_message' => 'The stored transcript of this conversation could not be read. It is kept unchanged for inspection.',
-                    'archived' => 1,
+                    'archived'      => 1,
                     // The retention period of archived conversations counts
                     // from here, so an old row is not deleted with its kept
                     // value by the next cleanup run.
@@ -721,7 +724,7 @@ readonly class ConversationRepository
                 : ['messages' => ''];
 
             $affected = $conn->executeStatement(
-                'UPDATE ' . self::TABLE . ' SET ' . implode(', ', array_map(static fn(string $c): string => $c . ' = ?', array_keys($claim)))
+                'UPDATE ' . self::TABLE . ' SET ' . implode(', ', array_map(static fn (string $c): string => $c . ' = ?', array_keys($claim)))
                 . ' WHERE uid = ? AND messages = ?',
                 [...array_values($claim), $uid, $blob],
             );
