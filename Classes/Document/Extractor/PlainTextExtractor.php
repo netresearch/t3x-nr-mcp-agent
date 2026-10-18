@@ -44,7 +44,16 @@ final class PlainTextExtractor implements DocumentExtractorInterface
             throw new DocumentExtractionException('Failed to read file: ' . $path, 1743000011);
         }
 
-        $content = file_get_contents($path);
+        // The path can still vanish between the check and the read. The
+        // handler keeps that warning from reaching a warning-to-exception
+        // handler, so the caller gets the exception below.
+        set_error_handler(static fn (): bool => true);
+        try {
+            $content = file_get_contents($path);
+        } finally {
+            restore_error_handler();
+        }
+
         if ($content === false) {
             throw new DocumentExtractionException('Failed to read file: ' . $path, 1743000011);
         }
