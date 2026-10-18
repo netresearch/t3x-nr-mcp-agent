@@ -195,8 +195,8 @@ final class Conversation
         $conversation->skillStartPending  = (bool) self::val($row, 'skill_start_pending', false);
         $conversation->activity           = (string) self::val($row, 'activity', '');
         $conversation->guidedState        = (string) self::val($row, 'guided_state', '');
-        $conversation->approvalCard = (string) self::val($row, 'approval_card', '');
-        $conversation->cardOutcomes = (string) self::val($row, 'card_outcomes', '');
+        $conversation->approvalCard       = (string) self::val($row, 'approval_card', '');
+        $conversation->cardOutcomes       = (string) self::val($row, 'card_outcomes', '');
         $conversation->archived           = (bool) self::val($row, 'archived', false);
         $conversation->pinned             = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage       = (string) self::val($row, 'error_message', '');
@@ -245,8 +245,8 @@ final class Conversation
             'current_request_id'   => $this->currentRequestId,
             'view_context'         => $this->viewContext,
             'guided_state'         => $this->guidedState,
-            'approval_card' => $this->approvalCard,
-            'card_outcomes' => $this->cardOutcomes,
+            'approval_card'        => $this->approvalCard,
+            'card_outcomes'        => $this->cardOutcomes,
             'archived'             => (int) $this->archived,
             'pinned'               => (int) $this->pinned,
             'error_message'        => $this->errorMessage,
@@ -670,7 +670,7 @@ final class Conversation
         $this->approvalTurnDigest = '';
         $this->pendingInput       = '';
         $this->approvalDenyReason = '';
-        $this->approvalCard = '';
+        $this->approvalCard       = '';
     }
 
     /**
@@ -696,8 +696,8 @@ final class Conversation
      */
     public function appendCardOutcome(ProposalOutcome $outcome, array $card): void
     {
-        $outcomes = $this->getCardOutcomes();
-        $outcomes[] = ['outcome' => $outcome->value, 'after' => $this->messageCount] + $card;
+        $outcomes           = $this->getCardOutcomes();
+        $outcomes[]         = ['outcome' => $outcome->value, 'after' => $this->messageCount] + $card;
         $this->cardOutcomes = json_encode($outcomes, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
 
@@ -713,9 +713,9 @@ final class Conversation
 
         $outcomes = [];
         foreach ($decoded as $entry) {
-            $card = is_array($entry) ? $this->cardOf($entry) : null;
+            $card    = is_array($entry) ? $this->cardOf($entry) : null;
             $outcome = is_array($entry) && is_string($entry['outcome'] ?? null) ? ProposalOutcome::tryFrom($entry['outcome']) : null;
-            $after = is_array($entry) ? ($entry['after'] ?? null) : null;
+            $after   = is_array($entry) ? ($entry['after'] ?? null) : null;
             if ($card !== null && $outcome instanceof ProposalOutcome && is_int($after)) {
                 $outcomes[] = ['outcome' => $outcome->value, 'after' => $after] + $card;
             }

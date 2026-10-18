@@ -64,7 +64,7 @@ final class ChatProposalOutcomeTest extends TestCase
     /**
      * @param list<RunStep> $steps
      */
-    private static function answered(array $steps = []): AgentRunResult
+    private function answered(array $steps = []): AgentRunResult
     {
         return new AgentRunResult(AgentRunOutcome::COMPLETED, 'run-1', $steps, new ToolLoopResult('Nächster Punkt.', [], 1, false, new UsageStatistics(1, 1, 2)));
     }
@@ -102,7 +102,7 @@ final class ChatProposalOutcomeTest extends TestCase
     }
 
     /** The approved call's tool step and write step, as nr-llm before 0.41 writes them. */
-    private static function writeSteps(): array
+    private function writeSteps(): array
     {
         return [
             new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'update_page_metadata', toolIsError: false),
@@ -114,7 +114,7 @@ final class ChatProposalOutcomeTest extends TestCase
     public function anApprovedProposalIsRecordedBeforeTheModelsAnswer(): void
     {
         $conversation = $this->waiting();
-        $service = $this->service(self::answered(self::writeSteps()));
+        $service      = $this->service($this->answered($this->writeSteps()));
         $service->recordDecision($conversation, true, 'digest', card: self::CARD);
         $service->processConversation($conversation);
 
@@ -123,7 +123,7 @@ final class ChatProposalOutcomeTest extends TestCase
         // nr-llm before 0.41 states no completeness: "check"; 0.41 with an
         // unstated completeness reads the same (ApprovedCallReadingTest).
         self::assertSame('check', $outcomes[0]['outcome']);
-        self::assertSame(2, $outcomes[0]['after'], 'before the model\'s answer, which is message 3');
+        self::assertSame(2, $outcomes[0]['after'], "before the model's answer, which is message 3");
         self::assertSame('pages', $outcomes[0]['table']);
         self::assertSame(3, $conversation->getMessageCount());
         self::assertNull($conversation->getApprovalCard(), 'the card goes with the decision');
@@ -133,7 +133,7 @@ final class ChatProposalOutcomeTest extends TestCase
     public function aSkippedProposalIsRecordedAsSkippedAfterTheReadersAnswer(): void
     {
         $conversation = $this->waiting();
-        $service = $this->service(self::answered());
+        $service      = $this->service($this->answered());
         $service->recordDecision($conversation, false, 'digest', DenyReason::Skip, 'Überspringen', self::CARD);
         $service->processConversation($conversation);
 
@@ -144,7 +144,7 @@ final class ChatProposalOutcomeTest extends TestCase
     public function aVariantIsRecordedAsSuch(): void
     {
         $conversation = $this->waiting();
-        $service = $this->service(self::answered());
+        $service      = $this->service($this->answered());
         $service->recordDecision($conversation, false, 'digest', DenyReason::Variant, 'Andere Variante', self::CARD);
         $service->processConversation($conversation);
 
@@ -156,7 +156,7 @@ final class ChatProposalOutcomeTest extends TestCase
     public function anOrdinaryCardRecordsNothing(): void
     {
         $conversation = $this->waiting();
-        $service = $this->service(self::answered(self::writeSteps()));
+        $service      = $this->service($this->answered($this->writeSteps()));
         $service->recordDecision($conversation, true, 'digest');
         $service->processConversation($conversation);
 
@@ -168,7 +168,7 @@ final class ChatProposalOutcomeTest extends TestCase
     public function anApprovalWithoutAToolStepRecordsNothing(): void
     {
         $conversation = $this->waiting();
-        $service = $this->service(self::answered());
+        $service      = $this->service($this->answered());
         $service->recordDecision($conversation, true, 'digest', card: self::CARD);
         $service->processConversation($conversation);
 
@@ -179,7 +179,7 @@ final class ChatProposalOutcomeTest extends TestCase
     public function aRefusedDecisionRecordsNothing(): void
     {
         $conversation = $this->waiting();
-        $service = $this->service(new StaleApprovalTurnException('run-1', 'The review is stale'));
+        $service      = $this->service(new StaleApprovalTurnException('run-1', 'The review is stale'));
         $service->recordDecision($conversation, false, 'digest', DenyReason::Skip, 'Überspringen', self::CARD);
         $service->processConversation($conversation);
 

@@ -933,7 +933,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The card the decision answers, read before nr-llm acts on it: an
         // open point is keyed by what that card showed (ADR-022).
         $denyReason = $conversation->getApprovalDenyReason();
-        $card = $conversation->getApprovalCard();
+        $card       = $conversation->getApprovalCard();
         $cardTarget = $this->openPoints?->cardTarget(
             $conversation,
             $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid),
@@ -1013,10 +1013,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // What became of a proposal of a guided process, for the chat's own
         // status line and summary (ADR-023), before the model's answer lands.
         $outcome = match (true) {
-            $approved => ApprovedCallReading::of($result),
-            $denyReason === DenyReason::Skip => ProposalOutcome::Skipped,
+            $approved                           => ApprovedCallReading::of($result),
+            $denyReason === DenyReason::Skip    => ProposalOutcome::Skipped,
             $denyReason === DenyReason::Variant => ProposalOutcome::Variant,
-            default => null,
+            default                             => null,
         };
         if ($card !== null && $outcome instanceof ProposalOutcome) {
             $conversation->appendCardOutcome($outcome, $card);

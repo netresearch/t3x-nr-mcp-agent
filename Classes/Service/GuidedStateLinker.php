@@ -71,8 +71,8 @@ readonly class GuidedStateLinker
      */
     private function highlight(array $highlight, Conversation $conversation): ?array
     {
-        $uid = $highlight['uid'] ?? null;
-        $pid = $highlight['pid'] ?? null;
+        $uid   = $highlight['uid'] ?? null;
+        $pid   = $highlight['pid'] ?? null;
         $table = $highlight['table'] ?? null;
 
         return $table === 'tt_content' && is_int($uid) && is_int($pid)

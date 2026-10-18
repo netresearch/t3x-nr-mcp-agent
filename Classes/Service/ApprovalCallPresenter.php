@@ -117,13 +117,13 @@ final readonly class ApprovalCallPresenter
                 // the preview and hands the run back with this flag. Without
                 // it the card returns looking exactly as it did before the
                 // click, and only the approvals module said why.
-                'previewStale'        => $call->previewStale,
-                'argumentsJson'       => $call->argumentsJson,
+                'previewStale'  => $call->previewStale,
+                'argumentsJson' => $call->argumentsJson,
                 // The proposal block of a process card (ADR-023): what the
                 // write is about, from nr-llm's structured target, and its
                 // current and proposed values where nr-llm structures them.
-                'affected'            => $this->affected($call, $language),
-                'structured'          => $call->previewFailed ? null : StructuredPreview::of($call),
+                'affected'   => $this->affected($call, $language),
+                'structured' => $call->previewFailed ? null : StructuredPreview::of($call),
             ];
         }
 
@@ -167,9 +167,9 @@ final readonly class ApprovalCallPresenter
     public function presentOutcomes(array $outcomes, ?LanguageService $language): array
     {
         $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
-        $presented = [];
+        $presented       = [];
         foreach ($outcomes as $entry) {
-            $fields = $entry['table'] !== '' ? implode(', ', $this->fieldLabels($entry['table'], $entry['fields'], $language)) : '';
+            $fields      = $entry['table'] !== '' ? implode(', ', $this->fieldLabels($entry['table'], $entry['fields'], $language)) : '';
             $presented[] = [
                 'outcome' => $entry['outcome'],
                 'after'   => $entry['after'],
@@ -183,7 +183,7 @@ final readonly class ApprovalCallPresenter
 
     private function tableLabel(string $table, ?LanguageService $language): string
     {
-        $ctrl = $this->tca($table)['ctrl'] ?? null;
+        $ctrl  = $this->tca($table)['ctrl'] ?? null;
         $title = is_array($ctrl) && is_string($ctrl['title'] ?? null) ? $this->resolve($ctrl['title'], $language) : '';
 
         return $title !== '' ? $title : $table;
@@ -197,10 +197,10 @@ final readonly class ApprovalCallPresenter
     private function fieldLabels(string $table, array $fields, ?LanguageService $language): array
     {
         $columns = $this->tca($table)['columns'] ?? null;
-        $labels = [];
+        $labels  = [];
         foreach ($fields as $field) {
-            $column = is_array($columns) ? ($columns[$field] ?? null) : null;
-            $label = is_array($column) && is_string($column['label'] ?? null) ? $this->resolve($column['label'], $language) : '';
+            $column   = is_array($columns) ? ($columns[$field] ?? null) : null;
+            $label    = is_array($column) && is_string($column['label'] ?? null) ? $this->resolve($column['label'], $language) : '';
             $labels[] = $label !== '' ? $label : $field;
         }
 
@@ -212,7 +212,7 @@ final readonly class ApprovalCallPresenter
      */
     private function tca(string $table): array
     {
-        $tca = $GLOBALS['TCA'] ?? null;
+        $tca    = $GLOBALS['TCA'] ?? null;
         $config = is_array($tca) ? ($tca[$table] ?? null) : null;
 
         return is_array($config) ? $config : [];

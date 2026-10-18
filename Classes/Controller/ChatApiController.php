@@ -441,7 +441,7 @@ final readonly class ChatApiController
             return $accessDenied;
         }
 
-        $body = $this->parseBody($request);
+        $body         = $this->parseBody($request);
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
@@ -456,7 +456,7 @@ final readonly class ChatApiController
             return new JsonResponse(['status' => $current->value, 'skill' => null]);
         }
 
-        $before = clone $conversation;
+        $before  = clone $conversation;
         $waiting = $current === ConversationStatus::AwaitingApproval || $current === ConversationStatus::AwaitingInput;
         $conversation->setSkillIdentifier('', 0);
         $conversation->setGuidedState(null, null);
@@ -602,7 +602,7 @@ final readonly class ChatApiController
             // Where "Fertig" leads once the process is finished: the dashboard,
             // when it is installed.
             'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
-            'activity' => $conversation->getActivity(),
+            'activity'     => $conversation->getActivity(),
         ]);
     }
 
@@ -641,7 +641,7 @@ final readonly class ChatApiController
     }
 
     /**
-     * POST /ai-chat/conversations/send
+     * POST /ai-chat/conversations/send.
      */
     public function sendMessage(ServerRequestInterface $request): ResponseInterface
     {
@@ -1512,8 +1512,8 @@ final readonly class ChatApiController
         // Only a card that offers the two denials takes one; an unknown value,
         // or a reason on any other card, is a plain denial.
         $reasonValue = $body['reason'] ?? '';
-        $reason = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
-        $view = $this->chatApproval->pendingApproval($conversation);
+        $reason      = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
+        $view        = $this->chatApproval->pendingApproval($conversation);
         $processCard = $view !== null && $this->chatApproval->offersProcessAnswers($conversation, $view);
         if (!$processCard) {
             $reason = null;
@@ -1571,7 +1571,7 @@ final readonly class ChatApiController
             return null;
         }
 
-        $call = $view->pendingCalls[0];
+        $call   = $view->pendingCalls[0];
         $target = NrLlmCardTarget::ofCall($call);
 
         return [

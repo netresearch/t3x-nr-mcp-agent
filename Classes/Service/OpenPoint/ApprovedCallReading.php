@@ -44,12 +44,12 @@ final class ApprovedCallReading
     }
 
     /**
-     * @param array<mixed> $steps the result's trace
+     * @param array<mixed>         $steps   the result's trace
      * @param AgentRunOutcome|null $outcome how the run ended; only "check" against "not applied" depends on it
      */
     public static function ofSteps(array $steps, ?AgentRunOutcome $outcome): ?ProposalOutcome
     {
-        $toolStep = null;
+        $toolStep  = null;
         $writeStep = null;
         foreach ($steps as $step) {
             if (!$step instanceof RunStep) {

@@ -37,7 +37,7 @@ final class TourContextTest extends FunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/guided_tools.csv');
     }
 
-    private static function conversation(int $pageUid, int $languageId = -1, string $skill = 'seo-check'): Conversation
+    private function conversation(int $pageUid, int $languageId = -1, string $skill = 'seo-check'): Conversation
     {
         $conversation = new Conversation();
         $conversation->setBeUser(3);
@@ -51,7 +51,7 @@ final class TourContextTest extends FunctionalTestCase
     private function siteFinder(): SiteFinder
     {
         $site = new Site('main', 20, [
-            'base' => 'https://example.org/',
+            'base'      => 'https://example.org/',
             'languages' => [
                 ['languageId' => 0, 'title' => 'Deutsch', 'locale' => 'de_DE', 'base' => '/'],
                 ['languageId' => 1, 'title' => 'English', 'locale' => 'en_US', 'base' => '/en/'],
@@ -68,20 +68,20 @@ final class TourContextTest extends FunctionalTestCase
     {
         $user = $this->setUpBackendUser(3);
 
-        self::assertSame(['pageUid' => 20, 'languageUid' => 1, 'pageTitle' => 'Über uns', 'languageName' => 'English'], (new TourContext($this->siteFinder()))->of(self::conversation(20, 1), $user));
-        self::assertSame(['pageUid' => 20, 'languageUid' => 0, 'pageTitle' => 'Über uns', 'languageName' => 'Deutsch'], (new TourContext($this->siteFinder()))->of(self::conversation(20), $user), 'no language: the site\'s default');
+        self::assertSame(['pageUid' => 20, 'languageUid' => 1, 'pageTitle' => 'Über uns', 'languageName' => 'English'], (new TourContext($this->siteFinder()))->of($this->conversation(20, 1), $user));
+        self::assertSame(['pageUid' => 20, 'languageUid' => 0, 'pageTitle' => 'Über uns', 'languageName' => 'Deutsch'], (new TourContext($this->siteFinder()))->of($this->conversation(20), $user), "no language: the site's default");
     }
 
     #[Test]
     public function aPageOutsideEverySiteHasNoLanguageName(): void
     {
-        self::assertSame(['pageUid' => 20, 'languageUid' => 0, 'pageTitle' => 'Über uns', 'languageName' => ''], (new TourContext(null))->of(self::conversation(20), $this->setUpBackendUser(3)));
+        self::assertSame(['pageUid' => 20, 'languageUid' => 0, 'pageTitle' => 'Über uns', 'languageName' => ''], (new TourContext())->of($this->conversation(20), $this->setUpBackendUser(3)));
     }
 
     #[Test]
     public function aPageTheReaderMayNotShowIsNotNamed(): void
     {
-        self::assertNull((new TourContext($this->siteFinder()))->of(self::conversation(30), $this->setUpBackendUser(3)));
+        self::assertNull((new TourContext($this->siteFinder()))->of($this->conversation(30), $this->setUpBackendUser(3)));
     }
 
     #[Test]
@@ -89,7 +89,7 @@ final class TourContextTest extends FunctionalTestCase
     {
         $user = $this->setUpBackendUser(3);
 
-        self::assertNull((new TourContext($this->siteFinder()))->of(self::conversation(20, skill: ''), $user));
-        self::assertNull((new TourContext($this->siteFinder()))->of(self::conversation(0), $user));
+        self::assertNull((new TourContext($this->siteFinder()))->of($this->conversation(20, skill: ''), $user));
+        self::assertNull((new TourContext($this->siteFinder()))->of($this->conversation(0), $user));
     }
 }

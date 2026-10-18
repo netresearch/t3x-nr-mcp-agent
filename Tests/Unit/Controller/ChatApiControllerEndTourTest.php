@@ -25,6 +25,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
 use stdClass;
@@ -39,8 +40,11 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 final class ChatApiControllerEndTourTest extends TestCase
 {
     private ConversationRepository&MockObject $repository;
+
     private ChatProcessorInterface&MockObject $processor;
+
     private ChatApprovalInterface&MockObject $chatApproval;
+
     private ProcessPinReleaseInterface&MockObject $pinRelease;
 
     /** @var list<array{ConversationStatus, ConversationStatus, string, string}> expected status, written status, skill, run */
@@ -55,11 +59,11 @@ final class ChatApiControllerEndTourTest extends TestCase
 
             return true;
         });
-        $this->processor = $this->createMock(ChatProcessorInterface::class);
+        $this->processor    = $this->createMock(ChatProcessorInterface::class);
         $this->chatApproval = $this->createMock(ChatApprovalInterface::class);
-        $this->pinRelease = $this->createMock(ProcessPinReleaseInterface::class);
+        $this->pinRelease   = $this->createMock(ProcessPinReleaseInterface::class);
 
-        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']       = new stdClass();
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '1'];
     }
 
@@ -84,11 +88,11 @@ final class ChatApiControllerEndTourTest extends TestCase
     {
         $conversation = $this->tourConversation($status);
         $this->chatApproval->expects(self::once())->method('releasePendingRun')
-            ->with(self::callback(static fn(Conversation $before): bool => $before->getApprovalRunUuid() === 'run-1'
+            ->with(self::callback(static fn (Conversation $before): bool => $before->getApprovalRunUuid() === 'run-1'
                 && $before->getSkillIdentifier() === '3:seo/check'))
             ->willReturn(true);
         $this->pinRelease->expects(self::once())->method('release')
-            ->with(self::callback(static fn(Conversation $before): bool => $before->getSkillIdentifier() === '3:seo/check'));
+            ->with(self::callback(static fn (Conversation $before): bool => $before->getSkillIdentifier() === '3:seo/check'));
         $this->processor->expects(self::never())->method('dispatch');
 
         $response = $this->endTour($conversation);
@@ -110,7 +114,7 @@ final class ChatApiControllerEndTourTest extends TestCase
     public function endingATourKeepsTheAppliedOutcomes(): void
     {
         $conversation = $this->tourConversation(ConversationStatus::AwaitingApproval);
-        $card = ['tool' => 'content_update', 'table' => 'tt_content', 'uid' => 7, 'fields' => ['header']];
+        $card         = ['tool' => 'content_update', 'table' => 'tt_content', 'uid' => 7, 'fields' => ['header']];
         $conversation->appendCardOutcome(ProposalOutcome::Applied, $card);
         $this->chatApproval->method('releasePendingRun')->willReturn(true);
         $this->chatApproval->expects(self::never())->method('recordDecision');
@@ -179,7 +183,7 @@ final class ChatApiControllerEndTourTest extends TestCase
     public function aRowChangedMeanwhileIsNotTouched(): void
     {
         $conversation = $this->tourConversation(ConversationStatus::AwaitingApproval);
-        $repository = $this->createMock(ConversationRepository::class);
+        $repository   = $this->createMock(ConversationRepository::class);
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
         $repository->expects(self::once())->method('updateIf')->willReturn(false);
         $this->chatApproval->expects(self::never())->method('releasePendingRun');
@@ -234,7 +238,7 @@ final class ChatApiControllerEndTourTest extends TestCase
         return $conversation;
     }
 
-    private function endTour(Conversation $conversation): \Psr\Http\Message\ResponseInterface
+    private function endTour(Conversation $conversation): ResponseInterface
     {
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
 

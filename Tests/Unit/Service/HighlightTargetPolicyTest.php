@@ -30,7 +30,7 @@ use TYPO3\CMS\Core\Page\PageRenderer;
 #[CoversClass(PageModuleHighlight::class)]
 final class HighlightTargetPolicyTest extends TestCase
 {
-    private static function onPage(int $pageUid): Conversation
+    private function onPage(int $pageUid): Conversation
     {
         $conversation = new Conversation();
         $conversation->setBeUser(3);
@@ -44,17 +44,17 @@ final class HighlightTargetPolicyTest extends TestCase
     {
         $policy = new ConversationPageHighlightPolicy();
 
-        self::assertTrue($policy->allows(self::onPage(20), 'tt_content', 100, 20));
-        self::assertFalse($policy->allows(self::onPage(20), 'tt_content', 100, 30), 'another page');
-        self::assertFalse($policy->allows(self::onPage(0), 'tt_content', 100, 0), 'no page');
-        self::assertFalse($policy->allows(self::onPage(20), 'pages', 20, 20), 'not a content element');
+        self::assertTrue($policy->allows($this->onPage(20), 'tt_content', 100, 20));
+        self::assertFalse($policy->allows($this->onPage(20), 'tt_content', 100, 30), 'another page');
+        self::assertFalse($policy->allows($this->onPage(0), 'tt_content', 100, 0), 'no page');
+        self::assertFalse($policy->allows($this->onPage(20), 'pages', 20, 20), 'not a content element');
     }
 
     private function linkedHighlight(?HighlightTargetPolicyInterface $policy, int $pid): ?array
     {
         $runState = $this->createMock(RunStateRepository::class);
         $runState->method('find')->willReturn(['progress' => null, 'highlight' => ['table' => 'tt_content', 'uid' => 100, 'pid' => $pid]]);
-        $conversation = self::onPage(20);
+        $conversation = $this->onPage(20);
 
         (new GuidedStateLinker($runState, $policy))->absorb($conversation, 'run-1');
 

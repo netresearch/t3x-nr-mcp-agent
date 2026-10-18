@@ -34,10 +34,10 @@ final class ApprovalProposalTest extends TestCase
     protected function setUp(): void
     {
         $GLOBALS['TCA']['pages'] = [
-            'ctrl' => ['title' => 'LLL:core:pages.title'],
+            'ctrl'    => ['title' => 'LLL:core:pages.title'],
             'columns' => [
                 'description' => ['label' => 'LLL:core:pages.description'],
-                'title' => ['label' => 'LLL:core:pages.title_field'],
+                'title'       => ['label' => 'LLL:core:pages.title_field'],
             ],
         ];
     }
@@ -51,7 +51,7 @@ final class ApprovalProposalTest extends TestCase
     private function german(): LanguageService
     {
         $language = $this->createMock(LanguageService::class);
-        $language->method('sL')->willReturnCallback(static fn(string $reference): string => match ($reference) {
+        $language->method('sL')->willReturnCallback(static fn (string $reference): string => match ($reference) {
             'LLL:core:pages.title'       => 'Seite',
             'LLL:core:pages.description' => 'Beschreibung',
             default                      => '',
@@ -60,7 +60,7 @@ final class ApprovalProposalTest extends TestCase
         return $language;
     }
 
-    private static function requireTarget(): void
+    private function requireTarget(): void
     {
         if (!property_exists(PendingCallView::class, 'pendingTarget')) {
             self::markTestSkipped('Needs nr-llm 0.41 (PendingCallView::$pendingTarget, nr-llm PR 1024).');
@@ -78,13 +78,13 @@ final class ApprovalProposalTest extends TestCase
     #[Test]
     public function theAffectedRecordIsNrLlmsTargetWithTheSchemasLabels(): void
     {
-        self::requireTarget();
+        $this->requireTarget();
         $call = new PendingCallView('update_page_metadata', '{}', true, ['Seite: „Home“'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 10002), ['title', 'description']));
 
         self::assertSame(
             ['table' => 'pages', 'uid' => 10002, 'fields' => ['description', 'title'], 'tableLabel' => 'Seite', 'fieldLabels' => ['Beschreibung', 'title']],
             $this->present($call)['affected'],
-            'a field without a label in the reader\'s language keeps its name',
+            "a field without a label in the reader's language keeps its name",
         );
     }
 
@@ -146,7 +146,7 @@ final class ApprovalProposalTest extends TestCase
     {
         yield 'none' => [[]];
         yield 'not a list' => ['description: Neu'];
-        yield 'an object, not nr-llm\'s array' => [[(object) ['field' => 'description', 'current' => '', 'proposed' => 'Neu']]];
+        yield "an object, not nr-llm's array" => [[(object) ['field' => 'description', 'current' => '', 'proposed' => 'Neu']]];
         yield 'a proposed value that is no string' => [[['field' => 'description', 'current' => '', 'proposed' => 3]]];
         yield 'a current value that is no string' => [[['field' => 'description', 'current' => 3, 'proposed' => 'Neu']]];
         yield 'no field' => [[['current' => '', 'proposed' => 'Neu']]];
@@ -174,8 +174,8 @@ final class ApprovalProposalTest extends TestCase
         }
 
         $proposal = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldProposal';
-        $measure = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldMeasure';
-        $call = new PendingCallView('update_page_metadata', '{}', true, ['Seite: „Home“'], structuredPreview: [
+        $measure  = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldMeasure';
+        $call     = new PendingCallView('update_page_metadata', '{}', true, ['Seite: „Home“'], structuredPreview: [
             new $proposal('description', 'Beschreibung', null, '<script>alert(1)</script>', new $measure(25, 140, 160)),
         ]);
 
@@ -194,7 +194,7 @@ final class ApprovalProposalTest extends TestCase
         }
 
         $proposal = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldProposal';
-        $call = new PendingCallView('update_page_metadata', '{}', true, ['Keine Vorschau'], previewFailed: true, structuredPreview: [
+        $call     = new PendingCallView('update_page_metadata', '{}', true, ['Keine Vorschau'], previewFailed: true, structuredPreview: [
             new $proposal('description', 'Beschreibung', null, 'Neu'),
         ]);
 
@@ -212,11 +212,11 @@ final class ApprovalProposalTest extends TestCase
         $labels = $this->createMock(EditorActionLabelsInterface::class);
         $labels->method('labelReferences')->willReturn(['create_page_draft' => 'LLL:create']);
         $language = $this->createMock(LanguageService::class);
-        $language->method('sL')->willReturnCallback(static fn(string $reference): string => match ($reference) {
-            'LLL:core:pages.title' => 'Seite',
+        $language->method('sL')->willReturnCallback(static fn (string $reference): string => match ($reference) {
+            'LLL:core:pages.title'       => 'Seite',
             'LLL:core:pages.description' => 'Beschreibung',
-            'LLL:create' => 'Seite anlegen',
-            default => '',
+            'LLL:create'                 => 'Seite anlegen',
+            default                      => '',
         });
 
         $presented = (new ApprovalCallPresenter($labels))->presentOutcomes([

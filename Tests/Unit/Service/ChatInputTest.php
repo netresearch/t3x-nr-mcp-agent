@@ -449,13 +449,14 @@ final class ChatInputTest extends TestCase
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Prüfe die Seite');
+
         $service = $this->service(runAnswer: $this->asks(AskChoicePauseTest::schema()));
 
         $service->processConversation($conversation);
 
         self::assertSame(ConversationStatus::AwaitingInput, $conversation->getStatus());
         self::assertSame(self::RUN, $conversation->getApprovalRunUuid());
-        self::assertSame(['role' => 'assistant', 'content' => 'Für die Seite gibt es kein Bild. Wie geht es weiter?'], array_intersect_key(self::lastMessages($conversation, 1)[0], ['role' => 1, 'content' => 1]));
+        self::assertSame(['role' => 'assistant', 'content' => 'Für die Seite gibt es kein Bild. Wie geht es weiter?'], array_intersect_key($this->lastMessages($conversation, 1)[0], ['role' => 1, 'content' => 1]));
     }
 
     #[Test]

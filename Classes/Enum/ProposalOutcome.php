@@ -20,9 +20,9 @@ namespace Netresearch\NrMcpAgent\Enum;
  */
 enum ProposalOutcome: string
 {
-    case Applied = 'applied';
-    case Check = 'check';
+    case Applied    = 'applied';
+    case Check      = 'check';
     case NotApplied = 'not_applied';
-    case Skipped = 'skipped';
-    case Variant = 'variant';
+    case Skipped    = 'skipped';
+    case Variant    = 'variant';
 }

@@ -615,10 +615,11 @@ final class ChatApprovalTest extends TestCase
     #[Test]
     public function aStoppedProcessRunEndsTheTour(): void
     {
-        $exception = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $exception    = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
         $conversation = $this->parkedConversation();
         $conversation->setSkillIdentifier('3:seo/page-tour', 7);
         $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], ['table' => 'tt_content', 'uid' => 9]);
+
         $service = $this->createChatService($exception);
         $service->recordDecision($conversation, true, 'digest-abc');
 
@@ -632,10 +633,11 @@ final class ChatApprovalTest extends TestCase
     #[Test]
     public function aWaitingProcessRunKeepsTheTour(): void
     {
-        $exception = ProcessRefusalTest::raised(ProcessRefusal::VerdictUnavailable, 'run-uuid-1234');
+        $exception    = ProcessRefusalTest::raised(ProcessRefusal::VerdictUnavailable, 'run-uuid-1234');
         $conversation = $this->parkedConversation();
         $conversation->setSkillIdentifier('3:seo/page-tour', 7);
         $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], null);
+
         $service = $this->createChatService($exception);
         $service->recordDecision($conversation, true, 'digest-abc');
 

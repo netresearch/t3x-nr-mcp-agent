@@ -56,8 +56,8 @@ return [
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_end_tour' => [
-        'path' => '/ai-chat/conversations/end-tour',
-        'target' => ChatApiController::class . '::endTour',
+        'path'    => '/ai-chat/conversations/end-tour',
+        'target'  => ChatApiController::class . '::endTour',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_approve' => [

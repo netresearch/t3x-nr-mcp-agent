@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrMcpAgent\Service\InputPauseForm;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,7 +31,7 @@ final class AskChoicePauseTest extends TestCase
 {
     private const TOOL = 'Netresearch\\NrLlm\\Service\\Tool\\Builtin\\AskChoiceTool';
 
-    private const INPUT_SCHEMA = 'Netresearch\\NrLlm\\Service\\Tool\\InputSchema';
+    private const INPUT_SCHEMA = InputSchema::class;
 
     private const QUESTION = 'Für die Seite gibt es kein Bild. Wie geht es weiter?';
 
@@ -59,7 +60,7 @@ final class AskChoicePauseTest extends TestCase
         ];
     }
 
-    private static function requireTool(): object
+    private function requireTool(): object
     {
         if (!class_exists(self::TOOL)) {
             self::markTestSkipped('Needs nr-llm with ' . self::TOOL . ' (nr-llm PR 1029).');
@@ -74,7 +75,7 @@ final class AskChoicePauseTest extends TestCase
     #[Test]
     public function theToolBuildsExactlyThisSchema(): void
     {
-        $tool = self::requireTool();
+        $tool = $this->requireTool();
 
         self::assertSame(self::schema(), call_user_func([$tool, 'inputSchemaFor'], ['question' => self::QUESTION, 'options' => self::OPTIONS]));
     }
@@ -87,7 +88,7 @@ final class AskChoicePauseTest extends TestCase
         self::assertSame('choice', $form['kind']);
         self::assertSame(self::QUESTION, $form['question']);
         self::assertSame(
-            array_map(static fn(string $o): array => ['value' => $o, 'label' => $o], self::OPTIONS),
+            array_map(static fn (string $o): array => ['value' => $o, 'label' => $o], self::OPTIONS),
             $form['options'],
         );
         self::assertFalse($form['freeText'], 'the answer is required: typed text is a message of its own');
@@ -118,7 +119,7 @@ final class AskChoicePauseTest extends TestCase
     public function markupInAnOptionStaysText(): void
     {
         $options = ['<img src=x onerror=alert(1)>', 'Fertig'];
-        $form = InputPauseForm::fromSchema(self::schema('Los?', $options));
+        $form    = InputPauseForm::fromSchema(self::schema('Los?', $options));
 
         self::assertSame('<img src=x onerror=alert(1)>', $form->toArray()['options'][0]['label']);
         self::assertSame(['answer' => '<img src=x onerror=alert(1)>'], $form->submission(['choice' => '<img src=x onerror=alert(1)>'])['data'] ?? null);
@@ -128,9 +129,9 @@ final class AskChoicePauseTest extends TestCase
     #[Test]
     public function theAnswerPassesNrLlmsEnumCheck(): void
     {
-        self::requireTool();
+        $this->requireTool();
         $schema = self::schema();
-        $data = InputPauseForm::fromSchema($schema)->submission(['choice' => 'Vorhandenes Bild wählen'])['data'] ?? [];
+        $data   = InputPauseForm::fromSchema($schema)->submission(['choice' => 'Vorhandenes Bild wählen'])['data'] ?? [];
 
         self::assertTrue(call_user_func([self::INPUT_SCHEMA, 'enumsHold'], $data, $schema));
         self::assertFalse(call_user_func([self::INPUT_SCHEMA, 'enumsHold'], ['answer' => 'Bild'], $schema), 'control: nr-llm refuses what is no option');

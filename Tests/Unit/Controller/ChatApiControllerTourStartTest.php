@@ -81,17 +81,17 @@ final class ChatApiControllerTourStartTest extends TestCase
             skills: $skills,
             tourContext: $tour,
             skillInvocation: $invocation ? new class implements SkillInvocationInterface {
-                public function withInvocation(AgentRunRequest $request, SkillInvocation $invocation): ?AgentRunRequest
+                public function withInvocation(AgentRunRequest $request, SkillInvocation $invocation): AgentRunRequest
                 {
                     return $request;
                 }
             } : null,
         );
 
-        $user = $this->createStub(BackendUserAuthentication::class);
-        $user->user = ['uid' => 2, 'usergroup' => '', 'admin' => 0];
+        $user               = $this->createStub(BackendUserAuthentication::class);
+        $user->user         = ['uid' => 2, 'usergroup' => '', 'admin' => 0];
         $GLOBALS['BE_USER'] = $user;
-        $GLOBALS['LANG'] = $this->createStub(LanguageService::class);
+        $GLOBALS['LANG']    = $this->createStub(LanguageService::class);
 
         $request = $this->createStub(ServerRequestInterface::class);
         $request->method('getQueryParams')->willReturn(['conversationUid' => '1']);
@@ -161,6 +161,7 @@ final class ChatApiControllerTourStartTest extends TestCase
     {
         $conversation = self::conversation(20);
         $conversation->setGuidedState(['label' => 'SEO', 'current' => 5, 'total' => 5, 'completed' => true], null);
+
         $uriBuilder = $this->createMock(UriBuilder::class);
         $uriBuilder->method('buildUriFromRoute')->with('dashboard')->willReturn(new Uri('/typo3/module/dashboard'));
 
@@ -172,6 +173,7 @@ final class ChatApiControllerTourStartTest extends TestCase
     {
         $conversation = self::conversation(20);
         $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], null);
+
         $uriBuilder = $this->createMock(UriBuilder::class);
         $uriBuilder->expects(self::never())->method('buildUriFromRoute');
 
@@ -183,6 +185,7 @@ final class ChatApiControllerTourStartTest extends TestCase
     {
         $conversation = self::conversation(20);
         $conversation->setGuidedState(['label' => 'SEO', 'current' => 5, 'total' => 5, 'completed' => true], null);
+
         $uriBuilder = $this->createMock(UriBuilder::class);
         $uriBuilder->method('buildUriFromRoute')->willThrowException(new RouteNotFoundException('dashboard'));
 

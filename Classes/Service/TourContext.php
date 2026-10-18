@@ -61,9 +61,9 @@ readonly class TourContext
         $languageUid = max(0, $context['languageId']);
 
         return [
-            'pageUid' => $pageUid,
-            'languageUid' => $languageUid,
-            'pageTitle' => is_string($title) ? $title : '',
+            'pageUid'      => $pageUid,
+            'languageUid'  => $languageUid,
+            'pageTitle'    => is_string($title) ? $title : '',
             'languageName' => $this->languageName($pageUid, $languageUid),
         ];
     }
