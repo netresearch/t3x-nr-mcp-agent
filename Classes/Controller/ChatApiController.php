@@ -725,7 +725,7 @@ final readonly class ChatApiController
             return 'secondApprover';
         }
 
-        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $backendUser     = $GLOBALS['BE_USER'] ?? null;
         $byOwnPermission = $backendUser instanceof BackendUserAuthentication && !$this->decidesEveryApproval($backendUser);
 
         return $byOwnPermission && !$this->everyCallPreviewed($view) ? 'preview' : '';
@@ -934,8 +934,8 @@ final readonly class ChatApiController
             'unreadableReason' => $view->unreadableReason,
             // Whether the approve button is offered; the two ways to say no
             // always are (ADR-021).
-            'approveBlocked'   => $this->approveBlockedReason($conversation, $view),
-            'calls'            => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
+            'approveBlocked' => $this->approveBlockedReason($conversation, $view),
+            'calls'          => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
                 $language instanceof LanguageService ? $language : null,
                 $this->previewLanguage($conversation),
@@ -992,7 +992,7 @@ final readonly class ChatApiController
             return $conversation;
         }
 
-        $body = $this->parseBody($request);
+        $body    = $this->parseBody($request);
         $approve = (bool) ($body['approve'] ?? false);
 
         $refusal = $this->refuseDecision($conversation, $approve);
@@ -1000,7 +1000,7 @@ final readonly class ChatApiController
             return $refusal;
         }
 
-        $digest = $body['turnDigest'] ?? '';
+        $digest     = $body['turnDigest'] ?? '';
         $turnDigest = is_string($digest) ? $digest : '';
 
         if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest)) {
@@ -1033,13 +1033,13 @@ final readonly class ChatApiController
 
         return match ($blocked) {
             'secondApprover' => new JsonResponse(['error' => $this->translate('error.handBack.secondApprover')], 409),
-            'preview' => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
-            default => null,
+            'preview'        => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
+            default          => null,
         };
     }
 
     /**
-     * POST /ai-chat/conversations/resume
+     * POST /ai-chat/conversations/resume.
      */
     public function resumeConversation(ServerRequestInterface $request): ResponseInterface
     {

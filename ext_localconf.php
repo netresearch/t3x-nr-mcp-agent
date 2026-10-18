@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-defined('TYPO3') || die();
+defined('TYPO3') || exit;
 
 // Lets an editor decide approvals in their own chat conversations (ADR-021).
 // Assigned per backend group under "Custom module options"; checked as
@@ -15,7 +15,7 @@ defined('TYPO3') || die();
 // has no ':', '|' or ',', which TYPO3 strips when it renders the options.
 $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['tx_nrmcpagent'] = [
     'header' => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:permission.header',
-    'items' => [
+    'items'  => [
         'approve_own_changes' => [
             'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:permission.approveOwn',
             'actions-check',
@@ -23,4 +23,3 @@ $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['tx_nrmcpagent'] = [
         ],
     ],
 ];
-

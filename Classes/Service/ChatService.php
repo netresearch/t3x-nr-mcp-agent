@@ -446,7 +446,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     public function requiresSecondApprover(Conversation $conversation): bool
     {
         $runUuid = $conversation->getApprovalRunUuid();
-        $run = $runUuid !== '' ? $this->agentRunRepository->findByUuid($runUuid) : null;
+        $run     = $runUuid !== '' ? $this->agentRunRepository->findByUuid($runUuid) : null;
         if (!$run instanceof AgentRun || !$this->configurations instanceof LlmConfigurationRepository) {
             return false;
         }

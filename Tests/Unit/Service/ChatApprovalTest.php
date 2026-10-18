@@ -462,8 +462,8 @@ final class ChatApprovalTest extends TestCase
     public function anApprovalRefusedByFourEyesLeavesTheConversationWaiting(): void
     {
         $conversation = $this->parkedConversation();
-        $actor = AiActorContext::backendUser(1);
-        $service = $this->createChatService(SelfApprovalDeniedException::forActor($actor, 'run-uuid-1234', 'demo'));
+        $actor        = AiActorContext::backendUser(1);
+        $service      = $this->createChatService(SelfApprovalDeniedException::forActor($actor, 'run-uuid-1234', 'demo'));
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);

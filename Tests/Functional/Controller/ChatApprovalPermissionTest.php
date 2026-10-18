@@ -62,7 +62,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_groups_approve_own.csv');
         $this->approval = $this->createMock(ChatApprovalInterface::class);
-        $this->approval->method('requiresSecondApprover')->willReturnCallback(fn(): bool => $this->fourEyes);
+        $this->approval->method('requiresSecondApprover')->willReturnCallback(fn (): bool => $this->fourEyes);
     }
 
     private function subject(): ChatApiController
@@ -133,7 +133,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
     public function anEditorWithThePermissionDecidesInTheirOwnConversation(): void
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
-        $uid = $this->waiting(3);
+        $uid                = $this->waiting(3);
         $this->approval->expects(self::once())->method('recordDecision')->with(self::anything(), true, 'digest-1')->willReturn(true);
 
         $body = $this->messages($uid);
@@ -148,7 +148,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
     public function anEditorWithoutThePermissionGetsNoCardAndIsRefused(): void
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(4);
-        $uid = $this->waiting(4);
+        $uid                = $this->waiting(4);
         $this->approval->expects(self::never())->method('recordDecision');
 
         $body = $this->messages($uid);
@@ -168,7 +168,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
     public function aChangeWithoutAPreviewCanOnlyBeDeniedByThePermission(): void
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
-        $uid = $this->waiting(3, previewed: false);
+        $uid                = $this->waiting(3, previewed: false);
         $this->approval->expects(self::once())->method('recordDecision')->with(self::anything(), false)->willReturn(true);
 
         $body = $this->messages($uid);
@@ -187,7 +187,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
     public function anAdministratorStillDecidesWithoutAPreview(): void
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
-        $uid = $this->waiting(1, previewed: false);
+        $uid                = $this->waiting(1, previewed: false);
         $this->approval->method('recordDecision')->willReturn(true);
 
         self::assertSame('', $this->messages($uid)['pendingApproval']['approveBlocked']);
@@ -205,7 +205,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
         $this->fourEyes = true;
         foreach ([3, 1] as $user) {
             $GLOBALS['BE_USER'] = $this->setUpBackendUser($user);
-            $uid = $this->waiting($user);
+            $uid                = $this->waiting($user);
 
             self::assertSame('secondApprover', $this->messages($uid)['pendingApproval']['approveBlocked']);
             self::assertSame(409, $this->decide($uid, true)->getStatusCode());
@@ -219,7 +219,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
     #[Test]
     public function thePermissionDoesNotReachAnotherUsersConversation(): void
     {
-        $uid = $this->waiting(4);
+        $uid                = $this->waiting(4);
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
 
         self::assertSame(404, $this->decide($uid, true)->getStatusCode());
