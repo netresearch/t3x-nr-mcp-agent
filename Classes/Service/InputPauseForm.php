@@ -74,7 +74,7 @@ final readonly class InputPauseForm
             return self::unsupported();
         }
 
-        $question  = self::text($schema['title'] ?? null) ?: self::text($schema['description'] ?? null);
+        $question  = self::firstText(self::text($schema['title'] ?? null), self::text($schema['description'] ?? null));
         $choices   = array_values(array_filter($fields, static fn (array $f): bool => $f['type'] === 'select'));
         $freeTexts = array_values(array_filter($fields, static fn (array $f): bool => $f['freeText']));
         $isChoice  = count($choices) === 1
@@ -88,7 +88,7 @@ final readonly class InputPauseForm
 
         return new self(
             self::KIND_CHOICE,
-            $question ?: ($choice['label'] !== $choice['defaultLabel'] ? $choice['label'] : $choice['description']),
+            self::firstText($question, $choice['label'] !== $choice['defaultLabel'] ? $choice['label'] : $choice['description']),
             choiceField: $choice['name'],
             options: $choice['options'],
             // Free text is only an answer of its own when no button has to be
@@ -148,7 +148,7 @@ final readonly class InputPauseForm
 
         return [
             'name'         => $name,
-            'label'        => self::text($property['title'] ?? null) ?: $defaultLabel,
+            'label'        => self::firstText(self::text($property['title'] ?? null), $defaultLabel),
             'defaultLabel' => $defaultLabel,
             'type'         => $scalarType === 'string' ? 'text' : $scalarType,
             'required'     => in_array($name, $required, true),
@@ -375,5 +375,17 @@ final readonly class InputPauseForm
     private static function text(mixed $value): string
     {
         return is_string($value) ? trim($value) : '';
+    }
+
+    /** The first of the texts that is not empty, or '' when all are. */
+    private static function firstText(string ...$texts): string
+    {
+        foreach ($texts as $text) {
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return '';
     }
 }
