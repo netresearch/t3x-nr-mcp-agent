@@ -177,12 +177,12 @@ readonly class OpenPointVisibility
         $ctrl    = is_array($config['ctrl'] ?? null) ? $config['ctrl'] : [];
         $columns = is_array($config['columns'] ?? null) ? $config['columns'] : [];
         $column  = $field !== '' && is_array($columns[$field] ?? null) ? $columns[$field] : null;
-        if ($column !== null && ($column['exclude'] ?? false) && !$user->check('non_exclude_fields', $table . ':' . $field)) {
+        if ($column !== null && (bool) ($column['exclude'] ?? false) && !$user->check('non_exclude_fields', $table . ':' . $field)) {
             return null;
         }
 
         $languageField = is_string($ctrl['languageField'] ?? null) ? $ctrl['languageField'] : '';
-        $select        = array_filter(['uid', $languageField, $column !== null ? $field : '']);
+        $select        = array_filter(['uid', $languageField, $column !== null ? $field : ''], static fn (string $name): bool => $name !== '');
 
         try {
             $record = BackendUtility::getRecord($table, $uid, implode(',', array_unique($select)));
