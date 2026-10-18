@@ -37,8 +37,8 @@ readonly class GuidedStateLinker
             return;
         }
 
-        $current = $conversation->getGuidedState();
-        $progress = $this->progress($state['progress']) ?? $current['progress'];
+        $current   = $conversation->getGuidedState();
+        $progress  = $this->progress($state['progress']) ?? $current['progress'];
         $highlight = $state['highlight'] !== null ? $this->highlight($state['highlight'], $conversation) : $current['highlight'];
         $conversation->setGuidedState($progress, ($progress['completed'] ?? false) ? null : $highlight);
         // Taken over: the conversation holds it now, and the table stays small.
@@ -52,9 +52,9 @@ readonly class GuidedStateLinker
      */
     private function progress(?array $progress): ?array
     {
-        $label = $progress['label'] ?? null;
+        $label   = $progress['label'] ?? null;
         $current = $progress['current'] ?? null;
-        $total = $progress['total'] ?? null;
+        $total   = $progress['total'] ?? null;
 
         return is_string($label) && is_int($current) && is_int($total)
             ? ['label' => $label, 'current' => $current, 'total' => $total, 'completed' => ($progress['completed'] ?? false) === true]
@@ -68,8 +68,8 @@ readonly class GuidedStateLinker
      */
     private function highlight(array $highlight, Conversation $conversation): ?array
     {
-        $uid = $highlight['uid'] ?? null;
-        $pid = $highlight['pid'] ?? null;
+        $uid  = $highlight['uid'] ?? null;
+        $pid  = $highlight['pid'] ?? null;
         $page = $conversation->getViewContext()['pageId'];
 
         return ($highlight['table'] ?? null) === 'tt_content' && is_int($uid) && is_int($pid) && $page > 0 && $pid === $page

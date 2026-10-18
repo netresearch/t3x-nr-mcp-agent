@@ -275,9 +275,9 @@ final readonly class ChatApiController
             // A hand-back whose sentence points to the run in AI Tasks: the
             // card offers the link even though it has a preview.
             'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
-            'systemPrompt' => $conversation->getSystemPrompt(),
+            'systemPrompt'     => $conversation->getSystemPrompt(),
             // Progress for the header and the element to highlight (ADR-020).
-            'guided' => $conversation->getGuidedState(),
+            'guided'   => $conversation->getGuidedState(),
             'activity' => $conversation->getActivity(),
         ]);
     }

@@ -71,7 +71,7 @@ final class GuidedToolsTest extends FunctionalTestCase
 
     private function editorContext(?AgentRunReference $run = new AgentRunReference(1, self::RUN)): ToolExecutionContext
     {
-        $user = $this->setUpBackendUser(self::EDITOR);
+        $user    = $this->setUpBackendUser(self::EDITOR);
         $context = ToolExecutionContext::fromBackendUser($user);
 
         return new ToolExecutionContext($context->actor, $context->backendUser, $run);
@@ -118,7 +118,7 @@ final class GuidedToolsTest extends FunctionalTestCase
         $name = $this->get($class)->getSpec()->name;
         self::assertSame($class, $this->get(ToolRegistry::class)->get($name)::class);
 
-        $user = $this->setUpBackendUser(self::EDITOR);
+        $user     = $this->setUpBackendUser(self::EDITOR);
         $decision = $this->get(ToolCallPolicyInterface::class)->decide($name, new LlmConfiguration(), $user);
 
         self::assertSame(TrustZone::EXTERNAL_GLOBAL, $decision->zone, 'a configuration without a provider counts as the least trusted zone');

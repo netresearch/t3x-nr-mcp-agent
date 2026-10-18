@@ -64,10 +64,10 @@ final class ChatApiControllerGuidedTest extends TestCase
             $this->createMock(UriBuilder::class),
         );
 
-        $user = $this->createStub(BackendUserAuthentication::class);
-        $user->user = ['uid' => 2, 'usergroup' => '', 'admin' => 0];
+        $user               = $this->createStub(BackendUserAuthentication::class);
+        $user->user         = ['uid' => 2, 'usergroup' => '', 'admin' => 0];
         $GLOBALS['BE_USER'] = $user;
-        $GLOBALS['LANG'] = $this->createStub(LanguageService::class);
+        $GLOBALS['LANG']    = $this->createStub(LanguageService::class);
 
         $request = $this->createStub(ServerRequestInterface::class);
         $request->method('getQueryParams')->willReturn(['conversationUid' => '1']);

@@ -42,7 +42,7 @@ final class HighlightElementTool extends GuidedTool
             . ' which element the current point concerns. Takes the uid of a tt_content record on that page.'
             . ' It changes nothing in TYPO3.',
             [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => [
                     'contentUid' => ['type' => 'integer', 'description' => 'uid of the tt_content record.'],
                 ],
@@ -58,9 +58,9 @@ final class HighlightElementTool extends GuidedTool
             return ToolResult::error(self::NOT_PERMITTED);
         }
 
-        $uid = self::int($arguments, 'contentUid');
-        $record = $uid > 0 ? BackendUtility::getRecord(self::TABLE, $uid, 'uid,pid,sys_language_uid') : null;
-        $pid = is_array($record) && is_numeric($record['pid'] ?? null) ? (int) $record['pid'] : 0;
+        $uid      = self::int($arguments, 'contentUid');
+        $record   = $uid > 0 ? BackendUtility::getRecord(self::TABLE, $uid, 'uid,pid,sys_language_uid') : null;
+        $pid      = is_array($record) && is_numeric($record['pid'] ?? null) ? (int) $record['pid'] : 0;
         $language = is_array($record) && is_numeric($record['sys_language_uid'] ?? null) ? (int) $record['sys_language_uid'] : 0;
         if ($pid <= 0
             || !$user->check('tables_select', self::TABLE)
@@ -74,8 +74,8 @@ final class HighlightElementTool extends GuidedTool
 
         $this->runState->store($context->run->uuid, $context->actor->backendUserUid, 'highlight', [
             'table' => self::TABLE,
-            'uid' => $uid,
-            'pid' => $pid,
+            'uid'   => $uid,
+            'pid'   => $pid,
         ]);
 
         return ToolResult::text(sprintf('Content element %d on page %d is highlighted for the user.', $uid, $pid));

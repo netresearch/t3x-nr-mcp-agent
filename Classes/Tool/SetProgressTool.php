@@ -37,11 +37,11 @@ final class SetProgressTool extends GuidedTool
             . ' and once with completed = true when the process is finished; that ends the process.'
             . ' It changes nothing in TYPO3.',
             [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => [
-                    'label' => ['type' => 'string', 'description' => 'Short label, at most 120 characters, e.g. "Über uns · Deutsch".'],
-                    'current' => ['type' => 'integer', 'description' => 'The current point, 0 before the first.'],
-                    'total' => ['type' => 'integer', 'description' => 'The number of points, at least 1.'],
+                    'label'     => ['type' => 'string', 'description' => 'Short label, at most 120 characters, e.g. "Über uns · Deutsch".'],
+                    'current'   => ['type' => 'integer', 'description' => 'The current point, 0 before the first.'],
+                    'total'     => ['type' => 'integer', 'description' => 'The number of points, at least 1.'],
                     'completed' => ['type' => 'boolean', 'description' => 'True once the process is finished.'],
                 ],
                 'required' => ['label', 'current', 'total'],
@@ -56,18 +56,18 @@ final class SetProgressTool extends GuidedTool
             return ToolResult::error(self::NOT_PERMITTED);
         }
 
-        $label = self::text($arguments, 'label', 120);
-        $current = self::int($arguments, 'current');
-        $total = self::int($arguments, 'total');
+        $label     = self::text($arguments, 'label', 120);
+        $current   = self::int($arguments, 'current');
+        $total     = self::int($arguments, 'total');
         $completed = ($arguments['completed'] ?? false) === true;
         if ($label === '' || $total < 1 || $current < 0 || $current > $total) {
             return ToolResult::error('Error: invalid progress — label must not be empty, total at least 1, and current between 0 and total.');
         }
 
         $this->runState->store($context->run->uuid, $context->actor->backendUserUid, 'progress', [
-            'label' => $label,
-            'current' => $current,
-            'total' => $total,
+            'label'     => $label,
+            'current'   => $current,
+            'total'     => $total,
             'completed' => $completed,
         ]);
 

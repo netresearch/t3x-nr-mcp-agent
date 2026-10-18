@@ -34,13 +34,13 @@ readonly class RunStateRepository
     ) {}
 
     /**
-     * @param 'progress'|'highlight'  $field
+     * @param 'progress'|'highlight'         $field
      * @param array<string, bool|int|string> $value
      */
     public function store(string $runUuid, int $beUser, string $field, array $value): void
     {
-        $json = json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
-        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $json    = json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $conn    = $this->connectionPool->getConnectionForTable(self::TABLE);
         $updated = $conn->update(self::TABLE, [$field => $json, 'tstamp' => time()], ['run_uuid' => $runUuid, 'be_user' => $beUser]);
         if ($updated > 0) {
             return;
@@ -62,7 +62,7 @@ readonly class RunStateRepository
      */
     public function find(string $runUuid, int $beUser): ?array
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $row = $qb->select('progress', 'highlight')
             ->from(self::TABLE)
             ->where(
