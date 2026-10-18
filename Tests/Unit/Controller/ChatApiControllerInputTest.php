@@ -27,6 +27,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
 use stdClass;
@@ -47,10 +48,10 @@ final class ChatApiControllerInputTest extends TestCase
 
     /** @var array<string, mixed> */
     private const SCHEMA = [
-        'type' => 'object',
-        'title' => 'Mit welchem Punkt soll ich beginnen?',
+        'type'       => 'object',
+        'title'      => 'Mit welchem Punkt soll ich beginnen?',
         'properties' => [
-            'start' => ['oneOf' => [['const' => 'meta', 'title' => 'Meta Description'], ['const' => 'images', 'title' => 'Alternativtexte']]],
+            'start'   => ['oneOf' => [['const' => 'meta', 'title' => 'Meta Description'], ['const' => 'images', 'title' => 'Alternativtexte']]],
             'comment' => ['type' => 'string'],
         ],
     ];
@@ -66,10 +67,10 @@ final class ChatApiControllerInputTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->repository = $this->createMock(ConversationRepository::class);
-        $this->processor = $this->createMock(ChatProcessorInterface::class);
+        $this->repository   = $this->createMock(ConversationRepository::class);
+        $this->processor    = $this->createMock(ChatProcessorInterface::class);
         $this->chatApproval = $this->createMock(ChatApprovalInterface::class);
-        $config = $this->createMock(ExtensionConfiguration::class);
+        $config             = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getMaxMessageLength')->willReturn(20);
         $this->subject = new ChatApiController(
@@ -87,7 +88,7 @@ final class ChatApiControllerInputTest extends TestCase
 
         // An editor without the AI Tasks module: an answer is no approval, so
         // nothing here may depend on that module.
-        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']       = new stdClass();
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '1,2'];
     }
 
@@ -130,7 +131,7 @@ final class ChatApiControllerInputTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private static function json(\Psr\Http\Message\ResponseInterface $response): array
+    private function json(ResponseInterface $response): array
     {
         $decoded = json_decode((string) $response->getBody(), true);
         self::assertIsArray($decoded);
@@ -146,7 +147,7 @@ final class ChatApiControllerInputTest extends TestCase
     {
         $languageService = $this->createStub(LanguageService::class);
         $languageService->method('sL')->willReturnCallback(
-            static fn(mixed $input): string => $labels[is_string($input) ? $input : ''] ?? '',
+            static fn (mixed $input): string => $labels[is_string($input) ? $input : ''] ?? '',
         );
         $GLOBALS['LANG'] = $languageService;
     }
@@ -159,7 +160,7 @@ final class ChatApiControllerInputTest extends TestCase
         $this->asking();
         $this->question();
 
-        $data = self::json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+        $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
 
         self::assertSame('awaiting_input', $data['status']);
         self::assertIsArray($data['pendingInput']);
@@ -179,18 +180,18 @@ final class ChatApiControllerInputTest extends TestCase
     public function thePollThatFirstSeesTheQuestionAnswersWithTheButtons(): void
     {
         $this->repository->method('findPollStatus')->willReturn([
-            'status' => 'awaiting_input',
-            'message_count' => 2,
-            'error_message' => '',
-            'error_code' => '',
+            'status'            => 'awaiting_input',
+            'message_count'     => 2,
+            'error_message'     => '',
+            'error_code'        => '',
             'approval_run_uuid' => 'run-uuid-1234',
-            'tstamp' => time(),
-            'activity' => [],
+            'tstamp'            => time(),
+            'activity'          => [],
         ]);
         $this->asking();
         $this->question();
 
-        $data = self::json($this->subject->getMessages($this->request('', ['conversationUid' => '1', 'after' => '2'])));
+        $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1', 'after' => '2'])));
 
         self::assertArrayHasKey('pendingInput', $data);
         self::assertIsArray($data['pendingInput']);
@@ -204,7 +205,7 @@ final class ChatApiControllerInputTest extends TestCase
         $conversation->setErrorMessage('', InputHandBackReason::StaleTurn->value);
         $this->question();
 
-        $data = self::json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+        $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
 
         self::assertSame('Die Rückfrage hat sich geändert.', $data['errorMessage']);
     }
@@ -268,7 +269,7 @@ final class ChatApiControllerInputTest extends TestCase
         $response = $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "digest-abc", "choice": "publish everything"}'));
 
         self::assertSame(400, $response->getStatusCode());
-        self::assertSame(['error' => 'Diese Antwort passt nicht zur Rückfrage.'], self::json($response));
+        self::assertSame(['error' => 'Diese Antwort passt nicht zur Rückfrage.'], $this->json($response));
     }
 
     #[Test]
@@ -282,7 +283,7 @@ final class ChatApiControllerInputTest extends TestCase
         $response = $this->subject->submitInput($this->request('{"conversationUid": 1, "turnDigest": "d", "choice": "meta"}'));
 
         self::assertSame(409, $response->getStatusCode());
-        self::assertSame(['error' => 'Diese Rückfrage ist nicht mehr offen.'], self::json($response));
+        self::assertSame(['error' => 'Diese Rückfrage ist nicht mehr offen.'], $this->json($response));
     }
 
     #[Test]
@@ -331,11 +332,11 @@ final class ChatApiControllerInputTest extends TestCase
 
     private function approver(): void
     {
-        $backendUser = $this->createMock(BackendUserAuthentication::class);
+        $backendUser       = $this->createMock(BackendUserAuthentication::class);
         $backendUser->user = ['uid' => 1, 'usergroup' => '1,2'];
         $backendUser->method('isAdmin')->willReturn(true);
         $GLOBALS['BE_USER'] = $backendUser;
-        $conversation = new Conversation();
+        $conversation       = new Conversation();
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-uuid-1234');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
@@ -378,8 +379,8 @@ final class ChatApiControllerInputTest extends TestCase
         $this->approver();
         $this->chatApproval->method('offersProcessAnswers')->willReturnOnConsecutiveCalls(true, false);
 
-        $process = self::json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
-        $plain = self::json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+        $process = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+        $plain   = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
 
         self::assertSame('process', $process['pendingApproval']['answers'] ?? null);
         self::assertSame('plain', $plain['pendingApproval']['answers'] ?? null);

@@ -51,8 +51,8 @@ return [
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_input' => [
-        'path' => '/ai-chat/conversations/input',
-        'target' => ChatApiController::class . '::submitInput',
+        'path'    => '/ai-chat/conversations/input',
+        'target'  => ChatApiController::class . '::submitInput',
         'methods' => ['POST'],
     ],
     'ai_chat_conversation_resume' => [

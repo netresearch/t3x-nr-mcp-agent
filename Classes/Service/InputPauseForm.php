@@ -46,8 +46,8 @@ final readonly class InputPauseForm
     private const SCALAR_TYPES = ['string', 'integer', 'number', 'boolean'];
 
     /**
-     * @param self::KIND_*                                                                                                                   $kind
-     * @param list<array{value: bool|float|int|string, label: string}>                                                                        $options
+     * @param self::KIND_*                                                                                                                                                   $kind
+     * @param list<array{value: bool|float|int|string, label: string}>                                                                                                       $options
      * @param list<array{name: string, label: string, type: string, required: bool, options: list<array{value: bool|float|int|string, label: string}>, description: string}> $fields
      */
     private function __construct(
@@ -74,10 +74,10 @@ final readonly class InputPauseForm
             return self::unsupported();
         }
 
-        $question = self::text($schema['title'] ?? null) ?: self::text($schema['description'] ?? null);
-        $choices = array_values(array_filter($fields, static fn(array $f): bool => $f['type'] === 'select'));
-        $freeTexts = array_values(array_filter($fields, static fn(array $f): bool => $f['freeText']));
-        $isChoice = count($choices) === 1
+        $question  = self::text($schema['title'] ?? null) ?: self::text($schema['description'] ?? null);
+        $choices   = array_values(array_filter($fields, static fn (array $f): bool => $f['type'] === 'select'));
+        $freeTexts = array_values(array_filter($fields, static fn (array $f): bool => $f['freeText']));
+        $isChoice  = count($choices) === 1
             && (count($fields) === 1 || (count($fields) === 2 && count($freeTexts) === 1 && !$freeTexts[0]['required']));
 
         if (!$isChoice) {
@@ -107,14 +107,14 @@ final readonly class InputPauseForm
      */
     private static function fields(array $schema): ?array
     {
-        $type = $schema['type'] ?? null;
+        $type       = $schema['type'] ?? null;
         $properties = $schema['properties'] ?? null;
         if (($type !== null && $type !== 'object') || !is_array($properties) || $properties === []) {
             return null;
         }
 
         $required = is_array($schema['required'] ?? null) ? array_values(array_filter($schema['required'], is_string(...))) : [];
-        $fields = [];
+        $fields   = [];
         foreach ($properties as $name => $property) {
             $field = is_string($name) && is_array($property) ? self::field($name, $property, $required) : null;
             if ($field === null) {
@@ -128,8 +128,8 @@ final readonly class InputPauseForm
     }
 
     /**
-     * @param array<mixed>  $property
-     * @param list<string>  $required
+     * @param array<mixed> $property
+     * @param list<string> $required
      *
      * @return array{name: string, label: string, defaultLabel: string, type: string, required: bool, options: list<array{value: bool|float|int|string, label: string}>, description: string, freeText: bool}|null
      */
@@ -139,7 +139,7 @@ final readonly class InputPauseForm
         // Options the chat cannot read are not a text field either: whatever
         // was typed would not be one of them.
         $declaresOptions = isset($property['enum']) || isset($property['oneOf']) || isset($property['anyOf']);
-        $scalarType = $options !== [] ? 'select' : self::scalarType($property);
+        $scalarType      = $options !== [] ? 'select' : self::scalarType($property);
         if ($scalarType === '' || ($declaresOptions && $options === [])) {
             return null;
         }
@@ -147,14 +147,14 @@ final readonly class InputPauseForm
         $defaultLabel = ucfirst(str_replace('_', ' ', $name));
 
         return [
-            'name' => $name,
-            'label' => self::text($property['title'] ?? null) ?: $defaultLabel,
+            'name'         => $name,
+            'label'        => self::text($property['title'] ?? null) ?: $defaultLabel,
             'defaultLabel' => $defaultLabel,
-            'type' => $scalarType === 'string' ? 'text' : $scalarType,
-            'required' => in_array($name, $required, true),
-            'options' => $options,
-            'description' => self::text($property['description'] ?? null),
-            'freeText' => $scalarType === 'string' && !array_key_exists('const', $property),
+            'type'         => $scalarType === 'string' ? 'text' : $scalarType,
+            'required'     => in_array($name, $required, true),
+            'options'      => $options,
+            'description'  => self::text($property['description'] ?? null),
+            'freeText'     => $scalarType === 'string' && !array_key_exists('const', $property),
         ];
     }
 
@@ -167,12 +167,12 @@ final readonly class InputPauseForm
      */
     private static function publicFields(array $fields): array
     {
-        return array_map(static fn(array $f): array => [
-            'name' => $f['name'],
-            'label' => $f['label'],
-            'type' => $f['type'],
-            'required' => $f['required'],
-            'options' => $f['options'],
+        return array_map(static fn (array $f): array => [
+            'name'        => $f['name'],
+            'label'       => $f['label'],
+            'type'        => $f['type'],
+            'required'    => $f['required'],
+            'options'     => $f['options'],
             'description' => $f['description'],
         ], $fields);
     }
@@ -187,11 +187,11 @@ final readonly class InputPauseForm
     public function toArray(): array
     {
         return [
-            'kind' => $this->kind,
+            'kind'     => $this->kind,
             'question' => $this->question,
-            'options' => $this->options,
+            'options'  => $this->options,
             'freeText' => $this->freeTextField !== '',
-            'fields' => $this->fields,
+            'fields'   => $this->fields,
         ];
     }
 
@@ -203,7 +203,7 @@ final readonly class InputPauseForm
      * A choice is `{choice: <value>}` or `{freeText: "…"}`; a form is
      * `{fields: {<name>: <value>}}`.
      *
-     * @param array<string, mixed>       $body
+     * @param array<string, mixed>        $body
      * @param array{0: string, 1: string} $yesNo how the transcript line shows a ticked and an unticked checkbox
      *
      * @return array{data: array<string, mixed>, display: string}|null
@@ -212,8 +212,8 @@ final readonly class InputPauseForm
     {
         return match ($this->kind) {
             self::KIND_CHOICE => $this->choiceSubmission($body),
-            self::KIND_FORM => $this->formSubmission($body['fields'] ?? null, $yesNo),
-            default => null,
+            self::KIND_FORM   => $this->formSubmission($body['fields'] ?? null, $yesNo),
+            default           => null,
         };
     }
 
@@ -248,11 +248,11 @@ final readonly class InputPauseForm
             return null;
         }
 
-        $data = [];
+        $data  = [];
         $lines = [];
         $valid = true;
         foreach ($this->fields as $field) {
-            $raw = $values[$field['name']] ?? null;
+            $raw   = $values[$field['name']] ?? null;
             $empty = $raw === null || $raw === '';
             $value = $empty ? null : $this->coerce($field, $raw, $yesNo);
             // A field left empty is fine unless it is required; one filled
@@ -260,7 +260,7 @@ final readonly class InputPauseForm
             $valid = $valid && ($value !== null || ($empty && !$field['required']));
             if ($value !== null) {
                 $data[$field['name']] = $value['value'];
-                $lines[] = $field['label'] . ': ' . $value['label'];
+                $lines[]              = $field['label'] . ': ' . $value['label'];
             }
         }
 
@@ -271,18 +271,18 @@ final readonly class InputPauseForm
      * The submitted value as the schema's type, or null when it is not one.
      *
      * @param array{type: string, options: list<array{value: bool|float|int|string, label: string}>} $field
-     * @param array{0: string, 1: string}                                                           $yesNo
+     * @param array{0: string, 1: string}                                                            $yesNo
      *
      * @return array{value: bool|float|int|string, label: string}|null
      */
     private function coerce(array $field, mixed $raw, array $yesNo): ?array
     {
         return match ($field['type']) {
-            'select' => $this->matchingOption($field['options'], $raw),
+            'select'  => $this->matchingOption($field['options'], $raw),
             'integer' => $this->asInteger($raw),
-            'number' => $this->asNumber($raw),
+            'number'  => $this->asNumber($raw),
             'boolean' => is_bool($raw) ? ['value' => $raw, 'label' => $raw ? $yesNo[0] : $yesNo[1]] : null,
-            default => is_string($raw) && trim($raw) !== '' ? ['value' => trim($raw), 'label' => trim($raw)] : null,
+            default   => is_string($raw) && trim($raw) !== '' ? ['value' => trim($raw), 'label' => trim($raw)] : null,
         };
     }
 
@@ -338,9 +338,9 @@ final readonly class InputPauseForm
      */
     private static function options(array $property): array
     {
-        $enum = $property['enum'] ?? null;
+        $enum     = $property['enum'] ?? null;
         $branches = is_array($enum) && $enum !== []
-            ? array_map(static fn(mixed $value): array => ['const' => $value], $enum)
+            ? array_map(static fn (mixed $value): array => ['const' => $value], $enum)
             : ($property['oneOf'] ?? $property['anyOf'] ?? []);
 
         $options = [];
@@ -350,7 +350,7 @@ final readonly class InputPauseForm
                 return [];
             }
 
-            $title = is_array($branch) ? self::text($branch['title'] ?? null) : '';
+            $title     = is_array($branch) ? self::text($branch['title'] ?? null) : '';
             $options[] = ['value' => $value, 'label' => $title !== '' ? $title : (string) $value];
         }
 
@@ -366,7 +366,7 @@ final readonly class InputPauseForm
     {
         $type = $property['type'] ?? 'string';
         if (is_array($type)) {
-            $type = array_values(array_filter($type, static fn(mixed $t): bool => $t !== 'null'))[0] ?? '';
+            $type = array_values(array_filter($type, static fn (mixed $t): bool => $t !== 'null'))[0] ?? '';
         }
 
         return is_string($type) && in_array($type, self::SCALAR_TYPES, true) ? $type : '';

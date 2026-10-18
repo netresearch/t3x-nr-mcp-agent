@@ -117,7 +117,7 @@ final class ProcessRefusalTest extends TestCase
     {
         $english = (string) file_get_contents(self::LANGUAGE_DIR . 'locallang_chat.xlf');
         $german  = (string) file_get_contents(self::LANGUAGE_DIR . 'de.locallang_chat.xlf');
-        $codes = [
+        $codes   = [
             ApprovalHandBackReason::VerdictUnavailable,
             ApprovalHandBackReason::DecidedInChat,
             InputHandBackReason::VerdictUnavailable,

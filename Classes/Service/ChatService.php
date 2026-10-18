@@ -510,7 +510,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return true;
         }
 
-        $actor = $this->resolveActor($before->getBeUser());
+        $actor   = $this->resolveActor($before->getBeUser());
         $guarded = $this->runCanceller?->cancelIfWaiting($actor, $runUuid);
         if ($guarded instanceof WaitingRunCancel) {
             return $guarded->releasesConversation();
@@ -522,7 +522,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         // Not cancelled: what the run is doing instead decides. Gone, not
         // readable or settled is nothing the conversation could wait for.
-        $run = $this->agentRunRepository->findByUuid($runUuid);
+        $run    = $this->agentRunRepository->findByUuid($runUuid);
         $status = $run instanceof AgentRun && $actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
             ? AgentRunStatus::tryFrom($run->status)
             : null;
@@ -720,8 +720,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     public function pendingInput(Conversation $conversation): ?InputPause
     {
         $runUuid = $conversation->getApprovalRunUuid();
-        $actor = $this->resolveActor($conversation->getBeUser());
-        $view = $runUuid !== '' && $conversation->getStatus() === ConversationStatus::AwaitingInput
+        $actor   = $this->resolveActor($conversation->getBeUser());
+        $view    = $runUuid !== '' && $conversation->getStatus() === ConversationStatus::AwaitingInput
             ? $this->pendingApprovalReader->read($actor, $runUuid)
             : null;
         if ($view === null || $view->mode === WaitingRunView::MODE_APPROVAL) {
@@ -945,7 +945,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         ConversationStatus $waiting,
     ): void {
         $stopped = $refusal->stopsRun() || $handBack === null;
-        $code = $stopped ? ProcessStopReason::NeedsSecondApprover->value : $handBack->value;
+        $code    = $stopped ? ProcessStopReason::NeedsSecondApprover->value : $handBack->value;
         $this->logger?->warning('nr-llm refused the decision on guided-process run {run} ({reason}): {message}', [
             'run'       => $runUuid,
             'reason'    => $code,
@@ -1067,6 +1067,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->setErrorMessage('');
             $conversation->setApprovalRunUuid($result->runUuid);
             $this->persist($conversation);
+
             return;
         }
 

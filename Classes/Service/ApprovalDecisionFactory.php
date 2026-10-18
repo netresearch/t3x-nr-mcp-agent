@@ -45,7 +45,7 @@ class ApprovalDecisionFactory
     {
         return match ($reason) {
             DenyReason::Variant => ApprovalDenialReason::VARIANT,
-            DenyReason::Skip => ApprovalDenialReason::SKIP,
+            DenyReason::Skip    => ApprovalDenialReason::SKIP,
         };
     }
 }

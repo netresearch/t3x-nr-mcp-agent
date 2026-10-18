@@ -941,7 +941,7 @@ class ChatApiControllerTest extends TestCase
         $this->repository->method('updateIf')->willReturn(true);
         // The run behind the card, as the conversation knew it before the claim.
         $this->chatApproval->expects(self::once())->method('releasePendingRun')
-            ->with(self::callback(static fn(Conversation $before): bool => $before->getApprovalRunUuid() === 'run-uuid-1234'))
+            ->with(self::callback(static fn (Conversation $before): bool => $before->getApprovalRunUuid() === 'run-uuid-1234'))
             ->willReturn(true);
 
         $request = $this->createRequest('POST', '{"conversationUid": 1, "content": "never mind, do something else"}');

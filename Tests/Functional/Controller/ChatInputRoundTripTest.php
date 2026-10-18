@@ -49,8 +49,8 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
 
     /** @var array<string, mixed> */
     private const SCHEMA = [
-        'type' => 'object',
-        'title' => 'Mit welchem Punkt soll ich beginnen?',
+        'type'       => 'object',
+        'title'      => 'Mit welchem Punkt soll ich beginnen?',
         'properties' => [
             'start' => ['oneOf' => [
                 ['const' => 'meta', 'title' => self::ACCEPT],
@@ -112,7 +112,7 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
             inputSchema: self::SCHEMA,
         );
 
-        $runs = $this->get(AgentRunRepositoryInterface::class);
+        $runs   = $this->get(AgentRunRepositoryInterface::class);
         $runUid = $runs->startRun(self::RUN, 1, 'demo', 1);
         self::assertTrue($runs->suspendRunForInput($runUid, json_encode($this->state->toArray(), JSON_THROW_ON_ERROR)));
 
@@ -122,6 +122,7 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
         $conversation->appendMessage(MessageRole::Assistant, self::SCHEMA['title']);
         $conversation->setStatus(ConversationStatus::AwaitingInput);
         $conversation->setApprovalRunUuid(self::RUN);
+
         $this->conversationUid = $this->repository->add($conversation);
     }
 
@@ -143,7 +144,7 @@ final class ChatInputRoundTripTest extends FunctionalTestCase
     private function pendingInput(): array
     {
         $response = $this->subject->getMessages((new ServerRequest())->withQueryParams(['conversationUid' => $this->conversationUid]));
-        $body = json_decode((string) $response->getBody(), true);
+        $body     = json_decode((string) $response->getBody(), true);
         self::assertIsArray($body);
         self::assertIsArray($body['pendingInput'] ?? null, 'the poll must carry the question');
 

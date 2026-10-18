@@ -101,7 +101,7 @@ final class ChatServiceTourRunTest extends TestCase
 
     private function agentRun(AgentRunStatus $status): AgentRun
     {
-        $run = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
+        $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
         foreach (['uuid' => self::RUN, 'beUser' => 1, 'status' => $status->value] as $name => $value) {
             $reflection->getProperty($name)->setValue($run, $value);
@@ -239,7 +239,7 @@ final class ChatServiceTourRunTest extends TestCase
         return new ToolEffectResolver(new ToolRegistry($tools));
     }
 
-    private static function viewHasDeclaresWrite(): bool
+    private function viewHasDeclaresWrite(): bool
     {
         return property_exists(PendingCallView::class, 'declaresWrite');
     }
@@ -251,7 +251,7 @@ final class ChatServiceTourRunTest extends TestCase
      */
     private function view(string $tool, bool $declaresWrite): WaitingRunView
     {
-        $call = self::viewHasDeclaresWrite()
+        $call = $this->viewHasDeclaresWrite()
             ? new PendingCallView($tool, '{}', true, declaresWrite: $declaresWrite)
             : new PendingCallView($tool, '{}', true);
 
@@ -307,11 +307,11 @@ final class ChatServiceTourRunTest extends TestCase
     #[Test]
     public function theViewsDeclarationWinsOverTheResolver(): void
     {
-        if (!self::viewHasDeclaresWrite()) {
+        if (!$this->viewHasDeclaresWrite()) {
             self::markTestSkipped('Needs nr-llm 0.41 (PendingCallView::$declaresWrite, nr-llm PR 1024).');
         }
 
-        $readsByName = $this->service(null, processRuns: $this->processRun(true), toolEffects: $this->effects(ToolEffect::READ_ONLY));
+        $readsByName  = $this->service(null, processRuns: $this->processRun(true), toolEffects: $this->effects(ToolEffect::READ_ONLY));
         $writesByName = $this->service(null, processRuns: $this->processRun(true), toolEffects: $this->effects(ToolEffect::IDEMPOTENT_WRITE));
 
         self::assertTrue($readsByName->offersProcessAnswers($this->parked(), $this->view('tool_0', declaresWrite: true)));

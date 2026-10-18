@@ -276,7 +276,7 @@ final readonly class ChatApiController
             ...$this->presentError($conversation->getErrorMessage(), $conversation->getErrorCode()),
             'approvalUrl'     => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
-            'pendingInput' => $this->buildPendingInput($conversation),
+            'pendingInput'    => $this->buildPendingInput($conversation),
             // Whether this reader may decide approvals at all. Without it the
             // notice cannot tell "decide below" from "someone else decides",
             // and a link into a module the reader cannot open is no next step.
@@ -343,7 +343,7 @@ final readonly class ChatApiController
 
         // The row as it was, to put back if a guided process's waiting run
         // cannot be cancelled after the claim (queueTurn()).
-        $before = clone $conversation;
+        $before        = clone $conversation;
         $currentStatus = $conversation->getStatus();
         // "weiter" while a run waits for an approval is not a new request. Left
         // to the ordinary path below it abandoned the approval and started a
@@ -440,7 +440,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.editStale')], 409);
         }
 
-        $before = clone $conversation;
+        $before        = clone $conversation;
         $currentStatus = $conversation->getStatus();
         $refusal       = $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
@@ -966,8 +966,8 @@ final readonly class ChatApiController
             'approveBlocked' => $this->approveBlockedReason($conversation, $view),
             // "Übernehmen / Andere Variante / Überspringen" for a write in a
             // process run, approve and cancel for every other card (ADR-018).
-            'answers'          => $this->chatApproval->offersProcessAnswers($conversation, $view) ? 'process' : 'plain',
-            'calls'            => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
+            'answers' => $this->chatApproval->offersProcessAnswers($conversation, $view) ? 'process' : 'plain',
+            'calls'   => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
                 $language instanceof LanguageService ? $language : null,
                 $this->previewLanguage($conversation),
@@ -1017,7 +1017,7 @@ final readonly class ChatApiController
         }
 
         return [
-            'runUuid' => $pause->runUuid,
+            'runUuid'    => $pause->runUuid,
             'turnDigest' => $pause->turnDigest,
             ...$pause->form()->toArray(),
         ];
@@ -1044,14 +1044,14 @@ final readonly class ChatApiController
         // Read as plain JSON: a form answer nests its fields, which the
         // string-or-int shape parseBody() promises does not describe.
         $decoded = json_decode((string) $request->getBody(), true);
-        $body = [];
+        $body    = [];
         foreach (is_array($decoded) ? $decoded : [] as $key => $value) {
             if (is_string($key)) {
                 $body[$key] = $value;
             }
         }
 
-        $uid = $body['conversationUid'] ?? 0;
+        $uid          = $body['conversationUid'] ?? 0;
         $conversation = $this->findConversationOrFail($request, ['conversationUid' => is_int($uid) || is_string($uid) ? $uid : 0]);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
@@ -1092,7 +1092,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.notAwaitingInput')], 409);
         }
 
-        $freeText = $body['freeText'] ?? null;
+        $freeText  = $body['freeText'] ?? null;
         $maxLength = $this->config->getMaxMessageLength();
         if (is_string($freeText) && $maxLength > 0 && mb_strlen(trim($freeText)) > $maxLength) {
             return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
@@ -1103,7 +1103,7 @@ final readonly class ChatApiController
     }
 
     /**
-     * POST /ai-chat/conversations/approve
+     * POST /ai-chat/conversations/approve.
      *
      * Records the decision and hands it to the worker, like every other path
      * here. approve() drives the whole continuation — up to MAX_ITERATIONS
@@ -1143,8 +1143,8 @@ final readonly class ChatApiController
         // Only a card that offers the two denials takes one; an unknown value,
         // or a reason on any other card, is a plain denial.
         $reasonValue = $body['reason'] ?? '';
-        $reason = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
-        $view = $reason !== null ? $this->chatApproval->pendingApproval($conversation) : null;
+        $reason      = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
+        $view        = $reason !== null ? $this->chatApproval->pendingApproval($conversation) : null;
         if ($view === null || !$this->chatApproval->offersProcessAnswers($conversation, $view)) {
             $reason = null;
         }

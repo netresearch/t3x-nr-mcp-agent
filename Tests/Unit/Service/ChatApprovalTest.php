@@ -565,13 +565,13 @@ final class ChatApprovalTest extends TestCase
     public function aProcessRefusalLeavesTheCardDecidable(ProcessRefusal $refusal, ApprovalHandBackReason $reason): void
     {
         $exception = ProcessRefusalTest::raised($refusal, 'run-uuid-1234');
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger    = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('warning')->with(
             self::stringContains('guided-process run'),
-            self::callback(static fn(array $context): bool => ($context['exception'] ?? null) === $exception && ($context['reason'] ?? null) === $reason->value),
+            self::callback(static fn (array $context): bool => ($context['exception'] ?? null) === $exception && ($context['reason'] ?? null) === $reason->value),
         );
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService($exception, logger: $logger);
+        $service      = $this->createChatService($exception, logger: $logger);
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);
@@ -581,7 +581,7 @@ final class ChatApprovalTest extends TestCase
         self::assertSame('', $conversation->getApprovalDecision(), 'the refused decision is not retried by itself');
         self::assertFalse($conversation->isResumable(), 'a waiting card offers no Retry');
         self::assertSame($reason->value, $conversation->getErrorCode());
-        self::assertSame('', $conversation->getErrorMessage(), 'nr-llm\'s sentence stays in the log');
+        self::assertSame('', $conversation->getErrorMessage(), "nr-llm's sentence stays in the log");
     }
 
     /**
@@ -593,9 +593,9 @@ final class ChatApprovalTest extends TestCase
     #[Test]
     public function aStoppedProcessRunLeavesTheConversationUsable(): void
     {
-        $exception = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $exception    = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
         $conversation = $this->parkedConversation();
-        $service = $this->createChatService($exception);
+        $service      = $this->createChatService($exception);
         $service->recordDecision($conversation, true, 'digest-abc');
 
         $service->processConversation($conversation);

@@ -26,7 +26,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ApprovalDecisionFactory::class)]
 final class ApprovalDecisionFactoryTest extends TestCase
 {
-    private static function requireDenialReason(bool $present): void
+    private function requireDenialReason(bool $present): void
     {
         if (enum_exists(ApprovalDenialReason::class) !== $present) {
             self::markTestSkipped($present
@@ -38,7 +38,7 @@ final class ApprovalDecisionFactoryTest extends TestCase
     #[Test]
     public function withoutTheEnumADenialWithAReasonIsAPlainDenial(): void
     {
-        self::requireDenialReason(false);
+        $this->requireDenialReason(false);
         $factory = new ApprovalDecisionFactory();
 
         self::assertFalse($factory->carriesReason());
@@ -61,7 +61,7 @@ final class ApprovalDecisionFactoryTest extends TestCase
     #[DataProvider('reasons')]
     public function aDenialCarriesNrLlmsReason(DenyReason $reason, string $value): void
     {
-        self::requireDenialReason(true);
+        $this->requireDenialReason(true);
         $factory = new ApprovalDecisionFactory();
 
         self::assertTrue($factory->carriesReason());
@@ -74,7 +74,7 @@ final class ApprovalDecisionFactoryTest extends TestCase
     #[Test]
     public function aDenialWithoutAReasonCarriesNone(): void
     {
-        self::requireDenialReason(true);
+        $this->requireDenialReason(true);
 
         self::assertNull((new ApprovalDecisionFactory())->create(false, 7, 'digest-abc')->denialReason);
     }

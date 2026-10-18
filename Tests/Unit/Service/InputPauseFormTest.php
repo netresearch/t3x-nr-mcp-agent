@@ -35,11 +35,11 @@ final class InputPauseFormTest extends TestCase
      *
      * @return array<string, mixed>
      */
-    private static function choiceSchema(): array
+    private function choiceSchema(): array
     {
         return [
-            'type' => 'object',
-            'title' => 'Mit welchem Punkt soll ich beginnen?',
+            'type'       => 'object',
+            'title'      => 'Mit welchem Punkt soll ich beginnen?',
             'properties' => [
                 'start' => [
                     'oneOf' => [
@@ -56,7 +56,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function labelledOptionsBecomeButtonsInTheirOrder(): void
     {
-        $form = InputPauseForm::fromSchema(self::choiceSchema());
+        $form = InputPauseForm::fromSchema($this->choiceSchema());
 
         self::assertSame(InputPauseForm::KIND_CHOICE, $form->kind);
         self::assertSame(
@@ -74,7 +74,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aButtonAnswersWithItsValueAndShowsItsLabel(): void
     {
-        $submission = InputPauseForm::fromSchema(self::choiceSchema())->submission(['choice' => 'meta']);
+        $submission = InputPauseForm::fromSchema($this->choiceSchema())->submission(['choice' => 'meta']);
 
         self::assertSame(['data' => ['start' => 'meta'], 'display' => 'Meta Description'], $submission);
     }
@@ -86,7 +86,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aValueThatWasNotOfferedIsRefused(): void
     {
-        self::assertNull(InputPauseForm::fromSchema(self::choiceSchema())->submission(['choice' => 'delete everything']));
+        self::assertNull(InputPauseForm::fromSchema($this->choiceSchema())->submission(['choice' => 'delete everything']));
     }
 
     /** The same value with another JSON type is another value. */
@@ -102,7 +102,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function typedTextGoesIntoTheFreeTextProperty(): void
     {
-        $submission = InputPauseForm::fromSchema(self::choiceSchema())->submission(['freeText' => '  Erst die Bilder, bitte.  ']);
+        $submission = InputPauseForm::fromSchema($this->choiceSchema())->submission(['freeText' => '  Erst die Bilder, bitte.  ']);
 
         self::assertSame(['data' => ['comment' => 'Erst die Bilder, bitte.'], 'display' => 'Erst die Bilder, bitte.'], $submission);
     }
@@ -110,7 +110,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function emptyFreeTextIsNoAnswer(): void
     {
-        self::assertNull(InputPauseForm::fromSchema(self::choiceSchema())->submission(['freeText' => '   ']));
+        self::assertNull(InputPauseForm::fromSchema($this->choiceSchema())->submission(['freeText' => '   ']));
     }
 
     /**
@@ -120,9 +120,9 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aRequiredChoiceOffersNoFreeTextAnswer(): void
     {
-        $schema = self::choiceSchema();
+        $schema             = $this->choiceSchema();
         $schema['required'] = ['start'];
-        $form = InputPauseForm::fromSchema($schema);
+        $form               = InputPauseForm::fromSchema($schema);
 
         self::assertSame(InputPauseForm::KIND_CHOICE, $form->kind);
         self::assertFalse($form->toArray()['freeText']);
@@ -133,9 +133,9 @@ final class InputPauseFormTest extends TestCase
     public function aPlainEnumIsAChoiceLabelledWithItsValues(): void
     {
         $form = InputPauseForm::fromSchema([
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => ['language' => ['type' => 'string', 'enum' => ['Deutsch', 'English'], 'description' => 'Welche Sprache?']],
-            'required' => ['language'],
+            'required'   => ['language'],
         ]);
 
         self::assertSame(InputPauseForm::KIND_CHOICE, $form->kind);
@@ -150,7 +150,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aRequiredFreeTextPropertyMakesAForm(): void
     {
-        $schema = self::choiceSchema();
+        $schema             = $this->choiceSchema();
         $schema['required'] = ['comment'];
 
         self::assertSame(InputPauseForm::KIND_FORM, InputPauseForm::fromSchema($schema)->kind);
@@ -199,24 +199,24 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function anUnreadablePauseOffersNothing(): void
     {
-        self::assertSame(InputPauseForm::KIND_UNSUPPORTED, (new InputPause('run', '', self::choiceSchema(), 'state-unreadable'))->form()->kind);
-        self::assertSame(InputPauseForm::KIND_UNSUPPORTED, (new InputPause('run', '', self::choiceSchema()))->form()->kind);
-        self::assertSame(InputPauseForm::KIND_CHOICE, (new InputPause('run', 'digest', self::choiceSchema()))->form()->kind);
+        self::assertSame(InputPauseForm::KIND_UNSUPPORTED, (new InputPause('run', '', $this->choiceSchema(), 'state-unreadable'))->form()->kind);
+        self::assertSame(InputPauseForm::KIND_UNSUPPORTED, (new InputPause('run', '', $this->choiceSchema()))->form()->kind);
+        self::assertSame(InputPauseForm::KIND_CHOICE, (new InputPause('run', 'digest', $this->choiceSchema()))->form()->kind);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private static function formSchema(): array
+    private function formSchema(): array
     {
         return [
-            'type' => 'object',
+            'type'       => 'object',
             'properties' => [
-                'title' => ['type' => 'string', 'title' => 'Seitentitel'],
-                'count' => ['type' => 'integer'],
-                'ratio' => ['type' => 'number'],
-                'hidden' => ['type' => 'boolean', 'title' => 'Verborgen'],
-                'layout' => ['enum' => ['wide', 'narrow']],
+                'title'     => ['type' => 'string', 'title' => 'Seitentitel'],
+                'count'     => ['type' => 'integer'],
+                'ratio'     => ['type' => 'number'],
+                'hidden'    => ['type' => 'boolean', 'title' => 'Verborgen'],
+                'layout'    => ['enum' => ['wide', 'narrow']],
                 'site_note' => ['type' => ['string', 'null']],
             ],
             'required' => ['title'],
@@ -226,7 +226,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aFormHasOneFieldPerProperty(): void
     {
-        $form = InputPauseForm::fromSchema(self::formSchema());
+        $form = InputPauseForm::fromSchema($this->formSchema());
 
         self::assertSame(InputPauseForm::KIND_FORM, $form->kind);
         self::assertSame(['title', 'count', 'ratio', 'hidden', 'layout', 'site_note'], array_column($form->fields, 'name'));
@@ -238,7 +238,7 @@ final class InputPauseFormTest extends TestCase
     #[Test]
     public function aFormAnswerIsCoercedToTheSchemasTypes(): void
     {
-        $submission = InputPauseForm::fromSchema(self::formSchema())->submission(
+        $submission = InputPauseForm::fromSchema($this->formSchema())->submission(
             ['fields' => ['title' => ' Über uns ', 'count' => '3', 'ratio' => '0.5', 'hidden' => false, 'layout' => 'wide', 'unknown' => 'dropped']],
             ['Ja', 'Nein'],
         );
@@ -269,13 +269,13 @@ final class InputPauseFormTest extends TestCase
     #[DataProvider('refusedFormAnswers')]
     public function aFormAnswerThatDoesNotFitIsRefused(array $fields): void
     {
-        self::assertNull(InputPauseForm::fromSchema(self::formSchema())->submission(['fields' => $fields]));
+        self::assertNull(InputPauseForm::fromSchema($this->formSchema())->submission(['fields' => $fields]));
     }
 
     #[Test]
     public function aFormAnswerWithoutFieldsIsRefused(): void
     {
-        self::assertNull(InputPauseForm::fromSchema(self::formSchema())->submission(['fields' => 'title=x']));
+        self::assertNull(InputPauseForm::fromSchema($this->formSchema())->submission(['fields' => 'title=x']));
         self::assertNull(InputPauseForm::fromSchema(['properties' => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']]])->submission(['fields' => []]));
     }
 }

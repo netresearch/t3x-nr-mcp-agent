@@ -21,14 +21,14 @@ namespace Netresearch\NrMcpAgent\Enum;
 enum DenyReason: string
 {
     case Variant = 'variant';
-    case Skip = 'skip';
+    case Skip    = 'skip';
 
     /** The key of the button label in locallang_chat.xlf, also the transcript line. */
     public function labelKey(): string
     {
         return match ($this) {
             self::Variant => 'chat.approvalVariant',
-            self::Skip => 'chat.approvalSkip',
+            self::Skip    => 'chat.approvalSkip',
         };
     }
 }

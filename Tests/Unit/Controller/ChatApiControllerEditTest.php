@@ -60,7 +60,7 @@ final class ChatApiControllerEditTest extends TestCase
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getMaxMessageLength')->willReturn(50);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
-        $chatService = $this->createMock(ChatCapabilitiesInterface::class);
+        $chatService        = $this->createMock(ChatCapabilitiesInterface::class);
         $this->chatApproval = $this->createMock(ChatApprovalInterface::class);
 
         $this->subject = new ChatApiController(

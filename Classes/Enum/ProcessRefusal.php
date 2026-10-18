@@ -30,8 +30,8 @@ use Throwable;
  */
 enum ProcessRefusal: string
 {
-    case VerdictUnavailable = 'Netresearch\\NrLlm\\Service\\Agent\\Exception\\ProcessVerdictUnavailableException';
-    case DecidedInChat = 'Netresearch\\NrLlm\\Service\\Agent\\Exception\\ProcessRunDecidedInChatException';
+    case VerdictUnavailable  = 'Netresearch\\NrLlm\\Service\\Agent\\Exception\\ProcessVerdictUnavailableException';
+    case DecidedInChat       = 'Netresearch\\NrLlm\\Service\\Agent\\Exception\\ProcessRunDecidedInChatException';
     case NeedsSecondApprover = 'Netresearch\\NrLlm\\Service\\Agent\\Exception\\ProcessRunNeedsSecondApproverException';
 
     /**

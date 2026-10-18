@@ -157,10 +157,11 @@ final class Conversation
         $conversation->approvalRunUuid    = (string) self::val($row, 'approval_run_uuid', '');
         $conversation->approvalDecision   = (string) self::val($row, 'approval_decision', '');
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
-        $conversation->pendingInput = (string) self::val($row, 'pending_input', '');
+        $conversation->pendingInput       = (string) self::val($row, 'pending_input', '');
         $conversation->approvalDenyReason = (string) self::val($row, 'approval_deny_reason', '');
-        $conversation->tstamp = (int) self::val($row, 'tstamp', 0);
-        $conversation->crdate = (int) self::val($row, 'crdate', 0);
+        $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
+        $conversation->crdate             = (int) self::val($row, 'crdate', 0);
+
         return $conversation;
     }
 
@@ -203,7 +204,7 @@ final class Conversation
             'approval_run_uuid'    => $this->approvalRunUuid,
             'approval_decision'    => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
-            'pending_input' => $this->pendingInput,
+            'pending_input'        => $this->pendingInput,
             'approval_deny_reason' => $this->approvalDenyReason,
         ];
     }
@@ -351,7 +352,7 @@ final class Conversation
             $this->approvalRunUuid    = '';
             $this->approvalDecision   = '';
             $this->approvalTurnDigest = '';
-            $this->pendingInput = '';
+            $this->pendingInput       = '';
             $this->approvalDenyReason = '';
         }
     }
@@ -554,7 +555,7 @@ final class Conversation
     public function recordApprovalDecision(bool $approve, string $turnDigest, ?DenyReason $reason = null): void
     {
         $this->approvalDenyReason = $approve || $reason === null ? '' : $reason->value;
-        $this->approvalDecision = $approve ? 'approve' : 'deny';
+        $this->approvalDecision   = $approve ? 'approve' : 'deny';
         $this->approvalTurnDigest = $turnDigest;
     }
 
@@ -562,7 +563,7 @@ final class Conversation
     {
         $this->approvalDecision   = '';
         $this->approvalTurnDigest = '';
-        $this->pendingInput = '';
+        $this->pendingInput       = '';
         $this->approvalDenyReason = '';
     }
 
@@ -585,9 +586,9 @@ final class Conversation
      */
     public function recordInputSubmission(array $data, string $turnDigest): void
     {
-        $this->approvalDecision = self::DECISION_INPUT;
+        $this->approvalDecision   = self::DECISION_INPUT;
         $this->approvalTurnDigest = $turnDigest;
-        $this->pendingInput = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $this->pendingInput       = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -612,7 +613,7 @@ final class Conversation
     public function dropInputAnswer(): void
     {
         $messages = $this->getDecodedMessages();
-        $last = end($messages);
+        $last     = end($messages);
         if (is_array($last) && ($last['notice'] ?? null) === self::NOTICE_INPUT_ANSWER) {
             array_pop($messages);
             $this->setMessages($messages);

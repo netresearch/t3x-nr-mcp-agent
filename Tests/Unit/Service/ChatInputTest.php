@@ -81,10 +81,10 @@ final class ChatInputTest extends TestCase
 
     /** @var array<string, mixed> */
     private const SCHEMA = [
-        'type' => 'object',
-        'title' => 'Mit welchem Punkt soll ich beginnen?',
+        'type'       => 'object',
+        'title'      => 'Mit welchem Punkt soll ich beginnen?',
         'properties' => [
-            'start' => ['oneOf' => [['const' => 'meta', 'title' => 'Meta Description'], ['const' => 'images', 'title' => 'Alternativtexte']]],
+            'start'   => ['oneOf' => [['const' => 'meta', 'title' => 'Meta Description'], ['const' => 'images', 'title' => 'Alternativtexte']]],
             'comment' => ['type' => 'string'],
         ],
     ];
@@ -101,7 +101,7 @@ final class ChatInputTest extends TestCase
         $agentRuntime->method('run')->willReturn($runAnswer ?? $this->completed());
         $agentRuntime->method('approve')->willReturnCallback(function (mixed $actor, string $runUuid, ApprovalDecision $decision) use ($submitAnswer): AgentRunResult {
             $this->approveCalled = true;
-            $this->approved = $decision;
+            $this->approved      = $decision;
             if ($submitAnswer instanceof RuntimeException) {
                 throw $submitAnswer;
             }
@@ -111,7 +111,7 @@ final class ChatInputTest extends TestCase
         $agentRuntime->method('submitInput')->willReturnCallback(
             function (mixed $actor, string $runUuid, InputSubmission $submission) use ($submitAnswer): AgentRunResult {
                 $this->submittedRun = $runUuid;
-                $this->submitted = $submission;
+                $this->submitted    = $submission;
                 if ($submitAnswer instanceof RuntimeException) {
                     throw $submitAnswer;
                 }
@@ -191,7 +191,7 @@ final class ChatInputTest extends TestCase
 
     private function runWith(AgentRunStatus $status): AgentRun
     {
-        $run = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
+        $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
         foreach (['uuid' => self::RUN, 'beUser' => 1, 'status' => $status->value] as $name => $value) {
             $reflection->getProperty($name)->setValue($run, $value);
@@ -203,7 +203,7 @@ final class ChatInputTest extends TestCase
     /**
      * @return list<array<string, mixed>>
      */
-    private static function lastMessages(Conversation $conversation, int $count): array
+    private function lastMessages(Conversation $conversation, int $count): array
     {
         return array_slice($conversation->getDecodedMessages(), -$count);
     }
@@ -238,7 +238,7 @@ final class ChatInputTest extends TestCase
 
         $this->service($this->asks())->processConversation($conversation);
 
-        $last = self::lastMessages($conversation, 1)[0];
+        $last = $this->lastMessages($conversation, 1)[0];
         self::assertSame('assistant', $last['role']);
         self::assertSame('Mit welchem Punkt soll ich beginnen?', $last['content']);
     }
@@ -272,7 +272,7 @@ final class ChatInputTest extends TestCase
         self::assertSame('digest-abc', $conversation->getApprovalTurnDigest());
         self::assertSame(self::RUN, $conversation->getApprovalRunUuid());
         self::assertSame('', $conversation->getErrorCode(), 'the reason a refusal left belongs to the question just answered');
-        $last = self::lastMessages($conversation, 1)[0];
+        $last = $this->lastMessages($conversation, 1)[0];
         self::assertSame(['user', 'Meta Description'], [$last['role'], $last['content']]);
         self::assertNull($this->submitted, 'the request must not hand the answer over itself');
     }
@@ -300,7 +300,7 @@ final class ChatInputTest extends TestCase
     public function theWorkerHandsTheAnswerToTheRuntime(): void
     {
         $conversation = $this->asking();
-        $service = $this->service();
+        $service      = $this->service();
         $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
@@ -317,7 +317,7 @@ final class ChatInputTest extends TestCase
     public function theContinuationsAnswerFollowsTheUsersAnswer(): void
     {
         $conversation = $this->asking();
-        $service = $this->service();
+        $service      = $this->service();
         $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
@@ -326,7 +326,7 @@ final class ChatInputTest extends TestCase
         self::assertFalse($conversation->hasPendingApprovalDecision());
         self::assertSame(
             [['user', 'Meta Description'], ['assistant', 'Ich beginne mit der Meta Description.']],
-            array_map(static fn(array $m): array => [$m['role'], $m['content']], self::lastMessages($conversation, 2)),
+            array_map(static fn (array $m): array => [$m['role'], $m['content']], $this->lastMessages($conversation, 2)),
         );
     }
 
@@ -337,7 +337,7 @@ final class ChatInputTest extends TestCase
     public function theContinuationMayAskTheNextQuestion(): void
     {
         $conversation = $this->asking();
-        $service = $this->service(submitAnswer: $this->asks());
+        $service      = $this->service(submitAnswer: $this->asks());
         $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
@@ -372,10 +372,10 @@ final class ChatInputTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('warning')->with(
             self::stringContains('still waiting for input'),
-            self::callback(static fn(array $context): bool => $context['message'] === $refusal->getMessage() && $context['reason'] === $reason->value),
+            self::callback(static fn (array $context): bool => $context['message'] === $refusal->getMessage() && $context['reason'] === $reason->value),
         );
         $conversation = $this->asking();
-        $service = $this->service(submitAnswer: $refusal, logger: $logger);
+        $service      = $this->service(submitAnswer: $refusal, logger: $logger);
         $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
@@ -385,7 +385,7 @@ final class ChatInputTest extends TestCase
         self::assertSame($reason->value, $conversation->getErrorCode());
         self::assertSame('', $conversation->getErrorMessage());
         self::assertFalse($conversation->hasPendingApprovalDecision());
-        self::assertSame('Mit welchem Punkt soll ich beginnen?', self::lastMessages($conversation, 1)[0]['content']);
+        self::assertSame('Mit welchem Punkt soll ich beginnen?', $this->lastMessages($conversation, 1)[0]['content']);
     }
 
     /**
@@ -407,7 +407,7 @@ final class ChatInputTest extends TestCase
     public function aProcessRefusalBringsTheQuestionBack(ProcessRefusal $refusal, InputHandBackReason $reason): void
     {
         $conversation = $this->asking();
-        $service = $this->service(submitAnswer: ProcessRefusalTest::raised($refusal, self::RUN));
+        $service      = $this->service(submitAnswer: ProcessRefusalTest::raised($refusal, self::RUN));
         $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
@@ -417,7 +417,7 @@ final class ChatInputTest extends TestCase
         self::assertSame($reason->value, $conversation->getErrorCode());
         self::assertSame('', $conversation->getErrorMessage());
         self::assertFalse($conversation->hasPendingApprovalDecision());
-        self::assertSame('Mit welchem Punkt soll ich beginnen?', self::lastMessages($conversation, 1)[0]['content']);
+        self::assertSame('Mit welchem Punkt soll ich beginnen?', $this->lastMessages($conversation, 1)[0]['content']);
     }
 
     /** nr-llm PR 1029: a stopped process run leaves an idle, usable conversation. */
@@ -425,7 +425,7 @@ final class ChatInputTest extends TestCase
     public function aStoppedProcessRunEndsTheQuestion(): void
     {
         $conversation = $this->asking();
-        $service = $this->service(submitAnswer: ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, self::RUN));
+        $service      = $this->service(submitAnswer: ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, self::RUN));
         $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
@@ -435,14 +435,14 @@ final class ChatInputTest extends TestCase
         self::assertSame(ProcessStopReason::NeedsSecondApprover->value, $conversation->getErrorCode());
         self::assertFalse($conversation->isResumable());
         self::assertFalse($conversation->hasPendingApprovalDecision());
-        self::assertSame('Mit welchem Punkt soll ich beginnen?', self::lastMessages($conversation, 1)[0]['content'], 'the answer that was not taken is not left behind');
+        self::assertSame('Mit welchem Punkt soll ich beginnen?', $this->lastMessages($conversation, 1)[0]['content'], 'the answer that was not taken is not left behind');
     }
 
     #[Test]
     public function anUnexpectedErrorFailsTheConversation(): void
     {
         $conversation = $this->asking();
-        $service = $this->service(submitAnswer: new RuntimeException('provider down'));
+        $service      = $this->service(submitAnswer: new RuntimeException('provider down'));
         $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
 
         $service->processConversation($conversation);
@@ -465,7 +465,7 @@ final class ChatInputTest extends TestCase
         $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
         $runRepository->method('findByUuid')->willReturn($this->runWith(AgentRunStatus::WAITING_FOR_INPUT));
         $conversation = $this->asking();
-        $service = $this->service(runRepository: $runRepository);
+        $service      = $this->service(runRepository: $runRepository);
         $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
         (new ReflectionClass($conversation))->getProperty('tstamp')->setValue($conversation, time() - 600);
 
@@ -474,7 +474,7 @@ final class ChatInputTest extends TestCase
         self::assertSame(ConversationStatus::AwaitingInput, $conversation->getStatus());
         self::assertSame(self::RUN, $conversation->getApprovalRunUuid());
         self::assertFalse($conversation->hasPendingApprovalDecision());
-        self::assertSame('assistant', self::lastMessages($conversation, 1)[0]['role'], 'the undelivered answer leaves the transcript');
+        self::assertSame('assistant', $this->lastMessages($conversation, 1)[0]['role'], 'the undelivered answer leaves the transcript');
     }
 
     // ---- reading the question ---------------------------------------------
@@ -548,7 +548,7 @@ final class ChatInputTest extends TestCase
 
         self::assertSame('deny', $conversation->getApprovalDecision());
         self::assertSame(DenyReason::Variant, $conversation->getApprovalDenyReason());
-        self::assertSame(['user', 'Andere Variante'], [self::lastMessages($conversation, 1)[0]['role'], self::lastMessages($conversation, 1)[0]['content']]);
+        self::assertSame(['user', 'Andere Variante'], [$this->lastMessages($conversation, 1)[0]['role'], $this->lastMessages($conversation, 1)[0]['content']]);
     }
 
     #[Test]
@@ -570,7 +570,7 @@ final class ChatInputTest extends TestCase
     public function withoutAReasonInNrLlmTheWorkerSendsAPlainDenial(): void
     {
         $conversation = $this->parked();
-        $service = $this->service();
+        $service      = $this->service();
         $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Skip, 'Überspringen');
 
         $service->processConversation($conversation);
@@ -586,7 +586,7 @@ final class ChatInputTest extends TestCase
     public function aHandedBackDenialTakesItsLineBackOut(): void
     {
         $conversation = $this->parked();
-        $service = $this->service(submitAnswer: new StaleApprovalTurnException(self::RUN, 'stale'));
+        $service      = $this->service(submitAnswer: new StaleApprovalTurnException(self::RUN, 'stale'));
         $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Variant, 'Andere Variante');
 
         $service->processConversation($conversation);
