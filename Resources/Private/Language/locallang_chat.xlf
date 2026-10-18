@@ -255,6 +255,21 @@
             <trans-unit id="error.handBack.secondApprover" resname="error.handBack.secondApprover">
                 <source>This change needs a second person: for this AI configuration, whoever started the step may not approve it. A colleague can approve it in AI Tasks; you can still deny it here.</source>
             </trans-unit>
+            <trans-unit id="error.handBack.verdictUnavailable" resname="error.handBack.verdictUnavailable">
+                <source>This could not be decided just now. Please try again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.decidedInChat" resname="error.handBack.decidedInChat">
+                <source>Only the person who started this guided process can decide here.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputVerdictOpen" resname="error.handBack.inputVerdictOpen">
+                <source>The answer could not be taken just now. Please try again.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputDecidedInChat" resname="error.handBack.inputDecidedInChat">
+                <source>Only the person who started this guided process can answer here.</source>
+            </trans-unit>
+            <trans-unit id="error.process.needsSecondApprover" resname="error.process.needsSecondApprover">
+                <source>The guided process was ended: this AI configuration requires a second person to approve every change, which a guided process cannot have. This proposal was not applied.</source>
+            </trans-unit>
             <trans-unit id="error.notAwaitingInput" resname="error.notAwaitingInput">
                 <source>This question is no longer open.</source>
             </trans-unit>

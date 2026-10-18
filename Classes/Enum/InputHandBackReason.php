@@ -47,9 +47,17 @@ enum InputHandBackReason: string
     /** The run no longer waits for an answer. */
     case NotAwaitingInput = 'handBack.notAwaitingInput';
 
+    /** Whether the run is a guided process could not be checked; the answer can be sent again (ProcessRefusal). */
+    case VerdictUnavailable = 'handBack.inputVerdictOpen';
+
+    /** Only the person who started the guided process may answer it (ProcessRefusal). */
+    case DecidedInChat = 'handBack.inputDecidedInChat';
+
     /**
      * Only the refusals that leave the run waiting for its answer are
-     * hand-backs; ChatService catches exactly these. Anything else fails the
+     * hand-backs; ChatService catches exactly these. The refusals of a guided
+     * process that leave the run waiting map through
+     * {@see ProcessRefusal::inputHandBack()}. Anything else fails the
      * conversation, as for an approval.
      */
     public static function fromException(

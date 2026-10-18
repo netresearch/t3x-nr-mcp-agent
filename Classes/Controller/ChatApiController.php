@@ -26,6 +26,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
@@ -854,7 +855,7 @@ final readonly class ChatApiController
         // A run nr-llm handed back still pending: the stored reason is a code
         // only, rendered for every reader alike (administrators included) —
         // nr-llm's own message is in the log, never on screen.
-        $handBack = ApprovalHandBackReason::tryFrom($code) ?? InputHandBackReason::tryFrom($code);
+        $handBack = ApprovalHandBackReason::tryFrom($code) ?? InputHandBackReason::tryFrom($code) ?? ProcessStopReason::tryFrom($code);
         if ($handBack !== null) {
             return ['errorMessage' => $this->translate($handBack->labelKey()), 'errorLink' => '', 'errorLinkLabel' => ''];
         }

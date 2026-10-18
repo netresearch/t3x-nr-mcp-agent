@@ -17,7 +17,9 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -229,6 +231,64 @@ final class ChatApiControllerFeedbackTest extends TestCase
         // four-eyes among them: a colleague approves the run there.
         $pointsToRun = in_array($reason, [ApprovalHandBackReason::AlreadyResuming, ApprovalHandBackReason::NotAwaitingApproval, ApprovalHandBackReason::SecondApproverRequired], true);
         self::assertSame($pointsToRun, $data['errorPointsToRun']);
+    }
+
+    /**
+     * nr-llm stopped the run of a guided process (nr-llm PR 1029). The idle
+     * conversation explains why with the chat's sentence, for every reader,
+     * and points nowhere.
+     *
+     * @return iterable<string, array{bool}>
+     */
+    public static function readers(): iterable
+    {
+        yield 'an editor' => [false];
+        yield 'an administrator' => [true];
+    }
+
+    #[Test]
+    #[DataProvider('readers')]
+    public function aStoppedProcessRunIsExplainedByItsLabel(bool $isAdmin): void
+    {
+        $this->setUpBackendUser(isAdmin: $isAdmin);
+        $conversation = new Conversation();
+        $conversation->setBeUser(2);
+        $conversation->setStatus(ConversationStatus::Idle);
+        $conversation->setErrorMessage('', ProcessStopReason::NeedsSecondApprover->value);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+
+        self::assertSame(ProcessStopReason::NeedsSecondApprover->labelKey(), $data['errorMessage']);
+        self::assertSame('', $data['errorLink']);
+        self::assertFalse($data['errorPointsToRun']);
+    }
+
+    /**
+     * @return iterable<string, array{InputHandBackReason}>
+     */
+    public static function processInputHandBacks(): iterable
+    {
+        yield 'verdict unavailable' => [InputHandBackReason::VerdictUnavailable];
+        yield 'decided in the chat' => [InputHandBackReason::DecidedInChat];
+    }
+
+    /** A question of a guided process handed back (nr-llm PR 1029) is explained by its label. */
+    #[Test]
+    #[DataProvider('processInputHandBacks')]
+    public function aHandedBackQuestionOfAProcessIsExplainedByItsLabel(InputHandBackReason $reason): void
+    {
+        $this->setUpBackendUser(isAdmin: false);
+        $conversation = new Conversation();
+        $conversation->setBeUser(2);
+        $conversation->setStatus(ConversationStatus::AwaitingInput);
+        $conversation->setErrorMessage('', $reason->value);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+
+        self::assertSame($reason->labelKey(), $data['errorMessage']);
+        self::assertSame('', $data['errorLink']);
     }
 
     #[Test]

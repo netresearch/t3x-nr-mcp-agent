@@ -57,6 +57,8 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\ProcessRefusal;
+use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
@@ -802,6 +804,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
             return;
         } catch (Throwable $e) {
+            $process = ProcessRefusal::of($e);
+            if ($process instanceof ProcessRefusal) {
+                $this->handBackProcessRefusal($conversation, $runUuid, $e, $process, $process->inputHandBack(), ConversationStatus::AwaitingInput);
+
+                return;
+            }
+
             $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
@@ -892,6 +901,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
             return;
         } catch (Throwable $e) {
+            $process = ProcessRefusal::of($e);
+            if ($process instanceof ProcessRefusal) {
+                $this->handBackProcessRefusal($conversation, $runUuid, $e, $process, $process->approvalHandBack(), ConversationStatus::AwaitingApproval);
+
+                return;
+            }
+
             $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::Failed);
             // The continuation calls the same provider as a turn does, so a
@@ -904,6 +920,51 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         $conversation->clearApprovalDecision();
         $this->applyResult($conversation, $result);
+    }
+
+    /**
+     * A decision nr-llm refused because the run belongs to a guided process
+     * (nr-llm ADR-214 item 6, nr-llm PR 1029). Nothing was carried out.
+     *
+     * When the run still waits, the conversation goes back to waiting with
+     * its card or question and the reason, as for the other refusals that
+     * release a run: the reader can decide again. When nr-llm stopped the run
+     * (a configuration that requires a second approver), there is nothing
+     * left to decide: the conversation is idle and usable again, and the
+     * reason says why the process ended. Never Failed, which would offer a
+     * Retry over a run that cannot move. nr-llm's message goes to the log.
+     *
+     * @param ConversationStatus $waiting the state the decision was taken in
+     */
+    private function handBackProcessRefusal(
+        Conversation $conversation,
+        string $runUuid,
+        Throwable $e,
+        ProcessRefusal $refusal,
+        ApprovalHandBackReason|InputHandBackReason|null $handBack,
+        ConversationStatus $waiting,
+    ): void {
+        $stopped = $refusal->stopsRun() || $handBack === null;
+        $code = $stopped ? ProcessStopReason::NeedsSecondApprover->value : $handBack->value;
+        $this->logger?->warning('nr-llm refused the decision on guided-process run {run} ({reason}): {message}', [
+            'run'       => $runUuid,
+            'reason'    => $code,
+            'message'   => $e->getMessage(),
+            'exception' => $e,
+        ]);
+
+        $conversation->clearApprovalDecision();
+        $conversation->dropInputAnswer();
+        if ($stopped) {
+            // Idle clears the run's reference with the other approval fields.
+            $conversation->setStatus(ConversationStatus::Idle);
+        } else {
+            $conversation->setStatus($waiting);
+            $conversation->setApprovalRunUuid($runUuid);
+        }
+
+        $conversation->setErrorMessage('', $code);
+        $this->persist($conversation);
     }
 
     private function currentBackendUserUid(): int

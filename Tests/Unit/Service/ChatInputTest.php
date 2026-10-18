@@ -43,10 +43,13 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\ProcessRefusal;
+use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use Netresearch\NrMcpAgent\Tests\Unit\Enum\ProcessRefusalTest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -383,6 +386,56 @@ final class ChatInputTest extends TestCase
         self::assertSame('', $conversation->getErrorMessage());
         self::assertFalse($conversation->hasPendingApprovalDecision());
         self::assertSame('Mit welchem Punkt soll ich beginnen?', self::lastMessages($conversation, 1)[0]['content']);
+    }
+
+    /**
+     * @return iterable<string, array{ProcessRefusal, InputHandBackReason}>
+     */
+    public static function processRefusalsThatLeaveTheQuestionOpen(): iterable
+    {
+        yield 'verdict unavailable' => [ProcessRefusal::VerdictUnavailable, InputHandBackReason::VerdictUnavailable];
+        yield 'decided in the chat' => [ProcessRefusal::DecidedInChat, InputHandBackReason::DecidedInChat];
+    }
+
+    /**
+     * nr-llm PR 1029: the run of a guided process refused the answer and
+     * still waits. The question comes back with the chat's own sentence, and
+     * the answer that was not taken leaves the transcript.
+     */
+    #[Test]
+    #[DataProvider('processRefusalsThatLeaveTheQuestionOpen')]
+    public function aProcessRefusalBringsTheQuestionBack(ProcessRefusal $refusal, InputHandBackReason $reason): void
+    {
+        $conversation = $this->asking();
+        $service = $this->service(submitAnswer: ProcessRefusalTest::raised($refusal, self::RUN));
+        $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingInput, $conversation->getStatus());
+        self::assertSame(self::RUN, $conversation->getApprovalRunUuid());
+        self::assertSame($reason->value, $conversation->getErrorCode());
+        self::assertSame('', $conversation->getErrorMessage());
+        self::assertFalse($conversation->hasPendingApprovalDecision());
+        self::assertSame('Mit welchem Punkt soll ich beginnen?', self::lastMessages($conversation, 1)[0]['content']);
+    }
+
+    /** nr-llm PR 1029: a stopped process run leaves an idle, usable conversation. */
+    #[Test]
+    public function aStoppedProcessRunEndsTheQuestion(): void
+    {
+        $conversation = $this->asking();
+        $service = $this->service(submitAnswer: ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, self::RUN));
+        $service->recordInput($conversation, ['start' => 'meta'], 'digest-abc', 'Meta Description');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+        self::assertSame('', $conversation->getApprovalRunUuid());
+        self::assertSame(ProcessStopReason::NeedsSecondApprover->value, $conversation->getErrorCode());
+        self::assertFalse($conversation->isResumable());
+        self::assertFalse($conversation->hasPendingApprovalDecision());
+        self::assertSame('Mit welchem Punkt soll ich beginnen?', self::lastMessages($conversation, 1)[0]['content'], 'the answer that was not taken is not left behind');
     }
 
     #[Test]
