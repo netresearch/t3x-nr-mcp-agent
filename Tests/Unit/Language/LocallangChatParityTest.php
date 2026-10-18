@@ -83,7 +83,7 @@ final class LocallangChatParityTest extends TestCase
     public function everyKeyTheJavaScriptAsksForExists(): void
     {
         $known = array_keys($this->units('locallang_chat.xlf'));
-        $used = $this->keysUsedInJavaScript();
+        $used  = $this->keysUsedInJavaScript();
         self::assertNotSame([], $used, 'precondition: the scan must find lll() calls');
 
         self::assertSame([], array_values(array_diff($used, $known)), 'lll() keys without a unit');
@@ -98,7 +98,7 @@ final class LocallangChatParityTest extends TestCase
     public function everyKeyThePhpAsksForExists(): void
     {
         $known = array_keys($this->units('locallang_chat.xlf'));
-        $used = $this->keysUsedInPhp();
+        $used  = $this->keysUsedInPhp();
         self::assertNotSame([], $used, 'precondition: the scan must find translate() calls');
 
         self::assertSame([], array_values(array_diff($used, $known)), 'translate() keys without a unit');
@@ -119,7 +119,7 @@ final class LocallangChatParityTest extends TestCase
             self::assertNotSame('', $id, $file . ' has a trans-unit without an id');
             self::assertArrayNotHasKey($id, $units, $file . ' declares ' . $id . ' twice');
 
-            $target = $node->getElementsByTagName('target')->item(0);
+            $target     = $node->getElementsByTagName('target')->item(0);
             $units[$id] = [
                 'source' => $node->getElementsByTagName('source')->item(0)?->textContent ?? '',
                 'target' => $target?->textContent,
@@ -137,7 +137,7 @@ final class LocallangChatParityTest extends TestCase
      */
     private function keysUsedInJavaScript(): array
     {
-        $keys = [];
+        $keys    = [];
         $modules = glob(self::JAVASCRIPT_DIR . '*.js');
         $toolbar = glob(self::JAVASCRIPT_DIR . 'toolbar/*.js');
         self::assertNotFalse($modules);
@@ -161,7 +161,7 @@ final class LocallangChatParityTest extends TestCase
      */
     private function keysUsedInPhp(): array
     {
-        $keys = [];
+        $keys  = [];
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::PHP_DIR, FilesystemIterator::SKIP_DOTS));
         foreach ($files as $file) {
             self::assertInstanceOf(SplFileInfo::class, $file);

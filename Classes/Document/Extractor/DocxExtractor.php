@@ -55,6 +55,7 @@ final class DocxExtractor implements DocumentExtractorInterface
         $prev = error_reporting(error_reporting() & ~E_DEPRECATED);
         try {
             $phpWord = IOFactory::load($path);
+
             return $this->extractText($phpWord);
         } catch (Throwable $e) {
             throw new DocumentExtractionException('DOCX extraction failed: ' . $e->getMessage(), 1743000041, $e);
@@ -70,7 +71,7 @@ final class DocxExtractor implements DocumentExtractorInterface
             $parts[] = $this->extractFromSection($section);
         }
 
-        return trim(implode("\n", array_filter($parts, static fn(string $part): bool => $part !== '')));
+        return trim(implode("\n", array_filter($parts, static fn (string $part): bool => $part !== '')));
     }
 
     private function extractFromSection(Section $section): string

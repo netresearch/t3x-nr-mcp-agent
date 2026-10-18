@@ -59,8 +59,8 @@ final class AiChatWidgetTest extends TestCase
 
     private function actingAs(int $uid, string $lang = ''): void
     {
-        $user = $this->createMock(BackendUserAuthentication::class);
-        $user->user = ['uid' => $uid, 'usergroup' => '', 'lang' => $lang];
+        $user               = $this->createMock(BackendUserAuthentication::class);
+        $user->user         = ['uid' => $uid, 'usergroup' => '', 'lang' => $lang];
         $GLOBALS['BE_USER'] = $user;
     }
 
@@ -69,7 +69,7 @@ final class AiChatWidgetTest extends TestCase
     {
         $this->actingAs(3);
         $conversations = [];
-        for ($i = 1; $i <= 7; $i++) {
+        for ($i = 1; $i <= 7; ++$i) {
             $conversations[] = Conversation::fromRow(['uid' => $i, 'be_user' => 3, 'title' => 'Chat ' . $i, 'tstamp' => 100 - $i]);
         }
 
@@ -116,7 +116,7 @@ final class AiChatWidgetTest extends TestCase
         $timezone = date_default_timezone_get();
         date_default_timezone_set('UTC');
         try {
-            $tstamp = 1790157600; // 2026-09-23 10:00 UTC
+            $tstamp     = 1790157600; // 2026-09-23 10:00 UTC
             $repository = $this->createMock(ConversationRepository::class);
             $repository->method('findByBeUser')->willReturn([Conversation::fromRow(['uid' => 1, 'be_user' => 3, 'tstamp' => $tstamp])]);
 

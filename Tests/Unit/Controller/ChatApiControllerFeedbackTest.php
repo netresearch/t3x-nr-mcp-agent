@@ -63,9 +63,9 @@ final class ChatApiControllerFeedbackTest extends TestCase
 
         $this->repository = $this->createMock(ConversationRepository::class);
         $this->repository->method('updateIf')->willReturn(true);
-        $this->processor = $this->createMock(ChatProcessorInterface::class);
+        $this->processor    = $this->createMock(ChatProcessorInterface::class);
         $this->chatApproval = $this->createMock(ChatApprovalInterface::class);
-        $this->uriBuilder = $this->createMock(UriBuilder::class);
+        $this->uriBuilder   = $this->createMock(UriBuilder::class);
 
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
@@ -89,7 +89,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
 
         $languageService = $this->createStub(LanguageService::class);
         $languageService->method('sL')->willReturnCallback(
-            static fn(string $input): string => str_replace('LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:', '', $input),
+            static fn (string $input): string => str_replace('LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:', '', $input),
         );
         $GLOBALS['LANG'] = $languageService;
     }
@@ -102,7 +102,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
 
     private function setUpBackendUser(bool $isAdmin): void
     {
-        $backendUser = $this->createStub(BackendUserAuthentication::class);
+        $backendUser       = $this->createStub(BackendUserAuthentication::class);
         $backendUser->user = ['uid' => 2, 'usergroup' => '', 'admin' => $isAdmin ? 1 : 0];
         $backendUser->method('isAdmin')->willReturn($isAdmin);
         $GLOBALS['BE_USER'] = $backendUser;
@@ -234,13 +234,13 @@ final class ChatApiControllerFeedbackTest extends TestCase
     public function thePollFastPathPhrasesTheFailureToo(): void
     {
         $this->repository->method('findPollStatus')->willReturn([
-            'status' => 'failed',
-            'message_count' => 1,
-            'error_message' => self::PROVIDER_FAILURE,
-            'error_code' => 'providerNotConfigured',
+            'status'            => 'failed',
+            'message_count'     => 1,
+            'error_message'     => self::PROVIDER_FAILURE,
+            'error_code'        => 'providerNotConfigured',
             'approval_run_uuid' => '',
-            'tstamp' => time(),
-            'activity' => [],
+            'tstamp'            => time(),
+            'activity'          => [],
         ]);
 
         $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1', 'after' => '1'])));
@@ -307,7 +307,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
         $conversation = $this->parked();
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
         $this->chatApproval->method('inspectPendingRun')->willReturn([
-            'state' => ChatApprovalInterface::PENDING_RUN_SETTLED,
+            'state'  => ChatApprovalInterface::PENDING_RUN_SETTLED,
             'writes' => ['pages:10073', 'tt_content:10077'],
         ]);
         $this->processor->expects(self::never())->method('dispatch');

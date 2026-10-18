@@ -48,7 +48,7 @@ class ProcessChatCommandTest extends TestCase
     private function createChatService(?RunActivityRecorder $activityRecorder = null): ChatService
     {
         $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
+        $config     = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(0);
 
         $configuration = $this->createMock(LlmConfiguration::class);
@@ -70,7 +70,7 @@ class ProcessChatCommandTest extends TestCase
     public function executeFailsWhenConversationNotFound(): void
     {
         $chatService = $this->createChatService();
-        $repository = $this->createMock(ConversationRepository::class);
+        $repository  = $this->createMock(ConversationRepository::class);
         $repository->method('findByUid')->willReturn(null);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
@@ -90,15 +90,15 @@ class ProcessChatCommandTest extends TestCase
     public function executeLeavesAConversationNotInProcessingStateAlone(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 1,
-            'be_user' => 1,
-            'status' => 'idle',
-            'messages' => '[]',
+            'uid'           => 1,
+            'be_user'       => 1,
+            'status'        => 'idle',
+            'messages'      => '[]',
             'message_count' => 0,
         ]);
 
         $chatService = $this->createChatService();
-        $repository = $this->createMock(ConversationRepository::class);
+        $repository  = $this->createMock(ConversationRepository::class);
         $repository->method('findByUid')->willReturn($conversation);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
@@ -118,15 +118,15 @@ class ProcessChatCommandTest extends TestCase
     public function executeLeavesAFailedConversationAlone(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 2,
-            'be_user' => 1,
-            'status' => 'failed',
-            'messages' => '[]',
+            'uid'           => 2,
+            'be_user'       => 1,
+            'status'        => 'failed',
+            'messages'      => '[]',
             'message_count' => 0,
         ]);
 
         $chatService = $this->createChatService();
-        $repository = $this->createMock(ConversationRepository::class);
+        $repository  = $this->createMock(ConversationRepository::class);
         $repository->method('findByUid')->willReturn($conversation);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
@@ -146,15 +146,15 @@ class ProcessChatCommandTest extends TestCase
     public function executeLeavesALockedConversationAlone(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 3,
-            'be_user' => 1,
-            'status' => 'locked',
-            'messages' => '[]',
+            'uid'           => 3,
+            'be_user'       => 1,
+            'status'        => 'locked',
+            'messages'      => '[]',
             'message_count' => 0,
         ]);
 
         $chatService = $this->createChatService();
-        $repository = $this->createMock(ConversationRepository::class);
+        $repository  = $this->createMock(ConversationRepository::class);
         $repository->method('findByUid')->willReturn($conversation);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
@@ -175,10 +175,10 @@ class ProcessChatCommandTest extends TestCase
         // The race: the row read a moment ago said processing, but a worker
         // (or a second ai-chat:process) claimed it in between.
         $conversation = Conversation::fromRow([
-            'uid' => 5,
-            'be_user' => 1,
-            'status' => 'processing',
-            'messages' => '[{"role":"user","content":"Hello"}]',
+            'uid'           => 5,
+            'be_user'       => 1,
+            'status'        => 'processing',
+            'messages'      => '[{"role":"user","content":"Hello"}]',
             'message_count' => 1,
         ]);
 
@@ -192,7 +192,7 @@ class ProcessChatCommandTest extends TestCase
         $repository->expects(self::never())->method('updateIf');
 
         $command = new ProcessChatCommand($this->createChatService(), $repository, $this->createMock(ConnectionPool::class));
-        $input = new ArrayInput(['conversationUid' => '5']);
+        $input   = new ArrayInput(['conversationUid' => '5']);
         $input->bind($command->getDefinition());
 
         $output = new BufferedOutput();
@@ -205,10 +205,10 @@ class ProcessChatCommandTest extends TestCase
     public function aFailedTurnWritesTheSanitisedMessageToTheOutput(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 6,
-            'be_user' => 1,
-            'status' => 'processing',
-            'messages' => '[{"role":"user","content":"Hello"}]',
+            'uid'           => 6,
+            'be_user'       => 1,
+            'status'        => 'processing',
+            'messages'      => '[{"role":"user","content":"Hello"}]',
             'message_count' => 1,
         ]);
         $repository = $this->createMock(ConversationRepository::class);
@@ -220,7 +220,7 @@ class ProcessChatCommandTest extends TestCase
         GeneralUtility::addInstance(BackendUserAuthentication::class, $this->createMock(BackendUserAuthentication::class));
 
         $command = new ProcessChatCommand($this->createChatService($activityRecorder), $repository, $this->connectionPoolWithBackendUser());
-        $input = new ArrayInput(['conversationUid' => '6']);
+        $input   = new ArrayInput(['conversationUid' => '6']);
         $input->bind($command->getDefinition());
 
         $output = new BufferedOutput();
@@ -281,11 +281,11 @@ class ProcessChatCommandTest extends TestCase
     #[Test]
     public function configureAddsConversationUidArgument(): void
     {
-        $chatService = $this->createChatService();
-        $repository = $this->createMock(ConversationRepository::class);
+        $chatService    = $this->createChatService();
+        $repository     = $this->createMock(ConversationRepository::class);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
-        $command = new ProcessChatCommand($chatService, $repository, $connectionPool);
+        $command    = new ProcessChatCommand($chatService, $repository, $connectionPool);
         $definition = $command->getDefinition();
 
         self::assertTrue($definition->hasArgument('conversationUid'));
@@ -295,7 +295,7 @@ class ProcessChatCommandTest extends TestCase
     #[Test]
     public function constructorAcceptsCorrectDependencies(): void
     {
-        $reflection = new ReflectionClass(ProcessChatCommand::class);
+        $reflection  = new ReflectionClass(ProcessChatCommand::class);
         $constructor = $reflection->getConstructor();
 
         self::assertNotNull($constructor);
@@ -310,15 +310,15 @@ class ProcessChatCommandTest extends TestCase
     public function executeLeavesAToolLoopConversationAlone(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 4,
-            'be_user' => 1,
-            'status' => 'tool_loop',
-            'messages' => '[]',
+            'uid'           => 4,
+            'be_user'       => 1,
+            'status'        => 'tool_loop',
+            'messages'      => '[]',
             'message_count' => 0,
         ]);
 
         $chatService = $this->createChatService();
-        $repository = $this->createMock(ConversationRepository::class);
+        $repository  = $this->createMock(ConversationRepository::class);
         $repository->method('findByUid')->willReturn($conversation);
         $connectionPool = $this->createMock(ConnectionPool::class);
 
@@ -344,10 +344,10 @@ class ProcessChatCommandTest extends TestCase
         ]);
 
         $conversation = Conversation::fromRow([
-            'uid' => 30,
-            'be_user' => 1,
-            'status' => 'processing',
-            'messages' => $toolCallMessages,
+            'uid'           => 30,
+            'be_user'       => 1,
+            'status'        => 'processing',
+            'messages'      => $toolCallMessages,
             'message_count' => 2,
         ]);
 
@@ -358,10 +358,10 @@ class ProcessChatCommandTest extends TestCase
     public function conversationWithoutToolCallsIsNotDetectedAsPending(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 31,
-            'be_user' => 1,
-            'status' => 'processing',
-            'messages' => '[{"role":"user","content":"Hello"}]',
+            'uid'           => 31,
+            'be_user'       => 1,
+            'status'        => 'processing',
+            'messages'      => '[{"role":"user","content":"Hello"}]',
             'message_count' => 1,
         ]);
 

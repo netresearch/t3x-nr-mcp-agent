@@ -46,8 +46,8 @@ final class Typo3CliBinaryResolverTest extends TestCase
     {
         parent::setUp();
         $this->environmentBackup = (new ReflectionClass(Environment::class))->getStaticProperties();
-        $this->root = sys_get_temp_dir() . '/nr-mcp-agent-binary-' . bin2hex(random_bytes(6));
-        mkdir($this->root, 0777, true);
+        $this->root              = sys_get_temp_dir() . '/nr-mcp-agent-binary-' . bin2hex(random_bytes(6));
+        mkdir($this->root, 0o777, true);
         // The test autoloader's autoload-include.php exports the extension's
         // own Composer root; every case sets what it needs.
         $this->composerRootEnv = getenv('TYPO3_PATH_COMPOSER_ROOT');
@@ -217,7 +217,7 @@ final class Typo3CliBinaryResolverTest extends TestCase
     #[Test]
     public function directoryInPlaceOfTheBinaryThrows(): void
     {
-        mkdir($this->root . '/vendor/bin/typo3', 0777, true);
+        mkdir($this->root . '/vendor/bin/typo3', 0o777, true);
 
         $this->expectException(Typo3CliBinaryNotFoundException::class);
 
@@ -280,7 +280,7 @@ final class Typo3CliBinaryResolverTest extends TestCase
     {
         $dir = $this->root . '/' . $relativeDir;
         if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
+            mkdir($dir, 0o777, true);
         }
 
         $binary = $dir . '/typo3';

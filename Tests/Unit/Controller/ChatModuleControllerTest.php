@@ -36,11 +36,11 @@ class ChatModuleControllerTest extends TestCase
     #[Test]
     public function constructorAcceptsPageRenderer(): void
     {
-        $ref = new ReflectionClass(ChatModuleController::class);
+        $ref    = new ReflectionClass(ChatModuleController::class);
         $params = $ref->getConstructor()?->getParameters() ?? [];
 
         $types = array_map(
-            static fn(ReflectionParameter $p): string => (string) $p->getType(),
+            static fn (ReflectionParameter $p): string => (string) $p->getType(),
             $params,
         );
 
@@ -50,11 +50,11 @@ class ChatModuleControllerTest extends TestCase
     #[Test]
     public function constructorAcceptsExtensionConfiguration(): void
     {
-        $ref = new ReflectionClass(ChatModuleController::class);
+        $ref    = new ReflectionClass(ChatModuleController::class);
         $params = $ref->getConstructor()?->getParameters() ?? [];
 
         $types = array_map(
-            static fn(ReflectionParameter $p): string => (string) $p->getType(),
+            static fn (ReflectionParameter $p): string => (string) $p->getType(),
             $params,
         );
 
@@ -91,11 +91,11 @@ class ChatModuleControllerTest extends TestCase
     #[Test]
     public function constructorAcceptsModuleTemplateFactory(): void
     {
-        $ref = new ReflectionClass(ChatModuleController::class);
+        $ref    = new ReflectionClass(ChatModuleController::class);
         $params = $ref->getConstructor()?->getParameters() ?? [];
 
         $types = array_map(
-            static fn(ReflectionParameter $p): string => (string) $p->getType(),
+            static fn (ReflectionParameter $p): string => (string) $p->getType(),
             $params,
         );
 
@@ -105,7 +105,7 @@ class ChatModuleControllerTest extends TestCase
     #[Test]
     public function constructorHasThreeDependencies(): void
     {
-        $ref = new ReflectionClass(ChatModuleController::class);
+        $ref    = new ReflectionClass(ChatModuleController::class);
         $params = $ref->getConstructor()?->getParameters() ?? [];
 
         self::assertCount(3, $params);

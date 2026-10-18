@@ -57,8 +57,9 @@ final readonly class ChatToolbarItem implements ToolbarItemInterface, RequestAwa
      */
     private function userIsInAllowedGroup(BackendUserAuthentication $beUser, array $allowed): bool
     {
-        $usergroup = $beUser->user['usergroup'] ?? null;
+        $usergroup  = $beUser->user['usergroup'] ?? null;
         $userGroups = array_map(intval(...), explode(',', is_string($usergroup) ? $usergroup : ''));
+
         return array_intersect($allowed, $userGroups) !== [];
     }
 
@@ -99,6 +100,7 @@ final readonly class ChatToolbarItem implements ToolbarItemInterface, RequestAwa
     private function getBackendUser(): ?BackendUserAuthentication
     {
         $user = $GLOBALS['BE_USER'] ?? null;
+
         return $user instanceof BackendUserAuthentication ? $user : null;
     }
 }

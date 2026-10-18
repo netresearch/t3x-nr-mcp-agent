@@ -20,10 +20,10 @@ $moduleIcon = (new Typo3Version())->getMajorVersion() >= 14
 return [
     'module-nr-mcp-agent' => [
         'provider' => SvgIconProvider::class,
-        'source' => $moduleIcon,
+        'source'   => $moduleIcon,
     ],
     'toolbar-nr-mcp-agent' => [
         'provider' => SvgIconProvider::class,
-        'source' => $moduleIcon,
+        'source'   => $moduleIcon,
     ],
 ];

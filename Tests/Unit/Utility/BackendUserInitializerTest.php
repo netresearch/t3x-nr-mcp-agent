@@ -62,11 +62,11 @@ class BackendUserInitializerTest extends TestCase
     public function initializeSetsGlobalBeUserOnSuccess(): void
     {
         $userRecord = [
-            'uid' => 7,
+            'uid'      => 7,
             'username' => 'testuser',
-            'admin' => 0,
-            'deleted' => 0,
-            'disable' => 0,
+            'admin'    => 0,
+            'deleted'  => 0,
+            'disable'  => 0,
         ];
 
         $result = $this->createMock(Result::class);

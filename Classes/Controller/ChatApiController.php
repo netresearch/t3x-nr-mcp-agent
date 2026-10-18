@@ -111,8 +111,8 @@ final readonly class ChatApiController
         try {
             return (string) $this->uriBuilder->buildUriFromRoute('nrllm_aitasks', [
                 'controller' => 'Backend\\AgentRun',
-                'action' => 'show',
-                'runUuid' => $runUuid,
+                'action'     => 'show',
+                'runUuid'    => $runUuid,
             ]);
         } catch (RouteNotFoundException) {
             return '';
@@ -130,17 +130,18 @@ final readonly class ChatApiController
         }
 
         $taskUid = $this->config->getLlmTaskUid();
-        $issues = [];
+        $issues  = [];
         if ($taskUid === 0) {
             $issues[] = 'No nr-llm Task configured. An admin must create an nr-llm Task record and set its UID in Extension Configuration.';
         }
 
 
         $capabilities = $this->chatService->getProviderCapabilities();
+
         return new JsonResponse([
-            'available' => $taskUid > 0,
+            'available'               => $taskUid > 0,
             'activeConversationCount' => $this->repository->countActiveByBeUser($this->getBeUserUid()),
-            'issues' => $issues,
+            'issues'                  => $issues,
             ...$capabilities,
         ]);
     }
@@ -156,17 +157,18 @@ final readonly class ChatApiController
         }
 
         $conversations = $this->repository->findByBeUser($this->getBeUserUid());
-        $items = array_map(fn(Conversation $c): array => [
-            'uid' => $c->getUid(),
-            'title' => $c->getTitle(),
-            'status' => $c->getStatus()->value,
+        $items         = array_map(fn (Conversation $c): array => [
+            'uid'          => $c->getUid(),
+            'title'        => $c->getTitle(),
+            'status'       => $c->getStatus()->value,
             'messageCount' => $c->getMessageCount(),
-            'pinned' => $c->isPinned(),
-            'resumable' => $c->isResumable(),
+            'pinned'       => $c->isPinned(),
+            'resumable'    => $c->isResumable(),
             ...$this->presentError($c->getErrorMessage(), $c->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($c->getApprovalRunUuid()),
-            'tstamp' => $c->getTstamp(),
+            'tstamp'      => $c->getTstamp(),
         ], $conversations);
+
         return new JsonResponse(['conversations' => $items]);
     }
 
@@ -184,13 +186,14 @@ final readonly class ChatApiController
         $conversation->setBeUser($this->getBeUserUid());
 
         $uid = $this->repository->add($conversation);
+
         return new JsonResponse([
             'uid' => $uid,
         ], 201);
     }
 
     /**
-     * GET /ai-chat/conversations/messages?conversationUid={uid}&after={index}
+     * GET /ai-chat/conversations/messages?conversationUid={uid}&after={index}.
      */
     public function getMessages(ServerRequestInterface $request): ResponseInterface
     {
@@ -201,8 +204,8 @@ final readonly class ChatApiController
 
         /** @var array<string, string> $queryParams */
         $queryParams = $request->getQueryParams();
-        $uid = (int) ($queryParams['conversationUid'] ?? 0);
-        $afterIndex = (int) ($queryParams['after'] ?? 0);
+        $uid         = (int) ($queryParams['conversationUid'] ?? 0);
+        $afterIndex  = (int) ($queryParams['after'] ?? 0);
 
         // Fast path for polling: check metadata first without loading messages blob
         if ($afterIndex > 0) {
@@ -230,12 +233,12 @@ final readonly class ChatApiController
 
             if ($meta['message_count'] <= $afterIndex && !$mayNeedRepair && !$isAwaitingApproval) {
                 return new JsonResponse([
-                    'status' => $meta['status'],
-                    'messages' => [],
+                    'status'     => $meta['status'],
+                    'messages'   => [],
                     'totalCount' => $meta['message_count'],
                     ...$this->presentError($meta['error_message'], $meta['error_code']),
                     'approvalUrl' => $this->buildApprovalUrl($meta['approval_run_uuid']),
-                    'activity' => $meta['activity'],
+                    'activity'    => $meta['activity'],
                 ]);
             }
         }
@@ -249,15 +252,15 @@ final readonly class ChatApiController
         // forever; the run itself says whether that happened.
         $this->chatApproval->reconcile($conversation);
 
-        $messages = $conversation->getDecodedMessages();
+        $messages    = $conversation->getDecodedMessages();
         $newMessages = array_slice($messages, $afterIndex);
 
         return new JsonResponse([
-            'status' => $conversation->getStatus()->value,
-            'messages' => $newMessages,
+            'status'     => $conversation->getStatus()->value,
+            'messages'   => $newMessages,
             'totalCount' => count($messages),
             ...$this->presentError($conversation->getErrorMessage(), $conversation->getErrorCode()),
-            'approvalUrl' => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
+            'approvalUrl'     => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),
             // Whether this reader may decide approvals at all. Without it the
             // notice cannot tell "decide below" from "someone else decides",
@@ -266,13 +269,13 @@ final readonly class ChatApiController
             // A hand-back whose sentence points to the run in AI Tasks: the
             // card offers the link even though it has a preview.
             'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
-            'systemPrompt' => $conversation->getSystemPrompt(),
-            'activity' => $conversation->getActivity(),
+            'systemPrompt'     => $conversation->getSystemPrompt(),
+            'activity'         => $conversation->getActivity(),
         ]);
     }
 
     /**
-     * POST /ai-chat/conversations/send
+     * POST /ai-chat/conversations/send.
      */
     public function sendMessage(ServerRequestInterface $request): ResponseInterface
     {
@@ -281,7 +284,7 @@ final readonly class ChatApiController
             return $accessDenied;
         }
 
-        $body = $this->parseBody($request);
+        $body         = $this->parseBody($request);
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
@@ -298,8 +301,8 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => sprintf('Message too long (max %d characters)', $maxLength)], 400);
         }
 
-        $fileUid = isset($body['fileUid']) ? (int) $body['fileUid'] : null;
-        $fileName = null;
+        $fileUid      = isset($body['fileUid']) ? (int) $body['fileUid'] : null;
+        $fileName     = null;
         $fileMimeType = null;
 
         if ($fileUid !== null) {
@@ -314,7 +317,7 @@ final readonly class ChatApiController
                     return new JsonResponse(['error' => self::ERROR_FILE_NOT_FOUND], 404);
                 }
 
-                $fileName = $file->getName();
+                $fileName     = $file->getName();
                 $fileMimeType = $file->getMimeType();
             } catch (Exception) {
                 return new JsonResponse(['error' => self::ERROR_FILE_NOT_FOUND], 404);
@@ -340,14 +343,14 @@ final readonly class ChatApiController
         }
 
         if ($fileUid !== null) {
-            $messages = $conversation->getDecodedMessages();
+            $messages   = $conversation->getDecodedMessages();
             $messages[] = [
-                'role' => MessageRole::User->value,
-                'content' => $content,
-                'fileUid' => $fileUid,
-                'fileName' => $fileName,
+                'role'         => MessageRole::User->value,
+                'content'      => $content,
+                'fileUid'      => $fileUid,
+                'fileName'     => $fileName,
                 'fileMimeType' => $fileMimeType,
-                'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
+                'createdAt'    => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
             ];
             $conversation->setMessages($messages);
             if ($conversation->getTitle() === '') {
@@ -379,7 +382,7 @@ final readonly class ChatApiController
             return $accessDenied;
         }
 
-        $body = $this->parseBody($request);
+        $body         = $this->parseBody($request);
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
@@ -396,7 +399,7 @@ final readonly class ChatApiController
         }
 
         $rawIndex = $body['index'] ?? null;
-        $index = is_int($rawIndex) ? $rawIndex : -1;
+        $index    = is_int($rawIndex) ? $rawIndex : -1;
         $messages = $conversation->getDecodedMessages();
         $original = $messages[$index] ?? null;
         if ($original === null
@@ -412,13 +415,13 @@ final readonly class ChatApiController
         // replace the wrong one. The client sends what it saw; a mismatch is a
         // conflict to reload, not an edit to guess at.
         $expectedContent = $body['expectedContent'] ?? null;
-        $expectedCount = $body['messageCount'] ?? null;
+        $expectedCount   = $body['messageCount'] ?? null;
         if ($expectedContent !== $original['content'] || $expectedCount !== count($messages)) {
             return new JsonResponse(['error' => $this->translate('error.editStale')], 409);
         }
 
         $currentStatus = $conversation->getStatus();
-        $refusal = $this->refuseNewTurn($currentStatus);
+        $refusal       = $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
             return $refusal;
         }
@@ -430,7 +433,7 @@ final readonly class ChatApiController
             $conversation->setTitle($content);
         }
 
-        $original['content'] = $content;
+        $original['content']   = $content;
         $original['createdAt'] = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
         $conversation->setMessages([...array_slice($messages, 0, $index), $original]);
 
@@ -453,7 +456,7 @@ final readonly class ChatApiController
             return $accessDenied;
         }
 
-        $body = $this->parseBody($request);
+        $body         = $this->parseBody($request);
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
@@ -549,7 +552,7 @@ final readonly class ChatApiController
 
         /** @var array<string, UploadedFileInterface> $uploadedFiles */
         $uploadedFiles = $request->getUploadedFiles();
-        $file = $uploadedFiles['file'] ?? null;
+        $file          = $uploadedFiles['file'] ?? null;
 
         if ($file === null || $file->getError() !== UPLOAD_ERR_OK) {
             return new JsonResponse(['error' => 'No file uploaded'], 400);
@@ -571,9 +574,9 @@ final readonly class ChatApiController
         }
 
         // Validate MIME type server-side via finfo — client-supplied Content-Type is untrusted
-        $uri = $file->getStream()->getMetadata('uri');
-        $tempPath = is_string($uri) ? $uri : '';
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $uri          = $file->getStream()->getMetadata('uri');
+        $tempPath     = is_string($uri) ? $uri : '';
+        $finfo        = new finfo(FILEINFO_MIME_TYPE);
         $detectedMime = $finfo->file($tempPath);
         if (!is_string($detectedMime) || !in_array($detectedMime, $allowedMimeTypes, true)) {
             return new JsonResponse(['error' => 'File type not supported'], 422);
@@ -597,7 +600,7 @@ final readonly class ChatApiController
 
         try {
             $targetFolder = $this->getOrCreateUploadFolder($storage, $beUserUid);
-            $falFile = $this->storeAttachment($storage, $targetFolder, $tempPath, $file->getClientFilename() ?? 'upload');
+            $falFile      = $this->storeAttachment($storage, $targetFolder, $tempPath, $file->getClientFilename() ?? 'upload');
         } catch (InsufficientFolderAccessPermissionsException|InsufficientFolderWritePermissionsException|InsufficientUserPermissionsException) {
             // The user's file mounts and permissions decide this, and core makes
             // the decision inside addFile()/createFolder(). Answer it as the
@@ -606,10 +609,10 @@ final readonly class ChatApiController
         }
 
         return new JsonResponse([
-            'fileUid' => $falFile->getUid(),
-            'name' => $falFile->getName(),
+            'fileUid'  => $falFile->getUid(),
+            'name'     => $falFile->getName(),
             'mimeType' => $falFile->getMimeType(),
-            'size' => $falFile->getSize(),
+            'size'     => $falFile->getSize(),
         ]);
     }
 
@@ -769,16 +772,16 @@ final readonly class ChatApiController
             return [
                 'errorMessage' => $this->translate(match ($kind) {
                     ConversationErrorCode::ProviderNotConfigured => 'error.providerNotConfigured',
-                    ConversationErrorCode::ChatNotConfigured => 'error.chatNotConfigured',
+                    ConversationErrorCode::ChatNotConfigured     => 'error.chatNotConfigured',
                 }),
-                'errorLink' => '',
+                'errorLink'      => '',
                 'errorLinkLabel' => '',
             ];
         }
 
         [$route, $label] = match ($kind) {
             ConversationErrorCode::ProviderNotConfigured => ['nrllm_providers', 'error.openProviders'],
-            ConversationErrorCode::ChatNotConfigured => ['nrllm_tasks', 'error.openTasks'],
+            ConversationErrorCode::ChatNotConfigured     => ['nrllm_tasks', 'error.openTasks'],
         };
 
         try {
@@ -892,7 +895,7 @@ final readonly class ChatApiController
     }
 
     /**
-     * POST /ai-chat/conversations/approve
+     * POST /ai-chat/conversations/approve.
      *
      * Records the decision and hands it to the worker, like every other path
      * here. approve() drives the whole continuation — up to MAX_ITERATIONS
@@ -925,9 +928,9 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.notAwaitingApproval')], 409);
         }
 
-        $body = $this->parseBody($request);
-        $approve = (bool) ($body['approve'] ?? false);
-        $digest = $body['turnDigest'] ?? '';
+        $body       = $this->parseBody($request);
+        $approve    = (bool) ($body['approve'] ?? false);
+        $digest     = $body['turnDigest'] ?? '';
         $turnDigest = is_string($digest) ? $digest : '';
 
         if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest)) {
@@ -943,7 +946,7 @@ final readonly class ChatApiController
     }
 
     /**
-     * POST /ai-chat/conversations/resume
+     * POST /ai-chat/conversations/resume.
      */
     public function resumeConversation(ServerRequestInterface $request): ResponseInterface
     {
@@ -1003,7 +1006,7 @@ final readonly class ChatApiController
     }
 
     /**
-     * POST /ai-chat/conversations/archive
+     * POST /ai-chat/conversations/archive.
      */
     public function archiveConversation(ServerRequestInterface $request): ResponseInterface
     {
@@ -1023,7 +1026,7 @@ final readonly class ChatApiController
     }
 
     /**
-     * POST /ai-chat/conversations/pin
+     * POST /ai-chat/conversations/pin.
      */
     public function togglePin(ServerRequestInterface $request): ResponseInterface
     {
@@ -1044,7 +1047,7 @@ final readonly class ChatApiController
     }
 
     /**
-     * POST /ai-chat/conversations/rename
+     * POST /ai-chat/conversations/rename.
      */
     public function renameConversation(ServerRequestInterface $request): ResponseInterface
     {
@@ -1055,7 +1058,7 @@ final readonly class ChatApiController
 
         // Parse body once — PSR-7 streams are one-shot; passing $body to
         // findConversationOrFail avoids reading the stream a second time.
-        $body = $this->parseBody($request);
+        $body         = $this->parseBody($request);
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
@@ -1079,7 +1082,7 @@ final readonly class ChatApiController
         $body = $parsedBody ?? $this->parseBody($request);
         /** @var array<string, string> $queryParams */
         $queryParams = $request->getQueryParams();
-        $uid = (int) ($queryParams['conversationUid'] ?? $body['conversationUid'] ?? 0);
+        $uid         = (int) ($queryParams['conversationUid'] ?? $body['conversationUid'] ?? 0);
 
         $conversation = $this->repository->findOneByUidAndBeUser($uid, $this->getBeUserUid());
 
@@ -1123,6 +1126,7 @@ final readonly class ChatApiController
     {
         /** @var array<string, string|int> $body */
         $body = json_decode((string) $request->getBody(), true) ?? [];
+
         return $body;
     }
 
@@ -1134,7 +1138,8 @@ final readonly class ChatApiController
     private function countFilesInConversation(Conversation $conversation): int
     {
         $messages = $conversation->getDecodedMessages();
-        return count(array_filter($messages, static fn(array $msg): bool => isset($msg['fileUid'])));
+
+        return count(array_filter($messages, static fn (array $msg): bool => isset($msg['fileUid'])));
     }
 
     private function getOrCreateUploadFolder(ResourceStorage $storage, int $beUserUid): Folder
@@ -1197,6 +1202,7 @@ final readonly class ChatApiController
         // BE_USER is always set for authenticated backend requests; no DI alternative exists.
         /** @var object{user: array<string, string|int>} $beUser */
         $beUser = $GLOBALS['BE_USER'];
+
         return $beUser->user;
     }
 }

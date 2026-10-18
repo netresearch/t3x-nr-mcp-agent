@@ -109,26 +109,27 @@ final class Conversation
      */
     public static function fromRow(array $row): self
     {
-        $conversation = new self();
-        $conversation->uid = (int) self::val($row, 'uid', 0);
-        $conversation->beUser = (int) self::val($row, 'be_user', 0);
-        $conversation->title = (string) self::val($row, 'title', '');
-        $conversation->messages = (string) self::val($row, 'messages', '');
-        $conversation->messageCount = (int) self::val($row, 'message_count', 0);
-        $conversation->status = (string) self::val($row, 'status', 'idle');
-        $conversation->currentRequestId = (string) self::val($row, 'current_request_id', '');
-        $conversation->systemPrompt = (string) self::val($row, 'system_prompt', '');
-        $conversation->viewContext = (string) self::val($row, 'view_context', '');
-        $conversation->activity = (string) self::val($row, 'activity', '');
-        $conversation->archived = (bool) self::val($row, 'archived', false);
-        $conversation->pinned = (bool) self::val($row, 'pinned', false);
-        $conversation->errorMessage = (string) self::val($row, 'error_message', '');
-        $conversation->errorCode = (string) self::val($row, 'error_code', '');
-        $conversation->approvalRunUuid = (string) self::val($row, 'approval_run_uuid', '');
-        $conversation->approvalDecision = (string) self::val($row, 'approval_decision', '');
+        $conversation                     = new self();
+        $conversation->uid                = (int) self::val($row, 'uid', 0);
+        $conversation->beUser             = (int) self::val($row, 'be_user', 0);
+        $conversation->title              = (string) self::val($row, 'title', '');
+        $conversation->messages           = (string) self::val($row, 'messages', '');
+        $conversation->messageCount       = (int) self::val($row, 'message_count', 0);
+        $conversation->status             = (string) self::val($row, 'status', 'idle');
+        $conversation->currentRequestId   = (string) self::val($row, 'current_request_id', '');
+        $conversation->systemPrompt       = (string) self::val($row, 'system_prompt', '');
+        $conversation->viewContext        = (string) self::val($row, 'view_context', '');
+        $conversation->activity           = (string) self::val($row, 'activity', '');
+        $conversation->archived           = (bool) self::val($row, 'archived', false);
+        $conversation->pinned             = (bool) self::val($row, 'pinned', false);
+        $conversation->errorMessage       = (string) self::val($row, 'error_message', '');
+        $conversation->errorCode          = (string) self::val($row, 'error_code', '');
+        $conversation->approvalRunUuid    = (string) self::val($row, 'approval_run_uuid', '');
+        $conversation->approvalDecision   = (string) self::val($row, 'approval_decision', '');
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
-        $conversation->tstamp = (int) self::val($row, 'tstamp', 0);
-        $conversation->crdate = (int) self::val($row, 'crdate', 0);
+        $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
+        $conversation->crdate             = (int) self::val($row, 'crdate', 0);
+
         return $conversation;
     }
 
@@ -138,6 +139,7 @@ final class Conversation
     private static function val(array $row, string $key, mixed $default): int|float|string|bool|null
     {
         $v = $row[$key] ?? $default;
+
         return is_scalar($v) ? $v : null;
     }
 
@@ -155,19 +157,19 @@ final class Conversation
     public function toRow(): array
     {
         return [
-            'be_user' => $this->beUser,
-            'title' => $this->title,
-            'messages' => $this->messages,
-            'message_count' => $this->messageCount,
-            'status' => $this->status,
-            'current_request_id' => $this->currentRequestId,
-            'view_context' => $this->viewContext,
-            'archived' => (int) $this->archived,
-            'pinned' => (int) $this->pinned,
-            'error_message' => $this->errorMessage,
-            'error_code' => $this->errorCode,
-            'approval_run_uuid' => $this->approvalRunUuid,
-            'approval_decision' => $this->approvalDecision,
+            'be_user'              => $this->beUser,
+            'title'                => $this->title,
+            'messages'             => $this->messages,
+            'message_count'        => $this->messageCount,
+            'status'               => $this->status,
+            'current_request_id'   => $this->currentRequestId,
+            'view_context'         => $this->viewContext,
+            'archived'             => (int) $this->archived,
+            'pinned'               => (int) $this->pinned,
+            'error_message'        => $this->errorMessage,
+            'error_code'           => $this->errorCode,
+            'approval_run_uuid'    => $this->approvalRunUuid,
+            'approval_decision'    => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
         ];
     }
@@ -257,7 +259,7 @@ final class Conversation
      */
     public function setMessages(array $messages): void
     {
-        $this->messages = json_encode($messages, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $this->messages     = json_encode($messages, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->messageCount = count($messages);
     }
 
@@ -271,7 +273,7 @@ final class Conversation
     public function appendMessage(MessageRole $role, string|array $content, string $notice = '', array $noticeArgs = []): void
     {
         $messages = $this->getDecodedMessages();
-        $message = ['role' => $role->value, 'content' => $content, 'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM)];
+        $message  = ['role' => $role->value, 'content' => $content, 'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM)];
         if ($notice !== '') {
             $message['notice'] = $notice;
             if ($noticeArgs !== []) {
@@ -312,8 +314,8 @@ final class Conversation
         // run afterwards. Only the card's own render gate reads the waiting
         // status, so a reference surviving into Processing shows nothing.
         if ($status === ConversationStatus::Idle || $status === ConversationStatus::Failed) {
-            $this->approvalRunUuid = '';
-            $this->approvalDecision = '';
+            $this->approvalRunUuid    = '';
+            $this->approvalDecision   = '';
             $this->approvalTurnDigest = '';
         }
     }
@@ -344,8 +346,8 @@ final class Conversation
     public function getViewContext(): array
     {
         $decoded = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
-        $pageId = is_array($decoded) && is_int($decoded['pageId'] ?? null) ? $decoded['pageId'] : 0;
-        $module = is_array($decoded) && is_string($decoded['module'] ?? null) ? $decoded['module'] : '';
+        $pageId  = is_array($decoded) && is_int($decoded['pageId'] ?? null) ? $decoded['pageId'] : 0;
+        $module  = is_array($decoded) && is_string($decoded['module'] ?? null) ? $decoded['module'] : '';
 
         return ['pageId' => max(0, $pageId), 'module' => $module];
     }
@@ -485,13 +487,13 @@ final class Conversation
      */
     public function recordApprovalDecision(bool $approve, string $turnDigest): void
     {
-        $this->approvalDecision = $approve ? 'approve' : 'deny';
+        $this->approvalDecision   = $approve ? 'approve' : 'deny';
         $this->approvalTurnDigest = $turnDigest;
     }
 
     public function clearApprovalDecision(): void
     {
-        $this->approvalDecision = '';
+        $this->approvalDecision   = '';
         $this->approvalTurnDigest = '';
     }
 
@@ -508,7 +510,7 @@ final class Conversation
     public function setErrorMessage(string $message, string $code = ''): void
     {
         $this->errorMessage = $message;
-        $this->errorCode = $code;
+        $this->errorCode    = $code;
     }
 
     public function getTstamp(): int
@@ -518,8 +520,9 @@ final class Conversation
 
     public function hasPendingToolCalls(): bool
     {
-        $messages = $this->getDecodedMessages();
+        $messages    = $this->getDecodedMessages();
         $lastMessage = end($messages);
+
         return is_array($lastMessage)
             && ($lastMessage['role'] ?? '') === 'assistant'
             && is_array($lastMessage['tool_calls'] ?? null)

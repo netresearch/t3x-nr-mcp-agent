@@ -22,7 +22,7 @@ class DocxExtractorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->subject = new DocxExtractor();
+        $this->subject  = new DocxExtractor();
         $this->fixtures = __DIR__ . '/../../../Fixtures/Documents';
     }
 

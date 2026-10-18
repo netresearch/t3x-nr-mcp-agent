@@ -382,7 +382,7 @@ class ConversationRepositoryTest extends FunctionalTestCase
 
         $listed = array_values(array_filter(
             $this->subject->findByBeUser(1),
-            static fn(Conversation $c): bool => $c->getUid() === $uid,
+            static fn (Conversation $c): bool => $c->getUid() === $uid,
         ));
         self::assertSame('providerNotConfigured', $listed[0]->getErrorCode());
     }
@@ -419,7 +419,7 @@ class ConversationRepositoryTest extends FunctionalTestCase
         $uid = $this->subject->add($conversation);
 
         // findByBeUser uses LIST_COLUMNS which excludes 'messages'
-        $list = $this->subject->findByBeUser(1);
+        $list  = $this->subject->findByBeUser(1);
         $found = null;
         foreach ($list as $item) {
             if ($item->getUid() === $uid) {

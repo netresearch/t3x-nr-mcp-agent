@@ -45,7 +45,7 @@ final class XlsxExtractor implements DocumentExtractorInterface
     {
         try {
             $spreadsheet = IOFactory::load($path);
-            $parts = [];
+            $parts       = [];
             foreach ($spreadsheet->getWorksheetIterator() as $worksheet) {
                 $parts[] = $worksheet->getTitle();
                 foreach ($worksheet->getRowIterator() as $row) {

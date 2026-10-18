@@ -35,7 +35,7 @@ class ChatModuleControllerTest extends FunctionalTestCase
     {
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users.csv');
-        $backendUser = $this->setUpBackendUser(1);
+        $backendUser     = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
     }
 
@@ -50,7 +50,7 @@ class ChatModuleControllerTest extends FunctionalTestCase
     public function moduleIsRegistered(): void
     {
         $moduleProvider = $this->get(ModuleProvider::class);
-        $module = $moduleProvider->getModule('nr_mcp_agent_chat');
+        $module         = $moduleProvider->getModule('nr_mcp_agent_chat');
         self::assertNotNull($module, 'Module nr_mcp_agent_chat must be registered');
     }
 
@@ -86,14 +86,14 @@ class ChatModuleControllerTest extends FunctionalTestCase
     private function renderModulePage(): ResponseInterface
     {
         $moduleProvider = $this->get(ModuleProvider::class);
-        $module = $moduleProvider->getModule('nr_mcp_agent_chat');
+        $module         = $moduleProvider->getModule('nr_mcp_agent_chat');
         self::assertNotNull($module);
 
         // Build a Route that carries the packageName option so BackendViewFactory
         // can resolve the Fluid template paths from the correct extension.
         $routeOptions = $module->getDefaultRouteOptions();
-        $defaultOpts = $routeOptions['_default'] ?? [];
-        $route = new Route('path', $defaultOpts);
+        $defaultOpts  = $routeOptions['_default'] ?? [];
+        $route        = new Route('path', $defaultOpts);
 
         $request = (new ServerRequest('https://localhost/typo3/module/tools/nr-mcp-agent-chat', 'GET'))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)

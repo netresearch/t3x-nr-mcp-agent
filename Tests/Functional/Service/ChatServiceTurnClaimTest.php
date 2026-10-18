@@ -65,17 +65,17 @@ final class ChatServiceTurnClaimTest extends FunctionalTestCase
     #[Test]
     public function noOtherConsumerCanTakeATurnWhileItRuns(): void
     {
-        $repository = $this->get(ConversationRepository::class);
+        $repository   = $this->get(ConversationRepository::class);
         $conversation = $repository->claimForProcess(2, 'process_1');
         self::assertNotNull($conversation);
 
         $duringTurn = [];
-        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime    = $this->createMock(AgentRuntimeInterface::class);
         $runtime->expects(self::once())->method('run')->willReturnCallback(
             function () use ($repository, &$duringTurn): AgentRunResult {
                 $duringTurn = [
-                    'status' => $repository->findByUid(2)?->getStatus(),
-                    'worker' => $repository->dequeueForWorker('worker_1'),
+                    'status'  => $repository->findByUid(2)?->getStatus(),
+                    'worker'  => $repository->dequeueForWorker('worker_1'),
                     'process' => $repository->claimForProcess(2, 'process_2'),
                 ];
 

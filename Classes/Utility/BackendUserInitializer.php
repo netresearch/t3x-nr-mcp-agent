@@ -21,7 +21,7 @@ final class BackendUserInitializer
     {
         $backendUser = GeneralUtility::makeInstance(BackendUserAuthentication::class);
 
-        $qb = $connectionPool->getQueryBuilderForTable('be_users');
+        $qb         = $connectionPool->getQueryBuilderForTable('be_users');
         $userRecord = $qb->select('*')
             ->from('be_users')
             ->where(

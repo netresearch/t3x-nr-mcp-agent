@@ -64,7 +64,7 @@ final class ChatProcessorFactoryTest extends TestCase
         $configuration->method('getProcessingStrategy')->willReturn($strategy);
 
         // ExecChatProcessor is final; its constructor does not matter here.
-        $exec = (new ReflectionClass(ExecChatProcessor::class))->newInstanceWithoutConstructor();
+        $exec   = (new ReflectionClass(ExecChatProcessor::class))->newInstanceWithoutConstructor();
         $worker = new WorkerChatProcessor();
 
         return [new ChatProcessorFactory($configuration, $exec, $worker), $exec, $worker];

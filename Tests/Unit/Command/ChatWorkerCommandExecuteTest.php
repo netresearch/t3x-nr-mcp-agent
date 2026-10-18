@@ -125,7 +125,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
     public function executeSetsConversationFailedWhenBackendUserNotFound(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 1, 'be_user' => 1, 'status' => 'processing',
+            'uid'      => 1, 'be_user' => 1, 'status' => 'processing',
             'messages' => '[{"role":"user","content":"Hello"}]', 'message_count' => 1,
         ]);
 
@@ -139,8 +139,8 @@ class ChatWorkerCommandExecuteTest extends TestCase
         $repository->method('update')->willThrowException(new RuntimeException('break'));
 
         $connectionPool = $this->buildConnectionPoolMockForUserNotFound();
-        $chatService = $this->createChatService();
-        $command = new ChatWorkerCommand($chatService, $repository, $connectionPool);
+        $chatService    = $this->createChatService();
+        $command        = new ChatWorkerCommand($chatService, $repository, $connectionPool);
 
         $input = new ArrayInput(['--poll-interval' => '0']);
         $input->bind($command->getDefinition());
@@ -161,7 +161,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
     public function aFailedTurnWritesTheSanitisedMessageToTheOutput(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 3, 'be_user' => 3, 'status' => 'processing',
+            'uid'      => 3, 'be_user' => 3, 'status' => 'processing',
             'messages' => '[{"role":"user","content":"Hello"}]', 'message_count' => 1,
         ]);
         GeneralUtility::addInstance(BackendUserAuthentication::class, $this->createMock(BackendUserAuthentication::class));
@@ -173,8 +173,8 @@ class ChatWorkerCommandExecuteTest extends TestCase
         $connectionPool->method('getQueryBuilderForTable')->willThrowException(new RuntimeException('Provider said: Incorrect API key provided: sk-proj-abcdefghijklmnop for https://api.example.test/v1/chat?key=raw-secret-value <info>'));
 
         $command = new ChatWorkerCommand($this->createChatService(), $repository, $connectionPool);
-        $output = new BufferedOutput();
-        $input = new ArrayInput(['--poll-interval' => '0']);
+        $output  = new BufferedOutput();
+        $input   = new ArrayInput(['--poll-interval' => '0']);
         $input->bind($command->getDefinition());
 
         try {
@@ -193,7 +193,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
     public function executeCleansBEUserGlobalInFinally(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 2, 'be_user' => 2, 'status' => 'processing',
+            'uid'      => 2, 'be_user' => 2, 'status' => 'processing',
             'messages' => '[{"role":"user","content":"Hello"}]', 'message_count' => 1,
         ]);
 
@@ -230,7 +230,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
     public function executeWritesWorkerStartedMessageToOutput(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 10, 'be_user' => 10, 'status' => 'processing',
+            'uid'      => 10, 'be_user' => 10, 'status' => 'processing',
             'messages' => '[{"role":"user","content":"Hello"}]', 'message_count' => 1,
         ]);
 
@@ -248,7 +248,7 @@ class ChatWorkerCommandExecuteTest extends TestCase
         );
 
         $output = new BufferedOutput();
-        $input = new ArrayInput(['--poll-interval' => '0']);
+        $input  = new ArrayInput(['--poll-interval' => '0']);
         $input->bind($command->getDefinition());
 
         try {

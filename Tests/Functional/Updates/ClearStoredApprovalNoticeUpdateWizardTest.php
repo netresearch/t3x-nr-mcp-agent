@@ -126,17 +126,17 @@ class ClearStoredApprovalNoticeUpdateWizardTest extends FunctionalTestCase
     {
         $conn = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
         $conn->insert(self::TABLE, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'Parked',
-            'messages' => '[{"role":"user","content":"hi"}]',
-            'message_count' => 1,
-            'status' => $status,
-            'error_message' => $errorMessage,
+            'pid'               => 0,
+            'be_user'           => 1,
+            'title'             => 'Parked',
+            'messages'          => '[{"role":"user","content":"hi"}]',
+            'message_count'     => 1,
+            'status'            => $status,
+            'error_message'     => $errorMessage,
             'approval_run_uuid' => 'run-uuid-6',
-            'deleted' => $deleted,
-            'tstamp' => 1710000000,
-            'crdate' => 1710000000,
+            'deleted'           => $deleted,
+            'tstamp'            => 1710000000,
+            'crdate'            => 1710000000,
         ]);
 
         return (int) $conn->lastInsertId();

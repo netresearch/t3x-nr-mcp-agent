@@ -7,29 +7,19 @@
 
 declare(strict_types=1);
 
-$finder = (new PhpCsFixer\Finder())
-    ->in(__DIR__ . '/Classes')
-    ->in(__DIR__ . '/Configuration')
-    ->in(__DIR__ . '/Tests');
+$createConfig = require __DIR__ . '/.Build/vendor/netresearch/typo3-ci-workflows/config/php-cs-fixer/config.php';
 
-return (new PhpCsFixer\Config())
-    ->setRiskyAllowed(true)
-    ->setRules([
-        '@PER-CS2.0' => true,
-        'declare_strict_types' => true,
-        'header_comment' => [
-            'header' => "SPDX-License-Identifier: GPL-2.0-or-later\nSPDX-FileCopyrightText: Netresearch DTT GmbH",
-            'comment_type' => 'comment',
-            'location' => 'after_open',
-            'separate' => 'both',
+return $createConfig(
+    "SPDX-License-Identifier: GPL-2.0-or-later\nSPDX-FileCopyrightText: Netresearch DTT GmbH",
+    __DIR__,
+    [
+        // Stricter than the shared set, which narrows the rule to arrays,
+        // arguments and parameters (below its own @PER-CS3x0 base). This is
+        // the @PER-CS2.0 value this file used before the shared factory, so
+        // match arms and array destructuring keep their trailing comma too.
+        'trailing_comma_in_multiline' => [
+            'after_heredoc' => true,
+            'elements' => ['arguments', 'array_destructuring', 'arrays', 'match', 'parameters'],
         ],
-        'no_unused_imports' => true,
-        'ordered_imports' => ['sort_algorithm' => 'alpha'],
-        'single_line_empty_body' => true,
-        'global_namespace_import' => [
-            'import_classes' => true,
-            'import_functions' => false,
-            'import_constants' => false,
-        ],
-    ])
-    ->setFinder($finder);
+    ],
+);

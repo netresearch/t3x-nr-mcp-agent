@@ -11,10 +11,10 @@ namespace Netresearch\NrMcpAgent\Enum;
 
 enum ConversationStatus: string
 {
-    case Idle = 'idle';
+    case Idle       = 'idle';
     case Processing = 'processing';
-    case Locked = 'locked';
-    case ToolLoop = 'tool_loop';
+    case Locked     = 'locked';
+    case ToolLoop   = 'tool_loop';
 
     /**
      * The run paused because a tool needs a human approval, which is granted in

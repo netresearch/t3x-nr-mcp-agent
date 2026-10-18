@@ -36,8 +36,8 @@ final class UserContextPromptTest extends TestCase
 
     private function actingAs(int $uid, string $lang): void
     {
-        $user = $this->createMock(BackendUserAuthentication::class);
-        $user->user = ['uid' => $uid, 'lang' => $lang];
+        $user               = $this->createMock(BackendUserAuthentication::class);
+        $user->user         = ['uid' => $uid, 'lang' => $lang];
         $GLOBALS['BE_USER'] = $user;
     }
 
@@ -54,7 +54,7 @@ final class UserContextPromptTest extends TestCase
     {
         $languageService = $this->createStub(LanguageService::class);
         $languageService->method('sL')->willReturnCallback(
-            static fn(string $key): string => $key === 'LLL:EXT:backend/module.xlf:layout' ? 'Seite' : '',
+            static fn (string $key): string => $key === 'LLL:EXT:backend/module.xlf:layout' ? 'Seite' : '',
         );
         $factory = $this->createStub(LanguageServiceFactory::class);
         $factory->method('createFromUserPreferences')->willReturn($languageService);

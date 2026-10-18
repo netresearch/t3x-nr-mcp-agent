@@ -60,20 +60,20 @@ class ChatApiControllerTest extends FunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/tx_nrmcpagent_conversation.csv');
 
-        $backendUser = $this->setUpBackendUser(1);
+        $backendUser        = $this->setUpBackendUser(1);
         $GLOBALS['BE_USER'] = $backendUser;
 
         $this->repository = $this->get(ConversationRepository::class);
-        $config = $this->createMock(ExtensionConfiguration::class);
-        $this->config = $config;
+        $config           = $this->createMock(ExtensionConfiguration::class);
+        $this->config     = $config;
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('getMaxMessageLength')->willReturn(10000);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
-        $capabilities = $this->createMock(ChatCapabilitiesInterface::class);
+        $capabilities       = $this->createMock(ChatCapabilitiesInterface::class);
         $this->capabilities = $capabilities;
         $capabilities->method('getProviderCapabilities')->willReturn([
-            'supportsVision' => false,
+            'supportsVision'    => false,
             'supportsDocuments' => false,
         ]);
 
@@ -355,7 +355,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         $request = (new ServerRequest('/', 'POST'))
             ->withBody($this->streamFor(json_encode([
                 'conversationUid' => 1,
-                'content' => '   ',
+                'content'         => '   ',
             ])));
 
         $response = $this->subject->sendMessage($request);
@@ -371,7 +371,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         $request = (new ServerRequest('/', 'POST'))
             ->withBody($this->streamFor(json_encode([
                 'conversationUid' => 1,
-                'content' => str_repeat('x', 10001),
+                'content'         => str_repeat('x', 10001),
             ])));
 
         $response = $this->subject->sendMessage($request);
@@ -388,7 +388,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         $request = (new ServerRequest('/', 'POST'))
             ->withBody($this->streamFor(json_encode([
                 'conversationUid' => 2,
-                'content' => 'Hello',
+                'content'         => 'Hello',
             ])));
 
         $response = $this->subject->sendMessage($request);
@@ -423,7 +423,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         $request = (new ServerRequest('/', 'POST'))
             ->withBody($this->streamFor(json_encode([
                 'conversationUid' => 1,
-                'content' => 'Hello, AI!',
+                'content'         => 'Hello, AI!',
             ])));
 
         $response = $controller->sendMessage($request);
@@ -460,7 +460,7 @@ class ChatApiControllerTest extends FunctionalTestCase
 
         // Toggle again — should unpin
         $response2 = $this->subject->togglePin($request);
-        $body2 = json_decode((string) $response2->getBody(), true);
+        $body2     = json_decode((string) $response2->getBody(), true);
         self::assertFalse($body2['pinned']);
     }
 
@@ -581,7 +581,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         self::assertTrue(json_decode((string) $this->subject->getMessages($request)->getBody(), true)['mayDecideApproval']);
 
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
-        $request = (new ServerRequest())->withQueryParams(['conversationUid' => 3]);
+        $request            = (new ServerRequest())->withQueryParams(['conversationUid' => 3]);
         self::assertFalse(json_decode((string) $this->subject->getMessages($request)->getBody(), true)['mayDecideApproval']);
     }
 
@@ -641,7 +641,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         $backendUser = $GLOBALS['BE_USER'];
         self::assertInstanceOf(BackendUserAuthentication::class, $backendUser);
         $backendUser->user['lang'] = $language;
-        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+        $GLOBALS['LANG']           = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
     }
 
     /**
@@ -652,6 +652,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         $stream = fopen('php://temp', 'r+');
         fwrite($stream, $content);
         rewind($stream);
+
         return new Stream($stream);
     }
 }

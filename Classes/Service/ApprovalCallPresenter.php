@@ -67,8 +67,8 @@ final readonly class ApprovalCallPresenter
 
     /**
      * @param list<PendingCallView> $calls
-     * @param ?LanguageService $language        the reader's, for the editor action label
-     * @param ?LanguageService $previewLanguage the run's acting user's, the preview lines' language
+     * @param ?LanguageService      $language        the reader's, for the editor action label
+     * @param ?LanguageService      $previewLanguage the run's acting user's, the preview lines' language
      *
      * @return list<array{
      *     name: string,
@@ -102,19 +102,19 @@ final readonly class ApprovalCallPresenter
             );
 
             $presented[] = [
-                'name'                => $call->name,
-                'actionLabel'         => $actionLabel,
+                'name'                   => $call->name,
+                'actionLabel'            => $actionLabel,
                 'actionLabelFromPreview' => $fromPreview,
-                'toolStillRegistered' => $call->toolStillRegistered,
-                'previewLines'        => $lines,
-                'technicalDetails'    => $technical,
-                'previewFailed'       => $call->previewFailed,
+                'toolStillRegistered'    => $call->toolStillRegistered,
+                'previewLines'           => $lines,
+                'technicalDetails'       => $technical,
+                'previewFailed'          => $call->previewFailed,
                 // nr-llm refuses an approved write whose record changed after
                 // the preview and hands the run back with this flag. Without
                 // it the card returns looking exactly as it did before the
                 // click, and only the approvals module said why.
-                'previewStale'        => $call->previewStale,
-                'argumentsJson'       => $call->argumentsJson,
+                'previewStale'  => $call->previewStale,
+                'argumentsJson' => $call->argumentsJson,
             ];
         }
 

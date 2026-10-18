@@ -91,14 +91,14 @@ final class MessageTableTest extends FunctionalTestCase
     private function legacyConversation(array $messages): int
     {
         $this->connection()->insert(self::CONVERSATIONS, [
-            'pid' => 0,
-            'be_user' => 1,
-            'title' => 'legacy',
-            'messages' => json_encode($messages, JSON_THROW_ON_ERROR),
+            'pid'           => 0,
+            'be_user'       => 1,
+            'title'         => 'legacy',
+            'messages'      => json_encode($messages, JSON_THROW_ON_ERROR),
             'message_count' => count($messages),
-            'status' => 'idle',
-            'tstamp' => time(),
-            'crdate' => time(),
+            'status'        => 'idle',
+            'tstamp'        => time(),
+            'crdate'        => time(),
         ]);
 
         return (int) $this->connection()->lastInsertId();
@@ -110,7 +110,7 @@ final class MessageTableTest extends FunctionalTestCase
         $uid = $this->newConversation('first', 'second');
 
         $rows = $this->messageRows($uid);
-        self::assertSame([0, 1, 2, 3], array_map(static fn(array $r): int => (int) $r['sorting'], $rows));
+        self::assertSame([0, 1, 2, 3], array_map(static fn (array $r): int => (int) $r['sorting'], $rows));
         self::assertSame(['user', 'assistant', 'user', 'assistant'], array_column($rows, 'role'));
         self::assertSame('', $this->legacyColumn($uid), 'the transcript must not be kept twice');
 
@@ -123,7 +123,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function aShorterTranscriptRemovesTheRowsBeyondIt(): void
     {
-        $uid = $this->newConversation('first', 'second');
+        $uid          = $this->newConversation('first', 'second');
         $conversation = $this->subject->findByUid($uid);
         self::assertNotNull($conversation);
 
@@ -141,7 +141,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function aLostClaimLeavesTheMessagesUntouched(): void
     {
-        $uid = $this->newConversation('first');
+        $uid          = $this->newConversation('first');
         $conversation = $this->subject->findByUid($uid);
         self::assertNotNull($conversation);
 
@@ -156,7 +156,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function aWonClaimWritesTheNewMessage(): void
     {
-        $uid = $this->newConversation('first');
+        $uid          = $this->newConversation('first');
         $conversation = $this->subject->findByUid($uid);
         self::assertNotNull($conversation);
 
@@ -186,7 +186,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function savingALegacyConversationMovesItsTranscript(): void
     {
-        $uid = $this->legacyConversation([['role' => 'user', 'content' => 'old question']]);
+        $uid          = $this->legacyConversation([['role' => 'user', 'content' => 'old question']]);
         $conversation = $this->subject->findByUid($uid);
         self::assertNotNull($conversation);
 
@@ -199,7 +199,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function theWizardMovesEveryLegacyTranscript(): void
     {
-        $first = $this->legacyConversation([['role' => 'user', 'content' => 'a'], ['role' => 'assistant', 'content' => 'b']]);
+        $first  = $this->legacyConversation([['role' => 'user', 'content' => 'a'], ['role' => 'assistant', 'content' => 'b']]);
         $second = $this->legacyConversation([['role' => 'user', 'content' => 'c', 'fileUid' => 5]]);
         $wizard = new MigrateMessagesToTableUpdateWizard($this->subject);
 
@@ -236,7 +236,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function deletingOldArchivedConversationsDeletesTheirMessages(): void
     {
-        $old = $this->newConversation('old');
+        $old  = $this->newConversation('old');
         $kept = $this->newConversation('kept');
         $this->connection()->update(self::CONVERSATIONS, ['archived' => 1, 'tstamp' => time() - 200 * 86400], ['uid' => $old]);
         $this->connection()->update(self::MESSAGES, ['crdate' => time() - 200 * 86400], ['conversation' => $old]);
@@ -288,7 +288,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function aBatchCountsOnlyTheTranscriptsItMoved(): void
     {
-        $uid = $this->legacyConversation([['role' => 'user', 'content' => 'hi']]);
+        $uid        = $this->legacyConversation([['role' => 'user', 'content' => 'hi']]);
         $repository = new NeverMovingConversationRepository($this->get(ConnectionPool::class));
 
         self::assertSame(0, $repository->migrateLegacyTranscripts(10));
@@ -307,7 +307,7 @@ final class MessageTableTest extends FunctionalTestCase
         $this->connection()->insert(self::CONVERSATIONS, [
             'pid' => 0, 'be_user' => 1, 'title' => 'broken', 'messages' => '[{"role":"user"', 'status' => 'idle', 'tstamp' => time(), 'crdate' => time(),
         ]);
-        $uid = (int) $this->connection()->lastInsertId();
+        $uid    = (int) $this->connection()->lastInsertId();
         $wizard = new MigrateMessagesToTableUpdateWizard($this->subject);
 
         self::assertTrue($wizard->executeUpdate());
@@ -337,7 +337,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function aTranscriptThatChangedAfterItWasReadIsNotMoved(): void
     {
-        $uid = $this->legacyConversation([['role' => 'user', 'content' => 'current']]);
+        $uid   = $this->legacyConversation([['role' => 'user', 'content' => 'current']]);
         $stale = json_encode([['role' => 'user', 'content' => 'stale']], JSON_THROW_ON_ERROR);
 
         self::assertFalse($this->subject->moveLegacyTranscript($uid, $stale));
@@ -353,7 +353,7 @@ final class MessageTableTest extends FunctionalTestCase
     #[Test]
     public function aTranscriptSavedByTheChatMeanwhileIsLeftAlone(): void
     {
-        $uid = $this->legacyConversation([['role' => 'user', 'content' => 'old']]);
+        $uid             = $this->legacyConversation([['role' => 'user', 'content' => 'old']]);
         $readByTheWizard = $this->legacyColumn($uid);
 
         $conversation = $this->subject->findByUid($uid);
@@ -363,7 +363,7 @@ final class MessageTableTest extends FunctionalTestCase
 
         self::assertFalse($this->subject->moveLegacyTranscript($uid, $readByTheWizard));
         self::assertSame(['old', 'saved meanwhile'], array_map(
-            static fn(array $row): mixed => json_decode((string) $row['payload'], true)['content'] ?? null,
+            static fn (array $row): mixed => json_decode((string) $row['payload'], true)['content'] ?? null,
             $this->messageRows($uid),
         ));
     }

@@ -23,7 +23,7 @@ class XlsxExtractorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->subject = new XlsxExtractor();
+        $this->subject  = new XlsxExtractor();
         $this->fixtures = __DIR__ . '/../../../Fixtures/Documents';
     }
 

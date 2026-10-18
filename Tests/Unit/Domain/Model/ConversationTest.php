@@ -58,7 +58,7 @@ class ConversationTest extends TestCase
     public function appendAssistantMessageWithToolUse(): void
     {
         $conversation = new Conversation();
-        $content = [
+        $content      = [
             ['type' => 'text', 'text' => 'I will translate that.'],
             ['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'translate', 'input' => ['page' => 5]],
         ];
@@ -155,7 +155,7 @@ class ConversationTest extends TestCase
     public function setSystemPromptTruncatesAt10000Chars(): void
     {
         $conversation = new Conversation();
-        $longPrompt = str_repeat('a', 10001);
+        $longPrompt   = str_repeat('a', 10001);
         $conversation->setSystemPrompt($longPrompt);
         self::assertSame(10000, mb_strlen($conversation->getSystemPrompt()));
     }
@@ -164,7 +164,7 @@ class ConversationTest extends TestCase
     public function setSystemPromptKeepsExact10000Chars(): void
     {
         $conversation = new Conversation();
-        $exactPrompt = str_repeat('b', 10000);
+        $exactPrompt  = str_repeat('b', 10000);
         $conversation->setSystemPrompt($exactPrompt);
         self::assertSame(10000, mb_strlen($conversation->getSystemPrompt()));
         self::assertSame($exactPrompt, $conversation->getSystemPrompt());
@@ -174,19 +174,19 @@ class ConversationTest extends TestCase
     public function fromRowHydratesAllFields(): void
     {
         $row = [
-            'uid' => 42,
-            'be_user' => 7,
-            'title' => 'Test Title',
-            'messages' => '[]',
-            'message_count' => 0,
-            'status' => 'processing',
+            'uid'                => 42,
+            'be_user'            => 7,
+            'title'              => 'Test Title',
+            'messages'           => '[]',
+            'message_count'      => 0,
+            'status'             => 'processing',
             'current_request_id' => 'req_123',
-            'system_prompt' => 'You are helpful',
-            'archived' => 1,
-            'pinned' => 1,
-            'error_message' => 'Some error',
-            'tstamp' => 1700000000,
-            'crdate' => 1699000000,
+            'system_prompt'      => 'You are helpful',
+            'archived'           => 1,
+            'pinned'             => 1,
+            'error_message'      => 'Some error',
+            'tstamp'             => 1700000000,
+            'crdate'             => 1699000000,
         ];
         $conversation = Conversation::fromRow($row);
 
@@ -292,7 +292,7 @@ class ConversationTest extends TestCase
     public function toRowDoesNotIncludeUid(): void
     {
         $conversation = new Conversation();
-        $row = $conversation->toRow();
+        $row          = $conversation->toRow();
 
         self::assertArrayNotHasKey('uid', $row);
     }
@@ -309,7 +309,7 @@ class ConversationTest extends TestCase
     public function getStatusFallsBackToIdleForUnknownStatus(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 1,
+            'uid'    => 1,
             'status' => 'nonexistent_status',
         ]);
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -348,7 +348,7 @@ class ConversationTest extends TestCase
         $original->appendMessage(MessageRole::User, 'Hello');
         $original->appendMessage(MessageRole::Assistant, 'Hi there');
 
-        $row = $original->toRow();
+        $row      = $original->toRow();
         $hydrated = Conversation::fromRow($row);
 
         self::assertSame($original->getBeUser(), $hydrated->getBeUser());
@@ -402,7 +402,7 @@ class ConversationTest extends TestCase
     public function setTitleTruncatesLongTitle(): void
     {
         $conversation = new Conversation();
-        $longTitle = str_repeat('x', 300);
+        $longTitle    = str_repeat('x', 300);
         $conversation->setTitle($longTitle);
 
         self::assertSame(255, mb_strlen($conversation->getTitle()));
@@ -413,7 +413,7 @@ class ConversationTest extends TestCase
     public function setTitleKeepsExact255Chars(): void
     {
         $conversation = new Conversation();
-        $exactTitle = str_repeat('y', 255);
+        $exactTitle   = str_repeat('y', 255);
         $conversation->setTitle($exactTitle);
 
         self::assertSame(255, mb_strlen($conversation->getTitle()));
@@ -445,11 +445,11 @@ class ConversationTest extends TestCase
     public static function isResumableProvider(): array
     {
         return [
-            'idle' => [ConversationStatus::Idle, false],
+            'idle'       => [ConversationStatus::Idle, false],
             'processing' => [ConversationStatus::Processing, true],
-            'locked' => [ConversationStatus::Locked, false],
-            'tool_loop' => [ConversationStatus::ToolLoop, true],
-            'failed' => [ConversationStatus::Failed, true],
+            'locked'     => [ConversationStatus::Locked, false],
+            'tool_loop'  => [ConversationStatus::ToolLoop, true],
+            'failed'     => [ConversationStatus::Failed, true],
         ];
     }
 
@@ -474,18 +474,18 @@ class ConversationTest extends TestCase
     public function fromRowHandlesNonScalarValues(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => [1],
-            'be_user' => null,
-            'title' => ['nested'],
-            'messages' => '',
-            'message_count' => [5],
-            'status' => 'idle',
+            'uid'                => [1],
+            'be_user'            => null,
+            'title'              => ['nested'],
+            'messages'           => '',
+            'message_count'      => [5],
+            'status'             => 'idle',
             'current_request_id' => '',
-            'system_prompt' => null,
-            'archived' => [],
-            'pinned' => null,
-            'error_message' => ['error'],
-            'tstamp' => null,
+            'system_prompt'      => null,
+            'archived'           => [],
+            'pinned'             => null,
+            'error_message'      => ['error'],
+            'tstamp'             => null,
         ]);
 
         // Non-scalar values should fall back to defaults (val() returns null for non-scalar, then cast)
@@ -606,7 +606,7 @@ class ConversationTest extends TestCase
     public function fromRowWithUnknownStatusDefaultsToIdle(): void
     {
         $conversation = Conversation::fromRow([
-            'uid' => 1,
+            'uid'    => 1,
             'status' => 'completely_invalid_status',
         ]);
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
@@ -619,14 +619,14 @@ class ConversationTest extends TestCase
         $messages = [
             ['role' => 'user', 'content' => 'Do something'],
             [
-                'role' => 'assistant',
-                'content' => '',
+                'role'       => 'assistant',
+                'content'    => '',
                 'tool_calls' => [
                     [
-                        'id' => 'call_1',
-                        'type' => 'function',
+                        'id'       => 'call_1',
+                        'type'     => 'function',
                         'function' => [
-                            'name' => 'WriteTable',
+                            'name'      => 'WriteTable',
                             'arguments' => ['action' => 'create', 'table' => 'pages'],
                         ],
                     ],
@@ -635,14 +635,14 @@ class ConversationTest extends TestCase
         ];
 
         $conversation = Conversation::fromRow([
-            'uid' => 1,
-            'be_user' => 1,
-            'status' => 'idle',
-            'messages' => json_encode($messages),
+            'uid'           => 1,
+            'be_user'       => 1,
+            'status'        => 'idle',
+            'messages'      => json_encode($messages),
             'message_count' => 2,
         ]);
 
-        $decoded = $conversation->getDecodedMessages();
+        $decoded   = $conversation->getDecodedMessages();
         $arguments = $decoded[1]['tool_calls'][0]['function']['arguments'];
 
         // Must be a JSON string, not an array
@@ -655,14 +655,14 @@ class ConversationTest extends TestCase
     {
         $messages = [
             [
-                'role' => 'assistant',
-                'content' => '',
+                'role'       => 'assistant',
+                'content'    => '',
                 'tool_calls' => [
                     [
-                        'id' => 'call_1',
-                        'type' => 'function',
+                        'id'       => 'call_1',
+                        'type'     => 'function',
                         'function' => [
-                            'name' => 'test',
+                            'name'      => 'test',
                             'arguments' => '{"key":"value"}',
                         ],
                     ],
@@ -671,10 +671,10 @@ class ConversationTest extends TestCase
         ];
 
         $conversation = Conversation::fromRow([
-            'uid' => 1,
-            'be_user' => 1,
-            'status' => 'idle',
-            'messages' => json_encode($messages),
+            'uid'           => 1,
+            'be_user'       => 1,
+            'status'        => 'idle',
+            'messages'      => json_encode($messages),
             'message_count' => 1,
         ]);
 

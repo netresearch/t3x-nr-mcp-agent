@@ -7,7 +7,7 @@
 
 /**
  * Run once to generate binary test fixtures.
- * Usage: php Tests/Fixtures/Documents/generate.php
+ * Usage: php Tests/Fixtures/Documents/generate.php.
  */
 
 declare(strict_types=1);
@@ -20,9 +20,9 @@ require_once __DIR__ . '/../../../.Build/vendor/autoload.php';
 
 $dir = __DIR__;
 
-const CORRUPT_BYTES = "\x00\xFF\xAB\x12";
+const CORRUPT_BYTES         = "\x00\xFF\xAB\x12";
 const PDF_XREF_ENTRY_SUFFIX = " 00000 n \n";
-const PDF_OFFSET_FORMAT = '%010d';
+const PDF_OFFSET_FORMAT     = '%010d';
 
 // sample.txt
 file_put_contents($dir . '/sample.txt', 'Hello TXT');
@@ -34,20 +34,20 @@ file_put_contents($dir . '/corrupt.xlsx', str_repeat(CORRUPT_BYTES, 5));
 
 // sample.pdf — minimal valid PDF with "Hello PDF" text
 // Xref offsets are computed dynamically so the table is always correct.
-$pdfObj1 = "1 0 obj\n<</Type /Catalog /Pages 2 0 R>>\nendobj\n";
-$pdfObj2 = "2 0 obj\n<</Type /Pages /Kids [3 0 R] /Count 1>>\nendobj\n";
-$pdfObj3 = "3 0 obj\n<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>>\nendobj\n";
-$pdfStream = 'BT /F1 12 Tf 100 700 Td (Hello PDF) Tj ET';
-$pdfObj4 = "4 0 obj\n<</Length " . strlen($pdfStream) . ">>\nstream\n" . $pdfStream . "\nendstream\nendobj\n";
-$pdfObj5 = "5 0 obj\n<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>\nendobj\n";
-$pdfHeader = "%PDF-1.4\n";
-$pdfOff1 = strlen($pdfHeader);
-$pdfOff2 = $pdfOff1 + strlen($pdfObj1);
-$pdfOff3 = $pdfOff2 + strlen($pdfObj2);
-$pdfOff4 = $pdfOff3 + strlen($pdfObj3);
-$pdfOff5 = $pdfOff4 + strlen($pdfObj4);
+$pdfObj1       = "1 0 obj\n<</Type /Catalog /Pages 2 0 R>>\nendobj\n";
+$pdfObj2       = "2 0 obj\n<</Type /Pages /Kids [3 0 R] /Count 1>>\nendobj\n";
+$pdfObj3       = "3 0 obj\n<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>>\nendobj\n";
+$pdfStream     = 'BT /F1 12 Tf 100 700 Td (Hello PDF) Tj ET';
+$pdfObj4       = "4 0 obj\n<</Length " . strlen($pdfStream) . ">>\nstream\n" . $pdfStream . "\nendstream\nendobj\n";
+$pdfObj5       = "5 0 obj\n<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>\nendobj\n";
+$pdfHeader     = "%PDF-1.4\n";
+$pdfOff1       = strlen($pdfHeader);
+$pdfOff2       = $pdfOff1 + strlen($pdfObj1);
+$pdfOff3       = $pdfOff2 + strlen($pdfObj2);
+$pdfOff4       = $pdfOff3 + strlen($pdfObj3);
+$pdfOff5       = $pdfOff4 + strlen($pdfObj4);
 $pdfXrefOffset = $pdfOff5 + strlen($pdfObj5);
-$pdfXref = "xref\n0 6\n"
+$pdfXref       = "xref\n0 6\n"
     . "0000000000 65535 f \n"
     . sprintf(PDF_OFFSET_FORMAT, $pdfOff1) . PDF_XREF_ENTRY_SUFFIX
     . sprintf(PDF_OFFSET_FORMAT, $pdfOff2) . PDF_XREF_ENTRY_SUFFIX
@@ -82,7 +82,7 @@ $writer->save($dir . '/sample.docx');
 if (class_exists(Spreadsheet::class)) {
     $spreadsheet = new Spreadsheet();
     $spreadsheet->getActiveSheet()->setCellValue('A1', 'Hello XLSX');
-    $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+    $writer = PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
     $writer->save($dir . '/sample.xlsx');
     echo "sample.xlsx generated\n";
 } else {

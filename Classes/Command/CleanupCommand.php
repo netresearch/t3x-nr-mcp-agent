@@ -52,11 +52,11 @@ final class CleanupCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $deleteAfterDaysOpt = $input->getOption('delete-after-days');
-        $deleteAfterDays = is_numeric($deleteAfterDaysOpt) ? (int) $deleteAfterDaysOpt : self::DEFAULT_DELETE_AFTER_DAYS;
+        $deleteAfterDays    = is_numeric($deleteAfterDaysOpt) ? (int) $deleteAfterDaysOpt : self::DEFAULT_DELETE_AFTER_DAYS;
 
         $timeoutCount = $this->timeoutStuckConversations($output);
         $archiveCount = $this->autoArchiveInactiveConversations($output);
-        $deleteCount = $this->deleteOldArchivedConversations($output, $deleteAfterDays);
+        $deleteCount  = $this->deleteOldArchivedConversations($output, $deleteAfterDays);
         // Runs even when deleting archived conversations is switched off: a
         // conversation removed any other way must not leave its messages.
         $this->deleteOrphanedMessages();

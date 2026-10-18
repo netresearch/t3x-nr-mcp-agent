@@ -60,8 +60,8 @@ final class ChatServiceConfigurationAccessTest extends TestCase
      */
     private function turn(bool $active, array $configurationGroups, array $userGroups, bool $admin = false): Conversation
     {
-        $backendUser = $this->createStub(BackendUserAuthentication::class);
-        $backendUser->user = ['uid' => 5];
+        $backendUser                = $this->createStub(BackendUserAuthentication::class);
+        $backendUser->user          = ['uid' => 5];
         $backendUser->userGroupsUID = $userGroups;
         $backendUser->method('isAdmin')->willReturn($admin);
         $GLOBALS['BE_USER'] = $backendUser;

@@ -22,7 +22,7 @@ class PdfExtractorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->subject = new PdfExtractor();
+        $this->subject  = new PdfExtractor();
         $this->fixtures = __DIR__ . '/../../../Fixtures/Documents';
     }
 

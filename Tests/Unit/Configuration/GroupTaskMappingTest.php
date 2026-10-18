@@ -101,7 +101,7 @@ final class GroupTaskMappingTest extends TestCase
         $backendUser = $this->createMock(BackendUserAuthentication::class);
         // userGroupsUID holds the subgroups too: 9 is inherited here.
         $backendUser->userGroupsUID = [2, 9];
-        $GLOBALS['BE_USER'] = $backendUser;
+        $GLOBALS['BE_USER']         = $backendUser;
 
         self::assertSame(21, $config->getLlmTaskUid());
     }

@@ -75,7 +75,7 @@ final readonly class ClearStoredApprovalNoticeUpdateWizard implements UpgradeWiz
     public function updateNecessary(): bool
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $count = $this->whereStoredSentence($queryBuilder)
+        $count        = $this->whereStoredSentence($queryBuilder)
             ->count('uid')
             ->from(self::TABLE)
             ->executeQuery()

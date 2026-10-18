@@ -51,9 +51,9 @@ final class ConversationRepositoryRetryTest extends TestCase
     #[Test]
     public function aStatementDeadlockIsRunAgain(): void
     {
-        $level = 0;
+        $level      = 0;
         $connection = $this->trackingConnection($level);
-        $calls = 0;
+        $calls      = 0;
         $connection->method('executeStatement')->willReturnCallback(function (string $sql) use (&$calls): int {
             if (!str_contains($sql, 'AND status = ?')) {
                 return 0; // clearing the legacy column
@@ -82,7 +82,7 @@ final class ConversationRepositoryRetryTest extends TestCase
     #[Test]
     public function aDeadlockAtCommitIsRunAgain(): void
     {
-        $level = 0;
+        $level      = 0;
         $connection = $this->trackingConnection($level);
         $connection->method('executeStatement')->willReturn(1);
         $commits = 0;
@@ -100,8 +100,8 @@ final class ConversationRepositoryRetryTest extends TestCase
     #[Test]
     public function aDeadlockThatKeepsHappeningIsReported(): void
     {
-        $level = 0;
-        $begins = 0;
+        $level      = 0;
+        $begins     = 0;
         $connection = $this->trackingConnection($level, $begins);
         $connection->method('executeStatement')->willThrowException($this->deadlock());
 
@@ -118,8 +118,8 @@ final class ConversationRepositoryRetryTest extends TestCase
     #[Test]
     public function aLockWaitTimeoutIsNotRetried(): void
     {
-        $level = 0;
-        $begins = 0;
+        $level      = 0;
+        $begins     = 0;
         $connection = $this->trackingConnection($level, $begins);
         $connection->method('executeStatement')->willThrowException(
             new LockWaitTimeoutException($this->createMock(DriverException::class), null),
@@ -137,8 +137,8 @@ final class ConversationRepositoryRetryTest extends TestCase
     #[Test]
     public function insideAnOuterTransactionADeadlockIsNotRetried(): void
     {
-        $level = 1;
-        $begins = 0;
+        $level      = 1;
+        $begins     = 0;
         $connection = $this->trackingConnection($level, $begins);
         $connection->method('executeStatement')->willThrowException($this->deadlock());
 
@@ -154,8 +154,8 @@ final class ConversationRepositoryRetryTest extends TestCase
     #[Test]
     public function anyOtherErrorIsNotRetried(): void
     {
-        $level = 0;
-        $begins = 0;
+        $level      = 0;
+        $begins     = 0;
         $connection = $this->trackingConnection($level, $begins);
         $connection->method('executeStatement')->willThrowException(new RuntimeException('no such column'));
 

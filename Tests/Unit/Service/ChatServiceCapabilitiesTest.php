@@ -45,7 +45,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         ?DocumentExtractorRegistry $registry = null,
     ): ChatService {
         $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
+        $config     = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
 
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
@@ -100,7 +100,7 @@ class ChatServiceCapabilitiesTest extends TestCase
     public function returnsNoVisionWhenProviderIsNotVisionCapable(): void
     {
         $provider = $this->createMock(ProviderInterface::class);
-        $service = $this->createChatService($provider);
+        $service  = $this->createChatService($provider);
 
         $caps = $service->getProviderCapabilities();
 
@@ -120,7 +120,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('supportsVision')->willReturn(false);
 
         $service = $this->createChatService($provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertFalse($caps['visionSupported']);
     }
@@ -134,7 +134,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('getSupportedImageFormats')->willReturn(['jpeg', 'png']);
 
         $service = $this->createChatService($provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertTrue($caps['visionSupported']);
         self::assertSame(5242880, $caps['maxFileSize']);
@@ -153,7 +153,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('getSupportedImageFormats')->willReturn(['jpeg', 'png']);
 
         $service = $this->createChatService($provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         // array_values() ensures the result is a list (0-indexed), not associative
         $keys = array_keys($caps['supportedFormats']);
@@ -171,7 +171,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('getSupportedDocumentFormats')->willReturn(['pdf']);
 
         $service = $this->createChatService($provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertContains('jpeg', $caps['supportedFormats']);
         self::assertContains('pdf', $caps['supportedFormats']);
@@ -189,7 +189,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('supportsDocuments')->willReturn(false);
 
         $service = $this->createChatService($provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertNotContains('pdf', $caps['supportedFormats']);
         self::assertContains('jpeg', $caps['supportedFormats']);
@@ -199,7 +199,7 @@ class ChatServiceCapabilitiesTest extends TestCase
     public function returnsNoVisionWhenProviderResolutionFails(): void
     {
         $repository = $this->createMock(ConversationRepository::class);
-        $config = $this->createStub(ExtensionConfiguration::class);
+        $config     = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
 
         // Configuration has no fixed model → provider resolution throws → caught.
@@ -242,7 +242,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider = $this->createMock(ProviderInterface::class); // not VisionCapable
 
         $service = $this->createChatService($provider, $registry);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         // Registry contributes file extensions (not MIME types) so the UI accept attribute works
         self::assertContains('pdf', $caps['supportedFormats']);
@@ -265,7 +265,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('getSupportedImageFormats')->willReturn(['jpeg']);
 
         $service = $this->createChatService($provider, $registry);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         // Provider formats (extensions) and registry extensions are both present
         self::assertContains('jpeg', $caps['supportedFormats']);
@@ -288,7 +288,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('getSupportedImageFormats')->willReturn(['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic', 'heif']);
 
         $service = $this->createChatService($provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertContains('heic', $caps['supportedFormats']);
         self::assertContains('heif', $caps['supportedFormats']);
@@ -311,7 +311,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('getSupportedImageFormats')->willReturn(['png', 'avif']);
 
         $service = $this->createChatService($provider);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
         self::assertContains('png', $caps['supportedFormats']);
         self::assertNotContains('avif', $caps['supportedFormats']);
@@ -336,9 +336,9 @@ class ChatServiceCapabilitiesTest extends TestCase
         $provider->method('getSupportedDocumentFormats')->willReturn(['pdf']); // same as registry
 
         $service = $this->createChatService($provider, $registry);
-        $caps = $service->getProviderCapabilities();
+        $caps    = $service->getProviderCapabilities();
 
-        self::assertSame(1, count(array_filter($caps['supportedFormats'], fn(string $f): bool => $f === 'pdf')));
+        self::assertSame(1, count(array_filter($caps['supportedFormats'], fn (string $f): bool => $f === 'pdf')));
         // array_values() must re-index after deduplication so keys are 0..N-1
         self::assertSame(range(0, count($caps['supportedFormats']) - 1), array_keys($caps['supportedFormats']));
     }

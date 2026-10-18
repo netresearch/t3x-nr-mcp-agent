@@ -32,9 +32,9 @@ class ExecChatProcessorResolveTest extends TestCase
         // In unit test context, PHP_SAPI is always 'cli'
         self::assertSame('cli', PHP_SAPI);
 
-        $processor = $this->processor();
+        $processor  = $this->processor();
         $reflection = new ReflectionClass($processor);
-        $method = $reflection->getMethod('resolvePhpCliBinary');
+        $method     = $reflection->getMethod('resolvePhpCliBinary');
 
         $result = $method->invoke($processor);
 
@@ -45,9 +45,9 @@ class ExecChatProcessorResolveTest extends TestCase
     #[Test]
     public function resolvePhpCliBinaryReturnsString(): void
     {
-        $processor = $this->processor();
+        $processor  = $this->processor();
         $reflection = new ReflectionClass($processor);
-        $method = $reflection->getMethod('resolvePhpCliBinary');
+        $method     = $reflection->getMethod('resolvePhpCliBinary');
 
         $result = $method->invoke($processor);
 
