@@ -125,6 +125,28 @@ describe.each(SURFACES)('$name feedback', ({module: modulePath, tag, open}) => {
         expect(bubble.textContent).not.toContain('decided outside this chat and its run');
     });
 
+    test.each([
+        ['detached', 'chat.processDropped.detached'],
+        ['configuration_changed', 'chat.processDropped.configurationChanged'],
+    ])('a dropped process (%s) is shown as its own label, not as the stored line', async (reason, label) => {
+        const el = await render(modulePath, tag, open, {
+            messages: [
+                {role: 'user', content: 'weiter mit der Seite'},
+                {
+                    role: 'assistant',
+                    content: `[The guided process of this conversation has ended (${reason}).]`,
+                    notice: 'processDropped',
+                    noticeArgs: [reason],
+                },
+                {role: 'assistant', content: 'Gern, ohne den Rundgang.'},
+            ],
+        });
+
+        const text = el.shadowRoot.textContent;
+        expect(text).toContain(label);
+        expect(text).not.toContain('The guided process of this conversation has ended');
+    });
+
     test('"still waiting" after a go-on message is shown as guidance, not as an error', async () => {
         const el = await render(modulePath, tag, open, {
             messages: [{role: 'user', content: 'Lege die Seite an'}],

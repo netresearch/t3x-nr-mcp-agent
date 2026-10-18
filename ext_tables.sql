@@ -15,6 +15,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     view_context varchar(255) DEFAULT '' NOT NULL,
     skill_identifier varchar(100) DEFAULT '' NOT NULL,
     skill_uid int(11) unsigned DEFAULT 0 NOT NULL,
+    skill_start_pending tinyint(1) unsigned DEFAULT 0 NOT NULL,
     activity text,
     guided_state text,
     archived tinyint(1) unsigned DEFAULT 0 NOT NULL,
@@ -26,6 +27,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     approval_turn_digest varchar(64) DEFAULT '' NOT NULL,
     pending_input text,
     approval_deny_reason varchar(16) DEFAULT '' NOT NULL,
+    last_run_uuid varchar(64) DEFAULT '' NOT NULL,
     tstamp int(11) unsigned DEFAULT 0 NOT NULL,
     crdate int(11) unsigned DEFAULT 0 NOT NULL,
 

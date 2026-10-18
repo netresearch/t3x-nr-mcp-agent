@@ -69,6 +69,15 @@ final class Conversation
     private int $skillUid = 0;
 
     /**
+     * Whether the next turn starts the conversation's process skill anew
+     * (nr-llm ADR-214 item 10): set when a process skill is picked in a
+     * conversation that has already run, cleared by the turn that carried
+     * the invocation. Written on its own column, like the skill, and never
+     * by a full-row write.
+     */
+    private bool $skillStartPending = false;
+
+    /**
      * What the agent did in the current turn, as a JSON list of step
      * summaries (NEXT-172). Written column by column while the turn runs
      * ({@see \Netresearch\NrMcpAgent\Service\RunActivityRecorder}) and
@@ -137,6 +146,13 @@ final class Conversation
      */
     private string $approvalDenyReason = '';
 
+    /**
+     * The conversation's last run, whatever its outcome (nr-llm ADR-228): a
+     * later turn names it as its predecessor, and nr-llm derives the guided
+     * process from it. Unlike approvalRunUuid it survives every status.
+     */
+    private string $lastRunUuid = '';
+
     private int $tstamp = 0;
 
     /** @phpstan-ignore-next-line property.onlyWritten */
@@ -161,6 +177,7 @@ final class Conversation
         $conversation->viewContext        = (string) self::val($row, 'view_context', '');
         $conversation->skillIdentifier = (string) self::val($row, 'skill_identifier', '');
         $conversation->skillUid = (int) self::val($row, 'skill_uid', 0);
+        $conversation->skillStartPending = (bool) self::val($row, 'skill_start_pending', false);
         $conversation->activity           = (string) self::val($row, 'activity', '');
         $conversation->guidedState        = (string) self::val($row, 'guided_state', '');
         $conversation->archived           = (bool) self::val($row, 'archived', false);
@@ -172,6 +189,7 @@ final class Conversation
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
         $conversation->pendingInput       = (string) self::val($row, 'pending_input', '');
         $conversation->approvalDenyReason = (string) self::val($row, 'approval_deny_reason', '');
+        $conversation->lastRunUuid = (string) self::val($row, 'last_run_uuid', '');
         $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate             = (int) self::val($row, 'crdate', 0);
 
@@ -217,6 +235,7 @@ final class Conversation
             'approval_run_uuid'    => $this->approvalRunUuid,
             'approval_decision'    => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
+            'last_run_uuid' => $this->lastRunUuid,
             'pending_input'        => $this->pendingInput,
             'approval_deny_reason' => $this->approvalDenyReason,
         ];
@@ -449,6 +468,16 @@ final class Conversation
         return $this->skillUid;
     }
 
+    public function isSkillStartPending(): bool
+    {
+        return $this->skillStartPending;
+    }
+
+    public function setSkillStartPending(bool $pending): void
+    {
+        $this->skillStartPending = $pending;
+    }
+
     public static function isSkillIdentifier(string $identifier): bool
     {
         return preg_match('/^[A-Za-z0-9][A-Za-z0-9._:\/-]{0,99}$/', $identifier) === 1;
@@ -580,6 +609,16 @@ final class Conversation
     public function setApprovalRunUuid(string $runUuid): void
     {
         $this->approvalRunUuid = $runUuid;
+    }
+
+    public function getLastRunUuid(): string
+    {
+        return $this->lastRunUuid;
+    }
+
+    public function setLastRunUuid(string $runUuid): void
+    {
+        $this->lastRunUuid = $runUuid;
     }
 
     public function getApprovalDecision(): string

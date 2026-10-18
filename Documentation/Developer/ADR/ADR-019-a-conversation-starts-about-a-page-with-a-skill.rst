@@ -68,16 +68,48 @@ message; the skill is shown above the input with a button to remove it.
 **An invocation, with the page as its subject.** nr-llm ADR-214 passes a
 process skill as an invocation — the skill's uid and a subject record —
 rather than as a forced skill on every turn, and skips process skills on
-the forced path. nr-llm has no invocation API yet, so the run request is
-built through ``SkillInvocationInterface``, which nothing implements; with
-no implementation, or when it answers null, the skill goes as a forced skill
-as before. nr-llm skips a skill marked as a process on the forced path,
-so on an nr-llm that marks process skills but cannot take an invocation, a
-process skill reaches no run until the invocation API ships. The
-invocation carries the conversation's page as the subject
-record (``pages``, uid). The skill's uid is resolved from the catalogue and
-kept beside the identifier (new column ``skill_uid``, 0 when the catalogue
+the forced path. ``NrLlmSkillInvocation`` (behind
+``SkillInvocationInterface``) builds nr-llm's ``SkillInvocation``: the
+skill's uid from the catalogue and the conversation's page as the subject
+record (``pages``, uid, the page's language; 0 when the chat does not know
+it). Only a skill the catalogue marks as a process is invoked; any other
+skill goes as a forced skill on every turn, as before. The skill's uid is
+also kept beside the identifier (column ``skill_uid``, 0 when the catalogue
 did not know it).
+
+**The invocation goes out once; later turns name their predecessor.** nr-llm
+ADR-228 derives a running process from the run before: a turn names that run
+(``predecessorRunUuid``) and carries no invocation. The conversation stores
+its last run in ``last_run_uuid`` after every run nr-llm recorded — completed,
+failed, refused, stopped or waiting — and, unlike ``approval_run_uuid``,
+keeps it through every status. A run nr-llm could not record has no uuid and
+leaves the previous one. The invocation goes out on the conversation's first
+run and on the turn after a process skill is picked in the "/" list
+(``skill_start_pending``, set by the pick and cleared once a recorded run
+carried the invocation); that turn is a new start and names no predecessor.
+A turn whose skill has left the catalogue still names its predecessor, so
+nr-llm can report that it dropped the process.
+
+**A dropped process is said once.** When nr-llm drops the process — its skill
+was detached from the configuration, or the turn runs on another
+configuration — it records a ``dropped`` step with the reason, which the run
+result carries on every outcome. The chat adds one line before the answer,
+stored language-neutral with the notice ``processDropped`` and the reason;
+the reader sees the label in their own language, and the model is not sent
+the line. nr-llm records no process for such a run, so the next turn
+continues none. ``DroppedSource`` and ``DroppedSourceReason`` are marked
+internal in nr-llm; the chat reads them until nr-llm declares them API.
+
+**No new turn while the run waits.** A message or an edit while the
+conversation's run waits for a decision or an input, or is being carried on,
+is refused like any busy conversation (409, ``error.conversationProcessing``):
+the new turn would name an unfinished run as its predecessor, which nr-llm
+refuses for a process, and the turn after that refusal would go on without
+it. A run that has finished, or one the chat cannot read, lets the message
+through, so a conversation whose run was decided elsewhere does not stay
+locked. The input is disabled while the card shows the waiting decision.
+This replaces the earlier rule that a new message abandons a pending
+approval (ADR-017).
 
 **No skill on a four-eyes configuration.** nr-llm ADR-214 decides a guided
 process only on the chat card; where the configuration requires a second
@@ -92,7 +124,8 @@ configuration was switched to four-eyes keeps running.
 Consequences
 ============
 
-*   New columns ``skill_identifier`` and ``skill_uid``, new routes ``ai_chat_skills`` and
+*   New columns ``skill_identifier``, ``skill_uid``, ``skill_start_pending``
+    and ``last_run_uuid``, new routes ``ai_chat_skills`` and
     ``ai_chat_conversation_skill``. Run the database analyzer after
     upgrading.
 *   Today a skill reaches the model as reference data, not as instructions;
@@ -100,3 +133,6 @@ Consequences
     allows. nr-llm ADR-214 makes approved versions instructions; the adapter
     is where explicit invocation replaces the forced skill.
 *   A skill picked while a turn runs is refused, as the instructions are.
+*   The chat needs the nr-llm release that carries ``SkillInvocation``,
+    ``SubjectRecord`` and ``predecessorRunUuid`` (nr-llm ADR-228); there is
+    no fallback for an older nr-llm.

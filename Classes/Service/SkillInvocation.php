@@ -14,8 +14,8 @@ namespace Netresearch\NrMcpAgent\Service;
  * ADR-214, item 10: "start with a skill" — the skill uid and an optional
  * subject record).
  *
- * The subject is the conversation's page. The skill uid is 0 when the
- * catalogue did not know it when the skill was picked.
+ * The subject is the conversation's page, in the page's language (0 when
+ * the chat does not know it).
  */
 final readonly class SkillInvocation
 {
@@ -24,5 +24,6 @@ final readonly class SkillInvocation
         public int $skillUid,
         public ?string $subjectTable = null,
         public ?int $subjectUid = null,
+        public int $subjectLanguage = 0,
     ) {}
 }

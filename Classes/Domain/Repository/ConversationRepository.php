@@ -213,16 +213,29 @@ readonly class ConversationRepository
      */
     /**
      * Single-column write of the conversation's skill (ADR-019), for the reason
-     * updateSystemPrompt() gives.
+     * updateSystemPrompt() gives. `$startPending` marks the next turn as the
+     * start of the skill's process (nr-llm ADR-214 item 10).
      */
-    public function updateSkillIdentifier(int $uid, string $skillIdentifier, int $beUserUid, int $skillUid = 0): void
+    public function updateSkillIdentifier(int $uid, string $skillIdentifier, int $beUserUid, int $skillUid = 0, bool $startPending = false): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
             'skill_identifier' => $skillIdentifier,
             'skill_uid' => $skillIdentifier !== '' ? $skillUid : 0,
+            'skill_start_pending' => (int) ($skillIdentifier !== '' && $startPending),
             'tstamp' => time(),
         ], ['uid' => $uid, 'be_user' => $beUserUid]);
+    }
+
+    /**
+     * Single-column clear of the start marker, once a run carried the
+     * invocation. Not part of a full-row write, so a save from a snapshot
+     * taken before the skill was picked cannot clear a newer marker.
+     */
+    public function clearSkillStartPending(int $uid): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, ['skill_start_pending' => 0], ['uid' => $uid]);
     }
 
     public function updateSystemPrompt(int $uid, string $systemPrompt, int $beUserUid): void

@@ -926,18 +926,21 @@ class ChatApiControllerTest extends TestCase
     }
 
     /**
-     * A new turn abandons a pending approval. Otherwise the reference survives
-     * into Processing, where the approval link still reads it and the repair
-     * would hand the card back in the middle of the new turn.
+     * A new turn after the waiting run finished elsewhere drops the approval
+     * reference. Otherwise it survives into Processing, where the approval
+     * link still reads it and the repair would hand the card back in the
+     * middle of the new turn. While the run still waits, the message is
+     * refused instead (ADR-019).
      */
     #[Test]
-    public function sendingAMessageAbandonsAPendingApproval(): void
+    public function sendingAMessageAbandonsAFinishedApproval(): void
     {
         $conversation = new Conversation();
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-uuid-1234');
         $conversation->recordApprovalDecision(true, 'digest-abc');
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_SETTLED, 'writes' => []]);
         $this->repository->method('updateIf')->willReturn(true);
         // The run behind the card, as the conversation knew it before the claim.
         $this->chatApproval->expects(self::once())->method('releasePendingRun')

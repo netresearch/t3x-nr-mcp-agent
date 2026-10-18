@@ -641,9 +641,21 @@ export class ChatCoreController {
         return PROCESSING_STATUSES.has(this.status);
     }
 
+    /**
+     * Whether a new message would start a run now. Not while a turn runs, and
+     * not while the card shows a run waiting for this reader's decision: a
+     * new turn would follow a run that has not finished, which nr-llm refuses
+     * for a guided process (ADR-228). Without a card — the reader cannot
+     * decide, or the run was decided elsewhere — the input stays open and the
+     * server answers.
+     */
+    acceptsNewTurn() {
+        return !this.isProcessing() && !(this.status === 'awaiting_approval' && this.pendingApproval);
+    }
+
     async handleSend() {
         const content = this.inputValue.trim();
-        if (!content || this.sending || this.isProcessing()) return;
+        if (!content || this.sending || !this.acceptsNewTurn()) return;
 
         if (this.maxLength > 0 && content.length > this.maxLength) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);
@@ -706,7 +718,7 @@ export class ChatCoreController {
     canEditMessage(idx) {
         const msg = this.messages[idx];
         return !!msg && msg.role === 'user' && typeof msg.content === 'string'
-            && !this.isProcessing() && !this.sending && this.available;
+            && this.acceptsNewTurn() && !this.sending && this.available;
     }
 
     startEdit(idx) {
@@ -1241,6 +1253,12 @@ export class ChatCoreController {
      * @returns {string|null}
      */
     formatRunNotice(msg) {
+        if (msg.notice === 'processDropped') {
+            const reason = Array.isArray(msg.noticeArgs) ? msg.noticeArgs[0] : '';
+            return reason === 'configuration_changed'
+                ? lll('chat.processDropped.configurationChanged')
+                : lll('chat.processDropped.detached');
+        }
         if (msg.notice !== 'runFinishedOutside') return null;
         const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];
         return writes.length > 0

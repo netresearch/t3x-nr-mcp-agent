@@ -16,17 +16,17 @@ use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
  * item 10).
  *
  * nr-llm passes a process skill as an invocation, not as a forced skill on
- * every turn; it skips process skills on the forced path. It has no
- * invocation API yet, so nothing implements this interface. Without an
- * implementation, or when it answers null, the chat falls back to passing
- * the skill as a forced skill (`SkillCatalogueInterface::augmentationFor()`),
- * as before (ADR-019).
+ * every turn; it skips process skills on the forced path. The invocation goes
+ * out once, on the turn that starts the process; every later turn names the
+ * previous run as its predecessor and nr-llm derives the process from it
+ * (ADR-228). {@see NrLlmSkillInvocation} is the nr-llm side.
  */
 interface SkillInvocationInterface
 {
     /**
-     * The request carrying the invocation, or null when nr-llm cannot take
-     * one for this request.
+     * The request carrying the invocation, or null when the invocation cannot
+     * be built for it — a skill without a record uid. The chat then passes the
+     * skill as a forced skill (`SkillCatalogueInterface::augmentationFor()`).
      */
     public function withInvocation(AgentRunRequest $request, SkillInvocation $invocation): ?AgentRunRequest;
 }

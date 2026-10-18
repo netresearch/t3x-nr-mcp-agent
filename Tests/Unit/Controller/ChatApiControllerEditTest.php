@@ -38,7 +38,7 @@ final class ChatApiControllerEditTest extends TestCase
     private ConversationRepository&MockObject $repository;
 
     private ChatProcessorInterface&MockObject $processor;
-
+    private ChatApprovalInterface&MockObject $chatApproval;
     private ChatApiController $subject;
 
     private ChatApprovalInterface&MockObject $chatApproval;
@@ -208,11 +208,13 @@ final class ChatApiControllerEditTest extends TestCase
         self::assertNull($this->claimed);
     }
 
+    /** Once the waiting run has finished elsewhere, an edit goes through and drops the stale reference. */
     #[Test]
-    public function editingAbandonsAPendingApprovalLikeANewMessage(): void
+    public function editingAbandonsAFinishedApprovalLikeANewMessage(): void
     {
         $conversation = $this->conversation($this->transcript(), ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-1');
+        $this->chatApproval->method('inspectPendingRun')->willReturn(['state' => ChatApprovalInterface::PENDING_RUN_SETTLED, 'writes' => []]);
         $this->chatApproval->expects(self::once())->method('releasePendingRun')->willReturn(true);
 
         $response = $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'expectedContent' => 'first question', 'messageCount' => 4, 'content' => 'x']));

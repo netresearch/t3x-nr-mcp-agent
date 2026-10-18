@@ -644,4 +644,32 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
 
         expect(el.shadowRoot.querySelector('.message.system')).toBeNull();
     });
+
+    /**
+     * A new message while the card waits would follow an unfinished run, which
+     * nr-llm refuses for a guided process (ADR-228). The decision is on the
+     * card, so sending is not offered (ADR-019).
+     */
+    test('while the card waits for a decision no new message can be sent', async () => {
+        const el = await renderPending(modulePath, tag, open);
+        el.chat.inputValue = 'Und das Element?';
+        el.chat.hasInput = true;
+        el.requestUpdate();
+        await el.updateComplete;
+
+        expect(el.chat.acceptsNewTurn()).toBe(false);
+        expect(el.shadowRoot.querySelector('.btn-send').disabled).toBe(true);
+        expect(el.chat.canEditMessage(0)).toBe(false);
+    });
+
+    test('without a card the input stays open and the server answers', async () => {
+        const el = await renderPending(modulePath, tag, open, null);
+        el.chat.inputValue = 'Und das Element?';
+        el.chat.hasInput = true;
+        el.requestUpdate();
+        await el.updateComplete;
+
+        expect(el.chat.acceptsNewTurn()).toBe(true);
+        expect(el.shadowRoot.querySelector('.btn-send').disabled).toBe(false);
+    });
 });

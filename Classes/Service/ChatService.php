@@ -100,6 +100,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     public const NOTICE_RUN_FINISHED_OUTSIDE = 'runFinishedOutside';
 
     /**
+     * The notice on the line the chat adds when a run dropped the
+     * conversation's guided process (nr-llm ADR-228). Its argument is
+     * nr-llm's reason: `detached` or `configuration_changed`.
+     */
+    public const NOTICE_PROCESS_DROPPED = 'processDropped';
+
+    /** The kind nr-llm gives a dropped process pin (nr-llm ADR-228). */
+    private const DROPPED_PROCESS_KIND = 'process';
+
+    /**
      * What the model is told, next turn, beside an answer that got the
      * nothing-saved notice: the notice is for the reader, and the model would
      * otherwise go on believing its own claim.
@@ -348,10 +358,17 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The options object carries nothing but the caller source: every model
         // parameter stays on the LlmConfiguration, so toArray() is empty and no
         // provider option is overridden by naming ourselves here.
-        $result = $this->agentRuntime->run(
-            $this->runRequest($conversation, $configuration, $messages, $operation),
-            $this->activityRecorder->onStep($conversation),
-        );
+        $request = $this->runRequest($conversation, $configuration, $messages, $operation);
+        $result = $this->agentRuntime->run($request, $this->activityRecorder->onStep($conversation));
+
+        // The start marker is spent once a run that carried the invocation
+        // exists, whatever its outcome: a refused start is not tried again on
+        // every turn. A run that could not be recorded leaves the marker, so
+        // the next turn starts the process instead of continuing nothing.
+        if ($request->invocation !== null && $result->runUuid !== '' && $conversation->isSkillStartPending()) {
+            $conversation->setSkillStartPending(false);
+            $this->repository->clearSkillStartPending($conversation->getUid());
+        }
 
         $this->applyResult($conversation, $result);
     }
@@ -359,11 +376,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     /**
      * The run request for a turn, with the conversation's skill.
      *
-     * nr-llm ADR-214 passes a process skill as an invocation with the record
-     * it is about — here the conversation's page. Where nothing can start a
-     * run with an invocation (SkillInvocationInterface), the skill goes as a
-     * forced skill on every turn, as before (ADR-019); none when it is gone or
-     * nr-llm cannot take one.
+     * A process skill (nr-llm ADR-214) starts once, as an invocation with the
+     * record it is about — the conversation's page: on the conversation's
+     * first run, and on the turn after the skill was picked mid-conversation.
+     * Every other turn of such a conversation names the previous run as its
+     * predecessor, and nr-llm derives the process from it (ADR-228) — also
+     * when the skill has left the catalogue, so nr-llm can say it dropped the
+     * process. Any other skill goes as a forced skill on every turn (ADR-019);
+     * none when it is gone.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
@@ -377,15 +397,32 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         ];
 
         $identifier = $conversation->getSkillIdentifier();
-        if ($identifier !== '' && $this->skillInvocation instanceof SkillInvocationInterface) {
-            $pageId = $conversation->getViewContext()['pageId'];
+        if ($identifier === '') {
+            return new AgentRunRequest(...$base);
+        }
+
+        $entry = $this->skills?->find($identifier);
+        $process = $entry !== null && $entry['process'] === true;
+        $lastRun = $conversation->getLastRunUuid();
+        if ($process && ($lastRun === '' || $conversation->isSkillStartPending()) && $this->skillInvocation instanceof SkillInvocationInterface) {
+            $context = $conversation->getViewContext();
             $invoked = $this->skillInvocation->withInvocation(
                 new AgentRunRequest(...$base),
-                new SkillInvocation($identifier, $conversation->getSkillUid(), $pageId > 0 ? 'pages' : null, $pageId > 0 ? $pageId : null),
+                new SkillInvocation(
+                    $identifier,
+                    $entry['uid'],
+                    $context['pageId'] > 0 ? 'pages' : null,
+                    $context['pageId'] > 0 ? $context['pageId'] : null,
+                    max(0, $context['languageId']),
+                ),
             );
             if ($invoked instanceof AgentRunRequest) {
                 return $invoked;
             }
+        }
+
+        if ($lastRun !== '' && ($process || $entry === null)) {
+            return new AgentRunRequest(...$base, predecessorRunUuid: $lastRun);
         }
 
         return new AgentRunRequest(...$base, augmentation: $this->skills?->augmentationFor($identifier));
@@ -643,12 +680,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return ['state' => self::PENDING_RUN_WAITING, 'writes' => []];
         }
 
-        if ($status === AgentRunStatus::RUNNING || $status === AgentRunStatus::QUEUED) {
-            return ['state' => self::PENDING_RUN_BUSY, 'writes' => []];
+        if ($status === null) {
+            return $unknown;
         }
 
-        if ($status === null || !$status->isTerminal()) {
-            return $unknown;
+        // Running, queued, or waiting for an input: not finished, so not a
+        // run a new turn may follow (nr-llm ADR-228 refuses a continuation of
+        // a process run that has not ended).
+        if (!$status->isTerminal()) {
+            return ['state' => self::PENDING_RUN_BUSY, 'writes' => []];
         }
 
         $writes = [];
@@ -1035,6 +1075,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // (ADR-020).
         $this->guidedState?->absorb($conversation, $result->runUuid);
 
+        // Every recorded run, whatever its outcome — completed, failed,
+        // refused, stopped or waiting: the next turn names it as predecessor
+        // (nr-llm ADR-228). A run nr-llm could not record has no uuid and
+        // leaves the previous one standing.
+        if ($result->runUuid !== '') {
+            $conversation->setLastRunUuid($result->runUuid);
+        }
+
+        $this->noteDroppedProcess($conversation, $result);
+
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
             $answer = $result->loopResult->finalContent;
             $conversation->appendMessage(
@@ -1107,6 +1157,40 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $result->error !== null ? $this->failureCode($result->error) : '',
         );
         $this->persist($conversation);
+    }
+
+    /**
+     * One line in the transcript when the run dropped the conversation's
+     * guided process (nr-llm ADR-214 item 6, ADR-228): its skill was detached
+     * from the configuration, or the turn ran on another configuration.
+     *
+     * nr-llm reports the drop as a `dropped` step of the run's trace, which
+     * the result carries on every outcome. The line goes before the answer,
+     * since the drop happened before the run began; the reader gets a label
+     * in their language rendered from the reason, and the model does not see
+     * the line ({@see self::buildLlmMessages()}). A dropped process records
+     * no lineage, so the next turn continues none and the line appears once.
+     */
+    private function noteDroppedProcess(Conversation $conversation, AgentRunResult $result): void
+    {
+        foreach ($result->steps as $step) {
+            if ($step->kind !== RunStep::KIND_DROPPED) {
+                continue;
+            }
+
+            foreach ($step->droppedSources ?? [] as $dropped) {
+                if ($dropped->kind === self::DROPPED_PROCESS_KIND) {
+                    $conversation->appendMessage(
+                        MessageRole::Assistant,
+                        sprintf('[The guided process of this conversation has ended (%s).]', $dropped->reason->value),
+                        self::NOTICE_PROCESS_DROPPED,
+                        [$dropped->reason->value],
+                    );
+
+                    return;
+                }
+            }
+        }
     }
 
     /**
@@ -1300,6 +1384,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         $result = [];
         foreach ($messages as $msg) {
+            // The reader's line about a dropped process: the model needs no
+            // telling, since the process's instructions simply stop reaching it,
+            // and a second assistant message before the answer is not a turn.
+            if (($msg['notice'] ?? null) === self::NOTICE_PROCESS_DROPPED) {
+                continue;
+            }
+
             // The notice is rendered for the reader; the model is told the same
             // thing in its own transcript, per turn and never persisted, or it
             // would go on building on the claim the notice contradicts.

@@ -402,8 +402,13 @@ final readonly class ChatApiController
         }
 
         $skillUid = $this->skillUid($skill);
-        $this->repository->updateSkillIdentifier($conversation->getUid(), $skill, $this->getBeUserUid(), $skillUid);
+        // A process skill picked here starts on the next turn (nr-llm ADR-214
+        // item 10); that turn's invocation is a new start, later turns
+        // continue it. Any other skill goes on every turn and needs no start.
+        $startsProcess = $skill !== '' && ($this->skills?->find($skill)['process'] ?? null) === true;
+        $this->repository->updateSkillIdentifier($conversation->getUid(), $skill, $this->getBeUserUid(), $skillUid, $startsProcess);
         $conversation->setSkillIdentifier($skill, $skillUid);
+        $conversation->setSkillStartPending($startsProcess);
 
         return new JsonResponse(['skill' => $this->presentSkill($conversation)]);
     }
@@ -581,7 +586,7 @@ final readonly class ChatApiController
             }
         }
 
-        $refusal = $this->refuseNewTurn($currentStatus);
+        $refusal = $this->refuseWhileRunWaits($conversation) ?? $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
             return $refusal;
         }
@@ -666,7 +671,7 @@ final readonly class ChatApiController
 
         $before        = clone $conversation;
         $currentStatus = $conversation->getStatus();
-        $refusal       = $this->refuseNewTurn($currentStatus);
+        $refusal = $this->refuseWhileRunWaits($conversation) ?? $this->refuseNewTurn($currentStatus);
         if ($refusal !== null) {
             return $refusal;
         }
@@ -724,6 +729,28 @@ final readonly class ChatApiController
     private function isBusy(ConversationStatus $status): bool
     {
         return in_array($status, [ConversationStatus::Processing, ConversationStatus::Locked, ConversationStatus::ToolLoop], true);
+    }
+
+    /**
+     * The busy refusal while the run the conversation is parked on has not
+     * finished: it waits for a decision or an input, or is being carried on.
+     * A new turn names that run as its predecessor, and nr-llm refuses to
+     * continue a process run that has not ended (nr-llm ADR-228) — the turn
+     * after that refusal would go on without the process. A run that has
+     * finished, or one the chat cannot read, lets the turn through, so a
+     * conversation whose run was decided elsewhere does not stay locked.
+     */
+    private function refuseWhileRunWaits(Conversation $conversation): ?ResponseInterface
+    {
+        if ($conversation->getStatus() !== ConversationStatus::AwaitingApproval) {
+            return null;
+        }
+
+        $state = $this->chatApproval->inspectPendingRun($conversation)['state'];
+
+        return $state === ChatApprovalInterface::PENDING_RUN_WAITING || $state === ChatApprovalInterface::PENDING_RUN_BUSY
+            ? new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409)
+            : null;
     }
 
     /**

@@ -203,6 +203,12 @@
             <trans-unit id="chat.runFinishedOutsideNothingWritten" resname="chat.runFinishedOutsideNothingWritten">
                 <source>The approval was decided outside this chat, and the run has finished there without writing anything. Its answer is under AI Tasks.</source>
             </trans-unit>
+            <trans-unit id="chat.processDropped.detached" resname="chat.processDropped.detached">
+                <source>The guided process has ended: its skill is no longer attached to the chat's configuration. The conversation goes on without it.</source>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.configurationChanged" resname="chat.processDropped.configurationChanged">
+                <source>The guided process has ended: the chat now runs on another configuration. The conversation goes on without it.</source>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">

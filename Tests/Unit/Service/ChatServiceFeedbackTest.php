@@ -539,6 +539,19 @@ final class ChatServiceFeedbackTest extends TestCase
     }
 
     /**
+     * A run waiting for an input has not finished either: a new turn would
+     * follow an unfinished run, which nr-llm refuses for a process (ADR-228).
+     */
+    #[Test]
+    public function aRunWaitingForAnInputIsReportedAsBusy(): void
+    {
+        $pending = $this->createChatService(run: $this->agentRun(AgentRunStatus::WAITING_FOR_INPUT))
+            ->inspectPendingRun($this->parked());
+
+        self::assertSame(ChatApprovalInterface::PENDING_RUN_BUSY, $pending['state']);
+    }
+
+    /**
      * Demo conversation 79: approved in the AI Tasks module, the run finished
      * there, and the chat still showed the card. Run 45 wrote a page and an
      * element; those are what the next turn has to know about.

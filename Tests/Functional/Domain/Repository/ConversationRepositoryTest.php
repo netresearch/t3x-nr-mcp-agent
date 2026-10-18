@@ -496,4 +496,32 @@ class ConversationRepositoryTest extends FunctionalTestCase
         self::assertNotNull($reloaded);
         self::assertSame('Answer briefly.', $reloaded->getSystemPrompt());
     }
+
+    /**
+     * The start marker of a picked process skill is written and cleared on
+     * its own column; a full-row write from an older snapshot keeps it, and
+     * the last run travels with the row (nr-llm ADR-228).
+     */
+    #[Test]
+    public function theStartMarkerIsWrittenOnItsOwnAndTheLastRunWithTheRow(): void
+    {
+        $snapshot = $this->subject->findByUid(1);
+        self::assertNotNull($snapshot);
+
+        $this->subject->updateSkillIdentifier(1, 'content-tour', 1, 19, true);
+        $snapshot->setLastRunUuid('run-1');
+        $snapshot->setStatus(ConversationStatus::Failed);
+        $this->subject->update($snapshot);
+
+        $reloaded = $this->subject->findByUid(1);
+        self::assertNotNull($reloaded);
+        self::assertTrue($reloaded->isSkillStartPending());
+        self::assertSame('run-1', $reloaded->getLastRunUuid());
+
+        $this->subject->clearSkillStartPending(1);
+        self::assertFalse($this->subject->findByUid(1)?->isSkillStartPending());
+
+        $this->subject->updateSkillIdentifier(1, '', 1, 0, true);
+        self::assertFalse($this->subject->findByUid(1)?->isSkillStartPending(), 'no marker without a skill');
+    }
 }

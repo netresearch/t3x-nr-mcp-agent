@@ -44,6 +44,8 @@ final class ChatApiControllerStartTest extends TestCase
 
     private const PLAIN_SKILL = ['identifier' => 'tone-check', 'name' => 'Tonalität', 'description' => 'Kein Ablauf', 'uid' => 18, 'process' => false];
 
+    private const PROCESS_SKILL = ['identifier' => 'content-tour', 'name' => 'Inhalte verbessern', 'description' => 'Geführt', 'uid' => 19, 'process' => true];
+
     private ConversationRepository&MockObject $repository;
 
     private ?Conversation $added = null;
@@ -92,9 +94,9 @@ final class ChatApiControllerStartTest extends TestCase
         $skills = $this->createMock(SkillCatalogueInterface::class);
         $skills->method('isAvailable')->willReturn($available);
         $skills->method('requiresSecondApprover')->willReturn($secondApprover);
-        $skills->method('catalogue')->willReturn($available ? [self::SKILL, self::PLAIN_SKILL] : []);
+        $skills->method('catalogue')->willReturn($available ? [self::SKILL, self::PLAIN_SKILL, self::PROCESS_SKILL] : []);
         $skills->method('find')->willReturnCallback(
-            static fn(string $identifier): ?array => $available ? ([self::SKILL['identifier'] => self::SKILL, self::PLAIN_SKILL['identifier'] => self::PLAIN_SKILL][$identifier] ?? null) : null,
+            static fn(string $identifier): ?array => $available ? ([self::SKILL['identifier'] => self::SKILL, self::PLAIN_SKILL['identifier'] => self::PLAIN_SKILL, self::PROCESS_SKILL['identifier'] => self::PROCESS_SKILL][$identifier] ?? null) : null,
         );
 
         return $skills;
@@ -206,7 +208,7 @@ final class ChatApiControllerStartTest extends TestCase
     #[Test]
     public function theSlashListShowsTheCatalogue(): void
     {
-        self::assertSame(['available' => true, 'skills' => [self::SKILL, self::PLAIN_SKILL]], self::json($this->subject($this->catalogue())->listSkills()));
+        self::assertSame(['available' => true, 'skills' => [self::SKILL, self::PLAIN_SKILL, self::PROCESS_SKILL]], self::json($this->subject($this->catalogue())->listSkills()));
         self::assertSame(['available' => false, 'skills' => []], self::json($this->subject($this->catalogue(false))->listSkills()));
         self::assertSame(['available' => false, 'skills' => []], self::json($this->subject(null)->listSkills()));
     }
@@ -222,6 +224,40 @@ final class ChatApiControllerStartTest extends TestCase
         $response = $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "seo-page-tour"}'));
 
         self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite']], self::json($response));
+    }
+
+    /**
+     * A process skill picked in a running conversation starts on the next
+     * turn (nr-llm ADR-214 item 10): the pick sets the start marker.
+     */
+    #[Test]
+    public function pickingAProcessSkillMarksTheNextTurnAsItsStart(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setLastRunUuid('run-1');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->expects(self::once())->method('updateSkillIdentifier')->with(0, 'content-tour', 1, 19, true);
+
+        $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "content-tour"}'));
+
+        self::assertTrue($conversation->isSkillStartPending());
+    }
+
+    /** A skill that is no process — marked so, or unmarked — goes on every turn and needs no start. */
+    #[Test]
+    public function pickingAPlainSkillSetsNoStartMarker(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->expects(self::exactly(2))->method('updateSkillIdentifier')
+            ->with(0, self::anything(), 1, self::anything(), false);
+
+        $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "tone-check"}'));
+        $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "seo-page-tour"}'));
+
+        self::assertFalse($conversation->isSkillStartPending());
     }
 
     #[Test]
