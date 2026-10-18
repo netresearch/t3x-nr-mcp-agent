@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(NrLlmCardTarget::class)]
 final class NrLlmCardTargetTest extends TestCase
 {
-    private static function requireTarget(bool $present): void
+    private function requireTarget(bool $present): void
     {
         if (property_exists(PendingCallView::class, 'pendingTarget') !== $present) {
             self::markTestSkipped($present
@@ -37,7 +37,7 @@ final class NrLlmCardTargetTest extends TestCase
     /**
      * @param list<PendingCallView> $calls
      */
-    private static function view(array $calls): WaitingRunView
+    private function view(array $calls): WaitingRunView
     {
         return new WaitingRunView('run-1', WaitingRunView::MODE_APPROVAL, 0, 'Chat', 'digest', $calls);
     }
@@ -45,18 +45,18 @@ final class NrLlmCardTargetTest extends TestCase
     #[Test]
     public function withoutATargetOnTheViewThereIsNone(): void
     {
-        self::requireTarget(false);
+        $this->requireTarget(false);
 
-        self::assertNull(NrLlmCardTarget::of(self::view([new PendingCallView('update_content_element', '{"uid":12}', true, ['bodytext: old → new'])])));
+        self::assertNull(NrLlmCardTarget::of($this->view([new PendingCallView('update_content_element', '{"uid":12}', true, ['bodytext: old → new'])])));
     }
 
     #[Test]
     public function theTargetIsNrLlmsRecordAndFields(): void
     {
-        self::requireTarget(true);
+        $this->requireTarget(true);
         $call = new PendingCallView('update_content_element', '{}', true, pendingTarget: new PendingWriteTarget(new RecordReference('tt_content', 12), ['header', 'bodytext']));
 
-        $target = NrLlmCardTarget::of(self::view([$call]));
+        $target = NrLlmCardTarget::of($this->view([$call]));
 
         self::assertNotNull($target);
         self::assertSame('tt_content', $target->table);
@@ -68,22 +68,22 @@ final class NrLlmCardTargetTest extends TestCase
     #[Test]
     public function aCallWithoutATargetHasNone(): void
     {
-        self::requireTarget(true);
+        $this->requireTarget(true);
 
-        self::assertNull(NrLlmCardTarget::of(self::view([new PendingCallView('create_content_element_draft', '{}', true, pendingTarget: null)])));
+        self::assertNull(NrLlmCardTarget::of($this->view([new PendingCallView('create_content_element_draft', '{}', true, pendingTarget: null)])));
     }
 
     /** One decision covers the whole pending set; only a one-call card is keyed. */
     #[Test]
     public function aCardWithSeveralCallsHasNone(): void
     {
-        self::requireTarget(true);
+        $this->requireTarget(true);
         $target = new PendingWriteTarget(new RecordReference('tt_content', 12), ['bodytext']);
 
-        self::assertNull(NrLlmCardTarget::of(self::view([
+        self::assertNull(NrLlmCardTarget::of($this->view([
             new PendingCallView('update_content_element', '{}', true, pendingTarget: $target),
             new PendingCallView('update_content_element', '{}', true, pendingTarget: $target),
         ])));
-        self::assertNull(NrLlmCardTarget::of(self::view([])));
+        self::assertNull(NrLlmCardTarget::of($this->view([])));
     }
 }

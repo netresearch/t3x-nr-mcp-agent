@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
 final class SkillProcessRunDetectorTest extends TestCase
 {
     /**
-     * @return iterable<string, array{bool|null|false, bool}>
+     * @return iterable<string, array{bool|false|null, bool}>
      */
     public static function markers(): iterable
     {

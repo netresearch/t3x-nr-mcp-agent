@@ -79,7 +79,7 @@ final readonly class OpenPointTracker implements OpenPointTrackerInterface
         }
 
         $skillUid = $conversation->getSkillUid();
-        $pageUid = $conversation->getViewContext()['pageId'];
+        $pageUid  = $conversation->getViewContext()['pageId'];
         if ($skillUid <= 0 || $pageUid <= 0) {
             return;
         }
@@ -90,7 +90,7 @@ final readonly class OpenPointTracker implements OpenPointTrackerInterface
     public function promptFor(Conversation $conversation): string
     {
         $skillUid = $conversation->getSkillUid();
-        $pageUid = $conversation->getViewContext()['pageId'];
+        $pageUid  = $conversation->getViewContext()['pageId'];
         if ($skillUid <= 0 || $pageUid <= 0) {
             return '';
         }
@@ -98,7 +98,7 @@ final readonly class OpenPointTracker implements OpenPointTrackerInterface
         // Only for the owner as the current user, and only what that user may
         // see of the page — the same rule as the list tool.
         $user = $GLOBALS['BE_USER'] ?? null;
-        $uid = $user instanceof BackendUserAuthentication ? ($user->user['uid'] ?? null) : null;
+        $uid  = $user instanceof BackendUserAuthentication ? ($user->user['uid'] ?? null) : null;
         if (!$user instanceof BackendUserAuthentication || !is_numeric($uid) || (int) $uid !== $conversation->getBeUser()) {
             return '';
         }

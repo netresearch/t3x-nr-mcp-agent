@@ -40,9 +40,9 @@ final class ListOpenPointsTool extends GuidedTool
             . ' stay open until a change to the same record and field is applied. Each names the record and the'
             . ' field, and the uid of the process skill that recorded it. It changes nothing in TYPO3.',
             [
-                'type' => 'object',
+                'type'       => 'object',
                 'properties' => [
-                    'pageUid' => ['type' => 'integer', 'description' => 'uid of the page the process is about.'],
+                    'pageUid'  => ['type' => 'integer', 'description' => 'uid of the page the process is about.'],
                     'skillUid' => ['type' => 'integer', 'description' => 'Only the points of this process skill (optional).'],
                 ],
                 'required' => ['pageUid'],
@@ -58,7 +58,7 @@ final class ListOpenPointsTool extends GuidedTool
         }
 
         $pageUid = self::int($arguments, 'pageUid');
-        $points = $this->openPoints->forPage($user, $pageUid, max(0, self::int($arguments, 'skillUid')));
+        $points  = $this->openPoints->forPage($user, $pageUid, max(0, self::int($arguments, 'skillUid')));
         if ($points === null) {
             // One answer for "does not exist" and "may not see".
             return ToolResult::error('Error: no page with this uid that you may see.');

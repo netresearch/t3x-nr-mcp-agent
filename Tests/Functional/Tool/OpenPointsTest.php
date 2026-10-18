@@ -12,6 +12,7 @@ namespace Netresearch\NrMcpAgent\Tests\Functional\Tool;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -97,10 +98,10 @@ final class OpenPointsTest extends FunctionalTestCase
         $repository->record(7, 'pages', 20, new OpenPointTarget('tt_content', 102, ['bodytext']), self::EDITOR, 5);
         $repository->record(7, 'pages', 20, new OpenPointTarget('tt_content', 100), self::EDITOR, 5);
 
-        self::assertSame(2, $repository->close(new OpenPointTarget('tt_content', 100, ['bodytext'])), 'both processes\' bodytext points');
+        self::assertSame(2, $repository->close(new OpenPointTarget('tt_content', 100, ['bodytext'])), "both processes' bodytext points");
 
         $left = array_map(
-            static fn(array $point): string => $point['targetUid'] . ':' . $point['field'],
+            static fn (array $point): string => $point['targetUid'] . ':' . $point['field'],
             $repository->findBySubject('pages', 20),
         );
         sort($left);
@@ -122,7 +123,7 @@ final class OpenPointsTest extends FunctionalTestCase
 
     // ---- the list tool -----------------------------------------------------
 
-    private function list(array $arguments): \Netresearch\NrLlm\Domain\ValueObject\ToolResult
+    private function list(array $arguments): ToolResult
     {
         return $this->get(ListOpenPointsTool::class)->execute($arguments, ToolExecutionContext::fromBackendUser($this->setUpBackendUser(self::EDITOR)));
     }
@@ -275,10 +276,10 @@ final class OpenPointsTest extends FunctionalTestCase
         $points = $this->siteWide(2);
 
         self::assertSame([['tt_content', 100, 'bodytext'], ['tt_content', 100, 'header']], array_map(
-            static fn(VisibleOpenPoint $point): array => [$point->targetTable, $point->targetUid, $point->field],
+            static fn (VisibleOpenPoint $point): array => [$point->targetTable, $point->targetUid, $point->field],
             $points,
         ));
-        self::assertSame(['bodytext'], array_map(static fn(VisibleOpenPoint $point): string => $point->field, $this->siteWide(1)), 'the limit cuts');
+        self::assertSame(['bodytext'], array_map(static fn (VisibleOpenPoint $point): string => $point->field, $this->siteWide(1)), 'the limit cuts');
     }
 
     /**
@@ -316,7 +317,7 @@ final class OpenPointsTest extends FunctionalTestCase
         self::assertSame(100, $header->crdate);
         self::assertNotSame('', $bodyLabel);
         self::assertSame($headerSummary, $header->summary, 'the header has a value');
-        self::assertSame(sprintf($bodySummary, $bodyLabel), $body->summary, 'the fixture\'s bodytext is empty');
+        self::assertSame(sprintf($bodySummary, $bodyLabel), $body->summary, "the fixture's bodytext is empty");
     }
 
     #[Test]
@@ -337,7 +338,7 @@ final class OpenPointsTest extends FunctionalTestCase
         $this->point(20, 'tt_content', 100, 'hidden', 300);
         $this->point(20, 'tt_content', 100, 'header', 100);
 
-        self::assertSame(['header'], array_map(static fn(VisibleOpenPoint $point): string => $point->field, $this->siteWide(10)));
+        self::assertSame(['header'], array_map(static fn (VisibleOpenPoint $point): string => $point->field, $this->siteWide(10)));
         self::assertSame(['header'], array_column($this->get(OpenPointVisibility::class)->forPage($this->setUpBackendUser(self::EDITOR), 20) ?? [], 'field'));
     }
 

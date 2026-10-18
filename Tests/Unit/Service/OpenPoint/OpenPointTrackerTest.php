@@ -61,14 +61,14 @@ final class OpenPointTrackerTest extends TestCase
 
     private function loggedIn(int $uid): BackendUserAuthentication
     {
-        $user = $this->createMock(BackendUserAuthentication::class);
-        $user->user = ['uid' => $uid];
+        $user               = $this->createMock(BackendUserAuthentication::class);
+        $user->user         = ['uid' => $uid];
         $GLOBALS['BE_USER'] = $user;
 
         return $user;
     }
 
-    private static function conversation(int $skillUid = 7, int $pageUid = 42): Conversation
+    private function conversation(int $skillUid = 7, int $pageUid = 42): Conversation
     {
         $conversation = new Conversation();
         $conversation->setBeUser(3);
@@ -83,12 +83,12 @@ final class OpenPointTrackerTest extends TestCase
         return $conversation;
     }
 
-    private static function runResult(RunStep ...$steps): AgentRunResult
+    private function runResult(RunStep ...$steps): AgentRunResult
     {
         return new AgentRunResult(AgentRunOutcome::COMPLETED, 'run-1', array_values($steps));
     }
 
-    private static function target(): OpenPointTarget
+    private function target(): OpenPointTarget
     {
         return new OpenPointTarget('tt_content', 12, ['bodytext']);
     }
@@ -98,11 +98,11 @@ final class OpenPointTrackerTest extends TestCase
     #[Test]
     public function skippingRecordsUnderSkillPageAndTarget(): void
     {
-        $target = self::target();
+        $target = $this->target();
         $this->repository->expects(self::once())->method('record')->with(7, 'pages', 42, $target, 3, 99);
         $this->repository->expects(self::never())->method('close');
 
-        $this->tracker()->settle(self::conversation(), false, DenyReason::Skip, $target, self::runResult());
+        $this->tracker()->settle($this->conversation(), false, DenyReason::Skip, $target, $this->runResult());
     }
 
     /** "Andere Variante" records nothing: a new proposal follows. */
@@ -111,7 +111,7 @@ final class OpenPointTrackerTest extends TestCase
     {
         $this->repository->expects(self::never())->method('record');
 
-        $this->tracker()->settle(self::conversation(), false, DenyReason::Variant, self::target(), self::runResult());
+        $this->tracker()->settle($this->conversation(), false, DenyReason::Variant, $this->target(), $this->runResult());
     }
 
     #[Test]
@@ -119,7 +119,7 @@ final class OpenPointTrackerTest extends TestCase
     {
         $this->repository->expects(self::never())->method('record');
 
-        $this->tracker()->settle(self::conversation(), false, null, self::target(), self::runResult());
+        $this->tracker()->settle($this->conversation(), false, null, $this->target(), $this->runResult());
     }
 
     /** A skipped create names no target, and records nothing. */
@@ -128,7 +128,7 @@ final class OpenPointTrackerTest extends TestCase
     {
         $this->repository->expects(self::never())->method('record');
 
-        $this->tracker()->settle(self::conversation(), false, DenyReason::Skip, null, self::runResult());
+        $this->tracker()->settle($this->conversation(), false, DenyReason::Skip, null, $this->runResult());
     }
 
     #[Test]
@@ -136,54 +136,51 @@ final class OpenPointTrackerTest extends TestCase
     {
         $this->repository->expects(self::never())->method('record');
 
-        $this->tracker()->settle(self::conversation(skillUid: 0), false, DenyReason::Skip, self::target(), self::runResult());
-        $this->tracker()->settle(self::conversation(pageUid: 0), false, DenyReason::Skip, self::target(), self::runResult());
+        $this->tracker()->settle($this->conversation(skillUid: 0), false, DenyReason::Skip, $this->target(), $this->runResult());
+        $this->tracker()->settle($this->conversation(pageUid: 0), false, DenyReason::Skip, $this->target(), $this->runResult());
     }
 
     // ---- closing -----------------------------------------------------------
 
-    private static function requireCompleteness(): void
+    private function requireCompleteness(): void
     {
         if (!property_exists(RunStep::class, 'writeCompleteness')) {
             self::markTestSkipped('Needs nr-llm 0.41 (RunStep::$writeCompleteness, nr-llm PR 1023).');
         }
     }
 
-    private static function applied(WriteCompleteness $completeness, bool $hookFailed = false): AgentRunResult
+    private function applied(WriteCompleteness $completeness, bool $hookFailed = false): AgentRunResult
     {
-        return self::runResult(
-            new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'update_content_element', toolIsError: false),
-            new RunStep(kind: RunStep::KIND_WRITE, round: 1, durationMs: 1.0, writeTarget: new RecordReference('tt_content', 12), writeCompleteness: $completeness, hookFailedAfterWrite: $hookFailed),
-        );
+        return $this->runResult(new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'update_content_element', toolIsError: false), new RunStep(kind: RunStep::KIND_WRITE, round: 1, durationMs: 1.0, writeTarget: new RecordReference('tt_content', 12), writeCompleteness: $completeness, hookFailedAfterWrite: $hookFailed));
     }
 
     #[Test]
     public function anAppliedApprovalClosesTheTargetsOpenPoints(): void
     {
-        self::requireCompleteness();
-        $target = self::target();
+        $this->requireCompleteness();
+        $target = $this->target();
         $this->repository->expects(self::once())->method('close')->with($target);
         $this->repository->expects(self::never())->method('record');
 
-        $this->tracker()->settle(self::conversation(), true, null, $target, self::applied(WriteCompleteness::COMPLETE));
+        $this->tracker()->settle($this->conversation(), true, null, $target, $this->applied(WriteCompleteness::COMPLETE));
     }
 
     #[Test]
     public function aPartialWriteClosesNothing(): void
     {
-        self::requireCompleteness();
+        $this->requireCompleteness();
         $this->repository->expects(self::never())->method('close');
 
-        $this->tracker()->settle(self::conversation(), true, null, self::target(), self::applied(WriteCompleteness::PARTIAL));
+        $this->tracker()->settle($this->conversation(), true, null, $this->target(), $this->applied(WriteCompleteness::PARTIAL));
     }
 
     #[Test]
     public function aHookFlaggedWriteClosesNothing(): void
     {
-        self::requireCompleteness();
+        $this->requireCompleteness();
         $this->repository->expects(self::never())->method('close');
 
-        $this->tracker()->settle(self::conversation(), true, null, self::target(), self::applied(WriteCompleteness::COMPLETE, hookFailed: true));
+        $this->tracker()->settle($this->conversation(), true, null, $this->target(), $this->applied(WriteCompleteness::COMPLETE, hookFailed: true));
     }
 
     /** Before nr-llm 0.41 no write states its completeness: nothing closes. */
@@ -192,24 +189,21 @@ final class OpenPointTrackerTest extends TestCase
     {
         $this->repository->expects(self::never())->method('close');
 
-        $this->tracker()->settle(self::conversation(), true, null, self::target(), self::runResult(
-            new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'update_content_element', toolIsError: false),
-            new RunStep(kind: RunStep::KIND_WRITE, round: 1, durationMs: 1.0, writeTarget: new RecordReference('tt_content', 12)),
-        ));
+        $this->tracker()->settle($this->conversation(), true, null, $this->target(), $this->runResult(new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'update_content_element', toolIsError: false), new RunStep(kind: RunStep::KIND_WRITE, round: 1, durationMs: 1.0, writeTarget: new RecordReference('tt_content', 12))));
     }
 
     #[Test]
     public function anApprovalWithoutATargetClosesNothing(): void
     {
-        self::requireCompleteness();
+        $this->requireCompleteness();
         $this->repository->expects(self::never())->method('close');
 
-        $this->tracker()->settle(self::conversation(), true, null, null, self::applied(WriteCompleteness::COMPLETE));
+        $this->tracker()->settle($this->conversation(), true, null, null, $this->applied(WriteCompleteness::COMPLETE));
     }
 
     // ---- the card the decision answers -------------------------------------
 
-    private static function card(string $digest, string $mode = WaitingRunView::MODE_APPROVAL): WaitingRunView
+    private function card(string $digest, string $mode = WaitingRunView::MODE_APPROVAL): WaitingRunView
     {
         $call = property_exists(PendingCallView::class, 'pendingTarget')
             ? new PendingCallView('update_content_element', '{}', true, pendingTarget: new PendingWriteTarget(new RecordReference('tt_content', 12), ['bodytext']))
@@ -225,18 +219,18 @@ final class OpenPointTrackerTest extends TestCase
             self::markTestSkipped('Needs nr-llm 0.41 (PendingCallView::$pendingTarget, nr-llm PR 1024).');
         }
 
-        $target = $this->tracker()->cardTarget(self::conversation(), self::card('digest-abc'));
+        $target = $this->tracker()->cardTarget($this->conversation(), $this->card('digest-abc'));
 
-        self::assertEquals(self::target(), $target);
+        self::assertEquals($this->target(), $target);
     }
 
     /** A card that moved on since the decision is not the card it answers. */
     #[Test]
     public function aCardWithAnotherDigestHasNoTarget(): void
     {
-        self::assertNull($this->tracker()->cardTarget(self::conversation(), self::card('digest-other')));
-        self::assertNull($this->tracker()->cardTarget(self::conversation(), self::card('digest-abc', WaitingRunView::MODE_INPUT)));
-        self::assertNull($this->tracker()->cardTarget(self::conversation(), null));
+        self::assertNull($this->tracker()->cardTarget($this->conversation(), $this->card('digest-other')));
+        self::assertNull($this->tracker()->cardTarget($this->conversation(), $this->card('digest-abc', WaitingRunView::MODE_INPUT)));
+        self::assertNull($this->tracker()->cardTarget($this->conversation(), null));
     }
 
     // ---- offered again -----------------------------------------------------
@@ -250,7 +244,7 @@ final class OpenPointTrackerTest extends TestCase
             ['skillUid' => 7, 'targetTable' => 'tt_content', 'targetUid' => 13, 'field' => '', 'crdate' => 2],
         ]);
 
-        $prompt = $this->tracker()->promptFor(self::conversation());
+        $prompt = $this->tracker()->promptFor($this->conversation());
 
         self::assertStringContainsString('page 42', $prompt);
         self::assertStringContainsString('- tt_content 12, field bodytext', $prompt);
@@ -264,9 +258,9 @@ final class OpenPointTrackerTest extends TestCase
         $this->loggedIn(3);
         $this->visibility->method('forPage')->willReturn([]);
 
-        self::assertSame('', $this->tracker()->promptFor(self::conversation()));
-        self::assertSame('', $this->tracker()->promptFor(self::conversation(skillUid: 0)));
-        self::assertSame('', $this->tracker()->promptFor(self::conversation(pageUid: 0)));
+        self::assertSame('', $this->tracker()->promptFor($this->conversation()));
+        self::assertSame('', $this->tracker()->promptFor($this->conversation(skillUid: 0)));
+        self::assertSame('', $this->tracker()->promptFor($this->conversation(pageUid: 0)));
     }
 
     /** A page the owner may not show offers nothing, as the list tool refuses it. */
@@ -276,7 +270,7 @@ final class OpenPointTrackerTest extends TestCase
         $this->loggedIn(3);
         $this->visibility->method('forPage')->willReturn(null);
 
-        self::assertSame('', $this->tracker()->promptFor(self::conversation()));
+        self::assertSame('', $this->tracker()->promptFor($this->conversation()));
     }
 
     /** Visibility is decided for the owner; without the owner as current user, nothing. */
@@ -285,8 +279,8 @@ final class OpenPointTrackerTest extends TestCase
     {
         $this->visibility->expects(self::never())->method('forPage');
 
-        self::assertSame('', $this->tracker()->promptFor(self::conversation()));
+        self::assertSame('', $this->tracker()->promptFor($this->conversation()));
         $this->loggedIn(4);
-        self::assertSame('', $this->tracker()->promptFor(self::conversation()));
+        self::assertSame('', $this->tracker()->promptFor($this->conversation()));
     }
 }

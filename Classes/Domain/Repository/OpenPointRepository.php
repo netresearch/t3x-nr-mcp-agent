@@ -67,7 +67,7 @@ readonly class OpenPointRepository
     public function close(OpenPointTarget $target): int
     {
         $closed = 0;
-        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn   = $this->connectionPool->getConnectionForTable(self::TABLE);
         foreach ($target->fieldKeys() as $field) {
             $closed += $conn->delete(self::TABLE, [
                 'target_table' => $target->table,
@@ -122,7 +122,7 @@ readonly class OpenPointRepository
      */
     public function findRecent(int $offset, int $count): array
     {
-        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $rows = $qb->select('skill_uid', 'subject_table', 'subject_uid', 'target_table', 'target_uid', 'target_field', 'crdate')
             ->from(self::TABLE)
             ->orderBy('crdate', 'DESC')

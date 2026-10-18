@@ -862,6 +862,7 @@ class ChatServiceTest extends TestCase
         $conversation->setBeUser(1);
         $conversation->setSystemPrompt('Only custom instructions');
         $conversation->appendMessage(MessageRole::User, 'Hello');
+
         $openPoints = $this->createMock(OpenPointTrackerInterface::class);
         $openPoints->expects(self::once())->method('promptFor')->with($conversation)->willReturn('Open points: - tt_content 12, field bodytext');
 
@@ -878,6 +879,7 @@ class ChatServiceTest extends TestCase
         $conversation = new Conversation();
         $conversation->setBeUser(1);
         $conversation->appendMessage(MessageRole::User, 'Hello');
+
         $openPoints = $this->createMock(OpenPointTrackerInterface::class);
         $openPoints->method('promptFor')->willReturn('');
 

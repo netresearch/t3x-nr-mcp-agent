@@ -120,10 +120,10 @@ final class ChatOpenPointTest extends TestCase
     #[Test]
     public function theCardIsReadBeforeTheDecisionAndSettledAfterIt(): void
     {
-        $target = new OpenPointTarget('tt_content', 12, ['bodytext']);
+        $target  = new OpenPointTarget('tt_content', 12, ['bodytext']);
         $tracker = $this->createMock(OpenPointTrackerInterface::class);
         $tracker->expects(self::once())->method('cardTarget')
-            ->with(self::isInstanceOf(Conversation::class), self::callback(fn(?WaitingRunView $view): bool => $view?->turnDigest === 'digest-abc'))
+            ->with(self::isInstanceOf(Conversation::class), self::callback(fn (?WaitingRunView $view): bool => $view?->turnDigest === 'digest-abc'))
             ->willReturnCallback(function () use ($target): OpenPointTarget {
                 $this->order[] = 'cardTarget';
 
@@ -136,7 +136,7 @@ final class ChatOpenPointTest extends TestCase
             });
 
         $conversation = $this->waiting();
-        $service = $this->service($tracker);
+        $service      = $this->service($tracker);
         $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Skip, 'Überspringen');
         $service->processConversation($conversation);
 
@@ -151,7 +151,7 @@ final class ChatOpenPointTest extends TestCase
         $tracker->expects(self::once())->method('settle')->with(self::anything(), true, null, self::anything(), self::anything());
 
         $conversation = $this->waiting();
-        $service = $this->service($tracker);
+        $service      = $this->service($tracker);
         $service->recordDecision($conversation, true, 'digest-abc');
         $service->processConversation($conversation);
     }
@@ -165,7 +165,7 @@ final class ChatOpenPointTest extends TestCase
         $tracker->expects(self::never())->method('settle');
 
         $conversation = $this->waiting();
-        $service = $this->service($tracker, new StaleApprovalTurnException('run-1', 'The review is stale'));
+        $service      = $this->service($tracker, new StaleApprovalTurnException('run-1', 'The review is stale'));
         $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Skip, 'Überspringen');
         $service->processConversation($conversation);
 
@@ -179,7 +179,7 @@ final class ChatOpenPointTest extends TestCase
         $tracker->expects(self::never())->method('settle');
 
         $conversation = $this->waiting();
-        $service = $this->service($tracker, new RuntimeException('provider down'));
+        $service      = $this->service($tracker, new RuntimeException('provider down'));
         $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Skip, 'Überspringen');
         $service->processConversation($conversation);
 
@@ -194,7 +194,7 @@ final class ChatOpenPointTest extends TestCase
         $tracker->method('settle')->willThrowException(new RuntimeException('database gone'));
 
         $conversation = $this->waiting();
-        $service = $this->service($tracker);
+        $service      = $this->service($tracker);
         $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Skip, 'Überspringen');
         $service->processConversation($conversation);
 
@@ -210,7 +210,7 @@ final class ChatOpenPointTest extends TestCase
         $reader->expects(self::never())->method('read');
 
         $conversation = $this->waiting();
-        $service = $this->service(null, reader: $reader);
+        $service      = $this->service(null, reader: $reader);
         $service->recordDecision($conversation, true, 'digest-abc');
         $service->processConversation($conversation);
     }

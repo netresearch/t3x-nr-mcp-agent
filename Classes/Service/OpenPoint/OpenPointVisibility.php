@@ -95,9 +95,9 @@ readonly class OpenPointVisibility
             return [];
         }
 
-        $pages = [];
+        $pages   = [];
         $visible = [];
-        $offset = 0;
+        $offset  = 0;
         do {
             $batch = $this->repository->findRecent($offset, self::BATCH);
             $offset += self::BATCH;
@@ -107,8 +107,8 @@ readonly class OpenPointVisibility
                 }
 
                 $pageUid = $point['subjectUid'];
-                $page = array_key_exists($pageUid, $pages) ? $pages[$pageUid] : ($pages[$pageUid] = $this->readablePage($user, $pageUid));
-                $target = $page !== null ? $this->readableTarget($user, $point['targetTable'], $point['targetUid'], $point['field']) : null;
+                $page    = array_key_exists($pageUid, $pages) ? $pages[$pageUid] : ($pages[$pageUid] = $this->readablePage($user, $pageUid));
+                $target  = $page !== null ? $this->readableTarget($user, $point['targetTable'], $point['targetUid'], $point['field']) : null;
                 if ($page === null || $target === null) {
                     continue;
                 }
@@ -121,12 +121,12 @@ readonly class OpenPointVisibility
         } while (count($batch) === self::BATCH);
 
         $identifiers = $this->skillIdentifiers(array_values(array_unique(array_map(
-            static fn(array $entry): int => $entry[0]['skillUid'],
+            static fn (array $entry): int => $entry[0]['skillUid'],
             $visible,
         ))));
         $labels = $this->labelsFor($user);
 
-        return array_map(fn(array $entry): VisibleOpenPoint => new VisibleOpenPoint(
+        return array_map(fn (array $entry): VisibleOpenPoint => new VisibleOpenPoint(
             $entry[0]['subjectUid'],
             $entry[2]['language'],
             $entry[0]['skillUid'],
@@ -173,16 +173,16 @@ readonly class OpenPointVisibility
             return null;
         }
 
-        $config = $this->tca($table);
-        $ctrl = is_array($config['ctrl'] ?? null) ? $config['ctrl'] : [];
+        $config  = $this->tca($table);
+        $ctrl    = is_array($config['ctrl'] ?? null) ? $config['ctrl'] : [];
         $columns = is_array($config['columns'] ?? null) ? $config['columns'] : [];
-        $column = $field !== '' && is_array($columns[$field] ?? null) ? $columns[$field] : null;
+        $column  = $field !== '' && is_array($columns[$field] ?? null) ? $columns[$field] : null;
         if ($column !== null && ($column['exclude'] ?? false) && !$user->check('non_exclude_fields', $table . ':' . $field)) {
             return null;
         }
 
         $languageField = is_string($ctrl['languageField'] ?? null) ? $ctrl['languageField'] : '';
-        $select = array_filter(['uid', $languageField, $column !== null ? $field : '']);
+        $select        = array_filter(['uid', $languageField, $column !== null ? $field : '']);
 
         try {
             $record = BackendUtility::getRecord($table, $uid, implode(',', array_unique($select)));
@@ -215,10 +215,10 @@ readonly class OpenPointVisibility
      */
     private function summary(string $table, string $field, array $page, bool $empty, ?LanguageService $labels): string
     {
-        $config = $this->tca($table);
-        $columns = is_array($config['columns'] ?? null) ? $config['columns'] : [];
-        $column = $field !== '' && is_array($columns[$field] ?? null) ? $columns[$field] : [];
-        $ctrl = is_array($config['ctrl'] ?? null) ? $config['ctrl'] : [];
+        $config    = $this->tca($table);
+        $columns   = is_array($config['columns'] ?? null) ? $config['columns'] : [];
+        $column    = $field !== '' && is_array($columns[$field] ?? null) ? $columns[$field] : [];
+        $ctrl      = is_array($config['ctrl'] ?? null) ? $config['ctrl'] : [];
         $reference = $field !== ''
             ? (is_string($column['label'] ?? null) ? $column['label'] : '')
             : (is_string($ctrl['title'] ?? null) ? $ctrl['title'] : '');
@@ -229,7 +229,7 @@ readonly class OpenPointVisibility
 
         $title = is_string($page['title'] ?? null) ? $page['title'] : '';
 
-        $key = $empty ? 'openPoint.missing' : 'openPoint.open';
+        $key      = $empty ? 'openPoint.missing' : 'openPoint.open';
         $template = $labels instanceof LanguageService ? $labels->sL(self::LABELS . $key) : '';
         if ($template === '') {
             $template = $empty ? '%1$s is missing on “%2$s”' : '%1$s open on “%2$s”';
@@ -259,7 +259,7 @@ readonly class OpenPointVisibility
      */
     private function skillIdentifiers(array $uids): array
     {
-        $uids = array_values(array_filter($uids, static fn(int $uid): bool => $uid > 0));
+        $uids = array_values(array_filter($uids, static fn (int $uid): bool => $uid > 0));
         if ($uids === [] || !$this->skills instanceof SkillRepository) {
             return [];
         }
@@ -283,7 +283,7 @@ readonly class OpenPointVisibility
      */
     private function tca(string $table): array
     {
-        $tca = $GLOBALS['TCA'] ?? null;
+        $tca    = $GLOBALS['TCA'] ?? null;
         $config = is_array($tca) ? ($tca[$table] ?? null) : null;
 
         return is_array($config) ? $config : [];
