@@ -70,7 +70,7 @@ final class DocxExtractor implements DocumentExtractorInterface
             $parts[] = $this->extractFromSection($section);
         }
 
-        return trim(implode("\n", array_filter($parts)));
+        return trim(implode("\n", array_filter($parts, static fn(string $part): bool => $part !== '')));
     }
 
     private function extractFromSection(Section $section): string

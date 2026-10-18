@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Dashboard;
 
 use IntlDateFormatter;
+use LogicException;
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -44,7 +45,8 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
     /** How many conversations the widget lists. */
     public const LIMIT = 5;
 
-    private ServerRequestInterface $request;
+    /** Set by the dashboard's WidgetRegistry right after it creates the widget. */
+    private ?ServerRequestInterface $request = null;
 
     /**
      * @param array<string, mixed> $options
@@ -65,7 +67,8 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
 
     public function renderWidgetContent(): string
     {
-        $view = $this->backendViewFactory->create($this->request, ['typo3/cms-dashboard', 'netresearch/nr-mcp-agent']);
+        $request = $this->request ?? throw new LogicException('setRequest() must be called before renderWidgetContent()', 1792329208);
+        $view = $this->backendViewFactory->create($request, ['typo3/cms-dashboard', 'netresearch/nr-mcp-agent']);
         $view->assignMultiple([
             ...$this->templateVariables(),
             'configuration' => $this->configuration,

@@ -522,7 +522,8 @@ final class Conversation
         $lastMessage = end($messages);
         return is_array($lastMessage)
             && ($lastMessage['role'] ?? '') === 'assistant'
-            && !empty($lastMessage['tool_calls']);
+            && is_array($lastMessage['tool_calls'] ?? null)
+            && $lastMessage['tool_calls'] !== [];
     }
 
     public function isResumable(): bool

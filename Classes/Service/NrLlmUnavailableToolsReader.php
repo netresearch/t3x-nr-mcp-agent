@@ -41,9 +41,8 @@ final readonly class NrLlmUnavailableToolsReader implements UnavailableToolsRead
                 return [];
             }
 
-            // Typed as unknown on purpose: what the code relies on is checked
-            // below, not assumed.
-            /** @var mixed $resolver */
+            // ContainerInterface::get() returns mixed: what the code relies on
+            // is checked below, not assumed.
             $resolver = $this->container->get(self::RESOLVER_SERVICE);
             if (!is_object($resolver) || !method_exists($resolver, 'unavailable')) {
                 return [];

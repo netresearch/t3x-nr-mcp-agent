@@ -32,7 +32,7 @@ final class DocumentExtractorArchitectureTest
     {
         return PHPat::rule()
             ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Document'))
-            ->shouldNotDependOn()
+            ->shouldNot()->dependOn()
             ->classes(
                 Selector::classname(ChatService::class),
                 Selector::inNamespace('Netresearch\NrMcpAgent\Controller'),
