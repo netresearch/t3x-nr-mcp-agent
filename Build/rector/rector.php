@@ -11,7 +11,6 @@ use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
-use Rector\TypeDeclaration\Rector\Class_\TypedPropertyFromCreateMockAssignRector;
 
 $configure = require_once __DIR__ . '/../../.Build/vendor/netresearch/typo3-ci-workflows/config/rector/rector.php';
 
@@ -33,10 +32,6 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         ],
         // Verbose instanceof checks not preferred over null checks
         FlipTypeControlToUseExclusiveTypeRector::class,
-        // Replaces an existing property type such as ConversationRepository
-        // with plain MockObject when the property is assigned createMock(),
-        // dropping the mocked type the test passes on to constructors.
-        TypedPropertyFromCreateMockAssignRector::class,
         // nr-llm's ApprovalPreviewHeadings exists from 0.40 on; the recogniser
         // names it as a string behind class_exists() so that nr-llm 0.37 to
         // 0.39 stay supported. Rector proposes ::class whenever 0.40 or later
