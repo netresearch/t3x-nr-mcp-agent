@@ -13,6 +13,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Dashboard\WidgetRegistry;
@@ -74,7 +75,7 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
     #[Test]
     public function aTitleIsEscaped(): void
     {
-        $this->get(\TYPO3\CMS\Core\Database\ConnectionPool::class)
+        $this->get(ConnectionPool::class)
             ->getConnectionForTable('tx_nrmcpagent_conversation')
             ->update('tx_nrmcpagent_conversation', ['title' => '<script>alert(1)</script>', 'tstamp' => time()], ['uid' => 1]);
 

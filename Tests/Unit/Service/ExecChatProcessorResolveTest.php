@@ -35,7 +35,6 @@ class ExecChatProcessorResolveTest extends TestCase
         $processor = $this->processor();
         $reflection = new ReflectionClass($processor);
         $method = $reflection->getMethod('resolvePhpCliBinary');
-        $method->setAccessible(true);
 
         $result = $method->invoke($processor);
 
@@ -49,7 +48,6 @@ class ExecChatProcessorResolveTest extends TestCase
         $processor = $this->processor();
         $reflection = new ReflectionClass($processor);
         $method = $reflection->getMethod('resolvePhpCliBinary');
-        $method->setAccessible(true);
 
         $result = $method->invoke($processor);
 

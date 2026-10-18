@@ -17,6 +17,7 @@ use RuntimeException;
 class PdfExtractorTest extends TestCase
 {
     private PdfExtractor $subject;
+
     private string $fixtures;
 
     protected function setUp(): void

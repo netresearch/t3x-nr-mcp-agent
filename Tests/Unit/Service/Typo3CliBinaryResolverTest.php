@@ -60,6 +60,7 @@ final class Typo3CliBinaryResolverTest extends TestCase
         } else {
             putenv('TYPO3_PATH_COMPOSER_ROOT=' . $this->composerRootEnv);
         }
+
         $this->removeDirectory($this->root);
         $this->restoreEnvironment();
         parent::tearDown();
@@ -281,6 +282,7 @@ final class Typo3CliBinaryResolverTest extends TestCase
         if (!is_dir($dir)) {
             mkdir($dir, 0777, true);
         }
+
         $binary = $dir . '/typo3';
         file_put_contents($binary, "#!/usr/bin/env php\n<?php\n");
 
@@ -307,6 +309,7 @@ final class Typo3CliBinaryResolverTest extends TestCase
         if (!is_dir($dir)) {
             return;
         }
+
         $items = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST,
@@ -315,6 +318,7 @@ final class Typo3CliBinaryResolverTest extends TestCase
             assert($item instanceof SplFileInfo);
             $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
         }
+
         rmdir($dir);
     }
 

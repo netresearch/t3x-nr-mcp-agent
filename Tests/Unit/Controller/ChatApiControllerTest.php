@@ -23,6 +23,7 @@ use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UploadedFileInterface;
@@ -34,19 +35,29 @@ use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
 use TYPO3\CMS\Core\Resource\File;
+use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
 class ChatApiControllerTest extends TestCase
 {
     private ChatApiController $subject;
+
     private ConversationRepository $repository;
+
     private ChatProcessorInterface $processor;
+
     private ExtensionConfiguration $config;
+
     private ChatCapabilitiesInterface $chatService;
+
     private ResourceFactory $resourceFactory;
+
     private StorageRepository $storageRepository;
+
     private UriBuilder $uriBuilder;
+
     private ChatApprovalInterface $chatApproval;
 
     protected function setUp(): void
@@ -100,8 +111,7 @@ class ChatApiControllerTest extends TestCase
         $conversation->setBeUser(1);
         $this->repository->method('findByBeUser')->willReturn([$conversation]);
 
-        $request = $this->createRequest('GET', '');
-        $response = $this->subject->listConversations($request);
+        $response = $this->subject->listConversations();
 
         self::assertSame(200, $response->getStatusCode());
         $data = json_decode((string) $response->getBody(), true);
@@ -113,8 +123,7 @@ class ChatApiControllerTest extends TestCase
     {
         $this->repository->method('add')->willReturn(42);
 
-        $request = $this->createRequest('POST', '');
-        $response = $this->subject->createConversation($request);
+        $response = $this->subject->createConversation();
 
         self::assertSame(201, $response->getStatusCode());
         $data = json_decode((string) $response->getBody(), true);
@@ -203,8 +212,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
-        $request = $this->createRequest('GET', '');
-        $response = $subject->getStatus($request);
+        $response = $subject->getStatus();
 
         self::assertSame(403, $response->getStatusCode());
     }
@@ -217,8 +225,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
-        $request = $this->createRequest('GET', '');
-        $response = $subject->getStatus($request);
+        $response = $subject->getStatus();
 
         self::assertSame(200, $response->getStatusCode());
     }
@@ -344,8 +351,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(0);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
-        $request = $this->createRequest('GET', '');
-        $response = $subject->getStatus($request);
+        $response = $subject->getStatus();
 
         $data = json_decode((string) $response->getBody(), true);
         self::assertFalse($data['available']);
@@ -363,8 +369,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getLlmTaskUid')->willReturn(1);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
-        $request = $this->createRequest('GET', '');
-        $response = $subject->getStatus($request);
+        $response = $subject->getStatus();
 
         $data = json_decode((string) $response->getBody(), true);
         self::assertTrue($data['available']);
@@ -438,8 +443,7 @@ class ChatApiControllerTest extends TestCase
 
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '', 'admin' => 1];
 
-        $request = $this->createRequest('GET', '');
-        $response = $subject->getStatus($request);
+        $response = $subject->getStatus();
 
         self::assertSame(200, $response->getStatusCode());
     }
@@ -449,8 +453,7 @@ class ChatApiControllerTest extends TestCase
     {
         $this->repository->method('findByBeUser')->willReturn([]);
 
-        $request = $this->createRequest('GET', '');
-        $response = $this->subject->listConversations($request);
+        $response = $this->subject->listConversations();
 
         self::assertSame(200, $response->getStatusCode());
         $data = json_decode((string) $response->getBody(), true);
@@ -1102,8 +1105,7 @@ class ChatApiControllerTest extends TestCase
         ]);
         $this->repository->method('findByBeUser')->willReturn([$conversation]);
 
-        $request = $this->createRequest('GET', '');
-        $response = $this->subject->listConversations($request);
+        $response = $this->subject->listConversations();
 
         $data = json_decode((string) $response->getBody(), true);
         $item = $data['conversations'][0];
@@ -1147,8 +1149,7 @@ class ChatApiControllerTest extends TestCase
         $this->repository->method('countActiveByBeUser')->willReturn(2);
         $subject = new ChatApiController($this->repository, $this->processor, $config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
 
-        $request = $this->createRequest('GET', '');
-        $response = $subject->getStatus($request);
+        $response = $subject->getStatus();
 
         $data = json_decode((string) $response->getBody(), true);
         self::assertSame(200, $response->getStatusCode());
@@ -1208,8 +1209,7 @@ class ChatApiControllerTest extends TestCase
         ]);
 
         $subject = new ChatApiController($this->repository, $this->processor, $config, $chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder);
-        $request = $this->createRequest('GET', '');
-        $response = $subject->getStatus($request);
+        $response = $subject->getStatus();
 
         $data = json_decode((string) $response->getBody(), true);
         self::assertTrue($data['visionSupported']);
@@ -1286,6 +1286,7 @@ class ChatApiControllerTest extends TestCase
         for ($i = 1; $i <= 5; $i++) {
             $messages[] = ['role' => 'user', 'content' => "Message $i", 'fileUid' => $i];
         }
+
         $conversation->setMessages($messages);
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
         $this->repository->method('countActiveByBeUser')->willReturn(0);
@@ -1320,7 +1321,7 @@ class ChatApiControllerTest extends TestCase
         $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
         file_put_contents($tmpPath, '%PDF-1.4 fake content');
 
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream = $this->createMock(StreamInterface::class);
         $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
 
         $uploadedFile = $this->createMock(UploadedFileInterface::class);
@@ -1335,9 +1336,9 @@ class ChatApiControllerTest extends TestCase
         $falFile->method('getMimeType')->willReturn('application/pdf');
         $falFile->method('getSize')->willReturn(1024);
 
-        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
+        $folder = $this->createMock(Folder::class);
 
-        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage = $this->createMock(ResourceStorage::class);
         $storage->method('hasFolder')->willReturn(true);
         $storage->method('getFolder')->willReturn($folder);
         $storage->method('addFile')->willReturn($falFile);
@@ -1398,9 +1399,9 @@ class ChatApiControllerTest extends TestCase
         $existing->method('getMimeType')->willReturn('application/pdf');
         $existing->method('getSha1')->willReturn(sha1_file($tmpPath));
 
-        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage = $this->createMock(ResourceStorage::class);
         $storage->method('hasFolder')->willReturn(true);
-        $storage->method('getFolder')->willReturn($this->createMock(\TYPO3\CMS\Core\Resource\Folder::class));
+        $storage->method('getFolder')->willReturn($this->createMock(Folder::class));
         $storage->method('sanitizeFileName')->willReturn('report.pdf');
         $storage->method('hasFileInFolder')->willReturn(true);
         $storage->method('getFileInFolder')->willReturn($existing);
@@ -1435,9 +1436,9 @@ class ChatApiControllerTest extends TestCase
         $stored->method('getName')->willReturn('report_01.pdf');
         $stored->method('getMimeType')->willReturn('application/pdf');
 
-        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage = $this->createMock(ResourceStorage::class);
         $storage->method('hasFolder')->willReturn(true);
-        $storage->method('getFolder')->willReturn($this->createMock(\TYPO3\CMS\Core\Resource\Folder::class));
+        $storage->method('getFolder')->willReturn($this->createMock(Folder::class));
         $storage->method('sanitizeFileName')->willReturn('report.pdf');
         $storage->method('hasFileInFolder')->willReturn(true);
         $storage->method('getFileInFolder')->willReturn($existing);
@@ -1466,9 +1467,9 @@ class ChatApiControllerTest extends TestCase
         $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
         file_put_contents($tmpPath, '%PDF-1.4 fake content');
 
-        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage = $this->createMock(ResourceStorage::class);
         $storage->method('hasFolder')->willReturn(true);
-        $storage->method('getFolder')->willReturn($this->createMock(\TYPO3\CMS\Core\Resource\Folder::class));
+        $storage->method('getFolder')->willReturn($this->createMock(Folder::class));
         $storage->method('sanitizeFileName')->willReturn('report.pdf');
         $storage->method('hasFileInFolder')->willReturn(false);
         $storage->method('addFile')->willThrowException(
@@ -1501,10 +1502,10 @@ class ChatApiControllerTest extends TestCase
         $stored->method('getName')->willReturn('report.pdf');
         $stored->method('getMimeType')->willReturn('application/pdf');
 
-        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $storage = $this->createMock(ResourceStorage::class);
         $storage->method('hasFolder')->with('agent-uploads/1')->willReturn(false);
         $storage->expects(self::once())->method('createFolder')->with('agent-uploads/1')
-            ->willReturn($this->createMock(\TYPO3\CMS\Core\Resource\Folder::class));
+            ->willReturn($this->createMock(Folder::class));
         $storage->method('sanitizeFileName')->willReturn('report.pdf');
         $storage->method('hasFileInFolder')->willReturn(false);
         $storage->method('addFile')->willReturn($stored);
@@ -1520,10 +1521,10 @@ class ChatApiControllerTest extends TestCase
      * document-capable provider.
      */
     private function uploadPdf(
-        \TYPO3\CMS\Core\Resource\ResourceStorage $storage,
+        ResourceStorage $storage,
         string $tmpPath,
         ?ExtensionConfiguration $config = null,
-    ): \Psr\Http\Message\ResponseInterface {
+    ): ResponseInterface {
         $stream = $this->createMock(StreamInterface::class);
         $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
 
@@ -1583,7 +1584,7 @@ class ChatApiControllerTest extends TestCase
         $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
         file_put_contents($tmpPath, 'Hello, this is plain text content.');
 
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream = $this->createMock(StreamInterface::class);
         $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
 
         $file = $this->createMock(UploadedFileInterface::class);
@@ -1643,7 +1644,7 @@ class ChatApiControllerTest extends TestCase
         $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
         file_put_contents($tmpPath, 'Hello TXT');
 
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream = $this->createMock(StreamInterface::class);
         $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
 
         $uploadedFile = $this->createMock(UploadedFileInterface::class);
@@ -1656,14 +1657,14 @@ class ChatApiControllerTest extends TestCase
         $extractor->method('getSupportedMimeTypes')->willReturn(['text/plain']);
         $extractor->method('isAvailable')->willReturn(true);
 
-        $falFile = $this->createMock(\TYPO3\CMS\Core\Resource\File::class);
+        $falFile = $this->createMock(File::class);
         $falFile->method('getUid')->willReturn(99);
         $falFile->method('getName')->willReturn('test.txt');
         $falFile->method('getMimeType')->willReturn('text/plain');
         $falFile->method('getSize')->willReturn(9);
 
-        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
-        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $folder = $this->createMock(Folder::class);
+        $storage = $this->createMock(ResourceStorage::class);
         $storage->method('addFile')->willReturn($falFile);
         $storage->method('getFolder')->willReturn($folder);
         $storage->method('hasFolder')->willReturn(true);
@@ -1707,7 +1708,7 @@ class ChatApiControllerTest extends TestCase
         // A minimal ISO-BMFF box with the `heic` brand — finfo reports image/heic.
         file_put_contents($tmpPath, "\x00\x00\x00\x18ftypheic\x00\x00\x00\x00heicmif1" . str_repeat("\x00", 64));
 
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream = $this->createMock(StreamInterface::class);
         $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
 
         $uploadedFile = $this->createMock(UploadedFileInterface::class);
@@ -1726,14 +1727,14 @@ class ChatApiControllerTest extends TestCase
             'supportedFormats' => ['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic', 'heif'],
         ]);
 
-        $falFile = $this->createMock(\TYPO3\CMS\Core\Resource\File::class);
+        $falFile = $this->createMock(File::class);
         $falFile->method('getUid')->willReturn(43);
         $falFile->method('getName')->willReturn('photo.heic');
         $falFile->method('getMimeType')->willReturn('image/heic');
         $falFile->method('getSize')->willReturn(88);
 
-        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
-        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $folder = $this->createMock(Folder::class);
+        $storage = $this->createMock(ResourceStorage::class);
         $storage->method('addFile')->willReturn($falFile);
         $storage->method('getFolder')->willReturn($folder);
         $storage->method('hasFolder')->willReturn(true);
@@ -1775,7 +1776,7 @@ class ChatApiControllerTest extends TestCase
         // Write a minimal valid JPEG (FFD8FF header)
         file_put_contents($tmpPath, "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xFF\xD9");
 
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream = $this->createMock(StreamInterface::class);
         $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
 
         $uploadedFile = $this->createMock(UploadedFileInterface::class);
@@ -1800,14 +1801,14 @@ class ChatApiControllerTest extends TestCase
             'supportedFormats' => ['jpg', 'jpeg'],
         ]);
 
-        $falFile = $this->createMock(\TYPO3\CMS\Core\Resource\File::class);
+        $falFile = $this->createMock(File::class);
         $falFile->method('getUid')->willReturn(42);
         $falFile->method('getName')->willReturn('photo.jpg');
         $falFile->method('getMimeType')->willReturn('image/jpeg');
         $falFile->method('getSize')->willReturn(20);
 
-        $folder = $this->createMock(\TYPO3\CMS\Core\Resource\Folder::class);
-        $storage = $this->createMock(\TYPO3\CMS\Core\Resource\ResourceStorage::class);
+        $folder = $this->createMock(Folder::class);
+        $storage = $this->createMock(ResourceStorage::class);
         $storage->method('addFile')->willReturn($falFile);
         $storage->method('getFolder')->willReturn($folder);
         $storage->method('hasFolder')->willReturn(true);
@@ -1845,7 +1846,7 @@ class ChatApiControllerTest extends TestCase
         $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
         file_put_contents($tmpPath, 'Hello, this is plain text content for mime type test.');
 
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream = $this->createMock(StreamInterface::class);
         $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
 
         $file = $this->createMock(UploadedFileInterface::class);
@@ -1871,7 +1872,7 @@ class ChatApiControllerTest extends TestCase
         $tmpPath = tempnam(sys_get_temp_dir(), 'nr_test_');
         file_put_contents($tmpPath, 'Hello TXT');
 
-        $stream = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $stream = $this->createMock(StreamInterface::class);
         $stream->method('getMetadata')->with('uri')->willReturn($tmpPath);
 
         $uploadedFile = $this->createMock(UploadedFileInterface::class);

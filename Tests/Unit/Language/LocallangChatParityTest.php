@@ -168,6 +168,7 @@ final class LocallangChatParityTest extends TestCase
             if ($file->getExtension() !== 'php') {
                 continue;
             }
+
             $source = file_get_contents($file->getPathname());
             self::assertNotFalse($source);
             preg_match_all('/->translate\(\s*[\'"]([^\'"]+)[\'"]\s*\)/', $source, $matches);

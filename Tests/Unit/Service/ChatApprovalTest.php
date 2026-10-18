@@ -64,8 +64,6 @@ final class ChatApprovalTest extends TestCase
 {
     private ?ApprovalDecision $capturedDecision = null;
 
-    private mixed $capturedOnStep = null;
-
     private ?string $capturedRunUuid = null;
 
     private function parkedConversation(string $runUuid = 'run-uuid-1234'): Conversation
@@ -100,11 +98,11 @@ final class ChatApprovalTest extends TestCase
         $agentRuntime->method('approve')->willReturnCallback(
             function (mixed $actor, string $runUuid, ApprovalDecision $decision, mixed $onStep = null) use ($approveAnswer, $approveFiresStep): AgentRunResult {
                 $this->capturedRunUuid = $runUuid;
-                $this->capturedOnStep = $onStep;
                 $this->capturedDecision = $decision;
                 if ($approveAnswer instanceof RuntimeException) {
                     throw $approveAnswer;
                 }
+
                 if ($approveFiresStep && $onStep instanceof Closure) {
                     $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 5.0));
                 }

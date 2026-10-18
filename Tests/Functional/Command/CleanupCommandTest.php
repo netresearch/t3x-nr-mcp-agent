@@ -154,7 +154,7 @@ class CleanupCommandTest extends FunctionalTestCase
     public function aConversationLeftProcessingForWeeksWithoutARunIsReset(): void
     {
         $conn = $this->get(ConnectionPool::class)->getConnectionForTable(self::TABLE);
-        $lastWrite = (int) strtotime('2026-08-21T07:29:11+00:00');
+        $lastWrite = strtotime('2026-08-21T07:29:11+00:00');
         $conn->insert(self::TABLE, [
             'pid' => 0,
             'be_user' => 1,

@@ -119,6 +119,7 @@ final class ChatServiceConfigurationAccessTest extends TestCase
         $conversation = new Conversation();
         $conversation->setBeUser(5);
         $conversation->appendMessage(MessageRole::User, 'Hello');
+
         $service->processConversation($conversation);
 
         return $conversation;

@@ -80,6 +80,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -99,6 +100,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -118,6 +120,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -136,6 +139,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -155,6 +159,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput(['--delete-after-days' => '0']);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -173,6 +178,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);
@@ -194,6 +200,7 @@ class CleanupCommandTest extends TestCase
 
         $input = new ArrayInput([]);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         $result = $command->run($input, $output);

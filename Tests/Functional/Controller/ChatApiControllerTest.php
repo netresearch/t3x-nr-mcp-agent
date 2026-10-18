@@ -21,9 +21,11 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\StreamInterface;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -45,8 +47,11 @@ class ChatApiControllerTest extends FunctionalTestCase
     ];
 
     private ConversationRepository $repository;
+
     private ChatApiController $subject;
+
     private ExtensionConfiguration $config;
+
     private ChatCapabilitiesInterface $capabilities;
 
     protected function setUp(): void
@@ -59,14 +64,14 @@ class ChatApiControllerTest extends FunctionalTestCase
         $GLOBALS['BE_USER'] = $backendUser;
 
         $this->repository = $this->get(ConversationRepository::class);
-
-        $config = $this->config = $this->createMock(ExtensionConfiguration::class);
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $this->config = $config;
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('getMaxMessageLength')->willReturn(10000);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
-
-        $capabilities = $this->capabilities = $this->createMock(ChatCapabilitiesInterface::class);
+        $capabilities = $this->createMock(ChatCapabilitiesInterface::class);
+        $this->capabilities = $capabilities;
         $capabilities->method('getProviderCapabilities')->willReturn([
             'supportsVision' => false,
             'supportsDocuments' => false,
@@ -594,6 +599,7 @@ class ChatApiControllerTest extends FunctionalTestCase
         self::assertNotNull($conversation);
         $conversation->setApprovalRunUuid('run-uuid-1234');
         $conversation->recordApprovalDecision(true, 'digest-abc');
+
         $this->repository->update($conversation);
 
         $request = (new ServerRequest('/', 'POST'))
@@ -641,11 +647,11 @@ class ChatApiControllerTest extends FunctionalTestCase
     /**
      * Creates a PSR-7 stream from a string.
      */
-    private function streamFor(string $content): \Psr\Http\Message\StreamInterface
+    private function streamFor(string $content): StreamInterface
     {
         $stream = fopen('php://temp', 'r+');
         fwrite($stream, $content);
         rewind($stream);
-        return new \TYPO3\CMS\Core\Http\Stream($stream);
+        return new Stream($stream);
     }
 }

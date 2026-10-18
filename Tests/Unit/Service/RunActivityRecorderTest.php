@@ -61,6 +61,7 @@ final class RunActivityRecorderTest extends TestCase
         $conversation = $this->conversation();
         $recorder = $this->recorder();
         $recorder->start($conversation);
+
         $onStep = $recorder->onStep($conversation);
 
         $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 812.6));
@@ -112,6 +113,7 @@ final class RunActivityRecorderTest extends TestCase
         $conversation = $this->conversation();
         $recorder = $this->recorder();
         $recorder->start($conversation);
+
         $onStep = $recorder->onStep($conversation);
 
         $onStep(new RunStep(kind: RunStep::KIND_REQUEST, round: 0, durationMs: 0, messagesSent: [['role' => 'user', 'content' => 'x']]));

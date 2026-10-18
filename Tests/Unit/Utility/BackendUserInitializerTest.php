@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Utility;
 
+use Doctrine\DBAL\Result;
 use Netresearch\NrMcpAgent\Utility\BackendUserInitializer;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -34,7 +35,7 @@ class BackendUserInitializerTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Backend user 999 not found');
 
-        $result = $this->createMock(\Doctrine\DBAL\Result::class);
+        $result = $this->createMock(Result::class);
         $result->method('fetchAssociative')->willReturn(false);
 
         $expressionBuilder = $this->createMock(ExpressionBuilder::class);
@@ -68,7 +69,7 @@ class BackendUserInitializerTest extends TestCase
             'disable' => 0,
         ];
 
-        $result = $this->createMock(\Doctrine\DBAL\Result::class);
+        $result = $this->createMock(Result::class);
         $result->method('fetchAssociative')->willReturn($userRecord);
 
         $expressionBuilder = $this->createMock(ExpressionBuilder::class);

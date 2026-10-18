@@ -12,6 +12,7 @@ namespace Netresearch\NrMcpAgent\Tests\Architecture;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\BuildStep;
 use PHPat\Test\PHPat;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 final class LayerDependencyTest
 {
@@ -36,7 +37,7 @@ final class LayerDependencyTest
         return PHPat::rule()
             ->classes(Selector::inNamespace('Netresearch\NrMcpAgent\Service'))
             ->shouldNotDependOn()
-            ->classes(Selector::classname('TYPO3\CMS\Core\Database\ConnectionPool'))
+            ->classes(Selector::classname(ConnectionPool::class))
             ->because('Services must use repositories instead of accessing the database directly');
     }
 

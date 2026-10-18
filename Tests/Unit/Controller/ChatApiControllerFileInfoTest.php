@@ -32,6 +32,7 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 class ChatApiControllerFileInfoTest extends TestCase
 {
     private ChatApiController $subject;
+
     private ResourceFactory $resourceFactory;
 
     protected function setUp(): void

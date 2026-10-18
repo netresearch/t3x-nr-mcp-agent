@@ -17,6 +17,7 @@ use RuntimeException;
 class DocxExtractorTest extends TestCase
 {
     private DocxExtractor $subject;
+
     private string $fixtures;
 
     protected function setUp(): void

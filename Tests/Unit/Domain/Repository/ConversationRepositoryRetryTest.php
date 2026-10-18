@@ -58,6 +58,7 @@ final class ConversationRepositoryRetryTest extends TestCase
             if (!str_contains($sql, 'AND status = ?')) {
                 return 0; // clearing the legacy column
             }
+
             if (++$calls === 1) {
                 throw $this->deadlock();
             }
@@ -146,7 +147,7 @@ final class ConversationRepositoryRetryTest extends TestCase
             self::fail('The deadlock must reach the caller.');
         } catch (DeadlockException) {
             self::assertSame(1, $begins);
-            self::assertSame(1, $level, 'the outer transaction is the caller\'s to end');
+            self::assertSame(1, $level, "the outer transaction is the caller's to end");
         }
     }
 
@@ -189,6 +190,7 @@ final class ConversationRepositoryRetryTest extends TestCase
             if ($level === 0) {
                 throw new RuntimeException('There is no active transaction.');
             }
+
             --$level;
         });
 

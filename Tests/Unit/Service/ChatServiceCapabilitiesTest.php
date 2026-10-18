@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorInterface;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ChatService;
@@ -40,7 +42,7 @@ class ChatServiceCapabilitiesTest extends TestCase
 {
     private function createChatService(
         ProviderInterface $provider,
-        ?\Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry $registry = null,
+        ?DocumentExtractorRegistry $registry = null,
     ): ChatService {
         $repository = $this->createMock(ConversationRepository::class);
         $config = $this->createStub(ExtensionConfiguration::class);
@@ -49,7 +51,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        $registry ??= new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([]);
+        $registry ??= new DocumentExtractorRegistry([]);
 
         return new ChatService(
             $repository,
@@ -215,7 +217,7 @@ class ChatServiceCapabilitiesTest extends TestCase
             $adapterRegistry,
             $this->createMock(ResourceFactory::class),
             $this->createMock(SiteFinder::class),
-            new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([]),
+            new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
             $this->createMock(UserContextPrompt::class),
             $this->createMock(RunActivityRecorder::class),
@@ -231,12 +233,12 @@ class ChatServiceCapabilitiesTest extends TestCase
     #[Test]
     public function extractionFormatsAppearsEvenWithoutVisionSupport(): void
     {
-        $extractor = $this->createMock(\Netresearch\NrMcpAgent\Document\DocumentExtractorInterface::class);
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
         $extractor->method('isAvailable')->willReturn(true);
         $extractor->method('getSupportedMimeTypes')->willReturn(['application/pdf']);
         $extractor->method('getSupportedFileExtensions')->willReturn(['pdf']);
 
-        $registry = new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([$extractor]);
+        $registry = new DocumentExtractorRegistry([$extractor]);
         $provider = $this->createMock(ProviderInterface::class); // not VisionCapable
 
         $service = $this->createChatService($provider, $registry);
@@ -250,12 +252,12 @@ class ChatServiceCapabilitiesTest extends TestCase
     #[Test]
     public function extractionFormatsMergeWithProviderFormats(): void
     {
-        $extractor = $this->createMock(\Netresearch\NrMcpAgent\Document\DocumentExtractorInterface::class);
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
         $extractor->method('isAvailable')->willReturn(true);
         $extractor->method('getSupportedMimeTypes')->willReturn(['application/pdf']);
         $extractor->method('getSupportedFileExtensions')->willReturn(['pdf']);
 
-        $registry = new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([$extractor]);
+        $registry = new DocumentExtractorRegistry([$extractor]);
 
         $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
         $provider->method('supportsVision')->willReturn(true);
@@ -319,12 +321,12 @@ class ChatServiceCapabilitiesTest extends TestCase
     public function formatInBothProviderAndRegistryAppearsOnce(): void
     {
         // Both provider and registry claim 'pdf' — dedup must keep only one
-        $extractor = $this->createMock(\Netresearch\NrMcpAgent\Document\DocumentExtractorInterface::class);
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
         $extractor->method('isAvailable')->willReturn(true);
         $extractor->method('getSupportedMimeTypes')->willReturn(['application/pdf']);
         $extractor->method('getSupportedFileExtensions')->willReturn(['pdf']);
 
-        $registry = new \Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry([$extractor]);
+        $registry = new DocumentExtractorRegistry([$extractor]);
 
         $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class, DocumentCapableInterface::class]);
         $provider->method('supportsVision')->willReturn(true);
@@ -336,7 +338,7 @@ class ChatServiceCapabilitiesTest extends TestCase
         $service = $this->createChatService($provider, $registry);
         $caps = $service->getProviderCapabilities();
 
-        self::assertSame(1, count(array_filter($caps['supportedFormats'], fn($f) => $f === 'pdf')));
+        self::assertSame(1, count(array_filter($caps['supportedFormats'], fn(string $f): bool => $f === 'pdf')));
         // array_values() must re-index after deduplication so keys are 0..N-1
         self::assertSame(range(0, count($caps['supportedFormats']) - 1), array_keys($caps['supportedFormats']));
     }

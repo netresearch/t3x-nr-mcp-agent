@@ -105,6 +105,7 @@ class ConversationMutationTest extends TestCase
     {
         $c = Conversation::fromRow(['uid' => 1, 'be_user' => 3, 'status' => 'idle', 'messages' => '[]', 'message_count' => 0]);
         $c->setTitle('My Title');
+
         $row = $c->toRow();
 
         self::assertSame(3, $row['be_user']);

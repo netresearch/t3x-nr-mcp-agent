@@ -21,6 +21,7 @@ use TYPO3\CMS\Core\Page\PageRenderer;
 class ChatToolbarItemTest extends TestCase
 {
     private ExtensionConfiguration $config;
+
     private PageRenderer $pageRenderer;
 
     protected function setUp(): void

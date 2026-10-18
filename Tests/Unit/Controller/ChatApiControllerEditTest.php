@@ -36,7 +36,9 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 final class ChatApiControllerEditTest extends TestCase
 {
     private ConversationRepository&MockObject $repository;
+
     private ChatProcessorInterface&MockObject $processor;
+
     private ChatApiController $subject;
 
     /** The conversation as the claim wrote it, or null when nothing was claimed. */

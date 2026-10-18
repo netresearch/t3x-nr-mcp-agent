@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorInterface;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -91,6 +92,7 @@ class ChatServiceTest extends TestCase
             $config = $this->createStub(ExtensionConfiguration::class);
             $config->method('getLlmTaskUid')->willReturn(1);
         }
+
         $resourceFactory ??= $this->createMock(ResourceFactory::class);
         $siteFinder ??= $this->createMock(SiteFinder::class);
         $registry ??= new DocumentExtractorRegistry([]);
@@ -999,8 +1001,8 @@ class ChatServiceTest extends TestCase
         $service->processConversation($conversation);
 
         $lines = explode("\n", $this->capturedSystemPrompt());
-        $uid0Line = array_values(array_filter($lines, static fn(string $l) => str_contains($l, 'sys_language_uid=0')))[0] ?? '';
-        $uid1Line = array_values(array_filter($lines, static fn(string $l) => str_contains($l, 'sys_language_uid=1')))[0] ?? '';
+        $uid0Line = array_values(array_filter($lines, static fn(string $l): bool => str_contains($l, 'sys_language_uid=0')))[0] ?? '';
+        $uid1Line = array_values(array_filter($lines, static fn(string $l): bool => str_contains($l, 'sys_language_uid=1')))[0] ?? '';
         self::assertStringContainsString('(default)', $uid0Line);
         self::assertStringNotContainsString('(default)', $uid1Line);
     }
@@ -1365,7 +1367,7 @@ class ChatServiceTest extends TestCase
     {
         $provider = $this->createMock(ProviderInterface::class);
 
-        $extractor = $this->createMock(\Netresearch\NrMcpAgent\Document\DocumentExtractorInterface::class);
+        $extractor = $this->createMock(DocumentExtractorInterface::class);
         $extractor->method('isAvailable')->willReturn(true);
         $extractor->method('getSupportedMimeTypes')->willReturn(['text/plain']);
         $extractor->method('extract')->willReturn('Hello TXT');

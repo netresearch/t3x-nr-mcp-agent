@@ -194,6 +194,7 @@ class ProcessChatCommandTest extends TestCase
         $command = new ProcessChatCommand($this->createChatService(), $repository, $this->createMock(ConnectionPool::class));
         $input = new ArrayInput(['conversationUid' => '5']);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         self::assertSame(0, $command->run($input, $output));
@@ -221,6 +222,7 @@ class ProcessChatCommandTest extends TestCase
         $command = new ProcessChatCommand($this->createChatService($activityRecorder), $repository, $this->connectionPoolWithBackendUser());
         $input = new ArrayInput(['conversationUid' => '6']);
         $input->bind($command->getDefinition());
+
         $output = new BufferedOutput();
 
         try {

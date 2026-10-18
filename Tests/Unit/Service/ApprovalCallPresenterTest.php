@@ -30,7 +30,9 @@ final class ApprovalCallPresenterTest extends TestCase
 
     /** nr-llm's heading labels as netresearch/t3x-nr-llm#1016 names them. */
     private const HEADING_CREATE = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.createPage.heading';
+
     private const HEADING_DELETE = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.deleteRecord.headingPage';
+
     private const HEADING_UPDATE = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.updatePage.heading';
 
     /**

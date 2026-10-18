@@ -72,6 +72,7 @@ final class AiChatWidgetTest extends TestCase
         for ($i = 1; $i <= 7; $i++) {
             $conversations[] = Conversation::fromRow(['uid' => $i, 'be_user' => 3, 'title' => 'Chat ' . $i, 'tstamp' => 100 - $i]);
         }
+
         $repository = $this->createMock(ConversationRepository::class);
         $repository->expects(self::once())->method('findByBeUser')->with(3)->willReturn($conversations);
 

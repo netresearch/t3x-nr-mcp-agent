@@ -12,6 +12,10 @@
 
 declare(strict_types=1);
 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
+
 require_once __DIR__ . '/../../../.Build/vendor/autoload.php';
 
 $dir = __DIR__;
@@ -68,15 +72,15 @@ $encryptedPdfBase64 = 'JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgU
 file_put_contents($dir . '/encrypted.pdf', base64_decode($encryptedPdfBase64));
 
 // sample.docx — create with phpoffice/phpword
-$phpWord = new \PhpOffice\PhpWord\PhpWord();
+$phpWord = new PhpWord();
 $section = $phpWord->addSection();
 $section->addText('Hello DOCX');
-$writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+$writer = IOFactory::createWriter($phpWord, 'Word2007');
 $writer->save($dir . '/sample.docx');
 
 // sample.xlsx — create with phpoffice/phpspreadsheet (only if installed)
-if (class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
-    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+if (class_exists(Spreadsheet::class)) {
+    $spreadsheet = new Spreadsheet();
     $spreadsheet->getActiveSheet()->setCellValue('A1', 'Hello XLSX');
     $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
     $writer->save($dir . '/sample.xlsx');
