@@ -19,6 +19,7 @@ use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
@@ -55,7 +56,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages_view_context.csv');
 
         $this->repository = $this->get(ConversationRepository::class);
-        $config = $this->createMock(ExtensionConfiguration::class);
+        $config           = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
 
         $this->subject = new ChatApiController(
@@ -76,7 +77,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
     /**
      * @param array<string, mixed> $body
      */
-    private function create(array $body): \Psr\Http\Message\ResponseInterface
+    private function create(array $body): ResponseInterface
     {
         $stream = new Stream('php://temp', 'rw');
         $stream->write(json_encode($body, JSON_THROW_ON_ERROR));
@@ -140,7 +141,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
     public function thePromptNamesThePagesLanguage(): void
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
-        $body = json_decode((string) $this->create(['pageUid' => 10, 'languageUid' => 0])->getBody(), true);
+        $body               = json_decode((string) $this->create(['pageUid' => 10, 'languageUid' => 0])->getBody(), true);
         self::assertIsArray($body);
         $stored = $this->repository->findByUid((int) $body['uid']);
         self::assertNotNull($stored);

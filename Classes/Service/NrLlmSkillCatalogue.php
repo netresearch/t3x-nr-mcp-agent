@@ -55,10 +55,10 @@ final readonly class NrLlmSkillCatalogue implements SkillCatalogueInterface
         $entries = [];
         foreach ($this->skills() as $skill) {
             $entries[$skill->getIdentifier()] ??= [
-                'identifier' => $skill->getIdentifier(),
-                'name' => $skill->getName() !== '' ? $skill->getName() : $skill->getIdentifier(),
+                'identifier'  => $skill->getIdentifier(),
+                'name'        => $skill->getName() !== '' ? $skill->getName() : $skill->getIdentifier(),
                 'description' => $skill->getDescription(),
-                'uid' => (int) $skill->getUid(),
+                'uid'         => (int) $skill->getUid(),
                 // nr-llm's process marker (nr-llm ADR-214, PR 1025); null where
                 // the installed nr-llm has none.
                 'process' => method_exists($skill, 'isProcess') ? (bool) $skill->isProcess() : null,

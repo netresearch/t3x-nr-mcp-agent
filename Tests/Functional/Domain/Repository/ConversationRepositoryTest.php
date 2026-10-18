@@ -511,6 +511,7 @@ class ConversationRepositoryTest extends FunctionalTestCase
         $this->subject->updateSkillIdentifier(1, 'content-tour', 1, 19, true);
         $snapshot->setLastRunUuid('run-1');
         $snapshot->setStatus(ConversationStatus::Failed);
+
         $this->subject->update($snapshot);
 
         $reloaded = $this->subject->findByUid(1);

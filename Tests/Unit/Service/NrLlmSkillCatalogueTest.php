@@ -27,12 +27,13 @@ use RuntimeException;
 #[CoversClass(NrLlmSkillCatalogue::class)]
 final class NrLlmSkillCatalogueTest extends TestCase
 {
-    private static function skill(string $identifier, string $name = '', bool $enabled = true, int $uid = 0): Skill
+    private function skill(string $identifier, string $name = '', bool $enabled = true, int $uid = 0): Skill
     {
         $skill = new Skill();
         if ($uid > 0) {
             $skill->_setProperty('uid', $uid);
         }
+
         $skill->setIdentifier($identifier);
         $skill->setName($name);
         $skill->setDescription('about ' . $identifier);
@@ -51,16 +52,17 @@ final class NrLlmSkillCatalogueTest extends TestCase
         return new NrLlmSkillCatalogue($config, $tasks);
     }
 
-    private static function task(): Task
+    private function task(): Task
     {
         $configuration = new LlmConfiguration();
-        $configuration->addSkill(self::skill('seo-page-tour', 'SEO einer Seite', uid: 5));
-        $configuration->addSkill(self::skill('switched-off', 'Aus', false));
+        $configuration->addSkill($this->skill('seo-page-tour', 'SEO einer Seite', uid: 5));
+        $configuration->addSkill($this->skill('switched-off', 'Aus', false));
+
         $task = new Task();
         $task->setConfiguration($configuration);
-        $task->addSkill(self::skill('content-tour'));
+        $task->addSkill($this->skill('content-tour'));
         // Attached to both: listed once.
-        $task->addSkill(self::skill('seo-page-tour', 'SEO einer Seite'));
+        $task->addSkill($this->skill('seo-page-tour', 'SEO einer Seite'));
 
         return $task;
     }
@@ -77,7 +79,7 @@ final class NrLlmSkillCatalogueTest extends TestCase
                 ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour', 'uid' => 5, 'process' => $process],
                 ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour', 'uid' => 0, 'process' => $process],
             ],
-            $this->catalogue(self::task())->catalogue(),
+            $this->catalogue($this->task())->catalogue(),
         );
     }
 
@@ -88,9 +90,10 @@ final class NrLlmSkillCatalogueTest extends TestCase
             self::markTestSkipped('Needs nr-llm 0.41 (Skill::isProcess(), nr-llm PR 1025).');
         }
 
-        $task = self::task();
-        $tour = self::skill('guided-tour', 'Rundgang', uid: 9);
+        $task = $this->task();
+        $tour = $this->skill('guided-tour', 'Rundgang', uid: 9);
         $tour->setProcess(true);
+
         $task->addSkill($tour);
 
         self::assertTrue($this->catalogue($task)->find('guided-tour')['process'] ?? null);
@@ -100,7 +103,7 @@ final class NrLlmSkillCatalogueTest extends TestCase
     #[Test]
     public function anInvokedSkillReachesTheRunAsAForcedSkill(): void
     {
-        $augmentation = $this->catalogue(self::task())->augmentationFor('content-tour');
+        $augmentation = $this->catalogue($this->task())->augmentationFor('content-tour');
 
         self::assertNotNull($augmentation);
         self::assertCount(1, $augmentation->forcedSkills);
@@ -110,7 +113,7 @@ final class NrLlmSkillCatalogueTest extends TestCase
     #[Test]
     public function aSkillThatIsDisabledOrUnknownDegradesToNone(): void
     {
-        $catalogue = $this->catalogue(self::task());
+        $catalogue = $this->catalogue($this->task());
 
         self::assertNull($catalogue->augmentationFor('switched-off'));
         self::assertNull($catalogue->augmentationFor('gone'));
@@ -123,7 +126,7 @@ final class NrLlmSkillCatalogueTest extends TestCase
     #[Test]
     public function aConfigurationWithASecondApproverIsReported(): void
     {
-        $task = self::task();
+        $task = $this->task();
         self::assertFalse($this->catalogue($task)->requiresSecondApprover());
 
         $task->getConfiguration()?->setRequireSecondApprover(true);

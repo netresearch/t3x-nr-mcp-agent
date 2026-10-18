@@ -359,7 +359,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // parameter stays on the LlmConfiguration, so toArray() is empty and no
         // provider option is overridden by naming ourselves here.
         $request = $this->runRequest($conversation, $configuration, $messages, $operation);
-        $result = $this->agentRuntime->run($request, $this->activityRecorder->onStep($conversation));
+        $result  = $this->agentRuntime->run($request, $this->activityRecorder->onStep($conversation));
 
         // The start marker is spent once a run that carried the invocation
         // exists, whatever its outcome: a refused start is not tried again on
@@ -391,9 +391,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         $base = [
             'configuration' => $configuration,
-            'messages' => $messages,
-            'actor' => $this->resolveActor($conversation->getBeUser()),
-            'options' => (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
+            'messages'      => $messages,
+            'actor'         => $this->resolveActor($conversation->getBeUser()),
+            'options'       => (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
         ];
 
         $identifier = $conversation->getSkillIdentifier();
@@ -401,7 +401,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return new AgentRunRequest(...$base);
         }
 
-        $entry = $this->skills?->find($identifier);
+        $entry   = $this->skills?->find($identifier);
         $process = $entry !== null && $entry['process'] === true;
         $lastRun = $conversation->getLastRunUuid();
         if ($process && ($lastRun === '' || $conversation->isSkillStartPending()) && $this->skillInvocation instanceof SkillInvocationInterface) {

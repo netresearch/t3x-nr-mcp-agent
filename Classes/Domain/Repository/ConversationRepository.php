@@ -136,9 +136,9 @@ readonly class ConversationRepository
         $data['pid']      = 0;
         // A new row races nobody, so the instructions are written with it;
         // later only updateSystemPrompt() writes them (see toRow()).
-        $data['system_prompt'] = $conversation->getSystemPrompt();
+        $data['system_prompt']    = $conversation->getSystemPrompt();
         $data['skill_identifier'] = $conversation->getSkillIdentifier();
-        $data['skill_uid'] = $conversation->getSkillUid();
+        $data['skill_uid']        = $conversation->getSkillUid();
 
         return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
             $conn->insert(self::TABLE, $data);
@@ -220,10 +220,10 @@ readonly class ConversationRepository
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
-            'skill_identifier' => $skillIdentifier,
-            'skill_uid' => $skillIdentifier !== '' ? $skillUid : 0,
+            'skill_identifier'    => $skillIdentifier,
+            'skill_uid'           => $skillIdentifier !== '' ? $skillUid : 0,
             'skill_start_pending' => (int) ($skillIdentifier !== '' && $startPending),
-            'tstamp' => time(),
+            'tstamp'              => time(),
         ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 

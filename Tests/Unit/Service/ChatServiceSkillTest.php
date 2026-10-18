@@ -79,7 +79,7 @@ final class ChatServiceSkillTest extends TestCase
     protected function setUp(): void
     {
         $this->repository = $this->createMock(ConversationRepository::class);
-        $this->outcomes = [self::completed('run-1')];
+        $this->outcomes   = [self::completed('run-1')];
     }
 
     private static function completed(string $runUuid, array $steps = []): AgentRunResult
@@ -146,7 +146,7 @@ final class ChatServiceSkillTest extends TestCase
         return $skills;
     }
 
-    private static function conversation(string $skill, string $lastRun = ''): Conversation
+    private function conversation(string $skill, string $lastRun = ''): Conversation
     {
         $conversation = new Conversation();
         $conversation->setBeUser(1);
@@ -168,10 +168,10 @@ final class ChatServiceSkillTest extends TestCase
     public function aPlainSkillIsForcedOnEveryTurnWithoutAPredecessor(): void
     {
         $augmentation = new RunAugmentation(forcedSkills: [new Skill()]);
-        $invocation = $this->createMock(SkillInvocationInterface::class);
+        $invocation   = $this->createMock(SkillInvocationInterface::class);
         $invocation->expects(self::never())->method('withInvocation');
 
-        $this->service($this->catalogue(augmentation: $augmentation), $invocation)->processConversation(self::conversation('tone-check', 'run-0'));
+        $this->service($this->catalogue(augmentation: $augmentation), $invocation)->processConversation($this->conversation('tone-check', 'run-0'));
 
         self::assertSame($augmentation, $this->lastRequest()->augmentation);
         self::assertSame('', $this->lastRequest()->predecessorRunUuid);
@@ -181,7 +181,7 @@ final class ChatServiceSkillTest extends TestCase
     #[Test]
     public function aSkillTheCatalogueCannotPassIsNoSkill(): void
     {
-        $this->service($this->catalogue())->processConversation(self::conversation('gone'));
+        $this->service($this->catalogue())->processConversation($this->conversation('gone'));
 
         self::assertNull($this->lastRequest()->augmentation);
         self::assertSame('', $this->lastRequest()->predecessorRunUuid);
@@ -195,7 +195,7 @@ final class ChatServiceSkillTest extends TestCase
     #[Test]
     public function theFirstTurnCarriesTheInvocationAndNoPredecessor(): void
     {
-        $conversation = self::conversation('seo-page-tour');
+        $conversation = $this->conversation('seo-page-tour');
         $conversation->setViewContext(10, 'web_layout', 1);
 
         $this->service($this->catalogue(augmentation: new RunAugmentation(forcedSkills: [new Skill()])), new NrLlmSkillInvocation())->processConversation($conversation);
@@ -208,7 +208,7 @@ final class ChatServiceSkillTest extends TestCase
     #[Test]
     public function theInvocationIsBuiltFromTheCataloguesUidAndThePage(): void
     {
-        $invoked = null;
+        $invoked    = null;
         $invocation = $this->createMock(SkillInvocationInterface::class);
         $invocation->expects(self::once())->method('withInvocation')->willReturnCallback(
             static function (AgentRunRequest $request, SkillInvocation $given) use (&$invoked): AgentRunRequest {
@@ -217,7 +217,7 @@ final class ChatServiceSkillTest extends TestCase
                 return $request;
             },
         );
-        $conversation = self::conversation('seo-page-tour');
+        $conversation = $this->conversation('seo-page-tour');
         $conversation->setViewContext(10, 'web_layout');
 
         $this->service($this->catalogue(), $invocation)->processConversation($conversation);
@@ -235,7 +235,7 @@ final class ChatServiceSkillTest extends TestCase
         $invocation = $this->createMock(SkillInvocationInterface::class);
         $invocation->expects(self::never())->method('withInvocation');
 
-        $this->service($this->catalogue(), $invocation)->processConversation(self::conversation('seo-page-tour', 'run-0'));
+        $this->service($this->catalogue(), $invocation)->processConversation($this->conversation('seo-page-tour', 'run-0'));
 
         self::assertSame('run-0', $this->lastRequest()->predecessorRunUuid);
         self::assertNull($this->lastRequest()->invocation);
@@ -246,7 +246,7 @@ final class ChatServiceSkillTest extends TestCase
     #[Test]
     public function aSkillThatLeftTheCatalogueStillNamesThePredecessor(): void
     {
-        $this->service($this->catalogue([]), new NrLlmSkillInvocation())->processConversation(self::conversation('seo-page-tour', 'run-0'));
+        $this->service($this->catalogue([]), new NrLlmSkillInvocation())->processConversation($this->conversation('seo-page-tour', 'run-0'));
 
         self::assertSame('run-0', $this->lastRequest()->predecessorRunUuid);
         self::assertNull($this->lastRequest()->invocation);
@@ -255,7 +255,7 @@ final class ChatServiceSkillTest extends TestCase
     #[Test]
     public function aConversationWithoutASkillNamesNoPredecessor(): void
     {
-        $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation(self::conversation('', 'run-0'));
+        $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($this->conversation('', 'run-0'));
 
         self::assertSame('', $this->lastRequest()->predecessorRunUuid);
         self::assertNull($this->lastRequest()->invocation);
@@ -283,8 +283,8 @@ final class ChatServiceSkillTest extends TestCase
     public function everyRecordedRunIsStoredAndNamedByTheNextTurn(AgentRunResult $first): void
     {
         $this->outcomes = [$first, self::completed('run-8')];
-        $conversation = self::conversation('seo-page-tour');
-        $service = $this->service($this->catalogue(), new NrLlmSkillInvocation());
+        $conversation   = $this->conversation('seo-page-tour');
+        $service        = $this->service($this->catalogue(), new NrLlmSkillInvocation());
 
         $service->processConversation($conversation);
         self::assertSame('run-7', $conversation->getLastRunUuid());
@@ -299,7 +299,7 @@ final class ChatServiceSkillTest extends TestCase
     public function aRunNrLlmCouldNotRecordLeavesThePreviousOne(): void
     {
         $this->outcomes = [new AgentRunResult(AgentRunOutcome::FAILED, '', [], error: new RuntimeException('not recorded'))];
-        $conversation = self::conversation('seo-page-tour', 'run-0');
+        $conversation   = $this->conversation('seo-page-tour', 'run-0');
 
         $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($conversation);
 
@@ -314,7 +314,7 @@ final class ChatServiceSkillTest extends TestCase
     public function aPickedProcessSkillStartsOnTheNextTurnOnce(): void
     {
         $this->outcomes = [self::completed('run-1'), self::completed('run-2')];
-        $conversation = self::conversation('seo-page-tour', 'run-0');
+        $conversation   = $this->conversation('seo-page-tour', 'run-0');
         $conversation->setSkillStartPending(true);
         $this->repository->expects(self::once())->method('clearSkillStartPending');
         $service = $this->service($this->catalogue(), new NrLlmSkillInvocation());
@@ -333,7 +333,7 @@ final class ChatServiceSkillTest extends TestCase
     public function theStartMarkerStaysWhenTheRunWasNotRecorded(): void
     {
         $this->outcomes = [new AgentRunResult(AgentRunOutcome::FAILED, '', [], error: new RuntimeException('not recorded'))];
-        $conversation = self::conversation('seo-page-tour', 'run-0');
+        $conversation   = $this->conversation('seo-page-tour', 'run-0');
         $conversation->setSkillStartPending(true);
         $this->repository->expects(self::never())->method('clearSkillStartPending');
 
@@ -355,8 +355,8 @@ final class ChatServiceSkillTest extends TestCase
             new DroppedSource('process', 42, DroppedSourceReason::DETACHED),
         ]);
         $this->outcomes = [self::completed('run-1', [$dropped]), self::completed('run-2')];
-        $conversation = self::conversation('seo-page-tour', 'run-0');
-        $service = $this->service($this->catalogue(), new NrLlmSkillInvocation());
+        $conversation   = $this->conversation('seo-page-tour', 'run-0');
+        $service        = $this->service($this->catalogue(), new NrLlmSkillInvocation());
 
         $service->processConversation($conversation);
 
@@ -368,20 +368,20 @@ final class ChatServiceSkillTest extends TestCase
 
         $service->processConversation($conversation);
         $sent = array_map(
-            static fn(mixed $message): string => is_array($message) && is_string($message['content'] ?? null) ? $message['content'] : '',
+            static fn (mixed $message): string => is_array($message) && is_string($message['content'] ?? null) ? $message['content'] : '',
             $this->lastRequest()->messages,
         );
         self::assertNotContains($messages[1]['content'], $sent, 'the model is not sent the line');
-        $lines = array_filter($conversation->getDecodedMessages(), static fn(array $message): bool => ($message['notice'] ?? null) === 'processDropped');
+        $lines = array_filter($conversation->getDecodedMessages(), static fn (array $message): bool => ($message['notice'] ?? null) === 'processDropped');
         self::assertCount(1, $lines, 'the next turn adds no second line');
     }
 
     #[Test]
     public function aDroppedSourceThatIsNoProcessAddsNoLine(): void
     {
-        $dropped = new RunStep(RunStep::KIND_DROPPED, 0, 0.0, droppedSources: [new DroppedSource('skill', 3, DroppedSourceReason::DEACTIVATED)]);
+        $dropped        = new RunStep(RunStep::KIND_DROPPED, 0, 0.0, droppedSources: [new DroppedSource('skill', 3, DroppedSourceReason::DEACTIVATED)]);
         $this->outcomes = [self::completed('run-1', [$dropped])];
-        $conversation = self::conversation('seo-page-tour', 'run-0');
+        $conversation   = $this->conversation('seo-page-tour', 'run-0');
 
         $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($conversation);
 
@@ -391,7 +391,7 @@ final class ChatServiceSkillTest extends TestCase
     #[Test]
     public function withoutTheAdapterTheRunGoesWithoutASkill(): void
     {
-        $this->service(null)->processConversation(self::conversation('seo-page-tour'));
+        $this->service(null)->processConversation($this->conversation('seo-page-tour'));
 
         self::assertNull($this->lastRequest()->augmentation);
         self::assertNull($this->lastRequest()->invocation);

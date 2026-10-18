@@ -175,9 +175,9 @@ final class Conversation
         $conversation->currentRequestId   = (string) self::val($row, 'current_request_id', '');
         $conversation->systemPrompt       = (string) self::val($row, 'system_prompt', '');
         $conversation->viewContext        = (string) self::val($row, 'view_context', '');
-        $conversation->skillIdentifier = (string) self::val($row, 'skill_identifier', '');
-        $conversation->skillUid = (int) self::val($row, 'skill_uid', 0);
-        $conversation->skillStartPending = (bool) self::val($row, 'skill_start_pending', false);
+        $conversation->skillIdentifier    = (string) self::val($row, 'skill_identifier', '');
+        $conversation->skillUid           = (int) self::val($row, 'skill_uid', 0);
+        $conversation->skillStartPending  = (bool) self::val($row, 'skill_start_pending', false);
         $conversation->activity           = (string) self::val($row, 'activity', '');
         $conversation->guidedState        = (string) self::val($row, 'guided_state', '');
         $conversation->archived           = (bool) self::val($row, 'archived', false);
@@ -189,7 +189,7 @@ final class Conversation
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
         $conversation->pendingInput       = (string) self::val($row, 'pending_input', '');
         $conversation->approvalDenyReason = (string) self::val($row, 'approval_deny_reason', '');
-        $conversation->lastRunUuid = (string) self::val($row, 'last_run_uuid', '');
+        $conversation->lastRunUuid        = (string) self::val($row, 'last_run_uuid', '');
         $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate             = (int) self::val($row, 'crdate', 0);
 
@@ -235,7 +235,7 @@ final class Conversation
             'approval_run_uuid'    => $this->approvalRunUuid,
             'approval_decision'    => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
-            'last_run_uuid' => $this->lastRunUuid,
+            'last_run_uuid'        => $this->lastRunUuid,
             'pending_input'        => $this->pendingInput,
             'approval_deny_reason' => $this->approvalDenyReason,
         ];
@@ -414,9 +414,9 @@ final class Conversation
      */
     public function getViewContext(): array
     {
-        $decoded = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
-        $pageId = is_array($decoded) && is_int($decoded['pageId'] ?? null) ? $decoded['pageId'] : 0;
-        $module = is_array($decoded) && is_string($decoded['module'] ?? null) ? $decoded['module'] : '';
+        $decoded    = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
+        $pageId     = is_array($decoded) && is_int($decoded['pageId'] ?? null) ? $decoded['pageId'] : 0;
+        $module     = is_array($decoded) && is_string($decoded['module'] ?? null) ? $decoded['module'] : '';
         $languageId = is_array($decoded) && is_int($decoded['languageId'] ?? null) ? $decoded['languageId'] : -1;
 
         return ['pageId' => max(0, $pageId), 'module' => $module, 'languageId' => max(-1, $languageId)];
@@ -460,7 +460,7 @@ final class Conversation
     public function setSkillIdentifier(string $identifier, int $uid = 0): void
     {
         $this->skillIdentifier = self::isSkillIdentifier($identifier) ? $identifier : '';
-        $this->skillUid = $this->skillIdentifier !== '' ? max(0, $uid) : 0;
+        $this->skillUid        = $this->skillIdentifier !== '' ? max(0, $uid) : 0;
     }
 
     public function getSkillUid(): int

@@ -177,12 +177,12 @@ final readonly class ChatApiController
 
         $conversations = $this->repository->findByBeUser($this->getBeUserUid());
         $items         = array_map(fn (Conversation $c): array => [
-            'uid'          => $c->getUid(),
-            'title'        => $c->getTitle(),
-            'status'       => $c->getStatus()->value,
-            'messageCount' => $c->getMessageCount(),
-            'pinned' => $c->isPinned(),
-            'resumable' => $c->isResumable(),
+            'uid'             => $c->getUid(),
+            'title'           => $c->getTitle(),
+            'status'          => $c->getStatus()->value,
+            'messageCount'    => $c->getMessageCount(),
+            'pinned'          => $c->isPinned(),
+            'resumable'       => $c->isResumable(),
             'skillIdentifier' => $c->getSkillIdentifier(),
             ...$this->presentError($c->getErrorMessage(), $c->getErrorCode()),
             'approvalUrl' => $this->buildApprovalUrl($c->getApprovalRunUuid()),
@@ -212,7 +212,7 @@ final readonly class ChatApiController
         $conversation = new Conversation();
         $conversation->setBeUser($this->getBeUserUid());
 
-        $body = $request instanceof ServerRequestInterface ? $this->parseBody($request) : [];
+        $body    = $request instanceof ServerRequestInterface ? $this->parseBody($request) : [];
         $refusal = $this->applyStartContext($conversation, $body);
         if ($refusal !== null) {
             return $refusal;
@@ -233,9 +233,9 @@ final readonly class ChatApiController
      */
     private function applyStartContext(Conversation $conversation, array $body): ?ResponseInterface
     {
-        $pageUid = (int) ($body['pageUid'] ?? 0);
+        $pageUid     = (int) ($body['pageUid'] ?? 0);
         $languageUid = (int) ($body['languageUid'] ?? 0);
-        $skill = trim((string) ($body['skill'] ?? ''));
+        $skill       = trim((string) ($body['skill'] ?? ''));
 
         $refusal = $pageUid > 0 ? $this->refusePage($pageUid, $languageUid) : null;
         $refusal ??= $skill !== '' ? $this->refuseSkill($skill) : null;
@@ -370,7 +370,7 @@ final readonly class ChatApiController
 
         return new JsonResponse([
             'available' => $available,
-            'skills' => $available ? $this->skills->catalogue() : [],
+            'skills'    => $available ? $this->skills->catalogue() : [],
         ]);
     }
 
@@ -386,13 +386,13 @@ final readonly class ChatApiController
             return $accessDenied;
         }
 
-        $body = $this->parseBody($request);
+        $body         = $this->parseBody($request);
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
         }
 
-        $skill = trim((string) ($body['skill'] ?? ''));
+        $skill   = trim((string) ($body['skill'] ?? ''));
         $refusal = $skill !== '' ? $this->refuseSkill($skill) : null;
         $refusal ??= $this->isBusy($conversation->getStatus())
             ? new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409)
@@ -432,7 +432,7 @@ final readonly class ChatApiController
     }
 
     /**
-     * GET /ai-chat/conversations/messages?conversationUid={uid}&after={index}
+     * GET /ai-chat/conversations/messages?conversationUid={uid}&after={index}.
      */
     public function getMessages(ServerRequestInterface $request): ResponseInterface
     {
@@ -515,7 +515,7 @@ final readonly class ChatApiController
             'systemPrompt'     => $conversation->getSystemPrompt(),
             // Progress for the header and the element to highlight (ADR-020).
             'guided'   => $conversation->getGuidedState(),
-            'skill' => $this->presentSkill($conversation),
+            'skill'    => $this->presentSkill($conversation),
             'activity' => $conversation->getActivity(),
         ]);
     }
@@ -764,8 +764,8 @@ final readonly class ChatApiController
         // shape is checked here; the worker decides what the user may see.
         $context = $body['context'] ?? null;
         if (is_array($context)) {
-            $pageId = is_int($context['pageId'] ?? null) ? $context['pageId'] : 0;
-            $module = $context['module'] ?? '';
+            $pageId     = is_int($context['pageId'] ?? null) ? $context['pageId'] : 0;
+            $module     = $context['module'] ?? '';
             $languageId = is_int($context['languageId'] ?? null) ? $context['languageId'] : -1;
             // The browser does not always see the page's language (the page
             // module keeps it in its module data). On the same page, the

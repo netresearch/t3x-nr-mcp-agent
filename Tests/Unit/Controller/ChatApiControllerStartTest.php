@@ -59,7 +59,7 @@ final class ChatApiControllerStartTest extends TestCase
 
             return 42;
         });
-        $GLOBALS['BE_USER'] = new stdClass();
+        $GLOBALS['BE_USER']       = new stdClass();
         $GLOBALS['BE_USER']->user = ['uid' => 1, 'usergroup' => '1'];
     }
 
@@ -96,7 +96,7 @@ final class ChatApiControllerStartTest extends TestCase
         $skills->method('requiresSecondApprover')->willReturn($secondApprover);
         $skills->method('catalogue')->willReturn($available ? [self::SKILL, self::PLAIN_SKILL, self::PROCESS_SKILL] : []);
         $skills->method('find')->willReturnCallback(
-            static fn(string $identifier): ?array => $available ? ([self::SKILL['identifier'] => self::SKILL, self::PLAIN_SKILL['identifier'] => self::PLAIN_SKILL, self::PROCESS_SKILL['identifier'] => self::PROCESS_SKILL][$identifier] ?? null) : null,
+            static fn (string $identifier): ?array => $available ? ([self::SKILL['identifier'] => self::SKILL, self::PLAIN_SKILL['identifier'] => self::PLAIN_SKILL, self::PROCESS_SKILL['identifier'] => self::PROCESS_SKILL][$identifier] ?? null) : null,
         );
 
         return $skills;
@@ -116,7 +116,7 @@ final class ChatApiControllerStartTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private static function json(ResponseInterface $response): array
+    private function json(ResponseInterface $response): array
     {
         $decoded = json_decode((string) $response->getBody(), true);
         self::assertIsArray($decoded);
@@ -148,7 +148,7 @@ final class ChatApiControllerStartTest extends TestCase
 
         $start = $subject->createConversation($this->request('{"skill": "seo-page-tour"}'));
         self::assertSame(409, $start->getStatusCode());
-        self::assertSame('error.skillSecondApprover', self::json($start)['error'] ?? null);
+        self::assertSame('error.skillSecondApprover', $this->json($start)['error'] ?? null);
         self::assertNull($this->added);
 
         self::assertSame(201, $subject->createConversation($this->request('{}'))->getStatusCode());
@@ -208,9 +208,9 @@ final class ChatApiControllerStartTest extends TestCase
     #[Test]
     public function theSlashListShowsTheCatalogue(): void
     {
-        self::assertSame(['available' => true, 'skills' => [self::SKILL, self::PLAIN_SKILL, self::PROCESS_SKILL]], self::json($this->subject($this->catalogue())->listSkills()));
-        self::assertSame(['available' => false, 'skills' => []], self::json($this->subject($this->catalogue(false))->listSkills()));
-        self::assertSame(['available' => false, 'skills' => []], self::json($this->subject(null)->listSkills()));
+        self::assertSame(['available' => true, 'skills' => [self::SKILL, self::PLAIN_SKILL, self::PROCESS_SKILL]], $this->json($this->subject($this->catalogue())->listSkills()));
+        self::assertSame(['available' => false, 'skills' => []], $this->json($this->subject($this->catalogue(false))->listSkills()));
+        self::assertSame(['available' => false, 'skills' => []], $this->json($this->subject(null)->listSkills()));
     }
 
     #[Test]
@@ -223,7 +223,7 @@ final class ChatApiControllerStartTest extends TestCase
 
         $response = $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "seo-page-tour"}'));
 
-        self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite']], self::json($response));
+        self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite']], $this->json($response));
     }
 
     /**
@@ -268,7 +268,7 @@ final class ChatApiControllerStartTest extends TestCase
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
         $this->repository->expects(self::once())->method('updateSkillIdentifier')->with(0, '', 1);
 
-        self::assertSame(['skill' => null], self::json($this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": ""}'))));
+        self::assertSame(['skill' => null], $this->json($this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": ""}'))));
     }
 
     #[Test]
@@ -312,7 +312,7 @@ final class ChatApiControllerStartTest extends TestCase
         $request->method('getBody')->willReturn($stream);
         $request->method('getQueryParams')->willReturn(['conversationUid' => '7']);
 
-        $data = self::json($this->subject($this->catalogue())->getMessages($request));
+        $data = $this->json($this->subject($this->catalogue())->getMessages($request));
 
         self::assertSame(['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite'], $data['skill']);
     }
