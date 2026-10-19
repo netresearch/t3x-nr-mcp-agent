@@ -310,21 +310,30 @@ final readonly class InputPauseForm
      */
     private function asInteger(mixed $raw): ?array
     {
-        $isInteger = is_int($raw) || (is_string($raw) && preg_match('/^-?\d+$/', $raw) === 1);
+        // A string of digits beyond PHP's integer range becomes a float when
+        // read as a number; it is refused rather than cut to PHP_INT_MAX.
+        $value = is_int($raw) ? $raw : null;
+        if (is_string($raw) && is_numeric($raw) && preg_match('/^-?\d+$/', $raw) === 1) {
+            $number = $raw + 0;
+            $value  = is_int($number) ? $number : null;
+        }
 
-        return $isInteger ? ['value' => (int) $raw, 'label' => (string) (int) $raw] : null;
+        return $value !== null ? ['value' => $value, 'label' => (string) $value] : null;
     }
 
     /**
+     * Only finite numbers: "1e999" reads as INF, which the answer's JSON
+     * cannot hold.
+     *
      * @return array{value: float|int, label: string}|null
      */
     private function asNumber(mixed $raw): ?array
     {
-        if (is_int($raw) || is_float($raw)) {
+        if (is_int($raw) || (is_float($raw) && is_finite($raw))) {
             return ['value' => $raw, 'label' => (string) $raw];
         }
 
-        return is_string($raw) && is_numeric($raw) ? ['value' => (float) $raw, 'label' => $raw] : null;
+        return is_string($raw) && is_numeric($raw) && is_finite((float) $raw) ? ['value' => (float) $raw, 'label' => $raw] : null;
     }
 
     /**

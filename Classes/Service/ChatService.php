@@ -425,8 +425,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $status = AgentRunStatus::tryFrom($run->status);
 
         if ($status === AgentRunStatus::WAITING_FOR_APPROVAL) {
-            $conversation->clearApprovalDecision();
-            $conversation->dropInputAnswer();
+            $conversation->withdrawDecision();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
 
@@ -441,8 +440,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // for it, so the question comes back — without the answer the request
         // put into the transcript, which nobody delivered.
         if ($status === AgentRunStatus::WAITING_FOR_INPUT) {
-            $conversation->clearApprovalDecision();
-            $conversation->dropInputAnswer();
+            $conversation->withdrawDecision();
             $conversation->setStatus(ConversationStatus::AwaitingInput);
             $conversation->setApprovalRunUuid($runUuid);
 
@@ -795,8 +793,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 'message'   => $e->getMessage(),
                 'exception' => $e,
             ]);
-            $conversation->clearApprovalDecision();
-            $conversation->dropInputAnswer();
+            $conversation->withdrawDecision();
             $conversation->setStatus(ConversationStatus::AwaitingInput);
             $conversation->setApprovalRunUuid($runUuid);
             $conversation->setErrorMessage('', $reason->value);
@@ -882,8 +879,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // was, with the reason, so the card returns and the reader can
             // decide again. Marking it Failed would hide the card AND offer a
             // Retry that starts a second run over the same transcript.
-            $conversation->clearApprovalDecision();
-            $conversation->dropInputAnswer();
+            $conversation->withdrawDecision();
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setApprovalRunUuid($runUuid);
             // nr-llm's message is a developer's English sentence and may name
@@ -953,8 +949,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             'exception' => $e,
         ]);
 
-        $conversation->clearApprovalDecision();
-        $conversation->dropInputAnswer();
+        $conversation->withdrawDecision();
         if ($stopped) {
             // Idle clears the run's reference with the other approval fields.
             $conversation->setStatus(ConversationStatus::Idle);

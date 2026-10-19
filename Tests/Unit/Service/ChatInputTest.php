@@ -596,6 +596,36 @@ final class ChatInputTest extends TestCase
         self::assertNull($conversation->getApprovalDenyReason());
     }
 
+    /**
+     * A question was answered, the run went on and paused for a card. A plain
+     * approval or cancel adds no line, so a refusal of it must not take out
+     * the answer that already reached the run.
+     *
+     * @return iterable<string, array{bool}>
+     */
+    public static function plainDecisions(): iterable
+    {
+        yield 'approve' => [true];
+        yield 'cancel' => [false];
+    }
+
+    #[Test]
+    #[DataProvider('plainDecisions')]
+    public function aHandedBackPlainDecisionKeepsTheDeliveredAnswer(bool $approve): void
+    {
+        $conversation = $this->parked();
+        $conversation->appendInputAnswer('Mit der Einleitung');
+
+        $service = $this->service(submitAnswer: new StaleApprovalTurnException(self::RUN, 'stale'));
+        $service->recordDecision($conversation, $approve, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame(3, $conversation->getMessageCount());
+        self::assertSame('Mit der Einleitung', $this->lastMessages($conversation, 1)[0]['content']);
+    }
+
     #[Test]
     public function settlingTheConversationForgetsTheReason(): void
     {

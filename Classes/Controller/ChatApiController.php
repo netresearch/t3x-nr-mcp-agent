@@ -542,7 +542,15 @@ final readonly class ChatApiController
             $conversation->setViewContext(0, '');
         }
 
-        $conversation->setStatus(ConversationStatus::Processing);
+        // A guided process's run waiting on a card or a question is cancelled
+        // once the conversation is claimed (nr-llm ADR-214): left waiting, its
+        // proposal could still be decided after the tour moved on. Until that
+        // is settled the claim is Locked, not Processing: Processing is what
+        // dequeueForWorker() and claimForProcess() take, and a worker must not
+        // start the new turn while the run may still be handed back.
+        $releasesRun = $currentStatus === ConversationStatus::AwaitingApproval || $currentStatus === ConversationStatus::AwaitingInput;
+
+        $conversation->setStatus($releasesRun ? ConversationStatus::Locked : ConversationStatus::Processing);
         $conversation->setErrorMessage('');
         // A new turn abandons a pending approval: the reference would otherwise
         // survive into Processing, where the approval link still reads it and
@@ -557,17 +565,20 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
-        // A guided process's run waiting on a card or a question is cancelled
-        // now that the conversation is claimed (nr-llm ADR-214): left waiting,
-        // its proposal could still be decided after the tour moved on. When
-        // the run is being carried on, or a decision won the race, the row
-        // goes back to what it was and the message is refused as busy.
-        if (($currentStatus === ConversationStatus::AwaitingApproval || $currentStatus === ConversationStatus::AwaitingInput)
-            && !$this->chatApproval->releasePendingRun($before)
-        ) {
-            $this->repository->updateIf($before, ConversationStatus::Processing);
+        if ($releasesRun) {
+            // When the run is being carried on, or a decision won the race,
+            // the row goes back to what it was and the message is refused as
+            // busy.
+            if (!$this->chatApproval->releasePendingRun($before)) {
+                $this->repository->updateIf($before, ConversationStatus::Locked);
 
-            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+                return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+            }
+
+            $conversation->setStatus(ConversationStatus::Processing);
+            if (!$this->repository->updateIf($conversation, ConversationStatus::Locked)) {
+                return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+            }
         }
 
         $this->processor->dispatch($conversation->getUid());

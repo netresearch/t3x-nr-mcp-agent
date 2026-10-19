@@ -986,11 +986,74 @@ class ChatApiControllerTest extends TestCase
 
         self::assertSame(409, $response->getStatusCode());
         self::assertSame([
-            // the claim
-            [$status, ConversationStatus::Processing, '', 2],
+            // the claim, Locked so that no worker takes the turn yet
+            [$status, ConversationStatus::Locked, '', 2],
             // and the row as it was
-            [ConversationStatus::Processing, $status, 'run-uuid-1234', 1],
+            [ConversationStatus::Locked, $status, 'run-uuid-1234', 1],
         ], $writes);
+    }
+
+    /**
+     * While the waiting run is released the claim is Locked, which no worker
+     * dequeues; the turn becomes Processing, and is dispatched, only after.
+     */
+    #[Test]
+    #[DataProvider('waitingStatuses')]
+    public function aReleasedTourRunHandsTheTurnToTheWorkerOnlyAfterTheRelease(ConversationStatus $status): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Prüfe die Seite');
+        $conversation->setStatus($status);
+        $conversation->setApprovalRunUuid('run-uuid-1234');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $writes = [];
+        $this->chatApproval->method('releasePendingRun')->willReturnCallback(static function () use (&$writes): bool {
+            $writes[] = 'release';
+
+            return true;
+        });
+        $this->repository->method('updateIf')->willReturnCallback(static function (Conversation $c, ConversationStatus $expected) use (&$writes): bool {
+            $writes[] = [$expected, $c->getStatus()];
+
+            return true;
+        });
+        $this->processor->expects(self::once())->method('dispatch')->willReturnCallback(static function () use (&$writes): void {
+            $writes[] = 'dispatch';
+        });
+
+        $response = $this->subject->sendMessage($this->createRequest('POST', '{"conversationUid": 1, "content": "Mach etwas anderes"}'));
+
+        self::assertSame(202, $response->getStatusCode());
+        self::assertSame([
+            [$status, ConversationStatus::Locked],
+            'release',
+            [ConversationStatus::Locked, ConversationStatus::Processing],
+            'dispatch',
+        ], $writes);
+    }
+
+    /**
+     * An ordinary turn has no run to release and is claimed as Processing
+     * in one write, as before.
+     */
+    #[Test]
+    public function aTurnWithoutAWaitingRunIsClaimedAsProcessingInOneWrite(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::Idle);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->expects(self::never())->method('releasePendingRun');
+        $writes = [];
+        $this->repository->method('updateIf')->willReturnCallback(static function (Conversation $c, ConversationStatus $expected) use (&$writes): bool {
+            $writes[] = [$expected, $c->getStatus()];
+
+            return true;
+        });
+
+        $response = $this->subject->sendMessage($this->createRequest('POST', '{"conversationUid": 1, "content": "Hallo"}'));
+
+        self::assertSame(202, $response->getStatusCode());
+        self::assertSame([[ConversationStatus::Idle, ConversationStatus::Processing]], $writes);
     }
 
     #[Test]

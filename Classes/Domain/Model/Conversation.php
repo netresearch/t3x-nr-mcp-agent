@@ -620,6 +620,22 @@ final class Conversation
         }
     }
 
+    /**
+     * Clear the recorded decision when the run hands it back, and take out
+     * the transcript line this decision added: an answer to a question, or
+     * the label of a denial with a reason. A plain approval or cancel adds
+     * none, and the last line may then be an answer an earlier question
+     * already delivered to the run, which must stay.
+     */
+    public function withdrawDecision(): void
+    {
+        $addedLine = $this->approvalDecision === self::DECISION_INPUT || $this->getApprovalDenyReason() instanceof DenyReason;
+        $this->clearApprovalDecision();
+        if ($addedLine) {
+            $this->dropInputAnswer();
+        }
+    }
+
     /** Whether the recorded decision is an answer to a question rather than an approval. */
     public function hasPendingInputSubmission(): bool
     {

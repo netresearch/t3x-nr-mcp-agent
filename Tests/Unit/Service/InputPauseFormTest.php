@@ -257,7 +257,10 @@ final class InputPauseFormTest extends TestCase
         yield 'a required field empty' => [['title' => '']];
         yield 'text for an integer' => [['title' => 'x', 'count' => 'three']];
         yield 'a fraction for an integer' => [['title' => 'x', 'count' => '1.5']];
+        yield "an integer beyond PHP's range" => [['title' => 'x', 'count' => '99999999999999999999']];
         yield 'text for a number' => [['title' => 'x', 'ratio' => 'half']];
+        yield 'a number that reads as infinite' => [['title' => 'x', 'ratio' => '1e999']];
+        yield 'an infinite float' => [['title' => 'x', 'ratio' => INF]];
         yield 'a string for a checkbox' => [['title' => 'x', 'hidden' => 'yes']];
         yield 'a value that was not offered' => [['title' => 'x', 'layout' => 'full']];
     }
