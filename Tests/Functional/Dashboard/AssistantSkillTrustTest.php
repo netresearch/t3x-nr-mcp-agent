@@ -52,7 +52,7 @@ final class AssistantSkillTrustTest extends FunctionalTestCase
     protected array $configurationToUseInTestInstance = [
         'EXTENSIONS' => [
             'nr_mcp_agent' => ['llmTaskUid' => '1', 'dashboardGuidedSkills' => 'seo-optimieren'],
-            'nr_llm' => ['skills' => ['minTrustLevel' => 'verified']],
+            'nr_llm'       => ['skills' => ['minTrustLevel' => 'verified']],
         ],
     ];
 
@@ -61,7 +61,7 @@ final class AssistantSkillTrustTest extends FunctionalTestCase
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/dashboard_page_choice.csv');
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
-        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($GLOBALS['BE_USER']);
+        $GLOBALS['LANG']    = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($GLOBALS['BE_USER']);
     }
 
     /**
@@ -72,7 +72,7 @@ final class AssistantSkillTrustTest extends FunctionalTestCase
     private function resolver(array $skills): CatalogueSkillResolver
     {
         $connection = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrllm_skill');
-        $entries = [];
+        $entries    = [];
         foreach ($skills as $uid => $skill) {
             $identifier = $skill['source'] . ':seo-optimieren';
             $connection->insert('tx_nrllm_skill', ['uid' => $uid, 'pid' => 0, 'identifier' => $identifier, 'trust_level' => $skill['trust']]);
@@ -106,7 +106,7 @@ final class AssistantSkillTrustTest extends FunctionalTestCase
     private function renderImprovePage(CatalogueSkillResolver $resolver): string
     {
         $config = new ExtensionConfiguration();
-        $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
+        $pages  = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
         $widget = new ImprovePageWidget(
             $this->createMock(WidgetConfigurationInterface::class),
             $this->get(BackendViewFactory::class),

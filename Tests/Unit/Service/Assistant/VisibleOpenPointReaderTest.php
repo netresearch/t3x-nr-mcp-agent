@@ -77,7 +77,7 @@ final class VisibleOpenPointReaderTest extends TestCase
     public function withoutTheStoreThereAreNoOpenPoints(): void
     {
         self::assertSame([], (new VisibleOpenPointReader())->findOpen(5));
-        self::assertSame([], (new VisibleOpenPointReader(null))->findOpen(5));
+        self::assertSame([], (new VisibleOpenPointReader())->findOpen(5));
         self::assertSame([], (new VisibleOpenPointReader(new stdClass()))->findOpen(5));
     }
 

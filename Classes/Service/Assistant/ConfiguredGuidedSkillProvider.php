@@ -29,7 +29,7 @@ final readonly class ConfiguredGuidedSkillProvider implements GuidedSkillProvide
     {
         $skills = [];
         foreach ($this->config->getDashboardGuidedSkills() as $identifier) {
-            $title = $this->labels->title($identifier);
+            $title    = $this->labels->title($identifier);
             $resolved = $title === null ? null : $this->resolver->resolve($identifier);
             if ($title === null || $resolved === null) {
                 continue;

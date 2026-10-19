@@ -30,9 +30,9 @@ final class SkillLabelsTest extends TestCase
     #[Test]
     public function labelsAreInTheCurrentUsersLanguage(): void
     {
-        $user = $this->createMock(BackendUserAuthentication::class);
+        $user               = $this->createMock(BackendUserAuthentication::class);
         $GLOBALS['BE_USER'] = $user;
-        $languageService = $this->createMock(LanguageService::class);
+        $languageService    = $this->createMock(LanguageService::class);
         $languageService->method('sL')->willReturn('SEO optimieren');
         $factory = $this->createMock(LanguageServiceFactory::class);
         $factory->expects(self::once())->method('createFromUserPreferences')->with(self::identicalTo($user))->willReturn($languageService);
@@ -65,10 +65,10 @@ final class SkillLabelsTest extends TestCase
     public function aQualifiedIdentifierFallsBackToTheLabelsOfItsSlug(): void
     {
         $labels = $this->skillLabels([
-            'skill.seo-optimieren.title' => 'SEO optimieren',
+            'skill.seo-optimieren.title'       => 'SEO optimieren',
             'skill.seo-optimieren.description' => 'Seitentitel prüfen',
-            'task.seo-optimieren' => 'SEO prüfen',
-            'skill.4_seo-optimieren.title' => 'SEO (Quelle 4)',
+            'task.seo-optimieren'              => 'SEO prüfen',
+            'skill.4_seo-optimieren.title'     => 'SEO (Quelle 4)',
         ]);
 
         self::assertSame('SEO optimieren', $labels->title('3:seo-optimieren'));

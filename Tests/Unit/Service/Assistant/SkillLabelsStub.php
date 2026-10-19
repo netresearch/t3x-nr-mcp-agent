@@ -26,7 +26,7 @@ trait SkillLabelsStub
     {
         $languageService = $this->createMock(LanguageService::class);
         $languageService->method('sL')->willReturnCallback(
-            static fn(string $input): string => str_starts_with($input, SkillLabels::FILE . ':')
+            static fn (string $input): string => str_starts_with($input, SkillLabels::FILE . ':')
                 ? ($labels[substr($input, strlen(SkillLabels::FILE) + 1)] ?? '')
                 : '',
         );

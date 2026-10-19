@@ -131,8 +131,8 @@ readonly class PageChoiceRepository
             return [];
         }
 
-        $columns = ['uid', 'title', 'description'];
-        $seoTitle = $this->hasPageField('seo_title');
+        $columns     = ['uid', 'title', 'description'];
+        $seoTitle    = $this->hasPageField('seo_title');
         $socialImage = $this->hasPageField('og_image');
         if ($seoTitle) {
             $columns[] = 'seo_title';
@@ -145,7 +145,7 @@ readonly class PageChoiceRepository
         $pages = [];
         foreach ($this->candidateRows($user, $columns) as $row) {
             $defects = $this->seoDefects($row, $seoTitle, $socialImage);
-            $page = $defects === [] ? null : $this->findEditable($this->uidOf($row));
+            $page    = $defects === [] ? null : $this->findEditable($this->uidOf($row));
             if ($page !== null) {
                 $pages[] = [...$page, 'defects' => $defects];
                 if (count($pages) === $limit) {
@@ -159,6 +159,7 @@ readonly class PageChoiceRepository
 
     /**
      * @param array<string, mixed> $row
+     *
      * @return list<string>
      */
     private function seoDefects(array $row, bool $seoTitle, bool $socialImage): array
@@ -207,6 +208,7 @@ readonly class PageChoiceRepository
      * Candidate rows in batches, newest change first, up to MAX_CANDIDATES.
      *
      * @param list<string> $columns
+     *
      * @return Generator<int, array<string, mixed>>
      */
     private function candidateRows(BackendUserAuthentication $user, array $columns): Generator
@@ -226,6 +228,7 @@ readonly class PageChoiceRepository
      * user "edit content", newest change first.
      *
      * @param list<string> $columns
+     *
      * @return list<array<string, mixed>>
      */
     private function candidateBatch(BackendUserAuthentication $user, array $columns, int $offset): array
@@ -276,7 +279,7 @@ readonly class PageChoiceRepository
     public function findEditable(int $uid, int $languageUid = 0): ?array
     {
         $user = $this->backendUser();
-        $row = $this->readableRow($uid);
+        $row  = $this->readableRow($uid);
         if ($user === null || $row === null || !$user->doesUserHaveAccess($row, Permission::CONTENT_EDIT)) {
             return null;
         }
@@ -335,6 +338,7 @@ readonly class PageChoiceRepository
 
     /**
      * @param array<mixed> $row
+     *
      * @return array{uid: int, title: string}
      */
     private function choice(int $uid, array $row): array

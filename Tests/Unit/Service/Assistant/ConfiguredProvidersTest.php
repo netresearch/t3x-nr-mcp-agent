@@ -27,17 +27,17 @@ final class ConfiguredProvidersTest extends TestCase
     use SkillLabelsStub;
 
     private const LABELS = [
-        'skill.seo-optimieren.title' => 'SEO optimieren',
+        'skill.seo-optimieren.title'       => 'SEO optimieren',
         'skill.seo-optimieren.description' => 'Seitentitel und Meta Description prüfen.',
-        'skill.inhalt-verbessern.title' => 'Inhalt verbessern',
-        'task.neue-seite' => 'Neue Seite anlegen',
+        'skill.inhalt-verbessern.title'    => 'Inhalt verbessern',
+        'task.neue-seite'                  => 'Neue Seite anlegen',
     ];
 
     /** Every skill resolves to `3:<skill>`, except those listed, which do not resolve. */
     private function resolver(string ...$missing): SkillResolverInterface
     {
         $resolver = $this->createMock(SkillResolverInterface::class);
-        $resolver->method('resolve')->willReturnCallback(static fn(string $skill): ?string => in_array($skill, $missing, true) ? null : '3:' . $skill);
+        $resolver->method('resolve')->willReturnCallback(static fn (string $skill): ?string => in_array($skill, $missing, true) ? null : '3:' . $skill);
 
         return $resolver;
     }
@@ -89,7 +89,7 @@ final class ConfiguredProvidersTest extends TestCase
 
         $skills = (new ConfiguredGuidedSkillProvider($config, $this->skillLabels(self::LABELS), $this->resolver('seo-optimieren')))->getGuidedSkills();
 
-        self::assertSame(['3:inhalt-verbessern'], array_map(static fn(GuidedSkill $skill): string => $skill->identifier, $skills));
+        self::assertSame(['3:inhalt-verbessern'], array_map(static fn (GuidedSkill $skill): string => $skill->identifier, $skills));
     }
 
     #[Test]
@@ -103,6 +103,6 @@ final class ConfiguredProvidersTest extends TestCase
 
         $tasks = (new ConfiguredQuickTaskProvider($config, $this->skillLabels(self::LABELS), $this->resolver('neue-seite')))->getQuickTasks();
 
-        self::assertSame(['3:seo-optimieren'], array_map(static fn(QuickTask $task): string => $task->skill, $tasks));
+        self::assertSame(['3:seo-optimieren'], array_map(static fn (QuickTask $task): string => $task->skill, $tasks));
     }
 }

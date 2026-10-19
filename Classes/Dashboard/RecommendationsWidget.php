@@ -67,18 +67,18 @@ final class RecommendationsWidget extends AbstractAssistantWidget
 
         $points = [];
         foreach ($this->openPoints->findOpen(self::LIMIT) as $point) {
-            $page = $this->pages->findAccessible($point->pageUid);
+            $page       = $this->pages->findAccessible($point->pageUid);
             $skillTitle = $this->labels->title($point->skill);
-            $skill = $skillTitle === null ? null : $this->resolver->resolve($point->skill);
+            $skill      = $skillTitle === null ? null : $this->resolver->resolve($point->skill);
             if ($page === null || $skill === null || $skillTitle === null || !$this->pages->mayStartIn($point->pageUid, $point->languageUid)) {
                 continue;
             }
 
             $points[] = [
-                'summary' => $point->summary,
-                'pageTitle' => $page['title'],
+                'summary'    => $point->summary,
+                'pageTitle'  => $page['title'],
                 'skillTitle' => $skillTitle,
-                'uri' => $this->chatStart->build($skill, $point->pageUid, $point->languageUid),
+                'uri'        => $this->chatStart->build($skill, $point->pageUid, $point->languageUid),
             ];
         }
 

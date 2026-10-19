@@ -26,6 +26,7 @@ use Netresearch\NrMcpAgent\Service\Assistant\DeterministicPageSuggestionProvider
 use Netresearch\NrMcpAgent\Service\Assistant\NullOpenPointReader;
 use Netresearch\NrMcpAgent\Service\Assistant\OpenPoint;
 use Netresearch\NrMcpAgent\Service\Assistant\OpenPointReaderInterface;
+use Netresearch\NrMcpAgent\Service\Assistant\PageSuggestion;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\Assistant\VisibleOpenPointReader;
 use Netresearch\NrMcpAgent\Tests\Unit\Service\Assistant\VisibleOpenPointReaderTest;
@@ -85,7 +86,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/dashboard_page_choice.csv');
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
-        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($GLOBALS['BE_USER']);
+        $GLOBALS['LANG']    = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($GLOBALS['BE_USER']);
     }
 
     private function request(): ServerRequest
@@ -108,7 +109,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
      * default skills).
      *
      * @param class-string<AbstractAssistantWidget> $class
-     * @param list<string> $skills
+     * @param list<string>                          $skills
      */
     private function render(string $class, ?OpenPointReaderInterface $reader = null, array $skills = ['seo-optimieren', 'inhalt-verbessern']): string
     {
@@ -129,23 +130,23 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
             /** @return list<array{identifier: string, uid: int}> */
             public function catalogue(): array
             {
-                return array_map(static fn(string $skill): array => ['identifier' => '3:' . $skill, 'uid' => 0], $this->skills);
+                return array_map(static fn (string $skill): array => ['identifier' => '3:' . $skill, 'uid' => 0], $this->skills);
             }
         };
         $resolver = new CatalogueSkillResolver($this->get(SkillTrustRepository::class), $catalogue);
-        $config = new ExtensionConfiguration();
-        $labels = new SkillLabels($this->get(LanguageServiceFactory::class));
-        $common = [
+        $config   = new ExtensionConfiguration();
+        $labels   = new SkillLabels($this->get(LanguageServiceFactory::class));
+        $common   = [
             $this->createMock(WidgetConfigurationInterface::class),
             $this->get(BackendViewFactory::class),
             new ChatToolbarItem($config, $this->get(PageRenderer::class)),
         ];
-        $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
+        $pages       = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
         $suggestions = new DeterministicPageSuggestionProvider($reader ?? new NullOpenPointReader(), $pages, $this->get(LanguageServiceFactory::class));
 
         $widget = match ($class) {
-            ImprovePageWidget::class => new ImprovePageWidget(...$common, ...[new ConfiguredGuidedSkillProvider($config, $labels, $resolver), $pages, $suggestions, $this->chatStart()]),
-            QuickTasksWidget::class => new QuickTasksWidget(...$common, ...[new ConfiguredQuickTaskProvider($config, $labels, $resolver), $pages, $this->chatStart()]),
+            ImprovePageWidget::class     => new ImprovePageWidget(...$common, ...[new ConfiguredGuidedSkillProvider($config, $labels, $resolver), $pages, $suggestions, $this->chatStart()]),
+            QuickTasksWidget::class      => new QuickTasksWidget(...$common, ...[new ConfiguredQuickTaskProvider($config, $labels, $resolver), $pages, $this->chatStart()]),
             RecommendationsWidget::class => new RecommendationsWidget(...$common, ...[$reader ?? new NullOpenPointReader(), $pages, $labels, $resolver, $this->chatStart()]),
         };
         $widget->setRequest($this->request());
@@ -165,13 +166,14 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         foreach (['nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentRecommendations', 'nrMcpAgentAiChat'] as $identifier) {
             self::assertArrayHasKey($identifier, $widgets);
         }
+
         self::assertArrayHasKey('nrMcpAgent', $this->get(WidgetGroupRegistry::class)->getWidgetGroups());
 
         $presets = $this->get(DashboardPresetRegistry::class)->getDashboardPresets();
         self::assertArrayHasKey('nrMcpAgent', $presets);
         // 13.4 lists the identifiers, 14.3 one ['identifier' => …] entry each.
         $defaultWidgets = array_map(
-            static fn(mixed $widget): mixed => is_array($widget) ? ($widget['identifier'] ?? null) : $widget,
+            static fn (mixed $widget): mixed => is_array($widget) ? ($widget['identifier'] ?? null) : $widget,
             $presets['nrMcpAgent']->getDefaultWidgets(),
         );
         self::assertSame(
@@ -189,7 +191,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     #[Test]
     public function theFormReachesTheSameUrlAsTheBuiltLink(): void
     {
-        $link = $this->chatStart()->build('3:seo-optimieren', 21, 0);
+        $link   = $this->chatStart()->build('3:seo-optimieren', 21, 0);
         $target = $this->chatStart()->formTarget();
 
         $linkPath = (string) parse_url($link, PHP_URL_PATH);
@@ -217,7 +219,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     #[Test]
     public function improveAPageRendersAKeyboardUsableForm(): void
     {
-        $html = $this->render(ImprovePageWidget::class);
+        $html   = $this->render(ImprovePageWidget::class);
         $target = $this->chatStart()->formTarget();
 
         self::assertStringContainsString('<form action="' . htmlspecialchars($target['action']) . '" method="get"', $html);
@@ -227,7 +229,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         self::assertMatchesRegularExpression('/<label for="(nr-mcp-agent-improve-[0-9a-f]{8}-page)" class="form-label">Page<\/label>\s*<select id="\1" name="pageUid" class="form-select" required="required" aria-describedby="\1-hint">/', $html);
 
         // The page choice: suggestions first, then the rest, no page twice.
-        $groups = self::optionGroups($html);
+        $groups = $this->optionGroups($html);
         self::assertSame(['Recommended', 'Recently changed'], array_keys($groups));
         self::assertSame([29, 28, 30, 22, 21], array_keys($groups['Recommended']));
         self::assertSame('Inhalt A – Meta description missing, Page title too short', $groups['Recommended'][21]);
@@ -245,7 +247,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
      *
      * @return array<string, array<int, string>>
      */
-    private static function optionGroups(string $html): array
+    private function optionGroups(string $html): array
     {
         $document = new DOMDocument();
         @$document->loadHTML('<?xml encoding="utf-8"?>' . $html);
@@ -277,7 +279,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
             }
         };
 
-        $groups = self::optionGroups($this->render(ImprovePageWidget::class, $reader));
+        $groups = $this->optionGroups($this->render(ImprovePageWidget::class, $reader));
 
         self::assertSame([20, 29, 28, 30, 22], array_keys($groups['Recommended']));
         self::assertSame('Bereich A – Open point from a guided tour', $groups['Recommended'][20]);
@@ -422,19 +424,19 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
                 ];
             }
         };
-        $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
-        $provider = new DeterministicPageSuggestionProvider($reader, $pages, $this->get(LanguageServiceFactory::class));
-        $pointUids = static fn(array $suggestions): array => array_values(array_unique(array_map(static fn($s): int => $s->pageUid, array_filter($suggestions, static fn($s): bool => $s->reason === 'Open point from a guided tour'))));
+        $pages     = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
+        $provider  = new DeterministicPageSuggestionProvider($reader, $pages, $this->get(LanguageServiceFactory::class));
+        $pointUids = static fn (array $suggestions): array => array_values(array_unique(array_map(static fn ($s): int => $s->pageUid, array_filter($suggestions, static fn ($s): bool => $s->reason === 'Open point from a guided tour'))));
 
         // Core drops a web mount the user may not see, so user 4 gets a page of their own as mount.
         $this->get(ConnectionPool::class)->getConnectionForTable('pages')->insert('pages', [
-            'uid' => 60, 'pid' => 0, 'title' => 'Seite der Uebersetzerin', 'doktype' => 1,
+            'uid'          => 60, 'pid' => 0, 'title' => 'Seite der Uebersetzerin', 'doktype' => 1,
             'perms_userid' => 4, 'perms_user' => 31, 'tstamp' => 1,
         ]);
         $this->get(ConnectionPool::class)->getConnectionForTable('be_users')->update('be_users', ['db_mountpoints' => '60'], ['uid' => 4]);
 
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
-        $html = $this->render(RecommendationsWidget::class, $reader);
+        $html               = $this->render(RecommendationsWidget::class, $reader);
         self::assertStringNotContainsString('ausserhalb', $html);
         self::assertStringNotContainsString('gesperrter', $html);
         self::assertStringContainsString('Sichtbarer Punkt.', $html);
@@ -460,7 +462,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
             VisibleOpenPointReaderTest::point(21, 0, '7:seo-optimieren', 'Beschreibung fehlt auf „Bereich B“'),
             VisibleOpenPointReaderTest::point(20, 0, '', 'Seitentitel fehlt auf „Bereich A“'),
         ]));
-        $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
+        $pages    = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
         $provider = new DeterministicPageSuggestionProvider($reader, $pages, $this->get(LanguageServiceFactory::class));
 
         $html = $this->render(RecommendationsWidget::class, $reader);
@@ -469,8 +471,8 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         self::assertStringNotContainsString('Seitentitel fehlt', $html);
 
         $points = array_values(array_map(
-            static fn($s): int => $s->pageUid,
-            array_filter($provider->suggest('seo-optimieren'), static fn($s): bool => $s->reason === 'Open point from a guided tour'),
+            static fn (PageSuggestion $s): int => $s->pageUid,
+            array_filter($provider->suggest('seo-optimieren'), static fn (PageSuggestion $s): bool => $s->reason === 'Open point from a guided tour'),
         ));
         self::assertSame([21], $points);
     }
@@ -479,7 +481,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     #[Test]
     public function withoutTheStoreTheReaderShowsNoPoint(): void
     {
-        $html = $this->render(RecommendationsWidget::class, new VisibleOpenPointReader(null));
+        $html = $this->render(RecommendationsWidget::class, new VisibleOpenPointReader());
 
         self::assertStringContainsString('No open recommendations. When the AI assistant finds something to improve during a guided tour, it appears here.', $html);
     }

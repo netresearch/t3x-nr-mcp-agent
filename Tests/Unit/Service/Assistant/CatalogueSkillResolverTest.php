@@ -48,7 +48,7 @@ final class CatalogueSkillResolverTest extends TestCase
             /** @return list<mixed> */
             public function catalogue(): array
             {
-                $this->reads++;
+                ++$this->reads;
 
                 return $this->entries;
             }
@@ -56,14 +56,14 @@ final class CatalogueSkillResolverTest extends TestCase
     }
 
     /**
-     * @param array<int, int> $ranks trust rank per skill uid; any other uid ranks 0
-     * @param int $minimum the rank a skill needs to instruct a run (0: untrusted)
+     * @param array<int, int> $ranks   trust rank per skill uid; any other uid ranks 0
+     * @param int             $minimum the rank a skill needs to instruct a run (0: untrusted)
      */
     private function trust(array $ranks = [], int $minimum = 0): SkillTrustRepository
     {
         $trust = $this->createMock(SkillTrustRepository::class);
         $trust->method('rankByUid')->willReturnCallback(
-            static fn(array $uids): array => array_combine($uids, array_map(static fn(int $uid): int => $ranks[$uid] ?? 0, $uids)),
+            static fn (array $uids): array => array_combine($uids, array_map(static fn (int $uid): int => $ranks[$uid] ?? 0, $uids)),
         );
         $trust->method('minimumRank')->willReturn($minimum);
 
@@ -71,7 +71,7 @@ final class CatalogueSkillResolverTest extends TestCase
     }
 
     /**
-     * @param list<mixed> $entries
+     * @param list<mixed>     $entries
      * @param array<int, int> $ranks
      */
     private function resolver(array $entries, array $ranks = [], int $minimum = 0): CatalogueSkillResolver
@@ -243,7 +243,7 @@ final class CatalogueSkillResolverTest extends TestCase
     public function theCatalogueIsReadOnce(): void
     {
         $catalogue = $this->catalogue([['identifier' => '3:a', 'uid' => 1]]);
-        $resolver = new CatalogueSkillResolver($this->trust(), $catalogue);
+        $resolver  = new CatalogueSkillResolver($this->trust(), $catalogue);
 
         $resolver->resolve('a');
         $resolver->resolve('b');

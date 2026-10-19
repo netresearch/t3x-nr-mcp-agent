@@ -45,18 +45,19 @@ readonly class SkillTrustRepository
 
     /**
      * @param list<int> $uids skill record uids
+     *
      * @return array<int, int> rank per uid, for every uid asked for
      */
     public function rankByUid(array $uids): array
     {
         $ranks = array_fill_keys($uids, SkillTrustLevel::UNTRUSTED->rank());
-        $uids = array_values(array_filter($uids, static fn(int $uid): bool => $uid > 0));
+        $uids  = array_values(array_filter($uids, static fn (int $uid): bool => $uid > 0));
         if ($uids === []) {
             return $ranks;
         }
 
         try {
-            $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+            $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
             $rows = $qb->select('uid', 'trust_level')
                 ->from(self::TABLE)
                 ->where($qb->expr()->in('uid', $qb->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)))
@@ -67,7 +68,7 @@ readonly class SkillTrustRepository
         }
 
         foreach ($rows as $row) {
-            $uid = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+            $uid   = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
             $level = is_string($row['trust_level'] ?? null) ? $row['trust_level'] : '';
             if (array_key_exists($uid, $ranks)) {
                 $ranks[$uid] = SkillTrustLevel::fromStringOrUntrusted($level)->rank();

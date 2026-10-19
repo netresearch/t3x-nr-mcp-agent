@@ -29,7 +29,7 @@ final readonly class ConfiguredQuickTaskProvider implements QuickTaskProviderInt
     {
         $tasks = [];
         foreach ($this->config->getDashboardQuickTasks() as $entry) {
-            $label = $this->labels->taskLabel($entry['skill']);
+            $label    = $this->labels->taskLabel($entry['skill']);
             $resolved = $label === null ? null : $this->resolver->resolve($entry['skill']);
             if ($label === null || $resolved === null) {
                 continue;

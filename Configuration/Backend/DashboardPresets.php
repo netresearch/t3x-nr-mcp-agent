@@ -19,8 +19,8 @@ declare(strict_types=1);
  */
 return [
     'nrMcpAgent' => [
-        'title' => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:preset.title',
-        'description' => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:preset.description',
+        'title'          => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:preset.title',
+        'description'    => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:preset.description',
         'iconIdentifier' => 'module-nr-mcp-agent',
         'defaultWidgets' => [
             'nrMcpAgentImprovePage',

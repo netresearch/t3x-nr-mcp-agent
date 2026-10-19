@@ -48,7 +48,7 @@ final readonly class DeterministicPageSuggestionProvider implements PageSuggesti
             return [];
         }
 
-        $slug = $this->slug($skill);
+        $slug        = $this->slug($skill);
         $suggestions = [];
 
         foreach ($this->openPoints->findOpen(self::OPEN_POINT_WINDOW) as $point) {
@@ -73,7 +73,7 @@ final readonly class DeterministicPageSuggestionProvider implements PageSuggesti
                     continue;
                 }
 
-                $reasons = array_map($this->reason(...), $page['defects']);
+                $reasons           = array_map($this->reason(...), $page['defects']);
                 $suggestions[$key] = new PageSuggestion($page['uid'], 0, $page['title'], implode(', ', $reasons));
                 if (count($suggestions) === $limit) {
                     break;

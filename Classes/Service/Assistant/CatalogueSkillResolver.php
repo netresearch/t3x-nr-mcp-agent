@@ -67,7 +67,7 @@ final class CatalogueSkillResolver implements SkillResolverInterface
     {
         $candidates = [];
         foreach ($this->entries() as $identifier => $uid) {
-            $source = preg_match('/^(\d+):(.+)$/', $identifier, $match) === 1 ? $match : null;
+            $source  = preg_match('/^(\d+):(.+)$/', $identifier, $match) === 1 ? $match : null;
             $matches = str_contains($skill, ':')
                 ? $identifier === $skill
                 : $source !== null && $source[2] === $skill;
@@ -80,11 +80,11 @@ final class CatalogueSkillResolver implements SkillResolverInterface
             return null;
         }
 
-        $ranks = $this->trust->rankByUid(array_values(array_unique(array_column($candidates, 'uid'))));
-        $minimum = $this->trust->minimumRank();
+        $ranks      = $this->trust->rankByUid(array_values(array_unique(array_column($candidates, 'uid'))));
+        $minimum    = $this->trust->minimumRank();
         $candidates = array_values(array_filter(
             $candidates,
-            static fn(array $candidate): bool => ($ranks[$candidate['uid']] ?? 0) >= $minimum,
+            static fn (array $candidate): bool => ($ranks[$candidate['uid']] ?? 0) >= $minimum,
         ));
         if ($candidates === []) {
             return null;
@@ -92,7 +92,7 @@ final class CatalogueSkillResolver implements SkillResolverInterface
 
         usort(
             $candidates,
-            static fn(array $a, array $b): int => [$ranks[$b['uid']] ?? 0, $a['source'], $a['identifier']]
+            static fn (array $a, array $b): int => [$ranks[$b['uid']] ?? 0, $a['source'], $a['identifier']]
                 <=> [$ranks[$a['uid']] ?? 0, $b['source'], $b['identifier']],
         );
 
@@ -109,7 +109,7 @@ final class CatalogueSkillResolver implements SkillResolverInterface
         }
 
         $this->catalogueEntries = [];
-        $catalogue = $this->catalogue;
+        $catalogue              = $this->catalogue;
         if (
             $catalogue === null
             || !method_exists($catalogue, 'isAvailable')
@@ -125,7 +125,7 @@ final class CatalogueSkillResolver implements SkillResolverInterface
         foreach (is_array($entries) ? $entries : [] as $entry) {
             $identifier = is_array($entry) ? ($entry['identifier'] ?? null) : null;
             if (is_string($identifier) && $identifier !== '') {
-                $uid = $entry['uid'] ?? 0;
+                $uid                                 = $entry['uid'] ?? 0;
                 $this->catalogueEntries[$identifier] = is_numeric($uid) ? (int) $uid : 0;
             }
         }

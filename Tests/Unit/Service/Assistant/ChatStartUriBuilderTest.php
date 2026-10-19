@@ -42,7 +42,7 @@ final class ChatStartUriBuilderTest extends TestCase
     public function aSkillOnAPageIsStartedThroughTheChatModule(): void
     {
         $calls = [];
-        $uri = $this->builder($calls)->build('seo-optimieren', 21);
+        $uri   = $this->builder($calls)->build('seo-optimieren', 21);
 
         self::assertSame([['nr_mcp_agent_chat', ['skill' => 'seo-optimieren', 'pageUid' => 21, 'languageUid' => 0]]], $calls);
         self::assertSame('/typo3/module/chat?token=abc&skill=seo-optimieren&pageUid=21&languageUid=0#x', $uri);
@@ -53,7 +53,7 @@ final class ChatStartUriBuilderTest extends TestCase
     public function thePagesLanguageTravelsWithThePage(): void
     {
         $calls = [];
-        $uri = $this->builder($calls)->build('3:seo-optimieren', 21, 2);
+        $uri   = $this->builder($calls)->build('3:seo-optimieren', 21, 2);
 
         self::assertSame([['nr_mcp_agent_chat', ['skill' => '3:seo-optimieren', 'pageUid' => 21, 'languageUid' => 2]]], $calls);
         self::assertStringContainsString('&languageUid=2', $uri);
@@ -95,7 +95,7 @@ final class ChatStartUriBuilderTest extends TestCase
     #[Test]
     public function theFormTargetCarriesEveryOtherParameterAsAHiddenField(): void
     {
-        $calls = [];
+        $calls  = [];
         $target = $this->builder($calls)->formTarget();
 
         self::assertSame(

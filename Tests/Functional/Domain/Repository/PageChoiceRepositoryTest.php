@@ -52,9 +52,10 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
 
     /**
      * @param list<array{uid: int, title: string}> $pages
+     *
      * @return list<int>
      */
-    private static function uids(array $pages): array
+    private function uids(array $pages): array
     {
         return array_column($pages, 'uid');
     }
@@ -64,7 +65,7 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
 
-        $uids = self::uids($this->repository()->findRecentlyChanged(10));
+        $uids = $this->uids($this->repository()->findRecentlyChanged(10));
 
         // Newest first; hidden pages are pages an editor works on, too.
         self::assertSame([21, 26, 27, 20], $uids);
@@ -76,7 +77,7 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
 
-        self::assertContains(21, self::uids($this->repository()->findRecentlyChanged(10)));
+        self::assertContains(21, $this->uids($this->repository()->findRecentlyChanged(10)));
         self::assertSame(['uid' => 21, 'title' => 'Inhalt A'], $this->repository()->findEditable(21));
     }
 
@@ -86,7 +87,7 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
 
-        self::assertNotContains(28, self::uids($this->repository()->findRecentlyChanged(10)));
+        self::assertNotContains(28, $this->uids($this->repository()->findRecentlyChanged(10)));
         self::assertNull($this->repository()->findEditable(28));
         // The editor may still see it: a recommendation about it stays readable.
         self::assertSame(['uid' => 28, 'title' => 'Nur ansehen'], $this->repository()->findAccessible(28));
@@ -97,7 +98,7 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     public function aPageLockedForEditingIsNotOfferedToAnEditorButToAnAdmin(): void
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
-        self::assertNotContains(29, self::uids($this->repository()->findRecentlyChanged(10)));
+        self::assertNotContains(29, $this->uids($this->repository()->findRecentlyChanged(10)));
         self::assertNull($this->repository()->findEditable(29));
 
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
@@ -146,12 +147,12 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
             "base: 'https://example.com/'",
             'languages:',
             '  - languageId: 0',
-            "    title: English",
-            "    locale: en_US.UTF-8",
+            '    title: English',
+            '    locale: en_US.UTF-8',
             "    base: '/'",
             '  - languageId: 1',
-            "    title: Deutsch",
-            "    locale: de_DE.UTF-8",
+            '    title: Deutsch',
+            '    locale: de_DE.UTF-8',
             "    base: '/de/'",
             '',
         ]));
@@ -171,14 +172,15 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     public function manyNewerViewOnlyPagesDoNotHideThePagesTheEditorMayEdit(): void
     {
         $connection = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
-        $rows = [];
-        for ($uid = 3000; $uid < 5100; $uid++) {
+        $rows       = [];
+        for ($uid = 3000; $uid < 5100; ++$uid) {
             $rows[] = [$uid, 20, 'Nur ansehen ' . $uid, 1, 3, 1, 100000 + $uid];
         }
+
         $connection->bulkInsert('pages', $rows, ['uid', 'pid', 'title', 'doktype', 'perms_userid', 'perms_user', 'tstamp']);
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
 
-        self::assertSame([21, 26, 27, 20], self::uids($this->repository()->findRecentlyChanged(15)));
+        self::assertSame([21, 26, 27, 20], $this->uids($this->repository()->findRecentlyChanged(15)));
     }
 
     #[Test]
@@ -186,7 +188,7 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
 
-        self::assertNotContains(30, self::uids($this->repository()->findRecentlyChanged(10)));
+        self::assertNotContains(30, $this->uids($this->repository()->findRecentlyChanged(10)));
         self::assertNull($this->repository()->findAccessible(30));
     }
 
@@ -195,7 +197,7 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
 
-        self::assertNotContains(22, self::uids($this->repository()->findRecentlyChanged(10)));
+        self::assertNotContains(22, $this->uids($this->repository()->findRecentlyChanged(10)));
         self::assertNull($this->repository()->findAccessible(22));
     }
 
@@ -204,7 +206,7 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
 
-        self::assertSame([29, 28, 30, 22, 21, 26, 27, 20], self::uids($this->repository()->findRecentlyChanged(10)));
+        self::assertSame([29, 28, 30, 22, 21, 26, 27, 20], $this->uids($this->repository()->findRecentlyChanged(10)));
     }
 
     #[Test]
@@ -212,7 +214,7 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
 
-        self::assertSame([29, 28], self::uids($this->repository()->findRecentlyChanged(2)));
+        self::assertSame([29, 28], $this->uids($this->repository()->findRecentlyChanged(2)));
     }
 
     /**
@@ -224,15 +226,16 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
     public function manyNewerPagesOutsideTheMountDoNotHideThePagesInIt(): void
     {
         $connection = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
-        for ($uid = 1000; $uid < 1120; $uid++) {
+        for ($uid = 1000; $uid < 1120; ++$uid) {
             $connection->insert('pages', [
-                'uid' => $uid, 'pid' => 30, 'title' => 'Fremd ' . $uid, 'doktype' => 1,
+                'uid'          => $uid, 'pid' => 30, 'title' => 'Fremd ' . $uid, 'doktype' => 1,
                 'perms_userid' => 3, 'perms_user' => 31, 'tstamp' => 10000 + $uid,
             ]);
         }
+
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
 
-        self::assertSame([21, 26, 27, 20], self::uids($this->repository()->findRecentlyChanged(15)));
+        self::assertSame([21, 26, 27, 20], $this->uids($this->repository()->findRecentlyChanged(15)));
     }
 
     #[Test]

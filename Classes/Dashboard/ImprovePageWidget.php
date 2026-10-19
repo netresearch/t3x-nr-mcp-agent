@@ -70,27 +70,27 @@ final class ImprovePageWidget extends AbstractAssistantWidget
         }
 
         $skills = array_map(
-            static fn(GuidedSkill $skill): array => [
-                'identifier' => $skill->identifier,
-                'title' => $skill->title,
+            static fn (GuidedSkill $skill): array => [
+                'identifier'  => $skill->identifier,
+                'title'       => $skill->title,
                 'description' => $skill->description,
             ],
             $this->skills->getGuidedSkills(),
         );
 
         $suggestions = $skills === [] ? [] : $this->suggestions(array_column($skills, 'identifier'));
-        $suggested = array_column($suggestions, 'uid');
-        $pages = $skills === [] ? [] : array_values(array_filter(
+        $suggested   = array_column($suggestions, 'uid');
+        $pages       = $skills === [] ? [] : array_values(array_filter(
             $this->pages->findRecentlyChanged(self::PAGE_LIMIT),
-            static fn(array $page): bool => !in_array($page['uid'], $suggested, true),
+            static fn (array $page): bool => !in_array($page['uid'], $suggested, true),
         ));
 
         return [
-            'available' => true,
-            'skills' => $skills,
+            'available'   => true,
+            'skills'      => $skills,
             'suggestions' => $suggestions,
-            'pages' => $pages,
-            'form' => $this->chatStart->formTarget(),
+            'pages'       => $pages,
+            'form'        => $this->chatStart->formTarget(),
             // The same widget may sit on a dashboard twice; its labels must
             // still point at its own fields.
             'idPrefix' => 'nr-mcp-agent-improve-' . bin2hex(random_bytes(4)),
@@ -104,6 +104,7 @@ final class ImprovePageWidget extends AbstractAssistantWidget
      * suggestions qualify.
      *
      * @param list<string> $skills
+     *
      * @return list<array{uid: int, title: string, reason: string}>
      */
     private function suggestions(array $skills): array

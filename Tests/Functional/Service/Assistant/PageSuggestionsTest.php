@@ -76,9 +76,10 @@ final class PageSuggestionsTest extends FunctionalTestCase
 
     /**
      * @param list<PageSuggestion> $suggestions
+     *
      * @return array<int, string> reason per page uid
      */
-    private static function reasons(array $suggestions): array
+    private function reasons(array $suggestions): array
     {
         $reasons = [];
         foreach ($suggestions as $suggestion) {
@@ -161,7 +162,7 @@ final class PageSuggestionsTest extends FunctionalTestCase
 
         self::assertSame(
             [44 => 'Open point from a guided tour', 50 => 'Open point from a guided tour', 49 => 'Meta description missing', 45 => 'Page title too short', 43 => 'Social media image missing'],
-            self::reasons($suggestions),
+            $this->reasons($suggestions),
         );
     }
 
@@ -174,7 +175,7 @@ final class PageSuggestionsTest extends FunctionalTestCase
             new OpenPoint(44, 0, 'seo-optimieren', 'SEO.'),
         ]);
 
-        self::assertSame([42 => 'Open point from a guided tour'], self::reasons($provider->suggest('inhalt-verbessern')));
+        self::assertSame([42 => 'Open point from a guided tour'], $this->reasons($provider->suggest('inhalt-verbessern')));
         self::assertSame([], $this->provider()->suggest('inhalt-verbessern'));
     }
 
@@ -184,7 +185,7 @@ final class PageSuggestionsTest extends FunctionalTestCase
     {
         $provider = $this->provider([new OpenPoint(44, 0, 'neue-seite', 'Unterseite fehlt.')]);
 
-        self::assertSame([44 => 'Open point from a guided tour'], self::reasons($provider->suggest('neue-seite')));
+        self::assertSame([44 => 'Open point from a guided tour'], $this->reasons($provider->suggest('neue-seite')));
         self::assertSame([], $this->provider()->suggest('neue-seite'));
     }
 

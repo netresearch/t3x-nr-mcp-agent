@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Dashboard;
 
+use LogicException;
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Dashboard\ImprovePageWidget;
@@ -56,7 +57,7 @@ final class AssistantWidgetsTest extends TestCase
     {
         $uriBuilder = $this->createMock(UriBuilder::class);
         $uriBuilder->method('buildUriFromRoute')->willReturnCallback(
-            static fn(string $route, array $parameters = []): Uri => new Uri('/chat?' . http_build_query(['token' => 't'] + $parameters)),
+            static fn (string $route, array $parameters = []): Uri => new Uri('/chat?' . http_build_query(['token' => 't'] + $parameters)),
         );
 
         return new ChatStartUriBuilder($uriBuilder);
@@ -82,7 +83,7 @@ final class AssistantWidgetsTest extends TestCase
     private function resolverWithout(string ...$missing): SkillResolverInterface
     {
         $resolver = $this->createMock(SkillResolverInterface::class);
-        $resolver->method('resolve')->willReturnCallback(static fn(string $skill): ?string => in_array($skill, $missing, true) ? null : '3:' . $skill);
+        $resolver->method('resolve')->willReturnCallback(static fn (string $skill): ?string => in_array($skill, $missing, true) ? null : '3:' . $skill);
 
         return $resolver;
     }
@@ -122,6 +123,17 @@ final class AssistantWidgetsTest extends TestCase
             $this->tasks(false, $tasks, $pages)->templateVariables(),
         );
         self::assertSame(['available' => false, 'points' => []], $this->recommendations(false, $reader, $pages)->templateVariables());
+    }
+
+    /** Rendering needs the request the dashboard hands over; without it the widget says so. */
+    #[Test]
+    public function renderingWithoutTheRequestFailsWithAClearMessage(): void
+    {
+        $widget = $this->recommendations(false, $this->createMock(OpenPointReaderInterface::class), $this->createMock(PageChoiceRepository::class));
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionCode(1792937620);
+        $widget->renderWidgetContent();
     }
 
     #[Test]
@@ -205,9 +217,9 @@ final class AssistantWidgetsTest extends TestCase
         ]);
         $pages = $this->createMock(PageChoiceRepository::class);
         $pages->method('findAccessible')->willReturnCallback(
-            static fn(int $uid): ?array => $uid === 21 ? ['uid' => 21, 'title' => 'Inhalt A'] : null,
+            static fn (int $uid): ?array => $uid === 21 ? ['uid' => 21, 'title' => 'Inhalt A'] : null,
         );
-        $pages->method('mayStartIn')->willReturnCallback(static fn(int $uid, int $language): bool => $language !== 2);
+        $pages->method('mayStartIn')->willReturnCallback(static fn (int $uid, int $language): bool => $language !== 2);
 
         $variables = $this->recommendations(true, $reader, $pages)->templateVariables();
 

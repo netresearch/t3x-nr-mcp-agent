@@ -52,7 +52,7 @@ final readonly class ChatStartUriBuilder
     {
         $parameters = [self::PARAMETER_SKILL => $skill];
         if ($pageUid > 0) {
-            $parameters[self::PARAMETER_PAGE] = $pageUid;
+            $parameters[self::PARAMETER_PAGE]     = $pageUid;
             $parameters[self::PARAMETER_LANGUAGE] = max(0, $languageUid);
         }
 
@@ -82,10 +82,10 @@ final readonly class ChatStartUriBuilder
         }
 
         return [
-            'action' => (string) $uri->withQuery('')->withFragment(''),
-            'hidden' => $hidden,
-            'skillField' => self::PARAMETER_SKILL,
-            'pageField' => self::PARAMETER_PAGE,
+            'action'        => (string) $uri->withQuery('')->withFragment(''),
+            'hidden'        => $hidden,
+            'skillField'    => self::PARAMETER_SKILL,
+            'pageField'     => self::PARAMETER_PAGE,
             'languageField' => self::PARAMETER_LANGUAGE,
         ];
     }

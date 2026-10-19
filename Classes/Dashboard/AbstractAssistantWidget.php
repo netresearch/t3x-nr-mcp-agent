@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Dashboard;
 
+use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
 use TYPO3\CMS\Dashboard\Widgets\RequestAwareWidgetInterface;
@@ -24,7 +25,7 @@ use TYPO3\CMS\Dashboard\Widgets\WidgetInterface;
  */
 abstract class AbstractAssistantWidget implements WidgetInterface, RequestAwareWidgetInterface
 {
-    private ServerRequestInterface $request;
+    private ?ServerRequestInterface $request = null;
 
     /**
      * @param array<string, mixed> $options
@@ -53,7 +54,8 @@ abstract class AbstractAssistantWidget implements WidgetInterface, RequestAwareW
 
     public function renderWidgetContent(): string
     {
-        $view = $this->backendViewFactory->create($this->request, ['typo3/cms-dashboard', 'netresearch/nr-mcp-agent']);
+        $request = $this->request ?? throw new LogicException('setRequest() must be called before renderWidgetContent()', 1792937620);
+        $view    = $this->backendViewFactory->create($request, ['typo3/cms-dashboard', 'netresearch/nr-mcp-agent']);
         $view->assignMultiple([
             ...$this->templateVariables(),
             'configuration' => $this->configuration,

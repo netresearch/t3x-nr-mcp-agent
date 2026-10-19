@@ -52,24 +52,24 @@ final class QuickTasksWidget extends AbstractAssistantWidget
             return ['available' => false, 'tasks' => [], 'pages' => [], 'form' => null, 'idPrefix' => ''];
         }
 
-        $tasks = [];
+        $tasks      = [];
         $needsPages = false;
         foreach ($this->tasks->getQuickTasks() as $task) {
             $needsPages = $needsPages || $task->needsPage;
-            $tasks[] = [
-                'label' => $task->label,
-                'skill' => $task->skill,
+            $tasks[]    = [
+                'label'     => $task->label,
+                'skill'     => $task->skill,
                 'needsPage' => $task->needsPage,
-                'uri' => $task->needsPage ? '' : $this->chatStart->build($task->skill),
+                'uri'       => $task->needsPage ? '' : $this->chatStart->build($task->skill),
             ];
         }
 
         return [
             'available' => true,
-            'tasks' => $tasks,
-            'pages' => $needsPages ? $this->pages->findRecentlyChanged(ImprovePageWidget::PAGE_LIMIT) : [],
-            'form' => $this->chatStart->formTarget(),
-            'idPrefix' => 'nr-mcp-agent-tasks-' . bin2hex(random_bytes(4)),
+            'tasks'     => $tasks,
+            'pages'     => $needsPages ? $this->pages->findRecentlyChanged(ImprovePageWidget::PAGE_LIMIT) : [],
+            'form'      => $this->chatStart->formTarget(),
+            'idPrefix'  => 'nr-mcp-agent-tasks-' . bin2hex(random_bytes(4)),
         ];
     }
 }

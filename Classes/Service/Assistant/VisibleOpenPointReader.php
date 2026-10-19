@@ -38,14 +38,14 @@ final readonly class VisibleOpenPointReader implements OpenPointReaderInterface
             return [];
         }
 
-        $found = $visibility->visibleForCurrentUser($limit);
+        $found  = $visibility->visibleForCurrentUser($limit);
         $points = [];
         foreach (is_array($found) ? $found : [] as $point) {
-            $fields = is_object($point) ? get_object_vars($point) : [];
-            $pageUid = $fields['pageUid'] ?? null;
+            $fields      = is_object($point) ? get_object_vars($point) : [];
+            $pageUid     = $fields['pageUid'] ?? null;
             $languageUid = $fields['languageUid'] ?? null;
-            $identifier = $fields['skillIdentifier'] ?? null;
-            $summary = $fields['summary'] ?? null;
+            $identifier  = $fields['skillIdentifier'] ?? null;
+            $summary     = $fields['summary'] ?? null;
             if (!is_int($pageUid) || !is_int($languageUid) || !is_string($identifier) || $identifier === '' || !is_string($summary)) {
                 continue;
             }
