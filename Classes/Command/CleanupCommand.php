@@ -31,6 +31,10 @@ final class CleanupCommand extends Command
 
     private const ORPHAN_MIN_AGE_SECONDS = 3600;
 
+    private const RUN_STATE_TABLE = 'tx_nrmcpagent_run_state';
+
+    private const RUN_STATE_MAX_AGE_SECONDS = 86400;
+
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly ExtensionConfiguration $extensionConfiguration,
@@ -60,6 +64,7 @@ final class CleanupCommand extends Command
         // Runs even when deleting archived conversations is switched off: a
         // conversation removed any other way must not leave its messages.
         $this->deleteOrphanedMessages();
+        $this->deleteStaleRunState();
 
         $output->writeln('');
         $output->writeln('<info>Cleanup summary:</info>');
@@ -186,5 +191,19 @@ final class CleanupCommand extends Command
             . ' WHERE crdate < ? AND conversation NOT IN (SELECT uid FROM ' . self::TABLE . ')',
             [time() - self::ORPHAN_MIN_AGE_SECONDS],
         );
+    }
+
+    /**
+     * What the guided-state tools wrote for a run is taken over and deleted
+     * when the run returns to the chat (ADR-020). A run that never does — one
+     * started outside the chat, or one that died before it returned — leaves
+     * its row; after a day nothing will take it over any more.
+     */
+    private function deleteStaleRunState(): void
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::RUN_STATE_TABLE);
+        $queryBuilder->delete(self::RUN_STATE_TABLE)
+            ->where($queryBuilder->expr()->lt('tstamp', $queryBuilder->createNamedParameter(time() - self::RUN_STATE_MAX_AGE_SECONDS, Connection::PARAM_INT)))
+            ->executeStatement();
     }
 }

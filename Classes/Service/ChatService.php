@@ -179,6 +179,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?UnavailableToolsReaderInterface $unavailableTools = null,
         private readonly ?LoggerInterface $logger = null,
         private readonly ?LlmConfigurationRepository $configurations = null,
+        private readonly ?GuidedStateLinker $guidedState = null,
     ) {}
 
     /**
@@ -708,6 +709,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function applyResult(Conversation $conversation, AgentRunResult $result): void
     {
+        // Whatever the outcome, what the guided-state tools reported during
+        // the run is taken over now — the first moment the chat knows the run
+        // (ADR-020).
+        $this->guidedState?->absorb($conversation, $result->runUuid);
+
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
             $answer = $result->loopResult->finalContent;
             $conversation->appendMessage(

@@ -276,7 +276,9 @@ final readonly class ChatApiController
             // card offers the link even though it has a preview.
             'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
             'systemPrompt'     => $conversation->getSystemPrompt(),
-            'activity'         => $conversation->getActivity(),
+            // Progress for the header and the element to highlight (ADR-020).
+            'guided'   => $conversation->getGuidedState(),
+            'activity' => $conversation->getActivity(),
         ]);
     }
 
