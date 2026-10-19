@@ -50,8 +50,18 @@ enum ApprovalHandBackReason: string
     case SecondApproverRequired = 'handBack.secondApprover';
 
     /**
+     * Whether the run is a guided process could not be checked; nothing was
+     * decided and the same decision can be tried again (ProcessRefusal).
+     */
+    case VerdictUnavailable = 'handBack.verdictUnavailable';
+
+    /** Only the person who started the guided process may decide it (ProcessRefusal). */
+    case DecidedInChat = 'handBack.decidedInChat';
+
+    /**
      * Only the six refusals that RELEASE the run are hand-backs; ChatService
-     * catches exactly these. Any other exception leaves the run's state
+     * catches exactly these. The refusals of a guided process that leave the
+     * run waiting map through {@see ProcessRefusal::approvalHandBack()}. Any other exception leaves the run's state
      * unknown and fails the conversation instead, so there is no generic
      * hand-back reason to map it to.
      */

@@ -116,8 +116,24 @@ export class ApiClient {
      * the state it claims, so a decision made on a stale card is refused rather
      * than applied to a turn that has since been replaced.
      */
-    async decideApproval(conversationUid, approve, turnDigest) {
-        return this._post('ai_chat_conversation_approve', {conversationUid, approve, turnDigest});
+    async decideApproval(conversationUid, approve, turnDigest, reason = '') {
+        const body = {conversationUid, approve, turnDigest};
+        if (!approve && reason) {
+            body.reason = reason;
+        }
+        return this._post('ai_chat_conversation_approve', body);
+    }
+
+    /**
+     * Answer the question a conversation's run asks (ADR-018).
+     *
+     * @param {number} conversationUid
+     * @param {string} turnDigest the digest the question arrived with
+     * @param {{choice: *}|{freeText: string}|{fields: Object<string, *>}} answer
+     * @returns {Promise<{status: string}>}
+     */
+    async submitInput(conversationUid, turnDigest, answer) {
+        return this._post('ai_chat_conversation_input', {conversationUid, turnDigest, ...answer});
     }
 
     async resumeConversation(conversationUid) {

@@ -92,6 +92,22 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
     offered on the card directly beneath it,
     and pointing past that into the AI Tasks module is what led to the
     same write being approved twice.
+*   ``AWAITING_INPUT`` -- a tool asks the user for an answer (nr-llm
+    ADR-105). Set status ``awaiting_input`` and store the run uuid; the
+    question, when the input schema states one, is appended as the
+    assistant's message. The chat offers the answers as reply buttons above
+    the input; the answer is recorded by ``recordInput()`` and handed to
+    ``AgentRuntimeInterface::submitInput()`` by the worker. A refusal that
+    leaves the run waiting restores ``awaiting_input`` with its reason as a
+    code (``InputHandBackReason``) (ADR-018).
+*   a refusal for a guided process (nr-llm ADR-214 item 6; ``ProcessRefusal``,
+    recognised by class name only where the installed nr-llm has it). When
+    the process verdict could not be read, or only the person who started the
+    process may decide, the run still waits: the card or the question comes
+    back as for the other hand-backs, with its own code. When the run's
+    configuration requires a second approver, nr-llm stopped the run: the
+    conversation becomes ``idle`` and usable again, with the reason as a code
+    (``ProcessStopReason``), and offers no Retry.
 *   any other outcome (``FAILED``, ``GUARDRAIL_BLOCKED``, …) -- set status
     ``failed`` with a sanitized reason taken from ``AgentRunResult::$error``
     or derived from the outcome. The mapping keeps a default arm because
@@ -118,8 +134,8 @@ conversation, and it is released only when ``ai-chat:cleanup`` marks it
 ``failed`` after five minutes.
 
 It refuses with ``409`` while an approval decision recorded by
-``recordDecision()`` has not been carried out yet
-(``Conversation::hasPendingApprovalDecision()``). Resuming clears the
+``recordDecision()``, or an answer recorded by ``recordInput()``, has not
+been carried out yet (``Conversation::hasPendingApprovalDecision()``). Resuming clears the
 decision and starts the turn again, so a retry arriving in that window
 would run a second turn over the same transcript while the first is still
 performing the approved write -- which is how a page and its content

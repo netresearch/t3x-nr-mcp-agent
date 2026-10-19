@@ -40,10 +40,13 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\ProcessRefusal;
+use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use Netresearch\NrMcpAgent\Tests\Unit\Enum\ProcessRefusalTest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -540,6 +543,68 @@ final class ChatApprovalTest extends TestCase
 
         self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
         self::assertSame($reason->value, $conversation->getErrorCode());
+        self::assertSame('', $conversation->getErrorMessage());
+    }
+
+    /**
+     * @return iterable<string, array{ProcessRefusal, ApprovalHandBackReason}>
+     */
+    public static function processRefusalsThatLeaveTheRunWaiting(): iterable
+    {
+        yield 'verdict unavailable' => [ProcessRefusal::VerdictUnavailable, ApprovalHandBackReason::VerdictUnavailable];
+        yield 'decided in the chat' => [ProcessRefusal::DecidedInChat, ApprovalHandBackReason::DecidedInChat];
+    }
+
+    /**
+     * nr-llm PR 1029: a guided process's run refused the decision and still
+     * waits. The card comes back with the chat's own sentence, as for the
+     * other refusals that release a run; nothing is lost and nothing failed.
+     */
+    #[Test]
+    #[DataProvider('processRefusalsThatLeaveTheRunWaiting')]
+    public function aProcessRefusalLeavesTheCardDecidable(ProcessRefusal $refusal, ApprovalHandBackReason $reason): void
+    {
+        $exception = ProcessRefusalTest::raised($refusal, 'run-uuid-1234');
+        $logger    = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning')->with(
+            self::stringContains('guided-process run'),
+            self::callback(static fn (array $context): bool => ($context['exception'] ?? null) === $exception && ($context['reason'] ?? null) === $reason->value),
+        );
+        $conversation = $this->parkedConversation();
+        $service      = $this->createChatService($exception, logger: $logger);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+        self::assertSame('', $conversation->getApprovalDecision(), 'the refused decision is not retried by itself');
+        self::assertFalse($conversation->isResumable(), 'a waiting card offers no Retry');
+        self::assertSame($reason->value, $conversation->getErrorCode());
+        self::assertSame('', $conversation->getErrorMessage(), "nr-llm's sentence stays in the log");
+    }
+
+    /**
+     * nr-llm PR 1029: the configuration requires a second approver, so nr-llm
+     * stopped the process run. Nothing is left to decide: the conversation is
+     * idle and usable again, with the reason, and offers no Retry over a run
+     * that cannot move.
+     */
+    #[Test]
+    public function aStoppedProcessRunLeavesTheConversationUsable(): void
+    {
+        $exception    = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $conversation = $this->parkedConversation();
+        $service      = $this->createChatService($exception);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+        self::assertSame('', $conversation->getApprovalRunUuid());
+        self::assertSame('', $conversation->getApprovalDecision());
+        self::assertFalse($conversation->isResumable());
+        self::assertSame(ProcessStopReason::NeedsSecondApprover->value, $conversation->getErrorCode());
         self::assertSame('', $conversation->getErrorMessage());
     }
 

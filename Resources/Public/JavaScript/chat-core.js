@@ -145,8 +145,9 @@ export class ChatCoreController {
     pendingApproval = null;
 
     /**
-     * What was just decided here: 'approved', 'denied', or null when no decision
-     * of this reader's is in flight.
+     * What was just decided here: 'approved', 'variant' or 'skip' (the two
+     * denials the card offers, ADR-018), 'denied', or null when no decision of
+     * this reader's is in flight.
      *
      * The chat used to answer a decision with nothing of its own: the card
      * vanished, the spinner came back, and the only durable confirmation was the
@@ -158,6 +159,17 @@ export class ChatCoreController {
      * arrives.
      */
     approvalDecisionTaken = null;
+
+    /**
+     * The question the run waits for an answer to, as the reply buttons
+     * render it (ADR-018); null when nothing is asked.
+     * @type {{runUuid: string, turnDigest: string, kind: string, question: string, options: Array<{value: *, label: string}>, freeText: boolean, fields: Array<object>}|null}
+     */
+    pendingInput = null;
+
+    /** True while an answer is on its way, so it cannot be sent twice. */
+    inputBusy = false;
+
     inputValue = '';
     hasInput = false;
     loading = true;
@@ -296,6 +308,7 @@ export class ChatCoreController {
         this.guided = {progress: null, highlight: null};
         // Coming back to a conversation highlights its element again.
         this._sentHighlight = '';
+        this.pendingInput = null;
         this.systemPrompt = '';
         this.systemPromptOpen = false;
         this.editingIndex = -1;
@@ -326,7 +339,11 @@ export class ChatCoreController {
      * neither the confirmation nor, on the error path, the reason. Same guard
      * pollMessages() uses on its own response.
      */
-    async decideApproval(approve) {
+    /**
+     * @param {boolean} approve
+     * @param {''|'variant'|'skip'} [reason] why a denial was given (ADR-018)
+     */
+    async decideApproval(approve, reason = '') {
         const uid = this.activeUid;
         if (!this.pendingApproval || this.approvalBusy || !uid) {
             return;
@@ -335,7 +352,7 @@ export class ChatCoreController {
         this.approvalBusy = true;
         this.host.requestUpdate();
         try {
-            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '');
+            await this._api.decideApproval(uid, approve, this.pendingApproval.turnDigest || '', reason);
             if (uid !== this.activeUid) {
                 return;
             }
@@ -343,7 +360,7 @@ export class ChatCoreController {
             // Say what happened before the reload, and drop the card and the
             // notice that asked for the decision: both describe a state this
             // click has just left, and the server has cleared the notice too.
-            this.approvalDecisionTaken = approve ? 'approved' : 'denied';
+            this.approvalDecisionTaken = approve ? 'approved' : (reason || 'denied');
             this.errorMessage = '';
             this.pendingApproval = null;
             this.host.requestUpdate();
@@ -358,6 +375,63 @@ export class ChatCoreController {
             this.errorMessage = e.message;
         } finally {
             this.approvalBusy = false;
+            this.host.requestUpdate();
+        }
+    }
+
+    /** Whether the run waits for an answer the reply buttons can give. */
+    isAwaitingInput() {
+        return this.status === 'awaiting_input' && this.pendingInput !== null;
+    }
+
+    /**
+     * Whether text typed into the input is the answer to the question rather
+     * than a message of its own: only when the question declares a free-text
+     * answer (ADR-018). Otherwise a sent message leaves the question behind,
+     * as a message leaves a pending approval behind.
+     */
+    answersAsFreeText() {
+        return this.isAwaitingInput() && this.pendingInput.kind === 'choice' && this.pendingInput.freeText === true;
+    }
+
+    /**
+     * Send an answer to the question and follow the conversation.
+     *
+     * The server records the answer and a worker hands it to the run, as with
+     * an approval; the outcome arrives through the poll. Bound to the
+     * conversation the answer was given in, for the reason decideApproval()
+     * gives.
+     *
+     * @param {{choice: *}|{freeText: string}|{fields: Object<string, *>}} answer
+     * @returns {Promise<boolean>} whether the answer was taken
+     */
+    async submitInput(answer) {
+        const uid = this.activeUid;
+        if (!this.isAwaitingInput() || this.inputBusy || !uid) {
+            return false;
+        }
+
+        this.inputBusy = true;
+        this.host.requestUpdate();
+        try {
+            await this._api.submitInput(uid, this.pendingInput.turnDigest || '', answer);
+            if (uid !== this.activeUid) {
+                return false;
+            }
+
+            this.pendingInput = null;
+            this.errorMessage = '';
+            this.host.requestUpdate();
+            await this.loadMessages();
+            this.startPollingIfNeeded();
+            return true;
+        } catch (e) {
+            if (uid === this.activeUid) {
+                this.errorMessage = e.message;
+            }
+            return false;
+        } finally {
+            this.inputBusy = false;
             this.host.requestUpdate();
         }
     }
@@ -378,6 +452,7 @@ export class ChatCoreController {
             this.approvalUrl = data.approvalUrl || '';
             this._setApprovalRight(data);
             this.pendingApproval = data.pendingApproval || null;
+            this.pendingInput = data.pendingInput || null;
             this.systemPrompt = data.systemPrompt || '';
             this.guided = data.guided || {progress: null, highlight: null};
             this.activity = data.activity || [];
@@ -453,6 +528,7 @@ export class ChatCoreController {
                 if (data.guided) {
                     this.guided = data.guided;
                 }
+                this.pendingInput = data.pendingInput || null;
                 this._knownMessageCount = data.totalCount;
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>
@@ -541,6 +617,16 @@ export class ChatCoreController {
         if (this.maxLength > 0 && content.length > this.maxLength) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);
             this.host.requestUpdate();
+            return;
+        }
+
+        if (this.answersAsFreeText() && !this.pendingFile) {
+            if (await this.submitInput({freeText: content})) {
+                this.inputValue = '';
+                this.hasInput = false;
+                this.host.onResetInput();
+                this.host.requestUpdate();
+            }
             return;
         }
 
