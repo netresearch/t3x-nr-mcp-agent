@@ -135,7 +135,6 @@ final readonly class ChatApiController
             $issues[] = 'No nr-llm Task configured. An admin must create an nr-llm Task record and set its UID in Extension Configuration.';
         }
 
-
         $capabilities = $this->chatService->getProviderCapabilities();
 
         return new JsonResponse([

@@ -1070,7 +1070,6 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $parts[] = $taskPrompt;
         }
 
-
         // Always append site language context: the LLM has to know which
         // language is the default one it creates content in, and which
         // sys_language_uid belongs to a language the user asks for by name.
