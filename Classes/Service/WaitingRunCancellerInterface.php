@@ -17,15 +17,12 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
  * moment wins instead of being cancelled while it runs.
  *
  * `NrLlmWaitingRunCanceller` calls nr-llm's
- * `AgentRuntimeInterface::cancelIfWaiting()` (nr-llm PR 1024, 0.41) where the
- * installed nr-llm has it. Where it does not, it answers null, and the chat
- * reads the run's status and calls `cancel()`, which settles a run in any
- * state that has not finished.
+ * `AgentRuntimeInterface::cancelIfWaiting()` (nr-llm PR 1024). A chat service
+ * built without a canceller reads the run's status and calls `cancel()`,
+ * which settles a run in any state that has not finished.
  */
 interface WaitingRunCancellerInterface
 {
-    /**
-     * What the guarded cancel did; null when the installed nr-llm has none.
-     */
-    public function cancelIfWaiting(AiActorContext $actor, string $runUuid): ?WaitingRunCancel;
+    /** What the guarded cancel did. */
+    public function cancelIfWaiting(AiActorContext $actor, string $runUuid): WaitingRunCancel;
 }

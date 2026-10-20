@@ -203,6 +203,21 @@
             <trans-unit id="chat.runFinishedOutsideNothingWritten" resname="chat.runFinishedOutsideNothingWritten">
                 <source>The approval was decided outside this chat, and the run has finished there without writing anything. Its answer is under AI Tasks.</source>
             </trans-unit>
+            <trans-unit id="chat.processDropped.detached" resname="chat.processDropped.detached">
+                <source>The guided process has ended: its skill is no longer attached to the chat's configuration. The conversation goes on without it.</source>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.configurationChanged" resname="chat.processDropped.configurationChanged">
+                <source>The guided process has ended: the chat now runs on another configuration. The conversation goes on without it.</source>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.predecessorGone" resname="chat.processDropped.predecessorGone">
+                <source>The guided process has ended: the run it continued from is no longer available. The conversation goes on without it.</source>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.refusedTooOften" resname="chat.processDropped.refusedTooOften">
+                <source>The guided process has ended: it could not be continued too many times in a row. The conversation goes on without it.</source>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.other" resname="chat.processDropped.other">
+                <source>The guided process has ended. The conversation goes on without it.</source>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">
@@ -489,6 +504,39 @@
             </trans-unit>
             <trans-unit id="guided.completed" resname="guided.completed">
                 <source>done</source>
+            </trans-unit>
+            <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
+                <source>You may not open this page, so no conversation was started about it.</source>
+            </trans-unit>
+            <trans-unit id="error.languageNotAccessible" resname="error.languageNotAccessible">
+                <source>This language does not exist on the page's site or you may not edit it, so no conversation was started.</source>
+            </trans-unit>
+            <trans-unit id="error.skillSecondApprover" resname="error.skillSecondApprover">
+                <source>This chat's AI configuration needs a second person to approve every change, so a skill cannot start here.</source>
+            </trans-unit>
+            <trans-unit id="error.skillUnknown" resname="error.skillUnknown">
+                <source>This skill is not available in the chat.</source>
+            </trans-unit>
+            <trans-unit id="skills.listLabel" resname="skills.listLabel">
+                <source>Skills</source>
+            </trans-unit>
+            <trans-unit id="skills.loading" resname="skills.loading">
+                <source>Loading skills…</source>
+            </trans-unit>
+            <trans-unit id="skills.none" resname="skills.none">
+                <source>No skills available</source>
+            </trans-unit>
+            <trans-unit id="skills.active" resname="skills.active">
+                <source>Skill:</source>
+            </trans-unit>
+            <trans-unit id="skills.remove" resname="skills.remove">
+                <source>Remove skill</source>
+            </trans-unit>
+            <trans-unit id="openPoint.missing" resname="openPoint.missing">
+                <source>%1$s is missing on “%2$s”</source>
+            </trans-unit>
+            <trans-unit id="openPoint.open" resname="openPoint.open">
+                <source>%1$s open on “%2$s”</source>
             </trans-unit>
         </body>
     </file>

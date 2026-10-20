@@ -16,7 +16,7 @@ AI Chat for TYPO3 — integrates a conversational AI assistant into the TYPO3 ba
 
 - **Package**: `netresearch/nr-mcp-agent` (Composer) / `nr_mcp_agent` (extension key)
 - **Namespace**: `Netresearch\NrMcpAgent\`
-- **Tech stack**: PHP ^8.2, TYPO3 ^13.4 || ^14.3, nr-llm ^0.37 || ^0.38 || ^0.39 || ^0.40, Lit web components (no build step)
+- **Tech stack**: PHP ^8.2, TYPO3 ^13.4 || ^14.3, nr-llm ^0.41, Lit web components (no build step)
 - **Version**: see `ext_emconf.php` (single source of truth — do not pin versions in docs)
 
 ## Architecture
@@ -89,7 +89,7 @@ make ci                          # lint + phpstan + rector + test + test-js
 
 - [Architecture (agent-facing)](docs/ARCHITECTURE.md) — component map, dependency rules
 - [Architecture (docs.typo3.org)](Documentation/Developer/Architecture.rst) — data flow, domain model
-- [Architecture Decision Records](Documentation/Developer/ADR/Index.rst) — ADR-001 through ADR-018, ADR-020, ADR-021
+- [Architecture Decision Records](Documentation/Developer/ADR/Index.rst) — ADR-001 through ADR-022
 - [Testing Guide](Documentation/Developer/Testing.rst) — test pyramid details
 - [CI Workflow](.github/workflows/ci.yml) — matrix build configuration
 - [Exec plans](docs/exec-plans/README.md) — multi-session task plans

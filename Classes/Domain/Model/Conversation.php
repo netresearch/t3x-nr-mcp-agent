@@ -58,6 +58,26 @@ final class Conversation
     private string $viewContext = '';
 
     /**
+     * The skill the conversation was started with or switched to, by its
+     * nr-llm identifier; empty for none (ADR-019). Passed to every run of the
+     * conversation as the invoked skill. Written on its own column like the
+     * instructions, so a turn that settles later cannot put an old one back.
+     */
+    private string $skillIdentifier = '';
+
+    /** The skill's record uid, when the catalogue knew it (0 otherwise). */
+    private int $skillUid = 0;
+
+    /**
+     * Whether the next turn starts the conversation's process skill anew
+     * (nr-llm ADR-214 item 10): set when a process skill is picked in a
+     * conversation that has already run, cleared by the turn that carried
+     * the invocation. Written on its own column, like the skill, and never
+     * by a full-row write.
+     */
+    private bool $skillStartPending = false;
+
+    /**
      * What the agent did in the current turn, as a JSON list of step
      * summaries (NEXT-172). Written column by column while the turn runs
      * ({@see \Netresearch\NrMcpAgent\Service\RunActivityRecorder}) and
@@ -126,6 +146,13 @@ final class Conversation
      */
     private string $approvalDenyReason = '';
 
+    /**
+     * The conversation's last run, whatever its outcome (nr-llm ADR-228): a
+     * later turn names it as its predecessor, and nr-llm derives the guided
+     * process from it. Unlike approvalRunUuid it survives every status.
+     */
+    private string $lastRunUuid = '';
+
     private int $tstamp = 0;
 
     /** @phpstan-ignore-next-line property.onlyWritten */
@@ -148,6 +175,9 @@ final class Conversation
         $conversation->currentRequestId   = (string) self::val($row, 'current_request_id', '');
         $conversation->systemPrompt       = (string) self::val($row, 'system_prompt', '');
         $conversation->viewContext        = (string) self::val($row, 'view_context', '');
+        $conversation->skillIdentifier    = (string) self::val($row, 'skill_identifier', '');
+        $conversation->skillUid           = (int) self::val($row, 'skill_uid', 0);
+        $conversation->skillStartPending  = (bool) self::val($row, 'skill_start_pending', false);
         $conversation->activity           = (string) self::val($row, 'activity', '');
         $conversation->guidedState        = (string) self::val($row, 'guided_state', '');
         $conversation->archived           = (bool) self::val($row, 'archived', false);
@@ -159,6 +189,7 @@ final class Conversation
         $conversation->approvalTurnDigest = (string) self::val($row, 'approval_turn_digest', '');
         $conversation->pendingInput       = (string) self::val($row, 'pending_input', '');
         $conversation->approvalDenyReason = (string) self::val($row, 'approval_deny_reason', '');
+        $conversation->lastRunUuid        = (string) self::val($row, 'last_run_uuid', '');
         $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate             = (int) self::val($row, 'crdate', 0);
 
@@ -204,6 +235,7 @@ final class Conversation
             'approval_run_uuid'    => $this->approvalRunUuid,
             'approval_decision'    => $this->approvalDecision,
             'approval_turn_digest' => $this->approvalTurnDigest,
+            'last_run_uuid'        => $this->lastRunUuid,
             'pending_input'        => $this->pendingInput,
             'approval_deny_reason' => $this->approvalDenyReason,
         ];
@@ -378,15 +410,16 @@ final class Conversation
     }
 
     /**
-     * @return array{pageId: int, module: string}
+     * @return array{pageId: int, module: string, languageId: int}
      */
     public function getViewContext(): array
     {
-        $decoded = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
-        $pageId  = is_array($decoded) && is_int($decoded['pageId'] ?? null) ? $decoded['pageId'] : 0;
-        $module  = is_array($decoded) && is_string($decoded['module'] ?? null) ? $decoded['module'] : '';
+        $decoded    = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
+        $pageId     = is_array($decoded) && is_int($decoded['pageId'] ?? null) ? $decoded['pageId'] : 0;
+        $module     = is_array($decoded) && is_string($decoded['module'] ?? null) ? $decoded['module'] : '';
+        $languageId = is_array($decoded) && is_int($decoded['languageId'] ?? null) ? $decoded['languageId'] : -1;
 
-        return ['pageId' => max(0, $pageId), 'module' => $module];
+        return ['pageId' => max(0, $pageId), 'module' => $module, 'languageId' => max(-1, $languageId)];
     }
 
     /**
@@ -395,16 +428,59 @@ final class Conversation
      * Whether the user may see the page or the module is decided when the turn
      * runs, not here.
      */
-    public function setViewContext(int $pageId, string $module): void
+    public function setViewContext(int $pageId, string $module, int $languageId = -1): void
     {
         $pageId = max(0, $pageId);
         if (preg_match('/^\w{1,100}$/', $module) !== 1) {
             $module = '';
         }
 
+        // The page's language (sys_language_uid), -1 when unknown. Only kept
+        // with a page: a language without a page says nothing.
+        $context = ['pageId' => $pageId, 'module' => $module];
+        if ($pageId > 0 && $languageId >= 0) {
+            $context['languageId'] = $languageId;
+        }
+
         $this->viewContext = $pageId === 0 && $module === ''
             ? ''
-            : json_encode(['pageId' => $pageId, 'module' => $module], JSON_THROW_ON_ERROR);
+            : json_encode($context, JSON_THROW_ON_ERROR);
+    }
+
+    public function getSkillIdentifier(): string
+    {
+        return $this->skillIdentifier;
+    }
+
+    /**
+     * Only an identifier made of the characters nr-llm skill identifiers use
+     * is kept; anything else is stored as none. Whether the skill exists is
+     * decided by the caller and, at run time, by nr-llm.
+     */
+    public function setSkillIdentifier(string $identifier, int $uid = 0): void
+    {
+        $this->skillIdentifier = self::isSkillIdentifier($identifier) ? $identifier : '';
+        $this->skillUid        = $this->skillIdentifier !== '' ? max(0, $uid) : 0;
+    }
+
+    public function getSkillUid(): int
+    {
+        return $this->skillUid;
+    }
+
+    public function isSkillStartPending(): bool
+    {
+        return $this->skillStartPending;
+    }
+
+    public function setSkillStartPending(bool $pending): void
+    {
+        $this->skillStartPending = $pending;
+    }
+
+    public static function isSkillIdentifier(string $identifier): bool
+    {
+        return preg_match('/^[A-Za-z0-9][A-Za-z0-9._:\/-]{0,99}$/', $identifier) === 1;
     }
 
     /**
@@ -533,6 +609,16 @@ final class Conversation
     public function setApprovalRunUuid(string $runUuid): void
     {
         $this->approvalRunUuid = $runUuid;
+    }
+
+    public function getLastRunUuid(): string
+    {
+        return $this->lastRunUuid;
+    }
+
+    public function setLastRunUuid(string $runUuid): void
+    {
+        $this->lastRunUuid = $runUuid;
     }
 
     public function getApprovalDecision(): string

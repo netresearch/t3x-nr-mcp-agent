@@ -95,9 +95,8 @@ approval card, where the approve button applies it. In a process run, and
 only when a pending call writes (nr-llm ADR-214, item 9), the card's denial
 is two buttons, *Andere Variante* and *Überspringen*; every other card keeps
 *Abbrechen*. Whether a call writes is what nr-llm's view states for it
-(``PendingCallView::$declaresWrite``, nr-llm 0.41); on an earlier nr-llm it
-is nr-llm's own resolution by tool name (``ToolEffectResolver``). In both an
-unknown tool counts as a write.
+(``PendingCallView::$declaresWrite``, nr-llm 0.41); a tool that is no
+longer registered counts as a write.
 Whether the conversation is a process run is asked through
 ``ProcessRunDetectorInterface``; nothing implements it yet, so until a
 conversation carries the skill it runs, every card is a plain one. The
@@ -106,9 +105,7 @@ does not offer it is a plain denial. The reason (``variant`` or ``skip``,
 ``DenyReason``) is recorded with the decision and its label goes into the
 transcript as the reader's message. ``ApprovalDecisionFactory``
 hands the reason to nr-llm as its ``ApprovalDenialReason`` (nr-llm ADR-214,
-nr-llm 0.41) through ``ApprovalDecision``'s ``denialReason``. On an earlier
-nr-llm the denial is a plain one, and the model learns the reason from the
-transcript on the next turn. Input pauses with reply buttons stay for
+nr-llm 0.41) through ``ApprovalDecision``'s ``denialReason``. Input pauses with reply buttons stay for
 choices that write nothing.
 
 **The option check is the chat's.** nr-llm validates a submission by
@@ -144,14 +141,10 @@ Consequences
     ``approval_deny_reason``.
 *   The cancel is guarded on the run still waiting through
     ``WaitingRunCancellerInterface``; ``NrLlmWaitingRunCanceller`` calls
-    nr-llm's ``AgentRuntimeInterface::cancelIfWaiting()`` (nr-llm 0.41) where
-    the installed nr-llm has it, and the run status nr-llm reports with a lost
-    attempt decides: queued, running or still waiting keeps the conversation
-    (409), an ended or unknown run releases it. Where it does not, the chat
-    reads the status and calls
-    ``cancel()``, which settles a run in any non-terminal state, so a
-    decision taken between that read and the cancel would be cancelled while
-    it runs. The claim comes first either way.
+    nr-llm's ``AgentRuntimeInterface::cancelIfWaiting()`` (nr-llm 0.41), and
+    the run status nr-llm reports with a lost attempt decides: queued,
+    running or still waiting keeps the conversation (409), an ended or
+    unknown run releases it. The claim comes first.
 *   New status ``awaiting_input``, new column ``pending_input``, new route
     ``ai_chat_conversation_input`` (``POST /ai-chat/conversations/input``).
     Run the database analyzer after upgrading.

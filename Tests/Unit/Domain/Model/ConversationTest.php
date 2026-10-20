@@ -226,6 +226,38 @@ class ConversationTest extends TestCase
         self::assertSame('prompt', $conversation->getSystemPrompt());
     }
 
+    /**
+     * The last run is what the next turn names as its predecessor (nr-llm
+     * ADR-228), so no status may clear it — unlike the approval reference.
+     */
+    #[Test]
+    public function theLastRunSurvivesEveryStatus(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setLastRunUuid('run-1');
+        $conversation->setApprovalRunUuid('run-1');
+
+        foreach (ConversationStatus::cases() as $status) {
+            $conversation->setStatus($status);
+            self::assertSame('run-1', $conversation->getLastRunUuid(), $status->value);
+        }
+
+        self::assertSame('', $conversation->getApprovalRunUuid(), 'the approval reference is cleared as before');
+    }
+
+    #[Test]
+    public function theLastRunIsWrittenWithTheRowAndTheStartMarkerIsNot(): void
+    {
+        $conversation = Conversation::fromRow(['last_run_uuid' => 'run-1', 'skill_start_pending' => 1]);
+
+        self::assertSame('run-1', $conversation->getLastRunUuid());
+        self::assertTrue($conversation->isSkillStartPending());
+        self::assertSame('run-1', $conversation->toRow()['last_run_uuid']);
+        // Written only by the repository's own column writes, so a full-row
+        // write from an older snapshot cannot clear a newer pick.
+        self::assertArrayNotHasKey('skill_start_pending', $conversation->toRow());
+    }
+
     #[Test]
     public function hasPendingToolCallsReturnsTrueWhenLastMessageHasToolCalls(): void
     {

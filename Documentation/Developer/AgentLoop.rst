@@ -100,8 +100,8 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
     ``AgentRuntimeInterface::submitInput()`` by the worker. A refusal that
     leaves the run waiting restores ``awaiting_input`` with its reason as a
     code (``InputHandBackReason``) (ADR-018).
-*   a refusal for a guided process (nr-llm ADR-214 item 6; ``ProcessRefusal``,
-    recognised by class name only where the installed nr-llm has it). When
+*   a refusal for a guided process (nr-llm ADR-214 item 6; ``ProcessRefusal``).
+    When
     the process verdict could not be read, or only the person who started the
     process may decide, the run still waits: the card or the question comes
     back as for the other hand-backs, with its own code. When the run's

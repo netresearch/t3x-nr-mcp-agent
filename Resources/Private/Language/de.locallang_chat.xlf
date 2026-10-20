@@ -267,6 +267,26 @@
                 <source>The approval was decided outside this chat, and the run has finished there without writing anything. Its answer is under AI Tasks.</source>
                 <target>Die Freigabe wurde außerhalb dieses Chats entschieden, und der Lauf ist dort abgeschlossen, ohne etwas zu schreiben. Seine Antwort steht unter KI-Aufgaben.</target>
             </trans-unit>
+            <trans-unit id="chat.processDropped.detached" resname="chat.processDropped.detached">
+                <source>The guided process has ended: its skill is no longer attached to the chat's configuration. The conversation goes on without it.</source>
+                <target>Der geführte Ablauf ist beendet: Sein Skill ist der Konfiguration des Chats nicht mehr zugeordnet. Die Unterhaltung geht ohne ihn weiter.</target>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.configurationChanged" resname="chat.processDropped.configurationChanged">
+                <source>The guided process has ended: the chat now runs on another configuration. The conversation goes on without it.</source>
+                <target>Der geführte Ablauf ist beendet: Der Chat läuft jetzt mit einer anderen Konfiguration. Die Unterhaltung geht ohne ihn weiter.</target>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.predecessorGone" resname="chat.processDropped.predecessorGone">
+                <source>The guided process has ended: the run it continued from is no longer available. The conversation goes on without it.</source>
+                <target>Der geführte Ablauf ist beendet: Der Lauf, an den er anschloss, ist nicht mehr verfügbar. Die Unterhaltung geht ohne ihn weiter.</target>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.refusedTooOften" resname="chat.processDropped.refusedTooOften">
+                <source>The guided process has ended: it could not be continued too many times in a row. The conversation goes on without it.</source>
+                <target>Der geführte Ablauf ist beendet: Er konnte zu oft hintereinander nicht fortgesetzt werden. Die Unterhaltung geht ohne ihn weiter.</target>
+            </trans-unit>
+            <trans-unit id="chat.processDropped.other" resname="chat.processDropped.other">
+                <source>The guided process has ended. The conversation goes on without it.</source>
+                <target>Der geführte Ablauf ist beendet. Die Unterhaltung geht ohne ihn weiter.</target>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">
@@ -646,6 +666,50 @@
             <trans-unit id="guided.completed" resname="guided.completed">
                 <source>done</source>
                 <target>abgeschlossen</target>
+            </trans-unit>
+            <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
+                <source>You may not open this page, so no conversation was started about it.</source>
+                <target>Du darfst diese Seite nicht öffnen, deshalb wurde keine Unterhaltung zu ihr gestartet.</target>
+            </trans-unit>
+            <trans-unit id="error.languageNotAccessible" resname="error.languageNotAccessible">
+                <source>This language does not exist on the page's site or you may not edit it, so no conversation was started.</source>
+                <target>Diese Sprache gibt es auf der Website der Seite nicht oder du darfst sie nicht bearbeiten, deshalb wurde keine Unterhaltung gestartet.</target>
+            </trans-unit>
+            <trans-unit id="error.skillSecondApprover" resname="error.skillSecondApprover">
+                <source>This chat's AI configuration needs a second person to approve every change, so a skill cannot start here.</source>
+                <target>Die KI-Konfiguration dieses Chats verlangt für jede Änderung die Freigabe durch eine zweite Person, deshalb kann hier kein Skill starten.</target>
+            </trans-unit>
+            <trans-unit id="error.skillUnknown" resname="error.skillUnknown">
+                <source>This skill is not available in the chat.</source>
+                <target>Dieser Skill ist im Chat nicht verfügbar.</target>
+            </trans-unit>
+            <trans-unit id="skills.listLabel" resname="skills.listLabel">
+                <source>Skills</source>
+                <target>Skills</target>
+            </trans-unit>
+            <trans-unit id="skills.loading" resname="skills.loading">
+                <source>Loading skills…</source>
+                <target>Skills werden geladen…</target>
+            </trans-unit>
+            <trans-unit id="skills.none" resname="skills.none">
+                <source>No skills available</source>
+                <target>Keine Skills verfügbar</target>
+            </trans-unit>
+            <trans-unit id="skills.active" resname="skills.active">
+                <source>Skill:</source>
+                <target>Skill:</target>
+            </trans-unit>
+            <trans-unit id="skills.remove" resname="skills.remove">
+                <source>Remove skill</source>
+                <target>Skill entfernen</target>
+            </trans-unit>
+            <trans-unit id="openPoint.missing" resname="openPoint.missing">
+                <source>%1$s is missing on “%2$s”</source>
+                <target>%1$s fehlt auf „%2$s“</target>
+            </trans-unit>
+            <trans-unit id="openPoint.open" resname="openPoint.open">
+                <source>%1$s open on “%2$s”</source>
+                <target>%1$s auf „%2$s“ offen</target>
             </trans-unit>
         </body>
     </file>

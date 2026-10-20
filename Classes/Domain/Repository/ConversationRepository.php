@@ -65,7 +65,7 @@ readonly class ConversationRepository
     private const LIST_COLUMNS = [
         'uid', 'be_user', 'title', 'status', 'message_count',
         'pinned', 'archived', 'error_message', 'error_code', 'approval_run_uuid',
-        'approval_decision', 'approval_turn_digest', 'tstamp', 'crdate',
+        'approval_decision', 'approval_turn_digest', 'skill_identifier', 'tstamp', 'crdate',
     ];
 
     /** @return list<Conversation> */
@@ -136,7 +136,9 @@ readonly class ConversationRepository
         $data['pid']      = 0;
         // A new row races nobody, so the instructions are written with it;
         // later only updateSystemPrompt() writes them (see toRow()).
-        $data['system_prompt'] = $conversation->getSystemPrompt();
+        $data['system_prompt']    = $conversation->getSystemPrompt();
+        $data['skill_identifier'] = $conversation->getSkillIdentifier();
+        $data['skill_uid']        = $conversation->getSkillUid();
 
         return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
             $conn->insert(self::TABLE, $data);
@@ -209,6 +211,33 @@ readonly class ConversationRepository
     /**
      * Lightweight instructions update — avoids reading/writing the full messages blob.
      */
+    /**
+     * Single-column write of the conversation's skill (ADR-019), for the reason
+     * updateSystemPrompt() gives. `$startPending` marks the next turn as the
+     * start of the skill's process (nr-llm ADR-214 item 10).
+     */
+    public function updateSkillIdentifier(int $uid, string $skillIdentifier, int $beUserUid, int $skillUid = 0, bool $startPending = false): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'skill_identifier'    => $skillIdentifier,
+            'skill_uid'           => $skillIdentifier !== '' ? $skillUid : 0,
+            'skill_start_pending' => (int) ($skillIdentifier !== '' && $startPending),
+            'tstamp'              => time(),
+        ], ['uid' => $uid, 'be_user' => $beUserUid]);
+    }
+
+    /**
+     * Single-column clear of the start marker, once a run carried the
+     * invocation. Not part of a full-row write, so a save from a snapshot
+     * taken before the skill was picked cannot clear a newer marker.
+     */
+    public function clearSkillStartPending(int $uid): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, ['skill_start_pending' => 0], ['uid' => $uid]);
+    }
+
     public function updateSystemPrompt(int $uid, string $systemPrompt, int $beUserUid): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
