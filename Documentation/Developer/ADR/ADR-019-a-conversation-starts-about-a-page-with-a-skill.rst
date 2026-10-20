@@ -49,8 +49,8 @@ that language.
 **The skill is stored on the conversation and passed to every run** through
 ``SkillCatalogueInterface``, the one place that knows how nr-llm takes a skill
 per run. The catalogue is the enabled skills attached to the chat's
-configuration or Task (the Task the user's groups map to, ADR-015). Until
-nr-llm's explicit invocation ships, the adapter passes the skill as a forced
+configuration or Task (the Task the user's groups map to, ADR-015). A process
+skill goes out as an invocation (below); any other skill goes as a forced
 skill (``RunAugmentation``), which nr-llm composes like any skill — as fenced
 reference data, under its trust and data-class ceilings — and deduplicates
 against the attached ones. Where nr-llm lacks the classes and members this
@@ -120,10 +120,11 @@ Consequences
     and ``last_run_uuid``, new routes ``ai_chat_skills`` and
     ``ai_chat_conversation_skill``. Run the database analyzer after
     upgrading.
-*   Today a skill reaches the model as reference data, not as instructions;
-    a process skill guides the run only as far as nr-llm's untrusted frame
-    allows. nr-llm ADR-214 makes approved versions instructions; the adapter
-    is where explicit invocation replaces the forced skill.
+*   A process skill goes out as nr-llm's ``SkillInvocation`` and is
+    continued through ``predecessorRunUuid``; nr-llm decides from its
+    approval which version runs (nr-llm ADR-214, ADR-228). Any other skill
+    reaches the model as a forced skill, as reference data rather than
+    instructions.
 *   A skill picked while a turn runs is refused, as the instructions are.
 *   The chat requires nr-llm 0.41, which carries ``SkillInvocation``,
     ``SubjectRecord`` and ``predecessorRunUuid`` (nr-llm ADR-228).

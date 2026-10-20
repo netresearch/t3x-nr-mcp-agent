@@ -65,7 +65,7 @@ readonly class ConversationRepository
     private const LIST_COLUMNS = [
         'uid', 'be_user', 'title', 'status', 'message_count',
         'pinned', 'archived', 'error_message', 'error_code', 'approval_run_uuid',
-        'approval_decision', 'approval_turn_digest', 'tstamp', 'crdate',
+        'approval_decision', 'approval_turn_digest', 'skill_identifier', 'tstamp', 'crdate',
     ];
 
     /** @return list<Conversation> */

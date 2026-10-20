@@ -321,6 +321,10 @@ export class ChatCoreController {
                 const uid = await this.handleNewConversation(start);
                 if (uid) {
                     this.host.onStartContextConsumed?.(uid);
+                } else if (this.errorMessage) {
+                    // No conversation is open, so the status notice is not
+                    // rendered; the banner is, on both surfaces.
+                    this.issues = [...this.issues, this.errorMessage];
                 }
             }
         } catch (e) {

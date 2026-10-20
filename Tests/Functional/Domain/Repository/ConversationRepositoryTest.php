@@ -387,6 +387,23 @@ class ConversationRepositoryTest extends FunctionalTestCase
         self::assertSame('providerNotConfigured', $listed[0]->getErrorCode());
     }
 
+    /** The conversation list reports each conversation's skill (ADR-019). */
+    #[Test]
+    public function theListCarriesTheSkill(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSkillIdentifier('seo-page-tour', 5);
+
+        $uid = $this->subject->add($conversation);
+
+        $listed = array_values(array_filter(
+            $this->subject->findByBeUser(1),
+            static fn (Conversation $c): bool => $c->getUid() === $uid,
+        ));
+        self::assertSame('seo-page-tour', $listed[0]->getSkillIdentifier());
+    }
+
     #[Test]
     public function findPollStatusReturnsNullForWrongUser(): void
     {

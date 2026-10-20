@@ -176,6 +176,29 @@ describe('a module link that starts a conversation', () => {
         expect(globalThis.location.search).toBe('?conversation=42');
     });
 
+    test('a refused start says why, although no conversation is open', async () => {
+        document.body.replaceChildren();
+        await import('../../Resources/Public/JavaScript/chat-app.js');
+        const {ApiClient} = await import('../../Resources/Public/JavaScript/api-client.js');
+        globalThis.history.replaceState(null, '', '/typo3/module/ai-chat?pageUid=10&skill=seo-page-tour');
+        const refusal = 'Diese Seite dürfen Sie nicht anzeigen.';
+        jest.spyOn(ApiClient.prototype, 'createConversation').mockRejectedValue(new Error(refusal));
+        jest.spyOn(ApiClient.prototype, 'getStatus').mockResolvedValue({available: true, issues: []});
+        jest.spyOn(ApiClient.prototype, 'listConversations').mockResolvedValue({conversations: []});
+        const el = document.createElement('nr-chat-app');
+
+        document.body.append(el);
+        for (let i = 0; i < 20 && el.chat.issues.length === 0; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+        await el.updateComplete;
+        jest.restoreAllMocks();
+
+        expect(el.chat.activeUid).toBeNull();
+        expect(el.shadowRoot.querySelector('.issues-banner')?.textContent).toContain(refusal);
+        expect(globalThis.location.search).toBe('?pageUid=10&skill=seo-page-tour');
+    });
+
     test('a link that names a conversation starts none', async () => {
         await import('../../Resources/Public/JavaScript/chat-app.js');
         globalThis.history.replaceState(null, '', '/typo3/module/ai-chat?conversation=5&pageUid=10');
