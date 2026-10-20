@@ -79,6 +79,9 @@ final class ChatApprovalTest extends TestCase
 
     private ?RuntimeException $endProcessFails = null;
 
+    /** @var list<array{int, string, int}> uid, identifier and owner of each write to the skill's own column */
+    private array $skillWrites = [];
+
     private function parkedConversation(string $runUuid = 'run-uuid-1234'): Conversation
     {
         $conversation = new Conversation();
@@ -138,6 +141,9 @@ final class ChatApprovalTest extends TestCase
 
         $repository = $this->createMock(ConversationRepository::class);
         $repository->method('updateIf')->willReturn($claimSucceeds);
+        $repository->method('updateSkillIdentifier')->willReturnCallback(function (int $uid, string $identifier, int $beUser): void {
+            $this->skillWrites[] = [$uid, $identifier, $beUser];
+        });
 
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
@@ -645,6 +651,7 @@ final class ChatApprovalTest extends TestCase
         self::assertSame('', $conversation->getSkillIdentifier());
         self::assertSame(0, $conversation->getSkillUid());
         self::assertSame(['progress' => null, 'highlight' => null], $conversation->getGuidedState());
+        self::assertSame([[$conversation->getUid(), '', 1]], $this->skillWrites, "the skill's own column is cleared too");
     }
 
     /**
@@ -754,6 +761,7 @@ final class ChatApprovalTest extends TestCase
         self::assertSame('3:seo/page-tour', $conversation->getSkillIdentifier());
         self::assertSame(2, $conversation->getGuidedState()['progress']['current'] ?? null);
         self::assertSame([], $this->endedProcesses, 'a run that still waits keeps its process in nr-llm');
+        self::assertSame([], $this->skillWrites, 'and its skill');
     }
 
     #[Test]

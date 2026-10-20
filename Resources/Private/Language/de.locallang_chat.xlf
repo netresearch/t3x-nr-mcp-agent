@@ -511,7 +511,7 @@
             </trans-unit>
             <trans-unit id="attachment.notSupported" resname="attachment.notSupported">
                 <source>Your LLM model does not support file attachments</source>
-                <target>Ihr LLM-Modell unterstützt keine Dateianhänge</target>
+                <target>Dein LLM-Modell unterstützt keine Dateianhänge</target>
             </trans-unit>
             <trans-unit id="attachment.tooLarge" resname="attachment.tooLarge">
                 <source>File too large (max %d MB)</source>
@@ -745,7 +745,7 @@
             </trans-unit>
             <trans-unit id="guided.choosePageHint" resname="guided.choosePageHint">
                 <source>Select the page to check in the page tree, then confirm it here.</source>
-                <target>Wählen Sie im Seitenbaum die Seite, die geprüft werden soll, und bestätigen Sie sie hier.</target>
+                <target>Wähle im Seitenbaum die Seite, die geprüft werden soll, und bestätige sie hier.</target>
             </trans-unit>
             <trans-unit id="guided.checkPage" resname="guided.checkPage">
                 <source>Check this page</source>

@@ -400,6 +400,7 @@ final class ChatServiceSkillTest extends TestCase
         $dropped        = new RunStep(RunStep::KIND_DROPPED, 0, 0.0, droppedSources: [new DroppedSource('skill', 3, DroppedSourceReason::DEACTIVATED)]);
         $this->outcomes = [self::completed('run-1', [$dropped])];
         $conversation   = $this->conversation('seo-page-tour', 'run-0');
+        $this->repository->expects(self::never())->method('updateSkillIdentifier');
 
         $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($conversation);
 
@@ -431,6 +432,7 @@ final class ChatServiceSkillTest extends TestCase
         $this->outcomes = [self::completed('run-1', [$dropped])];
         $conversation   = $this->conversation('seo-page-tour', 'run-0');
         $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], ['table' => 'tt_content', 'uid' => 100]);
+        $this->repository->expects(self::once())->method('updateSkillIdentifier')->with($conversation->getUid(), '', $conversation->getBeUser());
 
         $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($conversation);
 

@@ -479,6 +479,8 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
+        // The skill has its own column (ADR-019); the row write above leaves it.
+        $this->repository->updateSkillIdentifier($conversation->getUid(), '', $this->getBeUserUid());
         $this->pinRelease?->release($before);
 
         return new JsonResponse(['status' => $conversation->getStatus()->value, 'skill' => null]);

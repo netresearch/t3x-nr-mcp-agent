@@ -94,6 +94,8 @@ final class ChatApiControllerEndTourTest extends TestCase
         $this->pinRelease->expects(self::once())->method('release')
             ->with(self::callback(static fn (Conversation $before): bool => $before->getSkillIdentifier() === '3:seo/check'));
         $this->processor->expects(self::never())->method('dispatch');
+        // The skill's own column (ADR-019): the row write leaves it alone.
+        $this->repository->expects(self::once())->method('updateSkillIdentifier')->with($conversation->getUid(), '', 1);
 
         $response = $this->endTour($conversation);
 
@@ -154,6 +156,7 @@ final class ChatApiControllerEndTourTest extends TestCase
         $conversation = $this->tourConversation($status);
         $this->chatApproval->expects(self::never())->method('releasePendingRun');
         $this->pinRelease->expects(self::never())->method('release');
+        $this->repository->expects(self::never())->method('updateSkillIdentifier');
 
         self::assertSame(409, $this->endTour($conversation)->getStatusCode());
         self::assertSame([], $this->writes);
@@ -171,6 +174,7 @@ final class ChatApiControllerEndTourTest extends TestCase
         $conversation = $this->tourConversation($status);
         $this->chatApproval->method('releasePendingRun')->willReturn(false);
         $this->pinRelease->expects(self::never())->method('release');
+        $this->repository->expects(self::never())->method('updateSkillIdentifier');
 
         self::assertSame(409, $this->endTour($conversation)->getStatusCode());
         self::assertSame([

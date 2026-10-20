@@ -1065,7 +1065,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // No later turn names the run as its predecessor, and nr-llm is
             // told the process ended, so its pin is released there too.
             $conversation->setStatus(ConversationStatus::Idle);
-            $conversation->setSkillIdentifier('', 0);
+            $this->clearSkill($conversation);
             $conversation->setGuidedState(null, null);
             $conversation->setLastRunUuid('');
         } else {
@@ -1267,7 +1267,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                         self::NOTICE_PROCESS_DROPPED,
                         [$dropped->reason->value],
                     );
-                    $conversation->setSkillIdentifier('', 0);
+                    $this->clearSkill($conversation);
                     $conversation->setGuidedState(null, null);
 
                     return;
@@ -1781,5 +1781,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private function persist(Conversation $conversation): void
     {
         $this->repository->update($conversation);
+    }
+
+    /**
+     * The guided process ended: the conversation's skill goes, in memory and
+     * in its own column (ADR-019), which the row write leaves alone.
+     */
+    private function clearSkill(Conversation $conversation): void
+    {
+        $conversation->setSkillIdentifier('', 0);
+        $this->repository->updateSkillIdentifier($conversation->getUid(), '', $conversation->getBeUser());
     }
 }
