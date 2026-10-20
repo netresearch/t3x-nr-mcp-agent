@@ -208,7 +208,7 @@ final class AssistantWidgetsTest extends TestCase
     public function recommendationsShowOnlyPointsOnAccessiblePagesWithANamedSkill(): void
     {
         $reader = $this->createMock(OpenPointReaderInterface::class);
-        $reader->expects(self::once())->method('findOpen')->with(RecommendationsWidget::LIMIT)->willReturn([
+        $reader->expects(self::once())->method('findOpen')->with(RecommendationsWidget::WINDOW)->willReturn([
             new OpenPoint(30, 0, 'seo-optimieren', 'Fremde Seite.'),
             new OpenPoint(21, 0, 'unlabelled', 'Ohne Namen.'),
             new OpenPoint(21, 0, 'inhalt-verbessern', 'Skill nicht startbar.'),
@@ -227,6 +227,28 @@ final class AssistantWidgetsTest extends TestCase
         self::assertSame(
             [['summary' => 'Die Meta Description fehlt.', 'pageTitle' => 'Inhalt A', 'skillTitle' => 'SEO optimieren', 'uri' => '/chat?token=t&skill=3%3Aseo-optimieren&pageUid=21&languageUid=1']],
             $variables['points'],
+        );
+    }
+
+    /**
+     * Points the widget leaves out do not take its places: with the newest
+     * points all left out, older ones fill the list, which stops at its limit.
+     */
+    #[Test]
+    public function leftOutPointsDoNotTakeThePlacesOfOlderOnes(): void
+    {
+        $gone   = array_map(static fn (int $i): OpenPoint => new OpenPoint(21, 0, 'inhalt-verbessern', 'Skill nicht startbar ' . $i . '.'), range(1, 5));
+        $valid  = array_map(static fn (int $i): OpenPoint => new OpenPoint(21, 0, 'seo-optimieren', 'Punkt ' . $i . '.'), range(1, 7));
+        $reader = $this->createMock(OpenPointReaderInterface::class);
+        // The reader keeps to its limit, as the store does.
+        $reader->method('findOpen')->willReturnCallback(static fn (int $limit): array => array_slice([...$gone, ...$valid], 0, $limit));
+        $pages = $this->createMock(PageChoiceRepository::class);
+        $pages->method('findAccessible')->willReturn(['uid' => 21, 'title' => 'Inhalt A']);
+        $pages->method('mayStartIn')->willReturn(true);
+
+        self::assertSame(
+            ['Punkt 1.', 'Punkt 2.', 'Punkt 3.', 'Punkt 4.', 'Punkt 5.'],
+            array_column($this->recommendations(true, $reader, $pages)->templateVariables()['points'], 'summary'),
         );
     }
 

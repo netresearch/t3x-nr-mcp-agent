@@ -35,6 +35,13 @@ final class RecommendationsWidget extends AbstractAssistantWidget
     public const LIMIT = 5;
 
     /**
+     * How many points are read to fill the list: points the widget leaves out
+     * (a page the editor may not access, a skill that is gone or unnamed, a
+     * language the chat would not start in) must not take its places.
+     */
+    public const WINDOW = 50;
+
+    /**
      * @param array<string, mixed> $options
      */
     public function __construct(
@@ -66,7 +73,7 @@ final class RecommendationsWidget extends AbstractAssistantWidget
         }
 
         $points = [];
-        foreach ($this->openPoints->findOpen(self::LIMIT) as $point) {
+        foreach ($this->openPoints->findOpen(self::WINDOW) as $point) {
             $page       = $this->pages->findAccessible($point->pageUid);
             $skillTitle = $this->labels->title($point->skill);
             $skill      = $skillTitle === null ? null : $this->resolver->resolve($point->skill);
@@ -80,6 +87,9 @@ final class RecommendationsWidget extends AbstractAssistantWidget
                 'skillTitle' => $skillTitle,
                 'uri'        => $this->chatStart->build($skill, $point->pageUid, $point->languageUid),
             ];
+            if (count($points) === self::LIMIT) {
+                break;
+            }
         }
 
         return ['available' => true, 'points' => $points];
