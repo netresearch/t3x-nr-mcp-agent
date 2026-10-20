@@ -25,15 +25,6 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(NrLlmCardTarget::class)]
 final class NrLlmCardTargetTest extends TestCase
 {
-    private function requireTarget(bool $present): void
-    {
-        if (property_exists(PendingCallView::class, 'pendingTarget') !== $present) {
-            self::markTestSkipped($present
-                ? 'Needs nr-llm 0.41 (PendingCallView::$pendingTarget, nr-llm PR 1024).'
-                : 'Pins the fallback for an nr-llm whose card carries no target.');
-        }
-    }
-
     /**
      * @param list<PendingCallView> $calls
      */
@@ -43,17 +34,8 @@ final class NrLlmCardTargetTest extends TestCase
     }
 
     #[Test]
-    public function withoutATargetOnTheViewThereIsNone(): void
-    {
-        $this->requireTarget(false);
-
-        self::assertNull(NrLlmCardTarget::of($this->view([new PendingCallView('update_content_element', '{"uid":12}', true, ['bodytext: old → new'])])));
-    }
-
-    #[Test]
     public function theTargetIsNrLlmsRecordAndFields(): void
     {
-        $this->requireTarget(true);
         $call = new PendingCallView('update_content_element', '{}', true, pendingTarget: new PendingWriteTarget(new RecordReference('tt_content', 12), ['header', 'bodytext']));
 
         $target = NrLlmCardTarget::of($this->view([$call]));
@@ -68,16 +50,13 @@ final class NrLlmCardTargetTest extends TestCase
     #[Test]
     public function aCallWithoutATargetHasNone(): void
     {
-        $this->requireTarget(true);
-
-        self::assertNull(NrLlmCardTarget::of($this->view([new PendingCallView('create_content_element_draft', '{}', true, pendingTarget: null)])));
+        self::assertNull(NrLlmCardTarget::of($this->view([new PendingCallView('create_content_element_draft', '{}', true)])));
     }
 
     /** One decision covers the whole pending set; only a one-call card is keyed. */
     #[Test]
     public function aCardWithSeveralCallsHasNone(): void
     {
-        $this->requireTarget(true);
         $target = new PendingWriteTarget(new RecordReference('tt_content', 12), ['bodytext']);
 
         self::assertNull(NrLlmCardTarget::of($this->view([

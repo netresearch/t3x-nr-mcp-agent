@@ -107,9 +107,7 @@ Consequences
     upgrading.
 -   **Needs nr-llm 0.41.** The card's target (``pendingTarget``, nr-llm PR
     1024) and the write's completeness (``writeCompleteness``,
-    ``hookFailedAfterWrite``, nr-llm PR 1023) are read where the installed
-    nr-llm has them. On an earlier nr-llm a card has no target and no write
-    states its completeness, so nothing is recorded or closed.
+    ``hookFailedAfterWrite``, nr-llm PR 1023) come from nr-llm 0.41.
 -   A finding lost to a withdrawn proposal, a refused decision or a failed
     continuation is found again the next time the process runs on the
     record (nr-llm ADR-214).

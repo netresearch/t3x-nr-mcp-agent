@@ -51,20 +51,10 @@ final class AppliedWriteTest extends TestCase
         return new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'update_content_element', toolIsError: $isError);
     }
 
-    private function requireCompleteness(bool $present): void
-    {
-        if (property_exists(RunStep::class, 'writeCompleteness') !== $present) {
-            self::markTestSkipped($present
-                ? 'Needs nr-llm 0.41 (RunStep::$writeCompleteness, nr-llm PR 1023).'
-                : 'Pins the reading on an nr-llm whose write steps state no completeness.');
-        }
-    }
-
-    /** Before nr-llm 0.41 no write states its completeness, so nothing is applied. */
+    /** A write step that states no completeness is not applied. */
     #[Test]
     public function aWriteThatStatesNoCompletenessIsNotApplied(): void
     {
-        $this->requireCompleteness(false);
         $write = new RunStep(kind: RunStep::KIND_WRITE, round: 1, durationMs: 1.0, writeTarget: new RecordReference('tt_content', 12));
 
         self::assertFalse(AppliedWrite::inSteps([$this->tool(), $write]));
@@ -85,8 +75,6 @@ final class AppliedWriteTest extends TestCase
     #[Test]
     public function theApprovedCallsCompleteWriteIsApplied(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertTrue(AppliedWrite::inSteps([
             new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0),
             $this->tool(),
@@ -97,24 +85,18 @@ final class AppliedWriteTest extends TestCase
     #[Test]
     public function aPartialWriteIsNotApplied(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertFalse(AppliedWrite::inSteps([$this->tool(), $this->write(WriteCompleteness::PARTIAL)]));
     }
 
     #[Test]
     public function aHookFailureAfterTheWriteIsNotApplied(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertFalse(AppliedWrite::inSteps([$this->tool(), $this->write(WriteCompleteness::COMPLETE, hookFailed: true)]));
     }
 
     #[Test]
     public function aFailedCallIsNotApplied(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertFalse(AppliedWrite::inSteps([$this->tool(isError: true), $this->write(WriteCompleteness::COMPLETE)]));
     }
 
@@ -130,8 +112,6 @@ final class AppliedWriteTest extends TestCase
     #[Test]
     public function aLaterCallsWriteDoesNotCount(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertFalse(AppliedWrite::inSteps([$this->tool(), $this->tool(), $this->write(WriteCompleteness::COMPLETE)]));
     }
 }

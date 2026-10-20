@@ -142,13 +142,6 @@ final class OpenPointTrackerTest extends TestCase
 
     // ---- closing -----------------------------------------------------------
 
-    private function requireCompleteness(): void
-    {
-        if (!property_exists(RunStep::class, 'writeCompleteness')) {
-            self::markTestSkipped('Needs nr-llm 0.41 (RunStep::$writeCompleteness, nr-llm PR 1023).');
-        }
-    }
-
     private function applied(WriteCompleteness $completeness, bool $hookFailed = false): AgentRunResult
     {
         return $this->runResult(new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'update_content_element', toolIsError: false), new RunStep(kind: RunStep::KIND_WRITE, round: 1, durationMs: 1.0, writeTarget: new RecordReference('tt_content', 12), writeCompleteness: $completeness, hookFailedAfterWrite: $hookFailed));
@@ -157,7 +150,6 @@ final class OpenPointTrackerTest extends TestCase
     #[Test]
     public function anAppliedApprovalClosesTheTargetsOpenPoints(): void
     {
-        $this->requireCompleteness();
         $target = $this->target();
         $this->repository->expects(self::once())->method('close')->with($target);
         $this->repository->expects(self::never())->method('record');
@@ -168,7 +160,6 @@ final class OpenPointTrackerTest extends TestCase
     #[Test]
     public function aPartialWriteClosesNothing(): void
     {
-        $this->requireCompleteness();
         $this->repository->expects(self::never())->method('close');
 
         $this->tracker()->settle($this->conversation(), true, null, $this->target(), $this->applied(WriteCompleteness::PARTIAL));
@@ -177,13 +168,12 @@ final class OpenPointTrackerTest extends TestCase
     #[Test]
     public function aHookFlaggedWriteClosesNothing(): void
     {
-        $this->requireCompleteness();
         $this->repository->expects(self::never())->method('close');
 
         $this->tracker()->settle($this->conversation(), true, null, $this->target(), $this->applied(WriteCompleteness::COMPLETE, hookFailed: true));
     }
 
-    /** Before nr-llm 0.41 no write states its completeness: nothing closes. */
+    /** A write step that states no completeness closes nothing. */
     #[Test]
     public function aWriteThatStatesNoCompletenessClosesNothing(): void
     {
@@ -195,7 +185,6 @@ final class OpenPointTrackerTest extends TestCase
     #[Test]
     public function anApprovalWithoutATargetClosesNothing(): void
     {
-        $this->requireCompleteness();
         $this->repository->expects(self::never())->method('close');
 
         $this->tracker()->settle($this->conversation(), true, null, null, $this->applied(WriteCompleteness::COMPLETE));
@@ -205,9 +194,7 @@ final class OpenPointTrackerTest extends TestCase
 
     private function card(string $digest, string $mode = WaitingRunView::MODE_APPROVAL): WaitingRunView
     {
-        $call = property_exists(PendingCallView::class, 'pendingTarget')
-            ? new PendingCallView('update_content_element', '{}', true, pendingTarget: new PendingWriteTarget(new RecordReference('tt_content', 12), ['bodytext']))
-            : new PendingCallView('update_content_element', '{}', true);
+        $call = new PendingCallView('update_content_element', '{}', true, pendingTarget: new PendingWriteTarget(new RecordReference('tt_content', 12), ['bodytext']));
 
         return new WaitingRunView('run-1', $mode, 0, 'Chat', $digest, [$call]);
     }
@@ -215,10 +202,6 @@ final class OpenPointTrackerTest extends TestCase
     #[Test]
     public function theTargetIsTheCardsWhoseDigestTheDecisionCarries(): void
     {
-        if (!property_exists(PendingCallView::class, 'pendingTarget')) {
-            self::markTestSkipped('Needs nr-llm 0.41 (PendingCallView::$pendingTarget, nr-llm PR 1024).');
-        }
-
         $target = $this->tracker()->cardTarget($this->conversation(), $this->card('digest-abc'));
 
         self::assertEquals($this->target(), $target);

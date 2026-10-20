@@ -18,10 +18,9 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
  *
  * Read from the result of that approval alone: its first tool step is the
  * approved call, and the write step that follows it states the completeness
- * (`RunStep::$writeCompleteness` and `$hookFailedAfterWrite`, merged with
- * nr-llm PR 1023, first released in 0.41). Applied means the tool step is no
- * error and the write step says COMPLETE without the hook-failure flag. A
- * completeness that is not stated — every write on an nr-llm before 0.41 —
+ * (`RunStep::$writeCompleteness` and `$hookFailedAfterWrite`, nr-llm PR
+ * 1023). Applied means the tool step is no error and the write step says
+ * COMPLETE without the hook-failure flag. A completeness that is not stated
  * is not applied.
  */
 final class AppliedWrite
@@ -50,7 +49,7 @@ final class AppliedWrite
             }
 
             if ($step->kind === RunStep::KIND_WRITE) {
-                return self::isApplied($toolStep->toolIsError, self::statesComplete($step), self::hookFailedAfterWrite($step));
+                return self::isApplied($toolStep->toolIsError, $step->writeCompleteness === WriteCompleteness::COMPLETE, $step->hookFailedAfterWrite);
             }
         }
 
@@ -65,23 +64,5 @@ final class AppliedWrite
     public static function isApplied(?bool $toolIsError, bool $complete, ?bool $hookFailed): bool
     {
         return $toolIsError === false && $complete && $hookFailed !== true;
-    }
-
-    private static function statesComplete(RunStep $step): bool
-    {
-        return enum_exists(WriteCompleteness::class)
-            && property_exists($step, 'writeCompleteness')
-            && $step->writeCompleteness === WriteCompleteness::COMPLETE;
-    }
-
-    private static function hookFailedAfterWrite(RunStep $step): ?bool
-    {
-        if (!property_exists($step, 'hookFailedAfterWrite')) {
-            return null;
-        }
-
-        $flag = $step->hookFailedAfterWrite;
-
-        return is_bool($flag) ? $flag : null;
     }
 }
