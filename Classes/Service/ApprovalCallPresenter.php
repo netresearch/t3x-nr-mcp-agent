@@ -134,7 +134,7 @@ final readonly class ApprovalCallPresenter
      * The record and fields the write names, from nr-llm's `pendingTarget`
      * (nr-llm PR 1024), with the table's and the fields' labels from the TCA in
      * the reader's language: schema labels, no record content. Null without a
-     * target — a create, a tool that names none, an nr-llm before 0.41.
+     * target — a create, or a tool that names none.
      *
      * @return array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>}|null
      */

@@ -27,32 +27,6 @@ parameters:
           path: ../../Classes/Document/Extractor/XlsxExtractor.php
         - identifier: argument.type
           path: ../../Classes/Document/Extractor/XlsxExtractor.php
-        # nr-llm 0.41 (ADR-214, nr-llm PR 1024) adds ApprovalDenialReason, the
-        # decision's denialReason and the guarded cancel. The adapters check for
-        # them at runtime, so they work on nr-llm before and after 0.41: the
-        # first entries cover the symbols an earlier nr-llm lacks, the
-        # alwaysTrue/alreadyNarrowedType ones the same checks against 0.41.
-        # Drop the checks and these entries once the lock requires 0.41.
-        # nr-llm 0.41 (ADR-214, nr-llm PRs 1023 and 1024): a pending call's
-        # target and a write step's completeness, read by the open-point
-        # adapters (ADR-022). Same rule as above, in both directions.
-        - identifier: function.impossibleType
-          path: ../../Classes/Service/OpenPoint/ApprovedCallReading.php
-          reportUnmatched: false
-        - identifier: class.notFound
-          path: ../../Classes/Service/OpenPoint/ApprovedCallReading.php
-          reportUnmatched: false
-        - identifier: function.alreadyNarrowedType
-          path: ../../Classes/Service/OpenPoint/ApprovedCallReading.php
-          reportUnmatched: false
-        # A structured preview on nr-llm's PendingCallView is being added
-        # (ADR-023); the seam reads it where it exists.
-        - identifier: function.impossibleType
-          path: ../../Classes/Service/StructuredPreview.php
-          reportUnmatched: false
-        - identifier: function.alreadyNarrowedType
-          path: ../../Classes/Service/StructuredPreview.php
-          reportUnmatched: false
 
 services:
     -

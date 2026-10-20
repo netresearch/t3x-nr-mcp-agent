@@ -17,10 +17,10 @@ use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
  * now, the proposed value and, where nr-llm measured it, its length against
  * the configured range.
  *
- * Read from `PendingCallView::structuredPreviewArray()` where nr-llm has it
- * (nr-llm PR 1036). Without it, without entries, or with an entry that is not
- * shaped as nr-llm documents it, the card shows the preview lines as nr-llm
- * wrote them. Nothing is ever parsed from those lines.
+ * Read from `PendingCallView::structuredPreviewArray()` (nr-llm PR 1036).
+ * Without entries, or with an entry that is not shaped as nr-llm documents
+ * it, the card shows the preview lines as nr-llm wrote them. Nothing is ever
+ * parsed from those lines.
  *
  * The values are raw: a rich-text field carries its stored HTML, and the
  * proposed value is model-chosen text. They pass through here unchanged and
@@ -35,12 +35,7 @@ final class StructuredPreview
      */
     public static function of(PendingCallView $call): ?array
     {
-        $read = [$call, 'structuredPreviewArray'];
-        if (!is_callable($read)) {
-            return null;
-        }
-
-        return self::fromEntries($read());
+        return self::fromEntries($call->structuredPreviewArray());
     }
 
     /**

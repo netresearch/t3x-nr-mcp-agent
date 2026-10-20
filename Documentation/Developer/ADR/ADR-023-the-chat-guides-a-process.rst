@@ -155,7 +155,7 @@ beside the floating panel shows, read from its URL while it matters.
 it through one class or interface and falls back:
 
 -   ``StructuredPreview`` reads ``PendingCallView::structuredPreviewArray()``
-    (nr-llm PR 1036). Without it: the preview lines.
+    (nr-llm PR 1036). Without entries: the preview lines.
 -   ``ProcessPinReleaseInterface`` releases the process pin of an ended
     process. ``ChatService`` implements it with nr-llm's
     ``AgentRuntimeInterface::endProcess()`` (ADR-228), as the run's
@@ -175,16 +175,9 @@ Consequences
 
 -   Two conversation columns, ``approval_card`` and ``card_outcomes``: run
     the database analyzer after upgrading.
--   **Needs nr-llm 0.41** for the target, the outcome and the guarded cancel
-    (nr-llm PRs 1023, 1024, 1025), and nr-llm PR 1036 for the structured
-    preview. On nr-llm 0.39 the block shows no target and the preview
-    lines, an approved write reads as *check* because no write states its
-    completeness, and a waiting run is withdrawn by reading its status and
-    cancelling it, with the race between the two that the guarded cancel
-    closes.
--   Until nr-llm can start a run with an invocation, the page choice,
-    *Andere Seite wählen* and the page switch stay hidden, and a process
-    skill on nr-llm 0.41 runs without its process.
+-   **Needs nr-llm 0.41** for the target, the outcome, the guarded cancel
+    (nr-llm PRs 1023, 1024, 1025) and the structured preview (nr-llm PR
+    1036).
 -   Suggested pages for the choice and *Nächste Seite prüfen* come from the
     dashboard's page suggestions and are not part of the chat yet.
 -   The three answers keep one meaning each. A context action, once one is

@@ -20,7 +20,7 @@ use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
  * process came back in, read from the result of that approval alone (item 9,
  * "Which reading applies"; ADR-023). The first tool step is the approved
  * call; the write step that follows it states the completeness and the
- * hook-failure flag (nr-llm PR 1023, first released in 0.41).
+ * hook-failure flag (nr-llm PR 1023).
  *
  * - Applied: the tool step is no error, and its write step says COMPLETE
  *   without the hook-failure flag.
@@ -32,9 +32,6 @@ use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
  *   write without the flag, or no write step on a run that did not abort.
  *
  * Null when the result holds no tool step: the call did not run.
- *
- * On an nr-llm before 0.41 no write states its completeness, so an approved
- * write reads as "check".
  */
 final class ApprovedCallReading
 {
@@ -88,35 +85,14 @@ final class ApprovedCallReading
                 : ProposalOutcome::NotApplied;
         }
 
-        if (self::hookFailedAfterWrite($writeStep)) {
+        if ($writeStep->hookFailedAfterWrite === true) {
             return ProposalOutcome::Check;
         }
 
-        return match (self::completeness($writeStep)) {
-            'complete' => ProposalOutcome::Applied,
-            'partial'  => ProposalOutcome::NotApplied,
-            default    => ProposalOutcome::Check,
+        return match ($writeStep->writeCompleteness) {
+            WriteCompleteness::COMPLETE => ProposalOutcome::Applied,
+            WriteCompleteness::PARTIAL  => ProposalOutcome::NotApplied,
+            null                        => ProposalOutcome::Check,
         };
-    }
-
-    /**
-     * The write step's completeness, null when it states none.
-     */
-    private static function completeness(RunStep $step): ?string
-    {
-        if (!enum_exists(WriteCompleteness::class) || !property_exists($step, 'writeCompleteness')) {
-            return null;
-        }
-
-        return match ($step->writeCompleteness) {
-            WriteCompleteness::COMPLETE => 'complete',
-            WriteCompleteness::PARTIAL  => 'partial',
-            default                     => null,
-        };
-    }
-
-    private static function hookFailedAfterWrite(RunStep $step): bool
-    {
-        return property_exists($step, 'hookFailedAfterWrite') && $step->hookFailedAfterWrite === true;
     }
 }

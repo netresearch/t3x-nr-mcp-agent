@@ -381,14 +381,10 @@ final class ChatApiControllerInputTest extends TestCase
     #[Test]
     public function aProcessCardsCallTravelsWithTheDecision(): void
     {
-        $call = property_exists(PendingCallView::class, 'pendingTarget')
-            ? new PendingCallView('update_page_metadata', '{}', true, pendingTarget: new PendingWriteTarget(new RecordReference('pages', 3), ['description']))
-            : new PendingCallView('update_page_metadata', '{}', true);
+        $call = new PendingCallView('update_page_metadata', '{}', true, pendingTarget: new PendingWriteTarget(new RecordReference('pages', 3), ['description']));
         $this->approver(new WaitingRunView('run-uuid-1234', WaitingRunView::MODE_APPROVAL, 0, 'Chat', 'digest-abc', [$call]));
         $this->chatApproval->method('offersProcessAnswers')->willReturn(true);
-        $expected = property_exists(PendingCallView::class, 'pendingTarget')
-            ? ['tool' => 'update_page_metadata', 'table' => 'pages', 'uid' => 3, 'fields' => ['description']]
-            : ['tool' => 'update_page_metadata', 'table' => '', 'uid' => 0, 'fields' => []];
+        $expected = ['tool' => 'update_page_metadata', 'table' => 'pages', 'uid' => 3, 'fields' => ['description']];
         $this->chatApproval->expects(self::once())->method('recordDecision')
             ->with(self::anything(), true, 'digest-abc', null, '', $expected)
             ->willReturn(true);

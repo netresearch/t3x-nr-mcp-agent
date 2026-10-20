@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Netresearch\NrLlm\Domain\ValueObject\FieldMeasure;
+use Netresearch\NrLlm\Domain\ValueObject\FieldProposal;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
@@ -60,13 +62,6 @@ final class ApprovalProposalTest extends TestCase
         return $language;
     }
 
-    private function requireTarget(): void
-    {
-        if (!property_exists(PendingCallView::class, 'pendingTarget')) {
-            self::markTestSkipped('Needs nr-llm 0.41 (PendingCallView::$pendingTarget, nr-llm PR 1024).');
-        }
-    }
-
     /**
      * @return array<string, mixed>
      */
@@ -78,7 +73,6 @@ final class ApprovalProposalTest extends TestCase
     #[Test]
     public function theAffectedRecordIsNrLlmsTargetWithTheSchemasLabels(): void
     {
-        $this->requireTarget();
         $call = new PendingCallView('update_page_metadata', '{}', true, ['Seite: „Home“'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 10002), ['title', 'description']));
 
         self::assertSame(
@@ -91,14 +85,12 @@ final class ApprovalProposalTest extends TestCase
     #[Test]
     public function aWriteWithoutATargetAffectsNothingNamed(): void
     {
-        $call = property_exists(PendingCallView::class, 'pendingTarget')
-            ? new PendingCallView('create_page_draft', '{}', true, ['Neue Seite'], pendingTarget: null)
-            : new PendingCallView('create_page_draft', '{}', true, ['Neue Seite']);
+        $call = new PendingCallView('create_page_draft', '{}', true, ['Neue Seite']);
 
         self::assertNull($this->present($call)['affected']);
     }
 
-    /** No nr-llm carries a structured preview yet: the card shows the lines. */
+    /** A view without a structured preview: the card shows the lines. */
     #[Test]
     public function withoutAStructuredPreviewTheLinesStay(): void
     {
@@ -169,14 +161,8 @@ final class ApprovalProposalTest extends TestCase
     #[Test]
     public function thePresenterPassesOnNrLlmsStructuredPreview(): void
     {
-        if (!method_exists(PendingCallView::class, 'structuredPreviewArray')) {
-            self::markTestSkipped('Needs nr-llm with PendingCallView::structuredPreviewArray() (nr-llm PR 1036).');
-        }
-
-        $proposal = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldProposal';
-        $measure  = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldMeasure';
-        $call     = new PendingCallView('update_page_metadata', '{}', true, ['Seite: „Home“'], structuredPreview: [
-            new $proposal('description', 'Beschreibung', null, '<script>alert(1)</script>', new $measure(25, 140, 160)),
+        $call = new PendingCallView('update_page_metadata', '{}', true, ['Seite: „Home“'], structuredPreview: [
+            new FieldProposal('description', 'Beschreibung', null, '<script>alert(1)</script>', new FieldMeasure(25, 140, 160)),
         ]);
 
         self::assertSame(
@@ -189,13 +175,8 @@ final class ApprovalProposalTest extends TestCase
     #[Test]
     public function aFailedPreviewShowsNoStructure(): void
     {
-        if (!method_exists(PendingCallView::class, 'structuredPreviewArray')) {
-            self::markTestSkipped('Needs nr-llm with PendingCallView::structuredPreviewArray() (nr-llm PR 1036).');
-        }
-
-        $proposal = 'Netresearch\\NrLlm\\Domain\\ValueObject\\FieldProposal';
-        $call     = new PendingCallView('update_page_metadata', '{}', true, ['Keine Vorschau'], previewFailed: true, structuredPreview: [
-            new $proposal('description', 'Beschreibung', null, 'Neu'),
+        $call = new PendingCallView('update_page_metadata', '{}', true, ['Keine Vorschau'], previewFailed: true, structuredPreview: [
+            new FieldProposal('description', 'Beschreibung', null, 'Neu'),
         ]);
 
         self::assertNull($this->present($call)['structured']);

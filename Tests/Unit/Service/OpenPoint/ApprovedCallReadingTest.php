@@ -44,17 +44,6 @@ final class ApprovedCallReadingTest extends TestCase
         return new AgentRunResult($outcome, 'run-1', array_values($steps));
     }
 
-    private function requireCompleteness(bool $present): void
-    {
-        if (property_exists(RunStep::class, 'writeCompleteness') !== $present) {
-            self::markTestSkipped($present
-                ? 'Needs nr-llm 0.41 (RunStep::$writeCompleteness, nr-llm PR 1023).'
-                : 'Pins the reading on an nr-llm whose write steps state no completeness.');
-        }
-    }
-
-    // ---- independent of nr-llm's version -----------------------------------
-
     #[Test]
     public function aCallThatDidNotRunHasNoReading(): void
     {
@@ -94,17 +83,15 @@ final class ApprovedCallReadingTest extends TestCase
         self::assertSame(ProposalOutcome::NotApplied, ApprovedCallReading::of($this->runResult(AgentRunOutcome::COMPLETED, $this->tool(), $this->tool(), $this->plainWrite())));
     }
 
-    // ---- nr-llm before 0.41: no write states its completeness ---------------
+    // ---- a write step that states no completeness ---------------------------
 
     #[Test]
     public function aWriteThatStatesNoCompletenessIsToBeChecked(): void
     {
-        $this->requireCompleteness(false);
-
         self::assertSame(ProposalOutcome::Check, ApprovedCallReading::of($this->runResult(AgentRunOutcome::COMPLETED, $this->tool(), $this->plainWrite())));
     }
 
-    // ---- nr-llm 0.41 ---------------------------------------------------------
+    // ---- a write step that states its completeness ---------------------------
 
     private function write(?WriteCompleteness $completeness, bool $hookFailed = false): RunStep
     {
@@ -121,16 +108,12 @@ final class ApprovedCallReadingTest extends TestCase
     #[Test]
     public function aCompleteWriteIsApplied(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertSame(ProposalOutcome::Applied, ApprovedCallReading::of($this->runResult(AgentRunOutcome::COMPLETED, $this->tool(), $this->write(WriteCompleteness::COMPLETE))));
     }
 
     #[Test]
     public function aPartialWriteIsNotApplied(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertSame(ProposalOutcome::NotApplied, ApprovedCallReading::of($this->runResult(AgentRunOutcome::COMPLETED, $this->tool(), $this->write(WriteCompleteness::PARTIAL))));
     }
 
@@ -138,8 +121,6 @@ final class ApprovedCallReadingTest extends TestCase
     #[Test]
     public function aHookFailureAfterTheWriteIsToBeChecked(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertSame(ProposalOutcome::Check, ApprovedCallReading::of($this->runResult(AgentRunOutcome::COMPLETED, $this->tool(), $this->write(WriteCompleteness::COMPLETE, hookFailed: true))));
         self::assertSame(ProposalOutcome::Check, ApprovedCallReading::of($this->runResult(AgentRunOutcome::COMPLETED, $this->tool(), $this->write(WriteCompleteness::PARTIAL, hookFailed: true))));
     }
@@ -147,8 +128,6 @@ final class ApprovedCallReadingTest extends TestCase
     #[Test]
     public function aWriteWhoseToolStatedNoCompletenessIsToBeChecked(): void
     {
-        $this->requireCompleteness(true);
-
         self::assertSame(ProposalOutcome::Check, ApprovedCallReading::of($this->runResult(AgentRunOutcome::COMPLETED, $this->tool(), $this->write(null))));
     }
 }

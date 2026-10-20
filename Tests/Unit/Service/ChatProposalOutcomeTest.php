@@ -101,7 +101,7 @@ final class ChatProposalOutcomeTest extends TestCase
         );
     }
 
-    /** The approved call's tool step and write step, as nr-llm before 0.41 writes them. */
+    /** The approved call's tool step and a write step that states no completeness. */
     private function writeSteps(): array
     {
         return [
@@ -120,8 +120,8 @@ final class ChatProposalOutcomeTest extends TestCase
 
         $outcomes = $conversation->getCardOutcomes();
         self::assertCount(1, $outcomes);
-        // nr-llm before 0.41 states no completeness: "check"; 0.41 with an
-        // unstated completeness reads the same (ApprovedCallReadingTest).
+        // A write step that states no completeness reads as "check"
+        // (ApprovedCallReadingTest).
         self::assertSame('check', $outcomes[0]['outcome']);
         self::assertSame(2, $outcomes[0]['after'], "before the model's answer, which is message 3");
         self::assertSame('pages', $outcomes[0]['table']);
