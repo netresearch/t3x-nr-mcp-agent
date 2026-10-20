@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Functional\Service;
 
+use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\NrLlmUnavailableToolsReader;
 use Netresearch\NrMcpAgent\Service\NrLlmWaitingRunCanceller;
@@ -53,5 +54,14 @@ final class ChatServiceWiringTest extends FunctionalTestCase
         $canceller = (new ReflectionProperty(ChatService::class, 'runCanceller'))->getValue($this->get(ChatService::class));
 
         self::assertInstanceOf(NrLlmWaitingRunCanceller::class, $canceller);
+    }
+
+    /** The × ends the process in nr-llm through the chat service (ADR-023). */
+    #[Test]
+    public function theContainerHandsTheTourEndThePinRelease(): void
+    {
+        $release = (new ReflectionProperty(ChatApiController::class, 'pinRelease'))->getValue($this->get(ChatApiController::class));
+
+        self::assertInstanceOf(ChatService::class, $release);
     }
 }

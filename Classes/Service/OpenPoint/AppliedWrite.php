@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service\OpenPoint;
 
-use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
-use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
 
 /**
  * Whether the call an approved card released wrote everything it planned
@@ -21,7 +20,8 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
  * (`RunStep::$writeCompleteness` and `$hookFailedAfterWrite`, nr-llm PR
  * 1023). Applied means the tool step is no error and the write step says
  * COMPLETE without the hook-failure flag. A completeness that is not stated
- * is not applied.
+ * is not applied. The reading itself is {@see ApprovedCallReading}'s, so the
+ * open points and the chat's status line cannot disagree.
  */
 final class AppliedWrite
 {
@@ -30,30 +30,7 @@ final class AppliedWrite
      */
     public static function inSteps(array $steps): bool
     {
-        $toolStep = null;
-        foreach ($steps as $step) {
-            if (!$step instanceof RunStep) {
-                continue;
-            }
-
-            if (!$toolStep instanceof RunStep) {
-                if ($step->kind === RunStep::KIND_TOOL) {
-                    $toolStep = $step;
-                }
-
-                continue;
-            }
-
-            if ($step->kind === RunStep::KIND_TOOL) {
-                break;
-            }
-
-            if ($step->kind === RunStep::KIND_WRITE) {
-                return self::isApplied($toolStep->toolIsError, $step->writeCompleteness === WriteCompleteness::COMPLETE, $step->hookFailedAfterWrite);
-            }
-        }
-
-        return false;
+        return ApprovedCallReading::ofSteps($steps, null) === ProposalOutcome::Applied;
     }
 
     /**

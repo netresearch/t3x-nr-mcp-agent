@@ -58,8 +58,10 @@ use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessRefusal;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
+use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
 use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
+use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
@@ -80,7 +82,7 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * strong TYPO3-backend identity system prompt), and maps the run outcome back
  * onto the conversation. Tools are no longer sourced from MCP servers here.
  */
-final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface
+final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface, ProcessPinReleaseInterface
 {
     private const DECISION_APPROVE = 'approve';
 
@@ -742,7 +744,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * here: a check before the claim can pass on a turn a concurrent approval
      * has already replaced.
      */
-    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = ''): bool
+    public function recordDecision(Conversation $conversation, bool $approve, string $turnDigest, ?DenyReason $reason = null, string $display = '', ?array $card = null): bool
     {
         if ($conversation->getApprovalRunUuid() === ''
             || $conversation->getStatus() !== ConversationStatus::AwaitingApproval
@@ -756,6 +758,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // think they own the row.
         $conversation->setStatus(ConversationStatus::Processing);
         $conversation->recordApprovalDecision($approve, $turnDigest, $reason);
+        // A process card's tool and target travel with the decision, so the
+        // worker can record what became of the proposal (ADR-023).
+        $conversation->setApprovalCard($card);
         // "Andere Variante" or "Überspringen" stays in the transcript, so the
         // next turn knows what was asked for even while nr-llm's denial result
         // cannot carry the reason. Taken out again on a hand-back.
@@ -928,6 +933,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The card the decision answers, read before nr-llm acts on it: an
         // open point is keyed by what that card showed (ADR-022).
         $denyReason = $conversation->getApprovalDenyReason();
+        $card       = $conversation->getApprovalCard();
         $cardTarget = $this->openPoints?->cardTarget(
             $conversation,
             $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid),
@@ -1004,6 +1010,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             ]);
         }
 
+        // What became of a proposal of a guided process, for the chat's own
+        // status line and summary (ADR-023), before the model's answer lands.
+        $outcome = match (true) {
+            $approved                           => ApprovedCallReading::of($result),
+            $denyReason === DenyReason::Skip    => ProposalOutcome::Skipped,
+            $denyReason === DenyReason::Variant => ProposalOutcome::Variant,
+            default                             => null,
+        };
+        if ($card !== null && $outcome instanceof ProposalOutcome) {
+            $conversation->appendCardOutcome($outcome, $card);
+        }
+
         $conversation->clearApprovalDecision();
         $this->applyResult($conversation, $result);
     }
@@ -1042,7 +1060,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $conversation->withdrawDecision();
         if ($stopped) {
             // Idle clears the run's reference with the other approval fields.
+            // The process has ended: its skill and its header go too, as when
+            // the editor ends it (ADR-023); what was applied stays.
+            // No later turn names the run as its predecessor, and nr-llm is
+            // told the process ended, so its pin is released there too.
             $conversation->setStatus(ConversationStatus::Idle);
+            $this->clearSkill($conversation);
+            $conversation->setGuidedState(null, null);
+            $conversation->setLastRunUuid('');
         } else {
             $conversation->setStatus($waiting);
             $conversation->setApprovalRunUuid($runUuid);
@@ -1050,6 +1075,44 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         $conversation->setErrorMessage('', $code);
         $this->persist($conversation);
+
+        if ($stopped) {
+            $this->endProcessOf($runUuid, $conversation->getBeUser());
+        }
+    }
+
+    /**
+     * The editor ended the guided process (ADR-023): nr-llm releases the
+     * process pin of the run that holds it (`endProcess()`, nr-llm ADR-228),
+     * so the server says the process ended as the chat does. The run is the
+     * conversation's last run, which the next turn would have continued.
+     */
+    public function release(Conversation $before): void
+    {
+        $runUuid = $before->getLastRunUuid() !== '' ? $before->getLastRunUuid() : $before->getApprovalRunUuid();
+        $this->endProcessOf($runUuid, $before->getBeUser());
+    }
+
+    /**
+     * nr-llm's end of the process, as the run's initiator. A failure is
+     * logged and nothing else: the chat has already ended the process, and
+     * the editor needs no second message about the server's part.
+     */
+    private function endProcessOf(string $runUuid, int $beUserUid): void
+    {
+        if ($runUuid === '') {
+            return;
+        }
+
+        try {
+            $this->agentRuntime->endProcess($this->resolveActor($beUserUid), $runUuid);
+        } catch (Throwable $e) {
+            $this->logger?->warning('nr-llm did not end the process of run {run}: {message}', [
+                'run'       => $runUuid,
+                'message'   => $e->getMessage(),
+                'exception' => $e,
+            ]);
+        }
     }
 
     private function currentBackendUserUid(): int
@@ -1185,6 +1248,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * in their language rendered from the reason, and the model does not see
      * the line ({@see self::buildLlmMessages()}). A dropped process records
      * no lineage, so the next turn continues none and the line appears once.
+     *
+     * The process has ended, so its skill and its header go, as when the
+     * editor ends it (ADR-023); what was applied stays.
      */
     private function noteDroppedProcess(Conversation $conversation, AgentRunResult $result): void
     {
@@ -1201,6 +1267,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                         self::NOTICE_PROCESS_DROPPED,
                         [$dropped->reason->value],
                     );
+                    $this->clearSkill($conversation);
+                    $conversation->setGuidedState(null, null);
 
                     return;
                 }
@@ -1713,5 +1781,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private function persist(Conversation $conversation): void
     {
         $this->repository->update($conversation);
+    }
+
+    /**
+     * The guided process ended: the conversation's skill goes, in memory and
+     * in its own column (ADR-019), which the row write leaves alone.
+     */
+    private function clearSkill(Conversation $conversation): void
+    {
+        $conversation->setSkillIdentifier('', 0);
+        $this->repository->updateSkillIdentifier($conversation->getUid(), '', $conversation->getBeUser());
     }
 }

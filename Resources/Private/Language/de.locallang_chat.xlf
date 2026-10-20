@@ -207,6 +207,78 @@
                 <source>Skip</source>
                 <target>Überspringen</target>
             </trans-unit>
+            <trans-unit id="chat.approvalApply" resname="chat.approvalApply">
+                <source>Apply</source>
+                <target>Übernehmen</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalAffected" resname="chat.proposalAffected">
+                <source>Affected</source>
+                <target>Betroffen</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalCurrent" resname="chat.proposalCurrent">
+                <source>Current</source>
+                <target>Aktuell</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalProposed" resname="chat.proposalProposed">
+                <source>Proposed</source>
+                <target>Vorschlag</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalEmpty" resname="chat.proposalEmpty">
+                <source>(empty)</source>
+                <target>(leer)</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalLength" resname="chat.proposalLength">
+                <source>Length</source>
+                <target>Länge</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalCharacters" resname="chat.proposalCharacters">
+                <source>characters</source>
+                <target>Zeichen</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalTarget" resname="chat.proposalTarget">
+                <source>target</source>
+                <target>Ziel</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalOutOfRange" resname="chat.proposalOutOfRange">
+                <source>outside the target</source>
+                <target>außerhalb des Ziels</target>
+            </trans-unit>
+            <trans-unit id="chat.outcomeApplied" resname="chat.outcomeApplied">
+                <source>saved.</source>
+                <target>gespeichert.</target>
+            </trans-unit>
+            <trans-unit id="chat.outcomeCheck" resname="chat.outcomeCheck">
+                <source>Saved, please check:</source>
+                <target>Gespeichert, bitte prüfen:</target>
+            </trans-unit>
+            <trans-unit id="chat.outcomeNotApplied" resname="chat.outcomeNotApplied">
+                <source>Not saved:</source>
+                <target>Nicht gespeichert:</target>
+            </trans-unit>
+            <trans-unit id="chat.outcomeChange" resname="chat.outcomeChange">
+                <source>Change</source>
+                <target>Änderung</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryLabel" resname="chat.summaryLabel">
+                <source>Summary of the guided process</source>
+                <target>Zusammenfassung des Rundgangs</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryApplied" resname="chat.summaryApplied">
+                <source>Applied</source>
+                <target>Übernommen</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryCheck" resname="chat.summaryCheck">
+                <source>Applied – please check</source>
+                <target>Übernommen – bitte prüfen</target>
+            </trans-unit>
+            <trans-unit id="chat.summarySkipped" resname="chat.summarySkipped">
+                <source>Skipped</source>
+                <target>Übersprungen</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryNotApplied" resname="chat.summaryNotApplied">
+                <source>Not saved</source>
+                <target>Nicht gespeichert</target>
+            </trans-unit>
             <trans-unit id="chat.approvalDeniedVariant" resname="chat.approvalDeniedVariant">
                 <source>Not carried out — another variant is asked for.</source>
                 <target>Nicht ausgeführt — eine andere Variante ist angefragt.</target>
@@ -439,7 +511,7 @@
             </trans-unit>
             <trans-unit id="attachment.notSupported" resname="attachment.notSupported">
                 <source>Your LLM model does not support file attachments</source>
-                <target>Ihr LLM-Modell unterstützt keine Dateianhänge</target>
+                <target>Dein LLM-Modell unterstützt keine Dateianhänge</target>
             </trans-unit>
             <trans-unit id="attachment.tooLarge" resname="attachment.tooLarge">
                 <source>File too large (max %d MB)</source>
@@ -666,6 +738,58 @@
             <trans-unit id="guided.completed" resname="guided.completed">
                 <source>done</source>
                 <target>abgeschlossen</target>
+            </trans-unit>
+            <trans-unit id="guided.choosePage" resname="guided.choosePage">
+                <source>Choose a page</source>
+                <target>Seite wählen</target>
+            </trans-unit>
+            <trans-unit id="guided.choosePageHint" resname="guided.choosePageHint">
+                <source>Select the page to check in the page tree, then confirm it here.</source>
+                <target>Wähle im Seitenbaum die Seite, die geprüft werden soll, und bestätige sie hier.</target>
+            </trans-unit>
+            <trans-unit id="guided.checkPage" resname="guided.checkPage">
+                <source>Check this page</source>
+                <target>Diese Seite prüfen</target>
+            </trans-unit>
+            <trans-unit id="guided.chooseAnotherPage" resname="guided.chooseAnotherPage">
+                <source>Choose another page</source>
+                <target>Andere Seite wählen</target>
+            </trans-unit>
+            <trans-unit id="guided.finish" resname="guided.finish">
+                <source>Done</source>
+                <target>Fertig</target>
+            </trans-unit>
+            <trans-unit id="guided.toDashboard" resname="guided.toDashboard">
+                <source>Go to the dashboard</source>
+                <target>Zum Dashboard</target>
+            </trans-unit>
+            <trans-unit id="guided.pageChanged" resname="guided.pageChanged">
+                <source>Another page selected</source>
+                <target>Andere Seite ausgewählt</target>
+            </trans-unit>
+            <trans-unit id="guided.switchPage" resname="guided.switchPage">
+                <source>Switch to the new page</source>
+                <target>Zur neuen Seite wechseln</target>
+            </trans-unit>
+            <trans-unit id="guided.keepPage" resname="guided.keepPage">
+                <source>Stay with “%s”</source>
+                <target>Bei „%s“ bleiben</target>
+            </trans-unit>
+            <trans-unit id="guided.endTour" resname="guided.endTour">
+                <source>End tour</source>
+                <target>Rundgang beenden</target>
+            </trans-unit>
+            <trans-unit id="guided.analysing" resname="guided.analysing">
+                <source>Analysing</source>
+                <target>Analyse läuft</target>
+            </trans-unit>
+            <trans-unit id="highlight.label" resname="highlight.label">
+                <source>Concerns the current proposal</source>
+                <target>Betrifft den aktuellen Vorschlag</target>
+            </trans-unit>
+            <trans-unit id="guided.highlightAnnounced" resname="guided.highlightAnnounced">
+                <source>Marked in the page module: content element</source>
+                <target>Im Seitenmodul markiert: Inhaltselement</target>
             </trans-unit>
             <trans-unit id="error.pageNotAccessible" resname="error.pageNotAccessible">
                 <source>You may not open this page, so no conversation was started about it.</source>

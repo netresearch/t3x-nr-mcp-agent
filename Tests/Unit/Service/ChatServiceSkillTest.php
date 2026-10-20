@@ -252,6 +252,24 @@ final class ChatServiceSkillTest extends TestCase
         self::assertNull($this->lastRequest()->invocation);
     }
 
+    /**
+     * After the × the conversation keeps no last run (ADR-023). A process
+     * skill picked again, where no invocation can be built, then continues
+     * nothing instead of the ended process.
+     */
+    #[Test]
+    public function aProcessPickedAgainAfterTheEndContinuesNothing(): void
+    {
+        $invocation = $this->createMock(SkillInvocationInterface::class);
+        $invocation->method('withInvocation')->willReturn(null);
+        $conversation = $this->conversation('seo-page-tour');
+        $conversation->setSkillStartPending(true);
+
+        $this->service($this->catalogue(), $invocation)->processConversation($conversation);
+
+        self::assertSame('', $this->lastRequest()->predecessorRunUuid);
+    }
+
     #[Test]
     public function aConversationWithoutASkillNamesNoPredecessor(): void
     {
@@ -382,10 +400,45 @@ final class ChatServiceSkillTest extends TestCase
         $dropped        = new RunStep(RunStep::KIND_DROPPED, 0, 0.0, droppedSources: [new DroppedSource('skill', 3, DroppedSourceReason::DEACTIVATED)]);
         $this->outcomes = [self::completed('run-1', [$dropped])];
         $conversation   = $this->conversation('seo-page-tour', 'run-0');
+        $this->repository->expects(self::never())->method('updateSkillIdentifier');
 
         $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($conversation);
 
         self::assertCount(2, $conversation->getDecodedMessages());
+        self::assertSame('seo-page-tour', $conversation->getSkillIdentifier(), 'a dropped skill pin is no ended process');
+    }
+
+    /**
+     * @return iterable<string, array{DroppedSourceReason}>
+     */
+    public static function processDropReasons(): iterable
+    {
+        yield 'detached' => [DroppedSourceReason::DETACHED];
+        yield 'configuration changed' => [DroppedSourceReason::CONFIGURATION_CHANGED];
+        yield 'predecessor gone' => [DroppedSourceReason::PREDECESSOR_GONE];
+        yield 'refused too often' => [DroppedSourceReason::REFUSED_TOO_OFTEN];
+    }
+
+    /**
+     * ADR-023: a process nr-llm let go has ended, as when the editor ends
+     * it — the skill and the header go, so the header does not stay up for
+     * a process no later turn continues.
+     */
+    #[Test]
+    #[DataProvider('processDropReasons')]
+    public function aDroppedProcessEndsTheSkillAndTheHeader(DroppedSourceReason $reason): void
+    {
+        $dropped        = new RunStep(RunStep::KIND_DROPPED, 0, 0.0, droppedSources: [new DroppedSource('process', 0, $reason)]);
+        $this->outcomes = [self::completed('run-1', [$dropped])];
+        $conversation   = $this->conversation('seo-page-tour', 'run-0');
+        $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], ['table' => 'tt_content', 'uid' => 100]);
+        $this->repository->expects(self::once())->method('updateSkillIdentifier')->with($conversation->getUid(), '', $conversation->getBeUser());
+
+        $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($conversation);
+
+        self::assertSame('', $conversation->getSkillIdentifier());
+        self::assertSame(['progress' => null, 'highlight' => null], $conversation->getGuidedState());
+        self::assertSame([$reason->value], $conversation->getDecodedMessages()[1]['noticeArgs'] ?? null);
     }
 
     #[Test]

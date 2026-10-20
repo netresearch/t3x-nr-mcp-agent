@@ -8,7 +8,9 @@
  * The contract, and nothing else is accepted:
  *
  *   {type: 'nr-mcp-agent:highlight', version: 1, table: 'tt_content', uid: <positive integer>}
+ *   {type: 'nr-mcp-agent:highlight', version: 1, clear: true}
  *
+ * The second removes the mark, when the guided process has ended (ADR-023).
  * from the same origin, posted by the window that holds this frame — the
  * backend window with the chat panel. The element is found by the id TYPO3
  * gives every content element in the page module (`element-tt_content-<uid>`
@@ -18,7 +20,11 @@
 export const HIGHLIGHT_MESSAGE = 'nr-mcp-agent:highlight';
 
 const HIGHLIGHT_CLASS = 'nr-mcp-agent-highlight';
+const LABEL_CLASS = 'nr-mcp-agent-highlight-label';
 const STYLE_ID = 'nr-mcp-agent-highlight-style';
+
+/** The badge's text when the page module has no label for it (ADR-023). */
+const FALLBACK_LABEL = 'Concerns the current proposal';
 
 /**
  * @param {MessageEvent} event
@@ -31,6 +37,10 @@ export function handleHighlightMessage(event, win = globalThis) {
     }
 
     const data = event.data;
+    if (data?.type === HIGHLIGHT_MESSAGE && data.version === 1 && data.clear === true) {
+        clearHighlight(win.document);
+        return true;
+    }
     if (data?.type !== HIGHLIGHT_MESSAGE || data.version !== 1 || data.table !== 'tt_content'
         || !Number.isInteger(data.uid) || data.uid <= 0) {
         return false;
@@ -40,14 +50,27 @@ export function handleHighlightMessage(event, win = globalThis) {
 }
 
 /**
- * Mark one content element and scroll it into view; the mark of the one
- * before is removed. Returns false when the page module does not show it.
+ * The badge's text: the page module's own label in the backend user's
+ * language (loaded by PageModuleHighlight), never anything from the message.
+ *
+ * @param {Document} doc
+ */
+export function highlightLabel(doc) {
+    const label = doc.defaultView?.TYPO3?.lang?.['highlight.label'];
+
+    return typeof label === 'string' && label !== '' ? label : FALLBACK_LABEL;
+}
+
+/**
+ * Mark one content element with a frame and a fixed badge, and scroll it into
+ * view; the mark and badge of the one before are removed. Returns false when
+ * the page module does not show it.
  *
  * @param {Document} doc
  * @param {number} uid
  */
 export function highlightContentElement(doc, uid) {
-    doc.querySelectorAll(`.${HIGHLIGHT_CLASS}`).forEach((el) => el.classList.remove(HIGHLIGHT_CLASS));
+    clearHighlight(doc);
     const element = doc.getElementById(`element-tt_content-${uid}`);
     if (!element) {
         return false;
@@ -55,8 +78,22 @@ export function highlightContentElement(doc, uid) {
 
     ensureStyle(doc);
     element.classList.add(HIGHLIGHT_CLASS);
+    const badge = doc.createElement('span');
+    badge.className = LABEL_CLASS;
+    badge.textContent = highlightLabel(doc);
+    element.prepend(badge);
     element.scrollIntoView?.({block: 'center', behavior: 'smooth'});
     return true;
+}
+
+/**
+ * Remove the mark and the badge, wherever they are.
+ *
+ * @param {Document} doc
+ */
+export function clearHighlight(doc) {
+    doc.querySelectorAll(`.${HIGHLIGHT_CLASS}`).forEach((el) => el.classList.remove(HIGHLIGHT_CLASS));
+    doc.querySelectorAll(`.${LABEL_CLASS}`).forEach((el) => el.remove());
 }
 
 function ensureStyle(doc) {
@@ -66,7 +103,9 @@ function ensureStyle(doc) {
     const style = doc.createElement('style');
     style.id = STYLE_ID;
     // The backend's focus colour, so the mark follows the colour scheme.
-    style.textContent = `.${HIGHLIGHT_CLASS} { outline: 3px solid var(--typo3-component-focus-ring-color, Highlight); outline-offset: 2px; }`;
+    style.textContent = `.${HIGHLIGHT_CLASS} { outline: 3px solid var(--typo3-component-focus-ring-color, Highlight); outline-offset: 2px; }`
+        + ` .${LABEL_CLASS} { display: inline-block; margin: 0 0 4px; padding: 1px 6px; border-radius: 3px; font-size: 11px;`
+        + ` background: var(--typo3-component-focus-ring-color, Highlight); color: var(--typo3-component-primary-color-text, HighlightText); }`;
     doc.head.append(style);
 }
 

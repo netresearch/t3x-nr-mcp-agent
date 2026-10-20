@@ -242,3 +242,57 @@ describe('the waiting question in the activity list', () => {
         expect(entries.map((e) => e.label)).toEqual(['activity.waitingInput']);
     });
 });
+
+/**
+ * nr-llm's choice builtin `ask_choice` (nr-llm PR 1029): its options are the
+ * values and the labels, the answer is required, and the labels are the
+ * model's text. They render as text only; ten options of the longest length
+ * the tool allows stay buttons in the tab order.
+ */
+const LONG = 'Mit einem sehr langen Vorschlagstext, der die längste erlaubte Antwort von ask_choice ausschöpft und weiter geht bis zum Ende';
+const ASK_CHOICE = {
+    runUuid: 'run-uuid-1234',
+    turnDigest: 'digest-abc',
+    kind: 'choice',
+    question: 'Für die Seite gibt es kein Bild. Wie geht es weiter?',
+    options: [
+        '<img src="x" onerror="globalThis.__nrChoicePwned = true">',
+        'Ohne Bild weiter',
+        ...Array.from({length: 8}, (_, i) => `${i} ${LONG}`.slice(0, 120)),
+    ].map((o) => ({value: o, label: o})),
+    freeText: false,
+    fields: [],
+};
+
+describe.each(SURFACES)('$name choice of the choice builtin', ({module: modulePath, tag, open}) => {
+    beforeAll(() => {
+        document.body.replaceChildren();
+    });
+
+    test('every option is a button in the tab order, labelled with its text', async () => {
+        const el = await render(modulePath, tag, open, {pendingInput: ASK_CHOICE});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const buttons = [...el.shadowRoot.querySelectorAll('.reply-options [role="group"] button')];
+
+        expect(buttons).toHaveLength(10);
+        expect(buttons.every((b) => b.getAttribute('type') === 'button' && !b.hasAttribute('tabindex') && !b.disabled)).toBe(true);
+        expect(buttons.map((b) => b.textContent.trim())).toEqual(ASK_CHOICE.options.map((o) => o.label));
+        expect(el.shadowRoot.querySelector('.reply-options img')).toBeNull();
+        expect(globalThis.__nrChoicePwned).toBeUndefined();
+    });
+
+    test('the skip option sends itself as the answer', async () => {
+        const el = await render(modulePath, tag, open, {pendingInput: ASK_CHOICE});
+        const submit = jest.fn().mockResolvedValue({status: 'processing'});
+        el.chat._api.submitInput = submit;
+        el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
+
+        const skip = [...el.shadowRoot.querySelectorAll('.reply-options button')].find((b) => b.textContent.trim() === 'Ohne Bild weiter');
+        skip.focus();
+        expect(el.shadowRoot.activeElement).toBe(skip);
+        skip.click();
+        await el.updateComplete;
+
+        expect(submit).toHaveBeenCalledWith(1, 'digest-abc', {choice: 'Ohne Bild weiter'});
+    });
+});

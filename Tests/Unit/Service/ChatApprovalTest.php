@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\GuardedCancelResult;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
@@ -72,6 +73,14 @@ final class ChatApprovalTest extends TestCase
     private ?ApprovalDecision $capturedDecision = null;
 
     private ?string $capturedRunUuid = null;
+
+    /** @var list<array{int, string}> actor uid and run of each endProcess() call */
+    private array $endedProcesses = [];
+
+    private ?RuntimeException $endProcessFails = null;
+
+    /** @var list<array{int, string, int}> uid, identifier and owner of each write to the skill's own column */
+    private array $skillWrites = [];
 
     private function parkedConversation(string $runUuid = 'run-uuid-1234'): Conversation
     {
@@ -119,8 +128,22 @@ final class ChatApprovalTest extends TestCase
             },
         );
 
+        $agentRuntime->method('endProcess')->willReturnCallback(
+            function (AiActorContext $actor, string $runUuid): GuardedCancelResult {
+                $this->endedProcesses[] = [$actor->backendUserUid, $runUuid];
+                if ($this->endProcessFails instanceof RuntimeException) {
+                    throw $this->endProcessFails;
+                }
+
+                return new GuardedCancelResult(true, AgentRunStatus::CANCELLED);
+            },
+        );
+
         $repository = $this->createMock(ConversationRepository::class);
         $repository->method('updateIf')->willReturn($claimSucceeds);
+        $repository->method('updateSkillIdentifier')->willReturnCallback(function (int $uid, string $identifier, int $beUser): void {
+            $this->skillWrites[] = [$uid, $identifier, $beUser];
+        });
 
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
@@ -606,6 +629,139 @@ final class ChatApprovalTest extends TestCase
         self::assertFalse($conversation->isResumable());
         self::assertSame(ProcessStopReason::NeedsSecondApprover->value, $conversation->getErrorCode());
         self::assertSame('', $conversation->getErrorMessage());
+    }
+
+    /**
+     * A stopped run ends the guided process: its skill and its header go, as
+     * when the editor ends it (ADR-023). A run that still waits keeps both.
+     */
+    #[Test]
+    public function aStoppedProcessRunEndsTheTour(): void
+    {
+        $exception    = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $conversation = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+        $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], ['table' => 'tt_content', 'uid' => 9]);
+
+        $service = $this->createChatService($exception);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame('', $conversation->getSkillIdentifier());
+        self::assertSame(0, $conversation->getSkillUid());
+        self::assertSame(['progress' => null, 'highlight' => null], $conversation->getGuidedState());
+        self::assertSame([[$conversation->getUid(), '', 1]], $this->skillWrites, "the skill's own column is cleared too");
+    }
+
+    /**
+     * The stop ends the process in nr-llm too (ADR-023): endProcess() for the
+     * stopped run, as its initiator, and no later turn names it.
+     */
+    #[Test]
+    public function aStoppedProcessRunEndsTheProcessInNrLlm(): void
+    {
+        $exception    = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $conversation = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+        $conversation->setLastRunUuid('run-uuid-1234');
+
+        $service = $this->createChatService($exception);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame([[1, 'run-uuid-1234']], $this->endedProcesses);
+        self::assertSame('', $conversation->getLastRunUuid());
+    }
+
+    /** A failing endProcess() is logged; the stop still leaves the chat ended. */
+    #[Test]
+    public function aFailingEndProcessStillEndsTheTour(): void
+    {
+        $this->endProcessFails = new RuntimeException('nr-llm unavailable');
+        $exception             = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $conversation          = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+        $conversation->setLastRunUuid('run-uuid-1234');
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logged = [];
+        $logger->method('warning')->willReturnCallback(static function (string $message) use (&$logged): void {
+            $logged[] = $message;
+        });
+
+        $service = $this->createChatService($exception, logger: $logger);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame([[1, 'run-uuid-1234']], $this->endedProcesses);
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+        self::assertSame('', $conversation->getSkillIdentifier());
+        self::assertSame('', $conversation->getLastRunUuid());
+        self::assertSame(ProcessStopReason::NeedsSecondApprover->value, $conversation->getErrorCode());
+        self::assertContains('nr-llm did not end the process of run {run}: {message}', $logged);
+    }
+
+    /** The × goes through release(): the conversation's last run, as its initiator. */
+    #[Test]
+    public function releaseEndsTheProcessOfTheLastRun(): void
+    {
+        $before = $this->parkedConversation('run-waiting');
+        $before->setLastRunUuid('run-held');
+
+        $this->createChatService()->release($before);
+
+        self::assertSame([[1, 'run-held']], $this->endedProcesses);
+    }
+
+    #[Test]
+    public function releaseSwallowsAFailingEndProcess(): void
+    {
+        $this->endProcessFails = new RuntimeException('nr-llm unavailable');
+        $before                = $this->parkedConversation();
+        $before->setLastRunUuid('run-held');
+
+        $this->createChatService()->release($before);
+
+        self::assertSame([[1, 'run-held']], $this->endedProcesses);
+    }
+
+    /** A decision that is carried out normally ends no process. */
+    #[Test]
+    public function aNormalDecisionEndsNoProcess(): void
+    {
+        $conversation = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+
+        $service = $this->createChatService();
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame([], $this->endedProcesses);
+        self::assertSame('3:seo/page-tour', $conversation->getSkillIdentifier());
+        self::assertNotSame('', $conversation->getLastRunUuid());
+    }
+
+    #[Test]
+    public function aWaitingProcessRunKeepsTheTour(): void
+    {
+        $exception    = ProcessRefusalTest::raised(ProcessRefusal::VerdictUnavailable, 'run-uuid-1234');
+        $conversation = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+        $conversation->setGuidedState(['label' => 'SEO', 'current' => 2, 'total' => 5, 'completed' => false], null);
+
+        $service = $this->createChatService($exception);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame('3:seo/page-tour', $conversation->getSkillIdentifier());
+        self::assertSame(2, $conversation->getGuidedState()['progress']['current'] ?? null);
+        self::assertSame([], $this->endedProcesses, 'a run that still waits keeps its process in nr-llm');
+        self::assertSame([], $this->skillWrites, 'and its skill');
     }
 
     #[Test]

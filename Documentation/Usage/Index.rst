@@ -174,7 +174,8 @@ conversation's own, so reloading opens it again.
 Typing ``/`` at the start of the input lists the skills available in the
 chat. Pick one with the arrow keys and Enter, or with the mouse; nothing is
 sent. The conversation's skill is shown above the input, and the ``×``
-beside it removes it. Every later answer in the conversation uses it.
+beside it removes it; in a guided process about a page this ends the
+process (see below). Every later answer in the conversation uses it.
 
 When the chat's AI configuration needs a second person to approve every
 change, no skill can be started, and the chat says so: a guided process
@@ -202,15 +203,48 @@ Guided processes
 A skill can walk you through a page one point at a time. While it does:
 
 *   **The header shows where it stands** -- for example
-    "Über uns · Deutsch · Punkt 2 von 5". It changes when the assistant
+    "Über uns · Deutsch · Punkt 2 von 5": the page and its language from
+    the conversation, then the point. When space is short the page name is
+    shortened first; the point is always shown in full. Before the first
+    point the header says "Analyse läuft". It changes when the assistant
     stops to ask you or to propose a change, not while it works.
 *   **The element is highlighted.** With the floating panel open next to
     the page module, the content element the current point is about gets a
-    frame and is scrolled into view. The full-page chat module and the
-    popped-out panel have no page module beside them and only show the
-    progress.
+    frame and the label "Betrifft den aktuellen Vorschlag", and is scrolled
+    into view; a screen reader hears which element is marked. The full-page
+    chat module and the popped-out panel have no page module beside them and
+    only show the progress.
+*   **Each proposal shows its outcome.** A proposal is shown as a block with
+    what is affected and, where nr-llm provides it, the current and the
+    proposed value with its length. After you answer "Übernehmen", the chat
+    says itself whether the change was saved, saved but worth checking, or
+    not saved. At the end it summarises what was applied, what to check and
+    what you skipped.
 *   **The end is shown.** When the process is finished, the header says
     so and the highlight goes away.
+*   **At the end you choose what follows.** **Fertig** ends the process;
+    where the dashboard is installed, the chat links to it. Where the
+    process can be started anew (see below), **Andere Seite wählen** starts
+    it in a new conversation that asks for a page.
+*   **Another page in the page module is noticed.** When the page module
+    beside the floating panel shows another page than the process, the
+    chat says "Andere Seite ausgewählt". **Bei „<Seite>“ bleiben** keeps
+    the process and does not ask again for that page; where the process can
+    be started anew, **Zur neuen Seite wechseln** ends it and starts it on
+    the new page.
+*   **You can end it at any point.** The ``×`` beside the progress ends
+    the process, and so does removing the conversation's skill. A proposal
+    still waiting for your answer is withdrawn and changes nothing; changes
+    already applied stay, and so do the outcomes shown in the chat and the
+    open points. The highlight goes away and the input gets the focus. While
+    the assistant works or a decision is being carried out, the process
+    cannot be ended.
+*   **A decision that cannot be taken right now comes back.** When nr-llm
+    cannot check the process just then, the proposal stays and the chat
+    asks you to try again. When the AI configuration requires a second
+    person to approve every change, nr-llm ends the process at the first
+    decision: the chat says so, the proposal is not applied, and the
+    conversation can go on without the process.
 *   **Skipped proposals stay open.** A change you answer with **Skip** is
     kept as an open point of that page: the record and field it was about,
     never its text. The next time the process runs on the page, it is
@@ -218,6 +252,12 @@ A skill can walk you through a page one point at a time. While it does:
     field is applied in full, in any conversation; a change that was only
     partly applied leaves it open. A proposal you leave behind with a
     message of your own is not kept.
+
+A process started without a page asks for one: choose the page in the
+page tree, then confirm it with **Diese Seite prüfen** in the floating
+panel. This page choice, **Andere Seite wählen** and **Zur neuen Seite
+wechseln** are offered only where nr-llm can start a run with an
+invocation of the process; until it can, they stay hidden.
 
 None of this changes a record. An administrator can switch the tools behind
 it off as the tool group ``nr_mcp_agent``.

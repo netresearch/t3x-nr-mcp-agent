@@ -32,7 +32,11 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
+use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
+use Netresearch\NrMcpAgent\Service\TourContext;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -95,6 +99,11 @@ final readonly class ChatApiController
         // without a language check and without skills (ADR-019).
         private ?SiteFinder $siteFinder = null,
         private ?SkillCatalogueInterface $skills = null,
+        private ?TourContext $tourContext = null,
+        private ?ProcessPinReleaseInterface $pinRelease = null,
+        // Without it the chat offers no new start of a guided process: no
+        // page choice, no "Andere Seite wählen" (ADR-023).
+        private ?SkillInvocationInterface $skillInvocation = null,
     ) {}
 
     /**
@@ -414,6 +423,70 @@ final readonly class ChatApiController
     }
 
     /**
+     * POST /ai-chat/conversations/end-tour – the × of a guided process (ADR-023).
+     *
+     * Ends the tour the conversation runs: a run that waits on a proposal or a
+     * question is withdrawn through the guarded cancel (nr-llm ADR-214, item
+     * 10), the skill and the guided state are cleared, and the process pin is
+     * released where nr-llm can (ProcessPinReleaseInterface). Changes already
+     * applied stay: nothing here writes to a record. While a turn or a
+     * decision is being carried out, the tour cannot be ended (409); the same
+     * when the guarded cancel loses to a decision taken meanwhile, and then the
+     * row goes back to what it was.
+     */
+    public function endTour(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $body         = $this->parseBody($request);
+        $conversation = $this->findConversationOrFail($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $current = $conversation->getStatus();
+        if ($this->isBusy($current)) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        if ($conversation->getSkillIdentifier() === '') {
+            return new JsonResponse(['status' => $current->value, 'skill' => null]);
+        }
+
+        $before  = clone $conversation;
+        $waiting = $current === ConversationStatus::AwaitingApproval || $current === ConversationStatus::AwaitingInput;
+        $conversation->setSkillIdentifier('', 0);
+        $conversation->setGuidedState(null, null);
+        // No later turn continues the ended process from its run.
+        $conversation->setLastRunUuid('');
+        if ($waiting) {
+            $conversation->setStatus(ConversationStatus::Idle);
+            $conversation->setApprovalRunUuid('');
+            $conversation->clearApprovalDecision();
+            $conversation->setErrorMessage('');
+        }
+
+        if (!$this->repository->updateIf($conversation, $current)) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        if ($waiting && !$this->chatApproval->releasePendingRun($before)) {
+            $this->repository->updateIf($before, ConversationStatus::Idle);
+
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        // The skill has its own column (ADR-019); the row write above leaves it.
+        $this->repository->updateSkillIdentifier($conversation->getUid(), '', $this->getBeUserUid());
+        $this->pinRelease?->release($before);
+
+        return new JsonResponse(['status' => $conversation->getStatus()->value, 'skill' => null]);
+    }
+
+    /**
      * The conversation's skill as the chat shows it: identifier and name, the
      * name falling back to the identifier when the catalogue does not list it.
      *
@@ -514,10 +587,61 @@ final readonly class ChatApiController
             'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
             'systemPrompt'     => $conversation->getSystemPrompt(),
             // Progress for the header and the element to highlight (ADR-020).
-            'guided'   => $conversation->getGuidedState(),
-            'skill'    => $this->presentSkill($conversation),
-            'activity' => $conversation->getActivity(),
+            'guided' => $conversation->getGuidedState(),
+            // What became of each proposal of the guided process, for the
+            // chat's own status lines and summary (ADR-023).
+            'cardOutcomes' => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->presentOutcomes(
+                $conversation->getCardOutcomes(),
+                ($GLOBALS['LANG'] ?? null) instanceof LanguageService ? $GLOBALS['LANG'] : null,
+            ),
+            'skill' => $this->presentSkill($conversation),
+            // The page and language a guided process is about, for the header
+            // (ADR-023): from the conversation, never from the model.
+            'tour' => ($GLOBALS['BE_USER'] ?? null) instanceof BackendUserAuthentication
+                ? ($this->tourContext ?? new TourContext($this->siteFinder))->of($conversation, $GLOBALS['BE_USER'])
+                : null,
+            // Whether and how the chat may start a guided process anew
+            // (ADR-023): null unless nr-llm can start a run with an invocation.
+            'tourStart' => $this->tourStart($conversation),
+            // Where "Fertig" leads once the process is finished: the dashboard,
+            // when it is installed.
+            'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
+            'activity'     => $conversation->getActivity(),
         ]);
+    }
+
+    /**
+     * What the chat may offer to start a guided process anew (ADR-023): the
+     * page choice for a process without a page, "Andere Seite wählen" at its
+     * end, and the switch to another page. Only where a run can be started
+     * with an invocation (nr-llm ADR-214): nr-llm skips a process skill on
+     * the forced path, so without one a new start would run without its
+     * process. A skill the catalogue does not mark counts as a process, as
+     * elsewhere.
+     *
+     * @return array{skill: string, choosePage: bool}|null
+     */
+    private function tourStart(Conversation $conversation): ?array
+    {
+        $identifier = $conversation->getSkillIdentifier();
+        if (!$this->skillInvocation instanceof SkillInvocationInterface
+            || $identifier === ''
+            || ($this->skills?->find($identifier)['process'] ?? null) === false
+        ) {
+            return null;
+        }
+
+        return ['skill' => $identifier, 'choosePage' => $conversation->getViewContext()['pageId'] <= 0];
+    }
+
+    /** The dashboard module's URL, '' where EXT:dashboard is not installed. */
+    private function dashboardUrl(): string
+    {
+        try {
+            return (string) $this->uriBuilder->buildUriFromRoute('dashboard');
+        } catch (RouteNotFoundException) {
+            return '';
+        }
     }
 
     /**
@@ -1393,12 +1517,17 @@ final readonly class ChatApiController
         // or a reason on any other card, is a plain denial.
         $reasonValue = $body['reason'] ?? '';
         $reason      = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
-        $view        = $reason !== null ? $this->chatApproval->pendingApproval($conversation) : null;
-        if ($view === null || !$this->chatApproval->offersProcessAnswers($conversation, $view)) {
+        $view        = $this->chatApproval->pendingApproval($conversation);
+        $processCard = $view !== null && $this->chatApproval->offersProcessAnswers($conversation, $view);
+        if (!$processCard) {
             $reason = null;
         }
 
-        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest, $reason, $reason !== null ? $this->translate($reason->labelKey()) : '')) {
+        // A proposal of a guided process carries its tool and target to the
+        // worker, which records what became of it (ADR-023).
+        $card = $processCard ? $this->cardSnapshot($view) : null;
+
+        if (!$this->chatApproval->recordDecision($conversation, $approve, $turnDigest, $reason, $reason !== null ? $this->translate($reason->labelKey()) : '', $card)) {
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
@@ -1431,6 +1560,30 @@ final readonly class ChatApiController
             'preview'        => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
             default          => null,
         };
+    }
+
+    /**
+     * The one call of a process card, as the outcome record keeps it: its
+     * tool, and the record and fields nr-llm's target names ('' and 0 for a
+     * create, which names none). Null for a card with more than one call.
+     *
+     * @return array{tool: string, table: string, uid: int, fields: list<string>}|null
+     */
+    private function cardSnapshot(?WaitingRunView $view): ?array
+    {
+        if ($view === null || count($view->pendingCalls) !== 1) {
+            return null;
+        }
+
+        $call   = $view->pendingCalls[0];
+        $target = NrLlmCardTarget::ofCall($call);
+
+        return [
+            'tool'   => $call->name,
+            'table'  => $target->table ?? '',
+            'uid'    => $target->uid ?? 0,
+            'fields' => $target->fields ?? [],
+        ];
     }
 
     /**

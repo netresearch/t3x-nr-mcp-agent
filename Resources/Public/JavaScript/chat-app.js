@@ -9,8 +9,10 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
-import {chatGuidedStyles, renderProgress} from '@netresearch/nr-mcp-agent/chat-guided.js';
+import {chatGuidedStyles, renderEndTour, renderPageChange, renderPageChoice, renderProgress, renderTourEnd} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
+import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
+import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
@@ -27,7 +29,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -737,6 +739,7 @@ export class ChatApp extends LitElement {
                     ${conv?.title || lll('conversations.newConversation')}
                 </h1>
                 ${renderProgress(this.chat)}
+                ${renderEndTour(this.chat)}
                 <button class="btn btn-sm" @click=${() => this.chat.handleTogglePin()}
                     title="${conv?.pinned ? lll('conversations.unpin') : lll('conversations.pin')}">
                     ${conv?.pinned ? '\u{1F4CC}' : lll('conversations.pin')}
@@ -764,7 +767,9 @@ export class ChatApp extends LitElement {
 
             ${renderInstructionsEditor(this.chat)}
             <div class="messages" aria-live="polite" aria-relevant="additions">
-                ${this.chat.messages.map((msg, idx) => this._renderMessage(msg, idx))}
+                ${this.chat.messages.map((msg, idx) => html`${renderOutcomeLines(this.chat, idx)}${this._renderMessage(msg, idx)}`)}
+                ${renderOutcomeLines(this.chat, this.chat.messages.length)}
+                ${renderSummary(this.chat)}
                 ${this.chat.isProcessing() ? html`
                     <div class="message-row assistant" aria-label="${lll('chat.processing')}">
                         <div class="avatar avatar-assistant">${AVATAR_ASSISTANT(16)}</div>
@@ -775,6 +780,9 @@ export class ChatApp extends LitElement {
             </div>
 
             ${renderReplyOptions(this.chat)}
+            ${renderPageChange(this.chat)}
+            ${renderPageChoice(this.chat)}
+            ${renderTourEnd(this.chat)}
             ${renderActiveSkill(this.chat)}
             ${renderSlashList(this.chat)}
             ${this._renderFileBadge()}
@@ -992,6 +1000,10 @@ export class ChatApp extends LitElement {
             `;
         }
 
+        if (isProposal(pending)) {
+            return this._renderProposalCard(pending);
+        }
+
         return html`
             <div class="approval-card">
                 ${pending.calls.map((call) => html`
@@ -1041,6 +1053,42 @@ export class ChatApp extends LitElement {
         return html`
             <p class="approval-warning approval-blocked">${lll(label)}</p>
             ${this._renderRunDetailsLink()}
+        `;
+    }
+
+    /**
+     * A write in a process run (ADR-023): the proposal block, the three
+     * answers directly below it, and the technical details last.
+     */
+    _renderProposalCard(pending) {
+        const call = pending.calls[0];
+
+        return html`
+            <div class="approval-card proposal-card">
+                ${call.toolStillRegistered ? nothing : html`
+                    <p class="approval-warning approval-stale">${lll('chat.approvalToolGone')}</p>
+                `}
+                ${call.previewStale ? html`
+                    <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
+                ` : nothing}
+                ${renderProposal(call, (c) => this._renderApprovalPreview(c))}
+                ${this._renderApproveBlocked(pending)}
+                <div class="approval-actions">
+                    ${pending.approveBlocked ? nothing : html`
+                        <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
+                            @click=${() => this._decide(true)}>${lll('chat.approvalApply')}</button>
+                    `}
+                    ${renderDenyButtons(pending, this.chat.approvalBusy, (reason) => this._decide(false, reason))}
+                </div>
+                <details class="approval-technical">
+                    <summary>${lll('chat.approvalTechnicalDetails')}</summary>
+                    ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
+                    <p>${lll('chat.approvalTool')} <code>${call.name}</code></p>
+                    <p>${lll('chat.approvalArguments')}</p>
+                    <pre><code>${call.argumentsJson}</code></pre>
+                </details>
+                ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
+            </div>
         `;
     }
 

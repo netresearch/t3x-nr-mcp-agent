@@ -438,6 +438,27 @@ final class ChatInputTest extends TestCase
         self::assertSame('Mit welchem Punkt soll ich beginnen?', $this->lastMessages($conversation, 1)[0]['content'], 'the answer that was not taken is not left behind');
     }
 
+    /**
+     * nr-llm's choice builtin `ask_choice` (nr-llm PR 1029) suspends the run
+     * on a schema whose question is the answer property's title. The chat
+     * parks the conversation and the question becomes the assistant's message.
+     */
+    #[Test]
+    public function aChoiceOfTheChoiceBuiltinParksWithItsQuestion(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Prüfe die Seite');
+
+        $service = $this->service(runAnswer: $this->asks(AskChoicePauseTest::schema()));
+
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingInput, $conversation->getStatus());
+        self::assertSame(self::RUN, $conversation->getApprovalRunUuid());
+        self::assertSame(['role' => 'assistant', 'content' => 'Für die Seite gibt es kein Bild. Wie geht es weiter?'], array_intersect_key($this->lastMessages($conversation, 1)[0], ['role' => 1, 'content' => 1]));
+    }
+
     #[Test]
     public function anUnexpectedErrorFailsTheConversation(): void
     {
