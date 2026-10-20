@@ -20,6 +20,7 @@ use Netresearch\NrMcpAgent\Service\Assistant\ConfiguredGuidedSkillProvider;
 use Netresearch\NrMcpAgent\Service\Assistant\DeterministicPageSuggestionProvider;
 use Netresearch\NrMcpAgent\Service\Assistant\NullOpenPointReader;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Assistant\SkillCatalogueStub;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
@@ -79,28 +80,7 @@ final class AssistantSkillTrustTest extends FunctionalTestCase
             $entries[] = ['identifier' => $identifier, 'uid' => $uid];
         }
 
-        $catalogue = new class ($entries) {
-            /** @param list<array{identifier: string, uid: int}> $entries */
-            public function __construct(private readonly array $entries) {}
-
-            public function isAvailable(): bool
-            {
-                return true;
-            }
-
-            public function requiresSecondApprover(): bool
-            {
-                return false;
-            }
-
-            /** @return list<array{identifier: string, uid: int}> */
-            public function catalogue(): array
-            {
-                return $this->entries;
-            }
-        };
-
-        return new CatalogueSkillResolver($this->get(SkillTrustRepository::class), $catalogue);
+        return new CatalogueSkillResolver($this->get(SkillTrustRepository::class), new SkillCatalogueStub($entries));
     }
 
     private function renderImprovePage(CatalogueSkillResolver $resolver): string

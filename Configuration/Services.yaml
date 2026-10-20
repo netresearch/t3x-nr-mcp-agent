@@ -14,14 +14,9 @@ services:
 
   # Seams of the AI assistant dashboard widgets. Each alias is the point to
   # re-bind.
-  # Open points come from the chat's store. "@?" injects null while the store
-  # (OpenPointVisibility) does not exist, and then there are no points.
+  # Open points come from the chat's store (OpenPointVisibility).
   Netresearch\NrMcpAgent\Service\Assistant\OpenPointReaderInterface:
     alias: Netresearch\NrMcpAgent\Service\Assistant\VisibleOpenPointReader
-
-  Netresearch\NrMcpAgent\Service\Assistant\VisibleOpenPointReader:
-    arguments:
-      $visibility: '@?Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointVisibility'
 
   Netresearch\NrMcpAgent\Service\Assistant\GuidedSkillProviderInterface:
     alias: Netresearch\NrMcpAgent\Service\Assistant\ConfiguredGuidedSkillProvider
@@ -34,14 +29,9 @@ services:
     alias: Netresearch\NrMcpAgent\Service\Assistant\DeterministicPageSuggestionProvider
 
   # Which skills the widgets offer: those the chat's skill catalogue would
-  # accept, under the identifier it accepts. "@?" injects null while the
-  # catalogue service does not exist, and then no skill is offered.
+  # accept, under the identifier it accepts.
   Netresearch\NrMcpAgent\Service\Assistant\SkillResolverInterface:
     alias: Netresearch\NrMcpAgent\Service\Assistant\CatalogueSkillResolver
-
-  Netresearch\NrMcpAgent\Service\Assistant\CatalogueSkillResolver:
-    arguments:
-      $catalogue: '@?Netresearch\NrMcpAgent\Service\SkillCatalogueInterface'
 
   Netresearch\NrMcpAgent\Controller\ChatModuleController:
     public: true

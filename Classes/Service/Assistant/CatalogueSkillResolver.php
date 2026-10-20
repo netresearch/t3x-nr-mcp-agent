@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service\Assistant;
 
 use Netresearch\NrMcpAgent\Domain\Repository\SkillTrustRepository;
+use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 
 /**
  * Resolves a configured skill against the chat's skill catalogue for the
@@ -31,15 +32,10 @@ use Netresearch\NrMcpAgent\Domain\Repository\SkillTrustRepository;
  * that nothing is set up.
  *
  * Nothing resolves where the chat would refuse every skill at the start of a
- * conversation: no catalogue, one that says nr-llm cannot take a skill per
- * run, or a configuration that needs a second person to approve every change.
+ * conversation: a catalogue that says nr-llm cannot take a skill per run, or
+ * a configuration that needs a second person to approve every change.
  *
- * The catalogue is the chat's `Netresearch\NrMcpAgent\Service\SkillCatalogueInterface`,
- * injected through an optional service reference (`@?` in Services.yaml), so
- * this class works whether or not that service exists yet. It is called by
- * method name for the same reason: once the catalogue is part of the
- * extension, the parameter becomes `?SkillCatalogueInterface` and the
- * method_exists() checks go away.
+ * The catalogue is the chat's {@see SkillCatalogueInterface} (ADR-019).
  */
 final class CatalogueSkillResolver implements SkillResolverInterface
 {
@@ -51,7 +47,7 @@ final class CatalogueSkillResolver implements SkillResolverInterface
 
     public function __construct(
         private readonly SkillTrustRepository $trust,
-        private readonly ?object $catalogue = null,
+        private readonly SkillCatalogueInterface $catalogue,
     ) {}
 
     public function resolve(string $skill): ?string
@@ -109,25 +105,12 @@ final class CatalogueSkillResolver implements SkillResolverInterface
         }
 
         $this->catalogueEntries = [];
-        $catalogue              = $this->catalogue;
-        if (
-            $catalogue === null
-            || !method_exists($catalogue, 'isAvailable')
-            || !method_exists($catalogue, 'requiresSecondApprover')
-            || !method_exists($catalogue, 'catalogue')
-            || $catalogue->isAvailable() !== true
-            || $catalogue->requiresSecondApprover() !== false
-        ) {
+        if (!$this->catalogue->isAvailable() || $this->catalogue->requiresSecondApprover()) {
             return $this->catalogueEntries;
         }
 
-        $entries = $catalogue->catalogue();
-        foreach (is_array($entries) ? $entries : [] as $entry) {
-            $identifier = is_array($entry) ? ($entry['identifier'] ?? null) : null;
-            if (is_string($identifier) && $identifier !== '') {
-                $uid                                 = $entry['uid'] ?? 0;
-                $this->catalogueEntries[$identifier] = is_numeric($uid) ? (int) $uid : 0;
-            }
+        foreach ($this->catalogue->catalogue() as $entry) {
+            $this->catalogueEntries[$entry['identifier']] = $entry['uid'];
         }
 
         return $this->catalogueEntries;

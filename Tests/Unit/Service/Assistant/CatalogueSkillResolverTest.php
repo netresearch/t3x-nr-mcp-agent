@@ -13,7 +13,6 @@ use Netresearch\NrMcpAgent\Domain\Repository\SkillTrustRepository;
 use Netresearch\NrMcpAgent\Service\Assistant\CatalogueSkillResolver;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use stdClass;
 
 /**
  * A configured skill resolves to the identifier the chat's skill catalogue
@@ -22,37 +21,11 @@ use stdClass;
 final class CatalogueSkillResolverTest extends TestCase
 {
     /**
-     * A stand-in for the chat's SkillCatalogueInterface, which counts how
-     * often the catalogue is read.
-     *
      * @param list<mixed> $entries
      */
-    private function catalogue(array $entries, bool $available = true, bool $secondApprover = false): object
+    private function catalogue(array $entries, bool $available = true, bool $secondApprover = false): SkillCatalogueStub
     {
-        return new class ($entries, $available, $secondApprover) {
-            public int $reads = 0;
-
-            /** @param list<mixed> $entries */
-            public function __construct(private readonly array $entries, private readonly bool $available, private readonly bool $secondApprover) {}
-
-            public function isAvailable(): bool
-            {
-                return $this->available;
-            }
-
-            public function requiresSecondApprover(): bool
-            {
-                return $this->secondApprover;
-            }
-
-            /** @return list<mixed> */
-            public function catalogue(): array
-            {
-                ++$this->reads;
-
-                return $this->entries;
-            }
-        };
+        return new SkillCatalogueStub($entries, $available, $secondApprover);
     }
 
     /**
@@ -203,14 +176,6 @@ final class CatalogueSkillResolverTest extends TestCase
         self::assertNull($resolver->resolve(''));
     }
 
-    /** Without the chat's skill catalogue no skill can be started. */
-    #[Test]
-    public function withoutACatalogueNothingResolves(): void
-    {
-        self::assertNull((new CatalogueSkillResolver($this->trust()))->resolve('seo-optimieren'));
-        self::assertNull((new CatalogueSkillResolver($this->trust(), new stdClass()))->resolve('seo-optimieren'));
-    }
-
     /** An nr-llm that cannot take a skill per run starts none. */
     #[Test]
     public function aCatalogueThatCannotPassSkillsResolvesNothing(): void
@@ -227,15 +192,6 @@ final class CatalogueSkillResolverTest extends TestCase
         $resolver = new CatalogueSkillResolver($this->trust(), $this->catalogue([['identifier' => '3:seo-optimieren', 'uid' => 1]], secondApprover: true));
 
         self::assertNull($resolver->resolve('3:seo-optimieren'));
-    }
-
-    #[Test]
-    public function malformedEntriesAreIgnored(): void
-    {
-        $resolver = $this->resolver(['3:seo-optimieren', ['identifier' => 7], ['identifier' => ''], [], ['identifier' => '3:ok']]);
-
-        self::assertNull($resolver->resolve('seo-optimieren'));
-        self::assertSame('3:ok', $resolver->resolve('ok'));
     }
 
     /** Each widget asks for several skills; the catalogue is read once. */

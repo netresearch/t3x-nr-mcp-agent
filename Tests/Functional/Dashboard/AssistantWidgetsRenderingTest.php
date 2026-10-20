@@ -29,7 +29,9 @@ use Netresearch\NrMcpAgent\Service\Assistant\OpenPointReaderInterface;
 use Netresearch\NrMcpAgent\Service\Assistant\PageSuggestion;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\Assistant\VisibleOpenPointReader;
-use Netresearch\NrMcpAgent\Tests\Unit\Service\Assistant\VisibleOpenPointReaderTest;
+use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointVisibility;
+use Netresearch\NrMcpAgent\Tests\Functional\Service\Assistant\OpenPointStoreFixture;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Assistant\SkillCatalogueStub;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
@@ -50,9 +52,10 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 /**
  * The AI assistant widgets, group and preset.
  *
- * The installation under test has no skill catalogue, so the widgets rendered
- * through the dashboard's own registry show what an editor sees while the
- * configured skills do not exist: no tour, no task, an explanation instead.
+ * The installation under test has the chat's skill catalogue but no skills
+ * attached, so the widgets rendered through the dashboard's own registry show
+ * what an editor sees while the configured skills do not exist: no tour, no
+ * task, an explanation instead.
  * The tests of the offers themselves build the widgets with a catalogue that
  * lists both default skills from source 3, as `3:<slug>`; the configured
  * defaults are bare slugs and resolve to them.
@@ -62,6 +65,8 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  */
 final class AssistantWidgetsRenderingTest extends FunctionalTestCase
 {
+    use OpenPointStoreFixture;
+
     private const XSS_TITLE = '<img src=x onerror=alert(1)>';
 
     private const XSS_ESCAPED = '&lt;img src=x onerror=alert(1)&gt;';
@@ -113,30 +118,11 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
      */
     private function render(string $class, ?OpenPointReaderInterface $reader = null, array $skills = ['seo-optimieren', 'inhalt-verbessern']): string
     {
-        $catalogue = new class ($skills) {
-            /** @param list<string> $skills */
-            public function __construct(private readonly array $skills) {}
-
-            public function isAvailable(): bool
-            {
-                return true;
-            }
-
-            public function requiresSecondApprover(): bool
-            {
-                return false;
-            }
-
-            /** @return list<array{identifier: string, uid: int}> */
-            public function catalogue(): array
-            {
-                return array_map(static fn (string $skill): array => ['identifier' => '3:' . $skill, 'uid' => 0], $this->skills);
-            }
-        };
-        $resolver = new CatalogueSkillResolver($this->get(SkillTrustRepository::class), $catalogue);
-        $config   = new ExtensionConfiguration();
-        $labels   = new SkillLabels($this->get(LanguageServiceFactory::class));
-        $common   = [
+        $catalogue = new SkillCatalogueStub(array_map(static fn (string $skill): array => ['identifier' => '3:' . $skill, 'uid' => 0], $skills));
+        $resolver  = new CatalogueSkillResolver($this->get(SkillTrustRepository::class), $catalogue);
+        $config    = new ExtensionConfiguration();
+        $labels    = new SkillLabels($this->get(LanguageServiceFactory::class));
+        $common    = [
             $this->createMock(WidgetConfigurationInterface::class),
             $this->get(BackendViewFactory::class),
             new ChatToolbarItem($config, $this->get(PageRenderer::class)),
@@ -450,25 +436,28 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     }
 
     /**
-     * The chat's store (OpenPointVisibility, here a double) feeds both readers
-     * of open points: its point appears in the widget and among the page
-     * suggestions, under the trusted source's identifier even when the store
-     * names another source. A point whose skill is gone appears in neither.
+     * The chat's store (the real OpenPointVisibility over stored rows) feeds
+     * both readers of open points: its point appears in the widget and among
+     * the page suggestions, under the trusted source's identifier even when the
+     * store names another source. A point whose skill is gone appears in
+     * neither.
      */
     #[Test]
     public function theStoresPointsAppearInBothReaders(): void
     {
-        $reader = new VisibleOpenPointReader(VisibleOpenPointReaderTest::visibility([
-            VisibleOpenPointReaderTest::point(21, 0, '7:seo-optimieren', 'Beschreibung fehlt auf „Bereich B“'),
-            VisibleOpenPointReaderTest::point(20, 0, '', 'Seitentitel fehlt auf „Bereich A“'),
-        ]));
+        $this->storeSkill(7, '7:seo-optimieren');
+        $this->storePoint(21, 7, 'pages', 21, 'description', 200);
+        $this->storePoint(20, 9, 'pages', 20, 'title', 100);
+        $reader  = new VisibleOpenPointReader($this->get(OpenPointVisibility::class));
+        $summary = $reader->findOpen(5)[0]->summary ?? '';
+        self::assertStringContainsString('Inhalt A', $summary, 'precondition: the store returns the point on page 21');
         $pages    = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
         $provider = new DeterministicPageSuggestionProvider($reader, $pages, $this->get(LanguageServiceFactory::class));
 
         $html = $this->render(RecommendationsWidget::class, $reader);
-        self::assertStringContainsString('Beschreibung fehlt auf „Bereich B“', $html);
+        self::assertStringContainsString(htmlspecialchars($summary), $html);
         self::assertStringContainsString('href="' . htmlspecialchars($this->chatStart()->build('3:seo-optimieren', 21, 0)) . '"', $html);
-        self::assertStringNotContainsString('Seitentitel fehlt', $html);
+        self::assertStringNotContainsString('Bereich A', $html);
 
         $points = array_values(array_map(
             static fn (PageSuggestion $s): int => $s->pageUid,
@@ -477,11 +466,11 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         self::assertSame([21], $points);
     }
 
-    /** Without the store, the widget shows no point and says how points come about. */
+    /** With an empty store, the widget shows no point and says how points come about. */
     #[Test]
-    public function withoutTheStoreTheReaderShowsNoPoint(): void
+    public function anEmptyStoreShowsNoPoint(): void
     {
-        $html = $this->render(RecommendationsWidget::class, new VisibleOpenPointReader());
+        $html = $this->render(RecommendationsWidget::class, new VisibleOpenPointReader($this->get(OpenPointVisibility::class)));
 
         self::assertStringContainsString('No open recommendations. When the AI assistant finds something to improve during a guided tour, it appears here.', $html);
     }

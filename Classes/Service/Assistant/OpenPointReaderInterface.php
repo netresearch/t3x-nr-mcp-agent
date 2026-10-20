@@ -14,9 +14,8 @@ namespace Netresearch\NrMcpAgent\Service\Assistant;
  * improvement points from.
  *
  * Bound to VisibleOpenPointReader in Configuration/Services.yaml, which reads
- * the chat's store of open points and returns nothing while that store does
- * not exist. NullOpenPointReader is the reader for an installation that wants
- * no points.
+ * the chat's store of open points. NullOpenPointReader is the reader for an
+ * installation that wants no points.
  *
  * Contract for an implementation:
  * - return open (not yet resolved) points only, newest first, at most $limit;
