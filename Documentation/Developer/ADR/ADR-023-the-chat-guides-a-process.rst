@@ -89,7 +89,9 @@ decision because the run is a guided process (nr-llm PR 1029), the chat
 keeps the conversation usable: a run that still waits brings its card or
 question back with the chat's own sentence; a run nr-llm stopped because
 the configuration requires a second approver leaves the conversation idle,
-and ends the process as the × does, with the reason.
+and ends the process as the × does, with the reason. A process nr-llm
+drops before a run, for any reason (ADR-019), ends the same way: its
+skill and header go, and the dropped line says why.
 
 **Starting anew is the chat's, behind one gate.** A process without a page
 asks for one; at its end, *Andere Seite wählen* starts it in a new
@@ -155,10 +157,13 @@ it through one class or interface and falls back:
 -   ``StructuredPreview`` reads ``PendingCallView::structuredPreviewArray()``
     (nr-llm PR 1036). Without it: the preview lines.
 -   ``ProcessPinReleaseInterface`` releases the process pin of an ended
-    process. nr-llm has no call for an aborted process yet; nothing
-    implements it, and ending works without it.
--   ``SkillInvocationInterface`` (ADR-019) starts a run with an invocation.
-    Nothing implements it yet; without it no new start is offered.
+    process. nr-llm offers ``AgentRuntimeInterface::endProcess()``
+    (ADR-228); nothing in the chat implements the interface yet, and ending
+    works without it, because an ended process's run is named as no later
+    turn's predecessor.
+-   ``SkillInvocationInterface`` (ADR-019) starts a run with an invocation;
+    ``NrLlmSkillInvocation`` implements it on nr-llm's ``SkillInvocation``.
+    Without it no new start is offered.
 -   ``HighlightTargetPolicyInterface`` limits the highlight to the targets a
     run registered from its invocation's subject, once nr-llm has them.
 

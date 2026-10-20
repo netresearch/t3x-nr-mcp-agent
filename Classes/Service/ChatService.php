@@ -1207,6 +1207,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * in their language rendered from the reason, and the model does not see
      * the line ({@see self::buildLlmMessages()}). A dropped process records
      * no lineage, so the next turn continues none and the line appears once.
+     *
+     * The process has ended, so its skill and its header go, as when the
+     * editor ends it (ADR-023); what was applied stays.
      */
     private function noteDroppedProcess(Conversation $conversation, AgentRunResult $result): void
     {
@@ -1223,6 +1226,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                         self::NOTICE_PROCESS_DROPPED,
                         [$dropped->reason->value],
                     );
+                    $conversation->setSkillIdentifier('', 0);
+                    $conversation->setGuidedState(null, null);
 
                     return;
                 }
