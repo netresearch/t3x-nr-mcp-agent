@@ -95,6 +95,27 @@ final class NrLlmSkillCatalogueTest extends TestCase
         self::assertFalse($this->catalogue($task)->find('content-tour')['process'] ?? null);
     }
 
+    /**
+     * nr-llm's form attaches a process skill on demand only (nr-llm ADR-214
+     * item 6), so such a process is listed; a skill the model loads on demand
+     * is not the chat's to invoke.
+     */
+    #[Test]
+    public function aProcessAttachedOnDemandIsListed(): void
+    {
+        $task = $this->task();
+        $tour = $this->skill('guided-tour', 'Rundgang', uid: 9);
+        $tour->setProcess(true);
+
+        $task->getConfiguration()?->addSkillOnDemand($tour);
+        $task->getConfiguration()?->addSkillOnDemand($this->skill('loaded-by-model', uid: 10));
+
+        $catalogue = $this->catalogue($task);
+        self::assertSame(9, $catalogue->find('guided-tour')['uid'] ?? null);
+        self::assertTrue($catalogue->find('guided-tour')['process'] ?? null);
+        self::assertNull($catalogue->find('loaded-by-model'));
+    }
+
     #[Test]
     public function anInvokedSkillReachesTheRunAsAForcedSkill(): void
     {
