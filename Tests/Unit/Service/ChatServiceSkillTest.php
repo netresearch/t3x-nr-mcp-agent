@@ -252,6 +252,24 @@ final class ChatServiceSkillTest extends TestCase
         self::assertNull($this->lastRequest()->invocation);
     }
 
+    /**
+     * After the × the conversation keeps no last run (ADR-023). A process
+     * skill picked again, where no invocation can be built, then continues
+     * nothing instead of the ended process.
+     */
+    #[Test]
+    public function aProcessPickedAgainAfterTheEndContinuesNothing(): void
+    {
+        $invocation = $this->createMock(SkillInvocationInterface::class);
+        $invocation->method('withInvocation')->willReturn(null);
+        $conversation = $this->conversation('seo-page-tour');
+        $conversation->setSkillStartPending(true);
+
+        $this->service($this->catalogue(), $invocation)->processConversation($conversation);
+
+        self::assertSame('', $this->lastRequest()->predecessorRunUuid);
+    }
+
     #[Test]
     public function aConversationWithoutASkillNamesNoPredecessor(): void
     {

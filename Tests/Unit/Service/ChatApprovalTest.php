@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\GuardedCancelResult;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
@@ -72,6 +73,11 @@ final class ChatApprovalTest extends TestCase
     private ?ApprovalDecision $capturedDecision = null;
 
     private ?string $capturedRunUuid = null;
+
+    /** @var list<array{int, string}> actor uid and run of each endProcess() call */
+    private array $endedProcesses = [];
+
+    private ?RuntimeException $endProcessFails = null;
 
     private function parkedConversation(string $runUuid = 'run-uuid-1234'): Conversation
     {
@@ -116,6 +122,17 @@ final class ChatApprovalTest extends TestCase
                 }
 
                 return $approveAnswer;
+            },
+        );
+
+        $agentRuntime->method('endProcess')->willReturnCallback(
+            function (AiActorContext $actor, string $runUuid): GuardedCancelResult {
+                $this->endedProcesses[] = [$actor->backendUserUid, $runUuid];
+                if ($this->endProcessFails instanceof RuntimeException) {
+                    throw $this->endProcessFails;
+                }
+
+                return new GuardedCancelResult(true, AgentRunStatus::CANCELLED);
             },
         );
 
@@ -630,6 +647,97 @@ final class ChatApprovalTest extends TestCase
         self::assertSame(['progress' => null, 'highlight' => null], $conversation->getGuidedState());
     }
 
+    /**
+     * The stop ends the process in nr-llm too (ADR-023): endProcess() for the
+     * stopped run, as its initiator, and no later turn names it.
+     */
+    #[Test]
+    public function aStoppedProcessRunEndsTheProcessInNrLlm(): void
+    {
+        $exception    = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $conversation = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+        $conversation->setLastRunUuid('run-uuid-1234');
+
+        $service = $this->createChatService($exception);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame([[1, 'run-uuid-1234']], $this->endedProcesses);
+        self::assertSame('', $conversation->getLastRunUuid());
+    }
+
+    /** A failing endProcess() is logged; the stop still leaves the chat ended. */
+    #[Test]
+    public function aFailingEndProcessStillEndsTheTour(): void
+    {
+        $this->endProcessFails = new RuntimeException('nr-llm unavailable');
+        $exception             = ProcessRefusalTest::raised(ProcessRefusal::NeedsSecondApprover, 'run-uuid-1234');
+        $conversation          = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+        $conversation->setLastRunUuid('run-uuid-1234');
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logged = [];
+        $logger->method('warning')->willReturnCallback(static function (string $message) use (&$logged): void {
+            $logged[] = $message;
+        });
+
+        $service = $this->createChatService($exception, logger: $logger);
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame([[1, 'run-uuid-1234']], $this->endedProcesses);
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+        self::assertSame('', $conversation->getSkillIdentifier());
+        self::assertSame('', $conversation->getLastRunUuid());
+        self::assertSame(ProcessStopReason::NeedsSecondApprover->value, $conversation->getErrorCode());
+        self::assertContains('nr-llm did not end the process of run {run}: {message}', $logged);
+    }
+
+    /** The × goes through release(): the conversation's last run, as its initiator. */
+    #[Test]
+    public function releaseEndsTheProcessOfTheLastRun(): void
+    {
+        $before = $this->parkedConversation('run-waiting');
+        $before->setLastRunUuid('run-held');
+
+        $this->createChatService()->release($before);
+
+        self::assertSame([[1, 'run-held']], $this->endedProcesses);
+    }
+
+    #[Test]
+    public function releaseSwallowsAFailingEndProcess(): void
+    {
+        $this->endProcessFails = new RuntimeException('nr-llm unavailable');
+        $before                = $this->parkedConversation();
+        $before->setLastRunUuid('run-held');
+
+        $this->createChatService()->release($before);
+
+        self::assertSame([[1, 'run-held']], $this->endedProcesses);
+    }
+
+    /** A decision that is carried out normally ends no process. */
+    #[Test]
+    public function aNormalDecisionEndsNoProcess(): void
+    {
+        $conversation = $this->parkedConversation();
+        $conversation->setSkillIdentifier('3:seo/page-tour', 7);
+
+        $service = $this->createChatService();
+        $service->recordDecision($conversation, true, 'digest-abc');
+
+        $service->processConversation($conversation);
+
+        self::assertSame([], $this->endedProcesses);
+        self::assertSame('3:seo/page-tour', $conversation->getSkillIdentifier());
+        self::assertNotSame('', $conversation->getLastRunUuid());
+    }
+
     #[Test]
     public function aWaitingProcessRunKeepsTheTour(): void
     {
@@ -645,6 +753,7 @@ final class ChatApprovalTest extends TestCase
 
         self::assertSame('3:seo/page-tour', $conversation->getSkillIdentifier());
         self::assertSame(2, $conversation->getGuidedState()['progress']['current'] ?? null);
+        self::assertSame([], $this->endedProcesses, 'a run that still waits keeps its process in nr-llm');
     }
 
     #[Test]

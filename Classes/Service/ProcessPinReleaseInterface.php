@@ -15,11 +15,10 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
  * Releases the process pin of a guided process the editor ended (ADR-023;
  * nr-llm ADR-214, item 6).
  *
- * nr-llm releases a pin on a completion report and has no call for an
- * aborted process yet; it comes with the process wiring of nr-llm ADR-214.
- * Nothing implements this interface until then, and ending a tour does the
- * guarded cancel and clears the conversation's skill only. An implementation
- * checks for nr-llm's call where it is installed.
+ * {@see ChatService} implements it with nr-llm's
+ * `AgentRuntimeInterface::endProcess()` (nr-llm ADR-228) for the
+ * conversation's last run. A failure there is logged; the chat has ended the
+ * process either way.
  */
 interface ProcessPinReleaseInterface
 {

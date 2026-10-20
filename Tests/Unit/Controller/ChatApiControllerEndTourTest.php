@@ -209,9 +209,45 @@ final class ChatApiControllerEndTourTest extends TestCase
     }
 
     /**
-     * nr-llm has no call to release the pin of an aborted process yet; until
-     * then nothing implements the seam and the tour still ends.
+     * The × ends the process for good: nr-llm is asked to end it for the run
+     * that holds it, and the conversation keeps no run a later turn could
+     * continue it from (ADR-023).
      */
+    #[Test]
+    public function endingATourEndsTheHeldRunsProcess(): void
+    {
+        $conversation = $this->tourConversation(ConversationStatus::Idle);
+        $conversation->setLastRunUuid('run-0');
+        $this->pinRelease->expects(self::once())->method('release')
+            ->with(self::callback(static fn (Conversation $before): bool => $before->getLastRunUuid() === 'run-0'));
+
+        self::assertSame(200, $this->endTour($conversation)->getStatusCode());
+        self::assertSame('', $conversation->getLastRunUuid());
+    }
+
+    #[Test]
+    #[DataProvider('waitingStatuses')]
+    public function aLostCancelKeepsTheHeldRun(ConversationStatus $status): void
+    {
+        $conversation = $this->tourConversation($status);
+        $conversation->setLastRunUuid('run-1');
+
+        $rows       = [];
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $repository->method('updateIf')->willReturnCallback(static function (Conversation $c) use (&$rows): bool {
+            $rows[] = $c->getLastRunUuid();
+
+            return true;
+        });
+        $this->chatApproval->method('releasePendingRun')->willReturn(false);
+        $this->pinRelease->expects(self::never())->method('release');
+
+        self::assertSame(409, $this->controller($repository)->endTour($this->request())->getStatusCode());
+        self::assertSame(['', 'run-1'], $rows, 'the row goes back with its run');
+    }
+
+    /** Without an implementation of the seam the tour still ends. */
     #[Test]
     public function withoutAPinReleaseTheTourStillEnds(): void
     {

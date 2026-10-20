@@ -157,10 +157,13 @@ it through one class or interface and falls back:
 -   ``StructuredPreview`` reads ``PendingCallView::structuredPreviewArray()``
     (nr-llm PR 1036). Without it: the preview lines.
 -   ``ProcessPinReleaseInterface`` releases the process pin of an ended
-    process. nr-llm offers ``AgentRuntimeInterface::endProcess()``
-    (ADR-228); nothing in the chat implements the interface yet, and ending
-    works without it, because an ended process's run is named as no later
-    turn's predecessor.
+    process. ``ChatService`` implements it with nr-llm's
+    ``AgentRuntimeInterface::endProcess()`` (ADR-228), as the run's
+    initiator, for the conversation's last run. The × and the
+    second-approver stop call it, and both also clear the conversation's
+    last run, so no later turn names the ended process's run as its
+    predecessor. A failing ``endProcess()`` is logged; the chat state is
+    cleared either way and the editor sees nothing more.
 -   ``SkillInvocationInterface`` (ADR-019) starts a run with an invocation;
     ``NrLlmSkillInvocation`` implements it on nr-llm's ``SkillInvocation``.
     Without it no new start is offered.

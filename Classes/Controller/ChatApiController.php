@@ -460,6 +460,8 @@ final readonly class ChatApiController
         $waiting = $current === ConversationStatus::AwaitingApproval || $current === ConversationStatus::AwaitingInput;
         $conversation->setSkillIdentifier('', 0);
         $conversation->setGuidedState(null, null);
+        // No later turn continues the ended process from its run.
+        $conversation->setLastRunUuid('');
         if ($waiting) {
             $conversation->setStatus(ConversationStatus::Idle);
             $conversation->setApprovalRunUuid('');

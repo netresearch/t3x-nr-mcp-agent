@@ -82,7 +82,7 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * strong TYPO3-backend identity system prompt), and maps the run outcome back
  * onto the conversation. Tools are no longer sourced from MCP servers here.
  */
-final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface
+final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface, ProcessPinReleaseInterface
 {
     private const DECISION_APPROVE = 'approve';
 
@@ -1062,9 +1062,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // Idle clears the run's reference with the other approval fields.
             // The process has ended: its skill and its header go too, as when
             // the editor ends it (ADR-023); what was applied stays.
+            // No later turn names the run as its predecessor, and nr-llm is
+            // told the process ended, so its pin is released there too.
             $conversation->setStatus(ConversationStatus::Idle);
             $conversation->setSkillIdentifier('', 0);
             $conversation->setGuidedState(null, null);
+            $conversation->setLastRunUuid('');
         } else {
             $conversation->setStatus($waiting);
             $conversation->setApprovalRunUuid($runUuid);
@@ -1072,6 +1075,44 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         $conversation->setErrorMessage('', $code);
         $this->persist($conversation);
+
+        if ($stopped) {
+            $this->endProcessOf($runUuid, $conversation->getBeUser());
+        }
+    }
+
+    /**
+     * The editor ended the guided process (ADR-023): nr-llm releases the
+     * process pin of the run that holds it (`endProcess()`, nr-llm ADR-228),
+     * so the server says the process ended as the chat does. The run is the
+     * conversation's last run, which the next turn would have continued.
+     */
+    public function release(Conversation $before): void
+    {
+        $runUuid = $before->getLastRunUuid() !== '' ? $before->getLastRunUuid() : $before->getApprovalRunUuid();
+        $this->endProcessOf($runUuid, $before->getBeUser());
+    }
+
+    /**
+     * nr-llm's end of the process, as the run's initiator. A failure is
+     * logged and nothing else: the chat has already ended the process, and
+     * the editor needs no second message about the server's part.
+     */
+    private function endProcessOf(string $runUuid, int $beUserUid): void
+    {
+        if ($runUuid === '') {
+            return;
+        }
+
+        try {
+            $this->agentRuntime->endProcess($this->resolveActor($beUserUid), $runUuid);
+        } catch (Throwable $e) {
+            $this->logger?->warning('nr-llm did not end the process of run {run}: {message}', [
+                'run'       => $runUuid,
+                'message'   => $e->getMessage(),
+                'exception' => $e,
+            ]);
+        }
     }
 
     private function currentBackendUserUid(): int
