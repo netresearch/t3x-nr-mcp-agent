@@ -123,12 +123,26 @@ final readonly class NrLlmSkillCatalogue implements SkillCatalogueInterface
     }
 
     /**
+     * The configuration's skills loaded always, its process skills loaded on
+     * demand, and the Task's skills. nr-llm's form attaches a process skill
+     * on demand only, and an invocation reaches either load mode (nr-llm
+     * ADR-214 items 4 and 6). Other on-demand skills are the model's to load,
+     * not the chat's to force.
+     *
      * @return list<Skill>
      */
     private function attachedTo(Task $task): array
     {
+        $configuration = $task->getConfiguration();
+        $processes     = [];
+        foreach ($configuration?->getSkillsOnDemand() ?? [] as $skill) {
+            if ($skill instanceof Skill && $skill->isProcess()) {
+                $processes[] = $skill;
+            }
+        }
+
         $skills = [];
-        foreach ([...($task->getConfiguration()?->getSkills() ?? []), ...$task->getSkills()] as $skill) {
+        foreach ([...($configuration?->getSkills() ?? []), ...$processes, ...$task->getSkills()] as $skill) {
             if ($skill instanceof Skill && $skill->isEnabled() && $skill->getIdentifier() !== '') {
                 $skills[] = $skill;
             }
