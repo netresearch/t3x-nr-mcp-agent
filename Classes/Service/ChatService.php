@@ -102,7 +102,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     /**
      * The notice on the line the chat adds when a run dropped the
      * conversation's guided process (nr-llm ADR-228). Its argument is
-     * nr-llm's reason: `detached` or `configuration_changed`.
+     * nr-llm's reason: `detached`, `configuration_changed`,
+     * `predecessor_gone` or `refused_too_often`.
      */
     public const NOTICE_PROCESS_DROPPED = 'processDropped';
 
