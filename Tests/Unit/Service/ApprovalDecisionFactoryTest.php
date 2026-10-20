@@ -18,36 +18,12 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The seam that hands a denial's reason to nr-llm (ADR-018). nr-llm 0.41
- * (nr-llm PR 1024) takes it as its enum ApprovalDenialReason; an earlier
- * nr-llm gets a plain denial. Each half runs where the installed nr-llm has
- * that shape.
+ * The seam that hands a denial's reason to nr-llm (ADR-018), as nr-llm's
+ * enum ApprovalDenialReason (nr-llm PR 1024).
  */
 #[CoversClass(ApprovalDecisionFactory::class)]
 final class ApprovalDecisionFactoryTest extends TestCase
 {
-    private function requireDenialReason(bool $present): void
-    {
-        if (enum_exists(ApprovalDenialReason::class) !== $present) {
-            self::markTestSkipped($present
-                ? 'Needs nr-llm 0.41 (ApprovalDenialReason, nr-llm PR 1024).'
-                : 'Pins the fallback for an nr-llm without ApprovalDenialReason.');
-        }
-    }
-
-    #[Test]
-    public function withoutTheEnumADenialWithAReasonIsAPlainDenial(): void
-    {
-        $this->requireDenialReason(false);
-        $factory = new ApprovalDecisionFactory();
-
-        self::assertFalse($factory->carriesReason());
-        $decision = $factory->create(false, 7, 'digest-abc', DenyReason::Variant);
-        self::assertFalse($decision->approved);
-        self::assertSame(7, $decision->decidedByBeUser);
-        self::assertSame('digest-abc', $decision->turnDigest);
-    }
-
     /**
      * @return iterable<string, array{DenyReason, string}>
      */
@@ -61,12 +37,9 @@ final class ApprovalDecisionFactoryTest extends TestCase
     #[DataProvider('reasons')]
     public function aDenialCarriesNrLlmsReason(DenyReason $reason, string $value): void
     {
-        $this->requireDenialReason(true);
-        $factory = new ApprovalDecisionFactory();
-
-        self::assertTrue($factory->carriesReason());
-        $decision = $factory->create(false, 7, 'digest-abc', $reason);
+        $decision = (new ApprovalDecisionFactory())->create(false, 7, 'digest-abc', $reason);
         self::assertFalse($decision->approved);
+        self::assertSame(7, $decision->decidedByBeUser);
         self::assertSame('digest-abc', $decision->turnDigest);
         self::assertSame(ApprovalDenialReason::from($value), $decision->denialReason);
     }
@@ -74,8 +47,6 @@ final class ApprovalDecisionFactoryTest extends TestCase
     #[Test]
     public function aDenialWithoutAReasonCarriesNone(): void
     {
-        $this->requireDenialReason(true);
-
         self::assertNull((new ApprovalDecisionFactory())->create(false, 7, 'digest-abc')->denialReason);
     }
 
@@ -86,8 +57,6 @@ final class ApprovalDecisionFactoryTest extends TestCase
         $decision = (new ApprovalDecisionFactory())->create(true, 7, 'digest-abc', DenyReason::Skip);
 
         self::assertTrue($decision->approved);
-        if (property_exists($decision, 'denialReason')) {
-            self::assertNull($decision->denialReason);
-        }
+        self::assertNull($decision->denialReason);
     }
 }

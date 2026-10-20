@@ -70,9 +70,8 @@ final class NrLlmSkillCatalogueTest extends TestCase
     #[Test]
     public function theCatalogueListsTheEnabledSkillsOfConfigurationAndTask(): void
     {
-        // nr-llm 0.41 marks process skills (nr-llm PR 1025) and these are
-        // none; an earlier nr-llm has no marker.
-        $process = method_exists(Skill::class, 'isProcess') ? false : null;
+        // nr-llm marks process skills (nr-llm PR 1025); these are none.
+        $process = false;
 
         self::assertSame(
             [
@@ -86,10 +85,6 @@ final class NrLlmSkillCatalogueTest extends TestCase
     #[Test]
     public function aSkillNrLlmMarksAsAProcessIsListedAsOne(): void
     {
-        if (!method_exists(Skill::class, 'setProcess')) {
-            self::markTestSkipped('Needs nr-llm 0.41 (Skill::isProcess(), nr-llm PR 1025).');
-        }
-
         $task = $this->task();
         $tour = $this->skill('guided-tour', 'Rundgang', uid: 9);
         $tour->setProcess(true);

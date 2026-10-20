@@ -109,9 +109,8 @@ process only on the chat card; where the configuration requires a second
 approver (nr-llm ADR-172), the run's owner cannot release their own write
 there. A skill is therefore refused at the start and when it is picked
 (409, ``error.skillSecondApprover``) when the chat Task's configuration
-requires a second approver. Where the installed nr-llm marks process
-skills (``Skill::isProcess()``, nr-llm ADR-214), only those are refused;
-where it does not, every catalogue skill counts as a process. A skill picked before the
+requires a second approver. nr-llm marks process skills
+(``Skill::isProcess()``, nr-llm ADR-214), and only those are refused. A skill picked before the
 configuration was switched to four-eyes keeps running.
 
 Consequences
@@ -126,6 +125,5 @@ Consequences
     allows. nr-llm ADR-214 makes approved versions instructions; the adapter
     is where explicit invocation replaces the forced skill.
 *   A skill picked while a turn runs is refused, as the instructions are.
-*   The chat needs the nr-llm release that carries ``SkillInvocation``,
-    ``SubjectRecord`` and ``predecessorRunUuid`` (nr-llm ADR-228); there is
-    no fallback for an older nr-llm.
+*   The chat requires nr-llm 0.41, which carries ``SkillInvocation``,
+    ``SubjectRecord`` and ``predecessorRunUuid`` (nr-llm ADR-228).

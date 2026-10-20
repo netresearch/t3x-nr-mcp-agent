@@ -10,16 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
 use DomainException;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings;
 use Netresearch\NrMcpAgent\Service\NrLlmPreviewHeadingRecogniser;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
 /**
- * nr-llm's ApprovalPreviewHeadings arrives with netresearch/t3x-nr-llm#1016,
- * which not every supported nr-llm has. The recogniser asks it when it is
- * there and answers "no heading" otherwise.
+ * The recogniser asks nr-llm's ApprovalPreviewHeadings
+ * (netresearch/t3x-nr-llm#1016) and answers "no heading" when it fails.
  */
 #[CoversClass(NrLlmPreviewHeadingRecogniser::class)]
 final class NrLlmPreviewHeadingRecogniserTest extends TestCase
@@ -56,15 +57,9 @@ final class NrLlmPreviewHeadingRecogniserTest extends TestCase
     #[Test]
     public function itTargetsNrLlmsApi(): void
     {
-        self::assertSame('Netresearch\\NrLlm\\Service\\Tool\\ApprovalPreviewHeadings', NrLlmPreviewHeadingRecogniser::PROVIDER);
-    }
+        $provider = (new ReflectionProperty(NrLlmPreviewHeadingRecogniser::class, 'provider'))->getValue(new NrLlmPreviewHeadingRecogniser());
 
-    #[Test]
-    public function anNrLlmWithoutTheApiKnowsNoHeading(): void
-    {
-        $recogniser = new NrLlmPreviewHeadingRecogniser('Netresearch\\NrLlm\\DoesNotExist');
-
-        self::assertFalse($recogniser->isHeading('Seite löschen', $this->german()));
+        self::assertSame(ApprovalPreviewHeadings::class, $provider);
     }
 
     #[Test]

@@ -45,7 +45,6 @@ use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
-use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
@@ -201,7 +200,6 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?LlmConfigurationRepository $configurations = null,
         private readonly ?ApprovalDecisionFactory $decisionFactory = null,
         private readonly ?ProcessRunDetectorInterface $processRuns = null,
-        private readonly ?ToolEffectResolver $toolEffects = null,
         private readonly ?WaitingRunCancellerInterface $runCanceller = null,
         private readonly ?GuidedStateLinker $guidedState = null,
         private readonly ?SkillCatalogueInterface $skills = null,
@@ -567,8 +565,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Left waiting, the tour's proposal could still be decided after the
      * tour had moved on. Called after the claim, with the conversation as it
      * was before it. The cancel is guarded on the run still waiting
-     * (WaitingRunCancellerInterface); until nr-llm has that guard, the status
-     * is read first and cancel() called. An ordinary chat keeps the abandoned
+     * (WaitingRunCancellerInterface); a service built without the canceller
+     * reads the status first and calls cancel(). An ordinary chat keeps the abandoned
      * run waiting, as before.
      *
      * Returns false when the run is being carried on, or the cancel lost to
@@ -623,11 +621,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Whether the card offers "Übernehmen / Andere Variante / Überspringen"
      * rather than approve and cancel (nr-llm ADR-214, item 9).
      *
-     * Only in a process run, and only when a pending call writes. nr-llm's
-     * view says so per call (`PendingCallView::$declaresWrite`, nr-llm PR
-     * 1024, 0.41). On an nr-llm without it the effect is nr-llm's own
-     * resolution by name; in both an unknown tool counts as a write, and
-     * without the resolver every call does.
+     * Only in a process run, and only when a pending call writes, as nr-llm's
+     * view says per call (`PendingCallView::$declaresWrite`, nr-llm PR 1024);
+     * nr-llm counts a tool that is no longer registered as a write.
      */
     public function offersProcessAnswers(Conversation $conversation, WaitingRunView $view): bool
     {
@@ -636,7 +632,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         foreach ($view->pendingCalls as $call) {
-            if (PendingCallEffect::declaresWrite($call, $this->toolEffects)) {
+            if ($call->declaresWrite) {
                 return true;
             }
         }

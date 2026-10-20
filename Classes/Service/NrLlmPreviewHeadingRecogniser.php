@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings;
 use Throwable;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
@@ -17,24 +18,23 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * `ApprovalPreviewHeadings::isHeading()` (@api, added with
  * netresearch/t3x-nr-llm#1016).
  *
- * Referenced by name and guarded with class_exists/method_exists, because the
- * nr-llm versions this extension supports do not all have it. Without it no
- * line is a heading, and the card names the change by the editor action label
- * or its generic wording. Any failure answers "no heading" as well: a
- * heading is presentation, and the decision does not depend on it.
+ * The provider is a constructor argument so a test can stand in for nr-llm.
+ * Any failure answers "no heading": a heading is presentation, and the
+ * decision does not depend on it.
  */
 final readonly class NrLlmPreviewHeadingRecogniser implements PreviewHeadingRecogniserInterface
 {
-    public const PROVIDER = 'Netresearch\\NrLlm\\Service\\Tool\\ApprovalPreviewHeadings';
-
+    /**
+     * @param class-string $provider a class with nr-llm's static isHeading(string, LanguageService): bool
+     */
     public function __construct(
-        private string $provider = self::PROVIDER,
+        private string $provider = ApprovalPreviewHeadings::class,
     ) {}
 
     public function isHeading(string $line, LanguageService $language): bool
     {
         $isHeading = [$this->provider, 'isHeading'];
-        if (!class_exists($this->provider) || !is_callable($isHeading)) {
+        if (!is_callable($isHeading)) {
             return false;
         }
 

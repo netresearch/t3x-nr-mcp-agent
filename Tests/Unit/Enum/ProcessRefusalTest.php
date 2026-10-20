@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Unit\Enum;
 
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
@@ -25,8 +28,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * The refusals nr-llm raises for a guided process (nr-llm PR 1029), read by
- * class name so that an nr-llm without them matches nothing.
+ * The refusals nr-llm raises for a guided process (nr-llm PR 1029).
  */
 #[CoversClass(ProcessRefusal::class)]
 #[CoversClass(ProcessStopReason::class)]
@@ -34,24 +36,14 @@ final class ProcessRefusalTest extends TestCase
 {
     private const LANGUAGE_DIR = __DIR__ . '/../../../Resources/Private/Language/';
 
-    /**
-     * The refusal as nr-llm raises it, or a skip where the installed nr-llm
-     * does not have it yet.
-     */
+    /** The refusal as nr-llm raises it. */
     public static function raised(ProcessRefusal $refusal, string $runUuid = 'run-1'): RuntimeException
     {
-        if (!class_exists($refusal->value)) {
-            self::markTestSkipped('Needs nr-llm with ' . $refusal->value . ' (nr-llm PR 1029).');
-        }
-
-        $exception = match ($refusal) {
-            ProcessRefusal::DecidedInChat       => call_user_func([$refusal->value, 'forActor'], AiActorContext::backendUser(2), $runUuid),
-            ProcessRefusal::NeedsSecondApprover => call_user_func([$refusal->value, 'forRun'], $runUuid, 'chat'),
-            ProcessRefusal::VerdictUnavailable  => call_user_func([$refusal->value, 'forRun'], $runUuid),
+        return match ($refusal) {
+            ProcessRefusal::DecidedInChat       => ProcessRunDecidedInChatException::forActor(AiActorContext::backendUser(2), $runUuid),
+            ProcessRefusal::NeedsSecondApprover => ProcessRunNeedsSecondApproverException::forRun($runUuid, 'chat'),
+            ProcessRefusal::VerdictUnavailable  => ProcessVerdictUnavailableException::forRun($runUuid),
         };
-        self::assertInstanceOf(RuntimeException::class, $exception);
-
-        return $exception;
     }
 
     /**
@@ -81,7 +73,7 @@ final class ProcessRefusalTest extends TestCase
         yield 'anything else' => [new RuntimeException('the database went away')];
     }
 
-    /** Runs on every nr-llm: nothing else is taken for a refusal of a guided process. */
+    /** Nothing else is taken for a refusal of a guided process. */
     #[Test]
     #[DataProvider('otherExceptions')]
     public function anythingElseIsNoProcessRefusal(Throwable $e): void

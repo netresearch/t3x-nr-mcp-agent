@@ -9,15 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Enum;
 
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunDecidedInChatException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverException;
+use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException;
 use Throwable;
 
 /**
  * The refusals nr-llm raises for a guided process when a decision on one of
  * its runs is taken (nr-llm ADR-214 item 6, nr-llm PR 1029).
- *
- * The classes are named here as strings and recognised only where the
- * installed nr-llm has them: on an nr-llm without them nothing matches and
- * the decision path behaves as before.
  *
  * - VerdictUnavailable: whether the run is a guided process could not be
  *   checked. Nothing was decided; the run still waits, and the same decision
@@ -30,18 +29,15 @@ use Throwable;
  */
 enum ProcessRefusal: string
 {
-    case VerdictUnavailable  = 'Netresearch\\NrLlm\\Service\\Agent\\Exception\\ProcessVerdictUnavailableException';
-    case DecidedInChat       = 'Netresearch\\NrLlm\\Service\\Agent\\Exception\\ProcessRunDecidedInChatException';
-    case NeedsSecondApprover = 'Netresearch\\NrLlm\\Service\\Agent\\Exception\\ProcessRunNeedsSecondApproverException';
+    case VerdictUnavailable  = ProcessVerdictUnavailableException::class;
+    case DecidedInChat       = ProcessRunDecidedInChatException::class;
+    case NeedsSecondApprover = ProcessRunNeedsSecondApproverException::class;
 
-    /**
-     * The refusal the exception is, or null for anything else and wherever
-     * the installed nr-llm does not have the class.
-     */
+    /** The refusal the exception is, or null for anything else. */
     public static function of(Throwable $e): ?self
     {
         foreach (self::cases() as $refusal) {
-            if (class_exists($refusal->value) && is_a($e, $refusal->value)) {
+            if (is_a($e, $refusal->value)) {
                 return $refusal;
             }
         }
