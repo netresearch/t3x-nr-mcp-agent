@@ -1,0 +1,37 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+    A choice of one page for the assistant. Arguments: id, name, label,
+    labelHidden (bool), describedBy (id of the hint saying which pages these
+    are), pages, and optionally suggestions (pages with a reason, listed first
+    as the group "Empfohlen", the pages then as "Zuletzt geändert").
+
+    Page titles and reasons are text and render escaped: tag-form f:if, never
+    the inline form around them. AssistantWidgetsRenderingTest pins this.
+</f:comment>
+<f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
+<label for="{id}" class="{f:if(condition: labelHidden, then: 'visually-hidden', else: 'form-label')}">{label}</label>
+<select id="{id}" name="{name}" class="form-select" required="required" aria-describedby="{describedBy}">
+    <f:if condition="{suggestions}">
+        <f:then>
+            <optgroup label="{f:translate(key: '{ll}page.suggested')}">
+                <f:for each="{suggestions}" as="page">
+                    <option value="{page.uid}"><f:if condition="{page.title}"><f:then>{page.title}</f:then><f:else><f:translate key="{ll}page.untitled" /></f:else></f:if> – {page.reason}</option>
+                </f:for>
+            </optgroup>
+            <f:if condition="{pages}">
+                <optgroup label="{f:translate(key: '{ll}page.recent')}">
+                    <f:for each="{pages}" as="page">
+                        <option value="{page.uid}"><f:if condition="{page.title}"><f:then>{page.title}</f:then><f:else><f:translate key="{ll}page.untitled" /></f:else></f:if></option>
+                    </f:for>
+                </optgroup>
+            </f:if>
+        </f:then>
+        <f:else>
+            <f:for each="{pages}" as="page">
+                <option value="{page.uid}"><f:if condition="{page.title}"><f:then>{page.title}</f:then><f:else><f:translate key="{ll}page.untitled" /></f:else></f:if></option>
+            </f:for>
+        </f:else>
+    </f:if>
+</select>
