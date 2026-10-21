@@ -42,6 +42,8 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  */
 final class ChatConversationStartTest extends FunctionalTestCase
 {
+    private const SEO_TOUR = '9404:seo-optimieren';
+
     protected array $coreExtensionsToLoad = ['filelist'];
 
     protected array $testExtensionsToLoad = [
@@ -169,9 +171,9 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $config->method('getMaxActiveConversationsPerUser')->willReturn($maxActive);
 
         $entries = [
-            '9404:seo-optimieren' => ['identifier' => '9404:seo-optimieren', 'name' => 'seo-optimieren', 'description' => '', 'uid' => 9422, 'process' => true],
-            '9403:tone-check'     => ['identifier' => '9403:tone-check', 'name' => 'tone-check', 'description' => '', 'uid' => 9421, 'process' => false],
-            '9404:unmarked-tour'  => ['identifier' => '9404:unmarked-tour', 'name' => 'unmarked-tour', 'description' => '', 'uid' => 9424, 'process' => null],
+            self::SEO_TOUR       => ['identifier' => self::SEO_TOUR, 'name' => 'seo-optimieren', 'description' => '', 'uid' => 9422, 'process' => true],
+            '9403:tone-check'    => ['identifier' => '9403:tone-check', 'name' => 'tone-check', 'description' => '', 'uid' => 9421, 'process' => false],
+            '9404:unmarked-tour' => ['identifier' => '9404:unmarked-tour', 'name' => 'unmarked-tour', 'description' => '', 'uid' => 9424, 'process' => null],
         ];
         $skills = $this->createMock(SkillCatalogueInterface::class);
         $skills->method('isAvailable')->willReturn(true);
@@ -231,7 +233,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
             $dispatched[] = $uid;
         });
 
-        $response = $this->createWith($this->tourSubject($processor), ['pageUid' => 10, 'languageUid' => 0, 'skill' => '9404:seo-optimieren']);
+        $response = $this->createWith($this->tourSubject($processor), ['pageUid' => 10, 'languageUid' => 0, 'skill' => self::SEO_TOUR]);
 
         self::assertSame(201, $response->getStatusCode());
         $body = json_decode((string) $response->getBody(), true);
@@ -276,7 +278,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $processor = $this->createMock(ChatProcessorInterface::class);
         $processor->expects(self::never())->method('dispatch');
 
-        $body = json_decode((string) $this->createWith($this->tourSubject($processor), ['skill' => '9404:seo-optimieren'])->getBody(), true);
+        $body = json_decode((string) $this->createWith($this->tourSubject($processor), ['skill' => self::SEO_TOUR])->getBody(), true);
         self::assertIsArray($body);
         $stored = $this->repository->findByUid((int) $body['uid']);
 
@@ -318,7 +320,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $processor = $this->createMock(ChatProcessorInterface::class);
         $processor->expects(self::never())->method('dispatch');
 
-        $response = $this->createWith($this->tourSubject($processor, maxActive: 1), ['pageUid' => 10, 'skill' => '9404:seo-optimieren']);
+        $response = $this->createWith($this->tourSubject($processor, maxActive: 1), ['pageUid' => 10, 'skill' => self::SEO_TOUR]);
 
         self::assertSame(429, $response->getStatusCode());
         self::assertSame(1, $this->countConversations());

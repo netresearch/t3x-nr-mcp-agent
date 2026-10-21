@@ -223,20 +223,17 @@ final readonly class ChatApiController
 
         $body    = $request instanceof ServerRequestInterface ? $this->parseBody($request) : [];
         $refusal = $this->applyStartContext($conversation, $body);
+        // A guided process about a page starts with the conversation (ADR-023,
+        // amendment): its first turn is the page choice's own "Diese Seite
+        // prüfen", sent for the editor, and its run carries the invocation.
+        // The start is a turn, so the limit on running conversations applies.
+        $startsTour = $refusal === null && $this->startsTour($conversation);
+        $refusal ??= $startsTour ? $this->refuseNewTurn($conversation->getStatus()) : null;
         if ($refusal !== null) {
             return $refusal;
         }
 
-        // A guided process about a page starts with the conversation (ADR-023,
-        // amendment): its first turn is the page choice's own "Diese Seite
-        // prüfen", sent for the editor, and its run carries the invocation.
-        $startsTour = $this->startsTour($conversation);
         if ($startsTour) {
-            $refusal = $this->refuseNewTurn($conversation->getStatus());
-            if ($refusal !== null) {
-                return $refusal;
-            }
-
             $conversation->appendMessage(MessageRole::User, $this->translate('guided.checkPage'));
             $conversation->setStatus(ConversationStatus::Processing);
         }
