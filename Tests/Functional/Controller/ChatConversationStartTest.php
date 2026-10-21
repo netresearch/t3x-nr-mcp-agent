@@ -171,6 +171,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $entries = [
             '9404:seo-optimieren' => ['identifier' => '9404:seo-optimieren', 'name' => 'seo-optimieren', 'description' => '', 'uid' => 9422, 'process' => true],
             '9403:tone-check'     => ['identifier' => '9403:tone-check', 'name' => 'tone-check', 'description' => '', 'uid' => 9421, 'process' => false],
+            '9404:unmarked-tour'  => ['identifier' => '9404:unmarked-tour', 'name' => 'unmarked-tour', 'description' => '', 'uid' => 9424, 'process' => null],
         ];
         $skills = $this->createMock(SkillCatalogueInterface::class);
         $skills->method('isAvailable')->willReturn(true);
@@ -245,6 +246,26 @@ final class ChatConversationStartTest extends FunctionalTestCase
         self::assertSame(MessageRole::User->value, $messages[0]['role']);
         self::assertSame('Check this page', $messages[0]['content']);
         self::assertSame(['pageId' => 10, 'module' => '', 'languageId' => 0], $stored->getViewContext());
+    }
+
+    /**
+     * A skill the catalogue does not mark counts as a process, as in the
+     * offer of a new start (tourStart): a start the chat offers begins.
+     */
+    #[Test]
+    public function aSkillTheCatalogueDoesNotMarkStartsLikeAProcess(): void
+    {
+        $this->loginWithLanguage();
+        $processor = $this->createMock(ChatProcessorInterface::class);
+        $processor->expects(self::once())->method('dispatch');
+
+        $body = json_decode((string) $this->createWith($this->tourSubject($processor), ['pageUid' => 10, 'skill' => '9404:unmarked-tour'])->getBody(), true);
+        self::assertIsArray($body);
+        $stored = $this->repository->findByUid((int) $body['uid']);
+
+        self::assertNotNull($stored);
+        self::assertSame(ConversationStatus::Processing, $stored->getStatus());
+        self::assertCount(1, $stored->getDecodedMessages());
     }
 
     /** Without a page the chat asks for one (ADR-023); nothing runs before the editor picks it. */

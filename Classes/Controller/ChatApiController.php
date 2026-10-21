@@ -281,9 +281,11 @@ final readonly class ChatApiController
     /**
      * Whether a new conversation starts its guided process at once: a process
      * skill and a page, and nr-llm able to start the run with an invocation
-     * (nr-llm ADR-214 item 10). Without a page the chat asks for one first;
-     * a skill that is no process goes as a forced skill and waits for the
-     * editor's message.
+     * (nr-llm ADR-214 item 10). These are the conditions under which
+     * tourStart() offers a new start, so every start it offers begins; a
+     * skill the catalogue does not mark counts as a process, as there.
+     * Without a page the chat asks for one first; a skill marked as no
+     * process waits for the editor's message.
      */
     private function startsTour(Conversation $conversation): bool
     {
@@ -292,7 +294,7 @@ final readonly class ChatApiController
         return $this->skillInvocation instanceof SkillInvocationInterface
             && $identifier !== ''
             && $conversation->getViewContext()['pageId'] > 0
-            && ($this->skills?->find($identifier)['process'] ?? null) === true;
+            && ($this->skills?->find($identifier)['process'] ?? null) !== false;
     }
 
     /**

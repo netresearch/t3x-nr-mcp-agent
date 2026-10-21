@@ -202,13 +202,15 @@ asked for a page.
 **Decision.**
 
 -   **A process about a page starts when the conversation is created.**
-    ``POST /ai-chat/conversations/create`` with a page and a skill the
-    catalogue marks as a process, where nr-llm can start a run with an
-    invocation, appends the first turn and hands the conversation to the
-    worker in the same request. The run carries the invocation with the page
-    as its subject (ADR-019), as every first run does. Without a page the
-    chat asks for one, as before; a skill that is no process waits for the
-    editor's message.
+    ``POST /ai-chat/conversations/create`` with a page and a process skill,
+    where nr-llm can start a run with an invocation, appends the first turn
+    and hands the conversation to the worker in the same request. These are
+    the conditions of ``tourStart``, so every start the chat offers begins; a
+    skill the catalogue does not mark counts as a process there and here.
+    The run carries the invocation with the page as its subject (ADR-019),
+    as every first run of a process skill does. Without a page the chat asks
+    for one, as before; a skill marked as no process waits for the editor's
+    message.
 -   **The first turn is the page choice's own words.** nr-llm has no start
     without a user message: its runs are built over a transcript, and a
     provider such as Anthropic's refuses a request without one. The turn is
