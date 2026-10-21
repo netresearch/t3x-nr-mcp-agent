@@ -223,11 +223,25 @@ final readonly class ChatApiController
 
         $body    = $request instanceof ServerRequestInterface ? $this->parseBody($request) : [];
         $refusal = $this->applyStartContext($conversation, $body);
+        // A guided process about a page starts with the conversation (ADR-023,
+        // amendment): its first turn is the page choice's own "Diese Seite
+        // prüfen", sent for the editor, and its run carries the invocation.
+        // The start is a turn, so the limit on running conversations applies.
+        $startsTour = $refusal === null && $this->startsTour($conversation);
+        $refusal ??= $startsTour ? $this->refuseNewTurn($conversation->getStatus()) : null;
         if ($refusal !== null) {
             return $refusal;
         }
 
+        if ($startsTour) {
+            $conversation->appendMessage(MessageRole::User, $this->translate('guided.checkPage'));
+            $conversation->setStatus(ConversationStatus::Processing);
+        }
+
         $uid = $this->repository->add($conversation);
+        if ($startsTour) {
+            $this->processor->dispatch($uid);
+        }
 
         return new JsonResponse([
             'uid' => $uid,
@@ -259,6 +273,41 @@ final readonly class ChatApiController
         $conversation->setSkillIdentifier($skill, $this->skillUid($skill));
 
         return null;
+    }
+
+    /**
+     * Whether a new conversation starts its guided process at once: a process
+     * skill and a page, and nr-llm able to start the run with an invocation
+     * (nr-llm ADR-214 item 10). These are the conditions under which
+     * tourStart() offers a new start, so every start it offers begins; a
+     * skill the catalogue does not mark counts as a process, as there.
+     * Without a page the chat asks for one first; a skill marked as no
+     * process waits for the editor's message.
+     */
+    private function startsTour(Conversation $conversation): bool
+    {
+        $identifier = $conversation->getSkillIdentifier();
+
+        return $this->skillInvocation instanceof SkillInvocationInterface
+            && $identifier !== ''
+            && $conversation->getViewContext()['pageId'] > 0
+            && ($this->skills?->find($identifier)['process'] ?? null) !== false;
+    }
+
+    /**
+     * Whether the conversation's page is the subject of its guided process and
+     * therefore stays, whatever page the browser shows when a message is sent
+     * (ADR-023): another page is a new conversation ("Zur neuen Seite
+     * wechseln"). A skill the catalogue does not mark counts as a process, as
+     * in tourStart().
+     */
+    private function keepsItsPage(Conversation $conversation): bool
+    {
+        $identifier = $conversation->getSkillIdentifier();
+
+        return $identifier !== ''
+            && $conversation->getViewContext()['pageId'] > 0
+            && ($this->skills?->find($identifier)['process'] ?? null) !== false;
     }
 
     /** Why the user cannot start a conversation about this page in this language, or null. */
@@ -887,7 +936,13 @@ final readonly class ChatApiController
         // Where the user is in the backend, for this turn (NEXT-172). Only
         // shape is checked here; the worker decides what the user may see.
         $context = $body['context'] ?? null;
-        if (is_array($context)) {
+        if ($this->keepsItsPage($conversation)) {
+            // A guided process stays on its page: the browser may show none
+            // (the chat module) or another one. Only the module follows.
+            $stored = $conversation->getViewContext();
+            $module = is_array($context) ? ($context['module'] ?? '') : '';
+            $conversation->setViewContext($stored['pageId'], is_string($module) ? $module : '', $stored['languageId']);
+        } elseif (is_array($context)) {
             $pageId     = is_int($context['pageId'] ?? null) ? $context['pageId'] : 0;
             $module     = $context['module'] ?? '';
             $languageId = is_int($context['languageId'] ?? null) ? $context['languageId'] : -1;

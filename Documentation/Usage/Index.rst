@@ -253,7 +253,11 @@ A skill can walk you through a page one point at a time. While it does:
     partly applied leaves it open. A proposal you leave behind with a
     message of your own is not kept.
 
-A process started without a page asks for one: choose the page in the
+A process started for a page -- from the dashboard's "Eine Seite
+verbessern", or by **Zur neuen Seite wechseln** -- begins at once: the chat
+sends **Diese Seite prüfen** for you, and you do not need to type anything.
+The process stays on that page; to work on another one, start it there. A
+process started without a page asks for one: choose the page in the
 page tree, then confirm it with **Diese Seite prüfen** in the floating
 panel. This page choice, **Andere Seite wählen** and **Zur neuen Seite
 wechseln** are offered only where nr-llm can start a run with an
