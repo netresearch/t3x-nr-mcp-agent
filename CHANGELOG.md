@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-10-21
+
+### Fixed
+
+- **A guided process opened for a page starts at once (#219, ADR-023).** A conversation created with a process skill and a page, from the dashboard's "Improve a page" or from "Zur neuen Seite wechseln", stayed idle under "Analyse läuft" until the editor typed something. It now starts its first run with the page as its subject, under the same conditions in which the chat offers a new start: a process skill (a skill without a process marker counts as one), a page, and an invocation that can be built. The first turn is "Diese Seite prüfen". The limit of running conversations per user applies, and a refused start creates nothing.
+- **A guided process keeps its page across messages (#219, ADR-023).** Each message replaced the conversation's page with the one the browser sent; the full-screen chat module sends page 0, so the next run asked the editor to pick a page again. A conversation with a process skill and a page now keeps its page and language. A process without a page still takes the page its page choice sends, and a conversation without a skill still follows the browser.
+
 ## [0.17.0] - 2026-10-21
 
 ### Upgrading from 0.16
