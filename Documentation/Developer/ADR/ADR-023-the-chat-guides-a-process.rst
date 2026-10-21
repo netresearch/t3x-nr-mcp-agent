@@ -182,3 +182,48 @@ Consequences
     dashboard's page suggestions and are not part of the chat yet.
 -   The three answers keep one meaning each. A context action, once one is
     built, is a message of its own, which withdraws the waiting proposal.
+
+Amendment: the first run starts with the conversation
+=====================================================
+
+**Date:** 2026-10-21
+
+**Context.** A conversation created with a process skill and a page — from
+the dashboard's "Eine Seite verbessern", or by *Zur neuen Seite wechseln* —
+showed the header with "Analyse läuft" and ran nothing: the only thing that
+dispatched a run was a sent message, and the editor was expected to type
+one. The decision above says the header shows "Analyse läuft" until the
+first progress report, and the process skills say the editor formulates no
+prompt. Separately, a message sent from the chat module carried page 0,
+because no page module sits beside it, and the turn replaced the
+conversation's page with it; the run then started without a subject and
+asked for a page.
+
+**Decision.**
+
+-   **A process about a page starts when the conversation is created.**
+    ``POST /ai-chat/conversations/create`` with a page and a skill the
+    catalogue marks as a process, where nr-llm can start a run with an
+    invocation, appends the first turn and hands the conversation to the
+    worker in the same request. The run carries the invocation with the page
+    as its subject (ADR-019), as every first run does. Without a page the
+    chat asks for one, as before; a skill that is no process waits for the
+    editor's message.
+-   **The first turn is the page choice's own words.** nr-llm has no start
+    without a user message: its runs are built over a transcript, and a
+    provider such as Anthropic's refuses a request without one. The turn is
+    therefore *Diese Seite prüfen* in the editor's language — the label of
+    the page choice's button, which starts a process without a page in the
+    same way. It is stored and shown like any message, never hidden, and the
+    model receives exactly what the transcript shows. The click on the
+    dashboard is the editor's confirmation, so browsing the page tree still
+    starts nothing.
+-   **The start is a turn.** The limit on running conversations applies;
+    over it the start is refused and nothing is created, as every refused
+    start (ADR-019).
+-   **A process keeps its page.** While a conversation has a process skill
+    (or a skill the catalogue does not mark) and a page, a sent or edited
+    message updates the module of the view context, never its page or
+    language: another page is a new conversation through *Zur neuen Seite
+    wechseln*. A process without a page takes the page its page choice
+    sends; a conversation without a skill follows the browser as before.

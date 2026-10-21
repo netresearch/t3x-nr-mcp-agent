@@ -338,4 +338,60 @@ final class ChatApiControllerStartTest extends TestCase
         $subject->sendMessage($this->request('{"conversationUid": 7, "content": "und hier", "context": {"pageId": 11, "module": "web_layout"}}'));
         self::assertSame(['pageId' => 11, 'module' => 'web_layout', 'languageId' => -1], $conversation->getViewContext());
     }
+
+    /**
+     * A guided process stays on the page it started with (ADR-023). The chat
+     * module shows no page beside it, so its messages carry page 0; the page
+     * module may show another page. Neither moves the process.
+     */
+    #[Test]
+    public function aTurnOfAGuidedProcessKeepsItsPageAndLanguage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setSkillIdentifier('content-tour', 19);
+        $conversation->setViewContext(10001, '', 0);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('updateIf')->willReturn(true);
+        $subject = $this->subject($this->catalogue());
+
+        $subject->sendMessage($this->request('{"conversationUid": 146, "content": "Bitte prüfe diese Seite.", "context": {"pageId": 0, "module": "nrmcpagent_chat"}}'));
+        self::assertSame(['pageId' => 10001, 'module' => 'nrmcpagent_chat', 'languageId' => 0], $conversation->getViewContext());
+
+        $conversation->setStatus(ConversationStatus::Idle);
+        $subject->sendMessage($this->request('{"conversationUid": 146, "content": "weiter", "context": {"pageId": 11, "module": "web_layout", "languageId": 1}}'));
+        self::assertSame(['pageId' => 10001, 'module' => 'web_layout', 'languageId' => 0], $conversation->getViewContext());
+
+        $conversation->setStatus(ConversationStatus::Idle);
+        $subject->sendMessage($this->request('{"conversationUid": 146, "content": "und ohne Kontext"}'));
+        self::assertSame(['pageId' => 10001, 'module' => '', 'languageId' => 0], $conversation->getViewContext());
+    }
+
+    /** A process without a page takes the one its page choice sends (ADR-023). */
+    #[Test]
+    public function aGuidedProcessWithoutAPageTakesTheSentOne(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setSkillIdentifier('content-tour', 19);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('updateIf')->willReturn(true);
+
+        $this->subject($this->catalogue())->sendMessage($this->request('{"conversationUid": 7, "content": "guided.checkPage", "context": {"pageId": 20, "module": "web_layout", "languageId": 1}}'));
+
+        self::assertSame(['pageId' => 20, 'module' => 'web_layout', 'languageId' => 1], $conversation->getViewContext());
+    }
+
+    /** A skill marked as no process is no tour: the page follows the browser, as without a skill. */
+    #[Test]
+    public function aPlainSkillFollowsTheBrowsersPage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setSkillIdentifier('tone-check', 18);
+        $conversation->setViewContext(10, '', 0);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('updateIf')->willReturn(true);
+
+        $this->subject($this->catalogue())->sendMessage($this->request('{"conversationUid": 7, "content": "und hier", "context": {"pageId": 11, "module": "web_layout"}}'));
+
+        self::assertSame(['pageId' => 11, 'module' => 'web_layout', 'languageId' => -1], $conversation->getViewContext());
+    }
 }
