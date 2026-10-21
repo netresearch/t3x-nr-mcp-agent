@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-21
+
+### Upgrading from 0.16
+
+- **nr-llm 0.41.1 is required.** `composer.json` requires `netresearch/nr-llm` `^0.41.1`, `ext_emconf.php` declares `0.41.1-0.41.99`. nr-llm 0.37 to 0.40 are no longer supported (#199), and nr-llm 0.41.0 refuses to start a process skill that is attached on demand, which nr-llm 0.41.1 fixes.
+- **Run the database analyzer.** The conversation table gains `pending_input`, `approval_deny_reason` (#197), `guided_state` (#201), `skill_identifier`, `skill_uid`, `skill_start_pending`, `last_run_uuid` (#199), `approval_card` and `card_outcomes` (#208); the new tables are `tx_nrmcpagent_run_state` (#201) and `tx_nrmcpagent_open_point` (#207).
+
+### Added
+
+- **A conversation can start about a page, in one language, with a skill (#199).** `POST /ai-chat/conversations/create` and the module URL take `pageUid`, `languageUid` and `skill`; the start is refused, and nothing is created, for a page the user may not show, a language of the site the user may not edit or an unknown skill. Typing `/` in the input lists the skills. A process skill starts as an nr-llm invocation with the page as its subject, and every later turn continues it from the conversation's last run (nr-llm ADR-228). A process skill is refused on a configuration that requires a second approver. When nr-llm drops the process before a run, the chat says why in the reader's language.
+- **A guided process in the chat's own words (#208, ADR-023).** A proposal of a guided process is an inline block naming what it affects, the current and the proposed value; each decided proposal gets a status line and the finished process a summary. The header names page, language and point ("Punkt n von m"), and a × ends the process, also in nr-llm. Ending the process, nr-llm's second-approver stop and a dropped process clear the conversation's skill and header.
+- **Reply buttons for a run's question (#197).** A run that pauses for input (nr-llm `WAITING_FOR_INPUT`) no longer fails the conversation: it waits in the new status `awaiting_input`, the question appears as the assistant's message and its answers as buttons above the input, with a typed answer where the question allows one. nr-llm's `ask_choice` is answered this way.
+- **Two denials for a write in a guided process (#197).** The approval card offers *Andere Variante* and *Überspringen* instead of *Abbrechen*, and passes the reason to nr-llm. In a guided process a new message cancels a run that waits on a card or a question; an ordinary chat keeps its behaviour.
+- **Skipped proposals stay open points (#207, ADR-022).** A proposal answered with *Überspringen* is kept per record and field until an approved change to the same field comes back applied in full. The process is offered its open points again on the page, and the read tool `chat_list_open_points` lists them.
+- **Progress and highlight for guided processes (#201, ADR-020).** The read tools `chat_set_progress` and `chat_highlight_element` let a skill show its progress in the chat header and mark the content element of the current point in the page module.
+- **Editors can approve their own changes (#200, ADR-021).** A backend group with the new permission "Approve own changes in the chat" decides the approval cards of its own conversations without access to nr-llm's AI Tasks module, where the change's preview was built with the editor's rights. On a configuration that requires a second approver, the card offers only the denial and names AI Tasks.
+- **Dashboard widgets and an "AI Assistant" preset (#198).** "Improve a page" starts a guided tour on a page the editor may edit, "Frequent tasks" lists the tasks of the setting `dashboardQuickTasks`, and "Recommended for your website" lists open points; the preset also holds the "AI Chat" widget. The tours come from the extension setting `dashboardGuidedSkills` (default `seo-optimieren,inhalt-verbessern`), and a widget offers only skills the chat can start for the current user. The widgets need EXT:dashboard; the SEO title and social-image checks behind the page suggestions use EXT:seo where it is installed.
+
+### Fixed
+
+- **nr-llm's four-eyes refusal no longer fails the conversation (#200).** An initiator's approval refused with `SelfApprovalDeniedException` brings the card back with the reason and the run link instead of offering a Retry.
+- **The skill catalogue lists a process skill attached on demand (#216).** Before, only the skills loaded always were listed, although nr-llm's form offers a process skill only in the field "Skills loaded on demand".
+
+### Changed
+
+- **The chat uses nr-llm 0.41 directly (#199).** The checks that kept nr-llm 0.37 to 0.40 working are removed.
+- **Code style follows `netresearch/typo3-ci-workflows` 2.0** (#214, #215).
+
 ## [0.16.1] - 2026-10-09
 
 ### Fixed
