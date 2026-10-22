@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-10-22
+
+### Fixed
+
+- **The chat shows the text the model writes beside a tool call (#222).** Only the text of the run's last round was stored, so the overview of a guided tour, the explanation before each proposal card and the status line beside a read never appeared. Each round that requested a tool and wrote text now adds it as its own assistant message, in the order of the rounds, before the answer, the card or the question that follows; after a decided card it comes after the card's outcome line. A failed run adds nothing, because Retry runs the turn again. On later turns the model reads such a message joined with the assistant message after it, so one assistant turn stays one message.
+
+### Security
+
+- **Development dependencies (#223).** `brace-expansion` and `source-map-js`, which reach the JavaScript test tooling through jest and css-tree, are raised to patched versions. Neither is part of the installed extension.
+
 ## [0.17.1] - 2026-10-21
 
 ### Fixed
