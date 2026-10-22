@@ -68,6 +68,9 @@ final class ChatServiceSkillTest extends TestCase
 
     private const PLAIN = ['identifier' => 'tone-check', 'name' => 'Ton', 'description' => '', 'uid' => 18, 'process' => false];
 
+    /** The configured round cap of a process run; not nr-llm's default, so a run without it is told apart. */
+    private const PROCESS_ROUNDS = 12;
+
     /** @var list<AgentRunRequest> */
     private array $requests = [];
 
@@ -97,6 +100,7 @@ final class ChatServiceSkillTest extends TestCase
         });
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('getProcessRunMaxIterations')->willReturn(self::PROCESS_ROUNDS);
         $configuration = $this->createMock(LlmConfiguration::class);
         $configuration->method('isActive')->willReturn(true);
         $configuration->method('getLlmModel')->willReturn($this->createMock(LlmModel::class));
@@ -240,6 +244,46 @@ final class ChatServiceSkillTest extends TestCase
         self::assertSame('run-0', $this->lastRequest()->predecessorRunUuid);
         self::assertNull($this->lastRequest()->invocation);
         self::assertNull($this->lastRequest()->augmentation);
+    }
+
+    /**
+     * ADR-023, amendment of 2026-10-22: a run that starts a process asks for
+     * the configured round cap, on the invocation nr-llm receives.
+     */
+    #[Test]
+    public function theFirstTurnOfAProcessAsksForTheProcessRoundCap(): void
+    {
+        $conversation = $this->conversation('seo-page-tour');
+        $conversation->setViewContext(10, 'web_layout', 1);
+
+        $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($conversation);
+
+        self::assertNotNull($this->lastRequest()->invocation);
+        self::assertSame(self::PROCESS_ROUNDS, $this->lastRequest()->maxIterations);
+    }
+
+    /** A turn that continues the process asks for the same cap. */
+    #[Test]
+    public function aLaterTurnOfAProcessAsksForTheProcessRoundCap(): void
+    {
+        $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($this->conversation('seo-page-tour', 'run-0'));
+
+        self::assertSame('run-0', $this->lastRequest()->predecessorRunUuid);
+        self::assertSame(self::PROCESS_ROUNDS, $this->lastRequest()->maxIterations);
+    }
+
+    /** Runs without a process keep nr-llm's default: they ask for nothing. */
+    #[Test]
+    public function aRunWithoutAProcessAsksForNoRoundCap(): void
+    {
+        $this->service($this->catalogue(augmentation: new RunAugmentation(forcedSkills: [new Skill()])))->processConversation($this->conversation('tone-check', 'run-0'));
+        self::assertNull($this->lastRequest()->maxIterations, 'a plain skill');
+
+        $this->service($this->catalogue())->processConversation($this->conversation(''));
+        self::assertNull($this->lastRequest()->maxIterations, 'no skill');
+
+        $this->service($this->catalogue([]))->processConversation($this->conversation('seo-page-tour', 'run-0'));
+        self::assertNull($this->lastRequest()->maxIterations, 'a skill that left the catalogue');
     }
 
     /** A skill that left the catalogue still names the predecessor, so nr-llm can say it dropped the process. */

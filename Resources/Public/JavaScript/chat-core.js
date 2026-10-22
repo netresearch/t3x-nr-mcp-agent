@@ -1099,6 +1099,32 @@ export class ChatCoreController {
         await this.handleSend();
     }
 
+    /**
+     * Whether the last run of a running process stopped at its round cap and
+     * nothing has been sent since (ADR-023, amendment of 2026-10-22).
+     */
+    stoppedAtRoundLimit() {
+        const last = this.messages[this.messages.length - 1];
+
+        return Boolean(this.tour)
+            && this.guided?.progress?.completed !== true
+            && last?.notice === 'roundLimit'
+            && !this.sending
+            && !this.isProcessing();
+    }
+
+    /**
+     * Go on with a process whose run stopped at its round cap: the button's
+     * own words are sent as the editor's turn, shown like any message, and
+     * the run continues the process from its predecessor.
+     */
+    async continueTour() {
+        if (!this.stoppedAtRoundLimit()) return;
+        this.inputValue = lll('guided.continue');
+        this.hasInput = true;
+        await this.handleSend();
+    }
+
     /** At the end of a process: the same process in a new conversation, which asks for a page. */
     async chooseAnotherPage() {
         const skill = this.tourStart?.skill;
@@ -1458,6 +1484,9 @@ export class ChatCoreController {
         if (msg.notice === 'processDropped') {
             const reason = Array.isArray(msg.noticeArgs) ? msg.noticeArgs[0] : '';
             return lll(PROCESS_DROPPED_LABELS.get(reason) ?? 'chat.processDropped.other');
+        }
+        if (msg.notice === 'roundLimit') {
+            return lll('chat.roundLimit');
         }
         if (msg.notice !== 'runFinishedOutside') return null;
         const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];

@@ -359,6 +359,10 @@
                 <source>The guided process has ended. The conversation goes on without it.</source>
                 <target>Der geführte Ablauf ist beendet. Die Unterhaltung geht ohne ihn weiter.</target>
             </trans-unit>
+            <trans-unit id="chat.roundLimit" resname="chat.roundLimit">
+                <source>The assistant stopped before it finished: it reached the most steps it may take for one answer. Send a message to let it go on.</source>
+                <target>Der Assistent hat angehalten, bevor er fertig war: Er hat die Höchstzahl an Schritten für eine Antwort erreicht. Schreib eine Nachricht, damit er weitermacht.</target>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">
@@ -758,6 +762,10 @@
             <trans-unit id="guided.finish" resname="guided.finish">
                 <source>Done</source>
                 <target>Fertig</target>
+            </trans-unit>
+            <trans-unit id="guided.continue" resname="guided.continue">
+                <source>Continue</source>
+                <target>Weiter</target>
             </trans-unit>
             <trans-unit id="guided.toDashboard" resname="guided.toDashboard">
                 <source>Go to the dashboard</source>

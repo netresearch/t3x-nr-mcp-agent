@@ -205,6 +205,26 @@ export function renderPageChoice(chat) {
 }
 
 /**
+ * A run of the process stopped at its round cap before it finished its step
+ * (ADR-023, amendment of 2026-10-22): the transcript says so, and "Weiter"
+ * sends a turn that continues the process.
+ */
+export function renderRoundLimit(chat) {
+    if (!chat.stoppedAtRoundLimit()) {
+        return nothing;
+    }
+
+    return html`
+        <div class="guided-block guided-round-limit">
+            <div class="guided-actions">
+                <button type="button" class="btn btn-sm btn-primary" data-action="continue-tour"
+                    @click=${() => chat.continueTour()}>${lll('guided.continue')}</button>
+            </div>
+        </div>
+    `;
+}
+
+/**
  * The end of a process (ADR-023): "Andere Seite wählen" starts it anew in a
  * new conversation that asks for a page, only where nr-llm can start one;
  * "Fertig" ends it, and the dashboard is linked where it is installed.

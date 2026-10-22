@@ -50,6 +50,21 @@ LLM connection
     (administrators always are). Otherwise the turn fails and says why.
     This applies to :confval:`llmTaskUid` too. See ADR-015.
 
+..  confval:: processRunMaxIterations
+    :type: int
+    :default: 12
+
+    How many model rounds a run of a guided process (a skill marked
+    as a process, such as the SEO tour) may take before it stops. A
+    round is one answer of the model, with or without tool calls. The
+    chat asks nr-llm for this cap on every run that starts or continues
+    a process; nr-llm caps it at its own ceiling of 20. Ordinary chat
+    runs ask for nothing and keep nr-llm's default of 5. A value below
+    1 uses the default.
+
+    A run that reaches the cap says so in the chat, and a tour offers
+    *Weiter* to go on. See ADR-023.
+
 Processing
 ==========
 

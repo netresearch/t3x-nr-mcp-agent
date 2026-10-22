@@ -15,6 +15,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class ExtensionConfiguration
 {
+    /**
+     * Rounds a guided-process run may take when nothing else is configured.
+     * Sized from the measured tour runs (ADR-023, amendment of 2026-10-22).
+     */
+    public const DEFAULT_PROCESS_RUN_MAX_ITERATIONS = 12;
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -115,6 +121,23 @@ class ExtensionConfiguration
             static fn (mixed $id): int => is_numeric($id) ? (int) $id : 0,
             $backendUser->userGroupsUID,
         ));
+    }
+
+    /**
+     * How many model rounds a run of a guided process may take (ADR-023,
+     * amendment of 2026-10-22).
+     *
+     * The chat asks nr-llm for this cap on every run that starts or continues
+     * a process; nr-llm clamps it to its own ceiling (nr-llm ADR-101). Ordinary
+     * runs ask for nothing and keep nr-llm's default. A value below 1, or one
+     * that is not a number, falls back to the default: a typo must not leave a
+     * tour with one round.
+     */
+    public function getProcessRunMaxIterations(): int
+    {
+        $value = $this->getString('processRunMaxIterations', (string) self::DEFAULT_PROCESS_RUN_MAX_ITERATIONS);
+
+        return ctype_digit(trim($value)) && (int) $value > 0 ? (int) $value : self::DEFAULT_PROCESS_RUN_MAX_ITERATIONS;
     }
 
     public function getProcessingStrategy(): string
