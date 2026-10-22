@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-10-22
+
+### Fixed
+
+- **Guided-process runs get their own round cap (#225).** The chat never asked nr-llm for a round cap, so every turn of a guided tour ran on nr-llm's default of 5 rounds and could stop before the step that closes the turn. A run whose conversation has a process skill now asks for `processRunMaxIterations`, a new extension setting with a default of 12; nr-llm clamps it to 20. Other runs keep nr-llm's default. A segment that resumes after an answered choice or an approval still runs on nr-llm's default of 5, because nr-llm's resume passes no cap.
+- **No empty answer after a stopped run (#225).** A completed run without text no longer adds an empty assistant message. A run that nr-llm stopped at the cap shows one line saying so, in the reader's language, and in a running tour the chat offers a "Weiter" button beneath it that continues the process. The button is shown only while the input holds no draft and no attachment.
+
 ## [0.17.2] - 2026-10-22
 
 ### Fixed
