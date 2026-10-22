@@ -109,44 +109,11 @@ async function clickPanelButton(page: Page, title: string): Promise<void> {
     await page.waitForTimeout(600);
 }
 
-/** Maximize the floating panel for a better view. */
-async function maximizePanel(page: Page): Promise<void> {
-    await clickPanelButton(page, 'Maximize');
-    await page.waitForTimeout(400);
-    console.log('  ✓ panel maximized');
-}
-
 /** Minimize the floating panel (collapse to bottom bar). */
 async function minimizePanel(page: Page): Promise<void> {
     await clickPanelButton(page, 'Minimize');
     await page.waitForTimeout(600);
     console.log('  ✓ panel minimized');
-}
-
-/** Re-open panel after navigation (panel resets to hidden on page change). */
-async function reopenPanel(page: Page): Promise<void> {
-    await page.locator('.ai-chat-toolbar-btn').click();
-    const panel = page.locator('ai-chat-panel');
-    await panel.waitFor({ state: 'visible', timeout: 5000 });
-    await page.waitForTimeout(600);
-
-    // Re-select the most recent conversation (first in dropdown)
-    await page.evaluate(`(function() {
-        var panel = document.querySelector('ai-chat-panel');
-        if (!panel || !panel.shadowRoot) return;
-        var sel = panel.shadowRoot.querySelector('select');
-        if (!sel || sel.options.length < 2) return;
-        // Select first option with a value
-        for (var i = 0; i < sel.options.length; i++) {
-            if (sel.options[i].value) {
-                sel.value = sel.options[i].value;
-                sel.dispatchEvent(new Event('change', { bubbles: true }));
-                return;
-            }
-        }
-    })()`);
-    await page.waitForTimeout(1000);
-    console.log('  ✓ panel reopened with conversation');
 }
 
 /** Type a message into the floating panel textarea and submit it. */
@@ -267,16 +234,6 @@ function getNewPageUid(): number {
     } catch { /* ignore */ }
     console.log('  ℹ could not determine page uid');
     return 0;
-}
-
-/**
- * After all messages: navigate to page list to show the new page clearly.
- */
-async function showPageList(page: Page): Promise<void> {
-    console.log('  → navigating to page list to show result…');
-    await page.goto(`${BASE_URL}/typo3/module/web/list?id=10`);
-    await page.waitForTimeout(3500);
-    console.log('  ✓ page list visible');
 }
 
 // ---------------------------------------------------------------------------
