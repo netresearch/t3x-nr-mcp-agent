@@ -113,6 +113,19 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
     or derived from the outcome. The mapping keeps a default arm because
     ``AgentRunOutcome`` gains cases in nr-llm minor releases.
 
+Text the model writes in the same round as a tool call -- the overview of
+a guided process beside ``chat_set_progress``, the explanation beside a
+proposal, a status line beside a read -- is not in ``$finalContent``,
+which holds only the last round's text. For ``COMPLETED``,
+``AWAITING_APPROVAL`` and ``AWAITING_INPUT``, ``ChatService`` reads it from
+the run's ``llm`` steps that requested a tool and appends each non-blank
+text as an assistant message of its own, in the order of the rounds and
+before the answer, the card or the question. A failed run adds none: Retry
+runs the turn again over the transcript. Each such message is marked
+(``Conversation::KEY_BESIDE_TOOL_CALL``); on later turns the model reads
+it joined with the assistant message that follows, so one assistant turn
+stays one message.
+
 The tools the model can call, their execution, retry/back-off on
 transient provider errors, budget enforcement and the iteration cap all
 live inside nr-llm now.

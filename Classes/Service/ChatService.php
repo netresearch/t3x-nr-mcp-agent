@@ -1164,6 +1164,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $this->noteDroppedProcess($conversation, $result);
 
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
+            $this->appendTextBesideToolCalls($conversation, $result);
             $answer = $result->loopResult->finalContent;
             $conversation->appendMessage(
                 MessageRole::Assistant,
@@ -1200,6 +1201,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // card builds from the uuid, which is inert when there is nothing to
         // open.
         if ($result->outcome === AgentRunOutcome::AWAITING_APPROVAL) {
+            // The explanation the model wrote beside the proposal goes above
+            // the card, which renders after the transcript.
+            $this->appendTextBesideToolCalls($conversation, $result);
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setErrorMessage('');
             $conversation->setApprovalRunUuid($result->runUuid);
@@ -1214,6 +1218,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // into the transcript as the assistant's: the reader sees what is asked
         // above the reply buttons, and later turns see what the answer was to.
         if ($result->outcome === AgentRunOutcome::AWAITING_INPUT && $result->runUuid !== '') {
+            $this->appendTextBesideToolCalls($conversation, $result);
             $question = $result->suspendedState !== null
                 ? InputPauseForm::fromSchema($result->suspendedState->inputSchema)->question
                 : '';
@@ -1235,6 +1240,37 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $result->error !== null ? $this->failureCode($result->error) : '',
         );
         $this->persist($conversation);
+    }
+
+    /**
+     * The text the model wrote in a round that also called a tool, in the
+     * order of the rounds, each as an assistant message of its own.
+     *
+     * nr-llm keeps that text in the run's own transcript, but the result's
+     * final content is only the last round's, the one without a tool call.
+     * The rest is on the trace: an `llm` step per model call, with the
+     * content and the calls it requested. Every continuation starts a fresh
+     * trace and records only the model calls it makes itself, so a round is
+     * never read twice across an approval or an answer. A round without
+     * text adds nothing, and the last round is not read here: it requested
+     * no tool, and its text is the final content.
+     *
+     * Only for a run that completed or waits for the reader. A failed turn
+     * is retried over the transcript, and its text would stand there next to
+     * the retry's own.
+     */
+    private function appendTextBesideToolCalls(Conversation $conversation, AgentRunResult $result): void
+    {
+        foreach ($result->steps as $step) {
+            if ($step->kind !== RunStep::KIND_LLM || $step->requestedToolCalls === null || $step->requestedToolCalls === []) {
+                continue;
+            }
+
+            $text = trim($step->content ?? '');
+            if ($text !== '') {
+                $conversation->appendTextBesideToolCall($text);
+            }
+        }
     }
 
     /**
@@ -1466,12 +1502,32 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private function buildLlmMessages(array $messages, ProviderInterface $provider): array
     {
         $result = [];
+        // Text the model wrote beside a tool call is one turn with what it
+        // wrote after it: it goes to the model joined with the next assistant
+        // message, or alone where none follows, never as a second assistant
+        // message in a row.
+        $beside = [];
         foreach ($messages as $msg) {
             // The reader's line about a dropped process: the model needs no
             // telling, since the process's instructions simply stop reaching it,
             // and a second assistant message before the answer is not a turn.
             if (($msg['notice'] ?? null) === self::NOTICE_PROCESS_DROPPED) {
                 continue;
+            }
+
+            if (($msg[Conversation::KEY_BESIDE_TOOL_CALL] ?? false) === true && is_string($msg['content'] ?? null)) {
+                $beside[] = $msg['content'];
+                continue;
+            }
+
+            if ($beside !== []) {
+                if (($msg['role'] ?? null) === MessageRole::Assistant->value && is_string($msg['content'] ?? null)) {
+                    $msg['content'] = implode("\n\n", [...$beside, $msg['content']]);
+                } else {
+                    $result[] = ['role' => MessageRole::Assistant->value, 'content' => implode("\n\n", $beside)];
+                }
+
+                $beside = [];
             }
 
             // The notice is rendered for the reader; the model is told the same
@@ -1517,6 +1573,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     'content' => $content . "\n\n[Attached file '" . $fileName . "' is no longer available]",
                 ];
             }
+        }
+
+        if ($beside !== []) {
+            $result[] = ['role' => MessageRole::Assistant->value, 'content' => implode("\n\n", $beside)];
         }
 
         return $result;
