@@ -272,6 +272,9 @@
             <trans-unit id="chat.processDropped.other" resname="chat.processDropped.other">
                 <source>The guided process has ended. The conversation goes on without it.</source>
             </trans-unit>
+            <trans-unit id="chat.roundLimit" resname="chat.roundLimit">
+                <source>The assistant stopped before it finished: it reached the most steps it may take for one answer. Send a message to let it go on.</source>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">
@@ -573,6 +576,9 @@
             </trans-unit>
             <trans-unit id="guided.finish" resname="guided.finish">
                 <source>Done</source>
+            </trans-unit>
+            <trans-unit id="guided.continue" resname="guided.continue">
+                <source>Continue</source>
             </trans-unit>
             <trans-unit id="guided.toDashboard" resname="guided.toDashboard">
                 <source>Go to the dashboard</source>

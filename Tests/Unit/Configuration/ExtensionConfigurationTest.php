@@ -120,6 +120,40 @@ class ExtensionConfigurationTest extends TestCase
         return new ExtensionConfiguration();
     }
 
+    /** @param array<string, string> $settings */
+    private function configuredWithSettings(array $settings): ExtensionConfiguration
+    {
+        GeneralUtility::makeInstance(Typo3ExtensionConfiguration::class);
+
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturn($settings);
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+
+        return new ExtensionConfiguration();
+    }
+
+    /** An installation that never saw the setting gets the measured default (ADR-023, amendment of 2026-10-22). */
+    #[Test]
+    public function getProcessRunMaxIterationsFallsBackToTheDefault(): void
+    {
+        self::assertSame(12, (new ExtensionConfiguration())->getProcessRunMaxIterations());
+    }
+
+    #[Test]
+    public function getProcessRunMaxIterationsReturnsTheConfiguredValue(): void
+    {
+        self::assertSame(8, $this->configuredWithSettings(['processRunMaxIterations' => '8'])->getProcessRunMaxIterations());
+    }
+
+    /** A typo must not leave a tour with no rounds or a negative cap. */
+    #[Test]
+    public function getProcessRunMaxIterationsRefusesValuesBelowOne(): void
+    {
+        foreach (['0', '-3', 'abc', '', '2.5'] as $value) {
+            self::assertSame(12, $this->configuredWithSettings(['processRunMaxIterations' => $value])->getProcessRunMaxIterations(), $value);
+        }
+    }
+
     #[Test]
     public function getMaxConversationsPerUserReturnsConfiguredValue(): void
     {

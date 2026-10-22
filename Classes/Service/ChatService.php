@@ -13,6 +13,7 @@ use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -108,6 +109,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * `predecessor_gone` or `refused_too_often`.
      */
     public const NOTICE_PROCESS_DROPPED = 'processDropped';
+
+    /**
+     * The notice on the line the chat adds when nr-llm stopped a run at its
+     * round cap (termination reason `max_iterations`) before the run finished
+     * its step (ADR-023, amendment of 2026-10-22).
+     */
+    public const NOTICE_ROUND_LIMIT = 'roundLimit';
 
     /** The kind nr-llm gives a dropped process pin (nr-llm ADR-228). */
     private const DROPPED_PROCESS_KIND = 'process';
@@ -407,6 +415,17 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $entry   = $this->skills?->find($identifier);
         $process = $entry !== null && $entry['process'] === true;
         $lastRun = $conversation->getLastRunUuid();
+
+        // A tour turn reads the page, its elements and the open points, then
+        // writes the overview, reports progress and asks how to go on, each a
+        // round of its own: nr-llm's default of 5 cut tour turns off before
+        // their choice or proposal. Its own cap, whether it starts or
+        // continues the process (ADR-023, amendment of 2026-10-22; nr-llm
+        // ADR-101).
+        if ($process) {
+            $base['maxIterations'] = $this->config->getProcessRunMaxIterations();
+        }
+
         if ($process && ($lastRun === '' || $conversation->isSkillStartPending()) && $this->skillInvocation instanceof SkillInvocationInterface) {
             $context = $conversation->getViewContext();
             $invoked = $this->skillInvocation->withInvocation(
@@ -1166,11 +1185,29 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
             $this->appendTextBesideToolCalls($conversation, $result);
             $answer = $result->loopResult->finalContent;
-            $conversation->appendMessage(
-                MessageRole::Assistant,
-                $answer,
-                $this->claimsAnUnrecordedChange($answer, $result, $conversation) ? self::NOTICE_NOTHING_SAVED : '',
-            );
+            // A run nr-llm stopped at its round cap ends with a plain
+            // completion that may say nothing at all; stored as it was, it
+            // rendered as an empty bubble. An answer without text is no
+            // message.
+            if (trim($answer) !== '') {
+                $conversation->appendMessage(
+                    MessageRole::Assistant,
+                    $answer,
+                    $this->claimsAnUnrecordedChange($answer, $result, $conversation) ? self::NOTICE_NOTHING_SAVED : '',
+                );
+            }
+
+            // The run did not finish its step: the reader is told so, in their
+            // language, and a tour offers to go on (ADR-023, amendment of
+            // 2026-10-22). The model is not sent the line.
+            if ($result->loopResult->terminationReason === AgentRunTerminationReason::MAX_ITERATIONS) {
+                $conversation->appendMessage(
+                    MessageRole::Assistant,
+                    '[The run stopped at its round limit before it finished.]',
+                    self::NOTICE_ROUND_LIMIT,
+                );
+            }
+
             $conversation->setStatus(ConversationStatus::Idle);
             // Success leaves nothing to report. persist() writes the whole row,
             // so a message from an earlier state of this turn — the reason a
@@ -1511,7 +1548,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // The reader's line about a dropped process: the model needs no
             // telling, since the process's instructions simply stop reaching it,
             // and a second assistant message before the answer is not a turn.
-            if (($msg['notice'] ?? null) === self::NOTICE_PROCESS_DROPPED) {
+            // The line about a run stopped at its round cap is the reader's too:
+            // a second assistant message after the answer is not a turn.
+            if (in_array($msg['notice'] ?? null, [self::NOTICE_PROCESS_DROPPED, self::NOTICE_ROUND_LIMIT], true)) {
                 continue;
             }
 

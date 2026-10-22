@@ -229,3 +229,74 @@ asked for a page.
     language: another page is a new conversation through *Zur neuen Seite
     wechseln*. A process without a page takes the page its page choice
     sends; a conversation without a skill follows the browser as before.
+
+Amendment: a process run has its own round cap
+===============================================
+
+**Date:** 2026-10-22
+
+**Context.** nr-llm stops a run after a number of model rounds. The cap is
+the caller's to ask for: nr-llm ADR-101 makes ``maxIterations`` on
+``AgentRunRequest`` an explicit request, clamped to the runtime's ceiling
+(``AgentRuntime::MAX_ITERATIONS``, 20), and keeps the loop's own default of 5
+when the caller asks for nothing. The chat asked for nothing, so every tour
+turn had 5 rounds. A run that reaches the cap ends with one more call
+without tools, whose answer may be empty.
+
+Three tour turns on the demo on 2026-10-22 ran into it. Each used its
+five rounds and ended with the extra call, before the step that closes
+the turn:
+
+-   SEO tour, first turn: four rounds of reads (the page, its elements,
+    the open points, two image searches), the overview with
+    ``chat_set_progress`` in round 5. The extra call returned no text; the
+    chat stored the empty answer as an empty message, and the tour stood
+    at "Punkt 0 von 2" with nothing to click. ``ask_choice`` never ran.
+-   Content tour, first turn: four rounds of reads with three to five
+    calls each, ``chat_set_progress`` in round 5. The question
+    "Los geht's" / "Fertig" came as plain text, not as ``ask_choice``.
+-   Content tour, the turn after the editor typed "Los geht's": three
+    rounds of reads, ``chat_set_progress`` in round 4,
+    ``chat_highlight_element`` in round 5. The proposal never ran, so no
+    card appeared.
+
+So a tour turn needs three to four rounds of reads, then the progress,
+the highlight where there is one, and the choice or the proposal: six
+rounds in all three turns, more when the model reads more. The model
+calls the chat's tools one per round even where the skill allows them
+together. The one segment measured after an answered choice, up to the
+proposal, needed 2.
+
+**Decision.**
+
+-   **A run that starts or continues a process asks for its own cap.** The
+    setting ``processRunMaxIterations`` (default 12) goes on every run
+    whose conversation has a skill the catalogue marks as a process: the
+    first run, which carries the invocation, and every turn that names its
+    predecessor. 12 is twice the six rounds each measured turn needed and
+    leaves room for a page whose elements are read one by one; it stays
+    below nr-llm's ceiling, which clamps any larger value. A run without a process asks for
+    nothing, as before.
+-   **An empty answer is no message.** A completed run whose final text is
+    empty adds no assistant message.
+-   **A run stopped at the cap says so.** When nr-llm reports the
+    termination reason ``max_iterations``, the chat adds one line, stored
+    language-neutral with the notice ``roundLimit`` and shown in the
+    reader's language; the model is not sent it. In a running process the
+    chat offers *Weiter* beneath it while nothing else was sent and
+    nothing waits in the input, a draft or an attachment. Like
+    *Diese Seite prüfen*, the button sends its own words as the editor's
+    turn, shown like any message, and that turn continues the process from
+    its predecessor (ADR-019). A choice the chat offers itself, worded by
+    the chat, as *Fertig* and *Andere Seite wählen* are; it is not an
+    answer to a choice of the skill.
+
+**Consequences.**
+
+-   A tour turn can cost up to 12 rounds instead of 5. The forced final
+    call of a stopped run comes on top, as before.
+-   nr-llm's ``approve()`` and ``submitInput()`` take no cap, and its
+    resume passes none on: a segment after *Übernehmen* or after a choice
+    gets the loop's default of 5, whatever the run asked for. One measured
+    segment of that kind needed 2. Resumed segments get the run's cap
+    once nr-llm keeps it across a resume.
