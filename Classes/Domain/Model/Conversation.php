@@ -31,6 +31,12 @@ final class Conversation
     /** The notice on the user message that holds an answer to a question (ADR-018). */
     public const NOTICE_INPUT_ANSWER = 'inputAnswer';
 
+    /**
+     * The key that marks an assistant message the model wrote in the same
+     * round as a tool call, before the tool ran.
+     */
+    public const KEY_BESIDE_TOOL_CALL = 'besideToolCall';
+
     private int $uid = 0;
 
     private int $beUser = 0;
@@ -373,6 +379,27 @@ final class Conversation
         if ($this->title === '' && $role === MessageRole::User && is_string($content)) {
             $this->setTitle($content);
         }
+    }
+
+    /**
+     * Put text the model wrote beside a tool call into the transcript as an
+     * assistant message of its own, marked as such.
+     *
+     * The reader sees it where the model said it, before the answer, card or
+     * question that follows. The mark lets the transcript the model reads on
+     * later turns join it with the assistant message after it, so that one
+     * assistant turn stays one message on the wire.
+     */
+    public function appendTextBesideToolCall(string $text): void
+    {
+        $messages   = $this->getDecodedMessages();
+        $messages[] = [
+            'role'                     => MessageRole::Assistant->value,
+            'content'                  => $text,
+            'createdAt'                => (new DateTimeImmutable())->format(DateTimeInterface::ATOM),
+            self::KEY_BESIDE_TOOL_CALL => true,
+        ];
+        $this->setMessages($messages);
     }
 
     public function getMessageCount(): int
