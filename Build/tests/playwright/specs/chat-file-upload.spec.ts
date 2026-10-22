@@ -50,16 +50,6 @@ async function openChatWithConversation(page: Page): Promise<void> {
     }
 }
 
-/**
- * Get shadow root element via evaluate.
- */
-async function getShadowLocator(page: Page, selector: string) {
-    return page.evaluate((sel) => {
-        const panel = document.querySelector('ai-chat-panel');
-        return panel?.shadowRoot?.querySelector(sel) ?? null;
-    }, selector);
-}
-
 test.describe('Chat File Upload', () => {
 
     test('"+" button is visible when vision is supported', async ({ page }) => {
