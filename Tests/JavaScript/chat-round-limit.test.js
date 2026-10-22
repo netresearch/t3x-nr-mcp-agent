@@ -104,6 +104,24 @@ describe.each(SURFACES)('$name run stopped at its round cap', ({module: modulePa
         expect(continueButton(el)).toBeNull();
     });
 
+    test('a draft in the input hides "Weiter" and stays as it is', async () => {
+        const el = await render(modulePath, tag, open, {inputValue: 'Kürzer bitte', hasInput: true});
+
+        expect(continueButton(el)).toBeNull();
+        await el.chat.continueTour();
+        expect(el.chat._api.sendMessage).not.toHaveBeenCalled();
+        expect(el.chat.inputValue).toBe('Kürzer bitte');
+    });
+
+    test('an attachment waiting to be sent hides "Weiter"', async () => {
+        const el = await render(modulePath, tag, open, {pendingFile: {fileUid: 9, name: 'a.pdf', mimeType: 'application/pdf'}});
+
+        expect(continueButton(el)).toBeNull();
+        await el.chat.continueTour();
+        expect(el.chat._api.sendMessage).not.toHaveBeenCalled();
+        expect(el.chat.pendingFile).not.toBeNull();
+    });
+
     test('while a turn runs there is no "Weiter"', async () => {
         const el = await render(modulePath, tag, open, {status: 'processing'});
 

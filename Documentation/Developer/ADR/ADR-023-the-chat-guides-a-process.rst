@@ -283,7 +283,8 @@ proposal, needed 2.
     termination reason ``max_iterations``, the chat adds one line, stored
     language-neutral with the notice ``roundLimit`` and shown in the
     reader's language; the model is not sent it. In a running process the
-    chat offers *Weiter* beneath it while nothing else was sent. Like
+    chat offers *Weiter* beneath it while nothing else was sent and
+    nothing waits in the input, a draft or an attachment. Like
     *Diese Seite prüfen*, the button sends its own words as the editor's
     turn, shown like any message, and that turn continues the process from
     its predecessor (ADR-019). A choice the chat offers itself, worded by
@@ -297,5 +298,5 @@ proposal, needed 2.
 -   nr-llm's ``approve()`` and ``submitInput()`` take no cap, and its
     resume passes none on: a segment after *Übernehmen* or after a choice
     gets the loop's default of 5, whatever the run asked for. One measured
-    segment of that kind needed 2. Carrying the run's cap into its resumed
-    segments is nr-llm's to decide.
+    segment of that kind needed 2. Resumed segments get the run's cap
+    once nr-llm keeps it across a resume.

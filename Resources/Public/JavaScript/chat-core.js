@@ -1100,8 +1100,9 @@ export class ChatCoreController {
     }
 
     /**
-     * Whether the last run of a running process stopped at its round cap and
-     * nothing has been sent since (ADR-023, amendment of 2026-10-22).
+     * Whether the last run of a running process stopped at its round cap,
+     * nothing has been sent since and nothing is waiting in the input
+     * (ADR-023, amendment of 2026-10-22).
      */
     stoppedAtRoundLimit() {
         const last = this.messages[this.messages.length - 1];
@@ -1109,6 +1110,10 @@ export class ChatCoreController {
         return Boolean(this.tour)
             && this.guided?.progress?.completed !== true
             && last?.notice === 'roundLimit'
+            // A draft or an attachment is the editor's own next turn: the
+            // button would overwrite the one and send the other with it.
+            && (this.inputValue ?? '').trim() === ''
+            && !this.pendingFile
             && !this.sending
             && !this.isProcessing();
     }
