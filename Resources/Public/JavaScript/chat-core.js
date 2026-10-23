@@ -1100,16 +1100,17 @@ export class ChatCoreController {
     }
 
     /**
-     * Whether the last run of a running process stopped at its round cap,
+     * Whether the last run of a running process stopped at its round cap or
+     * ended its step without a choice, a proposal or the end of the process,
      * nothing has been sent since and nothing is waiting in the input
-     * (ADR-023, amendment of 2026-10-22).
+     * (ADR-023, amendments of 2026-10-22 and 2026-10-23).
      */
     stoppedAtRoundLimit() {
         const last = this.messages[this.messages.length - 1];
 
         return Boolean(this.tour)
             && this.guided?.progress?.completed !== true
-            && last?.notice === 'roundLimit'
+            && (last?.notice === 'roundLimit' || last?.notice === 'stepOpen')
             // A draft or an attachment is the editor's own next turn: the
             // button would overwrite the one and send the other with it.
             && (this.inputValue ?? '').trim() === ''
@@ -1492,6 +1493,9 @@ export class ChatCoreController {
         }
         if (msg.notice === 'roundLimit') {
             return lll('chat.roundLimit');
+        }
+        if (msg.notice === 'stepOpen') {
+            return lll('chat.stepOpen');
         }
         if (msg.notice !== 'runFinishedOutside') return null;
         const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];

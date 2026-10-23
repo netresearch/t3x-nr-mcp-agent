@@ -117,6 +117,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     public const NOTICE_ROUND_LIMIT = 'roundLimit';
 
+    /**
+     * The notice on the line the chat adds when a run of a running guided
+     * process finished without the step's next action: no choice, no
+     * proposal and no completion of the process (ADR-023, amendment of
+     * 2026-10-23).
+     */
+    public const NOTICE_STEP_OPEN = 'stepOpen';
+
     /** The kind nr-llm gives a dropped process pin (nr-llm ADR-228). */
     private const DROPPED_PROCESS_KIND = 'process';
 
@@ -1134,6 +1142,21 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
     }
 
+    /**
+     * Whether the conversation runs a guided process that is not completed.
+     * Called for a run that finished: it neither waits for a choice nor for a
+     * decision on a proposal, so a running process was left mid-step.
+     */
+    private function leftStepOpen(Conversation $conversation): bool
+    {
+        $entry = $this->skills?->find($conversation->getSkillIdentifier());
+        if ($entry === null || $entry['process'] !== true) {
+            return false;
+        }
+
+        return !($conversation->getGuidedState()['progress']['completed'] ?? false);
+    }
+
     private function currentBackendUserUid(): int
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
@@ -1205,6 +1228,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     MessageRole::Assistant,
                     '[The run stopped at its round limit before it finished.]',
                     self::NOTICE_ROUND_LIMIT,
+                );
+            } elseif ($this->leftStepOpen($conversation)) {
+                // A step of a running process ends with a choice, a proposal or
+                // the process's completion, each of which leaves the run waiting
+                // or the process completed. A run that finished without any of
+                // them left the editor nothing to answer: the reader is told so,
+                // and the tour offers to go on (ADR-023, amendment of
+                // 2026-10-23). The model is not sent the line.
+                $conversation->appendMessage(
+                    MessageRole::Assistant,
+                    '[The run ended its step without a choice, a proposal or the end of the process.]',
+                    self::NOTICE_STEP_OPEN,
                 );
             }
 
@@ -1550,7 +1585,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // and a second assistant message before the answer is not a turn.
             // The line about a run stopped at its round cap is the reader's too:
             // a second assistant message after the answer is not a turn.
-            if (in_array($msg['notice'] ?? null, [self::NOTICE_PROCESS_DROPPED, self::NOTICE_ROUND_LIMIT], true)) {
+            if (in_array($msg['notice'] ?? null, [self::NOTICE_PROCESS_DROPPED, self::NOTICE_ROUND_LIMIT, self::NOTICE_STEP_OPEN], true)) {
                 continue;
             }
 

@@ -128,3 +128,43 @@ describe.each(SURFACES)('$name run stopped at its round cap', ({module: modulePa
         expect(continueButton(el)).toBeNull();
     });
 });
+
+/**
+ * A step a process run ended without a choice, a proposal or the end of the
+ * process (ADR-023, amendment of 2026-10-23): the same line and "Weiter".
+ */
+const STEP_OPEN = {role: 'assistant', content: '[The run ended its step without a choice, a proposal or the end of the process.]', notice: 'stepOpen'};
+
+describe.each(SURFACES)('$name step ended without its next action', ({module: modulePath, tag, open}) => {
+    beforeAll(() => {
+        document.body.replaceChildren();
+    });
+
+    test('the transcript shows the line in the reader\'s language, not the stored one', async () => {
+        const el = await render(modulePath, tag, open, {messages: [...MESSAGES.slice(0, 2), STEP_OPEN]});
+        const text = el.shadowRoot.textContent;
+
+        expect(text).toContain('chat.stepOpen');
+        expect(text).not.toContain('[The run ended its step');
+    });
+
+    test('"Weiter" sends its own words as the next turn', async () => {
+        const el = await render(modulePath, tag, open, {messages: [...MESSAGES.slice(0, 2), STEP_OPEN]});
+        const button = continueButton(el);
+
+        expect(button.tagName).toBe('BUTTON');
+        button.click();
+        await settle(el);
+
+        expect(el.chat._api.sendMessage).toHaveBeenCalledWith(1, 'guided.continue', null, expect.any(Object));
+    });
+
+    test('a finished process offers no "Weiter"', async () => {
+        const el = await render(modulePath, tag, open, {
+            messages: [...MESSAGES.slice(0, 2), STEP_OPEN],
+            guided: {progress: {label: 'x', current: 2, total: 2, completed: true}, highlight: null},
+        });
+
+        expect(continueButton(el)).toBeNull();
+    });
+});
