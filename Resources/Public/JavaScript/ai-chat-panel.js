@@ -5,7 +5,7 @@ import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {ref} from 'lit/directives/ref.js';
 import {lll} from '@typo3/core/lit-helper.js';
-import {ChatCoreController, displayStatus, downloadTextFile} from '@netresearch/nr-mcp-agent/chat-core.js';
+import {ChatCoreController, displayStatus, downloadTextFile, statusLabel} from '@netresearch/nr-mcp-agent/chat-core.js';
 import {splitConversationTabs, filterConversations} from '@netresearch/nr-mcp-agent/conversation-tabs.js';
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
@@ -1589,7 +1589,7 @@ export class AiChatPanel extends LitElement {
                 ${renderEndTour(this.chat)}
                 ${renderHighlightAnnouncement(this.chat)}
                 ${this.chat.status ? html`
-                    <span class="status-badge status-${displayStatus(this.chat.status)}" title="${displayStatus(this.chat.status)}">${STATUS_ICONS[displayStatus(this.chat.status)] ?? displayStatus(this.chat.status)}</span>
+                    <span class="status-badge status-${displayStatus(this.chat.status)}" title="${statusLabel(this.chat.status)}">${STATUS_ICONS[displayStatus(this.chat.status)] ?? statusLabel(this.chat.status)}</span>
                 ` : nothing}
                 <button class="btn-icon" @click=${() => this.collapse()}
                         title="${lll('panel.collapse')}" aria-label="${lll('panel.collapse')}">${ICON_MINIMIZE(14)}</button>
@@ -1669,7 +1669,7 @@ export class AiChatPanel extends LitElement {
                 <span class="item-title">
                     ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
                 </span>
-                <span class="status-badge status-${displayStatus(c.status)}" title="${displayStatus(c.status)}">${STATUS_ICONS[displayStatus(c.status)] ?? displayStatus(c.status)}</span>
+                <span class="status-badge status-${displayStatus(c.status)}" title="${statusLabel(c.status)}">${STATUS_ICONS[displayStatus(c.status)] ?? statusLabel(c.status)}</span>
                 ${isActive ? html`
                     <span class="sidebar-item-actions">
                         <button class="btn-icon btn-sm" @click=${(e) => { e.stopPropagation(); this.chat.handleTogglePin(); }}
@@ -1866,7 +1866,7 @@ export class AiChatPanel extends LitElement {
             <button class="conv-tab ${isActive ? 'active' : ''}"
                     role="tab"
                     aria-selected="${isActive}"
-                    title="${title} (${status})"
+                    title="${title} (${statusLabel(c.status)})"
                     @click=${() => this.chat.selectConversation(c.uid)}>
                 <span class="tab-icon status-${status}">${icon}</span>
                 ${isRenaming ? html`

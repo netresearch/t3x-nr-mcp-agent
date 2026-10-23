@@ -65,6 +65,30 @@
                 <source>New chat</source>
                 <target>Neuer Chat</target>
             </trans-unit>
+            <trans-unit id="status.idle" resname="status.idle">
+                <source>Ready</source>
+                <target>Bereit</target>
+            </trans-unit>
+            <trans-unit id="status.processing" resname="status.processing">
+                <source>Working</source>
+                <target>Arbeitet</target>
+            </trans-unit>
+            <trans-unit id="status.awaitingApproval" resname="status.awaitingApproval">
+                <source>Waiting for your approval</source>
+                <target>Wartet auf deine Freigabe</target>
+            </trans-unit>
+            <trans-unit id="status.awaitingInput" resname="status.awaitingInput">
+                <source>Waiting for your answer</source>
+                <target>Wartet auf deine Antwort</target>
+            </trans-unit>
+            <trans-unit id="status.failed" resname="status.failed">
+                <source>Failed</source>
+                <target>Fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="status.unknown" resname="status.unknown">
+                <source>Status unknown</source>
+                <target>Status unbekannt</target>
+            </trans-unit>
             <trans-unit id="conversations.pin" resname="conversations.pin">
                 <source>Pin</source>
                 <target>Anheften</target>
