@@ -105,6 +105,14 @@ describe.each(SURFACES)('$name approval frame', ({file, tag, open}) => {
         expect(ruleBody(file, '.message.system')).toContain('font-style: italic;');
     });
 
+    test('the frame does not shrink in the scrolling message column', () => {
+        // The frame is a flex item of the scrolling message column and clips
+        // its content. Shrinkable, it collapsed to its 2px border on the demo
+        // once the transcript overflowed, hiding the card. jsdom has no
+        // layout, so the rule itself is pinned here.
+        expect(ruleBody(file, '.approval-frame')).toContain('flex-shrink: 0;');
+    });
+
     test('message text is 14px and the answer buttons are 14px with 6px 12px', async () => {
         expect(ruleBody(file, '.message')).toContain('font-size: 14px;');
         expect(ruleBody(file, '.btn-answer')).toBe('padding: 6px 12px;\n            font-size: 14px;');

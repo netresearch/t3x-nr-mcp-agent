@@ -363,6 +363,9 @@ export class AiChatPanel extends LitElement {
         }
         /* The approval frame: a system step, not a message (ADR-023). */
         .approval-frame {
+            /* A flex item of the scrolling message column: without this it
+               shrinks to its border once the transcript overflows. */
+            flex-shrink: 0;
             align-self: stretch;
             border: 1px solid var(--nr-chat-border);
             border-radius: 6px;
