@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.5] - 2026-10-23
+
+### Fixed
+
+- **The line beneath a tour step that ends with text no longer claims the step was cut short (#230).** A step may end with text on purpose, for example while the tour waits for information the editor said they would add, and the chat cannot tell that case from a missing next action. The line now says that the assistant is waiting and that the editor can reply with a message or select "Weiter" to go on with the next step.
+
 ## [0.17.4] - 2026-10-23
 
 ### Fixed
