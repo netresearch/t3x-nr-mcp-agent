@@ -1043,6 +1043,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $approved                           => ApprovedCallReading::of($result),
             $denyReason === DenyReason::Skip    => ProposalOutcome::Skipped,
             $denyReason === DenyReason::Variant => ProposalOutcome::Variant,
+            $denyReason === DenyReason::Keep    => ProposalOutcome::Kept,
             default                             => null,
         };
         if ($card !== null && $outcome instanceof ProposalOutcome) {

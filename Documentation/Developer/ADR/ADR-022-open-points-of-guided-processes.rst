@@ -115,3 +115,24 @@ Consequences
     it is closed only by an applied write.
 -   The subject becomes the invocation's subject record once nr-llm can
     start a run with an invocation; the key does not change.
+
+
+Amendment of 2026-10-23: *Behalten* closes
+==========================================
+
+**Context.** *Überspringen* means "not now" and records an open point.
+When the current content is right, the editor had no answer that settled
+the point: *Überspringen* kept offering it, and *Übernehmen* would have
+changed it.
+
+**Decision.** A third denial, *Behalten* (``DenyReason::Keep``), is the
+decision that the current content stays. Once ``approve()`` has accepted
+the denial, ``OpenPointTracker::settle()`` closes every open point on the
+card's target record and fields (``OpenPointRepository::close()``, whoever
+recorded them) and records none. Without a target nothing is closed, as for
+every other answer. To nr-llm the denial is ``ApprovalDenialReason::SKIP``
+(a closed enum there), so the model moves on to the next point.
+
+**Consequences.** *Behalten* is the second way a point is closed, beside an
+applied write. A proposal answered with it is a ``ProposalOutcome::Kept``
+and is listed under *Behalten* in the tour summary.

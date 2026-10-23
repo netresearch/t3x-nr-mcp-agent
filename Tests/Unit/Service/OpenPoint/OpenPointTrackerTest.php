@@ -140,6 +140,51 @@ final class OpenPointTrackerTest extends TestCase
         $this->tracker()->settle($this->conversation(pageUid: 0), false, DenyReason::Skip, $this->target(), $this->runResult());
     }
 
+    // ---- keeping -----------------------------------------------------------
+
+    /** "Behalten": the current content stays, so the target's open points are settled and none is recorded. */
+    #[Test]
+    public function keepingClosesTheTargetsOpenPointsAndRecordsNone(): void
+    {
+        $target = $this->target();
+        $this->repository->expects(self::once())->method('close')->with($target);
+        $this->repository->expects(self::never())->method('record');
+
+        $this->tracker()->settle($this->conversation(), false, DenyReason::Keep, $target, $this->runResult());
+    }
+
+    /** Closing is keyed by the record and fields alone: it does not need the skill or the page that recording needs. */
+    #[Test]
+    public function keepingClosesWhateverSkillOrPageRecordedThePoint(): void
+    {
+        $this->repository->expects(self::exactly(2))->method('close')->with($this->target());
+        $this->repository->expects(self::never())->method('record');
+
+        $this->tracker()->settle($this->conversation(skillUid: 0), false, DenyReason::Keep, $this->target(), $this->runResult());
+        $this->tracker()->settle($this->conversation(pageUid: 0), false, DenyReason::Keep, $this->target(), $this->runResult());
+    }
+
+    /** A kept create names no target: there is nothing to close. */
+    #[Test]
+    public function keepingACreateNamesNoTargetClosesNothing(): void
+    {
+        $this->repository->expects(self::never())->method('close');
+        $this->repository->expects(self::never())->method('record');
+
+        $this->tracker()->settle($this->conversation(), false, DenyReason::Keep, null, $this->runResult());
+    }
+
+    /** The other denials close nothing. */
+    #[Test]
+    public function theOtherDenialsCloseNothing(): void
+    {
+        $this->repository->expects(self::never())->method('close');
+
+        $this->tracker()->settle($this->conversation(), false, DenyReason::Skip, $this->target(), $this->runResult());
+        $this->tracker()->settle($this->conversation(), false, DenyReason::Variant, $this->target(), $this->runResult());
+        $this->tracker()->settle($this->conversation(), false, null, $this->target(), $this->runResult());
+    }
+
     // ---- closing -----------------------------------------------------------
 
     private function applied(WriteCompleteness $completeness, bool $hookFailed = false): AgentRunResult

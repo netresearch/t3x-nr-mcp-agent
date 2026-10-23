@@ -211,7 +211,7 @@ describe.each(SURFACES)('$name proposal', ({module: modulePath, tag, open}) => {
         expect(globalThis.__nrPwned).toBeUndefined();
     });
 
-    test('the three answers sit directly under the block, the details after them', async () => {
+    test('the four answers sit directly under the block, the details after them', async () => {
         const el = await render(modulePath, tag, open, PROPOSAL);
         const card = el.shadowRoot.querySelector('.proposal-card');
         const order = [...card.children].map((child) => child.className || child.localName);
@@ -219,20 +219,21 @@ describe.each(SURFACES)('$name proposal', ({module: modulePath, tag, open}) => {
         expect(order.indexOf('proposal')).toBe(order.indexOf('approval-actions') - 1);
         expect(order.indexOf('approval-actions')).toBeLessThan(order.indexOf('approval-technical'));
         expect([...card.querySelectorAll('.approval-actions button')].map((b) => b.textContent.trim()))
-            .toEqual(['chat.approvalApply', 'chat.approvalVariant', 'chat.approvalSkip']);
+            .toEqual(['chat.approvalApply', 'chat.approvalVariant', 'chat.approvalKeep', 'chat.approvalSkip']);
         expect(card.querySelector('details').hasAttribute('open')).toBe(false);
     });
 
     test.each([
-        [0, true, ''],
-        [1, false, 'variant'],
-        [2, false, 'skip'],
-    ])('answer %i sends approve=%s with reason "%s"', async (index, approve, reason) => {
+        ['chat.approvalApply', true, ''],
+        ['chat.approvalVariant', false, 'variant'],
+        ['chat.approvalKeep', false, 'keep'],
+        ['chat.approvalSkip', false, 'skip'],
+    ])('the answer %s sends approve=%s with reason "%s"', async (label, approve, reason) => {
         const el = await render(modulePath, tag, open, PROPOSAL);
         el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
 
-        el.shadowRoot.querySelectorAll('.approval-actions button')[index].click();
+        [...el.shadowRoot.querySelectorAll('.approval-actions button')].find((b) => b.textContent.trim() === label).click();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(el.chat._api.decideApproval).toHaveBeenCalledWith(1, approve, 'digest-abc', reason);

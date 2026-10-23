@@ -143,6 +143,22 @@ final class ChatOpenPointTest extends TestCase
         self::assertSame(['read', 'cardTarget', 'approve', 'settle'], $this->order);
     }
 
+    /** "Behalten" reaches the tracker as such, after nr-llm has accepted the denial. */
+    #[Test]
+    public function aKeptProposalIsSettledAsKept(): void
+    {
+        $target  = new OpenPointTarget('tt_content', 12, ['bodytext']);
+        $tracker = $this->createMock(OpenPointTrackerInterface::class);
+        $tracker->method('cardTarget')->willReturn($target);
+        $tracker->expects(self::once())->method('settle')
+            ->with(self::isInstanceOf(Conversation::class), false, DenyReason::Keep, $target, self::isInstanceOf(AgentRunResult::class));
+
+        $conversation = $this->waiting();
+        $service      = $this->service($tracker);
+        $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Keep, 'Behalten');
+        $service->processConversation($conversation);
+    }
+
     #[Test]
     public function anApprovalIsSettledAsAnApproval(): void
     {

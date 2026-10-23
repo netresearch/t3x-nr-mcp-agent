@@ -239,6 +239,14 @@
                 <source>Another variant</source>
                 <target>Andere Variante</target>
             </trans-unit>
+            <trans-unit id="chat.approvalKeep" resname="chat.approvalKeep">
+                <source>Keep</source>
+                <target>Behalten</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalDeniedKeep" resname="chat.approvalDeniedKeep">
+                <source>Kept — the current content stays.</source>
+                <target>Behalten — der bisherige Inhalt bleibt.</target>
+            </trans-unit>
             <trans-unit id="chat.approvalSkip" resname="chat.approvalSkip">
                 <source>Skip</source>
                 <target>Überspringen</target>
@@ -310,6 +318,10 @@
             <trans-unit id="chat.summarySkipped" resname="chat.summarySkipped">
                 <source>Skipped</source>
                 <target>Übersprungen</target>
+            </trans-unit>
+            <trans-unit id="chat.summaryKept" resname="chat.summaryKept">
+                <source>Kept</source>
+                <target>Behalten</target>
             </trans-unit>
             <trans-unit id="chat.summaryNotApplied" resname="chat.summaryNotApplied">
                 <source>Not saved</source>
