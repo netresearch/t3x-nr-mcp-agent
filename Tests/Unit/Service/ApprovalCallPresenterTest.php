@@ -257,6 +257,52 @@ final class ApprovalCallPresenterTest extends TestCase
         self::assertSame('Seite löschen', $this->presenter()->present([$call], $this->german(), $this->german())[0]['actionLabel']);
     }
 
+    /** Only administrators read the tool name, its arguments and the technical line: for anyone else the response holds none of them. */
+    #[Test]
+    public function technicalDetailsAreEmptiedForAReaderWhoIsNoAdministrator(): void
+    {
+        $call = new PendingCallView('create_page_draft', '{"parent":157}', true, self::PREVIEW);
+
+        $admin  = $this->presenter()->present([$call], $this->german(), $this->german())[0];
+        $editor = $this->presenter()->present([$call], $this->german(), $this->german(), 0, false)[0];
+
+        self::assertSame(['create_page_draft', '{"parent":157}', 'Seite 157, Tabelle pages'], [$admin['name'], $admin['argumentsJson'], $admin['technicalDetails']]);
+        self::assertSame(['', '', ''], [$editor['name'], $editor['argumentsJson'], $editor['technicalDetails']]);
+        self::assertSame($admin['previewLines'], $editor['previewLines'], 'what the editor decides on stays');
+        self::assertSame($admin['actionLabel'], $editor['actionLabel']);
+        self::assertStringNotContainsString('create_page_draft', (string) json_encode($editor));
+    }
+
+    /** Without the acting user's language the label cannot be resolved; nr-llm's source text still marks the line. */
+    #[Test]
+    public function aNonAdministratorNeverGetsTheTechnicalLineWithoutAPreviewLanguage(): void
+    {
+        $lines = ['Ort: unter „Product page“', 'Technical details: Seite 157, Tabelle pages'];
+        $call  = new PendingCallView('create_page_draft', '{"parent":157}', true, $lines);
+
+        $editor = $this->presenter()->present([$call], $this->german(), null, 0, false)[0];
+        $admin  = $this->presenter()->present([$call], $this->german(), null)[0];
+
+        self::assertSame(['Ort: unter „Product page“'], $editor['previewLines']);
+        self::assertStringNotContainsString('Technical details', (string) json_encode($editor));
+        self::assertSame($lines, $admin['previewLines'], "administrators keep today's behaviour");
+    }
+
+    /** Only administrators read the identifiers, so a preview made of that line alone shows an editor nothing of it. */
+    #[Test]
+    public function aNonAdministratorGetsNoLinesFromAPreviewOfOnlyTheTechnicalLine(): void
+    {
+        $lines = ['Technische Details: Seite 157, Tabelle pages'];
+        $call  = new PendingCallView('create_page_draft', '{}', true, $lines);
+
+        $editor = $this->presenter()->present([$call], $this->german(), $this->german(), 0, false)[0];
+        $admin  = $this->presenter()->present([$call], $this->german(), $this->german())[0];
+
+        self::assertSame([], $editor['previewLines']);
+        self::assertStringNotContainsString('Seite 157', (string) json_encode($editor));
+        self::assertSame($lines, $admin['previewLines'], 'administrators keep the lone line');
+    }
+
     #[Test]
     public function theTechnicalLastLineMovesOutOfThePreviewLines(): void
     {

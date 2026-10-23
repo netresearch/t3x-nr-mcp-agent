@@ -16,10 +16,12 @@ use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Assistant\SkillLabelsStub;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -40,6 +42,8 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 #[CoversClass(ChatApiController::class)]
 final class ChatApiControllerStartTest extends TestCase
 {
+    use SkillLabelsStub;
+
     private const SKILL = ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'Geführt', 'uid' => 17, 'process' => null];
 
     private const PLAIN_SKILL = ['identifier' => 'tone-check', 'name' => 'Tonalität', 'description' => 'Kein Ablauf', 'uid' => 18, 'process' => false];
@@ -69,7 +73,7 @@ final class ChatApiControllerStartTest extends TestCase
         parent::tearDown();
     }
 
-    private function subject(?SkillCatalogueInterface $skills): ChatApiController
+    private function subject(?SkillCatalogueInterface $skills, ?SkillLabels $labels = null): ChatApiController
     {
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
@@ -86,6 +90,7 @@ final class ChatApiControllerStartTest extends TestCase
             new UploadMimeTypeMap(),
             $this->createMock(UriBuilder::class),
             skills: $skills,
+            skillLabels: $labels,
         );
     }
 
@@ -223,7 +228,7 @@ final class ChatApiControllerStartTest extends TestCase
 
         $response = $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "seo-page-tour"}'));
 
-        self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite']], $this->json($response));
+        self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => null]], $this->json($response));
     }
 
     /**
@@ -314,7 +319,25 @@ final class ChatApiControllerStartTest extends TestCase
 
         $data = $this->json($this->subject($this->catalogue())->getMessages($request));
 
-        self::assertSame(['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite'], $data['skill']);
+        self::assertSame(['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => null], $data['skill'], 'a skill without a title has none');
+    }
+
+    /** The chip reads "Current task: <title>": the editor-facing title travels with the name. */
+    #[Test]
+    public function theMessagesCarryTheSkillsHumanTitle(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setSkillIdentifier('seo-page-tour');
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $stream = $this->createMock(StreamInterface::class);
+        $stream->method('__toString')->willReturn('');
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getBody')->willReturn($stream);
+        $request->method('getQueryParams')->willReturn(['conversationUid' => '7']);
+
+        $data = $this->json($this->subject($this->catalogue(), $this->skillLabels(['skill.seo-page-tour.title' => 'SEO optimieren']))->getMessages($request));
+
+        self::assertSame(['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => 'SEO optimieren'], $data['skill']);
     }
 
     /**

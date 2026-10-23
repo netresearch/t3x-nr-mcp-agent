@@ -165,7 +165,7 @@ describe.each(SURFACES)('$name feedback', ({module: modulePath, tag, open}) => {
             errorMessage: 'error.approvalStillPending',
         });
 
-        const notice = el.shadowRoot.querySelector('.message.system');
+        const notice = el.shadowRoot.querySelector('.approval-frame');
         expect(notice.textContent).toContain('chat.approvalPending');
         expect(notice.textContent).toContain('error.approvalStillPending');
         expect(notice.textContent).not.toContain('chat.errorPrefix');

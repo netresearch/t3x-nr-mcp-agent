@@ -147,6 +147,17 @@ describe.each(SURFACES)('$name slash commands', ({module: modulePath, tag, open}
         expect(el.chat._api.updateSkill).toHaveBeenCalledWith(1, '');
         expect(el.shadowRoot.querySelector('.skill-chip')).toBeNull();
     });
+
+    test('the chip shows the skill\'s human title, and its name where there is none', async () => {
+        const titled = await render(modulePath, tag, open, {skill: {identifier: '3:seo-optimieren', name: 'seo-optimieren', title: 'SEO optimieren'}});
+        const chip = titled.shadowRoot.querySelector('.skill-chip');
+        expect(chip.querySelector('strong').textContent).toBe('SEO optimieren');
+        expect(chip.textContent).toContain('skills.active');
+        expect(chip.textContent).not.toContain('seo-optimieren');
+
+        const untitled = await render(modulePath, tag, open, {skill: {identifier: 'custom-tour', name: 'Eigene Tour', title: null}});
+        expect(untitled.shadowRoot.querySelector('.skill-chip strong').textContent).toBe('Eigene Tour');
+    });
 });
 
 describe('a module link that starts a conversation', () => {

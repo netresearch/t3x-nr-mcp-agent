@@ -151,7 +151,7 @@ export function renderActiveSkill(chat) {
 
     return html`
         <div class="skill-chip">
-            ${lll('skills.active')} <strong>${chat.skill.name}</strong>
+            ${lll('skills.active')} <strong>${chat.skill.title || chat.skill.name}</strong>
             <button type="button" class="btn btn-sm btn-icon"
                 ?disabled=${chat.isProcessing()}
                 @click=${() => chat.clearSkill()}

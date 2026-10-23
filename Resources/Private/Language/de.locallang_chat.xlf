@@ -74,8 +74,8 @@
                 <target>Arbeitet</target>
             </trans-unit>
             <trans-unit id="status.awaitingApproval" resname="status.awaitingApproval">
-                <source>Waiting for your approval</source>
-                <target>Wartet auf deine Freigabe</target>
+                <source>The following change is waiting for your approval</source>
+                <target>Folgende Änderung wartet auf deine Freigabe</target>
             </trans-unit>
             <trans-unit id="status.awaitingInput" resname="status.awaitingInput">
                 <source>Waiting for your answer</source>
@@ -207,6 +207,18 @@
                 <source>Planned step</source>
                 <target>Geplanter Schritt</target>
             </trans-unit>
+            <trans-unit id="chat.approvalTitleField" resname="chat.approvalTitleField">
+                <source>Change “%s”</source>
+                <target>„%s“ ändern</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalHeader" resname="chat.approvalHeader">
+                <source>Approval required</source>
+                <target>Freigabe erforderlich</target>
+            </trans-unit>
+            <trans-unit id="chat.proposalThisPage" resname="chat.proposalThisPage">
+                <source>This page</source>
+                <target>Diese Seite</target>
+            </trans-unit>
             <trans-unit id="chat.approvalConfirmGeneric" resname="chat.approvalConfirmGeneric">
                 <source>Carry out step</source>
                 <target>Schritt ausführen</target>
@@ -304,8 +316,8 @@
                 <target>Nicht gespeichert</target>
             </trans-unit>
             <trans-unit id="chat.approvalDeniedVariant" resname="chat.approvalDeniedVariant">
-                <source>Not carried out — another variant is asked for.</source>
-                <target>Nicht ausgeführt — eine andere Variante ist angefragt.</target>
+                <source>Proposal not applied. A different version is being prepared.</source>
+                <target>Vorschlag nicht übernommen. Eine andere Variante wird erstellt.</target>
             </trans-unit>
             <trans-unit id="chat.approvalDeniedSkip" resname="chat.approvalDeniedSkip">
                 <source>Skipped — the step was not carried out.</source>
@@ -856,8 +868,8 @@
                 <target>Keine Skills verfügbar</target>
             </trans-unit>
             <trans-unit id="skills.active" resname="skills.active">
-                <source>Skill:</source>
-                <target>Skill:</target>
+                <source>Current task:</source>
+                <target>Aktuelle Aufgabe:</target>
             </trans-unit>
             <trans-unit id="skills.remove" resname="skills.remove">
                 <source>Remove skill</source>

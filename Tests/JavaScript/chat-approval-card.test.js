@@ -79,6 +79,8 @@ async function renderPending(modulePath, tag, open, pendingApproval = PENDING) {
         errorMessage: '',
         approvalUrl: '/typo3/module/web/nrllm-aitasks?runUuid=run-uuid-1234',
         pendingApproval,
+        // An administrator: the technical details are rendered for them only.
+        showTechnicalDetails: true,
     });
 
     if (open) {
@@ -358,7 +360,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         const el = await renderPending(modulePath, tag, open, null);
 
         expect(el.shadowRoot.querySelector('.approval-card')).toBeNull();
-        expect(el.shadowRoot.querySelector('.message.system a')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('.approval-frame a')).not.toBeNull();
     });
 
     // NEXT-162. The link used to sit in the action row, button-shaped and
@@ -453,7 +455,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
      */
     test('the pending notice is a label resolved on the client, not a stored sentence', async () => {
         const el = await renderPending(modulePath, tag, open);
-        const notice = el.shadowRoot.querySelector('.message.system');
+        const notice = el.shadowRoot.querySelector('.approval-frame');
 
         expect(notice).not.toBeNull();
         expect(notice.textContent).toContain('chat.approvalPending');
@@ -467,10 +469,12 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
      */
     test('the pending notice is the short status and nothing more', async () => {
         const el = await renderPending(modulePath, tag, open);
-        const notice = el.shadowRoot.querySelector('.message.system').cloneNode(true);
+        const notice = el.shadowRoot.querySelector('.approval-frame').cloneNode(true);
         notice.querySelector('.approval-card').remove();
 
-        expect(notice.textContent.trim()).toBe('chat.approvalPending');
+        expect(notice.querySelector('.approval-pending').textContent.trim()).toBe('chat.approvalPending');
+        expect(notice.querySelector('.approval-frame-header').textContent.trim()).toBe('chat.approvalHeader');
+        expect(notice.textContent.replace(/\s+/g, ' ').trim()).toBe('chat.approvalHeader chat.approvalPending');
     });
 
     /**
@@ -603,7 +607,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         el.chat.errorMessage = 'The turn moved on — decide again.';
         el.requestUpdate();
         await el.updateComplete;
-        const notice = el.shadowRoot.querySelector('.message.system');
+        const notice = el.shadowRoot.querySelector('.approval-frame');
 
         expect(notice.textContent).toContain('chat.approvalPending');
         expect(notice.textContent).toContain('chat.approvalPending: The turn moved on — decide again.');
@@ -637,7 +641,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
     test('the pending notice offers no dismiss', async () => {
         const el = await renderPending(modulePath, tag, open);
 
-        expect(el.shadowRoot.querySelector('.message.system .btn-icon')).toBeNull();
+        expect(el.shadowRoot.querySelector('.approval-frame .btn-icon')).toBeNull();
     });
 
     test('an idle conversation without an error shows no notice', async () => {

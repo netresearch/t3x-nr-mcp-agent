@@ -54,9 +54,10 @@ final class ApprovalProposalTest extends TestCase
     {
         $language = $this->createMock(LanguageService::class);
         $language->method('sL')->willReturnCallback(static fn (string $reference): string => match ($reference) {
-            'LLL:core:pages.title'       => 'Seite',
-            'LLL:core:pages.description' => 'Beschreibung',
-            default                      => '',
+            'LLL:core:pages.title'                     => 'Seite',
+            'LLL:core:pages.description'               => 'Beschreibung',
+            ApprovalCallPresenter::FIELD_HEADING_LABEL => '„%s“ ändern',
+            default                                    => '',
         });
 
         return $language;
@@ -65,9 +66,9 @@ final class ApprovalProposalTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function present(PendingCallView $call): array
+    private function present(PendingCallView $call, int $conversationPage = 0): array
     {
-        return (new ApprovalCallPresenter())->present([$call], $this->german(), null)[0];
+        return (new ApprovalCallPresenter())->present([$call], $this->german(), null, $conversationPage)[0];
     }
 
     #[Test]
@@ -76,10 +77,82 @@ final class ApprovalProposalTest extends TestCase
         $call = new PendingCallView('update_page_metadata', '{}', true, ['Seite: „Home“'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 10002), ['title', 'description']));
 
         self::assertSame(
-            ['table' => 'pages', 'uid' => 10002, 'fields' => ['description', 'title'], 'tableLabel' => 'Seite', 'fieldLabels' => ['Beschreibung', 'title']],
+            ['table' => 'pages', 'uid' => 10002, 'fields' => ['description', 'title'], 'tableLabel' => 'Seite', 'fieldLabels' => ['Beschreibung', 'title'], 'thisPage' => false],
             $this->present($call)['affected'],
             "a field without a label in the reader's language keeps its name",
         );
+    }
+
+    /** The page the conversation is about is "this page"; any other record, and any other table with the same uid, is not. */
+    #[Test]
+    public function onlyThePageTheConversationIsAboutIsThisPage(): void
+    {
+        $target = static fn (string $table, int $uid): PendingCallView => new PendingCallView('update_page_metadata', '{}', true, ['x'], pendingTarget: new PendingWriteTarget(new RecordReference($table, $uid), ['description']));
+
+        self::assertTrue($this->present($target('pages', 10002), 10002)['affected']['thisPage'] ?? null);
+        self::assertFalse($this->present($target('pages', 10003), 10002)['affected']['thisPage'] ?? null);
+        self::assertFalse($this->present($target('tt_content', 10002), 10002)['affected']['thisPage'] ?? null);
+        self::assertFalse($this->present($target('pages', 10002), 0)['affected']['thisPage'] ?? null, 'a conversation without a page has no this page');
+    }
+
+    /** One structured field: nr-llm's own label heads the card ("Titel für X (Twitter)"). */
+    #[Test]
+    public function aSingleStructuredFieldNamesTheHeadingWithNrLlmsLabel(): void
+    {
+        $call = new PendingCallView('update_page_metadata', '{}', true, ['x'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 1), ['og_title']), structuredPreview: [
+            new FieldProposal('og_title', 'Titel für Facebook und LinkedIn', null, 'Neu'),
+        ]);
+
+        self::assertSame('„Titel für Facebook und LinkedIn“ ändern', $this->present($call)['heading']);
+    }
+
+    /** Without nr-llm's label the schema's label of that one field is used, else the column. */
+    #[Test]
+    public function aSingleFieldWithoutAStructuredLabelUsesTheSchemasLabel(): void
+    {
+        $target = new PendingWriteTarget(new RecordReference('pages', 1), ['description']);
+
+        self::assertSame('„Beschreibung“ ändern', $this->present(new PendingCallView('t', '{}', true, ['x'], pendingTarget: $target))['heading'], 'no structured preview');
+        self::assertSame('„Beschreibung“ ändern', $this->present(new PendingCallView('t', '{}', true, ['x'], pendingTarget: $target, structuredPreview: [
+            new FieldProposal('description', '', null, 'Neu'),
+        ]))['heading'], 'a structured entry with an empty label');
+        self::assertSame('„nav_title“ ändern', $this->present(new PendingCallView('t', '{}', true, ['x'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 1), ['nav_title'])))['heading'], 'a column without a label');
+    }
+
+    /** Several fields, no field, or a failed preview with several: today's heading stays. */
+    #[Test]
+    public function aChangeToSeveralFieldsKeepsTheCurrentHeading(): void
+    {
+        $several = new PendingCallView('t', '{}', true, ['x'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 1), ['title', 'description']), structuredPreview: [
+            new FieldProposal('title', 'Titel', 'a', 'b'),
+            new FieldProposal('description', 'Beschreibung', null, 'Neu'),
+        ]);
+        self::assertSame('', $this->present($several)['heading']);
+        self::assertSame($this->present($several)['actionLabel'], $this->present($several)['heading']);
+
+        self::assertSame('', $this->present(new PendingCallView('create_page_draft', '{}', true, ['Neue Seite']))['heading'], 'no field at all');
+    }
+
+    /** The structured entries are reader-specific: one entry of a two-field target must not head the card as if it were the only change. */
+    #[Test]
+    public function oneStructuredEntryOfATwoFieldTargetKeepsTheCurrentHeading(): void
+    {
+        $call = new PendingCallView('t', '{}', true, ['x'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 1), ['title', 'description']), structuredPreview: [
+            new FieldProposal('description', 'Beschreibung', null, 'Neu'),
+        ]);
+
+        self::assertSame('', $this->present($call)['heading']);
+    }
+
+    /** The heading names the field in the reader's language only if the label resolves. */
+    #[Test]
+    public function aHeadingTemplateThatDoesNotResolveLeavesTheHeadingAlone(): void
+    {
+        $language = $this->createMock(LanguageService::class);
+        $language->method('sL')->willReturn('');
+        $call = new PendingCallView('t', '{}', true, ['x'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 1), ['description']));
+
+        self::assertSame('', (new ApprovalCallPresenter())->present([$call], $language, null)[0]['heading']);
     }
 
     #[Test]

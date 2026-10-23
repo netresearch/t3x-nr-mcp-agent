@@ -173,6 +173,13 @@ export class ChatCoreController {
      */
     mayDecideApproval = true;
 
+    /**
+     * Whether the card offers the technical details (tool name, arguments).
+     * Only an administrator reads them, and the server sends their content to
+     * no one else.
+     */
+    showTechnicalDetails = false;
+
     /** The reason on screen sends the reader to the run, so the card links to it. */
     errorPointsToRun = false;
 
@@ -276,7 +283,7 @@ export class ChatCoreController {
     /** The highlight last sent to the page module, so it is sent once. */
     _sentHighlight = '';
 
-    /** The active conversation's skill (ADR-019), or null. @type {{identifier: string, name: string}|null} */
+    /** The active conversation's skill (ADR-019), or null. @type {{identifier: string, name: string, title?: string|null}|null} */
     skill = null;
 
     /** The skills the user can pick; null until loaded. @type {Array<{identifier: string, name: string, description: string}>|null} */
@@ -593,6 +600,9 @@ export class ChatCoreController {
     _setApprovalRight(data) {
         if (typeof data.mayDecideApproval === 'boolean') {
             this.mayDecideApproval = data.mayDecideApproval;
+        }
+        if (typeof data.showTechnicalDetails === 'boolean') {
+            this.showTechnicalDetails = data.showTechnicalDetails;
         }
         if (typeof data.errorPointsToRun === 'boolean') {
             this.errorPointsToRun = data.errorPointsToRun;

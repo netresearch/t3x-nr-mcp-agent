@@ -52,14 +52,15 @@ export function isProposal(pending) {
 /**
  * "Betroffen": the table's label, the record's uid and the fields' labels.
  *
- * @param {{tableLabel: string, uid: number, fieldLabels: string[]}|null} affected
+ * @param {{tableLabel: string, uid: number, fieldLabels: string[], thisPage?: boolean}|null} affected
  */
 export function affectedText(affected) {
     if (!affected) {
         return '';
     }
 
-    const record = `${affected.tableLabel} ${affected.uid}`;
+    // The page the conversation is about needs no table name and no uid.
+    const record = affected.thisPage ? lll('chat.proposalThisPage') : `${affected.tableLabel} ${affected.uid}`;
 
     return affected.fieldLabels?.length ? `${record} · ${affected.fieldLabels.join(', ')}` : record;
 }
@@ -140,7 +141,7 @@ export function renderProposal(call, renderLines) {
 
     return html`
         <div class="proposal">
-            <p class="approval-title" role="heading" aria-level="3"><strong>${call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
+            <p class="approval-title" role="heading" aria-level="3"><strong>${call.heading || call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
             ${affected || call.structured ? html`
                 <dl class="proposal-facts">
                     ${affected ? html`<dt>${lll('chat.proposalAffected')}</dt><dd>${affected}</dd>` : nothing}

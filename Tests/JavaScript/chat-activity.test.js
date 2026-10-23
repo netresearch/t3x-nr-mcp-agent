@@ -55,6 +55,17 @@ describe('activityEntries', () => {
         expect(last.meta).toBe('create_page, update_record');
     });
 
+    test('a waiting turn of a non-administrator names no tools', () => {
+        // The response empties the tool names for anyone but administrators.
+        const chat = controller({
+            status: 'awaiting_approval',
+            activity: [],
+            pendingApproval: {calls: [{name: ''}, {name: ''}]},
+        });
+
+        expect(activityEntries(chat).at(-1).meta).toBe('');
+    });
+
     test('a running turn ends with a working entry', () => {
         expect(activityEntries(controller({activity: []})).at(-1).label).toBe('activity.working');
     });

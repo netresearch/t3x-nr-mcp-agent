@@ -65,7 +65,7 @@ describe.each(SURFACES)('$name pending approval', ({module: modulePath, tag, ope
 
     test('links to the run that is waiting, not just to the module', async () => {
         const el = await renderAwaitingApproval(modulePath, tag, open, '/typo3/module/web/nrllm-aitasks?runUuid=abc');
-        const link = el.shadowRoot.querySelector('.message.system a');
+        const link = el.shadowRoot.querySelector('.approval-frame a');
 
         expect(link).not.toBeNull();
         expect(link.getAttribute('href')).toBe('/typo3/module/web/nrllm-aitasks?runUuid=abc');
@@ -77,14 +77,14 @@ describe.each(SURFACES)('$name pending approval', ({module: modulePath, tag, ope
         // nowhere is worse than the sentence alone.
         const el = await renderAwaitingApproval(modulePath, tag, open, '');
 
-        expect(el.shadowRoot.querySelector('.message.system a')).toBeNull();
-        expect(el.shadowRoot.querySelector('.message.system').textContent)
+        expect(el.shadowRoot.querySelector('.approval-frame a')).toBeNull();
+        expect(el.shadowRoot.querySelector('.approval-frame').textContent)
             .toContain('chat.approvalPending');
     });
 
     test('shows no retry button, because retrying would bypass the pending decision', async () => {
         const el = await renderAwaitingApproval(modulePath, tag, open, '/typo3/module/web/nrllm-aitasks?runUuid=abc');
-        const notice = el.shadowRoot.querySelector('.message.system');
+        const notice = el.shadowRoot.querySelector('.approval-frame');
 
         expect(notice.textContent).not.toContain('chat.retry');
     });
