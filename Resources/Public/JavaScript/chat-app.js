@@ -7,7 +7,7 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController, displayStatus, downloadTextFile, statusLabel} from '@netresearch/nr-mcp-agent/chat-core.js';
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY} from '@netresearch/nr-mcp-agent/icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
 import {chatGuidedStyles, renderEndTour, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
@@ -195,7 +195,7 @@ export class ChatApp extends LitElement {
         .message {
             padding: 10px 14px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 14px;
             line-height: 1.5;
             word-break: break-word;
         }
@@ -236,6 +236,31 @@ export class ChatApp extends LitElement {
             font-size: 11px;
             font-family: sans-serif;
         }
+        /* The approval frame: a system step, not a message (ADR-023). */
+        .approval-frame {
+            align-self: stretch;
+            border: 1px solid var(--nr-chat-border);
+            border-radius: 6px;
+            background: var(--nr-chat-surface-low);
+            color: var(--nr-chat-text);
+            font-size: 14px;
+            font-style: normal;
+            line-height: 1.5;
+            overflow: hidden;
+        }
+        .approval-frame-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--nr-chat-info-bg);
+            color: var(--nr-chat-info-text);
+            border-bottom: 1px solid var(--nr-chat-border);
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .approval-frame-body { padding: 10px 14px; }
+        .approval-pending { margin: 0; }
         .approval-card { margin-top: 8px; }
         .approval-call { margin-bottom: 8px; }
         .approval-call code { font-size: .9em; }
@@ -392,6 +417,12 @@ export class ChatApp extends LitElement {
         .btn-sm {
             padding: 4px 8px;
             font-size: 12px;
+        }
+        /* The answers the reader gives: card buttons, reply options, tour
+           buttons. Larger than the compact .btn-sm of the header. */
+        .btn-answer {
+            padding: 6px 12px;
+            font-size: 14px;
         }
         .btn-icon {
             padding: 4px 6px;
@@ -883,11 +914,20 @@ export class ChatApp extends LitElement {
 
             const reason = this.chat.errorMessage ? `: ${this.chat.errorMessage}` : '';
 
+            // Not a message: the system paused the run because the backend
+            // requires approval, and this frame says so (ADR-023, 2026-10-23
+            // amendment). It sits outside .message and .message-row, carries
+            // no avatar, and spans the column.
             return html`
-                <div class="message system status-notice" tabindex="-1" style="color:var(--nr-chat-status-info, #0277bd);">
-                    ${lll('chat.approvalPending')}${reason}
-                    ${this._renderApprovalCard()}
-                </div>
+                <section class="approval-frame status-notice" tabindex="-1" aria-labelledby="approval-frame-header">
+                    <div class="approval-frame-header" id="approval-frame-header">
+                        ${ICON_APPROVAL(14)}<span>${lll('chat.approvalHeader')}</span>
+                    </div>
+                    <div class="approval-frame-body">
+                        <p class="approval-pending">${lll('chat.approvalPending')}${reason}</p>
+                        ${this._renderApprovalCard()}
+                    </div>
+                </section>
             `;
         }
 
@@ -1009,7 +1049,7 @@ export class ChatApp extends LitElement {
             <div class="approval-card">
                 ${pending.calls.map((call) => html`
                     <div class="approval-call">
-                        <p class="approval-title" role="heading" aria-level="3"><strong>${call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
+                        <p class="approval-title" role="heading" aria-level="3"><strong>${call.heading || call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
                         ${call.toolStillRegistered ? nothing : html`
                             <p class="approval-warning approval-stale">${lll('chat.approvalToolGone')}</p>
                         `}
@@ -1017,19 +1057,21 @@ export class ChatApp extends LitElement {
                             <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
                         ` : nothing}
                         ${this._renderApprovalPreview(call)}
-                        <details class="approval-technical">
-                            <summary>${lll('chat.approvalTechnicalDetails')}</summary>
-                            ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
-                            <p>${lll('chat.approvalTool')} <code>${call.name}</code></p>
-                            <p>${lll('chat.approvalArguments')}</p>
-                            <pre><code>${call.argumentsJson}</code></pre>
-                        </details>
+                        ${this.chat.showTechnicalDetails ? html`
+                            <details class="approval-technical">
+                                <summary>${lll('chat.approvalTechnicalDetails')}</summary>
+                                ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
+                                <p>${lll('chat.approvalTool')} <code>${call.name}</code></p>
+                                <p>${lll('chat.approvalArguments')}</p>
+                                <pre><code>${call.argumentsJson}</code></pre>
+                            </details>
+                        ` : nothing}
                     </div>
                 `)}
                 ${this._renderApproveBlocked(pending)}
                 <div class="approval-actions">
                     ${pending.approveBlocked ? nothing : html`
-                        <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
+                        <button class="btn btn-sm btn-answer btn-primary" ?disabled=${this.chat.approvalBusy}
                             @click=${() => this._decide(true)}>${this._approveLabel(pending)}</button>
                     `}
                     ${renderDenyButtons(pending, this.chat.approvalBusy, (reason) => this._decide(false, reason))}
@@ -1076,18 +1118,20 @@ export class ChatApp extends LitElement {
                 ${this._renderApproveBlocked(pending)}
                 <div class="approval-actions">
                     ${pending.approveBlocked ? nothing : html`
-                        <button class="btn btn-sm btn-primary" ?disabled=${this.chat.approvalBusy}
+                        <button class="btn btn-sm btn-answer btn-primary" ?disabled=${this.chat.approvalBusy}
                             @click=${() => this._decide(true)}>${lll('chat.approvalApply')}</button>
                     `}
                     ${renderDenyButtons(pending, this.chat.approvalBusy, (reason) => this._decide(false, reason))}
                 </div>
-                <details class="approval-technical">
-                    <summary>${lll('chat.approvalTechnicalDetails')}</summary>
-                    ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
-                    <p>${lll('chat.approvalTool')} <code>${call.name}</code></p>
-                    <p>${lll('chat.approvalArguments')}</p>
-                    <pre><code>${call.argumentsJson}</code></pre>
-                </details>
+                ${this.chat.showTechnicalDetails ? html`
+                    <details class="approval-technical">
+                        <summary>${lll('chat.approvalTechnicalDetails')}</summary>
+                        ${call.technicalDetails ? html`<p>${call.technicalDetails}</p>` : nothing}
+                        <p>${lll('chat.approvalTool')} <code>${call.name}</code></p>
+                        <p>${lll('chat.approvalArguments')}</p>
+                        <pre><code>${call.argumentsJson}</code></pre>
+                    </details>
+                ` : nothing}
                 ${this._lacksPreview(pending) || this.chat.errorPointsToRun ? this._renderRunDetailsLink() : nothing}
             </div>
         `;

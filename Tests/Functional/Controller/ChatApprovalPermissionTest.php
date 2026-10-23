@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Functional\Controller;
 
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
@@ -84,10 +86,11 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
         );
     }
 
-    private function waiting(int $beUser, bool $previewed = true): int
+    private function waiting(int $beUser, bool $previewed = true, int $viewPage = 0, ?PendingWriteTarget $target = null): int
     {
         $conversation = new Conversation();
         $conversation->setBeUser($beUser);
+        $conversation->setViewContext($viewPage, 'web_layout');
         $conversation->appendMessage(MessageRole::User, 'Setze die Meta Description');
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-uuid-1');
@@ -103,6 +106,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
                 true,
                 $previewed ? ['Seite: „Home“', 'Meta Description: (leer) → „Neu“'] : ['Keine Berechtigung für diese Seite'],
                 !$previewed,
+                pendingTarget: $target,
             )],
         ));
 
@@ -192,6 +196,50 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
 
         self::assertSame('', $this->messages($uid)['pendingApproval']['approveBlocked']);
         self::assertSame(202, $this->decide($uid, true)->getStatusCode());
+    }
+
+    /** "This page" is decided from the conversation's own page, not from anything the model says. */
+    #[Test]
+    public function theCardKnowsWhetherTheWriteIsAboutTheConversationsPage(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
+        $uid                = $this->waiting(3, viewPage: 10, target: new PendingWriteTarget(new RecordReference('pages', 10), ['description']));
+
+        self::assertTrue($this->messages($uid)['pendingApproval']['calls'][0]['affected']['thisPage']);
+
+        $other = $this->waiting(3, viewPage: 11, target: new PendingWriteTarget(new RecordReference('pages', 10), ['description']));
+        self::assertFalse($this->messages($other)['pendingApproval']['calls'][0]['affected']['thisPage']);
+    }
+
+    /**
+     * The tool name, its arguments and the technical line are for
+     * administrators: the card shows the section only for them, and the
+     * response carries the content to no one else.
+     */
+    #[Test]
+    public function anEditorGetsNoTechnicalDetailsInTheResponse(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
+        $body               = $this->messages($this->waiting(3));
+
+        self::assertFalse($body['showTechnicalDetails']);
+        $call = $body['pendingApproval']['calls'][0];
+        self::assertSame('', $call['name']);
+        self::assertSame('', $call['argumentsJson']);
+        self::assertSame('', $call['technicalDetails']);
+        self::assertSame(['Seite: „Home“', 'Meta Description: (leer) → „Neu“'], $call['previewLines'], 'what the editor decides on stays');
+        self::assertStringNotContainsString('update_page_metadata', (string) json_encode($body));
+    }
+
+    #[Test]
+    public function anAdministratorGetsTheTechnicalDetails(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+        $body               = $this->messages($this->waiting(1));
+
+        self::assertTrue($body['showTechnicalDetails']);
+        self::assertSame('update_page_metadata', $body['pendingApproval']['calls'][0]['name']);
+        self::assertSame('{"uid":10}', $body['pendingApproval']['calls'][0]['argumentsJson']);
     }
 
     /**

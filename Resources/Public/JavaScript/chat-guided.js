@@ -196,7 +196,7 @@ export function renderPageChoice(chat) {
             <p id="nr-chat-guided-choice"><strong>${lll('guided.choosePage')}</strong></p>
             <p>${lll('guided.choosePageHint')}</p>
             <div class="guided-actions">
-                <button type="button" class="btn btn-sm btn-primary" data-action="check-page"
+                <button type="button" class="btn btn-sm btn-answer btn-primary" data-action="check-page"
                     ?disabled=${chat.backendPage.pageId <= 0 || chat.sending || chat.isProcessing()}
                     @click=${() => chat.checkBackendPage()}>${lll('guided.checkPage')}</button>
             </div>
@@ -217,7 +217,7 @@ export function renderRoundLimit(chat) {
     return html`
         <div class="guided-block guided-round-limit">
             <div class="guided-actions">
-                <button type="button" class="btn btn-sm btn-primary" data-action="continue-tour"
+                <button type="button" class="btn btn-sm btn-answer btn-primary" data-action="continue-tour"
                     @click=${() => chat.continueTour()}>${lll('guided.continue')}</button>
             </div>
         </div>
@@ -238,15 +238,15 @@ export function renderTourEnd(chat) {
         <div class="guided-block guided-end-actions" role="group" aria-label="${lll('guided.completed')}">
             <div class="guided-actions">
                 ${chat.tourStart ? html`
-                    <button type="button" class="btn btn-sm btn-default" data-action="choose-another-page"
+                    <button type="button" class="btn btn-sm btn-answer btn-default" data-action="choose-another-page"
                         ?disabled=${chat.endingTour || chat.isProcessing()}
                         @click=${() => chat.chooseAnotherPage()}>${lll('guided.chooseAnotherPage')}</button>
                 ` : nothing}
-                <button type="button" class="btn btn-sm btn-primary" data-action="finish-tour"
+                <button type="button" class="btn btn-sm btn-answer btn-primary" data-action="finish-tour"
                     ?disabled=${chat.endingTour || chat.isProcessing()}
                     @click=${() => chat.endTour()}>${lll('guided.finish')}</button>
                 ${chat.dashboardUrl ? html`
-                    <a class="btn btn-sm btn-link" data-action="dashboard" href="${chat.dashboardUrl}" target="_top">${lll('guided.toDashboard')}</a>
+                    <a class="btn btn-sm btn-answer btn-link" data-action="dashboard" href="${chat.dashboardUrl}" target="_top">${lll('guided.toDashboard')}</a>
                 ` : nothing}
             </div>
         </div>
@@ -267,11 +267,11 @@ export function renderPageChange(chat) {
                 <p><strong>${lll('guided.pageChanged')}</strong></p>
                 <div class="guided-actions">
                     ${chat.tourStart ? html`
-                        <button type="button" class="btn btn-sm btn-primary" data-action="switch-page"
+                        <button type="button" class="btn btn-sm btn-answer btn-primary" data-action="switch-page"
                             ?disabled=${chat.endingTour || chat.isProcessing()}
                             @click=${() => chat.switchToBackendPage()}>${lll('guided.switchPage')}</button>
                     ` : nothing}
-                    <button type="button" class="btn btn-sm btn-default" data-action="keep-page"
+                    <button type="button" class="btn btn-sm btn-answer btn-default" data-action="keep-page"
                         @click=${() => chat.keepTourPage()}>${lll('guided.keepPage', chat.tour.pageTitle)}</button>
                 </div>
             </div>

@@ -347,3 +347,46 @@ instead.
     for the editor, who can reply or continue with *Weiter*. It does not
     say that a step was cut short, which would read as a fault where the
     wait is intended.
+
+
+Amendment of 2026-10-23: the approval card is a system step
+============================================================
+
+**Context.** The card of a pending write sat inside the status line of
+the chat: centred, small, italic and blue like "Not carried out", and
+worded in the first person of a message. Editors read it as something the
+assistant said, although it is not part of the conversation: the model
+orders a write, the system checks the backend setting, and only because
+that setting requires approval does it pause and show the card. Without
+the setting the write is stored directly and no card appears.
+
+**Decision.** The chat has two kinds of content. Chat messages are
+written by the model. The approval card is rendered mechanically from the
+pending write call and shows what is stored where. The card stays
+recognisably different from a message, and a system status line does not
+speak in the assistant's first person.
+
+-   The card is a frame of its own, outside ``.message`` and
+    ``.message-row``: full width of the message column, left edge of the
+    column, no avatar, no bubble shape. A header band carries an icon and
+    "Freigabe erforderlich" / "Approval required"; the first line below
+    it reads "Folgende Änderung wartet auf deine Freigabe". Text is
+    regular, not italic. The frame keeps ``tabindex="-1"`` and the
+    ``status-notice`` class, which focus returns to after a decision.
+-   The heading names the field when the change touches exactly one:
+    "„Titel“ ändern", with the structured preview's label where nr-llm
+    sends one, else the schema's. The approve button of a plain card keeps
+    the action label. Otherwise the heading stays as before.
+-   "Betroffen" reads "Diese Seite · <fields>" when the target is the page
+    the conversation is about; any other record keeps table and uid.
+-   The technical details (tool name, arguments, technical line) are for
+    administrators. The response carries ``showTechnicalDetails``; for
+    anyone else the three values are empty in the response, not only
+    hidden by the card.
+-   The status line of a variant decision reads "Vorschlag nicht
+    übernommen. Eine andere Variante wird erstellt." The button keeps
+    "Andere Variante", which is also the transcript line the model reads.
+-   The answers of the card and the tour (``btn-answer``) and message text
+    are 14px; the compact ``btn-sm`` of the header stays at 12px.
+-   The skill chip reads "Aktuelle Aufgabe:" and the skill's human title
+    (``SkillLabels``), else its name.

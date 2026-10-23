@@ -117,7 +117,7 @@ function renderAnswers(chat, pending) {
             ${pending.question ? nothing : html`<p class="reply-options-question">${lll('input.chooseAnswer')}</p>`}
             <div class="reply-options-buttons" role="group" aria-label="${lll('input.groupLabel')}">
                 ${pending.options.map((option) => html`
-                    <button type="button" class="btn btn-sm reply-option"
+                    <button type="button" class="btn btn-sm btn-answer reply-option"
                         ?disabled=${chat.inputBusy}
                         @click=${() => chat.submitInput({choice: option.value})}>${option.label}</button>
                 `)}
@@ -147,7 +147,7 @@ function renderForm(chat, pending) {
         <form class="reply-form" @submit=${submit}>
             ${pending.fields.map((field) => renderField(field))}
             <div class="reply-form-actions">
-                <button type="submit" class="btn btn-sm btn-primary" ?disabled=${chat.inputBusy}>${lll('input.formSubmit')}</button>
+                <button type="submit" class="btn btn-sm btn-answer btn-primary" ?disabled=${chat.inputBusy}>${lll('input.formSubmit')}</button>
             </div>
         </form>
     `;
@@ -229,15 +229,15 @@ export function readForm(form, fields) {
 export function renderDenyButtons(pending, busy, deny) {
     if (pending?.answers === 'process') {
         return html`
-            <button class="btn btn-sm" ?disabled=${busy}
+            <button class="btn btn-sm btn-answer" ?disabled=${busy}
                 @click=${() => deny('variant')}>${lll('chat.approvalVariant')}</button>
-            <button class="btn btn-sm" ?disabled=${busy}
+            <button class="btn btn-sm btn-answer" ?disabled=${busy}
                 @click=${() => deny('skip')}>${lll('chat.approvalSkip')}</button>
         `;
     }
 
     return html`
-        <button class="btn btn-sm" ?disabled=${busy}
+        <button class="btn btn-sm btn-answer" ?disabled=${busy}
             @click=${() => deny('')}>${lll('chat.approvalCancel')}</button>
     `;
 }

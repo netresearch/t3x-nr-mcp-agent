@@ -257,6 +257,22 @@ final class ApprovalCallPresenterTest extends TestCase
         self::assertSame('Seite löschen', $this->presenter()->present([$call], $this->german(), $this->german())[0]['actionLabel']);
     }
 
+    /** Only administrators read the tool name, its arguments and the technical line: for anyone else the response holds none of them. */
+    #[Test]
+    public function technicalDetailsAreEmptiedForAReaderWhoIsNoAdministrator(): void
+    {
+        $call = new PendingCallView('create_page_draft', '{"parent":157}', true, self::PREVIEW);
+
+        $admin  = $this->presenter()->present([$call], $this->german(), $this->german())[0];
+        $editor = $this->presenter()->present([$call], $this->german(), $this->german(), 0, false)[0];
+
+        self::assertSame(['create_page_draft', '{"parent":157}', 'Seite 157, Tabelle pages'], [$admin['name'], $admin['argumentsJson'], $admin['technicalDetails']]);
+        self::assertSame(['', '', ''], [$editor['name'], $editor['argumentsJson'], $editor['technicalDetails']]);
+        self::assertSame($admin['previewLines'], $editor['previewLines'], 'what the editor decides on stays');
+        self::assertSame($admin['actionLabel'], $editor['actionLabel']);
+        self::assertStringNotContainsString('create_page_draft', (string) json_encode($editor));
+    }
+
     #[Test]
     public function theTechnicalLastLineMovesOutOfThePreviewLines(): void
     {

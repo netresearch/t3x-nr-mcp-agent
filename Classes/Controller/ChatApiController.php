@@ -28,6 +28,7 @@ use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
+use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -104,6 +105,9 @@ final readonly class ChatApiController
         // Without it the chat offers no new start of a guided process: no
         // page choice, no "Andere Seite wählen" (ADR-023).
         private ?SkillInvocationInterface $skillInvocation = null,
+        // The human title of the active skill for the chip; without it the
+        // chip shows the skill's name.
+        private ?SkillLabels $skillLabels = null,
     ) {}
 
     /**
@@ -539,7 +543,7 @@ final readonly class ChatApiController
      * The conversation's skill as the chat shows it: identifier and name, the
      * name falling back to the identifier when the catalogue does not list it.
      *
-     * @return array{identifier: string, name: string}|null
+     * @return array{identifier: string, name: string, title: string|null}|null
      */
     private function presentSkill(Conversation $conversation): ?array
     {
@@ -550,7 +554,12 @@ final readonly class ChatApiController
 
         $entry = $this->skills?->find($identifier);
 
-        return ['identifier' => $identifier, 'name' => $entry['name'] ?? $identifier];
+        return [
+            'identifier' => $identifier,
+            'name'       => $entry['name'] ?? $identifier,
+            // What an editor reads (SkillLabels), null for a skill without a title.
+            'title' => $this->skillLabels?->title($identifier),
+        ];
     }
 
     /**
@@ -631,6 +640,10 @@ final readonly class ChatApiController
             // notice cannot tell "decide below" from "someone else decides",
             // and a link into a module the reader cannot open is no next step.
             'mayDecideApproval' => $this->mayDecideApprovals($conversation),
+            // The tool name, its arguments and the technical line are for
+            // administrators; the card renders the section only when this is
+            // true, and buildPendingApproval() sends the content to nobody else.
+            'showTechnicalDetails' => $this->showsTechnicalDetails(),
             // A hand-back whose sentence points to the run in AI Tasks: the
             // card offers the link even though it has a preview.
             'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
@@ -1395,12 +1408,24 @@ final readonly class ChatApiController
             // "Übernehmen / Andere Variante / Überspringen" for a write in a
             // process run, approve and cancel for every other card (ADR-018).
             'answers' => $this->chatApproval->offersProcessAnswers($conversation, $view) ? 'process' : 'plain',
-            'calls'   => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
+            // The tool name, its arguments and the technical line leave the
+            // server for administrators only; nothing else in the chat reads them.
+            'calls' => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
                 $view->pendingCalls,
                 $language instanceof LanguageService ? $language : null,
                 $this->previewLanguage($conversation),
+                $conversation->getViewContext()['pageId'],
+                $this->showsTechnicalDetails(),
             ),
         ];
+    }
+
+    /** Whether the reader is an administrator, the only reader of the technical details. */
+    private function showsTechnicalDetails(): bool
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+
+        return $backendUser instanceof BackendUserAuthentication && $backendUser->isAdmin();
     }
 
     /**

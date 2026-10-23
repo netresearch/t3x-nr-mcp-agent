@@ -49,6 +49,7 @@ async function render(modulePath, tag, open, pendingApproval) {
         errorMessage: '',
         approvalUrl: '',
         pendingApproval,
+        showTechnicalDetails: true,
     });
     if (open) {
         el.state = 'OPEN';

@@ -62,6 +62,9 @@ final readonly class ApprovalCallPresenter
     /** nr-llm's label for the last preview line; `%s` holds the identifiers. */
     public const TECHNICAL_DETAILS_LABEL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.technical.details';
 
+    /** The heading of a change to exactly one field; `%s` holds the field's label. */
+    public const FIELD_HEADING_LABEL = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.approvalTitleField';
+
     public function __construct(
         private ?EditorActionLabelsInterface $editorActionLabels = null,
         private ?PreviewHeadingRecogniserInterface $previewHeadings = null,
@@ -69,12 +72,15 @@ final readonly class ApprovalCallPresenter
 
     /**
      * @param list<PendingCallView> $calls
-     * @param ?LanguageService      $language        the reader's, for the editor action label
-     * @param ?LanguageService      $previewLanguage the run's acting user's, the preview lines' language
+     * @param ?LanguageService      $language             the reader's, for the editor action label
+     * @param ?LanguageService      $previewLanguage      the run's acting user's, the preview lines' language
+     * @param int                   $conversationPage     the page the conversation is about (0 for none), so a write on it reads "This page"
+     * @param bool                  $withTechnicalDetails false empties `name`, `argumentsJson` and `technicalDetails`: only administrators read them
      *
      * @return list<array{
      *     name: string,
      *     actionLabel: string,
+     *     heading: string,
      *     toolStillRegistered: bool,
      *     previewLines: list<string>,
      *     technicalDetails: string,
@@ -82,11 +88,11 @@ final readonly class ApprovalCallPresenter
      *     previewStale: bool,
      *     argumentsJson: string,
      *     actionLabelFromPreview: bool,
-     *     affected: array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>}|null,
+     *     affected: array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>, thisPage: bool}|null,
      *     structured: list<array{field: string, label: string, current: string|null, proposed: string, measure: array{count: int, min: int|null, max: int|null}|null}>|null,
      * }>
      */
-    public function present(array $calls, ?LanguageService $language, ?LanguageService $previewLanguage): array
+    public function present(array $calls, ?LanguageService $language, ?LanguageService $previewLanguage, int $conversationPage = 0, bool $withTechnicalDetails = true): array
     {
         $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
         $technicalLabel  = $this->resolve(self::TECHNICAL_DETAILS_LABEL, $previewLanguage);
@@ -105,25 +111,31 @@ final readonly class ApprovalCallPresenter
                 $previewLanguage,
             );
 
+            $affected   = $this->affected($call, $language, $conversationPage);
+            $structured = $call->previewFailed ? null : StructuredPreview::of($call);
+
             $presented[] = [
-                'name'                   => $call->name,
-                'actionLabel'            => $actionLabel,
+                'name'        => $withTechnicalDetails ? $call->name : '',
+                'actionLabel' => $actionLabel,
+                // What the card's heading says. The approve button keeps the
+                // action label: a heading naming the field is no action.
+                'heading'                => $this->fieldHeading($affected, $structured, $language) ?? $actionLabel,
                 'actionLabelFromPreview' => $fromPreview,
                 'toolStillRegistered'    => $call->toolStillRegistered,
                 'previewLines'           => $lines,
-                'technicalDetails'       => $technical,
+                'technicalDetails'       => $withTechnicalDetails ? $technical : '',
                 'previewFailed'          => $call->previewFailed,
                 // nr-llm refuses an approved write whose record changed after
                 // the preview and hands the run back with this flag. Without
                 // it the card returns looking exactly as it did before the
                 // click, and only the approvals module said why.
                 'previewStale'  => $call->previewStale,
-                'argumentsJson' => $call->argumentsJson,
+                'argumentsJson' => $withTechnicalDetails ? $call->argumentsJson : '',
                 // The proposal block of a process card (ADR-023): what the
                 // write is about, from nr-llm's structured target, and its
                 // current and proposed values where nr-llm structures them.
-                'affected'   => $this->affected($call, $language),
-                'structured' => $call->previewFailed ? null : StructuredPreview::of($call),
+                'affected'   => $affected,
+                'structured' => $structured,
             ];
         }
 
@@ -136,9 +148,11 @@ final readonly class ApprovalCallPresenter
      * the reader's language: schema labels, no record content. Null without a
      * target — a create, or a tool that names none.
      *
-     * @return array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>}|null
+     * `thisPage` is true when the target is the page the conversation is about.
+     *
+     * @return array{table: string, uid: int, fields: list<string>, tableLabel: string, fieldLabels: list<string>, thisPage: bool}|null
      */
-    private function affected(PendingCallView $call, ?LanguageService $language): ?array
+    private function affected(PendingCallView $call, ?LanguageService $language, int $conversationPage): ?array
     {
         $target = NrLlmCardTarget::ofCall($call);
         if (!$target instanceof OpenPointTarget) {
@@ -151,7 +165,35 @@ final readonly class ApprovalCallPresenter
             'fields'      => $target->fields,
             'tableLabel'  => $this->tableLabel($target->table, $language),
             'fieldLabels' => $this->fieldLabels($target->table, $target->fields, $language),
+            'thisPage'    => $conversationPage > 0 && $target->table === 'pages' && $target->uid === $conversationPage,
         ];
+    }
+
+    /**
+     * "Change “<field>”" when the write touches exactly one field, else null.
+     * The label is nr-llm's structured one where it carries one ("Title for X
+     * (Twitter)"), else the schema's.
+     *
+     * @param array{fields: list<string>, fieldLabels: list<string>}|null                                                                                           $affected
+     * @param list<array{field: string, label: string, current: string|null, proposed: string, measure: array{count: int, min: int|null, max: int|null}|null}>|null $structured
+     */
+    private function fieldHeading(?array $affected, ?array $structured, ?LanguageService $language): ?string
+    {
+        $label = null;
+        if ($structured !== null && count($structured) === 1) {
+            $field = $structured[0]['field'];
+            $index = $affected === null ? false : array_search($field, $affected['fields'], true);
+            $label = $structured[0]['label'] !== '' ? $structured[0]['label'] : ($index !== false ? $affected['fieldLabels'][$index] ?? $field : $field);
+        } elseif (($structured === null || $structured === []) && $affected !== null && count($affected['fieldLabels']) === 1) {
+            $label = $affected['fieldLabels'][0];
+        }
+
+        $template = $this->resolve(self::FIELD_HEADING_LABEL, $language);
+        if ($label === null || $label === '' || !str_contains($template, '%s')) {
+            return null;
+        }
+
+        return sprintf($template, $label);
     }
 
     /**
