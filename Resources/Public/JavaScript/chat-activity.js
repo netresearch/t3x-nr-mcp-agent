@@ -140,7 +140,8 @@ export function activityEntries(chat) {
     });
 
     if (chat.status === 'awaiting_approval') {
-        const names = (chat.pendingApproval?.calls || []).map((c) => c.name).join(', ');
+        // Tool names reach administrators only; for everyone else they are empty.
+        const names = (chat.pendingApproval?.calls || []).map((c) => c.name).filter(Boolean).join(', ');
         entries.push({icon: '⏸', label: lll('activity.waiting'), meta: names, tone: 'waiting'});
     } else if (chat.status === 'awaiting_input') {
         entries.push({icon: '⏸', label: lll('activity.waitingInput'), meta: '', tone: 'waiting'});
