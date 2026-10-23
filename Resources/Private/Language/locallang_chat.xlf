@@ -58,7 +58,7 @@
                 <source>Working</source>
             </trans-unit>
             <trans-unit id="status.awaitingApproval" resname="status.awaitingApproval">
-                <source>The following change is waiting for your approval</source>
+                <source>Waiting for your approval</source>
             </trans-unit>
             <trans-unit id="status.awaitingInput" resname="status.awaitingInput">
                 <source>Waiting for your answer</source>
@@ -132,7 +132,7 @@
                 <source>Processing...</source>
             </trans-unit>
             <trans-unit id="chat.approvalPending" resname="chat.approvalPending">
-                <source>Waiting for your approval</source>
+                <source>The following change is waiting for your approval</source>
             </trans-unit>
             <trans-unit id="chat.approvalPendingElsewhere" resname="chat.approvalPendingElsewhere">
                 <source>Waiting for approval. You cannot approve this step yourself: ask someone with access to AI Tasks to approve it.</source>
