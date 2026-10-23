@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.4] - 2026-10-23
+
+### Fixed
+
+- **A tour step that ends without its next action offers to go on (#228).** A guided-process turn that ends without a choice, a proposal or the end of the tour used to leave the editor with text and nothing to answer. The chat now shows a short line in the reader's language and a "Weiter" button beneath it, under the same conditions as for the round-limit line. The line is not sent to the model, and a tour whose progress reached n of n is not treated as finished.
+
 ## [0.17.3] - 2026-10-22
 
 ### Fixed
