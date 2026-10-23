@@ -1126,8 +1126,10 @@ class ChatServiceTest extends TestCase
         $system = $this->capturedSystemPrompt();
         self::assertStringContainsString('create content in the default language, the one marked (default) below', $system);
         self::assertStringContainsString('only when the user explicitly asks for that language', $system);
-        self::assertStringContainsString('tell them that the content is created in the default language', $system);
-        self::assertStringContainsString('translation tools of the CMS', $system);
+        self::assertStringContainsString("say so once, in one short sentence from the editor's point of view that names the content language and why", $system);
+        self::assertStringContainsString('Vorschläge für diese Seite schreibe ich auf Englisch, weil die Seite englisch ist.', $system);
+        self::assertStringContainsString('Do not explain translation tools or the other language versions of the CMS unless the user asks about other languages', $system);
+        self::assertStringNotContainsString('translation tools of the CMS', $system, 'the block no longer explains how other versions come about');
         self::assertStringNotContainsString('always set sys_language_uid', $system);
     }
 
@@ -1150,7 +1152,10 @@ class ChatServiceTest extends TestCase
         self::assertStringContainsString('create it in the default language of the site (sys_language_uid 0)', $system);
         self::assertStringContainsString('One record holds one language', $system);
         self::assertStringContainsString('do not create translations unless the user explicitly asks', $system);
-        self::assertStringContainsString('name the default language', $system);
+        self::assertStringContainsString("say so once, in one short sentence from the editor's point of view that names the content language and why", $system);
+        self::assertStringContainsString('Vorschläge für diese Seite schreibe ich auf Englisch, weil die Seite englisch ist.', $system);
+        self::assertStringContainsString('Do not explain translation tools or the other language versions of the CMS unless the user asks about other languages', $system);
+        self::assertStringNotContainsString('come from the translation tools', $system);
         self::assertStringNotContainsString('keep the language of the material', $system);
     }
 
