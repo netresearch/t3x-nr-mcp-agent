@@ -363,6 +363,10 @@
                 <source>The assistant stopped before it finished: it reached the most steps it may take for one answer. Send a message to let it go on.</source>
                 <target>Der Assistent hat angehalten, bevor er fertig war: Er hat die Höchstzahl an Schritten für eine Antwort erreicht. Schreib eine Nachricht, damit er weitermacht.</target>
             </trans-unit>
+            <trans-unit id="chat.stepOpen" resname="chat.stepOpen">
+                <source>The assistant ended this step without a question, a proposal or the end of the tour. Send a message or continue the tour.</source>
+                <target>Der Assistent hat diesen Schritt ohne Rückfrage, Vorschlag oder Abschluss beendet. Schreib eine Nachricht oder setz den Rundgang fort.</target>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">

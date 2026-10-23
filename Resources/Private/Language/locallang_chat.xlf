@@ -275,6 +275,9 @@
             <trans-unit id="chat.roundLimit" resname="chat.roundLimit">
                 <source>The assistant stopped before it finished: it reached the most steps it may take for one answer. Send a message to let it go on.</source>
             </trans-unit>
+            <trans-unit id="chat.stepOpen" resname="chat.stepOpen">
+                <source>The assistant ended this step without a question, a proposal or the end of the tour. Send a message or continue the tour.</source>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">

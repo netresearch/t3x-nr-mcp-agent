@@ -300,3 +300,48 @@ proposal, needed 2.
     gets the loop's default of 5, whatever the run asked for. One measured
     segment of that kind needed 2. Resumed segments get the run's cap
     once nr-llm keeps it across a resume.
+
+Amendment: a step left open offers to go on
+============================================
+
+**Date:** 2026-10-23
+
+**Context.** A step of a process ends with a choice (``ask_choice``), a
+proposal (a writing tool, which waits for its decision) or the end of the
+process (``chat_set_progress`` with ``completed``). Each of them leaves the
+run waiting or the process completed. The model does not always do so.
+On the demo on 2026-10-23, with the round cap of the previous amendment in
+place, three runs ended their step otherwise:
+
+-   Run 953235de (content tour, first turn) read the page in three rounds
+    and wrote the overview in the fourth, then ended without
+    ``chat_set_progress`` and without ``ask_choice``. Two further first
+    turns on the same page ended with the choice.
+-   After *Überspringen* the same tour wrote "Als Nächstes geht es um den
+    Nutzenabschnitt." and ended without the proposal.
+-   Run b2a7165a (content tour, last point) set the progress to 3 of 3
+    after the last choice and ended without ``completed``, so the chat
+    showed no summary.
+
+In each case the chat showed text, or nothing, and no control to answer:
+the editor had to guess that a message would make the process go on.
+
+**Decision.** A completed run of a conversation whose skill the catalogue
+marks as a process, whose progress is not completed and which did not
+stop at the cap, gets one line, stored language-neutral with the notice
+``stepOpen`` and shown in the reader's language; the model is not sent it.
+The chat offers *Weiter* beneath it under the same conditions as beneath
+the line about the cap.
+
+The chat does not infer the end of the process from a progress of n of n:
+a model that counts the last point before its proposal would end the
+process with the proposal still unmade. *Weiter* lets the model finish
+instead.
+
+**Consequences.**
+
+-   A step that legitimately ends with text, such as a short answer to the
+    editor's question or the wait for information the editor said they
+    would add, gets the line too. *Weiter* and a message of the editor's
+    own both go on from there.
+-   The line says what the run did, not why; the cause stays the model's.

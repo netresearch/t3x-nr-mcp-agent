@@ -448,7 +448,12 @@ final class ChatServiceSkillTest extends TestCase
 
         $this->service($this->catalogue(), new NrLlmSkillInvocation())->processConversation($conversation);
 
-        self::assertCount(2, $conversation->getDecodedMessages());
+        // The run ended the tour's step without a choice, so the chat's own
+        // step line follows the answer (ADR-023, amendment of 2026-10-23);
+        // what this case pins is that no line about a dropped process does.
+        $notices = array_map(static fn (array $message): mixed => $message['notice'] ?? null, $conversation->getDecodedMessages());
+        self::assertNotContains('processDropped', $notices);
+        self::assertSame([null, null, 'stepOpen'], $notices);
         self::assertSame('seo-page-tour', $conversation->getSkillIdentifier(), 'a dropped skill pin is no ended process');
     }
 
