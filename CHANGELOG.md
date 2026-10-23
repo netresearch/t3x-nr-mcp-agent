@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.8] - 2026-10-24
+
+### Fixed
+
+- **The approval card no longer collapses to a thin line in a long chat, and its first line and the chat list's status badge have their intended texts again (#238).** The frame keeps its height when the transcript overflows (`flex-shrink: 0`). The card line reads "Folgende Änderung wartet auf deine Freigabe", the badge "Wartet auf deine Freigabe".
+
 ## [0.17.7] - 2026-10-23
 
 ### Added
