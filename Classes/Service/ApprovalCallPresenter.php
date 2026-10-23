@@ -62,6 +62,14 @@ final readonly class ApprovalCallPresenter
     /** nr-llm's label for the last preview line; `%s` holds the identifiers. */
     public const TECHNICAL_DETAILS_LABEL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.technical.details';
 
+    /**
+     * nr-llm's source text of that label. nr-llm marks the technical line by
+     * this text only (ApprovalPreviewTranslator appends it last, with no
+     * structural marker), so it is the fallback when the label cannot be
+     * resolved in the acting user's language.
+     */
+    private const TECHNICAL_DETAILS_SOURCE_TEXT = 'Technical details: %s';
+
     /** The heading of a change to exactly one field; `%s` holds the field's label. */
     public const FIELD_HEADING_LABEL = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.approvalTitleField';
 
@@ -103,6 +111,12 @@ final readonly class ApprovalCallPresenter
                 // A failed or withheld preview carries the reason in its lines.
                 ? [$call->previewLines, '']
                 : $this->splitTechnicalLine($call->previewLines, $technicalLabel);
+            if (!$withTechnicalDetails && !$call->previewFailed) {
+                // Only administrators read the identifiers: drop the line
+                // whether or not it could be split off above (no language,
+                // or a preview made of that line alone).
+                $lines = $this->withoutTechnicalLine($lines, $technicalLabel);
+            }
 
             [$actionLabel, $lines, $fromPreview] = $this->nameTheChange(
                 $this->resolve($labelReferences[$call->name] ?? '', $language),
@@ -181,9 +195,13 @@ final readonly class ApprovalCallPresenter
     {
         $label = null;
         if ($structured !== null && count($structured) === 1) {
-            $field = $structured[0]['field'];
-            $index = $affected === null ? false : array_search($field, $affected['fields'], true);
-            $label = $structured[0]['label'] !== '' ? $structured[0]['label'] : ($index !== false ? $affected['fieldLabels'][$index] ?? $field : $field);
+            // The structured entries are reader-specific and may omit fields,
+            // so one entry names the change only when the target has one field.
+            if ($affected === null || count($affected['fields']) !== 1) {
+                return null;
+            }
+
+            $label = $this->singleFieldLabel($structured[0], $affected);
         } elseif (($structured === null || $structured === []) && $affected !== null && count($affected['fieldLabels']) === 1) {
             $label = $affected['fieldLabels'][0];
         }
@@ -194,6 +212,24 @@ final readonly class ApprovalCallPresenter
         }
 
         return sprintf($template, $label);
+    }
+
+    /**
+     * @param array{field: string, label: string}                    $entry
+     * @param array{fields: list<string>, fieldLabels: list<string>} $affected
+     */
+    private function singleFieldLabel(array $entry, array $affected): string
+    {
+        if ($entry['label'] !== '') {
+            return $entry['label'];
+        }
+
+        $index = array_search($entry['field'], $affected['fields'], true);
+        if ($index === false) {
+            return $entry['field'];
+        }
+
+        return $affected['fieldLabels'][$index] ?? $entry['field'];
     }
 
     /**
@@ -293,6 +329,28 @@ final readonly class ApprovalCallPresenter
         $details = count($lines) < 2 ? '' : $this->technicalDetailsOf($lines[array_key_last($lines)], $label);
 
         return $details === '' ? [$lines, ''] : [array_slice($lines, 0, -1), $details];
+    }
+
+    /**
+     * `$lines` without a last line that is the technical line, matched by the
+     * resolved label and, independent of it, by nr-llm's source text.
+     *
+     * @param list<string> $lines
+     *
+     * @return list<string>
+     */
+    private function withoutTechnicalLine(array $lines, string $label): array
+    {
+        if ($lines === []) {
+            return $lines;
+        }
+
+        $last = $lines[array_key_last($lines)];
+        if ($this->technicalDetailsOf($last, $label) === '' && $this->technicalDetailsOf($last, self::TECHNICAL_DETAILS_SOURCE_TEXT) === '') {
+            return $lines;
+        }
+
+        return array_slice($lines, 0, -1);
     }
 
     /**

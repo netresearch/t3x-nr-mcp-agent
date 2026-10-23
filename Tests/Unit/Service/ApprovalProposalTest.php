@@ -133,6 +133,17 @@ final class ApprovalProposalTest extends TestCase
         self::assertSame('', $this->present(new PendingCallView('create_page_draft', '{}', true, ['Neue Seite']))['heading'], 'no field at all');
     }
 
+    /** The structured entries are reader-specific: one entry of a two-field target must not head the card as if it were the only change. */
+    #[Test]
+    public function oneStructuredEntryOfATwoFieldTargetKeepsTheCurrentHeading(): void
+    {
+        $call = new PendingCallView('t', '{}', true, ['x'], pendingTarget: new PendingWriteTarget(new RecordReference('pages', 1), ['title', 'description']), structuredPreview: [
+            new FieldProposal('description', 'Beschreibung', null, 'Neu'),
+        ]);
+
+        self::assertSame('', $this->present($call)['heading']);
+    }
+
     /** The heading names the field in the reader's language only if the label resolves. */
     #[Test]
     public function aHeadingTemplateThatDoesNotResolveLeavesTheHeadingAlone(): void
