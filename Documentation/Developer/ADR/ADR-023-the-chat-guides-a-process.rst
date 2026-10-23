@@ -342,6 +342,8 @@ instead.
 
 -   A step that legitimately ends with text, such as a short answer to the
     editor's question or the wait for information the editor said they
-    would add, gets the line too. *Weiter* and a message of the editor's
-    own both go on from there.
--   The line says what the run did, not why; the cause stays the model's.
+    would add, gets the line too. The chat cannot tell the two cases
+    apart, so the line says only what holds in both: the assistant waits
+    for the editor, who can reply or continue with *Weiter*. It does not
+    say that a step was cut short, which would read as a fault where the
+    wait is intended.

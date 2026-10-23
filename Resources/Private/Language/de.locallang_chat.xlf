@@ -364,8 +364,8 @@
                 <target>Der Assistent hat angehalten, bevor er fertig war: Er hat die Höchstzahl an Schritten für eine Antwort erreicht. Schreib eine Nachricht, damit er weitermacht.</target>
             </trans-unit>
             <trans-unit id="chat.stepOpen" resname="chat.stepOpen">
-                <source>The assistant ended this step without a question, a proposal or the end of the tour. Send a message or continue the tour.</source>
-                <target>Der Assistent hat diesen Schritt ohne Rückfrage, Vorschlag oder Abschluss beendet. Schreib eine Nachricht oder setz den Rundgang fort.</target>
+                <source>The assistant is waiting for you. Reply with a message, or select "Continue" to go on with the next step of the tour.</source>
+                <target>Der Assistent wartet auf dich. Antworte mit einer Nachricht oder wähle „Weiter“, damit der Rundgang mit dem nächsten Schritt fortfährt.</target>
             </trans-unit>
 
             <!-- Tool messages -->
