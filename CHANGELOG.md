@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.6] - 2026-10-23
+
+### Fixed
+
+- **The chat module list and the panel tooltips show a conversation's status as a label, not as its internal value (#232).** A conversation waiting for an answer was shown as "AWAITING_INPUT". The list and the tooltips of the status icons and conversation tabs now show a label such as "Wartet auf deine Antwort" or "Bereit", and a status without a label shows "Status unknown".
+
 ## [0.17.5] - 2026-10-23
 
 ### Fixed
