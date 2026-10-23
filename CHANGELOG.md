@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.7] - 2026-10-23
+
+### Added
+
+- **A proposal card of a guided process has a third answer, "Behalten" (#235).** It writes nothing, records no open point and closes the open points on the proposal's record and fields, so the point is not offered again. The transcript line the model reads is the button's label, and the tour summary lists these proposals under "Behalten".
+
+### Changed
+
+- **The approval card is a frame of its own with the header "Freigabe erforderlich", not a status line in the style of a message (#234).** It names the field in its heading when the change touches exactly one field, reads "Diese Seite" for the conversation's page, shows the technical details to administrators only and no longer carries the technical line in the preview for anyone else. Message text and answer buttons are 14px.
+- **After an approved proposal of a guided process the chat continues by itself (#236).** Where the run ends its step without a next choice or proposal, the worker starts one continuation turn instead of showing the line "step open" and the button "Weiter". The system prompt no longer asks the model to explain translation tools when the conversation language differs from the content language.
+
 ## [0.17.6] - 2026-10-23
 
 ### Fixed
