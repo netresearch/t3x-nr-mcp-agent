@@ -24,14 +24,17 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *   "Überspringen" and nr-llm accepted the denial. "Andere Variante" records
  *   nothing, because a new proposal follows; a withdrawn proposal, a cancel
  *   and a refused decision record nothing either.
+ * - "Behalten" records nothing and closes: the editor decided that the
+ *   current content stays, so the open points on that record and fields are
+ *   settled, whoever recorded them.
  * - The key is the conversation's process skill (its uid), the subject
  *   record (the conversation's page, until nr-llm can start a run with an
  *   invocation and a subject) and the target record and fields the card's
  *   pending write named. A write that creates its record names no target and
  *   records nothing; so does a conversation without a known skill uid or
  *   page.
- * - Closed only by an approved card write to the same record and field that
- *   came back applied ({@see AppliedWrite}).
+ * - Otherwise closed only by an approved card write to the same record and
+ *   field that came back applied ({@see AppliedWrite}).
  *
  * A "Überspringen" reaches the worker only for a card that offered it: the
  * request records a reason for a process card's write only (ADR-018).
@@ -70,6 +73,12 @@ final readonly class OpenPointTracker implements OpenPointTrackerInterface
             if (AppliedWrite::inSteps($result->steps)) {
                 $this->repository->close($target);
             }
+
+            return;
+        }
+
+        if ($reason === DenyReason::Keep) {
+            $this->repository->close($target);
 
             return;
         }

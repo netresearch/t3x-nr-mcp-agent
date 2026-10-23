@@ -162,7 +162,7 @@ final class Conversation
     private string $pendingInput = '';
 
     /**
-     * Why a denial was given on the card — 'variant' or 'skip' — or empty
+     * Why a denial was given on the card — 'variant', 'skip' or 'keep' — or empty
      * (ADR-018). Kept with the decision for the worker.
      */
     private string $approvalDenyReason = '';

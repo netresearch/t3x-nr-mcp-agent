@@ -56,6 +56,17 @@ final class ConversationCardOutcomeTest extends TestCase
         self::assertSame($expected, Conversation::fromRow($conversation->toRow())->getCardOutcomes());
     }
 
+    /** A stored "kept" is a known outcome: it must not be dropped as an unknown one. */
+    #[Test]
+    public function aKeptOutcomeSurvivesTheRow(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Seite prüfen');
+        $conversation->appendCardOutcome(ProposalOutcome::Kept, self::CARD);
+
+        self::assertSame([['outcome' => 'kept', 'after' => 1] + self::CARD], Conversation::fromRow($conversation->toRow())->getCardOutcomes());
+    }
+
     #[Test]
     public function aStoredEntryOfAnotherShapeIsLeftOut(): void
     {

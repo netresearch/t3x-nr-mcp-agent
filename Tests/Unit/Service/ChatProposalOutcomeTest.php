@@ -151,6 +151,17 @@ final class ChatProposalOutcomeTest extends TestCase
         self::assertSame('variant', $conversation->getCardOutcomes()[0]['outcome'] ?? null);
     }
 
+    #[Test]
+    public function aKeptProposalIsRecordedAsKept(): void
+    {
+        $conversation = $this->waiting();
+        $service      = $this->service($this->answered());
+        $service->recordDecision($conversation, false, 'digest', DenyReason::Keep, 'Behalten', self::CARD);
+        $service->processConversation($conversation);
+
+        self::assertSame([['outcome' => 'kept', 'after' => 3] + self::CARD], $conversation->getCardOutcomes());
+    }
+
     /** An ordinary card has no card snapshot and records nothing. */
     #[Test]
     public function anOrdinaryCardRecordsNothing(): void

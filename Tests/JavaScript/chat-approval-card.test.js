@@ -54,6 +54,11 @@ function defaultView(card) {
     return clone.textContent;
 }
 
+/** A card button by its label, never by its position: the answers change in number and order. */
+function answerButton(el, label) {
+    return [...el.shadowRoot.querySelectorAll('.approval-actions button')].find((b) => b.textContent.trim() === label);
+}
+
 /**
  * @param {string} modulePath
  * @param {string} tag
@@ -148,12 +153,12 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         expect(plain.shadowRoot.querySelector('.approval-actions button').textContent.trim()).toBe('Seiten-Metadaten ändern');
 
         const el = await renderPending(modulePath, tag, open);
-        const [approve, variant, skip] = el.shadowRoot.querySelectorAll('.approval-actions button');
+        const approve = answerButton(el, 'chat.approvalApply');
 
         expect(approve.localName).toBe('button');
-        expect(approve.textContent.trim()).toBe('chat.approvalApply');
-        expect(variant.textContent.trim()).toBe('chat.approvalVariant');
-        expect(skip.textContent.trim()).toBe('chat.approvalSkip');
+        expect([...el.shadowRoot.querySelectorAll('.approval-actions button')].map((b) => b.textContent.trim())).toEqual([
+            'chat.approvalApply', 'chat.approvalVariant', 'chat.approvalKeep', 'chat.approvalSkip',
+        ]);
     });
 
     test('a tool without an action label gets the generic heading and button', async () => {
@@ -209,14 +214,18 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
 
         const buttons = [...el.shadowRoot.querySelectorAll('.approval-actions button')];
-        expect(buttons).toHaveLength(3);
+        expect(buttons).toHaveLength(4);
         buttons[0].click();
         await el.updateComplete;
 
         expect(decide).toHaveBeenCalledWith(1, true, 'digest-abc', '');
     });
 
-    test.each([[1, 'variant'], [2, 'skip']])('denial button %i sends a denial with the reason %s', async (index, reason) => {
+    test.each([
+        ['chat.approvalVariant', 'variant'],
+        ['chat.approvalKeep', 'keep'],
+        ['chat.approvalSkip', 'skip'],
+    ])('the denial button %s sends a denial with the reason %s', async (label, reason) => {
         const el = await renderPending(modulePath, tag, open);
         const decide = jest.fn().mockResolvedValue({status: 'processing'});
         // Through the real chain: the button calls the controller, which calls
@@ -224,7 +233,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         el.chat._api.decideApproval = decide;
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
 
-        [...el.shadowRoot.querySelectorAll('.approval-actions button')][index].click();
+        answerButton(el, label).click();
         await el.updateComplete;
 
         expect(decide).toHaveBeenCalledWith(1, false, 'digest-abc', reason);
@@ -280,12 +289,16 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         expect(el.shadowRoot.querySelector('.approval-actions')).toBeNull();
     });
 
-    test.each([[1, 'chat.approvalDeniedVariant'], [2, 'chat.approvalDeniedSkip']])('denial button %i confirms with %s', async (index, label) => {
+    test.each([
+        ['chat.approvalVariant', 'chat.approvalDeniedVariant'],
+        ['chat.approvalKeep', 'chat.approvalDeniedKeep'],
+        ['chat.approvalSkip', 'chat.approvalDeniedSkip'],
+    ])('the denial button %s confirms with %s', async (button, label) => {
         const el = await renderPending(modulePath, tag, open);
         el.chat._api.decideApproval = jest.fn().mockResolvedValue({status: 'processing'});
         el.chat.loadMessages = jest.fn().mockResolvedValue(undefined);
 
-        el.shadowRoot.querySelectorAll('.approval-actions button')[index].click();
+        answerButton(el, button).click();
         await new Promise((resolve) => setTimeout(resolve, 0));
         await el.updateComplete;
 
@@ -400,7 +413,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         const el = await renderPending(modulePath, tag, open);
         const card = el.shadowRoot.querySelector('.approval-card');
 
-        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(3);
+        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(4);
         expect(card.querySelector('a')).toBeNull();
     });
 
@@ -419,7 +432,7 @@ describe.each(SURFACES)('$name approval card', ({module: modulePath, tag, open})
         // Secondary: a second button-shaped element is what made it compete.
         expect(links[0].classList.contains('btn')).toBe(false);
         expect(card.querySelector('.approval-actions a')).toBeNull();
-        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(3);
+        expect(card.querySelectorAll('.approval-actions button')).toHaveLength(4);
     });
 
     test('one call without a preview is enough, even beside one that has it', async () => {

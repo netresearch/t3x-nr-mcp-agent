@@ -15,8 +15,9 @@ namespace Netresearch\NrMcpAgent\Enum;
  * ADR-214, item 9).
  *
  * The first three are nr-llm ADR-214's states of an approved call: applied,
- * approved but to be checked, not applied. The other two are the denials
- * that the card offers.
+ * approved but to be checked, not applied. The others are the denials that
+ * the card offers: skipped, another variant, and kept (the current content
+ * stays and nothing is left open).
  */
 enum ProposalOutcome: string
 {
@@ -25,4 +26,5 @@ enum ProposalOutcome: string
     case NotApplied = 'not_applied';
     case Skipped    = 'skipped';
     case Variant    = 'variant';
+    case Kept       = 'kept';
 }

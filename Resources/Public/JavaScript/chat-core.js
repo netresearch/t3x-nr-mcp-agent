@@ -200,7 +200,7 @@ export class ChatCoreController {
     pendingApproval = null;
 
     /**
-     * What was just decided here: 'approved', 'variant' or 'skip' (the two
+     * What was just decided here: 'approved', 'variant', 'keep' or 'skip' (the
      * denials the card offers, ADR-018), 'denied', or null when no decision of
      * this reader's is in flight.
      *
@@ -459,7 +459,7 @@ export class ChatCoreController {
      */
     /**
      * @param {boolean} approve
-     * @param {''|'variant'|'skip'} [reason] why a denial was given (ADR-018)
+     * @param {''|'variant'|'keep'|'skip'} [reason] why a denial was given (ADR-018)
      */
     async decideApproval(approve, reason = '') {
         const uid = this.activeUid;

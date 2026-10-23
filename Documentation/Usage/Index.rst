@@ -93,9 +93,10 @@ current state, the new state and the consequences. The approve button
 carries the same name, so it says what pressing it does. **Cancel** leaves
 everything as it is. When a guided process proposes a change, two buttons
 take the place of **Cancel** and tell the assistant why the change is not
-taken: **Another variant** asks for a different proposal, **Skip** moves on
-without this change; your choice stays in the conversation as your
-message. In a guided process, a message of your own while a proposal or a
+taken: **Another variant** asks for a different proposal, **Keep** leaves
+the current content as it is and closes the open point, **Skip** moves on
+without this change and keeps it open; your choice stays in the
+conversation as your message. In a guided process, a message of your own while a proposal or a
 question waits cancels that step. The name is the first line of the step's
 preview when nr-llm marks that line as naming the change; otherwise it
 is the tool's editor action label, and without one the step is headed
@@ -252,6 +253,9 @@ A skill can walk you through a page one point at a time. While it does:
     field is applied in full, in any conversation; a change that was only
     partly applied leaves it open. A proposal you leave behind with a
     message of your own is not kept.
+*   **Kept content closes the open point.** A change you answer with
+    **Keep** is not offered again: the open points on that record and field
+    are closed, and the tour summary lists the proposal under **Kept**.
 
 A process started for a page -- from the dashboard's "Eine Seite
 verbessern", or by **Zur neuen Seite wechseln** -- begins at once: the chat

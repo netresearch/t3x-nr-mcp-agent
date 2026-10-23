@@ -390,3 +390,20 @@ speak in the assistant's first person.
     are 14px; the compact ``btn-sm`` of the header stays at 12px.
 -   The skill chip reads "Aktuelle Aufgabe:" and the skill's human title
     (``SkillLabels``), else its name.
+
+
+Amendment of 2026-10-23: a third denial, *Behalten*
+===================================================
+
+The "Not adopted" entry above rejected a "dismiss, record nothing" answer
+until it had its own decision. This is it.
+
+**Decision.** The card of a proposal has four buttons in this order:
+*Übernehmen*, *Andere Variante*, *Behalten*, *Überspringen* (labels
+``chat.approvalApply``, ``chat.approvalVariant``, ``chat.approvalKeep``,
+``chat.approvalSkip``). *Behalten* writes nothing and records no open
+point; it closes the open points on the proposal's record and fields
+(ADR-022). The chat confirms with "Behalten — der bisherige Inhalt bleibt."
+and the transcript line the model reads is the button's label. The outcome
+is ``kept`` and the tour summary lists it under its own heading *Behalten*.
+nr-llm is unchanged: the denial reaches it as ``skip``.

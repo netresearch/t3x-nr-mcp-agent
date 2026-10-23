@@ -11,7 +11,8 @@ namespace Netresearch\NrMcpAgent\Enum;
 
 /**
  * Why the reader did not take a proposed change, chosen on the approval card
- * (ADR-018): another variant, or skip this point.
+ * (ADR-018): another variant, skip this point, or keep what is there
+ * (ADR-023, amendment of 2026-10-23).
  *
  * Kept with the decision so the worker can hand it to nr-llm once nr-llm's
  * approval decision carries a reason; until then the denial is a plain one
@@ -22,6 +23,7 @@ enum DenyReason: string
 {
     case Variant = 'variant';
     case Skip    = 'skip';
+    case Keep    = 'keep';
 
     /** The key of the button label in locallang_chat.xlf, also the transcript line. */
     public function labelKey(): string
@@ -29,6 +31,7 @@ enum DenyReason: string
         return match ($this) {
             self::Variant => 'chat.approvalVariant',
             self::Skip    => 'chat.approvalSkip',
+            self::Keep    => 'chat.approvalKeep',
         };
     }
 }

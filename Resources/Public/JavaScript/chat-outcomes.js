@@ -11,7 +11,7 @@ import {lll} from '@typo3/core/lit-helper.js';
  * - After each approved proposal the chat's own status line, placed before
  *   the model's answer: saved, saved but to be checked, or not saved.
  * - When the process reports that it is done, a summary of every proposal
- *   in the groups Übernommen, Übernommen – bitte prüfen, Übersprungen and,
+ *   in the groups Übernommen, Übernommen – bitte prüfen, Behalten, Übersprungen and,
  *   when there is one, Nicht gespeichert.
  *
  * `chat.cardOutcomes` holds the server's list: each entry's `after` is the
@@ -67,6 +67,7 @@ export function renderOutcomeLines(chat, index) {
 const GROUPS = [
     ['applied', 'chat.summaryApplied'],
     ['check', 'chat.summaryCheck'],
+    ['kept', 'chat.summaryKept'],
     ['skipped', 'chat.summarySkipped'],
     ['not_applied', 'chat.summaryNotApplied'],
 ];

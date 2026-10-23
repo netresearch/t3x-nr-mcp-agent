@@ -62,6 +62,7 @@ describe('the status line of an outcome', () => {
         ['not_applied', 'chat.outcomeNotApplied Beschreibung'],
         ['skipped', ''],
         ['variant', ''],
+        ['kept', ''],
     ])('%s', (outcome, line) => {
         expect(outcomeLine({outcome, subject: 'Beschreibung'})).toBe(line);
     });
@@ -124,6 +125,21 @@ describe.each(SURFACES)('$name', ({module: modulePath, tag, open}) => {
         expect([...summary.querySelectorAll('h3')].map((h) => h.textContent.trim())).toEqual(['chat.summaryApplied', 'chat.summarySkipped']);
         expect([...summary.querySelectorAll('li')].map((li) => li.textContent.trim())).toEqual(['Beschreibung (Seite 3)', 'Überschrift (Inhaltselement 9)']);
         expect(summary.getAttribute('aria-label')).toBe('chat.summaryLabel');
+    });
+
+    test('a kept proposal has its own group, between the check group and the skipped one', async () => {
+        const outcomes = [
+            {outcome: 'skipped', after: 4, subject: 'Überschrift', record: 'Inhaltselement 9'},
+            {outcome: 'kept', after: 4, subject: 'Beschreibung', record: 'Seite 3'},
+            {outcome: 'check', after: 2, subject: 'Titel', record: 'Seite 3'},
+        ];
+        const el = await render(modulePath, tag, open, {completed: true, outcomes});
+        const summary = el.shadowRoot.querySelector('.proposal-summary');
+
+        expect([...summary.querySelectorAll('h3')].map((h) => h.textContent.trim())).toEqual(['chat.summaryCheck', 'chat.summaryKept', 'chat.summarySkipped']);
+        expect([...summary.querySelectorAll('ul')][1].textContent.trim()).toBe('Beschreibung (Seite 3)');
+        // A kept proposal adds no status line of its own: the card's answer already confirmed it.
+        expect(el.shadowRoot.querySelectorAll('.proposal-outcome[data-outcome="kept"]')).toHaveLength(0);
     });
 
     test('a skipped create is listed by the change\'s name, without a record', async () => {

@@ -362,6 +362,34 @@ final class ChatApiControllerInputTest extends TestCase
     }
 
     #[Test]
+    public function keepIsADenialReasonOfAProcessCardWithItsButtonsLabel(): void
+    {
+        $this->language([self::LLL . 'chat.approvalKeep' => 'Behalten']);
+        $this->approver();
+        $this->chatApproval->method('offersProcessAnswers')->willReturn(true);
+        $this->chatApproval->expects(self::once())->method('recordDecision')
+            ->with(self::anything(), false, 'digest-abc', DenyReason::Keep, 'Behalten')
+            ->willReturn(true);
+
+        $response = $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": false, "turnDigest": "digest-abc", "reason": "keep"}'));
+
+        self::assertSame(202, $response->getStatusCode());
+    }
+
+    /** Only a card that offers the process answers takes a reason; "keep" on any other card is a plain denial. */
+    #[Test]
+    public function keepOnAPlainCardIsAPlainDenial(): void
+    {
+        $this->approver();
+        $this->chatApproval->method('offersProcessAnswers')->willReturn(false);
+        $this->chatApproval->expects(self::once())->method('recordDecision')
+            ->with(self::anything(), false, 'digest-abc', null, '')
+            ->willReturn(true);
+
+        $this->subject->decideApproval($this->request('{"conversationUid": 1, "approve": false, "turnDigest": "digest-abc", "reason": "keep"}'));
+    }
+
+    #[Test]
     public function anUnknownReasonIsAPlainDenialAndAnApprovalHasNone(): void
     {
         $this->approver();

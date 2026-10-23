@@ -63,9 +63,9 @@ export const chatReplyOptionsStyles = css`
 
 /**
  * What the status line says after a decision on the approval card: the
- * approval, or one of the two denials (ADR-018).
+ * approval, or one of the denials (ADR-018, ADR-023).
  *
- * @param {'approved'|'variant'|'skip'|'denied'} taken
+ * @param {'approved'|'variant'|'skip'|'keep'|'denied'} taken
  */
 export function decisionLabel(taken) {
     if (taken === 'approved') {
@@ -74,6 +74,10 @@ export function decisionLabel(taken) {
 
     if (taken === 'variant') {
         return lll('chat.approvalDeniedVariant');
+    }
+
+    if (taken === 'keep') {
+        return lll('chat.approvalDeniedKeep');
     }
 
     return taken === 'skip' ? lll('chat.approvalDeniedSkip') : lll('chat.approvalDenied');
@@ -219,18 +223,21 @@ export function readForm(form, fields) {
 
 /**
  * The denial side of an approval card (ADR-018, nr-llm ADR-214): in a process
- * run, a proposed write is answered with "Andere Variante" or "Überspringen",
- * which tell the run why it was not taken; every other card keeps "Abbrechen".
+ * run, a proposed write is answered with "Andere Variante", "Behalten" or
+ * "Überspringen", which tell the run why it was not taken; every other card
+ * keeps "Abbrechen".
  *
  * @param {object} pending the card as getMessages() returns it
  * @param {boolean} busy whether a decision is on its way
- * @param {(reason: string) => void} deny called with 'variant', 'skip' or ''
+ * @param {(reason: string) => void} deny called with 'variant', 'keep', 'skip' or ''
  */
 export function renderDenyButtons(pending, busy, deny) {
     if (pending?.answers === 'process') {
         return html`
             <button class="btn btn-sm btn-answer" ?disabled=${busy}
                 @click=${() => deny('variant')}>${lll('chat.approvalVariant')}</button>
+            <button class="btn btn-sm btn-answer" ?disabled=${busy}
+                @click=${() => deny('keep')}>${lll('chat.approvalKeep')}</button>
             <button class="btn btn-sm btn-answer" ?disabled=${busy}
                 @click=${() => deny('skip')}>${lll('chat.approvalSkip')}</button>
         `;

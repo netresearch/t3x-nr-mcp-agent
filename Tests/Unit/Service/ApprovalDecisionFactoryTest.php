@@ -31,6 +31,8 @@ final class ApprovalDecisionFactoryTest extends TestCase
     {
         yield 'Andere Variante' => [DenyReason::Variant, 'variant'];
         yield 'Überspringen' => [DenyReason::Skip, 'skip'];
+        // nr-llm's enum is closed: to the run, "keep" is a point left behind.
+        yield 'Behalten' => [DenyReason::Keep, 'skip'];
     }
 
     #[Test]

@@ -36,6 +36,10 @@ class ApprovalDecisionFactory
         return match ($reason) {
             DenyReason::Variant => ApprovalDenialReason::VARIANT,
             DenyReason::Skip    => ApprovalDenialReason::SKIP,
+            // nr-llm's closed enum has no "keep": to the run it is a point the
+            // editor leaves, so the model moves on to the next one. What it
+            // means for the chat's open points is decided in OpenPointTracker.
+            DenyReason::Keep => ApprovalDenialReason::SKIP,
         };
     }
 }
