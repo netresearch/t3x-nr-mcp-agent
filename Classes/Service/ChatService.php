@@ -160,6 +160,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private const OPERATION_CHAT_TURN = 'chatTurn';
 
     /**
+     * What the model is told for the one turn the chat starts by itself after
+     * an approved proposal: the editor's "Weiter" without the editor having to
+     * press it (ADR-023, amendment of 2026-10-23). Sent with that turn only,
+     * never stored: the transcript shows no message the editor did not write.
+     */
+    private const CONTINUE_AFTER_APPROVAL = 'Continue with the process.';
+
+    /**
      * The same turn re-run over an existing transcript after the conversation was
      * left Processing/ToolLoop/Failed. Separated from {@see self::OPERATION_CHAT_TURN}
      * because it is the retry, and its cost is worth reading on its own.
@@ -193,7 +201,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         When the user asks for something no tool you have can do, check the list of unavailable tools below, if there is one: if a tool there would do it, say that such a tool exists but is not available to them, give its reason in plain words, and suggest asking an administrator. Never call a tool from that list.
 
-        Never claim to be ChatGPT or GPT, and never claim to be made by OpenAI or any other vendor: you are the Netresearch TYPO3 Backend AI Chat. Answer in the language named under "Answer language" below; where there is no such section, answer in the language the user writes in. Content you write INTO this TYPO3 installation follows a different rule: create it in the default language of the site (sys_language_uid 0) and write every field of it in that language, whatever language the conversation or the source material is in. One record holds one language — never a title in one language and a body in another. Do not create content in another site language and do not create translations unless the user explicitly asks for exactly that: producing the other language versions is the job of the translation tools of the CMS, not part of creating the content. When the user writes to you in a language other than the default language, or hands you material in one, tell them so in your reply: name the default language, say that the content is created in it, and that the other language versions come from the translation tools of the CMS.
+        Never claim to be ChatGPT or GPT, and never claim to be made by OpenAI or any other vendor: you are the Netresearch TYPO3 Backend AI Chat. Answer in the language named under "Answer language" below; where there is no such section, answer in the language the user writes in. Content you write INTO this TYPO3 installation follows a different rule: create it in the default language of the site (sys_language_uid 0) and write every field of it in that language, whatever language the conversation or the source material is in. One record holds one language — never a title in one language and a body in another. Do not create content in another site language and do not create translations unless the user explicitly asks for exactly that. When the language of the conversation differs from the language the content is created in, say so once, in one short sentence from the editor's point of view that names the content language and why, for example (German conversation, English page): "Vorschläge für diese Seite schreibe ich auf Englisch, weil die Seite englisch ist." Do not explain translation tools or the other language versions of the CMS unless the user asks about other languages.
         PROMPT;
 
     /** @var array{system_prompt: string, prompt_template: string}|null */
@@ -291,10 +299,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
-     * @param string $operation what this turn is, reported to nr-llm as the
-     *                          caller-source operation next to the extension key
+     * @param string $operation     what this turn is, reported to nr-llm as the
+     *                              caller-source operation next to the extension key
+     * @param bool   $afterApproval the turn the chat starts by itself after an
+     *                              approved proposal left the step open: it
+     *                              ends with the "Weiter" the editor would
+     *                              have pressed, which the model is sent for
+     *                              this turn only
      */
-    private function processTurn(Conversation $conversation, string $operation): void
+    private function processTurn(Conversation $conversation, string $operation, bool $afterApproval = false): void
     {
         $this->resolvedPrompts = null;
 
@@ -331,7 +344,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         try {
             $configuration = $this->resolveConfiguration($this->resolveActor($conversation->getBeUser()));
-            $this->runAgentTurn($conversation, $configuration, $operation);
+            $this->runAgentTurn($conversation, $configuration, $operation, $afterApproval);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
@@ -343,7 +356,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Build the transcript and hand the whole turn to nr-llm's AgentRuntime,
      * which runs the tool loop over nr-llm's ToolRegistry and settles the result.
      */
-    private function runAgentTurn(Conversation $conversation, LlmConfiguration $configuration, string $operation): void
+    private function runAgentTurn(Conversation $conversation, LlmConfiguration $configuration, string $operation, bool $afterApproval = false): void
     {
         // Locked, not Processing: the command or worker that runs this turn has
         // claimed the row as Locked, and Processing is what dequeueForWorker()
@@ -369,6 +382,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         foreach ($this->buildLlmMessages($conversation->getDecodedMessages(), $provider) as $message) {
             $messages[] = $message;
+        }
+
+        if ($afterApproval) {
+            $messages[] = ['role' => MessageRole::User->value, 'content' => self::CONTINUE_AFTER_APPROVAL];
         }
 
         // allowedToolNames is left at its null default: offer the whole
@@ -1051,7 +1068,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $conversation->clearApprovalDecision();
-        $this->applyResult($conversation, $result);
+
+        // An approved proposal whose run then ended its step without a choice,
+        // a proposal or the end of the process is followed by ONE turn the chat
+        // starts itself, which is the "Weiter" the editor would have pressed
+        // (ADR-023, amendment of 2026-10-23). The turn is started here and
+        // nowhere else, and its own result is applied without this option, so
+        // a second open step shows the line and the button: no loop is possible.
+        if ($this->applyResult($conversation, $result, $approved)) {
+            $this->processTurn($conversation, self::OPERATION_CHAT_TURN, afterApproval: true);
+        }
     }
 
     /**
@@ -1188,8 +1214,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Map the settled AgentRuntime result onto the conversation: the final
      * assistant answer on completion, a Failed status with a sanitized reason
      * for any other outcome.
+     *
+     * @param bool $mayContinue the result answers an approved decision: a step
+     *                          it left open is not reported but continued, and
+     *                          the conversation stays busy for that turn
+     *
+     * @return bool true when the caller has to run the continuation turn
      */
-    private function applyResult(Conversation $conversation, AgentRunResult $result): void
+    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false): bool
     {
         // Whatever the outcome, what the guided-state tools reported during
         // the run is taken over now — the first moment the chat knows the run
@@ -1231,6 +1263,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     self::NOTICE_ROUND_LIMIT,
                 );
             } elseif ($this->leftStepOpen($conversation)) {
+                if ($mayContinue) {
+                    // The answer is stored, the conversation stays busy and the
+                    // caller continues; there is no line and no idle moment in
+                    // between, or the chat's poll would stop and miss the turn.
+                    $conversation->setErrorMessage('');
+                    $this->persist($conversation);
+
+                    return true;
+                }
+
                 // A step of a running process ends with a choice, a proposal or
                 // the process's completion, each of which leaves the run waiting
                 // or the process completed. A run that finished without any of
@@ -1253,7 +1295,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->setErrorMessage('');
             $this->persist($conversation);
 
-            return;
+            return false;
         }
 
         // A pending approval is not a failure. The run did exactly what it is
@@ -1282,7 +1324,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->setApprovalRunUuid($result->runUuid);
             $this->persist($conversation);
 
-            return;
+            return false;
         }
 
         // A run that asks the user something is not a failure either
@@ -1304,7 +1346,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->setApprovalRunUuid($result->runUuid);
             $this->persist($conversation);
 
-            return;
+            return false;
         }
 
         $conversation->setStatus(ConversationStatus::Failed);
@@ -1313,6 +1355,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $result->error !== null ? $this->failureCode($result->error) : '',
         );
         $this->persist($conversation);
+
+        return false;
     }
 
     /**
@@ -1907,9 +1951,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         return 'Available site languages — create content in the default language, the one marked (default) below, '
             . 'and write it in that language; use another sys_language_uid only when the user explicitly asks for '
             . 'that language. '
-            . 'If the user writes to you or supplies material in another language than the default one, tell them '
-            . 'that the content is created in the default language and that the other language versions come from '
-            . "the translation tools of the CMS:\n"
+            . 'If the language of the conversation differs from the default language, say so once, in one short '
+            . "sentence from the editor's point of view that names the content language and why (for example, in a "
+            . 'German conversation about an English page: "Vorschläge für diese Seite schreibe ich auf Englisch, weil '
+            . 'die Seite englisch ist."). Do not explain translation tools or the other language versions of the CMS '
+            . "unless the user asks about other languages:\n"
             . implode("\n", $lines);
     }
 

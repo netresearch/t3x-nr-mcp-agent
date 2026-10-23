@@ -407,3 +407,50 @@ point; it closes the open points on the proposal's record and fields
 and the transcript line the model reads is the button's label. The outcome
 is ``kept`` and the tour summary lists it under its own heading *Behalten*.
 nr-llm is unchanged: the denial reaches it as ``skip``.
+
+
+Amendment of 2026-10-23: the process goes on by itself after an approval
+========================================================================
+
+**Context.** After *Übernehmen* the model writes its confirmation and the
+run ends. Where it named no next choice or proposal, the chat showed the
+line "step open" and the button *Weiter* (amendment above), so the editor
+who had just approved had to press a second button to see the next point.
+
+**Decision.** When a decision is *approved*, its run completes, and the
+process is not finished and not cut off at the round cap (the case that the
+line "step open" reports), the worker does not append that line. It starts
+one more turn itself, which is the *Weiter* the editor would have pressed:
+a turn over the same transcript that names the previous run as its
+predecessor, with the instruction "Continue with the process." for this
+turn only. The instruction is not stored, so the transcript shows no
+message the editor did not write.
+
+The turn happens at most once per approval, by construction:
+
+-   ``ChatService::applyResult()`` returns "continue" only for the result of
+    an approved decision, which is the one call that passes the option.
+    ``performRecordedDecision()`` is the only caller that reacts to it.
+-   The continuation turn applies its own result without the option. If it
+    leaves the step open again, it appends the line "step open" and the chat
+    offers *Weiter*, as before. Nothing calls ``performRecordedDecision()``
+    for the continuation, so no further turn can start.
+-   The conversation is not idle between the two runs. The answer of the
+    approval is stored with the status unchanged, the continuation then
+    takes the row, and the poll of the chat, which stops on an idle
+    conversation, sees one continuous busy phase.
+
+A denial (*Andere Variante*, *Überspringen*, and any later denial) starts
+nothing: the denial is the editor's answer. A run cut off at the round cap
+keeps its own line and button. A continuation that fails ends as any
+failed turn does, with the error shown; the chat does not retry it.
+
+**The language sentence.** The system prompt and the site-language block no
+longer tell the model to explain that "the other language versions come from
+the translation tools of the CMS". When the language of the conversation
+differs from the language the content is created in, the model says so once,
+in one short sentence from the editor's point of view ("Vorschläge für diese
+Seite schreibe ich auf Englisch, weil die Seite englisch ist."), and explains
+translation tools only when asked about other languages. The rule itself is
+unchanged: content is created in the default language, and no translations
+are made unless the editor asks for them.
