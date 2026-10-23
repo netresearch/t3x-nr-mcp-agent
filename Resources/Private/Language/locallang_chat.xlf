@@ -51,6 +51,24 @@
             <trans-unit id="conversations.newConversation" resname="conversations.newConversation">
                 <source>New chat</source>
             </trans-unit>
+            <trans-unit id="status.idle" resname="status.idle">
+                <source>Ready</source>
+            </trans-unit>
+            <trans-unit id="status.processing" resname="status.processing">
+                <source>Working</source>
+            </trans-unit>
+            <trans-unit id="status.awaitingApproval" resname="status.awaitingApproval">
+                <source>Waiting for your approval</source>
+            </trans-unit>
+            <trans-unit id="status.awaitingInput" resname="status.awaitingInput">
+                <source>Waiting for your answer</source>
+            </trans-unit>
+            <trans-unit id="status.failed" resname="status.failed">
+                <source>Failed</source>
+            </trans-unit>
+            <trans-unit id="status.unknown" resname="status.unknown">
+                <source>Status unknown</source>
+            </trans-unit>
             <trans-unit id="conversations.pin" resname="conversations.pin">
                 <source>Pin</source>
             </trans-unit>

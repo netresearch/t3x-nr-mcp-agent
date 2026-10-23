@@ -39,6 +39,28 @@ export function displayStatus(status) {
 }
 
 /**
+ * The label for each status a conversation is shown with. The status itself
+ * is an internal value and never reaches the reader; a status added later
+ * gets the generic label.
+ */
+const STATUS_LABELS = new Map([
+    ['idle', 'status.idle'],
+    ['processing', 'status.processing'],
+    ['tool_loop', 'status.processing'],
+    ['awaiting_approval', 'status.awaitingApproval'],
+    ['awaiting_input', 'status.awaitingInput'],
+    ['failed', 'status.failed'],
+]);
+
+/**
+ * @param {string} status
+ * @returns {string}
+ */
+export function statusLabel(status) {
+    return lll(STATUS_LABELS.get(displayStatus(status)) ?? 'status.unknown');
+}
+
+/**
  * Where the user is in the backend: the open module and the page the module
  * shows (NEXT-172).
  *

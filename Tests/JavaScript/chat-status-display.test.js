@@ -12,7 +12,7 @@
  */
 
 import {describe, test, expect, beforeEach} from '@jest/globals';
-import {PROCESSING_STATUSES, displayStatus, ChatCoreController} from '../../Resources/Public/JavaScript/chat-core.js';
+import {PROCESSING_STATUSES, displayStatus, statusLabel, ChatCoreController} from '../../Resources/Public/JavaScript/chat-core.js';
 
 describe('displayStatus', () => {
     test('shows a locked conversation as processing', () => {
@@ -21,6 +21,28 @@ describe('displayStatus', () => {
 
     test.each(['idle', 'processing', 'tool_loop', 'awaiting_approval', 'failed'])('leaves %s as it is', (status) => {
         expect(displayStatus(status)).toBe(status);
+    });
+});
+
+/**
+ * The reader sees a word, never the internal status value: the chat module
+ * listed "AWAITING_INPUT" and "IDLE" on the demo (2026-10-23).
+ */
+describe('statusLabel', () => {
+    test.each([
+        ['idle', 'status.idle'],
+        ['processing', 'status.processing'],
+        ['locked', 'status.processing'],
+        ['tool_loop', 'status.processing'],
+        ['awaiting_approval', 'status.awaitingApproval'],
+        ['awaiting_input', 'status.awaitingInput'],
+        ['failed', 'status.failed'],
+    ])('labels %s with %s', (status, label) => {
+        expect(statusLabel(status)).toBe(label);
+    });
+
+    test('labels a status it does not know with the generic label', () => {
+        expect(statusLabel('archived_later')).toBe('status.unknown');
     });
 });
 
@@ -71,7 +93,7 @@ describe('rendering a locked conversation', () => {
         const el = await render('../../Resources/Public/JavaScript/chat-app.js', 'nr-chat-app');
         const badge = el.shadowRoot.querySelector('.conversation-item .status-badge');
 
-        expect(badge.textContent.trim()).toBe('processing');
+        expect(badge.textContent.trim()).toBe('status.processing');
         expect(badge.classList.contains('status-processing')).toBe(true);
         expect(badge.classList.contains('status-locked')).toBe(false);
     });
@@ -82,9 +104,10 @@ describe('rendering a locked conversation', () => {
         const tab = el.shadowRoot.querySelector('.conv-tab .tab-icon');
 
         expect(header.textContent.trim()).toBe('⟳');
-        expect(header.getAttribute('title')).toBe('processing');
+        expect(header.getAttribute('title')).toBe('status.processing');
         expect(tab.textContent.trim()).toBe('⟳');
         expect(tab.classList.contains('status-processing')).toBe(true);
+        expect(tab.closest('.conv-tab').getAttribute('title')).toBe('Running (status.processing)');
     });
 
     test('the maximized panel sidebar shows the processing icon', async () => {
@@ -94,6 +117,17 @@ describe('rendering a locked conversation', () => {
         expect(el.shadowRoot.querySelector('.status-locked')).toBeNull();
         expect(badge).not.toBeNull();
         expect(badge.textContent.trim()).toBe('⟳');
-        expect(badge.getAttribute('title')).toBe('processing');
+        expect(badge.getAttribute('title')).toBe('status.processing');
+    });
+
+    test('chat-app lists a conversation waiting for an answer with its label', async () => {
+        const el = await render('../../Resources/Public/JavaScript/chat-app.js', 'nr-chat-app');
+        el.chat.conversations = [{...LOCKED, status: 'awaiting_input'}];
+        el.requestUpdate();
+        await el.updateComplete;
+        const badge = el.shadowRoot.querySelector('.conversation-item .status-badge');
+
+        expect(badge.textContent.trim()).toBe('status.awaitingInput');
+        expect(badge.classList.contains('status-awaiting_input')).toBe(true);
     });
 });
