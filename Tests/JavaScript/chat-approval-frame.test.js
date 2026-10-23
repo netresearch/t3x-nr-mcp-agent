@@ -113,7 +113,7 @@ describe.each(SURFACES)('$name approval frame', ({file, tag, open}) => {
 
         const el = await render(file, tag, open);
         const buttons = [...el.shadowRoot.querySelectorAll('.approval-actions button')];
-        expect(buttons).toHaveLength(3);
+        expect(buttons).toHaveLength(4);
         expect(buttons.every((b) => b.classList.contains('btn-answer'))).toBe(true);
     });
 
