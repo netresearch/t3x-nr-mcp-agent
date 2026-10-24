@@ -533,7 +533,8 @@ describe('<ai-chat-panel> as a column', () => {
         expect(panel.shadowRoot.querySelector('[data-action="layout"]')).toBeNull();
         expect(layoutWrites()).toBe(before);
 
-        panel._areaWidth = 2 * COLUMN_MIN_WIDTH;
+        // Docks again only some way above the threshold (dead band).
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH + 24;
         await settle();
 
         expect(panel.hasAttribute('narrow')).toBe(false);
@@ -577,16 +578,74 @@ describe('<ai-chat-panel> as a column', () => {
 
         panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
         await settle();
-        expect(panel.hasAttribute('narrow')).toBe(true);
+        // Drawing and parent change together: still drawn as the column it is.
+        expect(panel.hasAttribute('narrow')).toBe(false);
         expect(panel.parentElement).toBe(area);
+        expect(splitter()).not.toBeNull();
 
         panel.chat.approvalBusy = false;
         panel.requestUpdate();
         await settle();
+        expect(panel.hasAttribute('narrow')).toBe(true);
         expect(panel.parentElement).toBe(document.body);
+
+        // And the other way: floating from the body while busy, the area
+        // widens; it stays drawn floating until it may move.
+        panel.chat.approvalBusy = true;
+        panel._areaWidth = 1400;
+        await settle();
+        expect(panel.hasAttribute('narrow')).toBe(true);
+        expect(panel.parentElement).toBe(document.body);
+        expect(splitter()).toBeNull();
+
+        panel.chat.approvalBusy = false;
+        panel.requestUpdate();
+        await settle();
+        expect(panel.hasAttribute('narrow')).toBe(false);
+        expect(panel.parentElement).toBe(area);
     });
 
-    test.each(['sending', 'inputBusy', 'approvalBusy', 'endingTour', 'systemPromptSaving'])(
+    test('an area moving around the threshold does not move the panel back and forth (dead band)', async () => {
+        await dock();
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
+        await settle();
+        expect(panel.parentElement).toBe(document.body);
+
+        for (const width of [2 * COLUMN_MIN_WIDTH, 2 * COLUMN_MIN_WIDTH + 23, 2 * COLUMN_MIN_WIDTH + 1]) {
+            panel._areaWidth = width;
+            await settle();
+            expect(panel.hasAttribute('narrow')).toBe(true);
+            expect(panel.parentElement).toBe(document.body);
+        }
+
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH + 24;
+        await settle();
+        expect(panel.parentElement).toBe(area);
+        // Docked, it gives way only below the threshold itself.
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH;
+        await settle();
+        expect(panel.parentElement).toBe(area);
+    });
+
+    test('crossing the threshold keeps focus on the control that had it, not on the input', async () => {
+        await dock();
+        Object.assign(panel.chat, {activeUid: 5, status: 'idle', conversations: [{uid: 5, title: 'Improve content', status: 'idle'}], messages: []});
+        panel.requestUpdate();
+        await settle();
+        expect(panel.shadowRoot.querySelector('.panel-input textarea')).not.toBeNull();
+        panel.shadowRoot.querySelector('[data-action="close"]').focus();
+
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
+        await settle();
+        await flushPromises();
+
+        expect(panel.parentElement).toBe(document.body);
+        const active = panel.shadowRoot.activeElement;
+        expect(active?.dataset.action).toBe('close');
+        expect(active?.isConnected).toBe(true);
+    });
+
+    test.each(['sending', 'inputBusy', 'approvalBusy', 'endingTour', 'systemPromptSaving', 'uploading'])(
         'while %s the panel does not move',
         async (flag) => {
             await dock();

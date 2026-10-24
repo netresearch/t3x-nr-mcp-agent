@@ -43,6 +43,9 @@ const PAGE_CONTEXT_EVENTS = [
 // last key press on the splitter: one request per adjustment, not per step.
 const COLUMN_PERSIST_DELAY = 400;
 const COLUMN_BODY_ID = 'nr-chat-column-body';
+// How much wider than twice the column's minimum the content area must get
+// before a column given way to the floating panel docks again.
+const NARROW_DEAD_BAND = 24;
 
 /**
  * <ai-chat-panel> - Floating draggable panel for AI chat.
@@ -1084,6 +1087,8 @@ export class AiChatPanel extends LitElement {
         this._columnWidth = null;
         this._areaWidth = 0;
         this._markedMount = null;
+        // Focus to put back after a template swap or a move (_focusKey()).
+        this._refocus = null;
         this._restoreState();
     }
 
@@ -1146,11 +1151,12 @@ export class AiChatPanel extends LitElement {
         // After the update, not during it: a move reconnects the element.
         // Runs on every update, so a move held back by a request in flight
         // happens with the update that follows its end.
-        Promise.resolve().then(() => {
+        void Promise.resolve().then(() => {
             this._placeForLayout();
-            if (this._refocus) {
-                this._refocus = false;
-                this.updateComplete.then(() => this._restoreFocus());
+            if (this._refocus !== null) {
+                const target = this._refocus;
+                this._refocus = null;
+                void this.updateComplete.then(() => this._restoreFocus(target));
             }
         });
         if (changed.has('state') || changed.has('layout') || changed.has('narrow') || changed.has('_height') || changed.has('_width')
@@ -1295,29 +1301,57 @@ export class AiChatPanel extends LitElement {
      * Whether the panel may move now. A move reconnects the element, which
      * aborts the controller's requests in flight: a message being sent or
      * edited, a free-text answer, an approval decision, ending a guided
-     * process, saving the instructions. Repeating one could duplicate what
-     * the server already took.
+     * process, saving the instructions, uploading an attachment. Repeating
+     * one could duplicate what the server already took.
      */
     _canMove() {
         const chat = this.chat;
 
-        return !(chat.sending || chat.inputBusy || chat.approvalBusy || chat.endingTour || chat.systemPromptSaving);
+        return !(chat.sending || chat.inputBusy || chat.approvalBusy || chat.endingTour || chat.systemPromptSaving || chat.uploading);
+    }
+
+    /**
+     * Whether the column should give way to the floating panel. A dead band
+     * of NARROW_DEAD_BAND px above the threshold keeps an area dragged
+     * around 640 px (the 14.3 tree's splitter, the module menu) from moving
+     * the panel back and forth: it undocks below 640 px and docks again
+     * only from 640 px plus the band.
+     */
+    _wantNarrow() {
+        if (this.layout !== LAYOUT.COLUMN || findColumnMount(document) === null) {
+            return false;
+        }
+        const limit = 2 * COLUMN_MIN_WIDTH + (this.narrow ? NARROW_DEAD_BAND : 0);
+
+        return this._areaWidthNow() < limit;
+    }
+
+    /** Whether the panel's parent already fits the drawing for `narrow`. */
+    _placedFor(narrow) {
+        const mount = this.layout === LAYOUT.COLUMN && !this._pipWindow ? findColumnMount(document) : null;
+        if (!mount || !this.isConnected) {
+            return true;
+        }
+
+        return narrow ? this.parentElement !== mount.element : this.parentElement === mount.element;
     }
 
     willUpdate(changed) {
-        if (changed.has('layout') || changed.has('_areaWidth') || changed.has('state')) {
-            const narrow = this.layout === LAYOUT.COLUMN && this._areaTooNarrow();
-            if (narrow !== this.narrow) {
-                // Crossing the threshold swaps the template, and maybe the
-                // parent; focus inside the panel would fall to the body.
-                this._refocus = this._focusIsInside();
-            }
+        // On every update: a change held back while a request was in flight
+        // is taken with the update that follows its end.
+        const narrow = this._wantNarrow();
+        // Drawing and parent change together: a panel that may not move now
+        // keeps the drawing that fits where it is.
+        if (narrow !== this.narrow && (this._canMove() || this._placedFor(narrow))) {
+            // Crossing the threshold swaps the template, and maybe the
+            // parent; focus inside the panel would fall to the body.
+            this._refocus = this._focusKey();
             this.narrow = narrow;
-            // Maximized while floating in a narrow area, then docked again:
-            // the column has no maximized state.
-            if (this._docked() && this.state === STATES.MAXIMIZED) {
-                this.state = STATES.EXPANDED;
-            }
+        }
+        // Maximized while floating in a narrow area, then docked again:
+        // the column has no maximized state.
+        if (this._docked() && this.state === STATES.MAXIMIZED) {
+            this.state = STATES.EXPANDED;
         }
     }
 
@@ -1326,11 +1360,36 @@ export class AiChatPanel extends LitElement {
     }
 
     /**
-     * Put focus back into the panel after its template or parent changed:
-     * the input where it can take it, else the first button of the header,
-     * else the minimized bar's way back.
+     * Which control has focus, so it can get it back after a template swap or
+     * a move: a selector for it, '' for focus inside without one, null when
+     * focus is elsewhere.
      */
-    _restoreFocus() {
+    _focusKey() {
+        if (!this._focusIsInside()) {
+            return null;
+        }
+        const active = this.shadowRoot?.activeElement;
+        if (active?.dataset?.action) {
+            return `[data-action="${active.dataset.action}"]`;
+        }
+
+        return active?.matches?.('.panel-input textarea') ? '.panel-input textarea' : '';
+    }
+
+    /**
+     * Put focus back into the panel after its template or parent changed:
+     * the control that had it where it is still there, else the input where
+     * it can take it, else the first button of the header, else the
+     * minimized bar's way back.
+     *
+     * @param {string} key from _focusKey()
+     */
+    _restoreFocus(key = '') {
+        const kept = key ? this.renderRoot?.querySelector(key) : null;
+        if (kept && !kept.disabled) {
+            kept.focus();
+            return;
+        }
         const input = this.renderRoot?.querySelector('.panel-input textarea');
         const target = input && !input.disabled
             ? input
@@ -1361,8 +1420,8 @@ export class AiChatPanel extends LitElement {
             return;
         }
         // A move takes focus out of the document.
-        if (this._focusIsInside()) {
-            this._refocus = true;
+        if (this._refocus === null) {
+            this._refocus = this._focusKey();
         }
         if (!this.narrow && !inArea) {
             mount.element.insertBefore(this, mount.router);
@@ -1500,7 +1559,7 @@ export class AiChatPanel extends LitElement {
             this.chat.startPollingIfNeeded();
         }
         // Focus was on the toggle, which the move took out of the document.
-        this.updateComplete.then(() => this.renderRoot?.querySelector('[data-action="layout"]')?.focus());
+        void this.updateComplete.then(() => this.renderRoot?.querySelector('[data-action="layout"]')?.focus());
 
         return true;
     }
@@ -1884,7 +1943,7 @@ export class AiChatPanel extends LitElement {
         // The column's minimize button is gone with the column; keyboard
         // focus moves to the bar's way back instead of falling to the body.
         if (this._docked()) {
-            this.updateComplete.then(() => this.renderRoot?.querySelector('[data-action="reopen"]')?.focus());
+            void this.updateComplete.then(() => this.renderRoot?.querySelector('[data-action="reopen"]')?.focus());
         }
     }
 
@@ -1904,7 +1963,7 @@ export class AiChatPanel extends LitElement {
         this.state = STATES.EXPANDED;
         this.chat.startPollingIfNeeded();
         this._saveState();
-        this.updateComplete.then(() => {
+        void this.updateComplete.then(() => {
             const input = this.renderRoot?.querySelector('.panel-input textarea');
             const target = input && !input.disabled ? input : this.renderRoot?.querySelector('[data-action="minimize"]');
             target?.focus();
@@ -2235,7 +2294,7 @@ export class AiChatPanel extends LitElement {
                 ${this.chat.status ? html`
                     <span class="status-badge status-${displayStatus(this.chat.status)}" title="${statusLabel(this.chat.status)}">${STATUS_ICONS[displayStatus(this.chat.status)] ?? statusLabel(this.chat.status)}</span>
                 ` : nothing}
-                <button class="btn-icon" @click=${() => this.collapse()}
+                <button class="btn-icon" data-action="minimize" @click=${() => this.collapse()}
                         title="${lll('panel.collapse')}" aria-label="${lll('panel.collapse')}">${ICON_MINIMIZE(14)}</button>
                 <button class="btn-icon" @click=${() => this.maximize()}
                         title="${this.state === STATES.MAXIMIZED ? lll('panel.restore') : lll('panel.maximize')}"
@@ -2250,7 +2309,7 @@ export class AiChatPanel extends LitElement {
                     <button class="btn-icon" data-action="layout" aria-pressed="false" ?disabled=${!this._canMove()} @click=${() => this.toggleLayout()}
                             title="${lll('panel.columnMode')}" aria-label="${lll('panel.columnMode')}">${ICON_COLUMN(14)}</button>
                 ` : nothing}
-                <button class="btn-icon" @click=${() => this.hide()}
+                <button class="btn-icon" data-action="close" @click=${() => this.hide()}
                         title="${lll('panel.close')}" aria-label="${lll('panel.close')}">${ICON_CLOSE(14)}</button>
             </div>
         `;

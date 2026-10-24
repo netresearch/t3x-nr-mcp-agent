@@ -347,6 +347,15 @@ export class ChatCoreController {
     _abortController;
     /** @type {number|null} */
     _pollTimer = null;
+    /**
+     * Bumped whenever polling stops (stopPolling(), hostDisconnected()). A
+     * poll whose request was in flight then must not schedule the next one:
+     * moving the panel aborts the request and reconnects the host, which
+     * starts a loop of its own, and two loops would run from then on.
+     */
+    _pollGeneration = 0;
+    /** True while an attachment is being uploaded. */
+    uploading = false;
     /** @type {number} */
     _knownMessageCount = 0;
     /** @type {number} */
@@ -716,7 +725,12 @@ export class ChatCoreController {
             if (!this.isProcessing()) {
                 this.stopPolling();
             }
-        } catch {
+        } catch (e) {
+            // An aborted request is the panel moving or closing, not a
+            // connection problem.
+            if (e?.name === 'AbortError') {
+                return;
+            }
             this._pollFailures++;
             if (this._pollFailures >= 5) {
                 this.errorMessage = lll('chat.connectionLost');
@@ -734,16 +748,18 @@ export class ChatCoreController {
     }
 
     schedulePoll() {
+        const generation = this._pollGeneration;
         this._pollTimer = setTimeout(async () => {
-            if (!this.host.isConnected) return;
+            if (!this.host.isConnected || generation !== this._pollGeneration) return;
             await this.pollMessages();
-            if (this.host.isConnected && this.isProcessing()) {
+            if (generation === this._pollGeneration && this.host.isConnected && this.isProcessing()) {
                 this.schedulePoll();
             }
         }, 2000);
     }
 
     stopPolling() {
+        this._pollGeneration++;
         if (this._pollTimer) {
             clearTimeout(this._pollTimer);
             this._pollTimer = null;
@@ -1316,12 +1332,17 @@ export class ChatCoreController {
             this.host.requestUpdate();
             return;
         }
+        this.uploading = true;
+        this.host.requestUpdate();
         try {
             const result = await this._api.uploadFile(file);
             this.pendingFile = result;
             this.host.requestUpdate();
         } catch (e) {
             this.errorMessage = e.message;
+            this.host.requestUpdate();
+        } finally {
+            this.uploading = false;
             this.host.requestUpdate();
         }
     }
