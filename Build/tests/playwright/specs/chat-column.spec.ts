@@ -143,13 +143,18 @@ test.describe('Chat as a column beside the page tree', () => {
         expect(Math.abs(e.panel!.left - e.navigation!.right), 'the column does not start at the page tree').toBeLessThanOrEqual(2);
         expect(Math.abs(e.router!.left - e.panel!.right), 'the module does not start at the column').toBeLessThanOrEqual(2);
         expect(e.router!.right, 'the module overflows the content area').toBeLessThanOrEqual(e.area!.right + 1);
+        expect(e.router!.width, 'the module is narrower than the column').toBeGreaterThanOrEqual(e.panel!.width - 1);
         // At most half the content area: beside the tree in a 1280px window
         // that is less than the default.
         const expected = Math.min(DEFAULT_WIDTH, Math.max(MIN_WIDTH, Math.floor(e.area!.width / 2)));
         expect(Math.abs(e.panel!.width - expected)).toBeLessThanOrEqual(1);
     });
 
-    test('follows the page selected in the page tree', async ({ page }) => {
+    // Proves the panel listens: no guided process runs, so the chat's poll is
+    // off and only the page-tree events can update the page. Whether the
+    // tree's selection wins over the module URL is pinned in
+    // chat-page-context.test.js; this browser run cannot tell the two apart.
+    test('refreshes the chat\'s page when a page is selected in the tree', async ({ page }) => {
         await openModule(page, 'web_layout');
         const panel = await openColumn(page);
 
@@ -221,9 +226,12 @@ test.describe('Chat as a column beside the page tree', () => {
         const panel = await openColumn(page);
         await selectConversation(page, uid);
 
-        await panel.locator('[data-action="minimize"]').click();
+        await panel.locator('[data-action="minimize"]').focus();
+        await page.keyboard.press('Enter');
 
         await expect(panel).toHaveAttribute('state', 'collapsed');
+        // Focus stays in the chat, on the way back, not on the body.
+        await expect(panel.locator('[data-action="reopen"]')).toBeFocused();
         const bar = panel.locator('.minimized-bar');
         await expect(bar).toBeVisible();
         await expect(bar.locator('.minimized-title')).toHaveText(CONVERSATION_TITLE);
@@ -241,9 +249,35 @@ test.describe('Chat as a column beside the page tree', () => {
             expect(Math.min(target.width, target.height), 'a button of the bar is smaller than 44px').toBeGreaterThanOrEqual(44);
         }
 
-        await bar.getByRole('button', { name: 'Open the chat again' }).click();
+        await page.keyboard.press('Enter');
         await expect(panel).toHaveAttribute('state', 'expanded');
         await expect(page.locator(OPEN_AREA)).toHaveCount(1);
+        // A conversation waiting for an approval has its input enabled.
+        await expect(panel.locator('.panel-input textarea')).toBeFocused();
+    });
+
+    test('floats in a content area too narrow for it and docks again when it is wide enough', async ({ page }) => {
+        const panel = await openColumn(page);
+        await openModule(page, 'dashboard');
+
+        // A window narrower than twice the column's minimum: the content area
+        // is too (at 760px 13.4 collapses its module menu and the area stays
+        // wide enough).
+        await page.setViewportSize({ width: 600, height: 720 });
+        await expect(panel).toHaveAttribute('narrow', '');
+        await expect(page.locator(OPEN_AREA)).toHaveCount(0);
+        const narrow = await edges(page);
+        expect(narrow.router!.width, 'the module did not get the whole content area').toBe(narrow.area!.width);
+        const stored = await page.evaluate(async () => {
+            const { default: Persistent } = await import('@typo3/backend/storage/persistent.js' as string);
+            return Persistent.get('nrMcpAgent.chatPanel.layout');
+        });
+        expect(stored, 'the narrow area rewrote the stored choice').toBe('column');
+
+        await page.setViewportSize({ width: 1280, height: 720 });
+        await expect(panel).not.toHaveAttribute('narrow', '');
+        await expect(page.locator(OPEN_AREA)).toHaveCount(1);
+        await expect(panel.locator('[role="separator"]')).toBeVisible();
     });
 
     test('keeps the approval card\'s height in an overflowing transcript', async ({ page }) => {

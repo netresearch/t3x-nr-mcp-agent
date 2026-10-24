@@ -33,6 +33,11 @@ import {
     splitterKeyWidth,
 } from '../../Resources/Public/JavaScript/chat-column.js';
 
+/** Let pending promise callbacks and timers of zero delay run. */
+function flushPromises() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /** An element with attributes and children. */
 function el(tag, attributes = {}, children = []) {
     const element = document.createElement(tag);
@@ -302,6 +307,10 @@ describe('<ai-chat-panel> as a column', () => {
 
         await dock();
         panel.setLayout('floating');
+        // The move re-runs the controller's init(); let it settle before
+        // looking, or a reset inside it would go unseen.
+        await flushPromises();
+        await panel.updateComplete;
 
         expect(panel.chat.activeUid).toBe(42);
         expect(panel.chat.inputValue).toBe('half a sentence');
@@ -468,6 +477,115 @@ describe('<ai-chat-panel> as a column', () => {
         sessionStorage.clear();
     });
 
+    test('asking for the column from the collapsed floating panel opens the column, with focus on its toggle', async () => {
+        panel.collapse();
+        await panel.updateComplete;
+        expect(panel.state).toBe('collapsed');
+
+        panel.shadowRoot.querySelector('[data-action="layout"]').click();
+        Object.assign(panel.chat, {loading: false});
+        await panel.updateComplete;
+        await panel.updateComplete;
+
+        expect(panel.state).toBe('expanded');
+        expect(area.getAttribute(MOUNT_ATTRIBUTE)).toBe('open');
+        expect(panel.shadowRoot.querySelector('.minimized-bar')).toBeNull();
+        expect(panel.shadowRoot.activeElement?.dataset.action).toBe('layout');
+    });
+
+    test('a content area narrower than twice the minimum lets the chat float, without changing the choice', async () => {
+        await dock();
+        const layoutWrites = () => Persistent.writes.filter(([key]) => key === PREFERENCE_LAYOUT).length;
+        const before = layoutWrites();
+
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
+        await panel.updateComplete;
+        await panel.updateComplete;
+
+        expect(panel.hasAttribute('narrow')).toBe(true);
+        expect(panel.layout).toBe('column');
+        expect(panel.parentElement).toBe(area);
+        expect(area.hasAttribute(MOUNT_ATTRIBUTE)).toBe(false);
+        expect(splitter()).toBeNull();
+        // The floating header, without the toggle: there is no column to dock into.
+        expect(panel.shadowRoot.querySelector('.column-badge')).toBeNull();
+        expect(panel.shadowRoot.querySelector('[data-action="layout"]')).toBeNull();
+        expect(layoutWrites()).toBe(before);
+
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH;
+        await panel.updateComplete;
+        await panel.updateComplete;
+
+        expect(panel.hasAttribute('narrow')).toBe(false);
+        expect(area.getAttribute(MOUNT_ATTRIBUTE)).toBe('open');
+        expect(splitter()).not.toBeNull();
+        expect(layoutWrites()).toBe(before);
+    });
+
+    test('minimizing moves focus to the bar\'s reopen button, reopening moves it back into the column', async () => {
+        await dock();
+        panel.shadowRoot.querySelector('[data-action="minimize"]').focus();
+
+        panel.shadowRoot.querySelector('[data-action="minimize"]').click();
+        await panel.updateComplete;
+        await flushPromises();
+        expect(panel.shadowRoot.activeElement?.dataset.action).toBe('reopen');
+
+        panel.shadowRoot.querySelector('[data-action="reopen"]').click();
+        await panel.updateComplete;
+        await flushPromises();
+        // No conversation is open, so there is no input; the minimize button it is.
+        expect(panel.shadowRoot.activeElement?.dataset.action).toBe('minimize');
+    });
+
+    test('while a message is being sent the panel does not move', async () => {
+        await dock();
+        Object.defineProperty(window, 'documentPictureInPicture', {
+            value: {requestWindow: jest.fn()},
+            configurable: true,
+        });
+        panel.chat.sending = true;
+        panel.requestUpdate();
+        await panel.updateComplete;
+
+        expect(panel.shadowRoot.querySelector('[data-action="layout"]').disabled).toBe(true);
+        expect(panel.shadowRoot.querySelector('[data-action="popout"]').disabled).toBe(true);
+        expect(panel.setLayout('floating')).toBe(false);
+        expect(await panel.popOut()).toBe(false);
+        expect(window.documentPictureInPicture.requestWindow).not.toHaveBeenCalled();
+        expect(panel.parentElement).toBe(area);
+
+        panel.chat.sending = false;
+        panel.requestUpdate();
+        await panel.updateComplete;
+        expect(panel.shadowRoot.querySelector('[data-action="layout"]').disabled).toBe(false);
+        delete window.documentPictureInPicture;
+    });
+
+    test('the minimized bar holds one live region for its status, not one inside another', async () => {
+        await dock();
+        Object.assign(panel.chat, {
+            activeUid: 5,
+            status: 'awaiting_approval',
+            conversations: [{uid: 5, title: 'Improve content', status: 'awaiting_approval'}],
+            tour: {pageTitle: 'Home', languageName: '', pageUid: 1},
+            guided: {progress: {current: 1, total: 4, completed: false}, highlight: null},
+        });
+        panel.collapse();
+        await panel.updateComplete;
+
+        const status = panel.shadowRoot.querySelector('.minimized-status');
+        expect(status.querySelectorAll('[role="status"]')).toHaveLength(1);
+        expect(status.closest('[role="status"]')).toBeNull();
+
+        // Without a guided process the plain status is the live region.
+        Object.assign(panel.chat, {tour: null, guided: {progress: null, highlight: null}});
+        panel.requestUpdate();
+        await panel.updateComplete;
+        expect(status.querySelectorAll('[role="status"]')).toHaveLength(1);
+        expect(status.querySelector('[role="status"]').textContent).toBe('status.awaitingApproval');
+    });
+
     test('back from its own window into the column, before the router', async () => {
         await dock();
         const pipWindow = {
@@ -487,6 +605,7 @@ describe('<ai-chat-panel> as a column', () => {
         expect(panel.layout).toBe('column');
         expect(panel.parentElement).toBe(area);
         expect(panel.nextElementSibling.localName).toBe('typo3-backend-module-router');
+        expect(area.getAttribute(MOUNT_ATTRIBUTE)).toBe('open');
         delete window.documentPictureInPicture;
     });
 });
