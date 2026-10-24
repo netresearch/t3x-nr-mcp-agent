@@ -19,7 +19,10 @@
 #                 (approval-card-height.spec.ts), two pages fill the
 #                 page tree (chat-column.spec.ts), and two more
 #                 conversations wait for an approval to approve and to
-#                 cancel (editor-journey.spec.ts).
+#                 cancel (editor-journey.spec.ts). The admin's dashboard
+#                 holds the "Recent chats" widget, with a conversation about
+#                 a page and one about a deleted page
+#                 (recent-chats-widget.spec.ts).
 #
 # DB coordinates are the fixed defaults the reusable workflow's default mode
 # provisions (see its "Setup TYPO3" step): host 127.0.0.1, root/root, db typo3.
@@ -67,6 +70,9 @@ case "${E2E_VARIANT:-}" in
 
     echo "Seeding the editor journey: one enabled write tool, four conversations (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/journey-seed.sql"
+
+    echo "Seeding the recent chats widget: a dashboard, two pages, two conversations (${DB_CLIENT})..."
+    "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/recent-chats-seed.sql"
 
     echo "Pointing llmTaskUid at the seeded Task..."
     cat >> config/system/additional.php << 'PHPEOF'

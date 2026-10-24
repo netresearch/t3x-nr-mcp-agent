@@ -315,6 +315,11 @@ export class ChatCoreController {
     backendPage = {pageId: 0};
     /** A page the user chose not to switch the tour to. */
     pageKept = 0;
+    /**
+     * The page the active conversation is about has been deleted, from the
+     * server: the conversation is shown read-only, with a notice.
+     */
+    pageGone = false;
     _pageWatchTimer = null;
 
     /** The highlight last sent to the page module, so it is sent once. */
@@ -467,6 +472,7 @@ export class ChatCoreController {
         this.tourStart = null;
         this.dashboardUrl = '';
         this.pageKept = 0;
+        this.pageGone = false;
         // Coming back to a conversation highlights its element again.
         this._sentHighlight = '';
         this.highlightAnnounced = '';
@@ -625,6 +631,7 @@ export class ChatCoreController {
             this.dashboardUrl = data.dashboardUrl || '';
             this.skill = data.skill || null;
             this.activity = data.activity || [];
+            this.pageGone = data.pageGone === true;
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
                 // screen is a question again, not a confirmation.
@@ -801,9 +808,14 @@ export class ChatCoreController {
         return PROCESSING_STATUSES.has(this.status);
     }
 
+    /** Whether the active conversation can only be read (its page was deleted). */
+    isReadOnly() {
+        return this.pageGone;
+    }
+
     async handleSend() {
         const content = this.inputValue.trim();
-        if (!content || this.sending || this.isProcessing()) return;
+        if (!content || this.sending || this.isProcessing() || this.isReadOnly()) return;
 
         if (this.maxLength > 0 && content.length > this.maxLength) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);

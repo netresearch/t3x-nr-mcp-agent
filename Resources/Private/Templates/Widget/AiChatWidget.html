@@ -1,37 +1,56 @@
 <f:comment>
     SPDX-License-Identifier: GPL-2.0-or-later
     SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+    One link per conversation, its visible text the whole accessible name:
+    title, context, progress and time, separated for screen readers by
+    visually hidden commas. The arrow is decoration. data-nr-chat-page and
+    data-nr-chat-language are empty for a conversation without a page the
+    user may see (dashboard-widget.js).
 </f:comment>
 {namespace core=TYPO3\CMS\Core\ViewHelpers}
 <f:layout name="Widget/Widget" />
 <f:section name="main">
+    <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:" />
     <f:if condition="{available}">
         <f:then>
+            <p class="nr-recent-chats-hint">{f:translate(key: '{ll}widget.hint')}</p>
             <f:if condition="{conversations}">
                 <f:then>
-                    <ul class="list-unstyled nr-chat-widget-list">
+                    <ul class="nr-recent-chats">
                         <f:for each="{conversations}" as="conversation">
-                            <li class="mb-1">
+                            <li>
                                 <a href="{f:be.uri(route: 'nr_mcp_agent_chat', parameters: {conversation: conversation.uid})}"
-                                   class="d-block text-truncate"
+                                   class="nr-recent-chats-entry"
                                    data-nr-chat-conversation="{conversation.uid}"
-                                   title="{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.openConversation')}">
-                                    <f:if condition="{conversation.pinned}">&#x1F4CC; </f:if>{f:if(condition: conversation.title, then: conversation.title, else: '{f:translate(key: \'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:conversations.newConversation\')}')}
+                                   data-nr-chat-page="{conversation.page.uid}"
+                                   data-nr-chat-language="{conversation.page.languageUid}">
+                                    <span class="nr-recent-chats-text">
+                                        <span class="nr-recent-chats-title">{f:if(condition: conversation.title, then: conversation.title, else: '{f:translate(key: \'{ll}conversations.newConversation\')}')}</span>
+                                        <f:if condition="{conversation.context}">
+                                            <span class="visually-hidden">, </span>
+                                            <span class="nr-recent-chats-context"><f:for each="{conversation.context}" as="part" iteration="i"><f:if condition="{i.isFirst}"><f:else> · </f:else></f:if>{f:translate(key: part.key, arguments: part.arguments)}</f:for></span>
+                                        </f:if>
+                                    </span>
+                                    <f:if condition="{conversation.progress}">
+                                        <span class="visually-hidden">, </span>
+                                        <span class="nr-recent-chats-chip">{f:translate(key: '{ll}guided.progress', arguments: {0: conversation.progress.current, 1: conversation.progress.total})}</span>
+                                    </f:if>
+                                    <span class="visually-hidden">, </span>
+                                    <time class="nr-recent-chats-time" datetime="{conversation.time.datetime}"><f:switch expression="{conversation.time.kind}"><f:case value="today">{f:translate(key: '{ll}widget.time.today', arguments: {0: conversation.time.text})}</f:case><f:case value="yesterday">{f:translate(key: '{ll}widget.time.yesterday', arguments: {0: conversation.time.text})}</f:case><f:defaultCase>{conversation.time.text}</f:defaultCase></f:switch></time>
+                                    <span class="nr-recent-chats-arrow" aria-hidden="true"><core:icon identifier="actions-chevron-end" size="small" /></span>
                                 </a>
-                                <div class="text-variant small">
-                                    {conversation.date}
-                                </div>
                             </li>
                         </f:for>
                     </ul>
                 </f:then>
                 <f:else>
-                    <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.empty')}</p>
+                    <p class="nr-recent-chats-empty">{f:translate(key: '{ll}widget.empty')}</p>
                 </f:else>
             </f:if>
         </f:then>
         <f:else>
-            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+            <p>{f:translate(key: '{ll}chat.notAvailable')}</p>
         </f:else>
     </f:if>
 </f:section>
@@ -41,8 +60,8 @@
             <core:icon identifier="actions-plus" size="small" />
             {f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:conversations.new')}
         </a>
-        <a class="btn btn-link" href="{f:be.uri(route: 'nr_mcp_agent_chat')}">
-            {f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.openModule')}
+        <a class="nr-recent-chats-all" href="{f:be.uri(route: 'nr_mcp_agent_chat')}">
+            {f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.showAll')}
         </a>
     </f:if>
 </f:section>

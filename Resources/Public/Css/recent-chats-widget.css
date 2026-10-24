@@ -1,0 +1,113 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: Netresearch DTT GmbH */
+
+/* The "Recent chats" dashboard widget (Classes/Dashboard/AiChatWidget.php).
+ *
+ * Colours come from TYPO3's backend variables, which switch with the backend
+ * colour scheme (light-dark() in 13.4 and 14.3): the design's light values
+ * map to border #e0e0e5 -> component border, hover #f4f4f6 -> component
+ * hover, grey #55556a -> variant text, and the purple chip and link to core's
+ * purple scale, read the other way round in dark mode. The fallbacks are the
+ * design's light values, for a backend that does not define the variables. */
+
+.nr-recent-chats-hint {
+    margin-bottom: .75rem;
+    color: var(--typo3-text-color-variant, #55556a);
+}
+
+.nr-recent-chats {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: var(--typo3-component-bg, #fff);
+    border: 1px solid var(--typo3-component-border-color, #e0e0e5);
+    border-radius: var(--typo3-component-border-radius, 4px);
+}
+
+.nr-recent-chats > li + li {
+    border-top: 1px solid var(--typo3-component-border-color, #e0e0e5);
+}
+
+.nr-recent-chats-entry {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem .75rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.nr-recent-chats-entry:hover,
+.nr-recent-chats-entry:focus-visible {
+    background: var(--typo3-component-hover-bg, #f4f4f6);
+    color: inherit;
+    text-decoration: none;
+}
+
+.nr-recent-chats-entry:focus-visible {
+    outline: 2px solid var(--typo3-component-focus-color, currentColor);
+    outline-offset: -2px;
+}
+
+.nr-recent-chats-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.nr-recent-chats-title,
+.nr-recent-chats-context {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.nr-recent-chats-title {
+    font-size: 13px;
+}
+
+.nr-recent-chats-context {
+    font-size: 11.5px;
+    color: var(--typo3-text-color-variant, #55556a);
+}
+
+.nr-recent-chats-chip {
+    flex: 0 0 auto;
+    padding: .125rem .5rem;
+    border-radius: 1rem;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: light-dark(var(--token-color-purple-10, #e9e5fb), var(--token-color-purple-80, #2f2490));
+    color: light-dark(var(--token-color-purple-80, #2f2490), var(--token-color-purple-10, #e9e5fb));
+}
+
+.nr-recent-chats-time {
+    flex: 0 0 92px;
+    font-size: 12px;
+    text-align: right;
+    white-space: nowrap;
+    color: var(--typo3-text-color-variant, #55556a);
+}
+
+.nr-recent-chats-arrow {
+    flex: 0 0 auto;
+    color: var(--typo3-text-color-variant, #55556a);
+}
+
+.nr-recent-chats-empty {
+    margin: 0;
+    color: var(--typo3-text-color-variant, #55556a);
+}
+
+.nr-recent-chats-all {
+    color: light-dark(var(--token-color-purple-60, #4432a6), var(--token-color-purple-20, #c9c1f5));
+    text-decoration: none;
+}
+
+.nr-recent-chats-all:hover,
+.nr-recent-chats-all:focus-visible {
+    color: light-dark(var(--token-color-purple-60, #4432a6), var(--token-color-purple-20, #c9c1f5));
+    text-decoration: underline;
+}

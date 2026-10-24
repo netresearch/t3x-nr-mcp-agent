@@ -468,10 +468,33 @@ buttons are disabled. The module menu is not collapsed automatically.
 Dashboard widget
 ================
 
-With the TYPO3 dashboard installed, an **AI Chat** widget can be added to a
-dashboard (*Add widget > General*). It lists your five most recent chats;
-a click opens one in the floating panel next to the dashboard, **New chat**
-starts one there, and **Open the chat module** goes to the full-page view.
+With the TYPO3 dashboard installed, a **Recent chats** widget can be added
+to a dashboard (*Add widget > General*). It lists your five chats with the
+newest last message, newest first; a chat without any message yet is not
+listed. Each entry shows:
+
+-   the title: the name of the guided tour for a guided process, otherwise
+    the chat's own title;
+-   below it, in grey, what the chat is about: *Page “<title>”* for a chat
+    about a page, and *Guided tour* for a guided process;
+-   for a guided process that has not finished, the point it is at
+    (*Point 3 of 5*), as the chat's header shows it;
+-   when the last message was written: *Today, 10:42*, *Yesterday, 16:05*,
+    then the date (*Oct 3*), with the year once it is more than a year ago,
+    in your backend language.
+
+A click opens the chat in the chat panel next to the dashboard, floating or
+as a column, as you last used it; a chat about a page also opens that page
+in the page module. A guided process continues where it stopped: a
+proposal waiting for your answer is shown again. **New chat** starts a chat
+there, and **Show all chats** goes to the chat module. Each entry is one
+link, reachable with :kbd:`Tab`; a screen reader reads its title, context,
+progress and time.
+
+A chat about a page you may not see is not listed. A chat about a page that
+has been deleted since is listed as *Deleted page*; it opens read-only, with
+a notice where the input was, and the chat refuses new messages for it.
+
 For a user the chat is not available to, the widget says so instead of
 listing anything. Which groups may place the widget at all is set per
 backend group under *Dashboard widgets*, as for every other widget.
@@ -482,7 +505,7 @@ AI assistant dashboard
 Editors can put together a dashboard for working with the assistant from
 the widgets in the *AI Assistant* group (*Add widget > AI Assistant*), or
 start from the **AI Assistant** preset when creating a dashboard, which
-holds all of them and the **AI Chat** widget.
+holds all of them and the **Recent chats** widget.
 
 **Improve a page**
     Choose a page, then press the button of a guided tour (by default

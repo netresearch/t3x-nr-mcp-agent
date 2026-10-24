@@ -246,6 +246,25 @@ final class PageChoiceRepositoryTest extends FunctionalTestCase
         self::assertSame(['uid' => 21, 'title' => 'Inhalt A'], $this->repository()->findAccessible(21));
     }
 
+    /**
+     * readPageAccess() answers null for a deleted page and for one the user
+     * may not see alike; isGone() tells the two apart, for any user.
+     */
+    #[Test]
+    public function aPageIsGoneOnlyWhenDeletedOrNeverThere(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(3);
+        $repository         = $this->repository();
+
+        self::assertTrue($repository->isGone(24), 'deleted');
+        self::assertTrue($repository->isGone(9999), 'never there');
+        self::assertNull($repository->findAccessible(30), 'precondition: outside the mount');
+        self::assertFalse($repository->isGone(30), 'outside the mount');
+        self::assertFalse($repository->isGone(27), 'hidden');
+        self::assertFalse($repository->isGone(21), 'accessible');
+        self::assertFalse($repository->isGone(0), 'no page');
+    }
+
     #[Test]
     public function withoutABackendUserNothingIsOffered(): void
     {

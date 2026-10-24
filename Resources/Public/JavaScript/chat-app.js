@@ -337,6 +337,10 @@ export class ChatApp extends LitElement {
             border-top: 1px solid var(--nr-chat-border);
             background: var(--nr-chat-surface-low);
         }
+        .read-only-notice {
+            color: var(--nr-chat-text-variant);
+            font-size: 13px;
+        }
         .input-wrap {
             flex: 1;
             display: flex;
@@ -813,6 +817,17 @@ export class ChatApp extends LitElement {
                 ${this._renderStatusNotice(isResumable)}
             </div>
 
+            ${this._renderInput()}
+        `;
+    }
+
+    _renderInput() {
+        // A conversation about a deleted page is read, not continued: the
+        // notice takes the place of the input (the server refuses a send too).
+        if (this.chat.isReadOnly()) {
+            return html`<div class="input-area read-only-notice" role="note">${lll('chat.pageGone')}</div>`;
+        }
+        return html`
             ${renderReplyOptions(this.chat)}
             ${renderPageChange(this.chat)}
             ${renderPageChoice(this.chat)}

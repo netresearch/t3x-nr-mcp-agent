@@ -701,6 +701,10 @@ export class AiChatPanel extends LitElement {
             background: var(--nr-chat-surface-low);
             flex-shrink: 0;
         }
+        .read-only-notice {
+            color: var(--nr-chat-text-variant);
+            font-size: 12px;
+        }
         .input-wrap {
             flex: 1;
             display: flex;
@@ -3281,6 +3285,11 @@ export class AiChatPanel extends LitElement {
     }
 
     _renderInput() {
+        // A conversation about a deleted page is read, not continued: the
+        // notice takes the place of the input (the server refuses a send too).
+        if (this.chat.isReadOnly()) {
+            return html`<div class="panel-input read-only-notice" role="note">${lll('chat.pageGone')}</div>`;
+        }
         return html`
             ${renderReplyOptions(this.chat)}
             ${renderPageChange(this.chat)}

@@ -89,6 +89,86 @@ readonly class ConversationRepository
         return array_map(Conversation::fromRow(...), $rows);
     }
 
+    /**
+     * The user's conversations that hold at least one message and are not
+     * archived, most recently changed first, at most $limit — with what a list
+     * about them needs beyond findByBeUser(): the page they are about, the
+     * skill and the guided state. No transcript.
+     *
+     * @return list<Conversation>
+     */
+    public function findRecentWithMessagesByBeUser(int $beUserUid, int $limit): array
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->select(...self::LIST_COLUMNS)
+            ->addSelect('view_context', 'skill_uid', 'guided_state')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->orderBy('tstamp', 'DESC')
+            ->addOrderBy('uid', 'DESC')
+            ->setMaxResults(max(1, $limit));
+
+        return array_map(Conversation::fromRow(...), $qb->executeQuery()->fetchAllAssociative());
+    }
+
+    /**
+     * When the last message of each conversation was written, as a Unix
+     * timestamp, keyed by conversation uid.
+     *
+     * Read from the message itself (`createdAt`): the message rows' crdate is
+     * the time of the last save, which rewrites every row, and the
+     * conversation's tstamp also moves when it is pinned, renamed or given a
+     * skill. A conversation whose last message carries no time is missing
+     * from the result.
+     *
+     * @param list<int> $conversationUids
+     *
+     * @return array<int, int>
+     */
+    public function findLastMessageTimes(array $conversationUids): array
+    {
+        if ($conversationUids === []) {
+            return [];
+        }
+
+        $qb   = $this->connectionPool->getQueryBuilderForTable(self::MESSAGE_TABLE);
+        $last = sprintf(
+            '%s = (SELECT MAX(%s) FROM %s %s WHERE %s = %s)',
+            $qb->quoteIdentifier('m.sorting'),
+            $qb->quoteIdentifier('s.sorting'),
+            $qb->quoteIdentifier(self::MESSAGE_TABLE),
+            $qb->quoteIdentifier('s'),
+            $qb->quoteIdentifier('s.conversation'),
+            $qb->quoteIdentifier('m.conversation'),
+        );
+        $rows = $qb->select('m.conversation', 'm.payload')
+            ->from(self::MESSAGE_TABLE, 'm')
+            ->where(
+                $qb->expr()->in('m.conversation', $qb->createNamedParameter($conversationUids, Connection::PARAM_INT_ARRAY)),
+                $last,
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $times = [];
+        foreach ($rows as $row) {
+            $payload   = is_string($row['payload'] ?? null) ? json_decode($row['payload'], true) : null;
+            $createdAt = is_array($payload) ? ($payload['createdAt'] ?? null) : null;
+            $time      = is_string($createdAt) ? strtotime($createdAt) : false;
+            $uid       = $row['conversation'] ?? null;
+            if ($time !== false && is_numeric($uid)) {
+                $times[(int) $uid] = $time;
+            }
+        }
+
+        return $times;
+    }
+
     public function findOneByUidAndBeUser(int $uid, int $beUserUid): ?Conversation
     {
         $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);

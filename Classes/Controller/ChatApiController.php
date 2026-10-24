@@ -20,6 +20,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -108,6 +109,9 @@ final readonly class ChatApiController
         // The human title of the active skill for the chip; without it the
         // chip shows the skill's name.
         private ?SkillLabels $skillLabels = null,
+        // Tells a deleted page from one the user may not see; without it no
+        // conversation counts as one about a deleted page.
+        private ?PageChoiceRepository $pages = null,
     ) {}
 
     /**
@@ -669,7 +673,21 @@ final readonly class ChatApiController
             // when it is installed.
             'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
             'activity'     => $conversation->getActivity(),
+            // The page the conversation is about has been deleted: the chat
+            // shows it read-only, with a notice (sendMessage() refuses).
+            'pageGone' => $this->isPageGone($conversation),
         ]);
+    }
+
+    /**
+     * Whether the page the conversation is about no longer exists. False for
+     * a conversation without a page, and where the page lookup is not wired.
+     */
+    private function isPageGone(Conversation $conversation): bool
+    {
+        $pageUid = $conversation->getViewContext()['pageId'];
+
+        return $pageUid > 0 && ($this->pages?->isGone($pageUid) ?? false);
     }
 
     /**
@@ -720,6 +738,12 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        // A conversation about a page that has been deleted is read-only: it
+        // can be read again, not continued on a page that is not there.
+        if ($this->isPageGone($conversation)) {
+            return new JsonResponse(['error' => $this->translate('error.pageGone')], 409);
         }
 
         $content = trim((string) ($body['content'] ?? ''));
