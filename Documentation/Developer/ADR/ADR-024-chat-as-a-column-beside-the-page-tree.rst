@@ -61,11 +61,15 @@ floating.
     not reached by docking the chat.
 -   Width: at least 320 px, at most half the content area (core's page tree
     uses the same half). A content area narrower than twice the minimum
-    (640 px) gets no column: the panel stays where it is in the DOM but is
-    drawn floating (attribute ``narrow``), the module keeps the whole area,
-    and the stored layout is not changed, so the column returns when the
-    area is wide enough again. The setting follows the user to smaller
-    devices, which is why this is decided from the area's width, not stored. The splitter follows the WAI-ARIA Window Splitter pattern: a
+    (640 px) gets no column: the panel floats from ``<body>`` (attribute
+    ``narrow``), the module keeps the whole area, and the stored layout is
+    not changed, so the panel moves back into the area as a column when the
+    area is wide enough again. Inside the area a floating panel would be
+    confined to the area's stacking layer, which in 14.3 lies under the
+    backend header once the area is narrower than 750 px. The setting follows
+    the user to smaller devices, which is why this is decided from the area's
+    width, measured again when the column is asked for, not stored. The
+    floating panel offers the column only where the area is wide enough. The splitter follows the WAI-ARIA Window Splitter pattern: a
     focusable ``role="separator"`` with its width as ``aria-valuenow``, arrow
     keys in steps of 16 px, :kbd:`Home` and :kbd:`End` to the limits.
 -   Layout and width are stored in the backend user's settings with
@@ -87,9 +91,12 @@ floating.
     none, as before.
 -   The element is placed once, when the toolbar item creates it, and moved
     only when the user switches the layout: every move reconnects the element
-    and re-initialises the chat controller. Switching the layout and the
-    pop-out are disabled while a message is being sent, because the
-    reconnect aborts the request.
+    and re-initialises the chat controller. The reconnect aborts the
+    controller's requests in flight, so no move happens while one runs: a
+    message being sent or edited, a free-text answer, an approval decision,
+    ending a guided process, saving the instructions. The layout and pop-out
+    buttons are disabled meanwhile, and a move to or from a narrow area
+    waits for the request to end.
 
 Consequences
 ============
