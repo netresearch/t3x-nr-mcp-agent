@@ -130,8 +130,8 @@ decision that the current content stays. Once ``approve()`` has accepted
 the denial, ``OpenPointTracker::settle()`` closes every open point on the
 card's target record and fields (``OpenPointRepository::close()``, whoever
 recorded them) and records none. Without a target nothing is closed, as for
-every other answer. To nr-llm the denial is ``ApprovalDenialReason::SKIP``
-(a closed enum there), so the model moves on to the next point.
+every other answer. To nr-llm the denial is ``ApprovalDenialReason::KEEP``
+(``SKIP`` before 2026-10-24, see ADR-023), so the model moves on to the next point.
 
 **Consequences.** *Behalten* is the second way a point is closed, beside an
 applied write. A proposal answered with it is a ``ProposalOutcome::Kept``
