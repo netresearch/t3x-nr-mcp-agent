@@ -11,10 +11,14 @@ import { test, expect, waitForBackend } from '../fixtures/backend';
  * Each step asserts what the editor sees.
  *
  * Fixtures (seed-and-test.sh, `configured` variant): pages-seed.sql fills the
- * page tree; journey-seed.sql holds two conversations waiting for an
- * approval of a change to page 2, one to approve and one to cancel. The
- * "keep" and "another variant" answers belong to proposals of a guided
- * process run, which these fixtures do not seed.
+ * page tree; journey-seed.sql enables the write tool update_page_metadata and
+ * holds four conversations waiting for an approval: a rename of page 2 to
+ * approve, the same to cancel, the same as a proposal of a process run to
+ * keep, and a call of set_page_social_image, which stays disabled.
+ *
+ * The E2E provider is a placeholder that is never reachable
+ * (nr-llm-task-seed.sql), so a run that goes on after an approval ends at its
+ * next model turn with the provider's error — after the approved write.
  */
 
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
@@ -108,7 +112,7 @@ test.describe('An editor working with the chat column', () => {
         await storePreferences(page, 'floating', '');
     });
 
-    test('from the Dashboard through a page, two approvals, the modules and back', async ({ page }) => {
+    test('from the Dashboard through a page, four approvals, the modules and back', async ({ page }) => {
         const panel = page.locator('ai-chat-panel');
 
         // 1. Dashboard: open the chat, dock it as a column.
@@ -138,20 +142,31 @@ test.describe('An editor working with the chat column', () => {
         await expect(card).toContainText('E2E Subpage renamed');
         await card.locator('.approval-actions .btn-primary').click();
         await expect(panel.getByText('Approval granted — the assistant is carrying the step out.')).toBeVisible();
-        // The worker answers within seconds: the change is applied, or the run
-        // comes back with the reason in the card. In the E2E installation
-        // nr-llm refuses the admin as approver of this write
-        // (approverNotPermitted), and the chat must say so instead of
-        // leaving the optimistic line standing.
-        await expect(panel.getByText('Approval granted — the assistant is carrying the step out.')).toHaveCount(0, { timeout: 15000 });
-        const outcome = await panel.evaluate((el: any) => ({ status: el.chat.status, error: el.chat.errorMessage }));
-        if (outcome.status === 'awaiting_approval') {
-            expect(outcome.error, 'the run came back without a reason').not.toBe('');
-            await expect(card).toContainText(outcome.error);
-            await expect(card.locator('.approval-actions')).toBeVisible();
-        } else {
-            await expect(card.locator('.approval-actions')).toHaveCount(0);
-        }
+        // nr-llm writes the change and the run goes on to its next model turn,
+        // which the placeholder provider ends; the card is gone. That the
+        // record changed is checked in the list module (step 7).
+        await expect.poll(() => panel.evaluate((el: any) => el.chat.status), { timeout: 15000 }).toBe('failed');
+        await expect(panel.locator('.approval-actions')).toHaveCount(0);
+
+        // 4a. Keep the current content instead of a process run's proposal.
+        await openConversation(page, panel, 'E2E journey keep');
+        const keepCard = panel.locator('.approval-frame');
+        await expect(keepCard.getByRole('button', { name: 'Another variant' })).toBeVisible();
+        await keepCard.getByRole('button', { name: 'Keep', exact: true }).click();
+        await expect(panel.getByText('Kept — the current content stays.')).toBeVisible();
+        await expect(panel.locator('.approval-actions')).toHaveCount(0);
+
+        // 4b. A call of a tool an administrator switched off while the run
+        //     waited: nr-llm refuses the approval and writes nothing; the card
+        //     says why and stays decidable.
+        await openConversation(page, panel, 'E2E journey disabled tool');
+        const disabledCard = panel.locator('.approval-frame');
+        await disabledCard.locator('.approval-actions .btn-primary').click();
+        await expect.poll(() => panel.evaluate((el: any) => el.chat.errorMessage), { timeout: 15000 }).not.toBe('');
+        const reason = await panel.evaluate((el: any) => el.chat.errorMessage);
+        await expect(disabledCard).toContainText(reason);
+        await expect(panel.locator('.approval-actions .btn-primary')).toBeVisible();
+        expect(await panel.evaluate((el: any) => el.chat.status)).toBe('awaiting_approval');
 
         // 5. Cancel another one.
         await openConversation(page, panel, 'E2E journey cancel');
@@ -171,9 +186,11 @@ test.describe('An editor working with the chat column', () => {
         await expect(panel).toHaveAttribute('state', 'expanded');
         await expectColumn(page, panel);
 
-        // 7. Other modules: the column stays.
+        // 7. Other modules: the column stays. The list of page 1 shows the
+        //    subpage under the title approved in step 4.
         await openModule(page, LIST_MODULE, /^(web_list|records)$/);
         await expectColumn(page, panel);
+        await expect(page.frameLocator('iframe[name="list_frame"]').getByText('E2E Subpage renamed').first()).toBeVisible();
         await openModule(page, '[data-modulemenu-identifier="dashboard"]', /^dashboard$/);
         await expectColumn(page, panel);
         await openModule(page, '[data-modulemenu-identifier="web_layout"]', /^web_layout$/);

@@ -65,7 +65,7 @@ case "${E2E_VARIANT:-}" in
     echo "Seeding two pages for the page tree (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/pages-seed.sql"
 
-    echo "Seeding two conversations for the editor journey (${DB_CLIENT})..."
+    echo "Seeding the editor journey: one enabled write tool, four conversations (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/journey-seed.sql"
 
     echo "Pointing llmTaskUid at the seeded Task..."
