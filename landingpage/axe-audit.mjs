@@ -11,7 +11,7 @@
  *
  *   node landingpage/axe-audit.mjs [output-dir]
  *
- * Exits non-zero on any WCAG 2.1 AA violation. Uses Playwright's Chromium
+ * Exits non-zero on WCAG 2.2 AA and automated AAA violations on product pages. Uses Playwright's Chromium
  * because the repository already installs it for the end-to-end tests; adding a
  * second browser stack for one gate would not buy anything.
  *
@@ -53,10 +53,10 @@ const baseSegments = (process.argv[3] ?? process.env.PAGES_BASE_PATH ?? '/')
   .join('/');
 const BASE = baseSegments ? `/${baseSegments}/` : '/';
 
-// WCAG 2.1 AA, which is what the pages claim. 'best-practice' is deliberately
+// AA plus the automated AAA checks. 'best-practice' is deliberately
 // not included: it flags stylistic preferences, and a gate that fails on those
 // gets disabled instead of fixed.
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'wcag2aaa'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -175,11 +175,56 @@ function report({ route, scheme, violation }) {
   }
 }
 
+/** A clipped card can hide overflowing labels without widening the document. */
+async function textBounds(page) {
+  return page.evaluate(() => ({
+    viewport: innerWidth,
+    width: document.documentElement.scrollWidth,
+    clipped: [...document.querySelectorAll('.capability-card dt, .capability-card dd')]
+      .filter((element) => {
+        const bounds = element.getBoundingClientRect();
+        const card = element.closest('.capability-card').getBoundingClientRect();
+        return bounds.left < card.left - 1 || bounds.right > card.right + 1
+          || element.scrollWidth > element.clientWidth + 1;
+      }).map((element) => element.textContent.trim().slice(0, 100)),
+  }));
+}
+
+function textAdaptationViolations(state, adaptation) {
+  const nodes = state.clipped.map((text) => ({
+    target: ['.capability-card'], failureSummary: `${adaptation}: clipped content: ${text}`,
+  }));
+  if (state.width > state.viewport + 1) nodes.push({
+    target: ['html'], failureSummary: `${adaptation}: document ${state.width}px exceeds ${state.viewport}px`,
+  });
+  if (!nodes.length) return [];
+  return [{
+    id: 'text-adaptation', impact: 'serious', help: 'Enlarged and spaced text must remain available',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html', nodes,
+  }];
+}
+
+/** Exercise both text adaptations serially on the narrow product page. */
+async function auditTextAdaptation(page, scheme) {
+  if (scheme !== 'light') return [];
+  await page.evaluate(() => {
+    const sizes = [...document.querySelectorAll('body, body *')]
+      .map((element) => [element, Number.parseFloat(getComputedStyle(element).fontSize)]);
+    for (const [element, size] of sizes) element.style.fontSize = `${size * 2}px`;
+  });
+  const enlarged = await textBounds(page);
+  await page.reload({waitUntil: 'networkidle'});
+  const spacing = await page.addStyleTag({content: '*{line-height:1.5!important;letter-spacing:.12em!important;word-spacing:.16em!important}p{margin-bottom:2em!important}'});
+  const spaced = await textBounds(page);
+  await spacing.evaluate((style) => style.remove());
+  return [...textAdaptationViolations(enlarged, '200% text'), ...textAdaptationViolations(spaced, 'WCAG text spacing')];
+}
+
 /** Audits one page and returns the failures found on it. */
-async function auditPage(browser, port, route, scheme) {
+async function auditPage(browser, port, route, scheme, width) {
   const context = await browser.newContext({
     colorScheme: scheme,
-    viewport: { width: 1280, height: 900 },
+    viewport: { width, height: 900 },
   });
   const page = await context.newPage();
 
@@ -198,9 +243,31 @@ async function auditPage(browser, port, route, scheme) {
     async (tags) => await window.axe.run(document, { runOnly: { type: 'tag', values: tags } }),
     TAGS,
   );
+  if (!reportOnly(route)) {
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+    if (overflow) results.violations.push({
+      id: 'page-reflow', impact: 'serious', help: 'The document must fit the viewport',
+      nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
+    });
+    if (width === 320) {
+      results.violations.push(...(await auditTextAdaptation(page, scheme)));
+      const menu = page.locator('.menu-toggle');
+      await menu.click();
+      const requestedTheme = scheme === 'light' ? 'dark' : 'light';
+      await page.locator('[data-theme-control]').selectOption(requestedTheme);
+      const selected = await page.locator('html').getAttribute('data-theme');
+      await page.keyboard.press('Escape');
+      const closed = await menu.getAttribute('aria-expanded') === 'false';
+      const focused = await menu.evaluate((element) => document.activeElement === element);
+      if (selected !== requestedTheme || !closed || !focused) results.violations.push({
+        id: 'page-controls', impact: 'serious', help: 'Theme and mobile-menu controls must work',
+        nodes: [{target: ['.menu-toggle'], failureSummary: 'Theme selection or Escape/focus return failed'}],
+      });
+    }
+  }
   await context.close();
 
-  const found = results.violations.map((violation) => ({ route, scheme, violation }));
+  const found = results.violations.map((violation) => ({ route, scheme: `${scheme}/${width}px`, violation }));
   if (broken.length) {
     found.unshift({
       route,
@@ -217,6 +284,16 @@ async function auditPage(browser, port, route, scheme) {
   return found;
 }
 
+/** Each render owns mutable browser state and completes before the next starts. */
+async function* auditPages(browser, port, sampled) {
+  const cases = sampled.flatMap(({ route }) => SCHEMES.flatMap((scheme) =>
+    (reportOnly(route) ? [1280] : [320, 1280]).map((width) => ({ route, scheme, width }))));
+  for (const { route, scheme, width } of cases) {
+    // An async generator awaits each yielded result before the consumer advances.
+    yield auditPage(browser, port, route, scheme, width);
+  }
+}
+
 async function main() {
   const files = indexFiles(DIST);
   const routes = htmlRoutes(files);
@@ -231,16 +308,14 @@ async function main() {
     }
   }
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH});
 
   const failures = [];
   let checked = 0;
 
-  for (const { route } of sampled) {
-    for (const scheme of SCHEMES) {
-      failures.push(...(await auditPage(browser, port, route, scheme)));
-      checked += 1;
-    }
+  for await (const found of auditPages(browser, port, sampled)) {
+    failures.push(...found);
+    checked += 1;
   }
 
   await browser.close();
@@ -266,13 +341,13 @@ async function main() {
 
   if (gated.length) {
     console.error(
-      `\naxe: ${gated.length} violation(s) across ${checked} page renders (${sampled.length} route shapes × ${SCHEMES.length} colour schemes, sampled from ${routes.length} pages)`,
+      `\naxe: ${gated.length} violation(s) across ${checked} page renders (${sampled.length} route shapes, ${SCHEMES.length} colour schemes; product widths 320/1280px, sampled from ${routes.length} pages)`,
     );
     process.exit(1);
   }
 
   console.log(
-    `axe: no WCAG 2.1 AA violations in ${checked} page renders (${sampled.length} route shapes × ${SCHEMES.length} colour schemes, sampled from ${routes.length} pages) served from ${BASE}`,
+    `axe: no gated AA/automated AAA or page-control violations in ${checked} page renders (${sampled.length} route shapes, ${SCHEMES.length} colour schemes; product widths 320/1280px, sampled from ${routes.length} pages) served from ${BASE}`,
   );
 }
 

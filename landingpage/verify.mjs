@@ -15,9 +15,13 @@ import {dirname, relative, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 import {checkAccessibility} from './check-accessibility.mjs';
+import {verifyProductUrls} from './verify-product-urls.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, '.Build/site');
+
+// Trusted deployment configuration, independent of the rendered canonical.
+const deploymentOrigin = process.env.PAGES_ORIGIN || 'https://netresearch.github.io';
 
 const errors = [];
 const fail = (message) => errors.push(message);
@@ -100,18 +104,23 @@ if (!await exists(manifestPath)) {
 const pages = await htmlFiles(output);
 let stubs = 0;
 
-for (const page of pages) {
+const renderedPages = await Promise.all(pages.map(async (page) => {
     const name = relative(output, page);
     const html = await readFile(page, 'utf8');
+    // Redirect stubs have no content of their own and retain their docs canonical.
+    const redirect = /<meta[^>]+http-equiv=["']refresh["']/i.test(html);
+    const problems = manifest && !redirect
+        ? await verifyProductUrls(html, name, output, manifest.slug, deploymentOrigin) : [];
+    return {name, html, redirect, problems};
+}));
 
-    // Redirect stubs keep the old documentation paths working. They are
-    // meta-refresh only and carry no content of their own.
-    if (/<meta[^>]+http-equiv=["']refresh["']/i.test(html)) {
+for (const {name, html, redirect, problems} of renderedPages) {
+    if (redirect) {
         stubs += 1;
         continue;
     }
-
     const text = stripMarkup(html);
+    for (const problem of problems) fail(`${name}: ${problem}`);
 
     for (const placeholder of PLACEHOLDERS) {
         if (text.includes(placeholder)) fail(`${name}: placeholder text in the initial HTML: ${placeholder}`);
@@ -161,7 +170,7 @@ for (const page of pages) {
 
     // Everything the page loads comes from this origin.
     for (const asset of [...html.matchAll(/<(?:script|link|img)[^>]+(?:src|href)="(https?:\/\/[^"]+)"/g)].map((m) => m[1])) {
-        if (!asset.startsWith('https://netresearch.github.io/')) {
+        if (new URL(asset).origin !== new URL(deploymentOrigin).origin) {
             fail(`${name}: loads a third-party asset: ${asset}`);
         }
     }

@@ -65,3 +65,23 @@ third-party asset request, or a `/docs/` tree that did not render.
 The docs tree itself is out of scope for the gate: render-guides writes it, and
 gating someone else's output on this page's rules would fail on markup this
 repository does not produce.
+
+## Page navigation and appearance
+
+The header and footer keep a route back to the portfolio and the AI stack in
+the selected language. On small screens the section links use a menu button;
+Escape closes it and returns focus. Without JavaScript all links remain visible.
+
+The appearance selector follows the operating system by default and also offers
+light and dark themes. Only this preference is saved, under `nr-theme`; no
+question, answer or page content is stored by the page controls. Page typography
+uses Raleway and Open Sans with a 14px minimum. Text colours use the brand's
+enhanced-contrast variants; the logo keeps its canonical colours.
+
+## URL regression checks
+
+Run `npm run test:landingpage` to render both languages at a nested base path with
+and without its final slash, and at the host root. The test substitutes only the
+external release API and checks the actual generated canonical, hreflang, social
+image and sitemap URLs. The artifact gate also checks metadata resources against
+files in the generated site, so a present but broken URL no longer passes.

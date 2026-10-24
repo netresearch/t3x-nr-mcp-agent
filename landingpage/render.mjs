@@ -30,8 +30,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const output = resolve(root, '.Build/site');
 
+// configure-pages supplies base_path without a trailing slash. Normalize once
+// before deriving locale, metadata, sitemap or documentation URLs.
+const baseSegments = (process.env.PAGES_BASE_PATH ?? '/').split('/').filter(Boolean).join('/');
+const basePath = baseSegments ? `${baseSegments}/` : '/';
 const SITE_URL = process.env.PAGES_ORIGIN
-    ? `${process.env.PAGES_ORIGIN.replace(/\/$/, '')}${process.env.PAGES_BASE_PATH || '/'}`
+    ? new URL(basePath, `${new URL(process.env.PAGES_ORIGIN).origin}/`).href
     : 'https://netresearch.github.io/t3x-nr-mcp-agent/';
 
 const CONTACT_BASE = 'https://www.netresearch.de/kontakt/';
@@ -119,24 +123,30 @@ const logo = `<svg class="brand__logo" viewBox="-75 -75 440 440" xmlns="http://w
 
 function capabilityCard(c, manifest) {
     const card = c.capabilityCard;
+    const ai = {...manifest.ai, ...card.values};
+    if (c.lang === 'de') {
+        for (const field of Object.keys(manifest.ai).filter((field) => field !== 'processing_location')) {
+            if (!card.values?.[field]) throw new Error(`render: missing German capability translation: ${field}`);
+        }
+    }
     const list = (items) => `<ul>${items.map((item) => `<li>${e(item)}</li>`).join('')}</ul>`;
     const rows = [
-        [card.labels.intended_purpose, e(manifest.ai.intended_purpose)],
-        [card.labels.excluded_uses, list(manifest.ai.excluded_uses)],
+        [card.labels.intended_purpose, e(ai.intended_purpose)],
+        [card.labels.excluded_uses, list(ai.excluded_uses)],
         [card.labels.stage, e(c.status.stages[manifest.stage] ?? manifest.stage)],
-        [card.labels.models, list(manifest.ai.models)],
-        [card.labels.data, list(manifest.ai.data)],
-        [card.labels.processing_location, e(manifest.ai.processing_location.map((l) => card.locations[l] ?? l).join(', '))],
-        [card.labels.human_oversight, e(manifest.ai.human_oversight)],
-        [card.labels.permissions, e(manifest.ai.permissions)],
-        [card.labels.logging, e(manifest.ai.logging)],
-        [card.labels.retention, e(manifest.ai.retention)],
-        [card.labels.cost_control, e(manifest.ai.cost_control)],
-        [card.labels.security_controls, list(manifest.ai.security_controls)],
+        [card.labels.models, list(ai.models)],
+        [card.labels.data, list(ai.data)],
+        [card.labels.processing_location, e(ai.processing_location.map((l) => card.locations[l] ?? l).join(', '))],
+        [card.labels.human_oversight, e(ai.human_oversight)],
+        [card.labels.permissions, e(ai.permissions)],
+        [card.labels.logging, e(ai.logging)],
+        [card.labels.retention, e(ai.retention)],
+        [card.labels.cost_control, e(ai.cost_control)],
+        [card.labels.security_controls, list(ai.security_controls)],
     ];
     return `<dl class="capability-card">
       ${rows.map(([label, value]) => `<div><dt>${e(label)}</dt><dd>${value}</dd></div>`).join('\n      ')}
-      <div class="capability-card__limits"><dt>${e(card.labels.known_limitations)}</dt><dd>${list(manifest.ai.known_limitations)}</dd></div>
+      <div class="capability-card__limits"><dt>${e(card.labels.known_limitations)}</dt><dd>${list(ai.known_limitations)}</dd></div>
       <div><dt>${e(card.labels.last_verified)}</dt><dd><time datetime="${e(manifest.last_verified)}">${e(manifest.last_verified)}</time> · ${e(manifest.owner)}</dd></div>
     </dl>`;
 }
@@ -195,6 +205,8 @@ function page(c, manifest, lang) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<script src="${base}assets/site-controls.js"></script>
 
 <title>${e(c.meta.title)}</title>
 <meta name="description" content="${e(c.meta.description)}">
@@ -232,11 +244,21 @@ function page(c, manifest, lang) {
     <a class="brand" href="https://www.netresearch.de/" aria-label="Netresearch DTT GmbH">
       ${logo}
     </a>
-    <nav class="site-nav" aria-label="${e(c.nav.label)}">
+    <a class="language-switch" href="${e(`${SITE_URL}${PATHS[c.otherLang]}`)}" hreflang="${e(c.otherLang)}" lang="${e(c.otherLang)}">${e(c.otherLabel)}</a>
+    <button class="menu-toggle" type="button" hidden aria-expanded="false" aria-controls="site-navigation">${lang === 'de' ? 'Menü' : 'Menu'}</button>
+    <nav id="site-navigation" class="site-nav" aria-label="${e(c.nav.label)}">
+      <a href="https://netresearch.github.io/${lang === 'de' ? 'de/' : ''}">Portfolio</a>
+      <a href="https://netresearch.github.io/modularer-ki-stack-page/${lang === 'en' ? 'en/' : ''}">${lang === 'de' ? 'KI-Stack' : 'AI stack'}</a>
       ${c.nav.items.map((item) => `<a href="${e(item.href)}">${e(item.label)}</a>`).join('\n      ')}
       <a href="${e(docsUrl)}">${e(c.nav.docs)}</a>
-      <a href="${e(`${SITE_URL}${PATHS[c.otherLang]}`)}" hreflang="${e(c.otherLang)}" lang="${e(c.otherLang)}">${e(c.otherLabel)}</a>
       <a class="site-nav__repo" href="${e(manifest.repository)}">${e(c.nav.repo)}</a>
+      <label class="theme-control" for="site-theme" hidden>${lang === 'de' ? 'Darstellung' : 'Appearance'}
+        <select id="site-theme" data-theme-control>
+          <option value="system">System</option>
+          <option value="light">${lang === 'de' ? 'Hell' : 'Light'}</option>
+          <option value="dark">${lang === 'de' ? 'Dunkel' : 'Dark'}</option>
+        </select>
+      </label>
     </nav>
   </div>
 </header>
@@ -316,7 +338,7 @@ function page(c, manifest, lang) {
     <div class="wrap">
       <h2 id="permissions-heading">${e(c.permissions.heading)}</h2>
       <p class="section__lead">${e(c.permissions.lead)}</p>
-      <div class="table-scroll" tabindex="0">
+      <div class="table-scroll" tabindex="0" role="region" aria-label="${e(c.permissions.heading)}">
         <table class="data-table" aria-labelledby="permissions-heading">
           <thead><tr><th scope="col">${e(c.permissions.columns.layer)}</th><th scope="col">${e(c.permissions.columns.effect)}</th></tr></thead>
           <tbody>
@@ -403,6 +425,8 @@ function page(c, manifest, lang) {
 <footer class="site-footer">
   <div class="wrap site-footer__inner">
     <p>
+      <a href="https://netresearch.github.io/${lang === 'de' ? 'de/' : ''}">Portfolio</a> &middot;
+      <a href="https://netresearch.github.io/modularer-ki-stack-page/${lang === 'en' ? 'en/' : ''}">${lang === 'de' ? 'KI-Stack' : 'AI stack'}</a> &middot;
       <a href="https://www.netresearch.de/">${e(c.footer.company)}</a> &middot;
       <a href="${e(contactUrl('footer'))}" data-cta="business" data-cta-position="footer">${e(c.footer.contact)}</a> &middot;
       <a href="${e(docsUrl)}">${e(c.footer.docs)}</a> &middot;

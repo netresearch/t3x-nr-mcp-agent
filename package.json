@@ -9,7 +9,8 @@
     "test:e2e": "npx playwright test --config=Build/tests/playwright/playwright.config.ts",
     "test:e2e:headed": "npx playwright test --config=Build/tests/playwright/playwright.config.ts --headed",
     "test:e2e:report": "npx playwright show-report",
-    "axe": "node landingpage/axe-audit.mjs"
+    "axe": "node landingpage/axe-audit.mjs",
+    "test:landingpage": "node --test landingpage/render.test.mjs landingpage/verify-product-urls.test.mjs"
   },
   "devDependencies": {
     "@babel/parser": "^8.0.0",
