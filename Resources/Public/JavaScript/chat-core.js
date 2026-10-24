@@ -10,6 +10,14 @@ import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 /** How often the page module's page is read while it matters (ADR-023). */
 const PAGE_WATCH_MS = 1000;
 
+/**
+ * What the module router holds when no module was named. The page tree loads
+ * a page without one, and the core's content container then writes
+ * `setAttribute('module', null)`, which stores the string "null"
+ * (viewport/content-container.ts, TYPO3 13.4 and 14.3).
+ */
+const UNSET_MODULES = new Set(['null', 'undefined']);
+
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
 /**
@@ -66,8 +74,9 @@ export function statusLabel(status) {
  * shows (NEXT-172).
  *
  * Read from the backend frame, which the floating panel shares (ADR-011) and
- * the chat module sits inside. The module is the router's current identifier;
- * the page is the `id` of the module frame's URL — the page a page-tree module
+ * the chat module sits inside. The module is the router's current identifier,
+ * or else the one the module menu last loaded; the page is the `id` of the
+ * module frame's URL — the page a page-tree module
  * shows. A module that is not about a page has no `id` there, and then no page
  * is sent: the page tree may still hold a selection, but "this page" would
  * not mean it.
@@ -93,8 +102,9 @@ export function currentBackendContext(win = globalThis.top ?? globalThis, treeSe
     try {
         const doc = win.document;
         const router = doc.querySelector('typo3-backend-module-router');
-        const module = router?.module || router?.getAttribute('module') || '';
-        if (/^\w{1,100}$/.test(module)) {
+        const module = [router?.module || router?.getAttribute('module'), win.TYPO3?.ModuleMenu?.App?.getCurrentModule?.()]
+            .find((candidate) => typeof candidate === 'string' && /^\w{1,100}$/.test(candidate) && !UNSET_MODULES.has(candidate));
+        if (module) {
             context.module = module;
         }
 
