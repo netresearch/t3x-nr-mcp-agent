@@ -112,6 +112,35 @@ describe('a move while a request is in flight', () => {
         expect(panel.chat._pollFailures).toBe(0);
     });
 
+    test('a pop-out during a running turn keeps polling, there and back', async () => {
+        const pipWindow = {
+            document: document.implementation.createHTMLDocument('pip'),
+            addEventListener: jest.fn(),
+        };
+        Object.defineProperty(window, 'documentPictureInPicture', {
+            value: {requestWindow: jest.fn().mockResolvedValue(pipWindow)},
+            configurable: true,
+        });
+        jest.useFakeTimers();
+        Object.assign(panel.chat, {activeUid: 1, status: 'processing'});
+        panel.chat.startPollingIfNeeded();
+        jest.advanceTimersByTime(2000);
+        expect(polls).toHaveLength(1);
+
+        // Into the detached window while that request is in flight.
+        expect(await panel.popOut()).toBe(true);
+        let before = polls.length;
+        jest.advanceTimersByTime(2000);
+        expect(polls.length - before).toBe(1);
+
+        // And back again.
+        panel._returnFromPopOut();
+        before = polls.length;
+        jest.advanceTimersByTime(2000);
+        expect(polls.length - before).toBe(1);
+        delete window.documentPictureInPicture;
+    });
+
     test('an attachment being uploaded holds the move until it is done', async () => {
         let finish;
         panel.chat._api.uploadFile = () => new Promise((resolve) => { finish = resolve; });

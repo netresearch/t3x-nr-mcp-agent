@@ -1701,6 +1701,11 @@ export class AiChatPanel extends LitElement {
         this._dressWindow(pipWindow);
         this._watchBackendScheme();
         this._applySize();
+        // The move stopped the poll; a turn still running must keep
+        // reaching the detached window.
+        if (this.state !== STATES.HIDDEN) {
+            this.chat.startPollingIfNeeded();
+        }
 
         return true;
     }
@@ -1887,6 +1892,9 @@ export class AiChatPanel extends LitElement {
         // home is not one — without this the panel would keep the 100% sizing
         // it wore inside the detached window.
         this._applySize();
+        if (this.state !== STATES.HIDDEN) {
+            this.chat.startPollingIfNeeded();
+        }
     }
 
     /**
