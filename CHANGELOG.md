@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-24
+
+### Added
+
+- **Dashboard widget "AI Assistant": a question box that starts a chat (#251).** Enter sends, Shift+Enter starts a new line, an empty question cannot be sent. The chat opens as a column for this opening without changing the stored layout; a chat popped out into its own window stays there and receives the question. A refused question stays in the box with the reason. The widget is the first one of the "AI Assistant" dashboard preset.
+- **The model asks for the page when none is selected (#251).** Conversations without a page tell the model to ask which page is meant before it acts on "this page".
+
+### Changed
+
+- **The "AI Chat" dashboard widget lists the recent chats with their context (#250).** Each entry shows the guided process's name or the chat's title, the page of a page-bound guided process, its progress, and the time of the last message ("Today, 10:42", "Yesterday", then the date). Chats about pages the user cannot see are left out. A click opens the chat in the user's layout and, for a guided process, its page in the page module and language.
+- **A guided process whose page was deleted is read-only (#250).** The chat shows a notice with an "End tour" button; sending, editing, answering, deciding and resuming are refused. Ending the tour withdraws a waiting run and turns the chat into an ordinary one.
+
+### Fixed
+
+- **After a click in the page tree the chat sends the open module instead of "null" (#249).** TYPO3 leaves the string "null" on the module router when the page tree loads a page; the chat now takes the module from the module menu then.
+
 ## [0.18.0] - 2026-10-24
 
 ### Added
