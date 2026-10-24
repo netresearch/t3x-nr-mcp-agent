@@ -223,9 +223,9 @@ export function renderPageChoice(chat) {
  * In place of the input of a guided process whose page has been deleted: the
  * chat can be read, not continued. Ending the tour is the way out, so the
  * notice offers it as a named button (the header's × is a second way), and a
- * failed attempt is said here: the status notice, where errors usually go,
- * is not shown while the chat is read-only. No Retry: pressing the button
- * again is the retry.
+ * failed attempt is said here (`endTourError`, not the run's stored error):
+ * the status notice, where errors usually go, is not shown while the chat is
+ * read-only. No Retry: pressing the button again is the retry.
  *
  * @param {object} chat the ChatCoreController
  * @param {string} containerClass the input row's class on this surface
@@ -239,7 +239,7 @@ export function renderReadOnlyNotice(chat, containerClass) {
                     ?disabled=${chat.endingTour || chat.isProcessing()}
                     @click=${() => chat.endTour()}>${lll('guided.endTour')}</button>
             ` : nothing}
-            ${chat.errorMessage ? html`<p class="read-only-error" role="alert">${chat.errorMessage}</p>` : nothing}
+            ${chat.endTourError ? html`<p class="read-only-error" role="alert">${chat.endTourError}</p>` : nothing}
         </div>
     `;
 }

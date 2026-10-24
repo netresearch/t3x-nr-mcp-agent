@@ -140,6 +140,18 @@ describe.each(SURFACES)('$name, conversation about a deleted page', ({module: mo
         el.remove();
     });
 
+    // errorMessage also carries the run's stored error; the notice is not the
+    // place for it, and it did not come from ending the tour.
+    test('a stored run error is not shown as a failed end', async () => {
+        const el = await render(modulePath, tag, open, {
+            pageGone: true, skill: {identifier: 'seo-optimieren', name: 'SEO'}, tour: null, errorMessage: 'Der Anbieter antwortet nicht',
+        });
+
+        expect(el.shadowRoot.querySelector('.read-only-notice [role="alert"]')).toBeNull();
+        expect(el.shadowRoot.querySelector('.read-only-notice').textContent).not.toContain('Der Anbieter antwortet nicht');
+        el.remove();
+    });
+
     // The status notice, where errors usually go, is not shown while the
     // chat is read-only: the notice says it, as an alert, with no Retry.
     test('a failed end is said in the notice', async () => {
@@ -203,9 +215,12 @@ describe('the flag comes from the server and belongs to one conversation', () =>
         await el.chat.loadMessages();
         expect(el.chat.isReadOnly()).toBe(true);
 
+        el.chat.endTourError = 'Gerade beschäftigt';
+
         const opening = el.chat.selectConversation(2);
         // Reset before the other conversation's answer is in.
         expect(el.chat.isReadOnly()).toBe(false);
+        expect(el.chat.endTourError).toBe('');
         await opening;
         expect(el.chat.isReadOnly()).toBe(false);
         el.remove();

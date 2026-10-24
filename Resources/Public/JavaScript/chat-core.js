@@ -320,6 +320,11 @@ export class ChatCoreController {
      * server: the conversation is shown read-only, with a notice.
      */
     pageGone = false;
+    /**
+     * Why ending the tour failed, for the read-only notice; '' otherwise.
+     * Its own field: errorMessage also carries a stored run error.
+     */
+    endTourError = '';
     _pageWatchTimer = null;
 
     /** The highlight last sent to the page module, so it is sent once. */
@@ -473,6 +478,7 @@ export class ChatCoreController {
         this.dashboardUrl = '';
         this.pageKept = 0;
         this.pageGone = false;
+        this.endTourError = '';
         // Coming back to a conversation highlights its element again.
         this._sentHighlight = '';
         this.highlightAnnounced = '';
@@ -1111,6 +1117,7 @@ export class ChatCoreController {
             // Only a guided process is bound to its page; ended, the
             // conversation is an ordinary one and can be continued.
             this.pageGone = false;
+            this.endTourError = '';
             if (data.status) {
                 this.status = data.status;
                 this.conversations = this.conversations.map(c => c.uid === uid ? {...c, status: data.status} : c);
@@ -1121,6 +1128,7 @@ export class ChatCoreController {
         } catch (e) {
             if (uid !== this.activeUid) return;
             this.errorMessage = e.message;
+            this.endTourError = e.message;
         } finally {
             this.endingTour = false;
             this.host.requestUpdate();

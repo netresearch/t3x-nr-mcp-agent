@@ -239,13 +239,58 @@ final class ChatPageGoneTest extends FunctionalTestCase
         self::assertSame(200, $picked->getStatusCode(), (string) $picked->getBody());
         $viewContext = json_decode((string) ($this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation')
             ->select(['view_context'], 'tx_nrmcpagent_conversation', ['uid' => 1])->fetchOne() ?: '{}'), true);
-        self::assertSame(0, $viewContext['pageId'] ?? 0);
+        self::assertSame(0, $viewContext['pageId'] ?? -1);
+        // Only the page is dropped; the module the chat was used in stays.
+        self::assertSame('web_layout', $viewContext['module'] ?? '');
         self::assertSame('seo-optimieren', $this->row(1)['skill_identifier'] ?? '');
         self::assertFalse($this->messages(1)['pageGone']);
         // Refused for being read-only would be 409 before the content is read.
         self::assertSame(400, $controller->sendMessage($this->post(['conversationUid' => 1, 'content' => '']))->getStatusCode());
         // The chat asks for a page.
         self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => true], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
+    }
+
+    /** A page that is still there stays the page a process picked in the chat works on. */
+    #[Test]
+    public function aProcessPickedInAChatOnALivePageKeepsThatPage(): void
+    {
+        $this->aboutPage(1, 10, skill: '');
+
+        $picked = $this->withProcessSkill()->updateSkill($this->post(['conversationUid' => 1, 'skill' => 'seo-optimieren']));
+
+        self::assertSame(200, $picked->getStatusCode(), (string) $picked->getBody());
+        self::assertSame(['pageId' => 10, 'module' => 'web_layout'], json_decode($this->viewContextOf(1), true, 512, JSON_THROW_ON_ERROR));
+        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => false], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
+    }
+
+    /**
+     * A running tour whose page was deleted cannot have its skill switched:
+     * that would leave its waiting run behind. Ending the tour withdraws it.
+     */
+    #[Test]
+    public function aRunningTourOnADeletedPageCannotSwitchItsSkill(): void
+    {
+        $this->aboutPage(1, 10);
+        $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->update('tx_nrmcpagent_conversation', ['status' => 'awaiting_approval', 'approval_run_uuid' => 'e2e00000-0000-4000-8000-0000000000fe'], ['uid' => 1]);
+        $this->deletePage(10);
+
+        $picked = $this->withProcessSkill()->updateSkill($this->post(['conversationUid' => 1, 'skill' => 'seo-optimieren']));
+
+        self::assertSame(409, $picked->getStatusCode(), (string) $picked->getBody());
+        self::assertSame(
+            ['status' => 'awaiting_approval', 'skill_identifier' => 'seo-optimieren', 'approval_run_uuid' => 'e2e00000-0000-4000-8000-0000000000fe'],
+            array_intersect_key($this->row(1), ['status' => 1, 'skill_identifier' => 1, 'approval_run_uuid' => 1]),
+        );
+        self::assertSame(10, json_decode($this->viewContextOf(1), true, 512, JSON_THROW_ON_ERROR)['pageId'] ?? 0);
+    }
+
+    private function viewContextOf(int $conversation): string
+    {
+        $value = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->select(['view_context'], 'tx_nrmcpagent_conversation', ['uid' => $conversation])->fetchOne();
+
+        return is_string($value) ? $value : '';
     }
 
     /**

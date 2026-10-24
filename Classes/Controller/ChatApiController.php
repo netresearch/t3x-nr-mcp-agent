@@ -467,6 +467,14 @@ final readonly class ChatApiController
             return $refusal;
         }
 
+        // A running tour on a deleted page is read-only: switching its skill
+        // would leave its waiting run behind. Ending it (endTour()) withdraws
+        // the run; a skill can be picked after that.
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
+        }
+
         // A process stays on the conversation's page (keepsItsPage()). A page
         // deleted since — the one a tour ended on, or where an ordinary chat
         // last was — would bind the new process to nothing and make the chat
