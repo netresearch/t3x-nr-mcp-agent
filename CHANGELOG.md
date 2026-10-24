@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.9] - 2026-10-24
+
+### Fixed
+
+- **After "Behalten" the assistant no longer tells the editor that the point was skipped (#240).** The answer reaches nr-llm as `ApprovalDenialReason::KEEP` instead of `SKIP`, so the model is told that the point is settled and must not be called skipped. This requires nr-llm 0.41.4 (`^0.41.4` in `composer.json`, `0.41.4-0.41.99` in `ext_emconf.php`); the open-point handling of "Behalten" is unchanged.
+
 ## [0.17.8] - 2026-10-24
 
 ### Fixed
