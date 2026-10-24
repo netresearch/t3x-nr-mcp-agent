@@ -1,0 +1,49 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: Netresearch DTT GmbH */
+/* Supplemental contrast corrections for the pinned TYPO3 manual theme.
+ * Platform typography, layout, header/footer and code backgrounds stay intact.
+ * light-dark() follows the platform's actual color-scheme, not an unrelated
+ * OS preference while the manual still uses light surfaces. */
+.breadcrumb-item.active,
+.page-main figcaption,
+.page-main figcaption p {
+    color: light-dark(#4D4F57, #D3D8DF);
+}
+
+/* A visually hidden heading is not an interactive collapse target. The theme
+ * inserts its toggle there too; hiding that control prevents offscreen focus
+ * targets and overflow while retaining the heading for assistive technology. */
+.sr-only .toggle-section { display: none; }
+pre[tabindex]:focus-visible,
+.table-responsive[tabindex]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.page-main strong { overflow-wrap: anywhere; }
+
+/* Keep the renderer's syntax hues, with normal-text contrast on its surfaces. */
+.code-block-wrapper .hljs-comment,
+.code-block-wrapper .hljs-quote { color: light-dark(#4D4F57, #CBD2DB); }
+.code-block-wrapper .hljs-doctag,
+.code-block-wrapper .hljs-keyword,
+.code-block-wrapper .hljs-formula { color: light-dark(#942338, #FFB5BF); }
+.code-block-wrapper .hljs-section,
+.code-block-wrapper .hljs-name,
+.code-block-wrapper .hljs-selector-tag,
+.code-block-wrapper .hljs-deletion,
+.code-block-wrapper .hljs-subst { color: light-dark(#145E2B, #9BE3AC); }
+.code-block-wrapper .hljs-attr,
+.code-block-wrapper .hljs-attribute,
+.code-block-wrapper .hljs-variable,
+.code-block-wrapper .hljs-template-variable,
+.code-block-wrapper .hljs-type,
+.code-block-wrapper .hljs-selector-class,
+.code-block-wrapper .hljs-selector-attr,
+.code-block-wrapper .hljs-selector-pseudo,
+.code-block-wrapper .hljs-number,
+.code-block-wrapper .hljs-literal { color: light-dark(#00489A, #B5D5FF); }
+.code-block-wrapper .hljs-built_in,
+.code-block-wrapper .hljs-class .hljs-title { color: light-dark(#7E3A05, #FFD09C); }
+.code-block-wrapper .hljs-symbol,
+.code-block-wrapper .hljs-bullet,
+.code-block-wrapper .hljs-link,
+.code-block-wrapper .hljs-meta,
+.code-block-wrapper .hljs-selector-id,
+.code-block-wrapper .hljs-title { color: light-dark(#5D359C, #D9C1FF); }
