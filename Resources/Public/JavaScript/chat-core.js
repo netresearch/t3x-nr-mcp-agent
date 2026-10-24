@@ -3,6 +3,7 @@
 
 import {ApiClient} from '@netresearch/nr-mcp-agent/api-client.js';
 import {lll} from '@typo3/core/lit-helper.js';
+import {ModuleStateStorage} from '@typo3/backend/storage/module-state-storage.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
 import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 
@@ -75,10 +76,19 @@ export function statusLabel(status) {
  * assistant, never a reason for a message to fail. The server re-checks the
  * page against the user's permissions before it reaches the prompt.
  *
+ * Where the module is about a page, the page tree's selection
+ * (ModuleStateStorage `web`) takes precedence over the URL (ADR-024): a click
+ * in the tree updates it at once, while the module frame still shows the
+ * previous page until the new one has loaded. The tree's selection outlives
+ * the module — it is still set in the Dashboard — so it is read only where
+ * the URL carries a page; a module that is not about a page still sends none.
+ * The language comes from the URL, and only while both name the same page.
+ *
  * @param {Window} [win]
+ * @param {() => {identifier?: string}} [treeSelection] the page tree's state
  * @returns {{pageId: number, module: string}}
  */
-export function currentBackendContext(win = globalThis.top ?? globalThis) {
+export function currentBackendContext(win = globalThis.top ?? globalThis, treeSelection = () => ModuleStateStorage.current('web')) {
     const context = {pageId: 0, module: ''};
     try {
         const doc = win.document;
@@ -92,13 +102,15 @@ export function currentBackendContext(win = globalThis.top ?? globalThis) {
         const params = new URLSearchParams(frame?.location?.search ?? '');
         const id = params.get('id');
         if (id && /^\d+$/.test(id)) {
-            context.pageId = Number.parseInt(id, 10);
+            const urlPageId = Number.parseInt(id, 10);
+            const selected = selectedTreePage(treeSelection);
+            context.pageId = selected > 0 ? selected : urlPageId;
             // The page's language, where the module URL carries it: `language`
             // (TYPO3 13) or the first of `languages[]` (14). The page module
             // often keeps it in its module data instead; then none is sent and
             // the server keeps the one the conversation started with (ADR-019).
             const language = params.get('language') ?? params.get('languages[0]') ?? params.getAll('languages[]')[0];
-            if (language && /^\d+$/.test(language)) {
+            if (context.pageId === urlPageId && language && /^\d+$/.test(language)) {
                 context.languageId = Number.parseInt(language, 10);
             }
         }
@@ -106,6 +118,21 @@ export function currentBackendContext(win = globalThis.top ?? globalThis) {
         // Cross-origin or not a backend window: send no context.
     }
     return context;
+}
+
+/**
+ * The page selected in the page tree, or 0. A failed read is no selection.
+ *
+ * @param {() => {identifier?: string}} read
+ */
+function selectedTreePage(read) {
+    try {
+        const identifier = String(read()?.identifier ?? '');
+
+        return /^\d+$/.test(identifier) ? Number.parseInt(identifier, 10) : 0;
+    } catch {
+        return 0;
+    }
 }
 
 /**

@@ -19,5 +19,6 @@ export default {
         '^lit/(.*)$': '<rootDir>/node_modules/lit/$1',
         // Stub TYPO3 native modules not available in Jest
         '^@typo3/core/lit-helper\\.js$': '<rootDir>/Tests/JavaScript/__mocks__/@typo3/core/lit-helper.js',
+        '^@typo3/backend/storage/(persistent|module-state-storage)\\.js$': '<rootDir>/Tests/JavaScript/__mocks__/@typo3/backend/storage/$1.js',
     },
 };
