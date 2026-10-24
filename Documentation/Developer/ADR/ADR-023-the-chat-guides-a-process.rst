@@ -406,7 +406,8 @@ point; it closes the open points on the proposal's record and fields
 (ADR-022). The chat confirms with "Behalten — der bisherige Inhalt bleibt."
 and the transcript line the model reads is the button's label. The outcome
 is ``kept`` and the tour summary lists it under its own heading *Behalten*.
-nr-llm is unchanged: the denial reaches it as ``skip``.
+nr-llm is unchanged: the denial reaches it as ``skip``
+(superseded by the amendment of 2026-10-24 below).
 
 
 Amendment of 2026-10-23: the process goes on by itself after an approval
@@ -454,3 +455,23 @@ Seite schreibe ich auf Englisch, weil die Seite englisch ist."), and explains
 translation tools only when asked about other languages. The rule itself is
 unchanged: content is created in the default language, and no translations
 are made unless the editor asks for them.
+
+
+Amendment of 2026-10-24: *Behalten* reaches nr-llm as ``keep``
+===============================================================
+
+**Context.** nr-llm had only ``variant`` and ``skip``, so the amendment of
+2026-10-23 above sent *Behalten* as ``skip``. nr-llm then told the model that
+whoever declined "chose to skip it", and after *Behalten* the assistant wrote
+to the editor that the point had been skipped. The editor had kept the
+content. This was measured on the demo with nr-mcp-agent 0.17.8 and nr-llm
+0.41.3.
+
+**Decision.** nr-llm 0.41.4 adds ``ApprovalDenialReason::KEEP``.
+:php:`ApprovalDecisionFactory::denialReason()` maps ``DenyReason::Keep`` to
+it, and the extension requires nr-llm ``^0.41.4``. *Übernehmen*, *Andere
+Variante* and *Überspringen* are unchanged, and so is everything the chat
+does with *Behalten* itself (ADR-022).
+
+**Consequence.** The failure signature of a regression is the old sentence in
+the assistant's answer after *Behalten*: it calls the point skipped.
