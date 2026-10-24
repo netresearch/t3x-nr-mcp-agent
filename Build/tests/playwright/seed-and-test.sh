@@ -16,8 +16,10 @@
 #                 then is the toolbar item rendered, which loads the chat panel
 #                 every other spec drives (ChatToolbarItem::checkAccess()).
 #                 One conversation waits for an approval
-#                 (approval-card-height.spec.ts), and two pages fill the
-#                 page tree (chat-column.spec.ts).
+#                 (approval-card-height.spec.ts), two pages fill the
+#                 page tree (chat-column.spec.ts), and two more
+#                 conversations wait for an approval to approve and to
+#                 cancel (editor-journey.spec.ts).
 #
 # DB coordinates are the fixed defaults the reusable workflow's default mode
 # provisions (see its "Setup TYPO3" step): host 127.0.0.1, root/root, db typo3.
@@ -62,6 +64,9 @@ case "${E2E_VARIANT:-}" in
 
     echo "Seeding two pages for the page tree (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/pages-seed.sql"
+
+    echo "Seeding two conversations for the editor journey (${DB_CLIENT})..."
+    "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/journey-seed.sql"
 
     echo "Pointing llmTaskUid at the seeded Task..."
     cat >> config/system/additional.php << 'PHPEOF'

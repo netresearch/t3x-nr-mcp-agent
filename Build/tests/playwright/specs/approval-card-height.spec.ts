@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
-import { test, expect, FrameLocator, Locator, Page } from '@playwright/test';
+import { FrameLocator, Locator, Page } from '@playwright/test';
+import { test, expect, waitForBackend } from '../fixtures/backend';
 
 /**
  * The approval card keeps its height when the transcript overflows.
@@ -40,7 +41,7 @@ async function login(page: Page): Promise<void> {
         await page.getByLabel('Username').fill(TYPO3_USER);
         await page.getByLabel('Password').fill(TYPO3_PASSWORD);
         await page.getByRole('button', { name: /log.?in/i }).click();
-        await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
+        await waitForBackend(page);
     }
     await page.waitForFunction(() => !!(window as any).TYPO3?.settings?.ajaxUrls?.ai_chat_conversations, null, { timeout: 10000 });
 }

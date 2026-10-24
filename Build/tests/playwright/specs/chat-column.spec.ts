@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
-import { test, expect, Locator, Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
+import { test, expect } from '../fixtures/backend';
 
 /**
  * The chat docked as a column beside the page tree (ADR-024).
@@ -12,7 +13,7 @@ import { test, expect, Locator, Page } from '@playwright/test';
  * settings (uc), so they survive a reload.
  *
  * jsdom lays nothing out, so the geometry is only checked here. The specs read
- * the scaffold of both TYPO3 13.4 and 14.3; CI runs them against 13.4 only.
+ * the scaffold of both TYPO3 13.4 and 14.3; CI runs them against both.
  *
  * Fixtures (seed-and-test.sh, `configured` variant): the pages in
  * pages-seed.sql fill the page tree, the conversation in

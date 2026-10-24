@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
-import { test, expect } from '@playwright/test';
+import { test, expect, waitForBackend } from '../fixtures/backend';
 
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
 const TYPO3_PASSWORD = process.env.TYPO3_ADMIN_PASSWORD || 'Joh316!!';
@@ -23,7 +23,7 @@ test('the toolbar button loads and expands the chat panel', async ({ page }) => 
         await page.getByLabel('Username').fill(TYPO3_USER);
         await page.getByLabel('Password').fill(TYPO3_PASSWORD);
         await page.getByRole('button', { name: /log.?in/i }).click();
-        await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
+        await waitForBackend(page);
     }
 
     const nrMcpImports = await page.evaluate(() => {

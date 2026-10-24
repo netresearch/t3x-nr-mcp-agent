@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
-import { test, expect, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
+import { test, expect, waitForBackend } from '../fixtures/backend';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -32,7 +33,7 @@ async function openChatWithConversation(page: Page): Promise<void> {
         await page.getByLabel('Username').fill(TYPO3_USER);
         await page.getByLabel('Password').fill(TYPO3_PASSWORD);
         await page.getByRole('button', { name: /log.?in/i }).click();
-        await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
+        await waitForBackend(page);
     }
     await page.waitForFunction(() => !!document.querySelector('ai-chat-panel'), null, { timeout: 10000 });
     // Until init() has settled the panel renders a spinner instead of the
