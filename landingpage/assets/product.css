@@ -626,7 +626,7 @@ html { scroll-padding-top: 6rem; }
 main > section { scroll-margin-top: 6rem; }
 .wrap, .cards > *, .two-col > *, .status-facts > *, .answers > *,
 .capability-card > div > *, .flow-list li > *, .scenario-list li > * { min-width: 0; }
-p, li, dd, h1, h2, h3 { overflow-wrap: anywhere; }
+p, li, dt, dd, h1, h2, h3 { overflow-wrap: anywhere; }
 button, select { font: inherit; }
 button:focus-visible, select:focus-visible, [tabindex]:focus-visible {
     outline: 3px solid var(--nr-focus);

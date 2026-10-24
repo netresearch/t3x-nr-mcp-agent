@@ -175,6 +175,51 @@ function report({ route, scheme, violation }) {
   }
 }
 
+/** A clipped card can hide overflowing labels without widening the document. */
+async function textBounds(page) {
+  return page.evaluate(() => ({
+    viewport: innerWidth,
+    width: document.documentElement.scrollWidth,
+    clipped: [...document.querySelectorAll('.capability-card dt, .capability-card dd')]
+      .filter((element) => {
+        const bounds = element.getBoundingClientRect();
+        const card = element.closest('.capability-card').getBoundingClientRect();
+        return bounds.left < card.left - 1 || bounds.right > card.right + 1
+          || element.scrollWidth > element.clientWidth + 1;
+      }).map((element) => element.textContent.trim().slice(0, 100)),
+  }));
+}
+
+function textAdaptationViolations(state, adaptation) {
+  const nodes = state.clipped.map((text) => ({
+    target: ['.capability-card'], failureSummary: `${adaptation}: clipped content: ${text}`,
+  }));
+  if (state.width > state.viewport + 1) nodes.push({
+    target: ['html'], failureSummary: `${adaptation}: document ${state.width}px exceeds ${state.viewport}px`,
+  });
+  if (!nodes.length) return [];
+  return [{
+    id: 'text-adaptation', impact: 'serious', help: 'Enlarged and spaced text must remain available',
+    helpUrl: 'https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html', nodes,
+  }];
+}
+
+/** Exercise both text adaptations serially on the narrow product page. */
+async function auditTextAdaptation(page, scheme) {
+  if (scheme !== 'light') return [];
+  await page.evaluate(() => {
+    const sizes = [...document.querySelectorAll('body, body *')]
+      .map((element) => [element, Number.parseFloat(getComputedStyle(element).fontSize)]);
+    for (const [element, size] of sizes) element.style.fontSize = `${size * 2}px`;
+  });
+  const enlarged = await textBounds(page);
+  await page.reload({waitUntil: 'networkidle'});
+  const spacing = await page.addStyleTag({content: '*{line-height:1.5!important;letter-spacing:.12em!important;word-spacing:.16em!important}p{margin-bottom:2em!important}'});
+  const spaced = await textBounds(page);
+  await spacing.evaluate((style) => style.remove());
+  return [...textAdaptationViolations(enlarged, '200% text'), ...textAdaptationViolations(spaced, 'WCAG text spacing')];
+}
+
 /** Audits one page and returns the failures found on it. */
 async function auditPage(browser, port, route, scheme, width) {
   const context = await browser.newContext({
@@ -205,6 +250,7 @@ async function auditPage(browser, port, route, scheme, width) {
       nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
     });
     if (width === 320) {
+      results.violations.push(...(await auditTextAdaptation(page, scheme)));
       const menu = page.locator('.menu-toggle');
       await menu.click();
       const requestedTheme = scheme === 'light' ? 'dark' : 'light';
