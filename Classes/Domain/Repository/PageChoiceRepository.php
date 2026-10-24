@@ -272,9 +272,11 @@ readonly class PageChoiceRepository
 
     /**
      * Whether the page no longer exists: never there, removed from the
-     * database, or deleted (in the recycler). A page that exists but is hidden,
-     * or that the user may not see, is not gone — readPageAccess() answers
-     * null for both, so this is the question that tells them apart.
+     * database, or deleted (in the recycler). readPageAccess() answers null
+     * for such a page and for one the user may not see alike; this tells the
+     * two apart, for any user. Only the deleted flag counts: a hidden page,
+     * or one outside the user's mounts, is not gone. A page deleted in a
+     * workspace only is not gone either.
      */
     public function isGone(int $uid): bool
     {

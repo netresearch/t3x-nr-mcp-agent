@@ -605,10 +605,10 @@
                 <source>Yesterday, %s</source>
             </trans-unit>
             <trans-unit id="chat.pageGone" resname="chat.pageGone">
-                <source>The page this chat is about has been deleted. The chat can be read, but not continued.</source>
+                <source>The page this guided tour is on has been deleted. The chat can be read but not continued; end the tour (×) to go on as an ordinary chat.</source>
             </trans-unit>
             <trans-unit id="error.pageGone" resname="error.pageGone">
-                <source>The page this chat is about has been deleted; the chat cannot be continued.</source>
+                <source>The page this guided tour is on has been deleted; end the tour to continue the chat.</source>
             </trans-unit>
             <trans-unit id="permission.header" resname="permission.header">
                 <source>AI Chat</source>

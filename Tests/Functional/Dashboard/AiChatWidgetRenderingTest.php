@@ -179,27 +179,56 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
     }
 
     #[Test]
-    public function aConversationAboutADeletedPageSaysSo(): void
+    public function aGuidedProcessOnADeletedPageSaysSo(): void
     {
         $this->addPage(11, 'Weg', ['deleted' => 1]);
         $this->addMessage(1);
-        $this->updateConversation(1, ['view_context' => '{"pageId":11,"module":"web_layout"}']);
+        $this->updateConversation(1, [
+            'view_context'     => '{"pageId":11,"module":"web_layout"}',
+            'skill_identifier' => 'seo-optimieren',
+            'guided_state'     => '{"progress":{"label":"SEO","current":2,"total":4,"completed":false},"highlight":null}',
+        ]);
 
         $html = $this->render();
 
-        self::assertStringContainsString('Conv 1', $html);
-        self::assertStringContainsString('Deleted page', $html);
+        self::assertStringContainsString('Optimise SEO', $html);
+        self::assertStringContainsString('Deleted page · Guided tour', $html);
+        self::assertStringContainsString('Point 2 of 4', $html);
         self::assertStringNotContainsString('Weg', $html);
         self::assertStringContainsString('data-nr-chat-page=""', $html);
     }
 
+    /**
+     * An ordinary chat keeps the page the browser showed with its last
+     * message; that is where the editor was, not what the chat is about.
+     */
     #[Test]
-    public function aConversationAboutAPageTheUserMayNotSeeIsLeftOut(): void
+    public function anOrdinaryChatIsListedWithoutItsLastPage(): void
+    {
+        $this->addPage(10, 'Startseite');
+        $this->addPage(11, 'Weg', ['deleted' => 1]);
+        $this->addMessage(1);
+        $this->addMessage(2);
+        $this->updateConversation(1, ['view_context' => '{"pageId":10,"module":"web_layout","languageId":0}']);
+        $this->updateConversation(2, ['view_context' => '{"pageId":11,"module":"web_layout"}']);
+
+        $html = $this->render();
+
+        self::assertStringContainsString('Conv 1', $html);
+        self::assertStringContainsString('Conv 2', $html);
+        self::assertStringNotContainsString('Startseite', $html);
+        self::assertStringNotContainsString('Deleted page', $html);
+        self::assertStringNotContainsString('nr-recent-chats-context', $html);
+        self::assertStringNotContainsString('data-nr-chat-page="1', $html);
+    }
+
+    #[Test]
+    public function aGuidedProcessOnAPageTheUserMayNotSeeIsLeftOut(): void
     {
         // Page 12 grants nothing to anyone but its owner, the admin.
         $this->addPage(12, 'Intern');
         $this->addMessage(3);
-        $this->updateConversation(3, ['view_context' => '{"pageId":12,"module":"web_layout"}']);
+        $this->updateConversation(3, ['view_context' => '{"pageId":12,"module":"web_layout"}', 'skill_identifier' => 'seo-optimieren']);
         $this->actingAs(2);
         // The editor's groups would allow the widget (core's per-group widget
         // permission); which group does not matter here.

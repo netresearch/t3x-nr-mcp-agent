@@ -10,8 +10,8 @@ import { test, expect, waitForBackend } from '../fixtures/backend';
  *
  * Fixtures (seed-and-test.sh, `configured` variant): recent-chats-seed.sql
  * puts the widget on the admin's dashboard and seeds an interrupted guided
- * process on page 3 ("E2E Recent chat page", point 2 of 4) and a chat about
- * page 4, which has been deleted. Their last message is dated 1 January 2099,
+ * process on page 3 ("E2E Recent chat page", point 2 of 4) and a guided
+ * process on page 4, which has been deleted. Their last message is dated 1 January 2099,
  * so they stay among the five newest. No model is called.
  */
 
@@ -61,7 +61,7 @@ test.describe('The "Recent chats" dashboard widget', () => {
         await expect(frame.getByRole('link', { name: /^E2E recent tour/ }))
             .toHaveAccessibleName(/^E2E recent tour\s*,\s*Page “E2E Recent chat page” · Guided tour\s*,\s*Point 2 of 4\s*,\s*Jan 1$/);
         await expect(frame.getByRole('link', { name: /^E2E recent deleted page/ }))
-            .toHaveAccessibleName(/^E2E recent deleted page\s*,\s*Deleted page\s*,\s*Jan 1$/);
+            .toHaveAccessibleName(/^E2E recent deleted page\s*,\s*Deleted page · Guided tour\s*,\s*Jan 1$/);
     });
 
     test('a chat about a page opens in the chat and shows its page in the page module', async ({ page }) => {
@@ -79,7 +79,7 @@ test.describe('The "Recent chats" dashboard widget', () => {
         await expect(page.frameLocator('iframe[name="list_frame"]').getByText('E2E Recent chat page').first()).toBeVisible();
     });
 
-    test('a chat about a deleted page opens read-only, by keyboard, without leaving the dashboard', async ({ page }) => {
+    test('a tour on a deleted page opens read-only, by keyboard, without leaving the dashboard, and can be ended', async ({ page }) => {
         const frame = await openDashboard(page);
         const panel = page.locator('ai-chat-panel');
 
@@ -87,10 +87,15 @@ test.describe('The "Recent chats" dashboard widget', () => {
         await page.keyboard.press('Enter');
 
         await expect(panel.locator('.read-only-notice')).toHaveText(
-            'The page this chat is about has been deleted. The chat can be read, but not continued.',
+            'The page this guided tour is on has been deleted. The chat can be read but not continued; end the tour (×) to go on as an ordinary chat.',
         );
         await expect(panel.locator('.panel-messages')).toContainText('Here is what I found.');
         await expect(panel.locator('.panel-input textarea')).toHaveCount(0);
         expect(await routerModule(page)).toBe('dashboard');
+
+        // Ending the tour is the way out: an ordinary chat that can be continued.
+        await panel.locator('[data-action="end-tour"]').click();
+        await expect(panel.locator('.read-only-notice')).toHaveCount(0);
+        await expect(panel.locator('.panel-input textarea')).toBeEnabled();
     });
 });

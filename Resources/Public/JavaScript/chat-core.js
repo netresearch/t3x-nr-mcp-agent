@@ -1108,6 +1108,9 @@ export class ChatCoreController {
             this.pendingApproval = null;
             this.pendingInput = null;
             this.approvalDecisionTaken = null;
+            // Only a guided process is bound to its page; ended, the
+            // conversation is an ordinary one and can be continued.
+            this.pageGone = false;
             if (data.status) {
                 this.status = data.status;
                 this.conversations = this.conversations.map(c => c.uid === uid ? {...c, status: data.status} : c);

@@ -95,6 +95,33 @@ describe.each(SURFACES)('$name, conversation about a deleted page', ({module: mo
         el.remove();
     });
 
+    // A tour whose page was deleted has no `tour` from the server; ending it
+    // is its way out, and afterwards the conversation can be continued.
+    test('a tour can be ended, and the chat is open again', async () => {
+        const el = await render(modulePath, tag, open, {pageGone: true, skill: {identifier: 'seo-optimieren', name: 'SEO'}, tour: null});
+        el.chat._api.endTour = jest.fn().mockResolvedValue({status: 'idle', skill: null});
+        el.chat.host.onFocusInput = jest.fn();
+
+        const end = el.shadowRoot.querySelector('[data-action="end-tour"]');
+        expect(end).not.toBeNull();
+        end.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        expect(el.chat._api.endTour).toHaveBeenCalledWith(1);
+        expect(el.chat.isReadOnly()).toBe(false);
+        expect(el.shadowRoot.querySelector('.read-only-notice')).toBeNull();
+        expect(el.shadowRoot.querySelector('textarea')).not.toBeNull();
+        el.remove();
+    });
+
+    test('without a skill there is no tour to end', async () => {
+        const el = await render(modulePath, tag, open, {pageGone: true, skill: null, tour: null});
+
+        expect(el.shadowRoot.querySelector('[data-action="end-tour"]')).toBeNull();
+        el.remove();
+    });
+
     test('nothing is sent', async () => {
         const el = await render(modulePath, tag, open, {pageGone: true, inputValue: 'Weiter', hasInput: true});
 

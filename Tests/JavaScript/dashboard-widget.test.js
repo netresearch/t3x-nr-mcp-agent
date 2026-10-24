@@ -107,7 +107,14 @@ describe('dashboard widget', () => {
             click(link({'data-nr-chat-conversation': '12', 'data-nr-chat-page': '7', 'data-nr-chat-language': '1'}));
 
             expect(panel.chat.selectConversation).toHaveBeenCalledWith(12);
-            expect(showModule).toHaveBeenCalledWith('web_layout', 'id=7&language=1');
+            expect(showModule).toHaveBeenCalledTimes(1);
+            const [module, query] = showModule.mock.calls[0];
+            const params = new URLSearchParams(query);
+            expect(module).toBe('web_layout');
+            expect(params.get('id')).toBe('7');
+            // TYPO3 13 reads `language`, 14 reads `languages[]`.
+            expect(params.get('language')).toBe('1');
+            expect(params.get('languages[0]')).toBe('1');
             document.querySelector.mockRestore();
         });
 

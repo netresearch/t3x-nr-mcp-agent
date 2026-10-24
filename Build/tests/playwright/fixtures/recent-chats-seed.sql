@@ -18,14 +18,14 @@ SET @admin_uid = (SELECT uid FROM be_users WHERE username = 'admin' AND deleted 
 INSERT INTO be_dashboards (pid, identifier, cruser_id, title, widgets, crdate, tstamp)
 VALUES (0, 'e2e-recent-chats', @admin_uid, 'E2E', '{"e2erecentchats":{"identifier":"nrMcpAgentAiChat"}}', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
 
--- An interrupted guided process on page 3, at point 2 of 4, and a chat about
--- the deleted page 4. Their last message is dated far ahead, so they stay
+-- An interrupted guided process on page 3, at point 2 of 4, and a guided
+-- process on the deleted page 4 (only a guided process is bound to its page). Their last message is dated far ahead, so they stay
 -- among the five newest whatever the other specs add while they run.
 INSERT INTO tx_nrmcpagent_conversation
     (pid, be_user, title, messages, message_count, status, system_prompt, view_context, skill_identifier, activity, guided_state, approval_card, card_outcomes, error_message, approval_run_uuid, pending_input, tstamp, crdate)
 VALUES
     (0, @admin_uid, 'E2E recent tour', '', 2, 'idle', '', '{"pageId":3,"module":"web_layout","languageId":0}', 'e2e-process', '', '{"progress":{"label":"E2E","current":2,"total":4,"completed":false},"highlight":null}', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-    (0, @admin_uid, 'E2E recent deleted page', '', 2, 'idle', '', '{"pageId":4,"module":"web_layout"}', '', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
+    (0, @admin_uid, 'E2E recent deleted page', '', 2, 'idle', '', '{"pageId":4,"module":"web_layout"}', 'e2e-process', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
 
 INSERT INTO tx_nrmcpagent_message (pid, conversation, sorting, role, payload, crdate)
 SELECT 0, c.uid, t.n, IF(t.n = 0, 'user', 'assistant'),

@@ -475,26 +475,31 @@ listed. Each entry shows:
 
 -   the title: the name of the guided tour for a guided process, otherwise
     the chat's own title;
--   below it, in grey, what the chat is about: *Page “<title>”* for a chat
-    about a page, and *Guided tour* for a guided process;
--   for a guided process that has not finished, the point it is at
-    (*Point 3 of 5*), as the chat's header shows it;
+-   below it, in grey, for a guided process: the page it works on
+    (*Page “<title>”*) and *Guided tour*. Any other chat has no such line:
+    it only remembers the page you had open when you last wrote, which is
+    not what the chat is about;
+-   for a guided process that is at a point and has not finished, that
+    point (*Point 3 of 5*), as the chat's header shows it;
 -   when the last message was written: *Today, 10:42*, *Yesterday, 16:05*,
     then the date (*Oct 3*), with the year once it is more than a year ago,
     in your backend language.
 
 A click opens the chat in the chat panel next to the dashboard, floating or
-as a column, as you last used it; a chat about a page also opens that page
-in the page module. A guided process continues where it stopped: a
+as a column, as you last used it; a guided process also opens its page in
+the page module, in its language. A guided process continues where it stopped: a
 proposal waiting for your answer is shown again. **New chat** starts a chat
 there, and **Show all chats** goes to the chat module. Each entry is one
 link, reachable with :kbd:`Tab`; a screen reader reads its title, context,
 progress and time.
 
-A chat about a page you may not see is not listed. A chat about a page that
-has been deleted since is listed as *Deleted page*; it opens read-only, with
-a notice where the input was: it can be read, but no message can be sent or
-edited, and no question answered, proposal decided or run resumed.
+A guided process on a page you may not see is not listed. A guided process
+whose page has been deleted since is listed as *Deleted page*; it opens
+read-only, with a notice where the input was: it can be read, but no message
+can be sent or edited, and no question answered, proposal decided or run
+resumed. The × beside the progress ends the tour, which withdraws a run still
+waiting for your answer; the chat then goes on as an ordinary chat. A page
+deleted only in a workspace does not count as deleted.
 
 For a user the chat is not available to, the widget says so instead of
 listing anything. Which groups may place the widget at all is set per

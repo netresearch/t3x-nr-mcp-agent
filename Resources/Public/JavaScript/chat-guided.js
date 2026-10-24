@@ -121,7 +121,10 @@ export function renderProgress(chat) {
  * proposal still waiting; what was applied stays.
  */
 export function renderEndTour(chat) {
-    if (!chat.tour) {
+    // A process whose page was deleted has no tour (the server names no
+    // page it cannot find) and is read-only; ending it is its only way out,
+    // and withdraws a run still waiting on a proposal or a question.
+    if (!chat.tour && !(chat.skill && chat.isReadOnly?.())) {
         return nothing;
     }
 

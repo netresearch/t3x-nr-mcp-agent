@@ -7,8 +7,8 @@
  * The dashboard runs inside the module frame; the chat panel lives in the
  * backend frame around it (ADR-011), floating or as a column, as the user
  * left it (ADR-024). A conversation or "New chat" clicked in the widget opens
- * there, next to the dashboard. A conversation about a page the user may see
- * (`data-nr-chat-page`) also opens that page in the page module, through
+ * there, next to the dashboard. A guided process bound to a page the user may
+ * see (`data-nr-chat-page`) also opens that page in the page module, through
  * core's module menu, so the chat and the page sit side by side. Where the
  * panel is not available — a user without the toolbar item, or a frame that
  * is not the backend's — the link is followed and the chat module opens
@@ -54,7 +54,10 @@ function showPage(pageUid, languageUid) {
     }
     const params = new URLSearchParams({id: String(pageUid)});
     if (languageUid >= 0) {
+        // The page module reads `language` in TYPO3 13 and `languages[]` in
+        // 14; each ignores the other's.
         params.set('language', String(languageUid));
+        params.set('languages[0]', String(languageUid));
     }
     moduleMenu.showModule('web_layout', params.toString());
 }

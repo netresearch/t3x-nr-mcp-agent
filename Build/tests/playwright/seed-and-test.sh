@@ -20,8 +20,8 @@
 #                 page tree (chat-column.spec.ts), and two more
 #                 conversations wait for an approval to approve and to
 #                 cancel (editor-journey.spec.ts). The admin's dashboard
-#                 holds the "Recent chats" widget, with a conversation about
-#                 a page and one about a deleted page
+#                 holds the "Recent chats" widget, with a guided process on
+#                 a page and one on a deleted page
 #                 (recent-chats-widget.spec.ts).
 #
 # DB coordinates are the fixed defaults the reusable workflow's default mode

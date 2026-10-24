@@ -253,12 +253,23 @@ final class AiChatWidgetTest extends TestCase
         self::assertNull($this->widget(1, $this->repository([$conversation]))->templateVariables()['conversations'][0]['progress']);
     }
 
+    /** Point 0 is the analysis before the first point; the header says so, the list shows no chip yet. */
+    #[Test]
+    public function aGuidedProcessShowsNoProgressBeforeItsFirstPoint(): void
+    {
+        $this->actingAs(3);
+        $conversation = $this->withGuidedState($this->conversation(1), 0, 5);
+        $conversation->setSkillIdentifier('seo-optimieren');
+
+        self::assertNull($this->widget(1, $this->repository([$conversation]))->templateVariables()['conversations'][0]['progress']);
+    }
+
     /**
-     * A conversation about a page the user may not see is left out, and the
+     * A guided process on a page the user may not see is left out, and the
      * next one takes its place.
      */
     #[Test]
-    public function aConversationAboutAPageTheUserMayNotSeeIsLeftOut(): void
+    public function aGuidedProcessOnAPageTheUserMayNotSeeIsLeftOut(): void
     {
         $this->actingAs(3);
         $conversations = [];
@@ -267,25 +278,66 @@ final class AiChatWidgetTest extends TestCase
         }
 
         $conversations[1]->setViewContext(99, 'web_layout');
+        $conversations[1]->setSkillIdentifier('seo-optimieren');
 
         $entries = $this->widget(1, $this->repository($conversations))->templateVariables()['conversations'];
 
         self::assertSame([1, 3, 4, 5, 6], array_column($entries, 'uid'));
     }
 
-    /** A deleted page is no reason to hide the conversation: it is said, not named. */
+    /**
+     * Any other conversation stores the page the browser showed with its last
+     * message: where the editor was, not what the chat is about. It is not
+     * named, not checked and not opened, whether the page is there, hidden
+     * from the user or deleted.
+     *
+     * @return iterable<string, array{array<int, array{uid: int, title: string}>, list<int>}>
+     */
+    public static function lastPagesOfAnOrdinaryChat(): iterable
+    {
+        yield 'a page the user may see' => [[12 => ['uid' => 12, 'title' => 'Über uns']], []];
+        yield 'a page the user may not see' => [[], []];
+        yield 'a deleted page' => [[], [12]];
+    }
+
+    /**
+     * @param array<int, array{uid: int, title: string}> $accessible
+     * @param list<int>                                  $gone
+     */
     #[Test]
-    public function aConversationAboutADeletedPageStaysAndSaysSo(): void
+    #[DataProvider('lastPagesOfAnOrdinaryChat')]
+    public function anOrdinaryChatIsListedWithoutItsLastPage(array $accessible, array $gone): void
     {
         $this->actingAs(3);
         $conversation = $this->conversation(1);
+        $conversation->setViewContext(12, 'web_layout', 0);
+
+        $entries = $this->widget(1, $this->repository([$conversation]), $accessible, $gone)->templateVariables()['conversations'];
+
+        self::assertCount(1, $entries);
+        self::assertSame([], $entries[0]['context']);
+        self::assertNull($entries[0]['page']);
+        self::assertFalse($entries[0]['pageGone']);
+    }
+
+    /** A deleted page is no reason to hide the guided process: it is said, not named, and its point stays. */
+    #[Test]
+    public function aGuidedProcessOnADeletedPageStaysAndSaysSo(): void
+    {
+        $this->actingAs(3);
+        $conversation = $this->withGuidedState($this->conversation(1), 2, 4);
         $conversation->setViewContext(42, 'web_layout', 0);
+        $conversation->setSkillIdentifier('seo-optimieren');
 
         $entry = $this->widget(1, $this->repository([$conversation]), gonePages: [42])->templateVariables()['conversations'][0];
 
         self::assertTrue($entry['pageGone']);
         self::assertNull($entry['page']);
-        self::assertSame([['key' => self::LL . 'widget.context.pageGone', 'arguments' => []]], $entry['context']);
+        self::assertSame([
+            ['key' => self::LL . 'widget.context.pageGone', 'arguments' => []],
+            ['key' => self::LL . 'widget.context.guidedTour', 'arguments' => []],
+        ], $entry['context']);
+        self::assertSame(['current' => 2, 'total' => 4], $entry['progress']);
     }
 
     /**

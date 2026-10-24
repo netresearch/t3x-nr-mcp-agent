@@ -47,19 +47,22 @@ use TYPO3\CMS\Dashboard\Widgets\WidgetInterface;
  * Per entry:
  * - the title: the guided process's name where the conversation runs one and
  *   the skill has a title, else the conversation's own title;
- * - the context: the page the conversation is about (its `view_context`) and
- *   "Guided Tour" for a guided process;
- * - for a guided process that has not reported its end, the point it is at,
- *   as the chat's header shows it ("Punkt n von m", ADR-023);
+ * - the context, for a guided process: the page it is bound to (its
+ *   `view_context`, which only a guided process keeps, ADR-023) and "Guided
+ *   tour". Any other conversation stores the page the browser showed with
+ *   its last message, which says where the editor was, not what the chat is
+ *   about; it gets no context line;
+ * - for a guided process that is at a point and has not reported its end,
+ *   that point, as the chat's header shows it ("Punkt n von m", ADR-023);
  * - when its last message was written, relative to today.
  *
- * A conversation about a page the user may not see is left out, and does not
- * take one of the places. A conversation about a page that no longer exists
- * stays: it says so, and the chat opens it read-only.
+ * A guided process on a page the user may not see is left out, and does not
+ * take one of the places. One whose page no longer exists stays: it says
+ * so, and the chat opens it read-only.
  *
  * A conversation opens in the floating panel, which lives in the backend
- * frame around the dashboard (ADR-011), in the user's layout (ADR-024); one
- * about a page also shows that page in the page module. Without the panel,
+ * frame around the dashboard (ADR-011), in the user's layout (ADR-024); a
+ * guided process also shows its page in the page module. Without the panel,
  * the link opens the chat module (dashboard-widget.js).
  */
 final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface, JavaScriptInterface, AdditionalCssInterface
@@ -179,16 +182,20 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
      */
     private function entry(Conversation $conversation, array $time): ?array
     {
+        $guided   = $conversation->getSkillIdentifier() !== '' && $this->processRuns->isProcessRun($conversation);
+        $progress = $guided ? $conversation->getGuidedState()['progress'] : null;
+
+        // Only a guided process is bound to its page; any other conversation
+        // stores the page the browser showed with its last message, which is
+        // where the editor was, not what the chat is about. Such a chat gets
+        // no page, no page check and no page module.
         $viewContext = $conversation->getViewContext();
-        $pageUid     = $viewContext['pageId'];
+        $pageUid     = $guided ? $viewContext['pageId'] : 0;
         $page        = $pageUid > 0 ? $this->pages->findAccessible($pageUid) : null;
         $pageGone    = $pageUid > 0 && $page === null && $this->pages->isGone($pageUid);
         if ($pageUid > 0 && $page === null && !$pageGone) {
             return null;
         }
-
-        $guided   = $conversation->getSkillIdentifier() !== '' && $this->processRuns->isProcessRun($conversation);
-        $progress = $guided ? $conversation->getGuidedState()['progress'] : null;
 
         // A deleted page is named as deleted, not by its title: the title is
         // gone with the page.
@@ -209,9 +216,10 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
             'context'  => $context,
             'page'     => $page === null ? null : ['uid' => $page['uid'], 'languageUid' => $viewContext['languageId']],
             'pageGone' => $pageGone,
-            // The point the process is at, as the header shows it; nothing
-            // once the process reported its end.
-            'progress' => $progress !== null && !$progress['completed'] ? ['current' => $progress['current'], 'total' => $progress['total']] : null,
+            // The point the process is at, as the header shows it: only once
+            // a point has started (0 is the analysis before the first), and
+            // nothing once the process reported its end.
+            'progress' => $progress !== null && !$progress['completed'] && $progress['current'] >= 1 ? ['current' => $progress['current'], 'total' => $progress['total']] : null,
             'time'     => $time,
         ];
     }

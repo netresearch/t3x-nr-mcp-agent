@@ -673,16 +673,18 @@ final readonly class ChatApiController
             // when it is installed.
             'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
             'activity'     => $conversation->getActivity(),
-            // The page the conversation is about has been deleted: the chat
-            // shows it read-only, with a notice (refuseReadOnly()).
+            // The page a guided process is bound to has been deleted: the
+            // chat shows it read-only, with a notice (refuseReadOnly()).
             'pageGone' => $this->isPageGone($conversation),
         ]);
     }
 
     /**
-     * A conversation about a page that has been deleted is read-only: it can
-     * be read again, not continued on a page that is not there — no message,
-     * no edit, no answer to a question, no decision, no resume.
+     * A guided process whose page has been deleted is read-only: it can be
+     * read again, not continued on a page that is not there — no message, no
+     * edit, no answer to a question, no decision, no resume. Ending it
+     * (endTour()) stays open: it withdraws a waiting run, and the
+     * conversation is an ordinary one again.
      */
     private function refuseReadOnly(Conversation $conversation): ?ResponseInterface
     {
@@ -692,14 +694,17 @@ final readonly class ChatApiController
     }
 
     /**
-     * Whether the page the conversation is about no longer exists. False for
-     * a conversation without a page, and where the page lookup is not wired.
+     * Whether the page the conversation is bound to no longer exists.
+     *
+     * Only a guided process stays on its page (keepsItsPage()); any other
+     * conversation takes the page the browser shows with each message, so a
+     * deleted page there is only where the editor last was, and the next
+     * message moves on. False as well where the page lookup is not wired.
      */
     private function isPageGone(Conversation $conversation): bool
     {
-        $pageUid = $conversation->getViewContext()['pageId'];
-
-        return $pageUid > 0 && ($this->pages?->isGone($pageUid) ?? false);
+        return $this->keepsItsPage($conversation)
+            && ($this->pages?->isGone($conversation->getViewContext()['pageId']) ?? false);
     }
 
     /**
