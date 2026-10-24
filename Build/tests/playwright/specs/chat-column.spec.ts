@@ -167,6 +167,32 @@ test.describe('Chat as a column beside the page tree', () => {
         await expect.poll(() => panel.evaluate((el: any) => el.chat.backendPage.pageId), { timeout: 5000 }).toBe(PAGE_UID);
     });
 
+    // The page tree loads the page without naming a module, and the core
+    // leaves the string "null" on the module router; the chat must still send
+    // the open module with each message.
+    test('sends the open module after a page is selected in the tree', async ({ page }) => {
+        await openModule(page, 'web_layout');
+        await openColumn(page);
+        // The page may already be selected from an earlier test, so wait for
+        // the click itself to reach the router, not for a different page.
+        await page.evaluate(() => {
+            const router = document.querySelector('typo3-backend-module-router')!;
+            new MutationObserver((records, observer) => {
+                (window as any).nrRouterRewritten = true;
+                observer.disconnect();
+            }).observe(router, { attributes: true, attributeFilter: ['module'] });
+        });
+
+        await page.getByRole('treeitem', { name: PAGE_TITLE }).click();
+
+        await page.waitForFunction(() => (window as any).nrRouterRewritten === true, null, { timeout: 10000 });
+        await expect.poll(() => page.evaluate(async () => {
+            const { currentBackendContext } = await import('@netresearch/nr-mcp-agent/chat-core.js' as string);
+            const { pageId, module } = currentBackendContext();
+            return { pageId, module };
+        }), { timeout: 5000 }).toEqual({ pageId: PAGE_UID, module: 'web_layout' });
+    });
+
     test('stays the leftmost column of the content in the Dashboard', async ({ page }) => {
         await openModule(page, 'web_layout');
         const panel = await openColumn(page);

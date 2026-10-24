@@ -9,12 +9,16 @@
 import {describe, test, expect, jest, beforeEach} from '@jest/globals';
 import {ChatCoreController, currentBackendContext} from '../../Resources/Public/JavaScript/chat-core.js';
 
-function fakeBackendWindow({module = 'web_layout', search = '?id=12&token=abc'} = {}) {
+function fakeBackendWindow({module = 'web_layout', search = '?id=12&token=abc', menuModule} = {}) {
     const doc = document.implementation.createHTMLDocument('backend');
     const router = doc.createElement('typo3-backend-module-router');
     router.module = module;
     doc.body.append(router);
-    return {document: doc, frames: {list_frame: {location: {search}}}};
+    const win = {document: doc, frames: {list_frame: {location: {search}}}};
+    if (menuModule !== undefined) {
+        win.TYPO3 = {ModuleMenu: {App: {getCurrentModule: () => menuModule}}};
+    }
+    return win;
 }
 
 function controller(state = {}) {
@@ -54,6 +58,25 @@ describe('currentBackendContext', () => {
     test('anything that is not an identifier or a number is dropped', () => {
         expect(currentBackendContext(fakeBackendWindow({module: '../x', search: '?id=12abc'})))
             .toEqual({pageId: 0, module: ''});
+    });
+
+    test('the router\'s module wins over the one the module menu last loaded', () => {
+        expect(currentBackendContext(fakeBackendWindow({module: 'web_list', menuModule: 'web_layout'})).module)
+            .toBe('web_list');
+    });
+
+    // A page-tree click loads the page without naming a module, and the core
+    // leaves the string "null" on the router.
+    test('a router left at "null" falls back to the module menu\'s module', () => {
+        expect(currentBackendContext(fakeBackendWindow({module: 'null', menuModule: 'web_layout'})))
+            .toEqual({pageId: 12, module: 'web_layout'});
+    });
+
+    test('a router left at "null" without a module menu sends no module', () => {
+        expect(currentBackendContext(fakeBackendWindow({module: 'null'})))
+            .toEqual({pageId: 12, module: ''});
+        expect(currentBackendContext(fakeBackendWindow({module: 'undefined', menuModule: null})))
+            .toEqual({pageId: 12, module: ''});
     });
 
     test('an unreadable window degrades to no context', () => {
