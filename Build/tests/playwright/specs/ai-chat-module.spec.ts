@@ -32,7 +32,7 @@ async function navigateToModule(page: Page): Promise<FrameLocator> {
     // Wait for the module iframe to appear and load
     const iframeEl = page.locator('iframe');
     await expect(iframeEl).toBeVisible({ timeout: 10000 });
-    const iframe = page.frameLocator('iframe').first();
+    const iframe = page.frameLocator('iframe[name="list_frame"]');
     // Wait for the Lit component inside the iframe
     await expect(iframe.locator('nr-chat-app')).toBeVisible({ timeout: 15000 });
     return iframe;

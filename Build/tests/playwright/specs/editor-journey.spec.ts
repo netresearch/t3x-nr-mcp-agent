@@ -60,7 +60,7 @@ async function expectColumn(page: Page, panel: Locator): Promise<void> {
 
 /** Open a conversation by its title, from the tab row or the "More" list. */
 async function openConversation(page: Page, panel: Locator, title: string): Promise<void> {
-    const tab = panel.getByRole('tab', { name: new RegExp(title) });
+    const tab = panel.getByRole('tab', { name: title });
     if (await tab.count() > 0) {
         await tab.click();
     } else {
@@ -68,13 +68,18 @@ async function openConversation(page: Page, panel: Locator, title: string): Prom
         await panel.getByRole('combobox', { name: /search/i }).fill(title);
         await page.keyboard.press('Enter');
     }
-    await expect(panel.getByRole('tab', { name: new RegExp(title), selected: true })).toBeVisible();
+    await expect(panel.getByRole('tab', { name: title, selected: true })).toBeVisible();
 }
 
 /** One field of a multipart body, as core's AjaxRequest posts the settings. */
 function formField(body: string, name: string): string | null {
-    const match = body.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)\\r\\n`));
-    return match ? match[1] : null;
+    const marker = `name="${name}"\r\n\r\n`;
+    const start = body.indexOf(marker);
+    if (start < 0) {
+        return null;
+    }
+    const value = start + marker.length;
+    return body.slice(value, body.indexOf('\r\n', value));
 }
 
 /** The next column width written to the user's settings (optionally a given one). */

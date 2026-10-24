@@ -104,7 +104,7 @@ test.describe('Approval card in an overflowing transcript', () => {
         await seededConversation(page);
 
         await page.locator(`a[href*="${MODULE_HREF_PATTERN}"]`).click();
-        const iframe: FrameLocator = page.frameLocator('iframe').first();
+        const iframe: FrameLocator = page.frameLocator('iframe[name="list_frame"]');
         const chatApp = iframe.locator('nr-chat-app');
         await expect(chatApp).toBeVisible({ timeout: 15000 });
 

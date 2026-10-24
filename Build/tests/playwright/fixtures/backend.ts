@@ -132,8 +132,22 @@ export { expect };
 /** The module menu: `.scaffold-modulemenu` in 13.4, `.scaffold-sidebar` in 14.3. */
 export const MODULE_MENU = '.scaffold-modulemenu, .scaffold-sidebar';
 
-/** Wait until the backend shell stands, in 13.4 and 14.3. */
+/**
+ * Wait until the backend shell stands, in 13.4 and 14.3, and its startup
+ * module has loaded into the module frame. A module link clicked before that
+ * loses: the router loads the startup module into the same frame afterwards
+ * and aborts the click's request (seen in CI on 14.3, where the Dashboard
+ * came in 4 ms after the click).
+ */
 export async function waitForBackend(page: Page): Promise<void> {
     await expect(page.locator('typo3-backend-module-router')).toBeAttached({ timeout: 15000 });
     await expect(page.locator(MODULE_MENU).first()).toBeVisible({ timeout: 15000 });
+    await page.waitForFunction(() => {
+        const frame = (window as any).frames?.list_frame;
+        try {
+            return Boolean(frame) && frame.location.href !== 'about:blank' && frame.document.readyState === 'complete';
+        } catch {
+            return false;
+        }
+    }, null, { timeout: 15000 });
 }
