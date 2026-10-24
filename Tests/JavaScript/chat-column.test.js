@@ -122,6 +122,19 @@ describe('placing a new panel', () => {
         expect(panel.nextElementSibling.localName).toBe('typo3-backend-module-router');
     });
 
+    test('in the body, keeping the column as the choice, when the area measures too narrow at load', () => {
+        const area = scaffold143();
+        area.getBoundingClientRect = () => ({width: 2 * COLUMN_MIN_WIDTH - 1, height: 600, top: 0, left: 0, right: 0, bottom: 0});
+        Persistent.data = {nrMcpAgent: {chatPanel: {layout: 'column'}}};
+        const panel = document.createElement('div');
+
+        attachPanel(panel, document);
+
+        expect(panel.layout).toBe(LAYOUT.COLUMN);
+        expect(panel.parentElement).toBe(document.body);
+        expect(Persistent.writes).toEqual([]);
+    });
+
     test('floating in the body when the backend has no content area, keeping the choice', () => {
         document.body.replaceChildren();
         Persistent.data = {nrMcpAgent: {chatPanel: {layout: 'column'}}};
@@ -493,18 +506,26 @@ describe('<ai-chat-panel> as a column', () => {
         expect(panel.shadowRoot.activeElement?.dataset.action).toBe('layout');
     });
 
-    test('a content area narrower than twice the minimum lets the chat float, without changing the choice', async () => {
+    /** Let an update, the placement after it and the next update run. */
+    async function settle() {
+        await panel.updateComplete;
+        await flushPromises();
+        await panel.updateComplete;
+    }
+
+    test('a content area narrower than twice the minimum lets the chat float from the body, without changing the choice', async () => {
         await dock();
         const layoutWrites = () => Persistent.writes.filter(([key]) => key === PREFERENCE_LAYOUT).length;
         const before = layoutWrites();
 
         panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
-        await panel.updateComplete;
-        await panel.updateComplete;
+        await settle();
 
         expect(panel.hasAttribute('narrow')).toBe(true);
         expect(panel.layout).toBe('column');
-        expect(panel.parentElement).toBe(area);
+        // In 14.3 the content area is a stacking layer under the backend
+        // header once it is narrow; the floating panel belongs in the body.
+        expect(panel.parentElement).toBe(document.body);
         expect(area.hasAttribute(MOUNT_ATTRIBUTE)).toBe(false);
         expect(splitter()).toBeNull();
         // The floating header, without the toggle: there is no column to dock into.
@@ -513,13 +534,105 @@ describe('<ai-chat-panel> as a column', () => {
         expect(layoutWrites()).toBe(before);
 
         panel._areaWidth = 2 * COLUMN_MIN_WIDTH;
-        await panel.updateComplete;
-        await panel.updateComplete;
+        await settle();
 
         expect(panel.hasAttribute('narrow')).toBe(false);
+        expect(panel.parentElement).toBe(area);
+        expect(panel.nextElementSibling.localName).toBe('typo3-backend-module-router');
         expect(area.getAttribute(MOUNT_ATTRIBUTE)).toBe('open');
         expect(splitter()).not.toBeNull();
         expect(layoutWrites()).toBe(before);
+    });
+
+    test('the floating panel offers no column in a narrow area, and refuses one without moving or storing', async () => {
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
+        await settle();
+        expect(panel.shadowRoot.querySelector('[data-action="layout"]')).toBeNull();
+
+        const writes = Persistent.writes.length;
+        expect(panel.setLayout('column')).toBe(false);
+        expect(panel.layout).toBe('floating');
+        expect(panel.parentElement).toBe(document.body);
+        expect(Persistent.writes.length).toBe(writes);
+
+        // The area grows (a wider window): the offer comes back without any
+        // other change to the panel.
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH;
+        await settle();
+        expect(panel.shadowRoot.querySelector('[data-action="layout"]')).not.toBeNull();
+    });
+
+    test('a column asked for is refused when the area measures too narrow, even if the last observation said otherwise', async () => {
+        area.getBoundingClientRect = () => ({width: 2 * COLUMN_MIN_WIDTH - 1, height: 600, top: 0, left: 0, right: 0, bottom: 0});
+        panel._areaWidth = 1400;
+
+        expect(panel.setLayout('column')).toBe(false);
+        expect(panel.parentElement).toBe(document.body);
+        expect(Persistent.writes).toEqual([]);
+    });
+
+    test('a narrow area keeps the panel where it is while a request is in flight, and moves it after', async () => {
+        await dock();
+        panel.chat.approvalBusy = true;
+
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
+        await settle();
+        expect(panel.hasAttribute('narrow')).toBe(true);
+        expect(panel.parentElement).toBe(area);
+
+        panel.chat.approvalBusy = false;
+        panel.requestUpdate();
+        await settle();
+        expect(panel.parentElement).toBe(document.body);
+    });
+
+    test.each(['sending', 'inputBusy', 'approvalBusy', 'endingTour', 'systemPromptSaving'])(
+        'while %s the panel does not move',
+        async (flag) => {
+            await dock();
+            panel.chat[flag] = true;
+            panel.requestUpdate();
+            await panel.updateComplete;
+
+            expect(panel.shadowRoot.querySelector('[data-action="layout"]').disabled).toBe(true);
+            expect(panel.setLayout('floating')).toBe(false);
+            expect(panel.parentElement).toBe(area);
+            panel.chat[flag] = false;
+        },
+    );
+
+    test('crossing the narrow threshold keeps focus inside the panel', async () => {
+        await dock();
+        panel.shadowRoot.querySelector('[data-action="minimize"]').focus();
+        expect(panel.shadowRoot.activeElement).not.toBeNull();
+
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
+        await settle();
+        await flushPromises();
+        expect(panel.parentElement).toBe(document.body);
+        expect(panel.shadowRoot.activeElement?.closest('.panel-header')).not.toBeNull();
+
+        panel._areaWidth = 1400;
+        await settle();
+        await flushPromises();
+        expect(panel.parentElement).toBe(area);
+        expect(panel.shadowRoot.activeElement?.closest('.panel-header')).not.toBeNull();
+    });
+
+    test('maximized while floating in a narrow area, docked again as expanded', async () => {
+        await dock();
+        panel._areaWidth = 2 * COLUMN_MIN_WIDTH - 1;
+        await settle();
+        panel.maximize();
+        await settle();
+        expect(panel.state).toBe('maximized');
+
+        panel._areaWidth = 1400;
+        await settle();
+
+        expect(panel.hasAttribute('narrow')).toBe(false);
+        expect(panel.state).toBe('expanded');
+        expect(panel.shadowRoot.querySelector('.panel-sidebar')).toBeNull();
     });
 
     test('minimizing moves focus to the bar\'s reopen button, reopening moves it back into the column', async () => {

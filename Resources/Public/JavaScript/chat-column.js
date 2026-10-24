@@ -212,12 +212,16 @@ function adoptMountRules(doc) {
  * @param {Document} doc
  */
 export function attachPanel(panel, doc, storage = Persistent) {
-    const mount = readLayoutPreference(storage) === LAYOUT.COLUMN ? findColumnMount(doc) : null;
-    if (mount) {
+    const chosen = readLayoutPreference(storage);
+    const mount = chosen === LAYOUT.COLUMN ? findColumnMount(doc) : null;
+    // An area measured too narrow for the column keeps the choice but starts
+    // the panel in the body, where it floats until the area is wide enough.
+    const width = mount?.element.getBoundingClientRect?.().width ?? 0;
+    if (mount && !(width > 0 && width < 2 * COLUMN_MIN_WIDTH)) {
         panel.layout = LAYOUT.COLUMN;
         mount.element.insertBefore(panel, mount.router);
         return;
     }
-    panel.layout = LAYOUT.FLOATING;
+    panel.layout = mount ? LAYOUT.COLUMN : LAYOUT.FLOATING;
     doc.body.append(panel);
 }

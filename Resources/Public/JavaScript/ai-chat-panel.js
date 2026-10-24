@@ -1124,6 +1124,7 @@ export class AiChatPanel extends LitElement {
         this._connection?.abort();
         this._areaObserver?.disconnect();
         this._areaObserver = null;
+        this._observedArea = null;
         // Wherever the panel goes, the content area it left gets its full
         // width back.
         this._unmarkColumnMount();
@@ -1142,6 +1143,16 @@ export class AiChatPanel extends LitElement {
         if (changed.has('state') || changed.has('layout') || changed.has('narrow')) {
             this._syncColumnMount();
         }
+        // After the update, not during it: a move reconnects the element.
+        // Runs on every update, so a move held back by a request in flight
+        // happens with the update that follows its end.
+        Promise.resolve().then(() => {
+            this._placeForLayout();
+            if (this._refocus) {
+                this._refocus = false;
+                this.updateComplete.then(() => this._restoreFocus());
+            }
+        });
         if (changed.has('state') || changed.has('layout') || changed.has('narrow') || changed.has('_height') || changed.has('_width')
             || changed.has('_posX') || changed.has('_posY') || changed.has('_columnWidth') || changed.has('_areaWidth')) {
             this._applySize();
@@ -1263,32 +1274,45 @@ export class AiChatPanel extends LitElement {
         return this.layout === LAYOUT.COLUMN && !this.narrow;
     }
 
-    /** Whether the content area the column sits in is too narrow for it. */
+    /**
+     * Whether the backend has a content area for the column and it is too
+     * narrow for one: less than twice the column's minimum.
+     */
     _areaTooNarrow() {
-        return this._columnMount() !== null && this._areaWidthNow() < 2 * COLUMN_MIN_WIDTH;
+        return findColumnMount(document) !== null && this._areaWidthNow() < 2 * COLUMN_MIN_WIDTH;
     }
 
     /**
      * Whether a column can be opened here: not detached, the backend has a
-     * content area, and the column is not merely suspended in one that is
-     * too narrow.
+     * content area, and that area is wide enough. The area's width is
+     * observed in every layout, so a floating panel follows it too.
      */
     _canDock() {
-        return !this._pipWindow && !this.narrow && findColumnMount(document) !== null;
+        return !this._pipWindow && findColumnMount(document) !== null && !this._areaTooNarrow();
     }
 
     /**
      * Whether the panel may move now. A move reconnects the element, which
-     * aborts a message still being sent; resending could duplicate one the
-     * server already took.
+     * aborts the controller's requests in flight: a message being sent or
+     * edited, a free-text answer, an approval decision, ending a guided
+     * process, saving the instructions. Repeating one could duplicate what
+     * the server already took.
      */
     _canMove() {
-        return !this.chat.sending;
+        const chat = this.chat;
+
+        return !(chat.sending || chat.inputBusy || chat.approvalBusy || chat.endingTour || chat.systemPromptSaving);
     }
 
     willUpdate(changed) {
         if (changed.has('layout') || changed.has('_areaWidth') || changed.has('state')) {
-            this.narrow = this.layout === LAYOUT.COLUMN && this._areaTooNarrow();
+            const narrow = this.layout === LAYOUT.COLUMN && this._areaTooNarrow();
+            if (narrow !== this.narrow) {
+                // Crossing the threshold swaps the template, and maybe the
+                // parent; focus inside the panel would fall to the body.
+                this._refocus = this._focusIsInside();
+            }
+            this.narrow = narrow;
             // Maximized while floating in a narrow area, then docked again:
             // the column has no maximized state.
             if (this._docked() && this.state === STATES.MAXIMIZED) {
@@ -1297,12 +1321,68 @@ export class AiChatPanel extends LitElement {
         }
     }
 
+    _focusIsInside() {
+        return Boolean(this.shadowRoot?.activeElement) || document.activeElement === this;
+    }
+
+    /**
+     * Put focus back into the panel after its template or parent changed:
+     * the input where it can take it, else the first button of the header,
+     * else the minimized bar's way back.
+     */
+    _restoreFocus() {
+        const input = this.renderRoot?.querySelector('.panel-input textarea');
+        const target = input && !input.disabled
+            ? input
+            : (this.renderRoot?.querySelector('.panel-header button:not([disabled])')
+                ?? this.renderRoot?.querySelector('[data-action="reopen"]'));
+        target?.focus();
+    }
+
+    /**
+     * Keep the panel where its drawing needs it. Docked, it is a column in
+     * the content area; floating in an area too narrow for the column, it
+     * lives in the body like the floating panel: inside the content area it
+     * would be confined to the area's stacking layer, which in 14.3 lies
+     * under the backend header (and the page tree's flyout) once the area is
+     * narrower than 750 px. The move waits while a request is in flight; the
+     * next update after it tries again.
+     */
+    _placeForLayout() {
+        if (this._pipWindow || this.layout !== LAYOUT.COLUMN || !this.isConnected || !this._canMove()) {
+            return;
+        }
+        const mount = findColumnMount(document);
+        if (!mount) {
+            return;
+        }
+        const inArea = this.parentElement === mount.element;
+        if (this.narrow !== inArea) {
+            return;
+        }
+        // A move takes focus out of the document.
+        if (this._focusIsInside()) {
+            this._refocus = true;
+        }
+        if (!this.narrow && !inArea) {
+            mount.element.insertBefore(this, mount.router);
+        } else if (this.narrow && inArea) {
+            document.body.append(this);
+        } else {
+            return;
+        }
+        if (this.state !== STATES.HIDDEN) {
+            this.chat.startPollingIfNeeded();
+        }
+        this._syncColumnMount();
+    }
+
     /** Width of the content area the column shares with the module. */
     _areaWidthNow() {
         if (this._areaWidth > 0) {
             return this._areaWidth;
         }
-        const width = this.parentElement?.getBoundingClientRect?.().width ?? 0;
+        const width = findColumnMount(document)?.element.getBoundingClientRect?.().width ?? 0;
 
         return width > 0 ? width : window.innerWidth;
     }
@@ -1318,6 +1398,7 @@ export class AiChatPanel extends LitElement {
      * Hidden and minimized, the column takes no room and the mark goes.
      */
     _syncColumnMount() {
+        this._observeArea();
         const mount = this._columnMount();
         const open = mount !== null && this._docked() && (this.state === STATES.EXPANDED || this.state === STATES.MAXIMIZED);
 
@@ -1325,8 +1406,6 @@ export class AiChatPanel extends LitElement {
             this._unmarkColumnMount();
         }
         if (!mount) {
-            this._areaObserver?.disconnect();
-            this._areaObserver = null;
             return;
         }
 
@@ -1335,17 +1414,32 @@ export class AiChatPanel extends LitElement {
         }
         markColumnMount(mount.element, open);
         this._markedMount = open ? mount.element : null;
+    }
 
-        if (!this._areaObserver && typeof ResizeObserver === 'function') {
-            // The limits follow the area; the user's choice is not rewritten.
-            this._areaObserver = new ResizeObserver((entries) => {
-                const width = entries[entries.length - 1]?.contentRect?.width ?? 0;
-                if (width > 0 && width !== this._areaWidth) {
-                    this._areaWidth = width;
-                }
-            });
-            this._areaObserver.observe(mount.element);
+    /**
+     * Follow the content area's width in every layout: the column's limits
+     * and whether it fits depend on it, and so does the floating panel's
+     * offer to dock. Not from the detached window, which has no content area.
+     */
+    _observeArea() {
+        const area = this._pipWindow || !this.isConnected ? null : findColumnMount(document)?.element ?? null;
+        if (area === this._observedArea) {
+            return;
         }
+        this._areaObserver?.disconnect();
+        this._areaObserver = null;
+        this._observedArea = area;
+        if (!area || typeof ResizeObserver !== 'function') {
+            return;
+        }
+        // The limits follow the area; the user's choice is not rewritten.
+        this._areaObserver = new ResizeObserver((entries) => {
+            const width = entries[entries.length - 1]?.contentRect?.width ?? 0;
+            if (width > 0 && width !== this._areaWidth) {
+                this._areaWidth = width;
+            }
+        });
+        this._areaObserver.observe(area);
     }
 
     _unmarkColumnMount() {
@@ -1375,6 +1469,12 @@ export class AiChatPanel extends LitElement {
         if (layout === LAYOUT.COLUMN) {
             const mount = findColumnMount(document);
             if (!mount) {
+                return false;
+            }
+            // Measured now, not from the last observation: there is no column
+            // where the area is too narrow for one, and nothing is stored.
+            const width = mount.element.getBoundingClientRect().width || this._areaWidthNow();
+            if (width < 2 * COLUMN_MIN_WIDTH) {
                 return false;
             }
             this.layout = LAYOUT.COLUMN;

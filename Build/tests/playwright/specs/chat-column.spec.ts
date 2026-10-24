@@ -37,6 +37,8 @@ const KEY_STEP = 16;
 const NAVIGATION = 'typo3-backend-content-navigation[identifier="backend"] > [slot="navigation"], .t3js-scaffold-content-navigation';
 /** The content area holding the open column. */
 const OPEN_AREA = '[data-nr-chat-column="open"]';
+/** The content area, open column or not: 14.3's content slot, 13.4's module container. */
+const AREA = 'typo3-backend-content-navigation[identifier="backend"] > [slot="content"], .t3js-scaffold-content-module';
 
 async function login(page: Page): Promise<void> {
     await page.goto('/typo3/');
@@ -82,7 +84,7 @@ async function openModule(page: Page, identifier: string): Promise<void> {
 
 /** Left and right edges of the page tree, the panel, the router and the content area. */
 async function edges(page: Page) {
-    return page.evaluate((navigation) => {
+    return page.evaluate(({ navigation, areaSelector }) => {
         const box = (el: Element | null) => {
             const r = el?.getBoundingClientRect();
             return r && r.width > 0 ? { left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width) } : null;
@@ -92,10 +94,11 @@ async function edges(page: Page) {
             navigation: box(document.querySelector(navigation)),
             panel: box(panel),
             router: box(document.querySelector('typo3-backend-module-router')),
-            area: box(panel.parentElement),
+            area: box(document.querySelector(areaSelector)),
             next: panel.nextElementSibling?.localName ?? '',
+            inBody: panel.parentElement === document.body,
         };
-    }, NAVIGATION);
+    }, { navigation: NAVIGATION, areaSelector: AREA });
 }
 
 /** The seeded conversation's uid; a broken seed fails here. */
@@ -257,8 +260,10 @@ test.describe('Chat as a column beside the page tree', () => {
     });
 
     test('floats in a content area too narrow for it and docks again when it is wide enough', async ({ page }) => {
+        await openModule(page, 'web_layout');
         const panel = await openColumn(page);
-        await openModule(page, 'dashboard');
+        await panel.locator('[data-action="minimize"]').focus();
+        const focusInside = () => panel.evaluate((el) => el.shadowRoot!.activeElement !== null);
 
         // A window narrower than twice the column's minimum: the content area
         // is too (at 760px 13.4 collapses its module menu and the area stays
@@ -267,17 +272,33 @@ test.describe('Chat as a column beside the page tree', () => {
         await expect(panel).toHaveAttribute('narrow', '');
         await expect(page.locator(OPEN_AREA)).toHaveCount(0);
         const narrow = await edges(page);
+        expect(narrow.inBody, 'the floating panel stayed inside the content area').toBe(true);
         expect(narrow.router!.width, 'the module did not get the whole content area').toBe(narrow.area!.width);
+        await expect.poll(focusInside, { message: 'focus fell out of the panel' }).toBe(true);
         const stored = await page.evaluate(async () => {
             const { default: Persistent } = await import('@typo3/backend/storage/persistent.js' as string);
             return Persistent.get('nrMcpAgent.chatPanel.layout');
         });
         expect(stored, 'the narrow area rewrote the stored choice').toBe('column');
 
+        // Real clicks: Playwright refuses when another element would take
+        // them. In 14.3 the narrow content area is a layer under the backend
+        // header, so a panel left inside it had its maximized header covered.
+        await panel.getByRole('button', { name: 'Maximize' }).click();
+        await expect(panel).toHaveAttribute('state', 'maximized');
+        await panel.getByRole('button', { name: 'Restore' }).click();
+        await expect(panel).toHaveAttribute('state', 'expanded');
+        await panel.getByRole('button', { name: 'Maximize' }).click();
+        await expect(panel).toHaveAttribute('state', 'maximized');
+
         await page.setViewportSize({ width: 1280, height: 720 });
         await expect(panel).not.toHaveAttribute('narrow', '');
         await expect(page.locator(OPEN_AREA)).toHaveCount(1);
         await expect(panel.locator('[role="separator"]')).toBeVisible();
+        // No maximized state in the column.
+        await expect(panel).toHaveAttribute('state', 'expanded');
+        await expect.poll(async () => (await edges(page)).next).toBe('typo3-backend-module-router');
+        await expect.poll(focusInside, { message: 'focus fell out of the panel' }).toBe(true);
     });
 
     test('keeps the approval card\'s height in an overflowing transcript', async ({ page }) => {
