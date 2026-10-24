@@ -62,3 +62,23 @@ test('other image alternatives and paths remain unchanged', () => {
   const image = '<img src="Images/ChatModule.png" alt="AI Chat module">';
   assert.ok(prepareDocsHtml(`<head></head>${image}`, 'docs.css').includes(image));
 });
+
+
+test('multiple spaces and line breaks before owned attributes preserve navigation and image semantics', () => {
+  const gap = ' \n\t'.repeat(1024);
+  const markup = `<head></head><div class="main_menu"><ul${gap}role="menubar"><li${gap}role='menuitem'><a href="Chapter.html">Chapter</a></li></ul></div><img src="Images/netresearch-underline.svg"${gap}alt='1' class="no-border">`;
+  const once = prepareDocsHtml(markup, 'docs.css');
+  assert.doesNotMatch(once, /role=["'](?:menubar|menuitem)["']/);
+  assert.match(once, /href="Chapter.html"/);
+  assert.match(once, /class="no-border" alt=""/);
+  assert.equal(prepareDocsHtml(once, 'docs.css'), once);
+});
+
+test('long whitespace without target attributes remains intact', () => {
+  const gap = ' '.repeat(16_384);
+  const navigation = `<div class="main_menu"><ul${gap}class="menu-level-1"><li${gap}class="active"><a href="Chapter.html">Chapter</a></li></ul></div>`;
+  const once = prepareDocsHtml(`<head></head>${navigation}<img src="Images/netresearch-underline.svg"${gap}class="no-border">`, 'docs.css');
+  assert.ok(once.includes(navigation));
+  assert.match(once, /class="no-border" alt=""/);
+  assert.equal(prepareDocsHtml(once, 'docs.css'), once);
+});

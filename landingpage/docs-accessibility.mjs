@@ -50,7 +50,7 @@ function decorativeUnderline(markup, href) {
     // The pinned renderer turns empty :alt: into "1", and its singlepage image
     // path omits the parent segment. Correct only this owned decorative asset.
     const image = tag.replace(source[0], `src="${href}"`)
-      .replace(/\s+alt=(["'])[^"']*\1/gi, '');
+      .replace(/\salt=(["'])[^"']*\1/gi, '');
     return image.replace(/\/?>$/, (ending) => ` alt=""${ending}`);
   });
 }
@@ -58,7 +58,7 @@ function decorativeUnderline(markup, href) {
 export function prepareDocsHtml(markup, stylesheet, underline = 'Images/netresearch-underline.svg') {
   for (const [start, end] of navigationRanges(markup).reverse()) {
     const navigation = markup.slice(start, end).replace(/<(?:ul|li)\b[^>]*>/gi,
-      (tag) => tag.replace(/\s+role=(["'])(?:menubar|menuitem)\1/gi, ''));
+      (tag) => tag.replace(/\srole=(["'])(?:menubar|menuitem)\1/gi, ''));
     markup = markup.slice(0, start) + navigation + markup.slice(end);
   }
   markup = focusableScrollRegions(markup);
