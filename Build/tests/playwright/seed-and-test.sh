@@ -15,6 +15,8 @@
 #   configured    An nr-llm Task exists and `llmTaskUid` points at it. Only
 #                 then is the toolbar item rendered, which loads the chat panel
 #                 every other spec drives (ChatToolbarItem::checkAccess()).
+#                 One conversation waits for an approval
+#                 (approval-card-height.spec.ts).
 #
 # DB coordinates are the fixed defaults the reusable workflow's default mode
 # provisions (see its "Setup TYPO3" step): host 127.0.0.1, root/root, db typo3.
@@ -53,6 +55,9 @@ case "${E2E_VARIANT:-}" in
 
     echo "Seeding an nr-llm Provider, Model, Configuration and Task (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/nr-llm-task-seed.sql"
+
+    echo "Seeding a conversation that waits for an approval (${DB_CLIENT})..."
+    "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/approval-card-seed.sql"
 
     echo "Pointing llmTaskUid at the seeded Task..."
     cat >> config/system/additional.php << 'PHPEOF'
