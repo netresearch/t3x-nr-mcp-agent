@@ -1,0 +1,492 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+/**
+ * The chat as a column beside the page tree (ADR-024).
+ *
+ * TYPO3 has no API for a column, so the content area is found by its shape,
+ * which differs between 13.4 and 14.3. CI's E2E run covers 13.4 only; the 14.3
+ * shape is pinned here. The splitter follows the WAI-ARIA Window Splitter
+ * pattern, and the width and the layout are stored in the backend user's
+ * settings (Persistent, stubbed in __mocks__).
+ */
+
+import {describe, test, expect, beforeAll, beforeEach, afterEach, jest} from '@jest/globals';
+import Persistent from '@typo3/backend/storage/persistent.js';
+import {ModuleStateStorage} from '@typo3/backend/storage/module-state-storage.js';
+import {
+    COLUMN_DEFAULT_WIDTH,
+    COLUMN_KEY_STEP,
+    COLUMN_MIN_WIDTH,
+    LAYOUT,
+    MOUNT_ATTRIBUTE,
+    PREFERENCE_COLUMN_WIDTH,
+    PREFERENCE_LAYOUT,
+    attachPanel,
+    clampColumnWidth,
+    columnMaxWidth,
+    findColumnMount,
+    readColumnWidth,
+    readLayoutPreference,
+    saveColumnWidth,
+    saveLayoutPreference,
+    splitterKeyWidth,
+} from '../../Resources/Public/JavaScript/chat-column.js';
+
+/** An element with attributes and children. */
+function el(tag, attributes = {}, children = []) {
+    const element = document.createElement(tag);
+    for (const [name, value] of Object.entries(attributes)) {
+        element.setAttribute(name, value);
+    }
+    element.append(...children);
+
+    return element;
+}
+
+/** What the content area holds: the router, or the infobox core shows without module access. */
+function routerOrInfobox(router) {
+    return router ? el('typo3-backend-module-router') : el('div', {class: 'm-4'}, ['No access']);
+}
+
+/** The backend scaffold of TYPO3 14.3 (Main.fluid.html). */
+function scaffold143({router = true} = {}) {
+    const content = el('div', {slot: 'content'}, [routerOrInfobox(router)]);
+    document.body.replaceChildren(el('div', {class: 'scaffold-content t3js-scaffold-content'}, [
+        el('typo3-backend-content-navigation', {identifier: 'backend'}, [el('div', {slot: 'navigation'}), content]),
+    ]));
+
+    return content;
+}
+
+/** The backend scaffold of TYPO3 13.4 (Main.html). */
+function scaffold134({router = true} = {}) {
+    const content = el('div', {class: 'scaffold-content-module t3js-scaffold-content-module'}, router ? [routerOrInfobox(true)] : []);
+    document.body.replaceChildren(el('div', {class: 'scaffold-content t3js-scaffold-content'}, [
+        el('div', {class: 'scaffold-content-navigation t3js-scaffold-content-navigation'}),
+        el('typo3-backend-navigation-switcher'),
+        content,
+    ]));
+
+    return content;
+}
+
+describe('finding the content area', () => {
+    test('14.3: the content slot of the backend content navigation', () => {
+        const area = scaffold143();
+        const mount = findColumnMount(document);
+
+        expect(mount.element).toBe(area);
+        expect(mount.router.localName).toBe('typo3-backend-module-router');
+    });
+
+    test('13.4: the scaffold content module', () => {
+        const area = scaffold134();
+
+        expect(findColumnMount(document).element).toBe(area);
+    });
+
+    test('no router there (workspace denied, no module access): no column', () => {
+        scaffold143({router: false});
+        expect(findColumnMount(document)).toBeNull();
+
+        scaffold134({router: false});
+        expect(findColumnMount(document)).toBeNull();
+    });
+
+    test('a document without a backend scaffold: no column', () => {
+        document.body.replaceChildren(el('typo3-backend-module-router'));
+
+        expect(findColumnMount(document)).toBeNull();
+        expect(findColumnMount(null)).toBeNull();
+    });
+});
+
+describe('placing a new panel', () => {
+    beforeEach(() => Persistent.reset());
+
+    test('the column, when the user chose it and the backend has a content area', () => {
+        const area = scaffold143();
+        Persistent.data = {nrMcpAgent: {chatPanel: {layout: 'column'}}};
+        const panel = document.createElement('div');
+
+        attachPanel(panel, document);
+
+        expect(panel.layout).toBe(LAYOUT.COLUMN);
+        expect(panel.parentElement).toBe(area);
+        expect(panel.nextElementSibling.localName).toBe('typo3-backend-module-router');
+    });
+
+    test('floating in the body when the backend has no content area, keeping the choice', () => {
+        document.body.replaceChildren();
+        Persistent.data = {nrMcpAgent: {chatPanel: {layout: 'column'}}};
+        const panel = document.createElement('div');
+
+        attachPanel(panel, document);
+
+        expect(panel.layout).toBe(LAYOUT.FLOATING);
+        expect(panel.parentElement).toBe(document.body);
+        expect(Persistent.writes).toEqual([]);
+    });
+
+    test('floating in the body when the user did not choose the column', () => {
+        scaffold134();
+        const panel = document.createElement('div');
+
+        attachPanel(panel, document);
+
+        expect(panel.layout).toBe(LAYOUT.FLOATING);
+        expect(panel.parentElement).toBe(document.body);
+    });
+});
+
+describe('column width limits', () => {
+    test('at least the minimum, at most half the content area', () => {
+        expect(clampColumnWidth(100, 1400)).toBe(COLUMN_MIN_WIDTH);
+        expect(clampColumnWidth(500, 1400)).toBe(500);
+        expect(clampColumnWidth(900, 1400)).toBe(700);
+        expect(columnMaxWidth(1401)).toBe(700);
+    });
+
+    test('an area narrower than twice the minimum keeps the minimum', () => {
+        expect(columnMaxWidth(500)).toBe(COLUMN_MIN_WIDTH);
+        expect(clampColumnWidth(600, 500)).toBe(COLUMN_MIN_WIDTH);
+    });
+
+    test('a width that is no number becomes the default', () => {
+        expect(clampColumnWidth(Number.NaN, 1400)).toBe(COLUMN_DEFAULT_WIDTH);
+    });
+});
+
+describe('splitter keys (WAI-ARIA Window Splitter)', () => {
+    test('the arrows step, right widens the column on its left', () => {
+        expect(splitterKeyWidth('ArrowRight', 400, 1400)).toBe(400 + COLUMN_KEY_STEP);
+        expect(splitterKeyWidth('ArrowLeft', 400, 1400)).toBe(400 - COLUMN_KEY_STEP);
+    });
+
+    test('Home and End jump to the limits', () => {
+        expect(splitterKeyWidth('Home', 500, 1400)).toBe(COLUMN_MIN_WIDTH);
+        expect(splitterKeyWidth('End', 500, 1400)).toBe(700);
+    });
+
+    test('a step never leaves the limits', () => {
+        expect(splitterKeyWidth('ArrowLeft', COLUMN_MIN_WIDTH, 1400)).toBe(COLUMN_MIN_WIDTH);
+        expect(splitterKeyWidth('ArrowRight', 700, 1400)).toBe(700);
+    });
+
+    test('right-to-left: the column is on the right, so the arrows swap', () => {
+        expect(splitterKeyWidth('ArrowLeft', 400, 1400, true)).toBe(400 + COLUMN_KEY_STEP);
+        expect(splitterKeyWidth('ArrowRight', 400, 1400, true)).toBe(400 - COLUMN_KEY_STEP);
+    });
+
+    test('other keys are not the splitter\'s', () => {
+        expect(splitterKeyWidth('Enter', 400, 1400)).toBeNull();
+        expect(splitterKeyWidth('ArrowUp', 400, 1400)).toBeNull();
+    });
+});
+
+describe('preferences in the backend user\'s settings', () => {
+    beforeEach(() => Persistent.reset());
+
+    test('floating unless the column was chosen', () => {
+        expect(readLayoutPreference()).toBe(LAYOUT.FLOATING);
+        Persistent.data = {nrMcpAgent: {chatPanel: {layout: 'something else'}}};
+        expect(readLayoutPreference()).toBe(LAYOUT.FLOATING);
+    });
+
+    test('the layout and the width are written under the extension\'s keys', () => {
+        saveLayoutPreference(LAYOUT.COLUMN);
+        saveColumnWidth(412.4);
+
+        expect(Persistent.writes).toEqual([[PREFERENCE_LAYOUT, 'column'], [PREFERENCE_COLUMN_WIDTH, '412']]);
+        expect(readLayoutPreference()).toBe(LAYOUT.COLUMN);
+        expect(readColumnWidth()).toBe(412);
+    });
+
+    test('a stored width below the minimum or unreadable gives the default', () => {
+        Persistent.data = {nrMcpAgent: {chatPanel: {columnWidth: '12'}}};
+        expect(readColumnWidth()).toBe(COLUMN_DEFAULT_WIDTH);
+        Persistent.data = {nrMcpAgent: {chatPanel: {columnWidth: 'wide'}}};
+        expect(readColumnWidth()).toBe(COLUMN_DEFAULT_WIDTH);
+    });
+
+    test('a failing settings request reaches neither the reader nor the writer', async () => {
+        const failing = {get: () => { throw new Error('500'); }, set: () => Promise.reject(new Error('500'))};
+
+        expect(readLayoutPreference(failing)).toBe(LAYOUT.FLOATING);
+        expect(readColumnWidth(failing)).toBe(COLUMN_DEFAULT_WIDTH);
+        expect(() => saveColumnWidth(400, failing)).not.toThrow();
+        await Promise.resolve();
+    });
+});
+
+describe('<ai-chat-panel> as a column', () => {
+    let panel;
+    let area;
+
+    beforeAll(async () => {
+        await import('../../Resources/Public/JavaScript/ai-chat-panel.js');
+    });
+
+    beforeEach(async () => {
+        Persistent.reset();
+        localStorage.clear();
+        area = scaffold143();
+        panel = document.createElement('ai-chat-panel');
+        document.body.append(panel);
+        panel.state = 'expanded';
+        Object.assign(panel.chat, {loading: false, issues: [], conversations: [], available: true, activeUid: null});
+        await panel.updateComplete;
+        // jsdom lays nothing out; give the column a content area to share.
+        panel._areaWidth = 1400;
+        await panel.updateComplete;
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+        panel.remove();
+        document.body.replaceChildren();
+    });
+
+    async function dock() {
+        expect(panel.setLayout('column')).toBe(true);
+        Object.assign(panel.chat, {loading: false});
+        panel._areaWidth = 1400;
+        await panel.updateComplete;
+    }
+
+    const splitter = () => panel.shadowRoot.querySelector('.column-splitter');
+    const press = (key) => splitter().dispatchEvent(new KeyboardEvent('keydown', {key, bubbles: true, cancelable: true}));
+
+    test('docks before the module router, marks the area and stores the choice', async () => {
+        await dock();
+
+        expect(panel.parentElement).toBe(area);
+        expect(panel.nextElementSibling.localName).toBe('typo3-backend-module-router');
+        expect(panel.getAttribute('layout')).toBe('column');
+        expect(area.getAttribute(MOUNT_ATTRIBUTE)).toBe('open');
+        expect(Persistent.writes).toContainEqual([PREFERENCE_LAYOUT, 'column']);
+    });
+
+    test('the floating header offers the column, the column header leaves it', async () => {
+        const toggle = () => panel.shadowRoot.querySelector('[data-action="layout"]');
+        expect(toggle().getAttribute('aria-pressed')).toBe('false');
+
+        toggle().click();
+        Object.assign(panel.chat, {loading: false});
+        await panel.updateComplete;
+        expect(panel.layout).toBe('column');
+        expect(toggle().getAttribute('aria-pressed')).toBe('true');
+
+        toggle().click();
+        await panel.updateComplete;
+        expect(panel.layout).toBe('floating');
+        expect(panel.parentElement).toBe(document.body);
+        expect(area.hasAttribute(MOUNT_ATTRIBUTE)).toBe(false);
+    });
+
+    test('no content area: the layout stays floating and no toggle is offered', async () => {
+        document.body.replaceChildren(panel);
+        await panel.updateComplete;
+
+        expect(panel.setLayout('column')).toBe(false);
+        expect(panel.layout).toBe('floating');
+        panel.requestUpdate();
+        await panel.updateComplete;
+        expect(panel.shadowRoot.querySelector('[data-action="layout"]')).toBeNull();
+    });
+
+    test('the conversation, the draft and an attachment survive the move', async () => {
+        const file = {uid: 3, name: 'brief.pdf', mimeType: 'application/pdf'};
+        Object.assign(panel.chat, {activeUid: 42, inputValue: 'half a sentence', hasInput: true, pendingFile: file});
+
+        await dock();
+        panel.setLayout('floating');
+
+        expect(panel.chat.activeUid).toBe(42);
+        expect(panel.chat.inputValue).toBe('half a sentence');
+        expect(panel.chat.pendingFile).toBe(file);
+    });
+
+    test('the splitter: a focusable vertical separator with its value in px', async () => {
+        await dock();
+        const handle = splitter();
+
+        expect(handle.getAttribute('role')).toBe('separator');
+        expect(handle.getAttribute('aria-orientation')).toBe('vertical');
+        expect(handle.getAttribute('tabindex')).toBe('0');
+        expect(handle.getAttribute('aria-label')).toBe('panel.columnResize');
+        expect(handle.getAttribute('aria-valuemin')).toBe(String(COLUMN_MIN_WIDTH));
+        expect(handle.getAttribute('aria-valuemax')).toBe('700');
+        expect(handle.getAttribute('aria-valuenow')).toBe(String(COLUMN_DEFAULT_WIDTH));
+        expect(panel.shadowRoot.getElementById(handle.getAttribute('aria-controls'))).not.toBeNull();
+        expect(panel.style.width).toBe(`${COLUMN_DEFAULT_WIDTH}px`);
+    });
+
+    test('the arrow keys step the width, Home and End jump to the limits', async () => {
+        await dock();
+
+        press('ArrowRight');
+        press('ArrowRight');
+        await panel.updateComplete;
+        expect(splitter().getAttribute('aria-valuenow')).toBe(String(COLUMN_DEFAULT_WIDTH + 2 * COLUMN_KEY_STEP));
+        expect(panel.style.width).toBe(`${COLUMN_DEFAULT_WIDTH + 2 * COLUMN_KEY_STEP}px`);
+
+        press('ArrowLeft');
+        await panel.updateComplete;
+        expect(splitter().getAttribute('aria-valuenow')).toBe(String(COLUMN_DEFAULT_WIDTH + COLUMN_KEY_STEP));
+
+        press('Home');
+        await panel.updateComplete;
+        expect(splitter().getAttribute('aria-valuenow')).toBe(String(COLUMN_MIN_WIDTH));
+
+        press('End');
+        await panel.updateComplete;
+        expect(splitter().getAttribute('aria-valuenow')).toBe('700');
+    });
+
+    test('the width is stored once, after the last key press', async () => {
+        await dock();
+        jest.useFakeTimers();
+        Persistent.writes = [];
+
+        press('ArrowRight');
+        press('ArrowRight');
+        press('ArrowRight');
+        expect(Persistent.writes).toEqual([]);
+
+        jest.runAllTimers();
+        expect(Persistent.writes).toEqual([[PREFERENCE_COLUMN_WIDTH, String(COLUMN_DEFAULT_WIDTH + 3 * COLUMN_KEY_STEP)]]);
+    });
+
+    test('a key the splitter does not handle is left alone', async () => {
+        await dock();
+        const event = new KeyboardEvent('keydown', {key: 'Tab', bubbles: true, cancelable: true});
+
+        splitter().dispatchEvent(event);
+
+        expect(event.defaultPrevented).toBe(false);
+        expect(panel._columnWidth).toBe(COLUMN_DEFAULT_WIDTH);
+    });
+
+    test('a stored width is shown, kept inside a narrower area without being rewritten', async () => {
+        Persistent.data = {nrMcpAgent: {chatPanel: {columnWidth: '650'}}};
+        await dock();
+        expect(splitter().getAttribute('aria-valuenow')).toBe('650');
+
+        panel._areaWidth = 1000;
+        await panel.updateComplete;
+        expect(splitter().getAttribute('aria-valuenow')).toBe('500');
+        expect(panel._columnWidth).toBe(650);
+        expect(Persistent.writes.filter(([key]) => key === PREFERENCE_COLUMN_WIDTH)).toEqual([]);
+    });
+
+    test('a pointer drag resizes and stores the width once, at the end', async () => {
+        await dock();
+        Persistent.writes = [];
+        const handle = splitter();
+        handle.setPointerCapture = () => {};
+        const pointer = (type, clientX) => {
+            const event = new MouseEvent(type, {bubbles: true, cancelable: true, clientX, button: 0});
+            Object.defineProperty(event, 'isPrimary', {value: true});
+            Object.defineProperty(event, 'pointerId', {value: 1});
+            handle.dispatchEvent(event);
+        };
+
+        pointer('pointerdown', 500);
+        pointer('pointermove', 560);
+        pointer('pointermove', 600);
+        await panel.updateComplete;
+        expect(splitter().getAttribute('aria-valuenow')).toBe(String(COLUMN_DEFAULT_WIDTH + 100));
+        expect(Persistent.writes).toEqual([]);
+
+        pointer('pointerup', 600);
+        expect(Persistent.writes).toEqual([[PREFERENCE_COLUMN_WIDTH, String(COLUMN_DEFAULT_WIDTH + 100)]]);
+    });
+
+    test('minimized: a bar with the state, the area gets its width back', async () => {
+        await dock();
+        Object.assign(panel.chat, {activeUid: 5, status: 'awaiting_approval', conversations: [{uid: 5, title: 'Improve content', status: 'awaiting_approval'}]});
+
+        panel.collapse();
+        await panel.updateComplete;
+
+        expect(area.hasAttribute(MOUNT_ATTRIBUTE)).toBe(false);
+        expect(panel.parentElement).toBe(area);
+        const bar = panel.shadowRoot.querySelector('.minimized-bar');
+        expect(bar.querySelector('.minimized-title').textContent).toBe('Improve content');
+        expect(bar.querySelector('.minimized-status').textContent.trim()).toBe('status.awaitingApproval');
+        expect(bar.querySelector('.status-dot')).not.toBeNull();
+        expect(panel.shadowRoot.querySelector('.column-splitter')).toBeNull();
+        expect(panel.style.width).toBe('');
+
+        bar.querySelector('[data-action="reopen"]').click();
+        await panel.updateComplete;
+        expect(panel.state).toBe('expanded');
+        expect(area.getAttribute(MOUNT_ATTRIBUTE)).toBe('open');
+    });
+
+    test('closed: the area gets its width back', async () => {
+        await dock();
+
+        panel.shadowRoot.querySelector('[data-action="close"]').click();
+        await panel.updateComplete;
+
+        expect(panel.state).toBe('hidden');
+        expect(area.hasAttribute(MOUNT_ATTRIBUTE)).toBe(false);
+    });
+
+    test('no maximized state in the column', async () => {
+        await dock();
+
+        panel.maximize();
+
+        expect(panel.state).toBe('expanded');
+    });
+
+    test('Escape outside the column belongs to the page tree, not to the chat', async () => {
+        await dock();
+        const outside = document.createElement('input');
+        document.body.append(outside);
+        outside.focus();
+
+        document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+
+        expect(panel.state).toBe('expanded');
+    });
+
+    test('a tree click, a module state update and a loaded module refresh the chat\'s page, once each after a move', async () => {
+        await dock();
+        const refresh = jest.spyOn(panel.chat, 'refreshBackendPage').mockImplementation(() => {});
+
+        ModuleStateStorage.updateWithTreeIdentifier('web', '4', '0_4');
+        ModuleStateStorage.update('web', '5');
+        document.dispatchEvent(new CustomEvent('typo3-module-loaded', {detail: {}}));
+
+        expect(refresh).toHaveBeenCalledTimes(3);
+        refresh.mockRestore();
+        sessionStorage.clear();
+    });
+
+    test('back from its own window into the column, before the router', async () => {
+        await dock();
+        const pipWindow = {
+            document: document.implementation.createHTMLDocument('pip'),
+            addEventListener: jest.fn(),
+        };
+        Object.defineProperty(window, 'documentPictureInPicture', {
+            value: {requestWindow: jest.fn().mockResolvedValue(pipWindow)},
+            configurable: true,
+        });
+
+        await panel.popOut();
+        expect(panel.layout).toBe('floating');
+        expect(area.hasAttribute(MOUNT_ATTRIBUTE)).toBe(false);
+
+        panel._returnFromPopOut();
+        expect(panel.layout).toBe('column');
+        expect(panel.parentElement).toBe(area);
+        expect(panel.nextElementSibling.localName).toBe('typo3-backend-module-router');
+        delete window.documentPictureInPicture;
+    });
+});

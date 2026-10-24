@@ -9,6 +9,7 @@
  * to the <ai-chat-panel> component.
  */
 import '@netresearch/nr-mcp-agent/ai-chat-panel.js';
+import {attachPanel} from '@netresearch/nr-mcp-agent/chat-column.js';
 
 class ChatPanelToolbarInit {
     static init() {
@@ -24,7 +25,9 @@ class ChatPanelToolbarInit {
         if (!btn) return;
 
         const panel = document.createElement('ai-chat-panel');
-        document.body.appendChild(panel);
+        // Floating in the body, or docked as a column beside the page tree
+        // (ADR-024), as the user left it.
+        attachPanel(panel, document);
 
         btn.addEventListener('click', (e) => {
             e.preventDefault();
