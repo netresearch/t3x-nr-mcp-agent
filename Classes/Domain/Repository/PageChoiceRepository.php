@@ -27,7 +27,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 /**
  * Pages the current backend user may work on with the assistant: the ones a
  * dashboard widget offers to improve, and the checks for a page named
- * elsewhere (an open improvement point).
+ * elsewhere (an open improvement point, the page a conversation is about).
  *
  * A page is offered for improvement only when the user may edit its content
  * in the default language, the version the widgets start the chat on:
@@ -268,6 +268,31 @@ readonly class PageChoiceRepository
         $row = $this->readableRow($uid);
 
         return $row === null ? null : $this->choice($uid, $row);
+    }
+
+    /**
+     * Whether the page no longer exists: never there, removed from the
+     * database, or deleted (in the recycler). readPageAccess() answers null
+     * for such a page and for one the user may not see alike; this tells the
+     * two apart, for any user. Only the deleted flag counts: a hidden page,
+     * or one outside the user's mounts, is not gone. A page deleted in a
+     * workspace only is not gone either.
+     */
+    public function isGone(int $uid): bool
+    {
+        if ($uid < 1) {
+            return false;
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable('pages');
+        $qb->getRestrictions()->removeAll()->add(new DeletedRestriction());
+        $count = $qb->count('uid')
+            ->from('pages')
+            ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchOne();
+
+        return !is_numeric($count) || (int) $count === 0;
     }
 
     /**

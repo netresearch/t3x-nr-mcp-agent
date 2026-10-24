@@ -575,19 +575,40 @@
                 <source>Hide the activity list</source>
             </trans-unit>
             <trans-unit id="widget.title" resname="widget.title">
-                <source>AI Chat</source>
+                <source>Recent chats</source>
             </trans-unit>
             <trans-unit id="widget.description" resname="widget.description">
-                <source>Your most recent AI chats, opened in the chat panel with one click.</source>
+                <source>Your last five AI chats: read them again or continue where you left off.</source>
             </trans-unit>
-            <trans-unit id="widget.openConversation" resname="widget.openConversation">
-                <source>Open in the chat panel</source>
+            <trans-unit id="widget.hint" resname="widget.hint">
+                <source>Look at earlier conversations or continue where you left off.</source>
             </trans-unit>
             <trans-unit id="widget.empty" resname="widget.empty">
-                <source>No chats yet.</source>
+                <source>No chats yet. Your conversations with the assistant appear here.</source>
             </trans-unit>
-            <trans-unit id="widget.openModule" resname="widget.openModule">
-                <source>Open the chat module</source>
+            <trans-unit id="widget.showAll" resname="widget.showAll">
+                <source>Show all chats</source>
+            </trans-unit>
+            <trans-unit id="widget.context.page" resname="widget.context.page">
+                <source>Page “%s”</source>
+            </trans-unit>
+            <trans-unit id="widget.context.pageGone" resname="widget.context.pageGone">
+                <source>Deleted page</source>
+            </trans-unit>
+            <trans-unit id="widget.context.guidedTour" resname="widget.context.guidedTour">
+                <source>Guided tour</source>
+            </trans-unit>
+            <trans-unit id="widget.time.today" resname="widget.time.today">
+                <source>Today, %s</source>
+            </trans-unit>
+            <trans-unit id="widget.time.yesterday" resname="widget.time.yesterday">
+                <source>Yesterday, %s</source>
+            </trans-unit>
+            <trans-unit id="chat.pageGone" resname="chat.pageGone">
+                <source>The page this guided tour is on has been deleted. The chat can be read but not continued. End the tour to go on as an ordinary chat.</source>
+            </trans-unit>
+            <trans-unit id="error.pageGone" resname="error.pageGone">
+                <source>The page this guided tour is on has been deleted; end the tour to continue the chat.</source>
             </trans-unit>
             <trans-unit id="permission.header" resname="permission.header">
                 <source>AI Chat</source>

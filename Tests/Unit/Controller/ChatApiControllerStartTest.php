@@ -228,7 +228,8 @@ final class ChatApiControllerStartTest extends TestCase
 
         $response = $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "seo-page-tour"}'));
 
-        self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => null]], $this->json($response));
+        // tourStart: null, as nr-llm cannot start a run with an invocation here.
+        self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => null], 'tourStart' => null], $this->json($response));
     }
 
     /**
@@ -273,7 +274,7 @@ final class ChatApiControllerStartTest extends TestCase
         $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
         $this->repository->expects(self::once())->method('updateSkillIdentifier')->with(0, '', 1);
 
-        self::assertSame(['skill' => null], $this->json($this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": ""}'))));
+        self::assertSame(['skill' => null, 'tourStart' => null], $this->json($this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": ""}'))));
     }
 
     #[Test]

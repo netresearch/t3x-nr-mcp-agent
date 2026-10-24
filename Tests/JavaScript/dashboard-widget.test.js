@@ -2,11 +2,12 @@
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 /**
- * Clicks in the "AI Chat" dashboard widget (NEXT-172): open the conversation
- * in the floating panel when there is one, follow the link otherwise.
+ * Clicks in the "Recent chats" dashboard widget: open the conversation in the
+ * chat panel when there is one, and its page in the page module; follow the
+ * link otherwise.
  */
 
-import {describe, test, expect, jest, beforeAll, beforeEach} from '@jest/globals';
+import {describe, test, expect, jest, beforeAll, beforeEach, afterEach} from '@jest/globals';
 
 function link(attrs) {
     const a = document.createElement('a');
@@ -87,5 +88,78 @@ describe('dashboard widget', () => {
         expect(event.defaultPrevented).toBe(false);
         expect(panel.chat.selectConversation).not.toHaveBeenCalled();
         document.querySelector.mockRestore();
+    });
+
+    describe('a conversation about a page', () => {
+        let showModule;
+
+        beforeEach(() => {
+            showModule = jest.fn();
+            globalThis.TYPO3 = {ModuleMenu: {App: {showModule}}};
+        });
+
+        afterEach(() => {
+            delete globalThis.TYPO3;
+        });
+
+        test('also shows the page in the page module, in its language', () => {
+            const panel = fakePanel();
+            click(link({'data-nr-chat-conversation': '12', 'data-nr-chat-page': '7', 'data-nr-chat-language': '1'}));
+
+            expect(panel.chat.selectConversation).toHaveBeenCalledWith(12);
+            expect(showModule).toHaveBeenCalledTimes(1);
+            const [module, query] = showModule.mock.calls[0];
+            const params = new URLSearchParams(query);
+            expect(module).toBe('web_layout');
+            expect(params.get('id')).toBe('7');
+            // TYPO3 13 reads `language`, 14 reads `languages[]`.
+            expect(params.get('language')).toBe('1');
+            expect(params.get('languages[0]')).toBe('1');
+            document.querySelector.mockRestore();
+        });
+
+        test('without a known language the page module keeps its own', () => {
+            fakePanel();
+            click(link({'data-nr-chat-conversation': '12', 'data-nr-chat-page': '7', 'data-nr-chat-language': '-1'}));
+
+            expect(showModule).toHaveBeenCalledWith('web_layout', 'id=7');
+            document.querySelector.mockRestore();
+        });
+
+        // A deleted page, or none: the template leaves the attribute empty.
+        test('without a page only the chat opens', () => {
+            const panel = fakePanel();
+            click(link({'data-nr-chat-conversation': '12', 'data-nr-chat-page': '', 'data-nr-chat-language': ''}));
+
+            expect(panel.chat.selectConversation).toHaveBeenCalledWith(12);
+            expect(showModule).not.toHaveBeenCalled();
+            document.querySelector.mockRestore();
+        });
+
+        test('a modified click opens neither the chat nor the page', () => {
+            const panel = fakePanel();
+            click(link({'data-nr-chat-conversation': '12', 'data-nr-chat-page': '7'}), {ctrlKey: true});
+
+            expect(panel.chat.selectConversation).not.toHaveBeenCalled();
+            expect(showModule).not.toHaveBeenCalled();
+            document.querySelector.mockRestore();
+        });
+
+        test('without the panel the link to the chat module is followed and the page is left alone', () => {
+            const event = click(link({'data-nr-chat-conversation': '12', 'data-nr-chat-page': '7'}));
+
+            expect(event.defaultPrevented).toBe(false);
+            expect(showModule).not.toHaveBeenCalled();
+        });
+
+        test('without core\'s module menu the chat still opens', () => {
+            delete globalThis.TYPO3;
+            const panel = fakePanel();
+            const event = click(link({'data-nr-chat-conversation': '12', 'data-nr-chat-page': '7'}));
+
+            expect(event.defaultPrevented).toBe(true);
+            expect(panel.chat.selectConversation).toHaveBeenCalledWith(12);
+            document.querySelector.mockRestore();
+        });
     });
 });

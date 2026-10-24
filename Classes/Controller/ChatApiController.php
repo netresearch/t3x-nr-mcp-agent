@@ -20,6 +20,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -108,6 +109,9 @@ final readonly class ChatApiController
         // The human title of the active skill for the chip; without it the
         // chip shows the skill's name.
         private ?SkillLabels $skillLabels = null,
+        // Tells a deleted page from one the user may not see; without it no
+        // conversation counts as one about a deleted page.
+        private ?PageChoiceRepository $pages = null,
     ) {}
 
     /**
@@ -463,6 +467,24 @@ final readonly class ChatApiController
             return $refusal;
         }
 
+        // A running tour on a deleted page is read-only: switching its skill
+        // would leave its waiting run behind. Ending it (endTour()) withdraws
+        // the run; a skill can be picked after that.
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
+        }
+
+        // A process stays on the conversation's page (keepsItsPage()). A page
+        // deleted since — the one a tour ended on, or where an ordinary chat
+        // last was — would bind the new process to nothing and make the chat
+        // read-only at once; without it the chat asks for a page instead.
+        $context = $conversation->getViewContext();
+        if ($skill !== '' && $context['pageId'] > 0 && ($this->pages?->isGone($context['pageId']) ?? false)) {
+            $conversation->setViewContext(0, $context['module']);
+            $this->repository->updateViewContext($conversation, $this->getBeUserUid());
+        }
+
         $skillUid = $this->skillUid($skill);
         // A process skill picked here starts on the next turn (nr-llm ADR-214
         // item 10); that turn's invocation is a new start, later turns
@@ -472,7 +494,9 @@ final readonly class ChatApiController
         $conversation->setSkillIdentifier($skill, $skillUid);
         $conversation->setSkillStartPending($startsProcess);
 
-        return new JsonResponse(['skill' => $this->presentSkill($conversation)]);
+        // What the chat may offer to start the process, as getMessages()
+        // answers it: a process without a page asks for one.
+        return new JsonResponse(['skill' => $this->presentSkill($conversation), 'tourStart' => $this->tourStart($conversation)]);
     }
 
     /**
@@ -669,7 +693,38 @@ final readonly class ChatApiController
             // when it is installed.
             'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
             'activity'     => $conversation->getActivity(),
+            // The page a guided process is bound to has been deleted: the
+            // chat shows it read-only, with a notice (refuseReadOnly()).
+            'pageGone' => $this->isPageGone($conversation),
         ]);
+    }
+
+    /**
+     * A guided process whose page has been deleted is read-only: it can be
+     * read again, not continued on a page that is not there — no message, no
+     * edit, no answer to a question, no decision, no resume. Ending it
+     * (endTour()) stays open: it withdraws a waiting run, and the
+     * conversation is an ordinary one again.
+     */
+    private function refuseReadOnly(Conversation $conversation): ?ResponseInterface
+    {
+        return $this->isPageGone($conversation)
+            ? new JsonResponse(['error' => $this->translate('error.pageGone')], 409)
+            : null;
+    }
+
+    /**
+     * Whether the page the conversation is bound to no longer exists.
+     *
+     * Only a guided process stays on its page (keepsItsPage()); any other
+     * conversation takes the page the browser shows with each message, so a
+     * deleted page there is only where the editor last was, and the next
+     * message moves on. False as well where the page lookup is not wired.
+     */
+    private function isPageGone(Conversation $conversation): bool
+    {
+        return $this->keepsItsPage($conversation)
+            && ($this->pages?->isGone($conversation->getViewContext()['pageId']) ?? false);
     }
 
     /**
@@ -720,6 +775,11 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
         }
 
         $content = trim((string) ($body['content'] ?? ''));
@@ -821,6 +881,11 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
         }
 
         $content = trim((string) ($body['content'] ?? ''));
@@ -1510,6 +1575,11 @@ final readonly class ChatApiController
             return $conversation;
         }
 
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
+        }
+
         $submission = $this->acceptedAnswer($conversation, $body);
         if ($submission instanceof ResponseInterface) {
             return $submission;
@@ -1579,6 +1649,11 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
         }
 
         $body    = $this->parseBody($request);
@@ -1679,6 +1754,11 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
         }
 
         // Locked: ai-chat:process or a worker has claimed the turn and is

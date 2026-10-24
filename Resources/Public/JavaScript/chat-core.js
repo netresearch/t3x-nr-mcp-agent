@@ -315,6 +315,16 @@ export class ChatCoreController {
     backendPage = {pageId: 0};
     /** A page the user chose not to switch the tour to. */
     pageKept = 0;
+    /**
+     * The page the active conversation is about has been deleted, from the
+     * server: the conversation is shown read-only, with a notice.
+     */
+    pageGone = false;
+    /**
+     * Why ending the tour failed, for the read-only notice; '' otherwise.
+     * Its own field: errorMessage also carries a stored run error.
+     */
+    endTourError = '';
     _pageWatchTimer = null;
 
     /** The highlight last sent to the page module, so it is sent once. */
@@ -467,6 +477,8 @@ export class ChatCoreController {
         this.tourStart = null;
         this.dashboardUrl = '';
         this.pageKept = 0;
+        this.pageGone = false;
+        this.endTourError = '';
         // Coming back to a conversation highlights its element again.
         this._sentHighlight = '';
         this.highlightAnnounced = '';
@@ -625,6 +637,7 @@ export class ChatCoreController {
             this.dashboardUrl = data.dashboardUrl || '';
             this.skill = data.skill || null;
             this.activity = data.activity || [];
+            this.pageGone = data.pageGone === true;
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
                 // screen is a question again, not a confirmation.
@@ -801,9 +814,14 @@ export class ChatCoreController {
         return PROCESSING_STATUSES.has(this.status);
     }
 
+    /** Whether the active conversation can only be read (its page was deleted). */
+    isReadOnly() {
+        return this.pageGone;
+    }
+
     async handleSend() {
         const content = this.inputValue.trim();
-        if (!content || this.sending || this.isProcessing()) return;
+        if (!content || this.sending || this.isProcessing() || this.isReadOnly()) return;
 
         if (this.maxLength > 0 && content.length > this.maxLength) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);
@@ -866,7 +884,7 @@ export class ChatCoreController {
     canEditMessage(idx) {
         const msg = this.messages[idx];
         return !!msg && msg.role === 'user' && typeof msg.content === 'string'
-            && !this.isProcessing() && !this.sending && this.available;
+            && !this.isProcessing() && !this.sending && this.available && !this.isReadOnly();
     }
 
     startEdit(idx) {
@@ -1096,6 +1114,10 @@ export class ChatCoreController {
             this.pendingApproval = null;
             this.pendingInput = null;
             this.approvalDecisionTaken = null;
+            // Only a guided process is bound to its page; ended, the
+            // conversation is an ordinary one and can be continued.
+            this.pageGone = false;
+            this.endTourError = '';
             if (data.status) {
                 this.status = data.status;
                 this.conversations = this.conversations.map(c => c.uid === uid ? {...c, status: data.status} : c);
@@ -1106,6 +1128,7 @@ export class ChatCoreController {
         } catch (e) {
             if (uid !== this.activeUid) return;
             this.errorMessage = e.message;
+            this.endTourError = e.message;
         } finally {
             this.endingTour = false;
             this.host.requestUpdate();
@@ -1119,6 +1142,11 @@ export class ChatCoreController {
             const data = await this._api.updateSkill(uid, identifier);
             if (uid !== this.activeUid) return;
             this.skill = data.skill || null;
+            // A process picked without a page asks for one (ADR-023).
+            if ('tourStart' in data) {
+                this.tourStart = data.tourStart || null;
+                this.syncPageWatch();
+            }
             this.errorMessage = '';
         } catch (e) {
             if (uid !== this.activeUid) return;

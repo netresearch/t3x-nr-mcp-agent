@@ -760,24 +760,52 @@
                 <target>Aktivitätsliste ausblenden</target>
             </trans-unit>
             <trans-unit id="widget.title" resname="widget.title">
-                <source>AI Chat</source>
-                <target>KI-Chat</target>
+                <source>Recent chats</source>
+                <target>Letzte Chats</target>
             </trans-unit>
             <trans-unit id="widget.description" resname="widget.description">
-                <source>Your most recent AI chats, opened in the chat panel with one click.</source>
-                <target>Deine letzten KI-Chats, mit einem Klick im Chat-Panel geöffnet.</target>
+                <source>Your last five AI chats: read them again or continue where you left off.</source>
+                <target>Deine letzten fünf KI-Chats: nachlesen oder dort weitermachen, wo du aufgehört hast.</target>
             </trans-unit>
-            <trans-unit id="widget.openConversation" resname="widget.openConversation">
-                <source>Open in the chat panel</source>
-                <target>Im Chat-Panel öffnen</target>
+            <trans-unit id="widget.hint" resname="widget.hint">
+                <source>Look at earlier conversations or continue where you left off.</source>
+                <target>Schau dir frühere Gespräche an oder mach dort weiter, wo du aufgehört hast.</target>
             </trans-unit>
             <trans-unit id="widget.empty" resname="widget.empty">
-                <source>No chats yet.</source>
-                <target>Noch keine Chats.</target>
+                <source>No chats yet. Your conversations with the assistant appear here.</source>
+                <target>Noch keine Chats. Deine Gespräche mit dem Assistant erscheinen hier.</target>
             </trans-unit>
-            <trans-unit id="widget.openModule" resname="widget.openModule">
-                <source>Open the chat module</source>
-                <target>Chat-Modul öffnen</target>
+            <trans-unit id="widget.showAll" resname="widget.showAll">
+                <source>Show all chats</source>
+                <target>Alle Chats anzeigen</target>
+            </trans-unit>
+            <trans-unit id="widget.context.page" resname="widget.context.page">
+                <source>Page “%s”</source>
+                <target>Seite „%s“</target>
+            </trans-unit>
+            <trans-unit id="widget.context.pageGone" resname="widget.context.pageGone">
+                <source>Deleted page</source>
+                <target>Gelöschte Seite</target>
+            </trans-unit>
+            <trans-unit id="widget.context.guidedTour" resname="widget.context.guidedTour">
+                <source>Guided tour</source>
+                <target>Guided Tour</target>
+            </trans-unit>
+            <trans-unit id="widget.time.today" resname="widget.time.today">
+                <source>Today, %s</source>
+                <target>Heute, %s</target>
+            </trans-unit>
+            <trans-unit id="widget.time.yesterday" resname="widget.time.yesterday">
+                <source>Yesterday, %s</source>
+                <target>Gestern, %s</target>
+            </trans-unit>
+            <trans-unit id="chat.pageGone" resname="chat.pageGone">
+                <source>The page this guided tour is on has been deleted. The chat can be read but not continued. End the tour to go on as an ordinary chat.</source>
+                <target>Die Seite dieses Rundgangs wurde gelöscht. Der Chat lässt sich nachlesen, aber nicht fortsetzen. Beende den Rundgang, um als normaler Chat weiterzumachen.</target>
+            </trans-unit>
+            <trans-unit id="error.pageGone" resname="error.pageGone">
+                <source>The page this guided tour is on has been deleted; end the tour to continue the chat.</source>
+                <target>Die Seite dieses Rundgangs wurde gelöscht; beende den Rundgang, um den Chat fortzusetzen.</target>
             </trans-unit>
             <trans-unit id="permission.header" resname="permission.header">
                 <source>AI Chat</source>

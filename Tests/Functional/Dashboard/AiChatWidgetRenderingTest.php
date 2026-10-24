@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Functional\Dashboard;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Route;
@@ -20,8 +22,8 @@ use TYPO3\CMS\Dashboard\WidgetRegistry;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
- * The widget rendered through the dashboard's own registry, as the dashboard
- * does it (NEXT-172).
+ * The "Recent chats" widget rendered through the dashboard's own registry, as
+ * the dashboard does it.
  */
 final class AiChatWidgetRenderingTest extends FunctionalTestCase
 {
@@ -44,7 +46,12 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/tx_nrmcpagent_conversation.csv');
-        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+        $this->actingAs(1);
+    }
+
+    private function actingAs(int $uid): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser($uid);
         $GLOBALS['LANG']    = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($GLOBALS['BE_USER']);
     }
 
@@ -55,52 +62,201 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
             ->withAttribute('route', new Route('/module/dashboard', []));
     }
 
+    private function render(): string
+    {
+        return $this->get(WidgetRegistry::class)
+            ->getAvailableWidget($this->request(), 'nrMcpAgentAiChat')
+            ->renderWidgetContent();
+    }
+
+    /** A message on the conversation, written at the given time; the list skips conversations without one. */
+    private function addMessage(int $conversation, string $createdAt = 'now'): void
+    {
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_message');
+        $sorting    = (int) $connection->count('uid', 'tx_nrmcpagent_message', ['conversation' => $conversation]);
+        $connection->insert('tx_nrmcpagent_message', [
+            'conversation' => $conversation,
+            'sorting'      => $sorting,
+            'role'         => 'user',
+            'payload'      => json_encode(['role' => 'user', 'content' => 'Hallo', 'createdAt' => (new DateTimeImmutable($createdAt))->format(DateTimeInterface::ATOM)], JSON_THROW_ON_ERROR),
+            'crdate'       => time(),
+        ]);
+        $this->updateConversation($conversation, ['message_count' => $sorting + 1]);
+    }
+
+    /**
+     * @param array<string, int|string> $values
+     */
+    private function updateConversation(int $uid, array $values): void
+    {
+        $this->get(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->update('tx_nrmcpagent_conversation', $values, ['uid' => $uid]);
+    }
+
+    /**
+     * @param array<string, int|string> $values
+     */
+    private function addPage(int $uid, string $title, array $values = []): void
+    {
+        $this->get(ConnectionPool::class)->getConnectionForTable('pages')->insert('pages', [
+            'uid'             => $uid,
+            'pid'             => 0,
+            'title'           => $title,
+            'doktype'         => 1,
+            'perms_userid'    => 1,
+            'perms_user'      => 31,
+            'perms_everybody' => 0,
+            ...$values,
+        ]);
+    }
+
     #[Test]
     public function itListsTheConversationsAndOffersTheChat(): void
     {
         self::assertGreaterThan(0, $this->get(ExtensionConfiguration::class)->getLlmTaskUid(), 'precondition: the chat is configured');
+        $this->addMessage(1);
+        $this->addMessage(3);
 
-        $html = $this->get(WidgetRegistry::class)
-            ->getAvailableWidget($this->request(), 'nrMcpAgentAiChat')
-            ->renderWidgetContent();
+        $html = $this->render();
 
         self::assertStringContainsString('data-nr-chat-conversation="1"', $html);
         self::assertStringContainsString('Conv 1', $html);
         // Another user's conversation.
         self::assertStringNotContainsString('Conv 3', $html);
+        // Without a message there is nothing to look back on.
+        self::assertStringNotContainsString('Conv 2', $html);
+        self::assertStringContainsString('Look at earlier conversations or continue where you left off.', $html);
+        self::assertStringContainsString('Show all chats', $html);
         self::assertStringContainsString('data-nr-chat-new="1"', $html);
+    }
+
+    #[Test]
+    public function withoutChatsItSaysWhereTheyWillAppear(): void
+    {
+        $html = $this->render();
+
+        self::assertStringContainsString('No chats yet. Your conversations with the assistant appear here.', $html);
+        self::assertStringNotContainsString('data-nr-chat-conversation=', $html);
     }
 
     /** A title is user text: it must reach the page as text, never as markup. */
     #[Test]
     public function aTitleIsEscaped(): void
     {
-        $this->get(ConnectionPool::class)
-            ->getConnectionForTable('tx_nrmcpagent_conversation')
-            ->update('tx_nrmcpagent_conversation', ['title' => '<script>alert(1)</script>', 'tstamp' => time()], ['uid' => 1]);
+        $this->addMessage(1);
+        $this->updateConversation(1, ['title' => '<script>alert(1)</script>', 'tstamp' => time()]);
 
-        $html = $this->get(WidgetRegistry::class)
-            ->getAvailableWidget($this->request(), 'nrMcpAgentAiChat')
-            ->renderWidgetContent();
+        $html = $this->render();
 
         self::assertStringNotContainsString('<script>alert(1)</script>', $html);
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
     }
 
     /**
-     * The date under each conversation is muted text. `text-body-secondary` is a
-     * Bootstrap 5.3 utility that TYPO3's backend.css does not define (13.4.35 and
-     * 14.3.7), so the date rendered in the body colour; core's `text-variant`
-     * follows the backend colour scheme at both versions.
+     * The whole entry is one link whose text is its accessible name: title,
+     * context, progress and time, with the page for the page module.
      */
     #[Test]
-    public function theDateUsesCoresMutedTextClass(): void
+    public function aGuidedProcessOnAPageShowsThePageTheTourItsPointAndTheTime(): void
     {
-        $html = $this->get(WidgetRegistry::class)
-            ->getAvailableWidget($this->request(), 'nrMcpAgentAiChat')
-            ->renderWidgetContent();
+        $this->addPage(10, 'Startseite');
+        $this->addMessage(1);
+        $this->updateConversation(1, [
+            'view_context'     => '{"pageId":10,"module":"web_layout","languageId":0}',
+            'skill_identifier' => 'seo-optimieren',
+            'guided_state'     => '{"progress":{"label":"SEO","current":3,"total":5,"completed":false},"highlight":null}',
+        ]);
 
-        self::assertStringContainsString('class="text-variant small"', $html);
+        $html = $this->render();
+
+        self::assertStringContainsString('<span class="nr-recent-chats-title">Optimise SEO</span>', $html);
+        self::assertStringContainsString('Page “Startseite” · Guided tour', $html);
+        self::assertStringContainsString('Point 3 of 5', $html);
+        self::assertMatchesRegularExpression('/<time class="nr-recent-chats-time" datetime="[^"]+">Today, /', $html);
+        self::assertStringContainsString('data-nr-chat-page="10"', $html);
+        self::assertStringContainsString('data-nr-chat-language="0"', $html);
+    }
+
+    #[Test]
+    public function aGuidedProcessOnADeletedPageSaysSo(): void
+    {
+        $this->addPage(11, 'Weg', ['deleted' => 1]);
+        $this->addMessage(1);
+        $this->updateConversation(1, [
+            'view_context'     => '{"pageId":11,"module":"web_layout"}',
+            'skill_identifier' => 'seo-optimieren',
+            'guided_state'     => '{"progress":{"label":"SEO","current":2,"total":4,"completed":false},"highlight":null}',
+        ]);
+
+        $html = $this->render();
+
+        self::assertStringContainsString('Optimise SEO', $html);
+        self::assertStringContainsString('Deleted page · Guided tour', $html);
+        self::assertStringNotContainsString('Point 2 of 4', $html);
+        self::assertStringNotContainsString('Weg', $html);
+        self::assertStringContainsString('data-nr-chat-page=""', $html);
+    }
+
+    /**
+     * An ordinary chat keeps the page the browser showed with its last
+     * message; that is where the editor was, not what the chat is about.
+     */
+    #[Test]
+    public function anOrdinaryChatIsListedWithoutItsLastPage(): void
+    {
+        $this->addPage(10, 'Startseite');
+        $this->addPage(11, 'Weg', ['deleted' => 1]);
+        $this->addMessage(1);
+        $this->addMessage(2);
+        $this->updateConversation(1, ['view_context' => '{"pageId":10,"module":"web_layout","languageId":0}']);
+        $this->updateConversation(2, ['view_context' => '{"pageId":11,"module":"web_layout"}']);
+
+        $html = $this->render();
+
+        self::assertStringContainsString('Conv 1', $html);
+        self::assertStringContainsString('Conv 2', $html);
+        self::assertStringNotContainsString('Startseite', $html);
+        self::assertStringNotContainsString('Deleted page', $html);
+        self::assertStringNotContainsString('nr-recent-chats-context', $html);
+        self::assertStringNotContainsString('data-nr-chat-page="1', $html);
+    }
+
+    #[Test]
+    public function aGuidedProcessOnAPageTheUserMayNotSeeIsLeftOut(): void
+    {
+        // Page 12 grants nothing to anyone but its owner, the admin.
+        $this->addPage(12, 'Intern');
+        $this->addMessage(3);
+        $this->updateConversation(3, ['view_context' => '{"pageId":12,"module":"web_layout"}', 'skill_identifier' => 'seo-optimieren']);
+        $this->actingAs(2);
+        // The editor's groups would allow the widget (core's per-group widget
+        // permission); which group does not matter here.
+        $GLOBALS['BE_USER']->groupData['available_widgets'] = 'nrMcpAgentAiChat';
+
+        $html = $this->render();
+
+        self::assertStringNotContainsString('Conv 3', $html);
+        self::assertStringContainsString('No chats yet.', $html);
+    }
+
+    /**
+     * The grey lines are the backend's variant text colour, which follows the
+     * colour scheme. `text-body-secondary`, the Bootstrap 5.3 utility, is not
+     * defined by TYPO3's backend.css (13.4.35 and 14.3.7) and rendered in the
+     * body colour.
+     */
+    #[Test]
+    public function theMutedLinesUseTheBackendsVariantTextColour(): void
+    {
+        $this->addMessage(1);
+
+        $html = $this->render();
+        $css  = (string) file_get_contents(__DIR__ . '/../../../Resources/Public/Css/recent-chats-widget.css');
+
         self::assertStringNotContainsString('text-body-secondary', $html);
+        self::assertStringContainsString('class="nr-recent-chats-time"', $html);
+        self::assertMatchesRegularExpression('/\.nr-recent-chats-time \{[^}]*color: var\(--typo3-text-color-variant/', $css);
+        self::assertMatchesRegularExpression('/\.nr-recent-chats-context \{[^}]*color: var\(--typo3-text-color-variant/', $css);
     }
 }
