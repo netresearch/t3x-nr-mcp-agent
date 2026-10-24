@@ -9,8 +9,8 @@
                 <target>KI-Assistent</target>
             </trans-unit>
             <trans-unit id="preset.description" resname="preset.description">
-                <source>Improve your website with the AI assistant: start guided tours, frequent tasks and open recommendations, and return to your recent chats.</source>
-                <target>Verbessere deine Website mit dem KI-Assistenten: geführte Rundgänge, häufige Aufgaben, offene Empfehlungen und deine letzten Chats.</target>
+                <source>Improve your website with the AI assistant: ask a question, start guided tours, frequent tasks and open recommendations, and return to your recent chats.</source>
+                <target>Verbessere deine Website mit dem KI-Assistenten: eine eigene Frage, geführte Rundgänge, häufige Aufgaben, offene Empfehlungen und deine letzten Chats.</target>
             </trans-unit>
             <trans-unit id="group.title" resname="group.title">
                 <source>AI Assistant</source>
@@ -111,6 +111,26 @@
             <trans-unit id="recommendations.start" resname="recommendations.start">
                 <source>%1$s on “%2$s”</source>
                 <target>%1$s für „%2$s“</target>
+            </trans-unit>
+            <trans-unit id="prompt.title" resname="prompt.title">
+                <source>AI Assistant</source>
+                <target>AI Assistant</target>
+            </trans-unit>
+            <trans-unit id="prompt.description" resname="prompt.description">
+                <source>Ask the AI assistant a question of your own, without choosing a tour or a page first; the chat opens with your question.</source>
+                <target>Stell dem KI-Assistenten eine eigene Frage, ohne vorher einen Rundgang oder eine Seite zu wählen – der Chat öffnet sich mit deiner Frage.</target>
+            </trans-unit>
+            <trans-unit id="prompt.question" resname="prompt.question">
+                <source>What would you like to do?</source>
+                <target>Was möchtest du tun?</target>
+            </trans-unit>
+            <trans-unit id="prompt.placeholder" resname="prompt.placeholder">
+                <source>Ask the assistant …</source>
+                <target>Frag den Assistant …</target>
+            </trans-unit>
+            <trans-unit id="prompt.send" resname="prompt.send">
+                <source>Send</source>
+                <target>Senden</target>
             </trans-unit>
             <trans-unit id="skill.seo-optimieren.title" resname="skill.seo-optimieren.title">
                 <source>Optimise SEO</source>

@@ -391,6 +391,10 @@
                 <source>Message exceeds %d character limit</source>
                 <target>Nachricht überschreitet das Limit von %d Zeichen</target>
             </trans-unit>
+            <trans-unit id="chat.stillSending" resname="chat.stillSending">
+                <source>The chat is still sending a message. Try again once it has been sent.</source>
+                <target>Der Chat sendet noch eine Nachricht. Versuch es noch einmal, sobald sie gesendet ist.</target>
+            </trans-unit>
             <trans-unit id="chat.nothingSaved" resname="chat.nothingSaved">
                 <source>Nothing was saved in this step.</source>
                 <target>In diesem Schritt wurde nichts gespeichert.</target>

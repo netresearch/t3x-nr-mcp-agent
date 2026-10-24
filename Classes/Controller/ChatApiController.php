@@ -178,6 +178,8 @@ final readonly class ChatApiController
             'available'               => $taskUid > 0,
             'activeConversationCount' => $this->repository->countActiveByBeUser($this->getBeUserUid()),
             'issues'                  => $issues,
+            // The limit sendMessage() enforces, so a client can check first.
+            'maxMessageLength' => $this->config->getMaxMessageLength(),
             ...$capabilities,
         ]);
     }

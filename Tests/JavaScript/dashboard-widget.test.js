@@ -75,6 +75,20 @@ describe('dashboard widget', () => {
         document.querySelector.mockRestore();
     });
 
+    test('a panel popped out into its own window is found through the backend window', async () => {
+        const {PANEL_PROPERTY} = await import('../../Resources/Public/JavaScript/chat-panel-registry.js');
+        const popped = {isConnected: true, state: 'expanded', toggle: jest.fn(), chat: {selectConversation: jest.fn(), handleNewConversation: jest.fn()}};
+        window[PANEL_PROPERTY] = popped;
+        try {
+            const event = click(link({'data-nr-chat-conversation': '12'}));
+
+            expect(event.defaultPrevented).toBe(true);
+            expect(popped.chat.selectConversation).toHaveBeenCalledWith(12);
+        } finally {
+            delete window[PANEL_PROPERTY];
+        }
+    });
+
     test('without a panel the link to the module is followed', () => {
         const event = click(link({'data-nr-chat-conversation': '12'}));
 

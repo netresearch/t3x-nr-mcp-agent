@@ -265,6 +265,8 @@ export class ChatCoreController {
     inputValue = '';
     hasInput = false;
     loading = true;
+    /** @type {Promise<void>} init() of the current connection */
+    ready = Promise.resolve();
     sending = false;
     available = false;
     issues = [];
@@ -401,7 +403,9 @@ export class ChatCoreController {
             () => this._openFalPicker(),
             {signal: this._abortController.signal},
         );
-        this.init();
+        // Settles when this connection's status and conversations are loaded;
+        // a move of the host (ADR-024) starts a new one.
+        this.ready = this.init();
     }
 
     hostDisconnected() {
@@ -427,6 +431,11 @@ export class ChatCoreController {
             this.issues = statusData.issues || [];
             this.visionSupported = statusData.visionSupported || false;
             this.maxFileSize = statusData.maxFileSize || 0;
+            // The chat module passes the limit in its markup; the panel has
+            // only the status to learn it from.
+            if (typeof statusData.maxMessageLength === 'number') {
+                this.maxLength = statusData.maxMessageLength;
+            }
             this.supportedFormats = statusData.supportedFormats || [];
             await this.loadConversations();
             // A link that names a conversation (the dashboard widget's, when
@@ -819,24 +828,62 @@ export class ChatCoreController {
         return this.pageGone;
     }
 
-    async handleSend() {
-        const content = this.inputValue.trim();
-        if (!content || this.sending || this.isProcessing() || this.isReadOnly()) return;
+    /**
+     * Whether a message is longer than the configured maximum. Counted in
+     * characters, as the server counts them (mb_strlen), not in UTF-16 units.
+     *
+     * @param {string} content
+     */
+    isTooLong(content) {
+        return this.maxLength > 0 && [...content].length > this.maxLength;
+    }
 
-        if (this.maxLength > 0 && content.length > this.maxLength) {
+    /**
+     * Why a new message would be refused before it is sent, in the user's
+     * language, or '' when nothing stands in its way. For a message sent from
+     * outside the chat, which must not create a conversation it cannot fill.
+     *
+     * @param {string} content the trimmed message
+     */
+    refusalFor(content) {
+        if (this.sending) {
+            return lll('chat.stillSending');
+        }
+        if (this.isTooLong(content)) {
+            return lll('chat.messageTooLong', this.maxLength);
+        }
+
+        return '';
+    }
+
+    /**
+     * Send the input, or the given text: a message written outside the chat
+     * (the prompt widget) goes the same way as one typed into it, and leaves a
+     * draft in the input alone.
+     *
+     * @param {string|null} [text]
+     * @returns {Promise<boolean>} whether the message was sent
+     */
+    async handleSend(text = null) {
+        const fromInput = text === null;
+        const content = (fromInput ? this.inputValue : String(text)).trim();
+        if (!content || this.sending || this.isProcessing() || this.isReadOnly()) return false;
+
+        if (this.isTooLong(content)) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);
             this.host.requestUpdate();
-            return;
+            return false;
         }
 
         if (this.answersAsFreeText() && !this.pendingFile) {
-            if (await this.submitInput({freeText: content})) {
+            const answered = await this.submitInput({freeText: content});
+            if (answered && fromInput) {
                 this.inputValue = '';
                 this.hasInput = false;
                 this.host.onResetInput();
                 this.host.requestUpdate();
             }
-            return;
+            return !!answered;
         }
 
         const fileUid = this.pendingFile?.fileUid ?? null;
@@ -846,9 +893,11 @@ export class ChatCoreController {
         this.host.requestUpdate();
         try {
             await this._api.sendMessage(this.activeUid, content, fileUid, currentBackendContext());
-            this.inputValue = '';
-            this.hasInput = false;
-            this.host.onResetInput();
+            if (fromInput) {
+                this.inputValue = '';
+                this.hasInput = false;
+                this.host.onResetInput();
+            }
             // Optimistic: add user message locally
             const msg = {role: 'user', content, createdAt: new Date().toISOString()};
             if (this.pendingFile) {
@@ -868,9 +917,11 @@ export class ChatCoreController {
             this.host.requestUpdate();
             this.host.onScrollToBottom(true);
             this.startPollingIfNeeded();
+            return true;
         } catch (e) {
             this.errorMessage = e.message;
             this.host.requestUpdate();
+            return false;
         } finally {
             this.sending = false;
             this.host.requestUpdate();

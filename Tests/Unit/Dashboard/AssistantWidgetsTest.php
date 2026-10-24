@@ -13,6 +13,7 @@ use LogicException;
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Dashboard\ImprovePageWidget;
+use Netresearch\NrMcpAgent\Dashboard\PromptWidget;
 use Netresearch\NrMcpAgent\Dashboard\QuickTasksWidget;
 use Netresearch\NrMcpAgent\Dashboard\RecommendationsWidget;
 use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
@@ -74,6 +75,11 @@ final class AssistantWidgetsTest extends TestCase
         return new ImprovePageWidget($this->createMock(WidgetConfigurationInterface::class), $this->viewFactory(), $this->chatAccess($available), $skills, $pages, $suggestions ?? $this->createMock(PageSuggestionProviderInterface::class), $this->chatStart());
     }
 
+    private function prompt(bool $available): PromptWidget
+    {
+        return new PromptWidget($this->createMock(WidgetConfigurationInterface::class), $this->viewFactory(), $this->chatAccess($available), $this->chatStart());
+    }
+
     private function tasks(bool $available, QuickTaskProviderInterface $tasks, PageChoiceRepository $pages): QuickTasksWidget
     {
         return new QuickTasksWidget($this->createMock(WidgetConfigurationInterface::class), $this->viewFactory(), $this->chatAccess($available), $tasks, $pages, $this->chatStart());
@@ -123,6 +129,31 @@ final class AssistantWidgetsTest extends TestCase
             $this->tasks(false, $tasks, $pages)->templateVariables(),
         );
         self::assertSame(['available' => false, 'points' => []], $this->recommendations(false, $reader, $pages)->templateVariables());
+        self::assertSame(['available' => false, 'form' => null, 'idPrefix' => ''], $this->prompt(false)->templateVariables());
+    }
+
+    /**
+     * The prompt's form targets the chat module, the way in where the panel
+     * is not available; the question itself is handed to the panel by its
+     * script, which the dashboard loads with the widget's stylesheet.
+     */
+    #[Test]
+    public function thePromptOffersAFormToTheChatAndItsScript(): void
+    {
+        $widget    = $this->prompt(true);
+        $variables = $widget->templateVariables();
+
+        self::assertTrue($variables['available']);
+        self::assertSame(['action' => '/chat', 'hidden' => ['token' => 't']], $variables['form']);
+        self::assertMatchesRegularExpression('/^nr-mcp-agent-prompt-[0-9a-f]{8}$/', $variables['idPrefix']);
+        self::assertNotSame($variables['idPrefix'], $this->prompt(true)->templateVariables()['idPrefix']);
+
+        $modules = $widget->getJavaScriptModuleInstructions();
+        self::assertCount(1, $modules);
+        self::assertSame('@netresearch/nr-mcp-agent/prompt-widget.js', $modules[0]->getName());
+        self::assertSame(['EXT:nr_mcp_agent/Resources/Public/Css/prompt-widget.css'], $widget->getCssFiles());
+        self::assertFileExists(__DIR__ . '/../../../Resources/Public/Css/prompt-widget.css');
+        self::assertFileExists(__DIR__ . '/../../../Resources/Public/JavaScript/prompt-widget.js');
     }
 
     /** Rendering needs the request the dashboard hands over; without it the widget says so. */

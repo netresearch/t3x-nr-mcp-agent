@@ -1308,6 +1308,7 @@ class ChatApiControllerTest extends TestCase
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
         $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('getMaxMessageLength')->willReturn(4000);
 
         $chatService = $this->createMock(ChatCapabilitiesInterface::class);
         $chatService->method('getProviderCapabilities')->willReturn([
@@ -1322,6 +1323,8 @@ class ChatApiControllerTest extends TestCase
         $data = json_decode((string) $response->getBody(), true);
         self::assertTrue($data['visionSupported']);
         self::assertSame(20971520, $data['maxFileSize']);
+        // The limit sendMessage() enforces, for the chat panel to check first.
+        self::assertSame(4000, $data['maxMessageLength']);
         self::assertContains('png', $data['supportedFormats']);
         self::assertContains('pdf', $data['supportedFormats']);
     }

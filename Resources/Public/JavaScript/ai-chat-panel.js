@@ -10,7 +10,7 @@ import {splitConversationTabs, filterConversations} from '@netresearch/nr-mcp-ag
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_COLUMN, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
-import {COLUMN_DEFAULT_WIDTH, COLUMN_MIN_WIDTH, LAYOUT, clampColumnWidth, columnMaxWidth, findColumnMount, markColumnMount, readColumnWidth, saveColumnWidth, saveLayoutPreference, splitterKeyWidth} from '@netresearch/nr-mcp-agent/chat-column.js';
+import {COLUMN_DEFAULT_WIDTH, COLUMN_MIN_WIDTH, LAYOUT, clampColumnWidth, columnMaxWidth, findColumnMount, markColumnMount, readColumnWidth, readLayoutPreference, saveColumnWidth, saveLayoutPreference, splitterKeyWidth} from '@netresearch/nr-mcp-agent/chat-column.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
 import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
@@ -18,6 +18,7 @@ import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mc
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
+import {registerPanel, unregisterPanel} from '@netresearch/nr-mcp-agent/chat-panel-registry.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
 // Keyed by displayStatus(): `locked` is shown as `processing`, so it has no
@@ -1089,11 +1090,20 @@ export class AiChatPanel extends LitElement {
         this._markedMount = null;
         // Focus to put back after a template swap or a move (_focusKey()).
         this._refocus = null;
+        // While startConversation() runs; a second call meanwhile is refused.
+        this._starting = false;
+        // The layout was taken for this opening only (setLayout()).
+        this._layoutForThisOpening = false;
+        // The conversation startConversation() created last (_reusableStart()).
+        this._startedUid = null;
         this._restoreState();
     }
 
     connectedCallback() {
         super.connectedCallback();
+        // On the backend window, where the dashboard widgets look: in its own
+        // window (popOut()) the element is not in the backend's document.
+        registerPanel(window, this);
         // Every listener of this connection goes with it: moving the panel
         // (into the column, out of it, into its own window) reconnects it.
         this._connection = new AbortController();
@@ -1123,6 +1133,13 @@ export class AiChatPanel extends LitElement {
 
     disconnectedCallback() {
         super.disconnectedCallback();
+        // A move reconnects the element in the same step; only a panel that is
+        // still out of every document afterwards is gone.
+        queueMicrotask(() => {
+            if (!this.isConnected) {
+                unregisterPanel(window, this);
+            }
+        });
         document.removeEventListener('keydown', this._keydownHandler);
         document.removeEventListener('click', this._closeAttachMenu);
         this.chat.stopPageWatch();
@@ -1517,10 +1534,16 @@ export class AiChatPanel extends LitElement {
      * controller and stops its poll; the conversation, the draft and an
      * attachment stay on the controller, and the poll is restarted here.
      *
+     * Asked for by something other than the user's own choice (the prompt
+     * widget), with `remember: false`, the layout holds for this opening
+     * only: nothing is stored, and the panel goes back to the stored layout
+     * once it is closed (hide()).
+     *
      * @param {'floating'|'column'} layout
+     * @param {{remember?: boolean}} [options]
      * @return {boolean} whether the layout is now the one asked for
      */
-    setLayout(layout) {
+    setLayout(layout, {remember = true} = {}) {
         if (this._pipWindow || !this._canMove()) {
             return false;
         }
@@ -1552,16 +1575,31 @@ export class AiChatPanel extends LitElement {
             }
         }
 
-        saveLayoutPreference(this.layout);
+        this._recordLayout(remember);
         this._syncColumnMount();
         this._saveState();
         if (this.state !== STATES.HIDDEN) {
             this.chat.startPollingIfNeeded();
         }
-        // Focus was on the toggle, which the move took out of the document.
-        void this.updateComplete.then(() => this.renderRoot?.querySelector('[data-action="layout"]')?.focus());
 
         return true;
+    }
+
+    /**
+     * Store the layout as the user's choice, or note that it holds for this
+     * opening only (setLayout()).
+     *
+     * @param {boolean} remember
+     */
+    _recordLayout(remember) {
+        if (!remember) {
+            this._layoutForThisOpening = this.layout !== readLayoutPreference();
+            return;
+        }
+        saveLayoutPreference(this.layout);
+        this._layoutForThisOpening = false;
+        // Focus was on the toggle, which the move took out of the document.
+        void this.updateComplete.then(() => this.renderRoot?.querySelector('[data-action="layout"]')?.focus());
     }
 
     toggleLayout() {
@@ -1941,6 +1979,7 @@ export class AiChatPanel extends LitElement {
         } else {
             this.state = STATES.HIDDEN;
             this.chat.stopPolling();
+            this._backToChosenLayout();
         }
         this._saveState();
     }
@@ -1959,7 +1998,19 @@ export class AiChatPanel extends LitElement {
         this._lastVisibleState = this.state !== STATES.HIDDEN ? this.state : STATES.EXPANDED;
         this.state = STATES.HIDDEN;
         this.chat.stopPolling();
+        this._backToChosenLayout();
         this._saveState();
+    }
+
+    /**
+     * A layout taken for one opening only (setLayout() with `remember:
+     * false`) ends when the chat is closed: the next opening finds the
+     * layout the user chose. A move refused now is tried at the next close.
+     */
+    _backToChosenLayout() {
+        if (this._layoutForThisOpening && this.setLayout(readLayoutPreference(), {remember: false})) {
+            this._layoutForThisOpening = false;
+        }
     }
 
     /**
@@ -1983,6 +2034,97 @@ export class AiChatPanel extends LitElement {
         if (this._docked()) return;
         this.state = this.state === STATES.MAXIMIZED ? STATES.EXPANDED : STATES.MAXIMIZED;
         this._saveState();
+    }
+
+    /**
+     * Open the chat on a new conversation whose first message is `text`: the
+     * question asked in the prompt widget on the dashboard. The chat opens as
+     * a column where the backend has room for one (ADR-024), for this opening
+     * only: the layout the user chose is not changed, and the chat goes back
+     * to it when it is closed. Where the user popped the chat out into its
+     * own window, it stays there. The text is sent as a message typed into
+     * the chat is (ChatCoreController::handleSend()).
+     *
+     * What would refuse the message is checked before a conversation is
+     * created: another message still being sent, a text over the configured
+     * maximum, a question from another widget still starting. A send that
+     * fails after the conversation was created leaves it open and empty, and
+     * the next question uses it instead of creating another, without an
+     * attachment picked for it in the meantime.
+     *
+     * Docking reconnects the panel, and a reconnect aborts the controller's
+     * requests in flight. So the panel is placed first, and the conversation
+     * is created and the message sent from the connection it ends up with.
+     *
+     * @param {string} text
+     * @returns {Promise<{sent: boolean, error: string, invalid?: true}>}
+     *     whether the message was sent, and if not, why, in the user's
+     *     language ('' when the chat shows the reason itself); `invalid` when
+     *     the question itself is what the chat refuses, not the moment or
+     *     the chat's state
+     */
+    async startConversation(text) {
+        const content = String(text ?? '').trim();
+        if (content === '') {
+            return {sent: false, error: ''};
+        }
+        // A question from a second widget while the first one starts.
+        if (this._starting) {
+            return {sent: false, error: lll('chat.stillSending')};
+        }
+        this._starting = true;
+        try {
+            await this.chat.ready;
+            if (!this.chat.available) {
+                return {sent: false, error: lll('chat.notAvailable')};
+            }
+            const refusal = this.chat.refusalFor(content);
+            if (refusal !== '') {
+                // refusalFor() names a message still being sent first; any
+                // other refusal is about the question itself (too long).
+                return this.chat.sending ? {sent: false, error: refusal} : {sent: false, error: refusal, invalid: true};
+            }
+
+            if (this.layout !== LAYOUT.COLUMN) {
+                // Refused in an area too narrow for the column, in its own
+                // window, or while a request runs: the chat stays where it is.
+                this.setLayout(LAYOUT.COLUMN, {remember: false});
+            }
+            if (this.state === STATES.HIDDEN || this.state === STATES.COLLAPSED) {
+                this.expand();
+            }
+            // The status and the conversations, read by the connection the
+            // move started.
+            await this.chat.ready;
+            await this.updateComplete;
+
+            if (this._reusableStart()) {
+                // As a new conversation would: an attachment picked for it
+                // does not go with a question asked elsewhere.
+                this.chat.clearPendingFile();
+            } else {
+                this._startedUid = await this.chat.handleNewConversation();
+                if (!this._startedUid) {
+                    return {sent: false, error: this.chat.errorMessage};
+                }
+            }
+
+            const sent = await this.chat.handleSend(content);
+
+            return {sent, error: sent ? '' : this.chat.errorMessage};
+        } finally {
+            this._starting = false;
+        }
+    }
+
+    /**
+     * Whether the conversation the last question created is open and still
+     * empty: its message was refused, and it takes the next question.
+     */
+    _reusableStart() {
+        return this._startedUid !== null
+            && this.chat.activeUid === this._startedUid
+            && this.chat.messages.length === 0;
     }
 
     // ── ChatCoreController callback hooks ───────────────────────────────

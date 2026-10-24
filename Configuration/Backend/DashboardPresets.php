@@ -22,11 +22,15 @@ return [
         'title'          => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:preset.title',
         'description'    => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:preset.description',
         'iconIdentifier' => 'module-nr-mcp-agent',
+        // In the order of the design: the free question on top, then the
+        // ways into a page ("Improve a page", "Frequent tasks"), the recent
+        // chats, and the recommendations last.
         'defaultWidgets' => [
+            'nrMcpAgentPrompt',
             'nrMcpAgentImprovePage',
             'nrMcpAgentQuickTasks',
-            'nrMcpAgentRecommendations',
             'nrMcpAgentAiChat',
+            'nrMcpAgentRecommendations',
         ],
         'showInWizard' => true,
     ],
