@@ -479,8 +479,9 @@ listed. Each entry shows:
     (*Page “<title>”*) and *Guided tour*. Any other chat has no such line:
     it only remembers the page you had open when you last wrote, which is
     not what the chat is about;
--   for a guided process that is at a point and has not finished, that
-    point (*Point 3 of 5*), as the chat's header shows it;
+-   for a guided process that is at a point, has not finished and still
+    has its page, that point (*Point 3 of 5*), as the chat's header shows
+    it;
 -   when the last message was written: *Today, 10:42*, *Yesterday, 16:05*,
     then the date (*Oct 3*), with the year once it is more than a year ago,
     in your backend language.
@@ -497,9 +498,10 @@ A guided process on a page you may not see is not listed. A guided process
 whose page has been deleted since is listed as *Deleted page*; it opens
 read-only, with a notice where the input was: it can be read, but no message
 can be sent or edited, and no question answered, proposal decided or run
-resumed. The × beside the progress ends the tour, which withdraws a run still
-waiting for your answer; the chat then goes on as an ordinary chat. A page
-deleted only in a workspace does not count as deleted.
+resumed. **End tour** in the notice (or the × beside the progress) ends the
+tour, which withdraws a run still waiting for your answer; the chat then goes
+on as an ordinary chat, and a guided tour picked in it again asks for a page.
+A page deleted only in a workspace does not count as deleted.
 
 For a user the chat is not available to, the widget says so instead of
 listing anything. Which groups may place the widget at all is set per

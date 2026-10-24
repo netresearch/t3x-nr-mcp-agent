@@ -86,15 +86,16 @@ test.describe('The "Recent chats" dashboard widget', () => {
         await frame.getByRole('link', { name: /^E2E recent deleted page/ }).focus();
         await page.keyboard.press('Enter');
 
-        await expect(panel.locator('.read-only-notice')).toHaveText(
-            'The page this guided tour is on has been deleted. The chat can be read but not continued; end the tour (×) to go on as an ordinary chat.',
+        const notice = panel.locator('.read-only-notice');
+        await expect(notice.locator('.read-only-text')).toHaveText(
+            'The page this guided tour is on has been deleted. The chat can be read but not continued. End the tour to go on as an ordinary chat.',
         );
         await expect(panel.locator('.panel-messages')).toContainText('Here is what I found.');
         await expect(panel.locator('.panel-input textarea')).toHaveCount(0);
         expect(await routerModule(page)).toBe('dashboard');
 
         // Ending the tour is the way out: an ordinary chat that can be continued.
-        await panel.locator('[data-action="end-tour"]').click();
+        await notice.getByRole('button', { name: 'End tour' }).click();
         await expect(panel.locator('.read-only-notice')).toHaveCount(0);
         await expect(panel.locator('.panel-input textarea')).toBeEnabled();
     });

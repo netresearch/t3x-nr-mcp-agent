@@ -9,13 +9,27 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Functional\Controller;
 
+use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
+use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
+use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
+use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
+use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
+use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\StorageRepository;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
@@ -69,6 +83,43 @@ final class ChatPageGoneTest extends FunctionalTestCase
         $stream->rewind();
 
         return (new ServerRequest('/', 'POST'))->withBody($stream)->withParsedBody($body);
+    }
+
+    /**
+     * The controller with a catalogue that knows `seo-optimieren` as a process
+     * skill and with nr-llm able to start one, as ChatConversationStartTest
+     * builds it; the page lookup and the approvals come from the container.
+     */
+    private function withProcessSkill(): ChatApiController
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getLlmTaskUid')->willReturn(1);
+        $config->method('getAllowedGroupIds')->willReturn([]);
+        $config->method('getMaxMessageLength')->willReturn(10000);
+        $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
+
+        $entry  = ['identifier' => 'seo-optimieren', 'name' => 'seo-optimieren', 'description' => '', 'uid' => 9422, 'process' => true];
+        $skills = $this->createMock(SkillCatalogueInterface::class);
+        $skills->method('isAvailable')->willReturn(true);
+        $skills->method('requiresSecondApprover')->willReturn(false);
+        $skills->method('catalogue')->willReturn([$entry]);
+        $skills->method('find')->willReturnCallback(static fn (string $identifier): ?array => $identifier === 'seo-optimieren' ? $entry : null);
+
+        return new ChatApiController(
+            $this->get(ConversationRepository::class),
+            $this->createMock(ChatProcessorInterface::class),
+            $config,
+            $this->createMock(ChatCapabilitiesInterface::class),
+            $this->get(ChatApprovalInterface::class),
+            $this->get(ResourceFactory::class),
+            $this->get(StorageRepository::class),
+            new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
+            GeneralUtility::makeInstance(UriBuilder::class),
+            skills: $skills,
+            skillInvocation: $this->createMock(SkillInvocationInterface::class),
+            pages: $this->get(PageChoiceRepository::class),
+        );
     }
 
     /**
@@ -157,6 +208,44 @@ final class ChatPageGoneTest extends FunctionalTestCase
         self::assertSame(200, $ended->getStatusCode(), (string) $ended->getBody());
         self::assertSame(['status' => 'idle', 'skill_identifier' => '', 'approval_run_uuid' => ''], array_intersect_key($this->row(1), ['status' => 1, 'skill_identifier' => 1, 'approval_run_uuid' => 1]));
         self::assertFalse($this->messages(1)['pageGone']);
+    }
+
+    /**
+     * A process picked in a chat whose stored page has been deleted must not
+     * bind itself to that page: it would be read-only at once. The page is
+     * dropped, and the chat asks for one.
+     *
+     * @return iterable<string, array{bool}>
+     */
+    public static function chatsWhosePageWasDeleted(): iterable
+    {
+        yield 'after a tour on the page was ended' => [true];
+        yield 'an ordinary chat that was last on the page' => [false];
+    }
+
+    #[Test]
+    #[DataProvider('chatsWhosePageWasDeleted')]
+    public function aProcessPickedAfterItsPageWasDeletedAsksForAPage(bool $tourFirst): void
+    {
+        $this->aboutPage(1, 10, $tourFirst ? 'seo-optimieren' : '');
+        $this->deletePage(10);
+        $controller = $this->withProcessSkill();
+        if ($tourFirst) {
+            self::assertSame(200, $controller->endTour($this->post(['conversationUid' => 1]))->getStatusCode());
+        }
+
+        $picked = $controller->updateSkill($this->post(['conversationUid' => 1, 'skill' => 'seo-optimieren']));
+
+        self::assertSame(200, $picked->getStatusCode(), (string) $picked->getBody());
+        $viewContext = json_decode((string) ($this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->select(['view_context'], 'tx_nrmcpagent_conversation', ['uid' => 1])->fetchOne() ?: '{}'), true);
+        self::assertSame(0, $viewContext['pageId'] ?? 0);
+        self::assertSame('seo-optimieren', $this->row(1)['skill_identifier'] ?? '');
+        self::assertFalse($this->messages(1)['pageGone']);
+        // Refused for being read-only would be 409 before the content is read.
+        self::assertSame(400, $controller->sendMessage($this->post(['conversationUid' => 1, 'content' => '']))->getStatusCode());
+        // The chat asks for a page.
+        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => true], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
     }
 
     /**

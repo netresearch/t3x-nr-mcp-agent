@@ -9,7 +9,7 @@ import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
-import {chatGuidedStyles, renderEndTour, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd} from '@netresearch/nr-mcp-agent/chat-guided.js';
+import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
@@ -336,10 +336,6 @@ export class ChatApp extends LitElement {
             padding: 12px;
             border-top: 1px solid var(--nr-chat-border);
             background: var(--nr-chat-surface-low);
-        }
-        .read-only-notice {
-            color: var(--nr-chat-text-variant);
-            font-size: 13px;
         }
         .input-wrap {
             flex: 1;
@@ -825,7 +821,7 @@ export class ChatApp extends LitElement {
         // A conversation about a deleted page is read, not continued: the
         // notice takes the place of the input (the server refuses a send too).
         if (this.chat.isReadOnly()) {
-            return html`<div class="input-area read-only-notice" role="note">${lll('chat.pageGone')}</div>`;
+            return renderReadOnlyNotice(this.chat, 'input-area');
         }
         return html`
             ${renderReplyOptions(this.chat)}

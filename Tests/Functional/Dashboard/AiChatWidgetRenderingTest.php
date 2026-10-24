@@ -193,7 +193,7 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
 
         self::assertStringContainsString('Optimise SEO', $html);
         self::assertStringContainsString('Deleted page · Guided tour', $html);
-        self::assertStringContainsString('Point 2 of 4', $html);
+        self::assertStringNotContainsString('Point 2 of 4', $html);
         self::assertStringNotContainsString('Weg', $html);
         self::assertStringContainsString('data-nr-chat-page=""', $html);
     }

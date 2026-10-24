@@ -52,8 +52,9 @@ use TYPO3\CMS\Dashboard\Widgets\WidgetInterface;
  *   tour". Any other conversation stores the page the browser showed with
  *   its last message, which says where the editor was, not what the chat is
  *   about; it gets no context line;
- * - for a guided process that is at a point and has not reported its end,
- *   that point, as the chat's header shows it ("Punkt n von m", ADR-023);
+ * - for a guided process that is at a point, has not reported its end and
+ *   still has its page, that point, as the chat's header shows it ("Punkt n
+ *   von m", ADR-023);
  * - when its last message was written, relative to today.
  *
  * A guided process on a page the user may not see is left out, and does not
@@ -218,8 +219,9 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
             'pageGone' => $pageGone,
             // The point the process is at, as the header shows it: only once
             // a point has started (0 is the analysis before the first), and
-            // nothing once the process reported its end.
-            'progress' => $progress !== null && !$progress['completed'] && $progress['current'] >= 1 ? ['current' => $progress['current'], 'total' => $progress['total']] : null,
+            // nothing once the process reported its end or its page is gone —
+            // it cannot go on from that point.
+            'progress' => !$pageGone && $progress !== null && !$progress['completed'] && $progress['current'] >= 1 ? ['current' => $progress['current'], 'total' => $progress['total']] : null,
             'time'     => $time,
         ];
     }

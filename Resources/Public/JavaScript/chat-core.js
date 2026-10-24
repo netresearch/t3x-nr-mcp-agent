@@ -1134,6 +1134,11 @@ export class ChatCoreController {
             const data = await this._api.updateSkill(uid, identifier);
             if (uid !== this.activeUid) return;
             this.skill = data.skill || null;
+            // A process picked without a page asks for one (ADR-023).
+            if ('tourStart' in data) {
+                this.tourStart = data.tourStart || null;
+                this.syncPageWatch();
+            }
             this.errorMessage = '';
         } catch (e) {
             if (uid !== this.activeUid) return;

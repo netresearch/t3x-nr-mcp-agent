@@ -320,7 +320,7 @@ final class AiChatWidgetTest extends TestCase
         self::assertFalse($entries[0]['pageGone']);
     }
 
-    /** A deleted page is no reason to hide the guided process: it is said, not named, and its point stays. */
+    /** A deleted page is no reason to hide the guided process: it is said, not named; it cannot go on, so no point is shown. */
     #[Test]
     public function aGuidedProcessOnADeletedPageStaysAndSaysSo(): void
     {
@@ -337,7 +337,7 @@ final class AiChatWidgetTest extends TestCase
             ['key' => self::LL . 'widget.context.pageGone', 'arguments' => []],
             ['key' => self::LL . 'widget.context.guidedTour', 'arguments' => []],
         ], $entry['context']);
-        self::assertSame(['current' => 2, 'total' => 4], $entry['progress']);
+        self::assertNull($entry['progress']);
     }
 
     /**

@@ -119,6 +119,42 @@ describe.each(SURFACES)('$name, conversation about a deleted page', ({module: mo
         const el = await render(modulePath, tag, open, {pageGone: true, skill: null, tour: null});
 
         expect(el.shadowRoot.querySelector('[data-action="end-tour"]')).toBeNull();
+        expect(el.shadowRoot.querySelector('[data-action="end-tour-notice"]')).toBeNull();
+        el.remove();
+    });
+
+    test('the notice offers "End tour" by name, which ends it', async () => {
+        const el = await render(modulePath, tag, open, {pageGone: true, skill: {identifier: 'seo-optimieren', name: 'SEO'}, tour: null});
+        el.chat._api.endTour = jest.fn().mockResolvedValue({status: 'idle', skill: null});
+        el.chat.host.onFocusInput = jest.fn();
+
+        const button = el.shadowRoot.querySelector('.read-only-notice [data-action="end-tour-notice"]');
+        expect(button).not.toBeNull();
+        expect(button.textContent.trim()).toBe('guided.endTour');
+        button.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        expect(el.chat._api.endTour).toHaveBeenCalledWith(1);
+        expect(el.shadowRoot.querySelector('.read-only-notice')).toBeNull();
+        el.remove();
+    });
+
+    // The status notice, where errors usually go, is not shown while the
+    // chat is read-only: the notice says it, as an alert, with no Retry.
+    test('a failed end is said in the notice', async () => {
+        const el = await render(modulePath, tag, open, {pageGone: true, skill: {identifier: 'seo-optimieren', name: 'SEO'}, tour: null});
+        el.chat._api.endTour = jest.fn().mockRejectedValue(new Error('Gerade beschäftigt'));
+
+        el.shadowRoot.querySelector('[data-action="end-tour-notice"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        const error = el.shadowRoot.querySelector('.read-only-notice [role="alert"]');
+        expect(error).not.toBeNull();
+        expect(error.textContent).toContain('Gerade beschäftigt');
+        expect([...el.shadowRoot.querySelectorAll('.read-only-notice button')].map((b) => b.dataset.action)).toEqual(['end-tour-notice']);
+        expect(el.chat.isReadOnly()).toBe(true);
         el.remove();
     });
 
@@ -128,6 +164,26 @@ describe.each(SURFACES)('$name, conversation about a deleted page', ({module: mo
         await el.chat.handleSend();
 
         expect(el.chat._api.sendMessage).not.toHaveBeenCalled();
+        el.remove();
+    });
+});
+
+describe('a process picked without a page', () => {
+    test('takes what the server answers about starting it, so the chat asks for a page', async () => {
+        await import('../../Resources/Public/JavaScript/ai-chat-panel.js');
+        const el = document.createElement('ai-chat-panel');
+        document.body.append(el);
+        el.chat.syncPageWatch = jest.fn();
+        el.chat.activeUid = 1;
+        el.chat._api.updateSkill = jest.fn().mockResolvedValue({
+            skill: {identifier: 'seo-optimieren', name: 'SEO'},
+            tourStart: {skill: 'seo-optimieren', choosePage: true},
+        });
+
+        await el.chat._setSkill('seo-optimieren');
+
+        expect(el.chat.tourStart).toEqual({skill: 'seo-optimieren', choosePage: true});
+        expect(el.chat.syncPageWatch).toHaveBeenCalled();
         el.remove();
     });
 });

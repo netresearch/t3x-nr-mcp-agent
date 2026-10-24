@@ -277,6 +277,20 @@ readonly class ConversationRepository
     }
 
     /**
+     * Single-column write of where the conversation is (page, module and
+     * language, as Conversation::setViewContext() keeps them), for a change
+     * made outside a turn.
+     */
+    public function updateViewContext(Conversation $conversation, int $beUserUid): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'view_context' => $conversation->toRow()['view_context'],
+            'tstamp'       => time(),
+        ], ['uid' => $conversation->getUid(), 'be_user' => $beUserUid]);
+    }
+
+    /**
      * Lightweight title update — avoids reading/writing the full messages blob.
      */
     public function updateTitle(int $uid, string $title, int $beUserUid): void

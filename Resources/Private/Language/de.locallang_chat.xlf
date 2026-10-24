@@ -800,8 +800,8 @@
                 <target>Gestern, %s</target>
             </trans-unit>
             <trans-unit id="chat.pageGone" resname="chat.pageGone">
-                <source>The page this guided tour is on has been deleted. The chat can be read but not continued; end the tour (×) to go on as an ordinary chat.</source>
-                <target>Die Seite dieser Guided Tour wurde gelöscht. Der Chat lässt sich nachlesen, aber nicht fortsetzen; beende die Tour (×), um als normaler Chat weiterzumachen.</target>
+                <source>The page this guided tour is on has been deleted. The chat can be read but not continued. End the tour to go on as an ordinary chat.</source>
+                <target>Die Seite dieser Guided Tour wurde gelöscht. Der Chat lässt sich nachlesen, aber nicht fortsetzen. Beende den Rundgang, um als normaler Chat weiterzumachen.</target>
             </trans-unit>
             <trans-unit id="error.pageGone" resname="error.pageGone">
                 <source>The page this guided tour is on has been deleted; end the tour to continue the chat.</source>

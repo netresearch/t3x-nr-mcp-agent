@@ -61,6 +61,18 @@ export const chatGuidedStyles = css`
         gap: 6px;
         align-items: center;
     }
+    .read-only-notice {
+        flex-direction: column;
+        align-items: flex-start;
+        color: var(--nr-chat-text-variant);
+        font-size: 12px;
+    }
+    .read-only-notice p {
+        margin: 0;
+    }
+    .read-only-error {
+        color: var(--nr-chat-status-danger, #c62828);
+    }
     .guided-announcement {
         position: absolute;
         width: 1px;
@@ -203,6 +215,31 @@ export function renderPageChoice(chat) {
                     ?disabled=${chat.backendPage.pageId <= 0 || chat.sending || chat.isProcessing()}
                     @click=${() => chat.checkBackendPage()}>${lll('guided.checkPage')}</button>
             </div>
+        </div>
+    `;
+}
+
+/**
+ * In place of the input of a guided process whose page has been deleted: the
+ * chat can be read, not continued. Ending the tour is the way out, so the
+ * notice offers it as a named button (the header's × is a second way), and a
+ * failed attempt is said here: the status notice, where errors usually go,
+ * is not shown while the chat is read-only. No Retry: pressing the button
+ * again is the retry.
+ *
+ * @param {object} chat the ChatCoreController
+ * @param {string} containerClass the input row's class on this surface
+ */
+export function renderReadOnlyNotice(chat, containerClass) {
+    return html`
+        <div class="${containerClass} read-only-notice" role="note">
+            <p class="read-only-text">${lll('chat.pageGone')}</p>
+            ${chat.skill ? html`
+                <button type="button" class="btn btn-sm btn-default" data-action="end-tour-notice"
+                    ?disabled=${chat.endingTour || chat.isProcessing()}
+                    @click=${() => chat.endTour()}>${lll('guided.endTour')}</button>
+            ` : nothing}
+            ${chat.errorMessage ? html`<p class="read-only-error" role="alert">${chat.errorMessage}</p>` : nothing}
         </div>
     `;
 }

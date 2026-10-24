@@ -467,6 +467,16 @@ final readonly class ChatApiController
             return $refusal;
         }
 
+        // A process stays on the conversation's page (keepsItsPage()). A page
+        // deleted since — the one a tour ended on, or where an ordinary chat
+        // last was — would bind the new process to nothing and make the chat
+        // read-only at once; without it the chat asks for a page instead.
+        $context = $conversation->getViewContext();
+        if ($skill !== '' && $context['pageId'] > 0 && ($this->pages?->isGone($context['pageId']) ?? false)) {
+            $conversation->setViewContext(0, $context['module']);
+            $this->repository->updateViewContext($conversation, $this->getBeUserUid());
+        }
+
         $skillUid = $this->skillUid($skill);
         // A process skill picked here starts on the next turn (nr-llm ADR-214
         // item 10); that turn's invocation is a new start, later turns
@@ -476,7 +486,9 @@ final readonly class ChatApiController
         $conversation->setSkillIdentifier($skill, $skillUid);
         $conversation->setSkillStartPending($startsProcess);
 
-        return new JsonResponse(['skill' => $this->presentSkill($conversation)]);
+        // What the chat may offer to start the process, as getMessages()
+        // answers it: a process without a page asks for one.
+        return new JsonResponse(['skill' => $this->presentSkill($conversation), 'tourStart' => $this->tourStart($conversation)]);
     }
 
     /**

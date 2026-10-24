@@ -12,7 +12,7 @@ import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_COLUMN, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
 import {COLUMN_DEFAULT_WIDTH, COLUMN_MIN_WIDTH, LAYOUT, clampColumnWidth, columnMaxWidth, findColumnMount, markColumnMount, readColumnWidth, saveColumnWidth, saveLayoutPreference, splitterKeyWidth} from '@netresearch/nr-mcp-agent/chat-column.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
-import {chatGuidedStyles, renderEndTour, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
+import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
@@ -700,10 +700,6 @@ export class AiChatPanel extends LitElement {
             border-top: 1px solid var(--nr-chat-border);
             background: var(--nr-chat-surface-low);
             flex-shrink: 0;
-        }
-        .read-only-notice {
-            color: var(--nr-chat-text-variant);
-            font-size: 12px;
         }
         .input-wrap {
             flex: 1;
@@ -3294,7 +3290,7 @@ export class AiChatPanel extends LitElement {
         // A conversation about a deleted page is read, not continued: the
         // notice takes the place of the input (the server refuses a send too).
         if (this.chat.isReadOnly()) {
-            return html`<div class="panel-input read-only-notice" role="note">${lll('chat.pageGone')}</div>`;
+            return renderReadOnlyNotice(this.chat, 'panel-input');
         }
         return html`
             ${renderReplyOptions(this.chat)}
