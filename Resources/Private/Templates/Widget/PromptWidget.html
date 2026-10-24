@@ -1,0 +1,41 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<f:layout name="Widget/Widget" />
+<f:section name="main">
+    <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
+    <f:if condition="{available}">
+        <f:then>
+            <f:comment>
+                The question field has no name: the form's own submit, where the
+                chat panel is not available, opens the chat module without it.
+                prompt-widget.js hands the question to the panel instead.
+            </f:comment>
+            <form action="{form.action}" method="get" class="nr-mcp-agent-prompt" data-nr-mcp-agent-prompt="1">
+                <f:for each="{form.hidden}" as="value" key="name">
+                    <input type="hidden" name="{name}" value="{value}" />
+                </f:for>
+                <label class="nr-mcp-agent-prompt-question" for="{idPrefix}-question">{f:translate(key: '{ll}prompt.question')}</label>
+                <div class="nr-mcp-agent-prompt-field">
+                    <textarea id="{idPrefix}-question"
+                              class="form-control nr-mcp-agent-prompt-input"
+                              aria-describedby="{idPrefix}-error"
+                              rows="3"
+                              placeholder="{f:translate(key: '{ll}prompt.placeholder')}"></textarea>
+                    <button type="submit"
+                            class="nr-mcp-agent-prompt-send"
+                            aria-label="{f:translate(key: '{ll}prompt.send')}"
+                            title="{f:translate(key: '{ll}prompt.send')}"
+                            disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                    </button>
+                </div>
+                <output id="{idPrefix}-error" class="nr-mcp-agent-prompt-error" data-nr-mcp-agent-prompt-error="1"></output>
+            </form>
+        </f:then>
+        <f:else>
+            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+        </f:else>
+    </f:if>
+</f:section>

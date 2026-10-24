@@ -55,6 +55,7 @@ final class UserContextPromptTest extends FunctionalTestCase
 
         self::assertStringContainsString('- Selected page: uid 10, title "Startseite"', $prompt);
         self::assertStringContainsString('they mean page uid 10', $prompt);
+        self::assertStringNotContainsString(UserContextPrompt::NO_PAGE, $prompt);
     }
 
     #[Test]
@@ -69,6 +70,8 @@ final class UserContextPromptTest extends FunctionalTestCase
         self::assertStringNotContainsString('uid 10', $prompt);
         // The answer language is still there: the block is not all-or-nothing.
         self::assertStringContainsString('Answer language', $prompt);
+        // A page the model may not name is no page: it asks for one.
+        self::assertStringContainsString(UserContextPrompt::NO_PAGE, $prompt);
     }
 
     #[Test]

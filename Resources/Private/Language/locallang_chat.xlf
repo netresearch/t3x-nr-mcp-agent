@@ -296,6 +296,9 @@
             <trans-unit id="chat.messageTooLong" resname="chat.messageTooLong">
                 <source>Message exceeds %d character limit</source>
             </trans-unit>
+            <trans-unit id="chat.stillSending" resname="chat.stillSending">
+                <source>The chat is still sending a message. Try again once it has been sent.</source>
+            </trans-unit>
             <trans-unit id="chat.nothingSaved" resname="chat.nothingSaved">
                 <source>Nothing was saved in this step.</source>
             </trans-unit>

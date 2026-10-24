@@ -6,7 +6,8 @@
  *
  * The dashboard runs inside the module frame; the chat panel lives in the
  * backend frame around it (ADR-011), floating or as a column, as the user
- * left it (ADR-024). A conversation or "New chat" clicked in the widget opens
+ * left it (ADR-024), or in its own window when the user popped it out; it
+ * is found there through chat-panel-registry.js. A conversation or "New chat" clicked in the widget opens
  * there, next to the dashboard. A guided process bound to a page the user may
  * see (`data-nr-chat-page`) also opens that page in the page module, through
  * core's module menu, so the chat and the page sit side by side. Where the
@@ -15,17 +16,11 @@
  * instead.
  */
 
+import {findPanel} from '@netresearch/nr-mcp-agent/chat-panel-registry.js';
+
 function backendTop() {
     try {
         return globalThis.top ?? globalThis;
-    } catch {
-        return null;
-    }
-}
-
-function findPanel() {
-    try {
-        return backendTop()?.document.querySelector('ai-chat-panel') ?? null;
     } catch {
         return null;
     }

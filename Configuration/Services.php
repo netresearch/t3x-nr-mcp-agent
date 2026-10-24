@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 use Netresearch\NrMcpAgent\Dashboard\AiChatWidget;
 use Netresearch\NrMcpAgent\Dashboard\ImprovePageWidget;
+use Netresearch\NrMcpAgent\Dashboard\PromptWidget;
 use Netresearch\NrMcpAgent\Dashboard\QuickTasksWidget;
 use Netresearch\NrMcpAgent\Dashboard\RecommendationsWidget;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -47,6 +48,7 @@ return static function (ContainerConfigurator $configurator): void {
     // Configuration/Backend/DashboardWidgetGroups.php and DashboardPresets.php).
     $ll               = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:';
     $assistantWidgets = [
+        'nrMcpAgentPrompt'          => [PromptWidget::class, 'prompt', 'small', 'medium'],
         'nrMcpAgentImprovePage'     => [ImprovePageWidget::class, 'improve', 'medium', 'small'],
         'nrMcpAgentQuickTasks'      => [QuickTasksWidget::class, 'tasks', 'medium', 'small'],
         'nrMcpAgentRecommendations' => [RecommendationsWidget::class, 'recommendations', 'medium', 'medium'],

@@ -142,4 +142,26 @@ final class UserContextPromptTest extends TestCase
         self::assertStringNotContainsString('tools_toolsmaintenance', $prompt);
         self::assertStringNotContainsString('Where the user is', $prompt);
     }
+
+    /**
+     * A question from the dashboard comes with no page. The model is told so,
+     * and to ask for the page a request about one needs, rather than pick one.
+     */
+    #[Test]
+    public function withoutAPageTheModelIsToldToAskForOne(): void
+    {
+        $this->actingAs(1, 'de');
+        $module = $this->createStub(ModuleInterface::class);
+        $module->method('getTitle')->willReturn('LLL:EXT:backend/module.xlf:layout');
+        $provider = $this->createStub(ModuleProvider::class);
+        $provider->method('getModule')->willReturn($module);
+
+        $withModule    = $this->subject($provider)->build($this->conversationOf(1, 'web_layout'));
+        $withoutModule = $this->subject()->build($this->conversationOf(1));
+
+        self::assertStringEndsWith("\n\n" . UserContextPrompt::NO_PAGE, $withModule);
+        self::assertStringContainsString('- Open backend module: "Seite"', $withModule);
+        self::assertStringEndsWith("\n\n" . UserContextPrompt::NO_PAGE, $withoutModule);
+        self::assertStringContainsString('ask which page they mean', UserContextPrompt::NO_PAGE);
+    }
 }

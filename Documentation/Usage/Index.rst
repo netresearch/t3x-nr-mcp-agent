@@ -513,7 +513,26 @@ AI assistant dashboard
 Editors can put together a dashboard for working with the assistant from
 the widgets in the *AI Assistant* group (*Add widget > AI Assistant*), or
 start from the **AI Assistant** preset when creating a dashboard, which
-holds all of them and the **Recent chats** widget.
+holds all of them and the **Recent chats** widget, in this order:
+**AI Assistant**, **Improve a page**, **Frequent tasks**, **Recent chats**,
+**Recommended for your website**.
+
+**AI Assistant**
+    A question of your own, without choosing a tour or a page first: type it
+    under *What would you like to do?* and press :kbd:`Enter` or the round
+    send button; :kbd:`Shift+Enter` starts a new line. The chat opens as a
+    column beside the dashboard (floating where the window is too narrow
+    for a column, see :ref:`usage-chat-column`) on a new conversation, and
+    your question is its first message, as you typed it; the assistant
+    answers from there. The column is for this opening only: your chosen
+    chat layout is not changed, and the chat returns to it once you close
+    it. A chat you popped out into its own window stays there and gets the
+    question there. The send button can be pressed only while there is a
+    question. Where the chat cannot take the question -- while it is still
+    sending another message, or when the question is longer than the
+    configured maximum -- the question stays in the widget and the widget
+    says why. A question about a page while no page is selected makes the
+    assistant ask which page you mean.
 
 **Improve a page**
     Choose a page, then press the button of a guided tour (by default

@@ -149,7 +149,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     public function theWidgetsAreRegisteredInTheirGroupAndPreset(): void
     {
         $widgets = $this->get(WidgetRegistry::class)->getAllWidgets();
-        foreach (['nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentRecommendations', 'nrMcpAgentAiChat'] as $identifier) {
+        foreach (['nrMcpAgentPrompt', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentRecommendations', 'nrMcpAgentAiChat'] as $identifier) {
             self::assertArrayHasKey($identifier, $widgets);
         }
 
@@ -163,10 +163,37 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
             $presets['nrMcpAgent']->getDefaultWidgets(),
         );
         self::assertSame(
-            ['nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentRecommendations', 'nrMcpAgentAiChat'],
+            ['nrMcpAgentPrompt', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentAiChat', 'nrMcpAgentRecommendations'],
             $defaultWidgets,
         );
         self::assertTrue($presets['nrMcpAgent']->isShowInWizard());
+    }
+
+    /**
+     * The prompt as the dashboard renders it: the question under a visible
+     * label, a send button with a name that starts disabled, and a form to the
+     * chat module that does not carry the question (the field has no name).
+     */
+    #[Test]
+    public function thePromptRendersALabelledFieldAndADisabledSendButton(): void
+    {
+        $html   = $this->renderFromRegistry('nrMcpAgentPrompt');
+        $target = $this->chatStart()->formTarget();
+
+        self::assertStringContainsString('<form action="' . htmlspecialchars($target['action']) . '" method="get" class="nr-mcp-agent-prompt" data-nr-mcp-agent-prompt="1">', $html);
+        self::assertStringContainsString('<input type="hidden" name="token" value="' . htmlspecialchars($target['hidden']['token']) . '"', $html);
+        self::assertMatchesRegularExpression('/<label class="nr-mcp-agent-prompt-question" for="(nr-mcp-agent-prompt-[0-9a-f]{8})-question">What would you like to do\?<\/label>\s*<div class="nr-mcp-agent-prompt-field">\s*<textarea id="\1-question"\s+class="form-control nr-mcp-agent-prompt-input"\s+aria-describedby="\1-error"\s+rows="3"\s+placeholder="Ask the assistant …"><\/textarea>/u', $html);
+        // Why a question was refused is said in a live region the field names
+        // (<output> is one: its implicit role is status).
+        self::assertMatchesRegularExpression('/<output id="nr-mcp-agent-prompt-[0-9a-f]{8}-error" class="nr-mcp-agent-prompt-error" data-nr-mcp-agent-prompt-error="1"><\/output>/', $html);
+        self::assertMatchesRegularExpression('/<button type="submit"\s+class="nr-mcp-agent-prompt-send"\s+aria-label="Send"\s+title="Send"\s+disabled>/', $html);
+
+        $document = new DOMDocument();
+        @$document->loadHTML('<?xml encoding="utf-8"?>' . $html);
+        $textarea = $document->getElementsByTagName('textarea')->item(0);
+        self::assertNotNull($textarea);
+        self::assertFalse($textarea->hasAttribute('name'), 'the question must not travel with the form');
+        self::assertSame(1, $document->getElementsByTagName('button')->length);
     }
 
     /**

@@ -1,0 +1,141 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: Netresearch DTT GmbH */
+
+/* The "AI Assistant" prompt widget on the dashboard (PromptWidget.php).
+ *
+ * The question field is TYPO3's own form-control; this file adds the round
+ * send button inside it and the focus look the design asks for: a border in
+ * the text colour and a yellow ring around it. The border carries the focus
+ * indicator in both colour schemes; yellow alone hardly stands out on white.
+ *
+ * Black and yellow are the design's own colours and stay the same in the
+ * dark scheme: the arrow keeps its contrast on the button there too, and the
+ * button gets an edge in the border colour so it does not vanish on a dark
+ * surface. Everything else follows the backend tokens. Both colours can be
+ * replaced through --nr-mcp-agent-accent and --nr-mcp-agent-send. */
+
+.nr-mcp-agent-prompt {
+    --nr-mcp-agent-prompt-accent: var(--nr-mcp-agent-accent, #ffd200);
+    --nr-mcp-agent-prompt-send: var(--nr-mcp-agent-send, #000);
+    --nr-mcp-agent-prompt-text: var(--typo3-text-color-base, var(--typo3-text-color, #000));
+    --nr-mcp-agent-prompt-border: var(--typo3-input-border-color, var(--typo3-component-border-color, #ccc));
+    --nr-mcp-agent-prompt-idle: var(--typo3-surface-container-high, #e8e8e8);
+    --nr-mcp-agent-prompt-idle-text: var(--typo3-text-color-variant, #666);
+
+    /* The field takes the height the widget has: the dashboard sets the
+     * card's height, and a field taller than that would be cut off. */
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.nr-mcp-agent-prompt-question {
+    display: block;
+    flex: none;
+    margin-bottom: 0.5rem;
+    font-size: 1.125em;
+    font-weight: 600;
+}
+
+.nr-mcp-agent-prompt-field {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 3rem;
+}
+
+.nr-mcp-agent-prompt-input {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.625rem 3.75rem 0.625rem 0.75rem;
+    resize: none;
+}
+
+.nr-mcp-agent-prompt-input:focus,
+.nr-mcp-agent-prompt-input:focus-visible {
+    border-color: var(--nr-mcp-agent-prompt-text);
+    /* Transparent, not none: forced-colors mode drops the box-shadow ring
+     * and draws this outline in the system colour instead. */
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.25rem var(--nr-mcp-agent-prompt-accent);
+}
+
+.nr-mcp-agent-prompt-send {
+    appearance: none;
+    position: absolute;
+    /* Above the field, which the backend raises while it has focus. */
+    z-index: 10;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 1px solid var(--nr-mcp-agent-prompt-border);
+    border-radius: 50%;
+    background: var(--nr-mcp-agent-prompt-send);
+    color: var(--nr-mcp-agent-prompt-accent);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.nr-mcp-agent-prompt-send:disabled {
+    background: var(--nr-mcp-agent-prompt-idle);
+    color: var(--nr-mcp-agent-prompt-idle-text);
+    cursor: not-allowed;
+}
+
+.nr-mcp-agent-prompt-send:focus-visible {
+    outline: 2px solid var(--nr-mcp-agent-prompt-text);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.375rem var(--nr-mcp-agent-prompt-accent);
+}
+
+/* Why a question was not sent; takes no room while there is none. */
+.nr-mcp-agent-prompt-error {
+    display: block;
+    flex: none;
+    margin: 0.25rem 0 0;
+    color: var(--typo3-text-color-danger, #c62828);
+    font-size: 0.875em;
+}
+
+.nr-mcp-agent-prompt-error:empty {
+    margin: 0;
+}
+
+[dir="rtl"] .nr-mcp-agent-prompt-send {
+    right: auto;
+    left: 0.5rem;
+}
+
+[dir="rtl"] .nr-mcp-agent-prompt-input {
+    padding: 0.625rem 0.75rem 0.625rem 3.75rem;
+}
+
+@media (forced-colors: active) {
+    .nr-mcp-agent-prompt-input:focus,
+    .nr-mcp-agent-prompt-input:focus-visible,
+    .nr-mcp-agent-prompt-send:focus-visible {
+        outline-color: Highlight;
+    }
+
+    .nr-mcp-agent-prompt-send {
+        border-color: ButtonText;
+    }
+
+    .nr-mcp-agent-prompt-send:disabled {
+        border-color: GrayText;
+        color: GrayText;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nr-mcp-agent-prompt-send {
+        transition: none;
+    }
+}

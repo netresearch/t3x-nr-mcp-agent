@@ -34,11 +34,16 @@ const STYLE_SOURCES = [
     'dashboard-widget.js',
     'icons.js',
     'markdown-styles.js',
+    'prompt-widget.js',
     'theme.js',
     'toolbar/chat-panel.js',
 ];
 
 const read = (file) => readFileSync(join(jsDir, file), 'utf8');
+
+const cssDir = join(jsDir, '../Css');
+/** Stylesheets of the extension, plain CSS loaded by the backend. */
+const CSS_SOURCES = ['chat.css', 'prompt-widget.css'];
 
 /**
  * The guard used to be a regular expression over source lines. Two review
@@ -55,6 +60,12 @@ describe('color-scheme safety (no bare color literals)', () => {
         takeColourGuardNotices();
         expect(colourLiteralsInModule(read(file)).map((hit) => `${file}:${hit}`)).toEqual([]);
         // Every value in our own sources matches css-tree's grammar; none was only scanned.
+        expect(takeColourGuardNotices()).toEqual([]);
+    });
+
+    test.each(CSS_SOURCES)('Css/%s uses colour literals only as var() fallbacks', (file) => {
+        takeColourGuardNotices();
+        expect(colourLiteralsInCss(readFileSync(join(cssDir, file), 'utf8')).map((hit) => `${file}:${hit}`)).toEqual([]);
         expect(takeColourGuardNotices()).toEqual([]);
     });
 

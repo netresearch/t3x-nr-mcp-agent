@@ -19,10 +19,10 @@
 #                 (approval-card-height.spec.ts), two pages fill the
 #                 page tree (chat-column.spec.ts), and two more
 #                 conversations wait for an approval to approve and to
-#                 cancel (editor-journey.spec.ts). The admin's dashboard
-#                 holds the "Recent chats" widget, with a guided process on
-#                 a page and one on a deleted page
-#                 (recent-chats-widget.spec.ts).
+#                 cancel (editor-journey.spec.ts). The admin's only dashboard
+#                 holds the prompt widget (prompt-widget.spec.ts) and the
+#                 "Recent chats" widget, with a guided process on a page and
+#                 one on a deleted page (recent-chats-widget.spec.ts).
 #
 # DB coordinates are the fixed defaults the reusable workflow's default mode
 # provisions (see its "Setup TYPO3" step): host 127.0.0.1, root/root, db typo3.
@@ -73,6 +73,9 @@ case "${E2E_VARIANT:-}" in
 
     echo "Seeding the recent chats widget: a dashboard, two pages, two conversations (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/recent-chats-seed.sql"
+
+    echo "Adding the prompt widget to that dashboard, the admin's only one (${DB_CLIENT})..."
+    "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/prompt-widget-seed.sql"
 
     echo "Pointing llmTaskUid at the seeded Task..."
     cat >> config/system/additional.php << 'PHPEOF'
