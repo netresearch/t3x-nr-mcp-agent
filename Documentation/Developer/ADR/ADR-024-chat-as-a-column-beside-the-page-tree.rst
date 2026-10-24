@@ -63,13 +63,18 @@ floating.
     uses the same half). A content area narrower than twice the minimum
     (640 px) gets no column: the panel floats from ``<body>`` (attribute
     ``narrow``), the module keeps the whole area, and the stored layout is
-    not changed, so the panel moves back into the area as a column when the
-    area is wide enough again. Inside the area a floating panel would be
+    not changed, so the panel moves back into the area as a column when
+    the area is wide enough again: 24 px above the threshold, so an area
+    dragged around 640 px does not move it back and forth. Drawing and
+    parent change together; while a request holds the move back, the panel
+    keeps the drawing that fits where it is. Inside the area a floating
+    panel would be
     confined to the area's stacking layer, which in 14.3 lies under the
     backend header once the area is narrower than 750 px. The setting follows
     the user to smaller devices, which is why this is decided from the area's
     width, measured again when the column is asked for, not stored. The
-    floating panel offers the column only where the area is wide enough. The splitter follows the WAI-ARIA Window Splitter pattern: a
+    floating panel offers the column only where the area is wide enough.
+    The splitter follows the WAI-ARIA Window Splitter pattern: a
     focusable ``role="separator"`` with its width as ``aria-valuenow``, arrow
     keys in steps of 16 px, :kbd:`Home` and :kbd:`End` to the limits.
 -   Layout and width are stored in the backend user's settings with
@@ -94,7 +99,8 @@ floating.
     and re-initialises the chat controller. The reconnect aborts the
     controller's requests in flight, so no move happens while one runs: a
     message being sent or edited, a free-text answer, an approval decision,
-    ending a guided process, saving the instructions. The layout and pop-out
+    ending a guided process, saving the instructions, uploading an
+    attachment. The layout and pop-out
     buttons are disabled meanwhile, and a move to or from a narrow area
     waits for the request to end.
 
@@ -104,6 +110,6 @@ Consequences
 -   The column depends on undocumented core markup in two shapes. A core
     change that removes both makes the chat fall back to the floating panel;
     the Jest tests pin both shapes, the E2E tests check the geometry.
--   CI's E2E job runs against 13.4 only; the 14.3 shape is covered by the
-    Jest tests and by local E2E runs.
+-   CI's E2E job runs against 13.4 and 14.3; the specs feature-detect the
+    backend shell of both.
 -   The module menu is not collapsed automatically when the column opens.
