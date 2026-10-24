@@ -216,7 +216,7 @@
       }
     ],
     "linkLabel": "nr-llm – die KI-Control-Plane",
-    "linkHref": "https://netresearch.github.io/t3x-nr-llm/"
+    "linkHref": "https://netresearch.github.io/t3x-nr-llm/de/"
   },
   "security": {
     "heading": "Sicherheit",
@@ -305,6 +305,42 @@
       "browser": "Im Browser",
       "own-server": "Eigener Server",
       "external-provider": "Externer Anbieter"
+    },
+    "values": {
+      "intended_purpose": "Kontrollierte Assistenz im TYPO3-Backend: sichtbare Inhalte finden und zusammenfassen, Änderungen vorbereiten und nach ausdrücklicher menschlicher Freigabe ausführen.",
+      "excluded_uses": [
+        "Unbeaufsichtigter Betrieb: Alpha bedeutet Evaluierung unter menschlicher Aufsicht.",
+        "Eigenständige Inhaltsänderungen ohne Freigabe.",
+        "Ersatz für redaktionelle Urteile: Der Assistent schlägt vor, ein Mensch entscheidet.",
+        "Umgehung von TYPO3-Berechtigungen.",
+        "Entscheidungen mit rechtlichen, finanziellen oder personellen Folgen."
+      ],
+      "models": [
+        "Die in nr-llm konfigurierten Modelle. Diese Extension wählt keinen Anbieter und verwaltet keinen Schlüssel."
+      ],
+      "data": [
+        "Die Frage der Redaktion, der Gesprächsverlauf des jeweiligen Laufs und die Ergebnisse freigegebener Werkzeuge.",
+        "Werkzeugaufrufe und ihre Argumente für den Prüfverlauf."
+      ],
+      "human_oversight": "Lesen benötigt keine Freigabe. Schreibende Werkzeuge unterbrechen den Lauf, bis ein Mensch zustimmt oder ablehnt; die Entscheidung wird protokolliert.",
+      "permissions": "Administratoren geben MCP-Server und Werkzeuge je Backend-Gruppe frei. Die eigenen Zugriffsregeln von TYPO3 gelten zusätzlich und werden nicht umgangen.",
+      "logging": "Werkzeugaufrufe werden mit Werkzeug, Nutzer, Argumenten und Freigabeentscheidung protokolliert. nr-llm erfasst die Modellnutzung.",
+      "retention": "Gespräche und Prüfprotokolle liegen in der Datenbank der Website. Es gelten deren Aufbewahrungsregeln.",
+      "cost_control": "nr-llm begrenzt Anfragen, Tokens oder geschätzte Kosten mit Budgets je Nutzer.",
+      "security_controls": [
+        "Standardmäßig nur lesender Zugriff; schreibende Werkzeuge sind zunächst deaktiviert",
+        "Freigabeschritt mit protokollierter Entscheidung",
+        "Werkzeugfreigabe je Gruppe",
+        "TYPO3-Berechtigungen werden durchgesetzt",
+        "Provider-Schlüssel und Budgets bleiben in nr-llm"
+      ],
+      "known_limitations": [
+        "Alpha: Schnittstellen, Werkzeugverträge und Konfiguration können sich zwischen Releases noch ändern.",
+        "Manipulierte Anweisungen in gelesenen Inhalten bleiben möglich. Werkzeugfreigaben und menschliche Zustimmung begrenzen das Risiko, beseitigen es aber nicht.",
+        "Das Modell kann eine Anweisung falsch verstehen und eine falsche Änderung vorschlagen. Die Freigabe wirkt nur, wenn ein Mensch den Vorschlag tatsächlich prüft.",
+        "Zu weitreichende Agentenrechte bleiben ein Entwurfsrisiko. Nur die für den Anwendungsfall erforderlichen Werkzeuge freigeben.",
+        "Die Zuverlässigkeit hängt auch vom verwendeten Modell ab; dieses wird in nr-llm konfiguriert."
+      ]
     }
   },
   "install": {

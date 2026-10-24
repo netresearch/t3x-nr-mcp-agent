@@ -11,7 +11,7 @@
  *
  *   node landingpage/axe-audit.mjs [output-dir]
  *
- * Exits non-zero on any WCAG 2.1 AA violation. Uses Playwright's Chromium
+ * Exits non-zero on WCAG 2.2 AA and automated AAA violations on product pages. Uses Playwright's Chromium
  * because the repository already installs it for the end-to-end tests; adding a
  * second browser stack for one gate would not buy anything.
  *
@@ -53,10 +53,10 @@ const baseSegments = (process.argv[3] ?? process.env.PAGES_BASE_PATH ?? '/')
   .join('/');
 const BASE = baseSegments ? `/${baseSegments}/` : '/';
 
-// WCAG 2.1 AA, which is what the pages claim. 'best-practice' is deliberately
+// AA plus the automated AAA checks. 'best-practice' is deliberately
 // not included: it flags stylistic preferences, and a gate that fails on those
 // gets disabled instead of fixed.
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'wcag2aaa'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -176,10 +176,10 @@ function report({ route, scheme, violation }) {
 }
 
 /** Audits one page and returns the failures found on it. */
-async function auditPage(browser, port, route, scheme) {
+async function auditPage(browser, port, route, scheme, width) {
   const context = await browser.newContext({
     colorScheme: scheme,
-    viewport: { width: 1280, height: 900 },
+    viewport: { width, height: 900 },
   });
   const page = await context.newPage();
 
@@ -198,9 +198,30 @@ async function auditPage(browser, port, route, scheme) {
     async (tags) => await window.axe.run(document, { runOnly: { type: 'tag', values: tags } }),
     TAGS,
   );
+  if (!reportOnly(route)) {
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+    if (overflow) results.violations.push({
+      id: 'page-reflow', impact: 'serious', help: 'The document must fit the viewport',
+      nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
+    });
+    if (width === 320) {
+      const menu = page.locator('.menu-toggle');
+      await menu.click();
+      const requestedTheme = scheme === 'light' ? 'dark' : 'light';
+      await page.locator('[data-theme-control]').selectOption(requestedTheme);
+      const selected = await page.locator('html').getAttribute('data-theme');
+      await page.keyboard.press('Escape');
+      const closed = await menu.getAttribute('aria-expanded') === 'false';
+      const focused = await menu.evaluate((element) => document.activeElement === element);
+      if (selected !== requestedTheme || !closed || !focused) results.violations.push({
+        id: 'page-controls', impact: 'serious', help: 'Theme and mobile-menu controls must work',
+        nodes: [{target: ['.menu-toggle'], failureSummary: 'Theme selection or Escape/focus return failed'}],
+      });
+    }
+  }
   await context.close();
 
-  const found = results.violations.map((violation) => ({ route, scheme, violation }));
+  const found = results.violations.map((violation) => ({ route, scheme: `${scheme}/${width}px`, violation }));
   if (broken.length) {
     found.unshift({
       route,
@@ -231,15 +252,17 @@ async function main() {
     }
   }
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH});
 
   const failures = [];
   let checked = 0;
 
   for (const { route } of sampled) {
     for (const scheme of SCHEMES) {
-      failures.push(...(await auditPage(browser, port, route, scheme)));
-      checked += 1;
+      for (const width of (reportOnly(route) ? [1280] : [320, 1280])) {
+        failures.push(...(await auditPage(browser, port, route, scheme, width)));
+        checked += 1;
+      }
     }
   }
 
@@ -266,13 +289,13 @@ async function main() {
 
   if (gated.length) {
     console.error(
-      `\naxe: ${gated.length} violation(s) across ${checked} page renders (${sampled.length} route shapes × ${SCHEMES.length} colour schemes, sampled from ${routes.length} pages)`,
+      `\naxe: ${gated.length} violation(s) across ${checked} page renders (${sampled.length} route shapes, ${SCHEMES.length} colour schemes; product widths 320/1280px, sampled from ${routes.length} pages)`,
     );
     process.exit(1);
   }
 
   console.log(
-    `axe: no WCAG 2.1 AA violations in ${checked} page renders (${sampled.length} route shapes × ${SCHEMES.length} colour schemes, sampled from ${routes.length} pages) served from ${BASE}`,
+    `axe: no gated AA/automated AAA or page-control violations in ${checked} page renders (${sampled.length} route shapes, ${SCHEMES.length} colour schemes; product widths 320/1280px, sampled from ${routes.length} pages) served from ${BASE}`,
   );
 }
 
