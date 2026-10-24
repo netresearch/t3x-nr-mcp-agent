@@ -456,7 +456,10 @@ header turns it back into the floating panel.
 Column mode and width are stored in your backend user settings, so they
 follow you to other browsers. Where the backend has no content area for the
 column (for example without access to any module), the chat stays a
-floating panel. The module menu is not collapsed automatically.
+floating panel. While the content area is narrower than 640 px (twice the
+column's minimum), for example in a small window, the chat floats as well
+and docks again once there is room; your choice stays stored. The module
+menu is not collapsed automatically.
 
 ..  _usage-dashboard:
 

@@ -60,8 +60,12 @@ floating.
 -   The page tree's component is not resized, so 14.3's flyout breakpoint is
     not reached by docking the chat.
 -   Width: at least 320 px, at most half the content area (core's page tree
-    uses the same half). Where half is less than 320 px, the column keeps
-    320 px. The splitter follows the WAI-ARIA Window Splitter pattern: a
+    uses the same half). A content area narrower than twice the minimum
+    (640 px) gets no column: the panel stays where it is in the DOM but is
+    drawn floating (attribute ``narrow``), the module keeps the whole area,
+    and the stored layout is not changed, so the column returns when the
+    area is wide enough again. The setting follows the user to smaller
+    devices, which is why this is decided from the area's width, not stored. The splitter follows the WAI-ARIA Window Splitter pattern: a
     focusable ``role="separator"`` with its width as ``aria-valuenow``, arrow
     keys in steps of 16 px, :kbd:`Home` and :kbd:`End` to the limits.
 -   Layout and width are stored in the backend user's settings with
@@ -83,7 +87,9 @@ floating.
     none, as before.
 -   The element is placed once, when the toolbar item creates it, and moved
     only when the user switches the layout: every move reconnects the element
-    and re-initialises the chat controller.
+    and re-initialises the chat controller. Switching the layout and the
+    pop-out are disabled while a message is being sent, because the
+    reconnect aborts the request.
 
 Consequences
 ============
