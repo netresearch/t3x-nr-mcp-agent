@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
-import { test, expect, FrameLocator, Page } from '@playwright/test';
+import { FrameLocator, Page } from '@playwright/test';
+import { test, expect, waitForBackend, MODULE_MENU } from '../fixtures/backend';
 
 /**
  * E2E tests for the AI Chat backend module (Admin Tools > AI Chat).
@@ -31,7 +32,7 @@ async function navigateToModule(page: Page): Promise<FrameLocator> {
     // Wait for the module iframe to appear and load
     const iframeEl = page.locator('iframe');
     await expect(iframeEl).toBeVisible({ timeout: 10000 });
-    const iframe = page.frameLocator('iframe').first();
+    const iframe = page.frameLocator('iframe[name="list_frame"]');
     // Wait for the Lit component inside the iframe
     await expect(iframe.locator('nr-chat-app')).toBeVisible({ timeout: 15000 });
     return iframe;
@@ -47,12 +48,12 @@ test.describe('AI Chat Backend Module', () => {
             await page.getByLabel('Username').fill(TYPO3_USER);
             await page.getByLabel('Password').fill(TYPO3_PASSWORD);
             await page.getByRole('button', { name: /log.?in/i }).click();
-            await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
+            await waitForBackend(page);
         }
     });
 
     test('module is listed in the sidebar navigation', async ({ page }) => {
-        const moduleMenu = page.locator('.scaffold-modulemenu');
+        const moduleMenu = page.locator(MODULE_MENU).first();
         await expect(moduleMenu).toBeVisible({ timeout: 10000 });
 
         const chatLink = moduleMenu.locator(`a[href*="${MODULE_HREF_PATTERN}"]`);

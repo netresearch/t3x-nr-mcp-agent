@@ -39,3 +39,4 @@ consequences of each decision.
     ADR-021-editors-approve-their-own-changes
     ADR-022-open-points-of-guided-processes
     ADR-023-the-chat-guides-a-process
+    ADR-024-chat-as-a-column-beside-the-page-tree

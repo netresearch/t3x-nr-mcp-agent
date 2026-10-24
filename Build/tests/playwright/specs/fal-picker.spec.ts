@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
-import { test, expect, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
+import { test, expect, waitForBackend } from '../fixtures/backend';
 
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
 const TYPO3_PASSWORD = process.env.TYPO3_ADMIN_PASSWORD || 'Joh316!!';
@@ -17,7 +18,7 @@ async function login(page: Page): Promise<void> {
         await page.getByLabel('Username').fill(TYPO3_USER);
         await page.getByLabel('Password').fill(TYPO3_PASSWORD);
         await page.getByRole('button', { name: /log.?in/i }).click();
-        await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
+        await waitForBackend(page);
     }
 }
 
@@ -128,7 +129,10 @@ test.describe('FAL picker overlay', () => {
 
     // ── 2. postMessage handling — the core of our fix ─────────────────────
 
-    test('postMessage typo3:elementBrowser:elementAdded closes the overlay', async ({ page }) => {
+    test('postMessage typo3:elementBrowser:elementAdded closes the overlay', async ({ page, expectedErrors }) => {
+        // The message names file uid 1, which a fresh installation does not have:
+        // the chat asks file-info for it, and the server rightly answers 422.
+        expectedErrors.push(/ajax\/ai-chat\/file-info/);
         await openFalPicker(page);
 
         const overlay = await getOverlay(page);
@@ -155,7 +159,10 @@ test.describe('FAL picker overlay', () => {
         await expect(overlay).not.toBeVisible({ timeout: 3000 });
     });
 
-    test('postMessage on top window also closes the overlay (multi-window listener fix)', async ({ page }) => {
+    test('postMessage on top window also closes the overlay (multi-window listener fix)', async ({ page, expectedErrors }) => {
+        // The message names file uid 1, which a fresh installation does not have:
+        // the chat asks file-info for it, and the server rightly answers 422.
+        expectedErrors.push(/ajax\/ai-chat\/file-info/);
         await openFalPicker(page);
 
         const overlay = await getOverlay(page);
@@ -208,7 +215,10 @@ test.describe('FAL picker overlay', () => {
         });
     });
 
-    test('postMessage received only once even when listener registered on multiple windows', async ({ page }) => {
+    test('postMessage received only once even when listener registered on multiple windows', async ({ page, expectedErrors }) => {
+        // The message names file uid 1, which a fresh installation does not have:
+        // the chat asks file-info for it, and the server rightly answers 422.
+        expectedErrors.push(/ajax\/ai-chat\/file-info/);
         // Register error listener before any actions so it captures all errors
         const errors: string[] = [];
         page.on('pageerror', (e) => errors.push(e.message));

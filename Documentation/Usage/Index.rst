@@ -430,6 +430,39 @@ Maximized, the panel lists every conversation in the sidebar instead.
 
 Panel height and state are stored in ``localStorage`` per user.
 
+..  _usage-chat-column:
+
+Chat as a column
+----------------
+
+The **Column mode** button in the panel's header docks the chat as a column
+in the backend's content area: in modules with a page tree it sits between
+the tree and the module, in modules without one (the Dashboard, for example)
+it is the leftmost column. The column stays when you switch modules, and the
+module beside it gets the remaining width. The same button in the column's
+header turns it back into the floating panel.
+
+*   **Width** -- Drag the edge between the column and the module, or focus
+    it with :kbd:`Tab` and use :kbd:`Left` and :kbd:`Right` to step,
+    :kbd:`Home` and :kbd:`End` for the narrowest and the widest width. The
+    column is at least 320 px and at most half the content area wide.
+*   **Selected page** -- The chat follows the page selected in the page tree,
+    as soon as you click it. In a module that is not about a page the chat
+    sends no page.
+*   **Minimize** -- The column becomes a small bar in the bottom right corner
+    with the chat's title and state, for example *Waiting for your approval*
+    when a change waits for you. Its first button opens the column again.
+
+Column mode and width are stored in your backend user settings, so they
+follow you to other browsers. Where the backend has no content area for the
+column (for example without access to any module), the chat stays a
+floating panel. While the content area is narrower than 640 px (twice the
+column's minimum), for example in a small window, the chat floats as well
+and docks again once there is room; your choice stays stored, and the
+**Column mode** button is not offered meanwhile. While the chat is sending a
+message or a decision, the **Column mode** and **Open in a separate window**
+buttons are disabled. The module menu is not collapsed automatically.
+
 ..  _usage-dashboard:
 
 Dashboard widget

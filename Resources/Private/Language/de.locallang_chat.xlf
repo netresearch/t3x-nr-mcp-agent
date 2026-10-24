@@ -33,6 +33,22 @@
                 <source>Resize panel</source>
                 <target>Fenstergröße ändern</target>
             </trans-unit>
+            <trans-unit id="panel.columnMode" resname="panel.columnMode">
+                <source>Column mode</source>
+                <target>Spaltenmodus</target>
+            </trans-unit>
+            <trans-unit id="panel.columnResize" resname="panel.columnResize">
+                <source>Chat column width</source>
+                <target>Breite der Chat-Spalte</target>
+            </trans-unit>
+            <trans-unit id="panel.badge" resname="panel.badge">
+                <source>AI</source>
+                <target>KI</target>
+            </trans-unit>
+            <trans-unit id="panel.reopen" resname="panel.reopen">
+                <source>Open the chat again</source>
+                <target>Chat wieder öffnen</target>
+            </trans-unit>
 
             <!-- Sidebar -->
             <trans-unit id="sidebar.show" resname="sidebar.show">

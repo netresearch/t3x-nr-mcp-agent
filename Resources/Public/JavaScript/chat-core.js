@@ -3,6 +3,7 @@
 
 import {ApiClient} from '@netresearch/nr-mcp-agent/api-client.js';
 import {lll} from '@typo3/core/lit-helper.js';
+import {ModuleStateStorage} from '@typo3/backend/storage/module-state-storage.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
 import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 
@@ -75,10 +76,19 @@ export function statusLabel(status) {
  * assistant, never a reason for a message to fail. The server re-checks the
  * page against the user's permissions before it reaches the prompt.
  *
+ * Where the module is about a page, the page tree's selection
+ * (ModuleStateStorage `web`) takes precedence over the URL (ADR-024): a click
+ * in the tree updates it at once, while the module frame still shows the
+ * previous page until the new one has loaded. The tree's selection outlives
+ * the module — it is still set in the Dashboard — so it is read only where
+ * the URL carries a page; a module that is not about a page still sends none.
+ * The language comes from the URL, and only while both name the same page.
+ *
  * @param {Window} [win]
+ * @param {() => {identifier?: string}} [treeSelection] the page tree's state
  * @returns {{pageId: number, module: string}}
  */
-export function currentBackendContext(win = globalThis.top ?? globalThis) {
+export function currentBackendContext(win = globalThis.top ?? globalThis, treeSelection = () => ModuleStateStorage.current('web')) {
     const context = {pageId: 0, module: ''};
     try {
         const doc = win.document;
@@ -92,13 +102,15 @@ export function currentBackendContext(win = globalThis.top ?? globalThis) {
         const params = new URLSearchParams(frame?.location?.search ?? '');
         const id = params.get('id');
         if (id && /^\d+$/.test(id)) {
-            context.pageId = Number.parseInt(id, 10);
+            const urlPageId = Number.parseInt(id, 10);
+            const selected = selectedTreePage(treeSelection);
+            context.pageId = selected > 0 ? selected : urlPageId;
             // The page's language, where the module URL carries it: `language`
             // (TYPO3 13) or the first of `languages[]` (14). The page module
             // often keeps it in its module data instead; then none is sent and
             // the server keeps the one the conversation started with (ADR-019).
             const language = params.get('language') ?? params.get('languages[0]') ?? params.getAll('languages[]')[0];
-            if (language && /^\d+$/.test(language)) {
+            if (context.pageId === urlPageId && language && /^\d+$/.test(language)) {
                 context.languageId = Number.parseInt(language, 10);
             }
         }
@@ -106,6 +118,21 @@ export function currentBackendContext(win = globalThis.top ?? globalThis) {
         // Cross-origin or not a backend window: send no context.
     }
     return context;
+}
+
+/**
+ * The page selected in the page tree, or 0. A failed read is no selection.
+ *
+ * @param {() => {identifier?: string}} read
+ */
+function selectedTreePage(read) {
+    try {
+        const identifier = String(read()?.identifier ?? '');
+
+        return /^\d+$/.test(identifier) ? Number.parseInt(identifier, 10) : 0;
+    } catch {
+        return 0;
+    }
 }
 
 /**
@@ -320,6 +347,15 @@ export class ChatCoreController {
     _abortController;
     /** @type {number|null} */
     _pollTimer = null;
+    /**
+     * Bumped whenever polling stops (stopPolling(), hostDisconnected()). A
+     * poll whose request was in flight then must not schedule the next one:
+     * moving the panel aborts the request and reconnects the host, which
+     * starts a loop of its own, and two loops would run from then on.
+     */
+    _pollGeneration = 0;
+    /** True while an attachment is being uploaded. */
+    uploading = false;
     /** @type {number} */
     _knownMessageCount = 0;
     /** @type {number} */
@@ -689,7 +725,12 @@ export class ChatCoreController {
             if (!this.isProcessing()) {
                 this.stopPolling();
             }
-        } catch {
+        } catch (e) {
+            // An aborted request is the panel moving or closing, not a
+            // connection problem.
+            if (e?.name === 'AbortError') {
+                return;
+            }
             this._pollFailures++;
             if (this._pollFailures >= 5) {
                 this.errorMessage = lll('chat.connectionLost');
@@ -707,16 +748,18 @@ export class ChatCoreController {
     }
 
     schedulePoll() {
+        const generation = this._pollGeneration;
         this._pollTimer = setTimeout(async () => {
-            if (!this.host.isConnected) return;
+            if (!this.host.isConnected || generation !== this._pollGeneration) return;
             await this.pollMessages();
-            if (this.host.isConnected && this.isProcessing()) {
+            if (generation === this._pollGeneration && this.host.isConnected && this.isProcessing()) {
                 this.schedulePoll();
             }
         }, 2000);
     }
 
     stopPolling() {
+        this._pollGeneration++;
         if (this._pollTimer) {
             clearTimeout(this._pollTimer);
             this._pollTimer = null;
@@ -1289,12 +1332,17 @@ export class ChatCoreController {
             this.host.requestUpdate();
             return;
         }
+        this.uploading = true;
+        this.host.requestUpdate();
         try {
             const result = await this._api.uploadFile(file);
             this.pendingFile = result;
             this.host.requestUpdate();
         } catch (e) {
             this.errorMessage = e.message;
+            this.host.requestUpdate();
+        } finally {
+            this.uploading = false;
             this.host.requestUpdate();
         }
     }

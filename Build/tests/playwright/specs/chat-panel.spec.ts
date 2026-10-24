@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
-import { test, expect } from '@playwright/test';
+import { test, expect, waitForBackend } from '../fixtures/backend';
 
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
 const TYPO3_PASSWORD = process.env.TYPO3_ADMIN_PASSWORD || 'Joh316!!';
@@ -15,7 +15,7 @@ test.describe('AI Chat Panel', () => {
             await page.getByLabel('Username').fill(TYPO3_USER);
             await page.getByLabel('Password').fill(TYPO3_PASSWORD);
             await page.getByRole('button', { name: /log.?in/i }).click();
-            await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
+            await waitForBackend(page);
         }
         // Wait for panel JS module to load and create the panel element
         await page.waitForFunction(() => !!document.querySelector('ai-chat-panel'), null, { timeout: 10000 });
@@ -42,7 +42,7 @@ test.describe('AI Chat Panel', () => {
         await page.locator('.ai-chat-toolbar-btn').click();
         await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'expanded', { timeout: 3000 });
         // Navigate to a different module
-        const menuItems = page.locator('.modulemenu-item a');
+        const menuItems = page.locator('a[data-modulemenu-identifier][href]');
         const count = await menuItems.count();
         if (count > 1) {
             await menuItems.nth(1).click();
@@ -137,7 +137,7 @@ test.describe('AI Chat Panel', () => {
     test('corrupted localStorage falls back to defaults', async ({ page }) => {
         await page.evaluate(() => localStorage.setItem('ai-chat-panel', '{broken'));
         await page.reload();
-        await expect(page.locator('.scaffold-modulemenu')).toBeVisible({ timeout: 15000 });
+        await waitForBackend(page);
         await page.waitForFunction(() => !!document.querySelector('ai-chat-panel'), null, { timeout: 10000 });
         await page.locator('.ai-chat-toolbar-btn').click();
         await expect(page.locator('ai-chat-panel')).toHaveAttribute('state', 'expanded', { timeout: 3000 });

@@ -9,7 +9,8 @@ import {ChatCoreController, displayStatus, downloadTextFile, statusLabel} from '
 import {splitConversationTabs, filterConversations} from '@netresearch/nr-mcp-agent/conversation-tabs.js';
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
-import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
+import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_COLUMN, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
+import {COLUMN_DEFAULT_WIDTH, COLUMN_MIN_WIDTH, LAYOUT, clampColumnWidth, columnMaxWidth, findColumnMount, markColumnMount, readColumnWidth, saveColumnWidth, saveLayoutPreference, splitterKeyWidth} from '@netresearch/nr-mcp-agent/chat-column.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
 import {chatGuidedStyles, renderEndTour, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
@@ -31,6 +32,20 @@ const COLLAPSED_HEIGHT = 36;
 // enough of the header to grab and drag it back.
 const MIN_VISIBLE = 64;
 const STORAGE_KEY = 'ai-chat-panel';
+// The page tree's selection and a loaded module change the page the chat is
+// about (ModuleStateStorage, dispatched on the backend's top document).
+const PAGE_CONTEXT_EVENTS = [
+    'typo3:module-state-storage:update:web',
+    'typo3:module-state-storage:update-with-tree-identifier:web',
+    'typo3-module-loaded',
+];
+// The column's width is written to the user's settings this long after the
+// last key press on the splitter: one request per adjustment, not per step.
+const COLUMN_PERSIST_DELAY = 400;
+const COLUMN_BODY_ID = 'nr-chat-column-body';
+// How much wider than twice the column's minimum the content area must get
+// before a column given way to the floating panel docks again.
+const NARROW_DEAD_BAND = 24;
 
 /**
  * <ai-chat-panel> - Floating draggable panel for AI chat.
@@ -39,11 +54,22 @@ const STORAGE_KEY = 'ai-chat-panel';
  * EXPANDED (chat + compact conversation switcher),
  * MAXIMIZED (full height with sidebar).
  *
+ * Layouts (ADR-024): FLOATING, the panel above the backend, or COLUMN, docked
+ * beside the page tree in the backend's content area (chat-column.js). In the
+ * column COLLAPSED is a small bar in the bottom right corner, and there is no
+ * MAXIMIZED.
+ *
  * All chat logic is delegated to ChatCoreController.
  */
 export class AiChatPanel extends LitElement {
     static properties = {
         state: {type: String, reflect: true},
+        layout: {type: String, reflect: true},
+        // The column is chosen but its content area is too narrow for it
+        // (less than twice the column's minimum): the chat floats meanwhile.
+        narrow: {type: Boolean, reflect: true},
+        _columnWidth: {state: true},
+        _areaWidth: {state: true},
         _height: {state: true},
         _width: {state: true},
         _posX: {state: true},
@@ -873,6 +899,169 @@ export class AiChatPanel extends LitElement {
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Column layout (ADR-024) ─────────────────────────────────── */
+
+        /* A flex item of the backend's content area, before the module router. */
+        :host([layout="column"]:not([narrow])) {
+            position: relative;
+            z-index: auto;
+            flex: 0 0 auto;
+            align-self: stretch;
+            min-width: 0;
+            border-radius: 0;
+            box-shadow: none;
+            border-inline-end: 1px solid var(--nr-chat-border);
+        }
+        /*
+         * Its content must not size the row: in 13.4 the content area is a
+         * grid cell that grows with what it holds, so a long transcript made
+         * the column as tall as the transcript instead of scrolling it. The
+         * width is set explicitly, the height comes from the row.
+         */
+        :host([layout="column"]:not([narrow]):not([state="collapsed"])) {
+            contain: size;
+        }
+        :host([layout="column"]:not([narrow])) .panel-header {
+            height: auto;
+            min-height: 56px;
+            padding: 4px 4px 4px 12px;
+            border-radius: 0;
+            cursor: default;
+            touch-action: auto;
+            user-select: auto;
+            -webkit-user-select: auto;
+            background: var(--nr-chat-surface);
+        }
+        :host([layout="column"]:not([narrow])) .panel-header:active {
+            cursor: default;
+        }
+        .column-badge {
+            flex-shrink: 0;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--nr-chat-accent);
+            color: var(--nr-chat-on-accent);
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .column-heading {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.3;
+        }
+        .column-heading .title {
+            font-size: 14px;
+        }
+        .column-status {
+            font-size: 12px;
+            color: var(--nr-chat-text-variant);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /*
+         * Icon buttons of the column header and the minimized bar: 44px
+         * targets in the bar. In the header five of them share a column that
+         * may be 320px wide with the title, so they are 36px there, above the
+         * 24px minimum of WCAG 2.5.8, and sit closer together.
+         */
+        .layout-btn {
+            flex-shrink: 0;
+            min-width: 44px;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--nr-chat-text);
+        }
+        :host([layout="column"]:not([narrow])) .panel-header {
+            gap: 4px;
+        }
+        .panel-header .layout-btn {
+            min-width: 36px;
+            min-height: 36px;
+        }
+        .layout-btn:focus-visible {
+            outline: 2px solid var(--nr-chat-focus-ring);
+            outline-offset: -2px;
+        }
+        [data-action="layout"][aria-pressed="true"] {
+            background: var(--nr-chat-hover);
+            box-shadow: inset 0 -2px 0 var(--nr-chat-focus-ring);
+        }
+
+        /* The splitter on the column's trailing edge (WAI-ARIA Window Splitter). */
+        .column-splitter {
+            position: absolute;
+            inset-block: 0;
+            inset-inline-end: -5px;
+            width: 9px;
+            cursor: col-resize;
+            touch-action: none;
+            z-index: 11;
+        }
+        .column-splitter:hover,
+        .column-splitter.dragging {
+            background: color-mix(in srgb, var(--nr-chat-focus-ring) 45%, transparent);
+        }
+        .column-splitter:focus-visible {
+            outline: 2px solid var(--nr-chat-focus-ring);
+            outline-offset: -2px;
+            background: color-mix(in srgb, var(--nr-chat-focus-ring) 45%, transparent);
+        }
+
+        /* Minimized in the column: a bar in the bottom right corner. */
+        :host([layout="column"]:not([narrow])[state="collapsed"]) {
+            position: fixed;
+            inset-inline-end: 24px;
+            bottom: 24px;
+            width: min(360px, calc(100vw - 48px));
+            z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
+            border-radius: 10px;
+            border-inline-end: none;
+            box-shadow: var(--typo3-component-box-shadow-flyout, 0 4px 24px rgba(0, 0, 0, 0.18)), 0 0 0 1px var(--nr-chat-border);
+        }
+        .minimized-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 4px 4px 14px;
+        }
+        .minimized-text {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.3;
+        }
+        .minimized-title {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .minimized-status {
+            font-size: 12px;
+            color: var(--nr-chat-text-variant);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .status-dot {
+            flex-shrink: 0;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--nr-chat-status-info);
+        }
     `];
 
     constructor() {
@@ -892,11 +1081,30 @@ export class AiChatPanel extends LitElement {
         this._lastVisibleState = STATES.EXPANDED;
         this._resizing = false;
         this._dragging = false;
+        this.layout = LAYOUT.FLOATING;
+        this.narrow = false;
+        // Read from the user's settings the first time the column opens.
+        this._columnWidth = null;
+        this._areaWidth = 0;
+        this._markedMount = null;
+        // Focus to put back after a template swap or a move (_focusKey()).
+        this._refocus = null;
         this._restoreState();
     }
 
     connectedCallback() {
         super.connectedCallback();
+        // Every listener of this connection goes with it: moving the panel
+        // (into the column, out of it, into its own window) reconnects it.
+        this._connection = new AbortController();
+        const {signal} = this._connection;
+        // The backend's top document: this module's realm, also while the
+        // panel is in its own window.
+        const refreshPage = () => this.chat.refreshBackendPage();
+        for (const type of PAGE_CONTEXT_EVENTS) {
+            document.addEventListener(type, refreshPage, {signal});
+        }
+        this._syncColumnMount();
         this.setAttribute('role', 'complementary');
         this.setAttribute('aria-label', lll('panel.title') || 'AI Chat');
         this.setAttribute('tabindex', '-1'); // focusable programmatically but not in tab order
@@ -918,6 +1126,13 @@ export class AiChatPanel extends LitElement {
         document.removeEventListener('keydown', this._keydownHandler);
         document.removeEventListener('click', this._closeAttachMenu);
         this.chat.stopPageWatch();
+        this._connection?.abort();
+        this._areaObserver?.disconnect();
+        this._areaObserver = null;
+        this._observedArea = null;
+        // Wherever the panel goes, the content area it left gets its full
+        // width back.
+        this._unmarkColumnMount();
     }
 
     updated(changed) {
@@ -930,7 +1145,22 @@ export class AiChatPanel extends LitElement {
             // The announcement of the new mark renders on the next pass.
             this.requestUpdate();
         }
-        if (changed.has('state') || changed.has('_height') || changed.has('_width') || changed.has('_posX') || changed.has('_posY')) {
+        if (changed.has('state') || changed.has('layout') || changed.has('narrow')) {
+            this._syncColumnMount();
+        }
+        // After the update, not during it: a move reconnects the element.
+        // Runs on every update, so a move held back by a request in flight
+        // happens with the update that follows its end.
+        void Promise.resolve().then(() => {
+            this._placeForLayout();
+            if (this._refocus !== null) {
+                const target = this._refocus;
+                this._refocus = null;
+                void this.updateComplete.then(() => this._restoreFocus(target));
+            }
+        });
+        if (changed.has('state') || changed.has('layout') || changed.has('narrow') || changed.has('_height') || changed.has('_width')
+            || changed.has('_posX') || changed.has('_posY') || changed.has('_columnWidth') || changed.has('_areaWidth')) {
             this._applySize();
         }
         if (changed.has('state')) {
@@ -980,6 +1210,19 @@ export class AiChatPanel extends LitElement {
             return;
         }
 
+        // Column: a flex item as high as the content area. The floating
+        // coordinates would pull it out of the row; minimized, the bar's size
+        // and corner come from the stylesheet.
+        if (this._docked()) {
+            this.style.top = '';
+            this.style.left = '';
+            this.style.right = '';
+            this.style.bottom = '';
+            this.style.height = '';
+            this.style.width = this.state === STATES.COLLAPSED ? '' : this._columnWidthNow() + 'px';
+            return;
+        }
+
         if (this.state === STATES.MAXIMIZED) {
             this.style.top = '0';
             this.style.left = '0';
@@ -1009,6 +1252,375 @@ export class AiChatPanel extends LitElement {
         this.style.height = this._height + 'px';
         this.style.right = '';
         this.style.bottom = '';
+    }
+
+    // ── Column layout (ADR-024) ─────────────────────────────────────────
+
+    /**
+     * The content area the panel sits in as a column, or null when it is not
+     * in one (floating, detached, or a column requested where the backend
+     * has no content area).
+     */
+    _columnMount() {
+        if (this.layout !== LAYOUT.COLUMN || !this.parentElement) {
+            return null;
+        }
+        const mount = findColumnMount(document);
+
+        return mount?.element === this.parentElement ? mount : null;
+    }
+
+    /**
+     * Whether the panel is drawn as a column now: chosen, in its content
+     * area, and the area is wide enough. A narrow area (a small window, the
+     * preference followed the user to a smaller device) lets the module keep
+     * its width and the chat float, without changing the stored choice.
+     */
+    _docked() {
+        return this.layout === LAYOUT.COLUMN && !this.narrow;
+    }
+
+    /**
+     * Whether the backend has a content area for the column and it is too
+     * narrow for one: less than twice the column's minimum.
+     */
+    _areaTooNarrow() {
+        return findColumnMount(document) !== null && this._areaWidthNow() < 2 * COLUMN_MIN_WIDTH;
+    }
+
+    /**
+     * Whether a column can be opened here: not detached, the backend has a
+     * content area, and that area is wide enough. The area's width is
+     * observed in every layout, so a floating panel follows it too.
+     */
+    _canDock() {
+        return !this._pipWindow && findColumnMount(document) !== null && !this._areaTooNarrow();
+    }
+
+    /**
+     * Whether the panel may move now. A move reconnects the element, which
+     * aborts the controller's requests in flight: a message being sent or
+     * edited, a free-text answer, an approval decision, ending a guided
+     * process, saving the instructions, uploading an attachment. Repeating
+     * one could duplicate what the server already took.
+     */
+    _canMove() {
+        const chat = this.chat;
+
+        return !(chat.sending || chat.inputBusy || chat.approvalBusy || chat.endingTour || chat.systemPromptSaving || chat.uploading);
+    }
+
+    /**
+     * Whether the column should give way to the floating panel. A dead band
+     * of NARROW_DEAD_BAND px above the threshold keeps an area dragged
+     * around 640 px (the 14.3 tree's splitter, the module menu) from moving
+     * the panel back and forth: it undocks below 640 px and docks again
+     * only from 640 px plus the band.
+     */
+    _wantNarrow() {
+        if (this.layout !== LAYOUT.COLUMN || findColumnMount(document) === null) {
+            return false;
+        }
+        const limit = 2 * COLUMN_MIN_WIDTH + (this.narrow ? NARROW_DEAD_BAND : 0);
+
+        return this._areaWidthNow() < limit;
+    }
+
+    /** Whether the panel's parent already fits the drawing for `narrow`. */
+    _placedFor(narrow) {
+        const mount = this.layout === LAYOUT.COLUMN && !this._pipWindow ? findColumnMount(document) : null;
+        if (!mount || !this.isConnected) {
+            return true;
+        }
+
+        return narrow ? this.parentElement !== mount.element : this.parentElement === mount.element;
+    }
+
+    willUpdate(changed) {
+        // On every update: a change held back while a request was in flight
+        // is taken with the update that follows its end.
+        const narrow = this._wantNarrow();
+        // Drawing and parent change together: a panel that may not move now
+        // keeps the drawing that fits where it is.
+        if (narrow !== this.narrow && (this._canMove() || this._placedFor(narrow))) {
+            // Crossing the threshold swaps the template, and maybe the
+            // parent; focus inside the panel would fall to the body.
+            this._refocus = this._focusKey();
+            this.narrow = narrow;
+        }
+        // Maximized while floating in a narrow area, then docked again:
+        // the column has no maximized state.
+        if (this._docked() && this.state === STATES.MAXIMIZED) {
+            this.state = STATES.EXPANDED;
+        }
+    }
+
+    _focusIsInside() {
+        return Boolean(this.shadowRoot?.activeElement) || document.activeElement === this;
+    }
+
+    /**
+     * Which control has focus, so it can get it back after a template swap or
+     * a move: a selector for it, '' for focus inside without one, null when
+     * focus is elsewhere.
+     */
+    _focusKey() {
+        if (!this._focusIsInside()) {
+            return null;
+        }
+        const active = this.shadowRoot?.activeElement;
+        if (active?.dataset?.action) {
+            return `[data-action="${active.dataset.action}"]`;
+        }
+
+        return active?.matches?.('.panel-input textarea') ? '.panel-input textarea' : '';
+    }
+
+    /**
+     * Put focus back into the panel after its template or parent changed:
+     * the control that had it where it is still there, else the input where
+     * it can take it, else the first button of the header, else the
+     * minimized bar's way back.
+     *
+     * @param {string} key from _focusKey()
+     */
+    _restoreFocus(key = '') {
+        const kept = key ? this.renderRoot?.querySelector(key) : null;
+        if (kept && !kept.disabled) {
+            kept.focus();
+            return;
+        }
+        const input = this.renderRoot?.querySelector('.panel-input textarea');
+        const target = input && !input.disabled
+            ? input
+            : (this.renderRoot?.querySelector('.panel-header button:not([disabled])')
+                ?? this.renderRoot?.querySelector('[data-action="reopen"]'));
+        target?.focus();
+    }
+
+    /**
+     * Keep the panel where its drawing needs it. Docked, it is a column in
+     * the content area; floating in an area too narrow for the column, it
+     * lives in the body like the floating panel: inside the content area it
+     * would be confined to the area's stacking layer, which in 14.3 lies
+     * under the backend header (and the page tree's flyout) once the area is
+     * narrower than 750 px. The move waits while a request is in flight; the
+     * next update after it tries again.
+     */
+    _placeForLayout() {
+        if (this._pipWindow || this.layout !== LAYOUT.COLUMN || !this.isConnected || !this._canMove()) {
+            return;
+        }
+        const mount = findColumnMount(document);
+        if (!mount) {
+            return;
+        }
+        const inArea = this.parentElement === mount.element;
+        if (this.narrow !== inArea) {
+            return;
+        }
+        // A move takes focus out of the document.
+        if (this._refocus === null) {
+            this._refocus = this._focusKey();
+        }
+        if (!this.narrow && !inArea) {
+            mount.element.insertBefore(this, mount.router);
+        } else if (this.narrow && inArea) {
+            document.body.append(this);
+        } else {
+            return;
+        }
+        if (this.state !== STATES.HIDDEN) {
+            this.chat.startPollingIfNeeded();
+        }
+        this._syncColumnMount();
+    }
+
+    /** Width of the content area the column shares with the module. */
+    _areaWidthNow() {
+        if (this._areaWidth > 0) {
+            return this._areaWidth;
+        }
+        const width = findColumnMount(document)?.element.getBoundingClientRect?.().width ?? 0;
+
+        return width > 0 ? width : window.innerWidth;
+    }
+
+    /** The width the column shows: the user's choice, kept inside the area's limits. */
+    _columnWidthNow() {
+        return clampColumnWidth(this._columnWidth ?? COLUMN_DEFAULT_WIDTH, this._areaWidthNow());
+    }
+
+    /**
+     * Mark the content area while the column is open in it, so the module
+     * router shrinks beside it (chat-column.js), and follow the area's width.
+     * Hidden and minimized, the column takes no room and the mark goes.
+     */
+    _syncColumnMount() {
+        this._observeArea();
+        const mount = this._columnMount();
+        const open = mount !== null && this._docked() && (this.state === STATES.EXPANDED || this.state === STATES.MAXIMIZED);
+
+        if (this._markedMount && this._markedMount !== mount?.element) {
+            this._unmarkColumnMount();
+        }
+        if (!mount) {
+            return;
+        }
+
+        if (this._columnWidth === null) {
+            this._columnWidth = readColumnWidth();
+        }
+        markColumnMount(mount.element, open);
+        this._markedMount = open ? mount.element : null;
+    }
+
+    /**
+     * Follow the content area's width in every layout: the column's limits
+     * and whether it fits depend on it, and so does the floating panel's
+     * offer to dock. Not from the detached window, which has no content area.
+     */
+    _observeArea() {
+        const area = this._pipWindow || !this.isConnected ? null : findColumnMount(document)?.element ?? null;
+        if (area === this._observedArea) {
+            return;
+        }
+        this._areaObserver?.disconnect();
+        this._areaObserver = null;
+        this._observedArea = area;
+        if (!area || typeof ResizeObserver !== 'function') {
+            return;
+        }
+        // The limits follow the area; the user's choice is not rewritten.
+        this._areaObserver = new ResizeObserver((entries) => {
+            const width = entries[entries.length - 1]?.contentRect?.width ?? 0;
+            if (width > 0 && width !== this._areaWidth) {
+                this._areaWidth = width;
+            }
+        });
+        this._areaObserver.observe(area);
+    }
+
+    _unmarkColumnMount() {
+        if (this._markedMount) {
+            markColumnMount(this._markedMount, false);
+            this._markedMount = null;
+        }
+    }
+
+    /**
+     * Switch between the floating panel and the column. The choice is stored
+     * in the backend user's settings, so it follows the user to other
+     * browsers.
+     *
+     * Moving the element reconnects it, which re-initialises the chat
+     * controller and stops its poll; the conversation, the draft and an
+     * attachment stay on the controller, and the poll is restarted here.
+     *
+     * @param {'floating'|'column'} layout
+     * @return {boolean} whether the layout is now the one asked for
+     */
+    setLayout(layout) {
+        if (this._pipWindow || !this._canMove()) {
+            return false;
+        }
+
+        if (layout === LAYOUT.COLUMN) {
+            const mount = findColumnMount(document);
+            if (!mount) {
+                return false;
+            }
+            // Measured now, not from the last observation: there is no column
+            // where the area is too narrow for one, and nothing is stored.
+            const width = mount.element.getBoundingClientRect().width || this._areaWidthNow();
+            if (width < 2 * COLUMN_MIN_WIDTH) {
+                return false;
+            }
+            this.layout = LAYOUT.COLUMN;
+            // No maximized state in the column, and asking for the column
+            // from the collapsed panel means opening it, not the corner bar.
+            if (this.state === STATES.MAXIMIZED || this.state === STATES.COLLAPSED) {
+                this.state = STATES.EXPANDED;
+            }
+            if (this.parentElement !== mount.element || this.nextElementSibling !== mount.router) {
+                mount.element.insertBefore(this, mount.router);
+            }
+        } else {
+            this.layout = LAYOUT.FLOATING;
+            if (this.parentElement !== document.body) {
+                document.body.append(this);
+            }
+        }
+
+        saveLayoutPreference(this.layout);
+        this._syncColumnMount();
+        this._saveState();
+        if (this.state !== STATES.HIDDEN) {
+            this.chat.startPollingIfNeeded();
+        }
+        // Focus was on the toggle, which the move took out of the document.
+        void this.updateComplete.then(() => this.renderRoot?.querySelector('[data-action="layout"]')?.focus());
+
+        return true;
+    }
+
+    toggleLayout() {
+        return this.setLayout(this.layout === LAYOUT.COLUMN ? LAYOUT.FLOATING : LAYOUT.COLUMN);
+    }
+
+    _isRtl() {
+        return getComputedStyle(this).direction === 'rtl';
+    }
+
+    /** Arrow keys, Home and End on the splitter (WAI-ARIA Window Splitter). */
+    _onSplitterKeydown(e) {
+        const next = splitterKeyWidth(e.key, this._columnWidthNow(), this._areaWidthNow(), this._isRtl());
+        if (next === null) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        this._columnWidth = next;
+        clearTimeout(this._persistWidthTimer);
+        this._persistWidthTimer = setTimeout(() => saveColumnWidth(this._columnWidth), COLUMN_PERSIST_DELAY);
+    }
+
+    /**
+     * Drag the splitter. Pointer capture keeps the events coming while the
+     * pointer is over the module's iframe; the width is stored once, at the
+     * end, not on every move.
+     */
+    _onSplitterPointerDown(e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+
+        const handle = e.currentTarget;
+        handle.setPointerCapture?.(e.pointerId);
+        handle.classList.add('dragging');
+        const startX = e.clientX;
+        const startWidth = this._columnWidthNow();
+        const area = this._areaWidthNow();
+        const direction = this._isRtl() ? -1 : 1;
+        document.body.style.cursor = 'col-resize';
+
+        const onMove = (ev) => {
+            if (!ev.isPrimary) return;
+            this._columnWidth = clampColumnWidth(startWidth + direction * (ev.clientX - startX), area);
+        };
+        const onEnd = () => {
+            handle.removeEventListener('pointermove', onMove);
+            handle.removeEventListener('pointerup', onEnd);
+            handle.removeEventListener('pointercancel', onEnd);
+            handle.removeEventListener('lostpointercapture', onEnd);
+            handle.classList.remove('dragging');
+            document.body.style.cursor = '';
+            saveColumnWidth(this._columnWidth);
+        };
+
+        handle.addEventListener('pointermove', onMove);
+        handle.addEventListener('pointerup', onEnd);
+        handle.addEventListener('pointercancel', onEnd);
+        handle.addEventListener('lostpointercapture', onEnd);
     }
 
     /** Get current position, falling back to default bottom-right */
@@ -1057,7 +1669,7 @@ export class AiChatPanel extends LitElement {
      * @return {Promise<boolean>} whether the panel is now detached
      */
     async popOut() {
-        if (!this._canPopOut() || this._pipWindow) {
+        if (!this._canPopOut() || this._pipWindow || !this._canMove()) {
             return false;
         }
 
@@ -1075,6 +1687,10 @@ export class AiChatPanel extends LitElement {
 
         this._pipHome = this.parentNode;
         this._pipWindow = pipWindow;
+        // Detached, the panel is a window of its own, not a column; the
+        // stored preference stays, and the column returns with the panel.
+        this._layoutBeforePopOut = this.layout;
+        this.layout = LAYOUT.FLOATING;
 
         pipWindow.addEventListener('pagehide', () => this._returnFromPopOut());
         // Clicks in the detached window never reach the backend document, where
@@ -1085,6 +1701,11 @@ export class AiChatPanel extends LitElement {
         this._dressWindow(pipWindow);
         this._watchBackendScheme();
         this._applySize();
+        // The move stopped the poll; a turn still running must keep
+        // reaching the detached window.
+        if (this.state !== STATES.HIDDEN) {
+            this.chat.startPollingIfNeeded();
+        }
 
         return true;
     }
@@ -1250,9 +1871,20 @@ export class AiChatPanel extends LitElement {
         this._dressStyle = null;
         this._pipWindow = null;
         this._pipHome = null;
+        if (this._layoutBeforePopOut) {
+            this.layout = this._layoutBeforePopOut;
+            this._layoutBeforePopOut = null;
+        }
 
         if (home) {
-            home.append(this);
+            // Back into the column's place, before the module router, not
+            // after it.
+            const mount = findColumnMount(document);
+            if (this.layout === LAYOUT.COLUMN && mount?.element === home) {
+                home.insertBefore(this, mount.router);
+            } else {
+                home.append(this);
+            }
             this._adoptStylesInto(window);
         }
 
@@ -1260,6 +1892,9 @@ export class AiChatPanel extends LitElement {
         // home is not one — without this the panel would keep the 100% sizing
         // it wore inside the detached window.
         this._applySize();
+        if (this.state !== STATES.HIDDEN) {
+            this.chat.startPollingIfNeeded();
+        }
     }
 
     /**
@@ -1313,6 +1948,11 @@ export class AiChatPanel extends LitElement {
     collapse() {
         this.state = STATES.COLLAPSED;
         this._saveState();
+        // The column's minimize button is gone with the column; keyboard
+        // focus moves to the bar's way back instead of falling to the body.
+        if (this._docked()) {
+            void this.updateComplete.then(() => this.renderRoot?.querySelector('[data-action="reopen"]')?.focus());
+        }
     }
 
     hide() {
@@ -1322,7 +1962,25 @@ export class AiChatPanel extends LitElement {
         this._saveState();
     }
 
+    /**
+     * Open the chat again from the minimized bar. Focus goes back into the
+     * column: the input where a conversation is open, else the minimize
+     * button that leads back to the bar.
+     */
+    expand() {
+        this.state = STATES.EXPANDED;
+        this.chat.startPollingIfNeeded();
+        this._saveState();
+        void this.updateComplete.then(() => {
+            const input = this.renderRoot?.querySelector('.panel-input textarea');
+            const target = input && !input.disabled ? input : this.renderRoot?.querySelector('[data-action="minimize"]');
+            target?.focus();
+        });
+    }
+
     maximize() {
+        // The column is as high as the backend already; its width is the splitter's.
+        if (this._docked()) return;
         this.state = this.state === STATES.MAXIMIZED ? STATES.EXPANDED : STATES.MAXIMIZED;
         this._saveState();
     }
@@ -1377,7 +2035,7 @@ export class AiChatPanel extends LitElement {
 
     _onHeaderDblClick(e) {
         // Double-click header toggles between expanded and maximized
-        if (!e.target.closest('button, .btn-icon')) {
+        if (!this._docked() && !e.target.closest('button, .btn-icon')) {
             this.maximize();
         }
     }
@@ -1386,6 +2044,8 @@ export class AiChatPanel extends LitElement {
         if (e.button !== 0) return; // left button only
         if (e.target.closest('button, .btn-icon')) return;
         if (this.state === STATES.COLLAPSED) return;
+        // The column stays where it is docked.
+        if (this._docked()) return;
         e.preventDefault();
 
         // setPointerCapture ensures pointerup is always received — even when the
@@ -1553,6 +2213,11 @@ export class AiChatPanel extends LitElement {
             const active = document.activeElement;
             const inPanel = active === this || this.contains(active) || this.shadowRoot?.contains(active);
             const modalOpen = !!document.querySelector('.modal.show, typo3-backend-modal[open]');
+            // The column sits beside the page tree and its filter: Escape
+            // there belongs to them, not to the chat.
+            if (this._docked() && !inPanel) {
+                return;
+            }
             if (inPanel || (!modalOpen && !active?.closest('.dropdown-menu'))) {
                 this.collapse();
             }
@@ -1587,6 +2252,18 @@ export class AiChatPanel extends LitElement {
 
     render() {
         if (this.state === STATES.HIDDEN) return nothing;
+
+        if (this._docked()) {
+            if (this.state === STATES.COLLAPSED) {
+                return this._renderMinimizedBar();
+            }
+
+            return html`
+                ${this._renderColumnHeader()}
+                ${this._renderBody()}
+                ${this._renderSplitter()}
+            `;
+        }
 
         return html`
             ${this._renderHeader()}
@@ -1625,7 +2302,7 @@ export class AiChatPanel extends LitElement {
                 ${this.chat.status ? html`
                     <span class="status-badge status-${displayStatus(this.chat.status)}" title="${statusLabel(this.chat.status)}">${STATUS_ICONS[displayStatus(this.chat.status)] ?? statusLabel(this.chat.status)}</span>
                 ` : nothing}
-                <button class="btn-icon" @click=${() => this.collapse()}
+                <button class="btn-icon" data-action="minimize" @click=${() => this.collapse()}
                         title="${lll('panel.collapse')}" aria-label="${lll('panel.collapse')}">${ICON_MINIMIZE(14)}</button>
                 <button class="btn-icon" @click=${() => this.maximize()}
                         title="${this.state === STATES.MAXIMIZED ? lll('panel.restore') : lll('panel.maximize')}"
@@ -1633,18 +2310,121 @@ export class AiChatPanel extends LitElement {
                     ${this.state === STATES.MAXIMIZED ? ICON_RESTORE(14) : ICON_MAXIMIZE(14)}
                 </button>
                 ${this._canPopOut() ? html`
-                    <button class="btn-icon" data-action="popout" @click=${() => this.popOut()}
+                    <button class="btn-icon" data-action="popout" ?disabled=${!this._canMove()} @click=${() => this.popOut()}
                             title="${lll('panel.popOut')}" aria-label="${lll('panel.popOut')}">${ICON_POPOUT(14)}</button>
                 ` : nothing}
-                <button class="btn-icon" @click=${() => this.hide()}
+                ${this._canDock() ? html`
+                    <button class="btn-icon" data-action="layout" aria-pressed="false" ?disabled=${!this._canMove()} @click=${() => this.toggleLayout()}
+                            title="${lll('panel.columnMode')}" aria-label="${lll('panel.columnMode')}">${ICON_COLUMN(14)}</button>
+                ` : nothing}
+                <button class="btn-icon" data-action="close" @click=${() => this.hide()}
                         title="${lll('panel.close')}" aria-label="${lll('panel.close')}">${ICON_CLOSE(14)}</button>
             </div>
         `;
     }
 
+    /**
+     * The column's header (ADR-024): the conversation's title with a status
+     * line below it — the guided process's page and step, else the status —
+     * and the buttons to detach, leave the column, minimize and close.
+     */
+    _renderColumnHeader() {
+        const conv = this.chat.getActiveConversation();
+        const title = conv?.title || lll('panel.title');
+
+        return html`
+            <div class="panel-header">
+                <span class="column-badge" aria-hidden="true">${lll('panel.badge')}</span>
+                <div class="column-heading">
+                    <span class="title">${title}</span>
+                    <span class="column-status">${this._renderStatusLine()}</span>
+                </div>
+                ${renderEndTour(this.chat)}
+                ${renderHighlightAnnouncement(this.chat)}
+                ${this._canPopOut() ? html`
+                    <button class="btn-icon layout-btn" data-action="popout" ?disabled=${!this._canMove()} @click=${() => this.popOut()}
+                            title="${lll('panel.popOut')}" aria-label="${lll('panel.popOut')}">${ICON_POPOUT(16)}</button>
+                ` : nothing}
+                <button class="btn-icon layout-btn" data-action="layout" aria-pressed="true" ?disabled=${!this._canMove()} @click=${() => this.toggleLayout()}
+                        title="${lll('panel.columnMode')}" aria-label="${lll('panel.columnMode')}">${ICON_COLUMN(16)}</button>
+                <button class="btn-icon layout-btn" data-action="minimize" @click=${() => this.collapse()}
+                        title="${lll('panel.collapse')}" aria-label="${lll('panel.collapse')}">${ICON_MINIMIZE(16)}</button>
+                <button class="btn-icon layout-btn" data-action="close" @click=${() => this.hide()}
+                        title="${lll('panel.close')}" aria-label="${lll('panel.close')}">${ICON_CLOSE(16)}</button>
+            </div>
+        `;
+    }
+
+    /**
+     * The guided process's page and step where one runs, else the
+     * conversation's status. The progress is a live region of its own
+     * (renderProgress); `live` makes the plain status one too, for the
+     * minimized bar, where the column's other announcements are not on screen.
+     *
+     * @param {boolean} [live]
+     */
+    _renderStatusLine(live = false) {
+        const progress = renderProgress(this.chat);
+        if (progress !== nothing) {
+            return progress;
+        }
+        if (!this.chat.status) {
+            return nothing;
+        }
+
+        return live ? html`<span role="status">${statusLabel(this.chat.status)}</span>` : statusLabel(this.chat.status);
+    }
+
+    /**
+     * The column minimized: a bar in the bottom right corner with the
+     * conversation, its state — "waiting for your approval" when a change
+     * waits — and the way back.
+     */
+    _renderMinimizedBar() {
+        const conv = this.chat.getActiveConversation();
+        const title = conv?.title || lll('panel.title');
+        const waiting = this.chat.status === 'awaiting_approval' || this.chat.status === 'awaiting_input';
+
+        return html`
+            <div class="minimized-bar">
+                <span class="column-badge" aria-hidden="true">${lll('panel.badge')}</span>
+                <div class="minimized-text">
+                    <span class="minimized-title">${title}</span>
+                    <span class="minimized-status">${this._renderStatusLine(true)}</span>
+                </div>
+                ${waiting ? html`<span class="status-dot" aria-hidden="true"></span>` : nothing}
+                <button class="btn-icon layout-btn" data-action="reopen" @click=${() => this.expand()}
+                        title="${lll('panel.reopen')}" aria-label="${lll('panel.reopen')}">${ICON_COLUMN(16)}</button>
+                <button class="btn-icon layout-btn" data-action="close" @click=${() => this.hide()}
+                        title="${lll('panel.close')}" aria-label="${lll('panel.close')}">${ICON_CLOSE(16)}</button>
+            </div>
+        `;
+    }
+
+    /**
+     * The splitter on the column's trailing edge, after the WAI-ARIA Window
+     * Splitter pattern: focusable, its value the column's width in px, the
+     * arrow keys step, Home and End jump to the limits.
+     */
+    _renderSplitter() {
+        return html`
+            <div class="column-splitter"
+                 role="separator"
+                 aria-orientation="vertical"
+                 aria-controls="${COLUMN_BODY_ID}"
+                 aria-label="${lll('panel.columnResize')}"
+                 aria-valuenow="${this._columnWidthNow()}"
+                 aria-valuemin="${COLUMN_MIN_WIDTH}"
+                 aria-valuemax="${columnMaxWidth(this._areaWidthNow())}"
+                 tabindex="0"
+                 @pointerdown=${(e) => this._onSplitterPointerDown(e)}
+                 @keydown=${(e) => this._onSplitterKeydown(e)}></div>
+        `;
+    }
+
     _renderBody() {
         if (this.chat.loading) {
-            return html`<div class="panel-body"><div class="empty-state"><span class="spinner"></span></div></div>`;
+            return html`<div class="panel-body" id="${COLUMN_BODY_ID}"><div class="empty-state"><span class="spinner"></span></div></div>`;
         }
 
         return html`
@@ -1653,7 +2433,7 @@ export class AiChatPanel extends LitElement {
                     ${this.chat.issues.map(i => html`<div>${i}</div>`)}
                 </div>
             ` : nothing}
-            <div class="panel-body">
+            <div class="panel-body" id="${COLUMN_BODY_ID}">
                 ${this.state === STATES.MAXIMIZED ? this._renderSidebar() : nothing}
                 <div class="panel-content">
                     ${this.state === STATES.EXPANDED ? this._renderConvTabs() : nothing}

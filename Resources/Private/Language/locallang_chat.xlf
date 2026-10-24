@@ -26,6 +26,18 @@
             <trans-unit id="panel.resize" resname="panel.resize">
                 <source>Resize panel</source>
             </trans-unit>
+            <trans-unit id="panel.columnMode" resname="panel.columnMode">
+                <source>Column mode</source>
+            </trans-unit>
+            <trans-unit id="panel.columnResize" resname="panel.columnResize">
+                <source>Chat column width</source>
+            </trans-unit>
+            <trans-unit id="panel.badge" resname="panel.badge">
+                <source>AI</source>
+            </trans-unit>
+            <trans-unit id="panel.reopen" resname="panel.reopen">
+                <source>Open the chat again</source>
+            </trans-unit>
 
             <!-- Sidebar -->
             <trans-unit id="sidebar.show" resname="sidebar.show">
