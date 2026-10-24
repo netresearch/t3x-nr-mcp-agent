@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-24
+
+### Added
+
+- **The chat can stand as a column beside the page tree (#243).** In column mode the panel sits between the page tree and the module, keeps its place when the editor switches modules, and stands as the first column of the content in modules without a tree, such as the Dashboard. The column header switches back to the floating panel. Width (mouse or keyboard, WAI-ARIA window splitter, 320 px to half the content area) and mode are stored in the backend user's settings. Minimized, the chat is a bar in the bottom right corner. Below 640 px of content width the chat floats instead, without changing the stored mode. Works on TYPO3 13.4 and 14.3 (ADR-024).
+- **The chat's page follows the page tree (#243).** Selecting a page in the tree updates the page the chat refers to, including for guided processes.
+
+### Fixed
+
+- **Moving the panel no longer starts a second poll loop or counts an aborted poll as a connection failure, and a chat popped out into its own window keeps receiving the answer of a running turn, also after it returns (#243).** Moves wait while a request (message, answer, approval, upload) is running.
+
 ## [0.17.9] - 2026-10-24
 
 ### Fixed
