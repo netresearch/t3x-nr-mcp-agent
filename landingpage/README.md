@@ -24,6 +24,17 @@ uv run landingpage/render_og.py      # social cards, after a headline change
 
 ## Old documentation links
 
+The documentation postprocessor removes docs.typo3.org proxy controls that have
+no endpoint on GitHub Pages. It also guards the pinned theme's version-switcher
+initializer when that control is absent. An unrecognized initializer fails the
+build rather than silently changing another part of the vendor script. The
+browser gate covers the documentation and product pages: JavaScript errors,
+WCAG 2.2 AA, automated AAA checks, missing assets and narrow-viewport overflow.
+A supplemental manual stylesheet darkens the original syntax hues, breadcrumb
+and captions; native color-scheme selection controls its light/dark palette.
+The generated plain-link table of contents uses native nested lists, while
+unrelated application-menu semantics and the official TYPO3 layout stay intact.
+
 Every inbound link to the old documentation root points at a path like
 `/Configuration/Index.html`. GitHub Pages has no server-side redirects, so
 `redirect-stubs.mjs` writes a meta-refresh stub at each of those paths pointing
@@ -62,9 +73,9 @@ once, a missing status block, a capability card without limitations, a missing
 "what is not promised" list, a missing "what is not claimed" section, a
 third-party asset request, or a `/docs/` tree that did not render.
 
-The docs tree itself is out of scope for the gate: render-guides writes it, and
-gating someone else's output on this page's rules would fail on markup this
-repository does not produce.
+The markup-specific product rules exclude the docs tree. The browser gate
+checks both product pages and the postprocessed documentation without a
+report-only exception.
 
 ## Page navigation and appearance
 

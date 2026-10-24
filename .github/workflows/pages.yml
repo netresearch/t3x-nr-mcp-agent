@@ -64,7 +64,7 @@ jobs:
             -v "$PWD":/project \
             -w /project \
             ghcr.io/typo3-documentation/render-guides@sha256:6080cbe815ae702e11a932924cdbcf6ec934fbdf9568931a5ed6bafc4b69959c \
-            render --config=Documentation --output=.Build/site/docs Documentation
+            render --fail-on-log --config=Documentation --output=.Build/site/docs Documentation
 
       # render-guides emits two controls that only work on docs.typo3.org: the
       # cross-documentation menu and the version switcher. Both fetch a
@@ -99,6 +99,7 @@ jobs:
       - name: Audit accessibility with axe
         run: |
           npm ci --ignore-scripts
+          npm run test:landingpage
           ./node_modules/.bin/playwright install chromium
           node landingpage/axe-audit.mjs
 

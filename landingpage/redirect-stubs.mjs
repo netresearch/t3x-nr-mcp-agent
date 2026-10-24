@@ -25,7 +25,9 @@ const docs = resolve(output, 'docs');
 
 // Same base path the render uses, so a repo rename or a custom domain needs no
 // change here either.
-const BASE = process.env.PAGES_BASE_PATH || '/t3x-nr-mcp-agent/';
+const baseSegments = (process.env.PAGES_BASE_PATH ?? '/t3x-nr-mcp-agent/')
+    .split('/').filter(Boolean).join('/');
+const BASE = baseSegments ? `/${baseSegments}/` : '/';
 
 async function htmlFiles(dir) {
     const entries = await readdir(dir, {withFileTypes: true});

@@ -29,9 +29,22 @@
  */
 
 import { readdirSync, statSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
+import { guardVersionSelector } from './docs-version-selector.mjs';
+import { prepareDocsHtml } from './docs-accessibility.mjs';
 
 const DOCS = join(process.cwd(), '.Build', 'site', 'docs');
+
+// Removing #versionSelect must also disable its initializer. The pinned theme
+// otherwise dereferences the missing element before its other handlers run.
+// Adapt only the generated build asset; no vendor source is checked in.
+const themePath = join(DOCS, '_resources', 'js', 'theme.min.js');
+const theme = readFileSync(themePath, 'utf-8');
+const guardedTheme = guardVersionSelector(theme);
+if (guardedTheme !== theme) writeFileSync(themePath, guardedTheme, 'utf-8');
+const stylesheet = join(DOCS, '_resources', 'css', 'docs-accessibility.css');
+const underline = join(DOCS, 'Images', 'netresearch-underline.svg');
+writeFileSync(stylesheet, readFileSync(new URL('./docs-accessibility.css', import.meta.url)), 'utf-8');
 
 // The mobile variant is matched first: its name has the plain name as a prefix,
 // so a plain-name pattern would otherwise match its opening tag. End tags are
@@ -65,6 +78,8 @@ for (const file of htmlFiles()) {
       return '';
     });
   }
+  html = prepareDocsHtml(html, relative(dirname(file), stylesheet).split(sep).join('/'),
+    relative(dirname(file), underline).split(sep).join('/'));
   if (html !== original) {
     writeFileSync(file, html);
     changedFiles += 1;

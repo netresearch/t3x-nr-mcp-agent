@@ -11,7 +11,7 @@
  *
  *   node landingpage/axe-audit.mjs [output-dir]
  *
- * Exits non-zero on WCAG 2.2 AA and automated AAA violations on product pages. Uses Playwright's Chromium
+ * Exits non-zero on WCAG 2.2 AA and automated AAA violations on all published pages. Uses Playwright's Chromium
  * because the repository already installs it for the end-to-end tests; adding a
  * second browser stack for one gate would not buy anything.
  *
@@ -32,19 +32,9 @@ const axePath = require.resolve('axe-core/axe.min.js');
 
 const DIST = process.argv[2] ?? '.Build/site';
 
-/**
- * Route prefixes this gate reports on but does not fail for.
- *
- * /docs/ is rendered by the pinned typo3-documentation/render-guides image, so
- * its markup is not this repository's to fix: the findings there are a syntax
- * highlighter's comment colour at 4.49:1 and list markup in the theme's own
- * navigation. Failing the deploy on a third-party theme would mean disabling
- * the gate, so the findings are printed and the exit code ignores them. The
- * product pages this repository writes are gated normally.
- */
-const REPORT_ONLY = ['/docs/'];
-
-const reportOnly = (route) => REPORT_ONLY.some((prefix) => route.startsWith(prefix));
+// Product controls and manual controls differ, but every route is gated for
+// accessibility, asset availability, page initialization and viewport reflow.
+const isDocumentation = (route) => route.startsWith('/docs/');
 
 /** The path the site is served from, with exactly one slash at each end. */
 const baseSegments = (process.argv[3] ?? process.env.PAGES_BASE_PATH ?? '/')
@@ -232,6 +222,8 @@ async function auditPage(browser, port, route, scheme, width) {
   // asset error turns this gate into a rubber stamp. Any request that does not
   // succeed is therefore a failure in its own right.
   const broken = [];
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
   page.on('response', (response) => {
     if (response.status() >= 400) broken.push(`${response.status()} ${response.url()}`);
   });
@@ -243,31 +235,37 @@ async function auditPage(browser, port, route, scheme, width) {
     async (tags) => await window.axe.run(document, { runOnly: { type: 'tag', values: tags } }),
     TAGS,
   );
-  if (!reportOnly(route)) {
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
-    if (overflow) results.violations.push({
-      id: 'page-reflow', impact: 'serious', help: 'The document must fit the viewport',
-      nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  if (overflow) results.violations.push({
+    id: 'page-reflow', impact: 'serious', help: 'The document must fit the viewport',
+    nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
+  });
+  if (width === 320 && !isDocumentation(route)) {
+    results.violations.push(...(await auditTextAdaptation(page, scheme)));
+    const menu = page.locator('.menu-toggle');
+    await menu.click();
+    const requestedTheme = scheme === 'light' ? 'dark' : 'light';
+    await page.locator('[data-theme-control]').selectOption(requestedTheme);
+    const selected = await page.locator('html').getAttribute('data-theme');
+    await page.keyboard.press('Escape');
+    const closed = await menu.getAttribute('aria-expanded') === 'false';
+    const focused = await menu.evaluate((element) => document.activeElement === element);
+    if (selected !== requestedTheme || !closed || !focused) results.violations.push({
+      id: 'page-controls', impact: 'serious', help: 'Theme and mobile-menu controls must work',
+      nodes: [{target: ['.menu-toggle'], failureSummary: 'Theme selection or Escape/focus return failed'}],
     });
-    if (width === 320) {
-      results.violations.push(...(await auditTextAdaptation(page, scheme)));
-      const menu = page.locator('.menu-toggle');
-      await menu.click();
-      const requestedTheme = scheme === 'light' ? 'dark' : 'light';
-      await page.locator('[data-theme-control]').selectOption(requestedTheme);
-      const selected = await page.locator('html').getAttribute('data-theme');
-      await page.keyboard.press('Escape');
-      const closed = await menu.getAttribute('aria-expanded') === 'false';
-      const focused = await menu.evaluate((element) => document.activeElement === element);
-      if (selected !== requestedTheme || !closed || !focused) results.violations.push({
-        id: 'page-controls', impact: 'serious', help: 'Theme and mobile-menu controls must work',
-        nodes: [{target: ['.menu-toggle'], failureSummary: 'Theme selection or Escape/focus return failed'}],
-      });
-    }
   }
+
   await context.close();
 
   const found = results.violations.map((violation) => ({ route, scheme: `${scheme}/${width}px`, violation }));
+  if (pageErrors.length) found.push({
+    route, scheme,
+    violation: {
+      id: 'page-script-error', impact: 'critical', help: 'Every published page must initialize without JavaScript errors',
+      nodes: pageErrors.map((message) => ({target: ['document'], failureSummary: `Page initialization failed:\n${message}`})),
+    },
+  });
   if (broken.length) {
     found.unshift({
       route,
@@ -287,7 +285,7 @@ async function auditPage(browser, port, route, scheme, width) {
 /** Each render owns mutable browser state and completes before the next starts. */
 async function* auditPages(browser, port, sampled) {
   const cases = sampled.flatMap(({ route }) => SCHEMES.flatMap((scheme) =>
-    (reportOnly(route) ? [1280] : [320, 1280]).map((width) => ({ route, scheme, width }))));
+    [320, 1280].map((width) => ({ route, scheme, width }))));
   for (const { route, scheme, width } of cases) {
     // An async generator awaits each yielded result before the consumer advances.
     yield auditPage(browser, port, route, scheme, width);
@@ -321,33 +319,18 @@ async function main() {
   await browser.close();
   server.close();
 
-  const gated = failures.filter(({ route }) => !reportOnly(route));
-  const informational = failures.filter(({ route }) => reportOnly(route));
-
+  const gated = failures;
   for (const failure of gated) report(failure);
-
-  if (informational.length) {
-    console.log(
-      `\nnot gated — ${informational.length} finding(s) under ${REPORT_ONLY.join(', ')}, which render-guides generates:`,
-    );
-    const byRule = new Map();
-    for (const { violation } of informational) {
-      byRule.set(violation.id, (byRule.get(violation.id) ?? 0) + violation.nodes.length);
-    }
-    for (const [rule, nodes] of [...byRule].sort((a, b) => b[1] - a[1])) {
-      console.log(`  ${rule}: ${nodes} element(s)`);
-    }
-  }
 
   if (gated.length) {
     console.error(
-      `\naxe: ${gated.length} violation(s) across ${checked} page renders (${sampled.length} route shapes, ${SCHEMES.length} colour schemes; product widths 320/1280px, sampled from ${routes.length} pages)`,
+      `\naxe: ${gated.length} violation(s) across ${checked} page renders (${sampled.length} route shapes, ${SCHEMES.length} colour schemes; widths 320/1280px, sampled from ${routes.length} pages)`,
     );
     process.exit(1);
   }
 
   console.log(
-    `axe: no gated AA/automated AAA or page-control violations in ${checked} page renders (${sampled.length} route shapes, ${SCHEMES.length} colour schemes; product widths 320/1280px, sampled from ${routes.length} pages) served from ${BASE}`,
+    `axe: no gated AA/automated AAA or page-control violations in ${checked} page renders (${sampled.length} route shapes, ${SCHEMES.length} colour schemes; widths 320/1280px, sampled from ${routes.length} pages) served from ${BASE}`,
   );
 }
 
