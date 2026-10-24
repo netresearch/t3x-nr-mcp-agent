@@ -674,9 +674,21 @@ final readonly class ChatApiController
             'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
             'activity'     => $conversation->getActivity(),
             // The page the conversation is about has been deleted: the chat
-            // shows it read-only, with a notice (sendMessage() refuses).
+            // shows it read-only, with a notice (refuseReadOnly()).
             'pageGone' => $this->isPageGone($conversation),
         ]);
+    }
+
+    /**
+     * A conversation about a page that has been deleted is read-only: it can
+     * be read again, not continued on a page that is not there — no message,
+     * no edit, no answer to a question, no decision, no resume.
+     */
+    private function refuseReadOnly(Conversation $conversation): ?ResponseInterface
+    {
+        return $this->isPageGone($conversation)
+            ? new JsonResponse(['error' => $this->translate('error.pageGone')], 409)
+            : null;
     }
 
     /**
@@ -740,10 +752,9 @@ final readonly class ChatApiController
             return $conversation;
         }
 
-        // A conversation about a page that has been deleted is read-only: it
-        // can be read again, not continued on a page that is not there.
-        if ($this->isPageGone($conversation)) {
-            return new JsonResponse(['error' => $this->translate('error.pageGone')], 409);
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
         }
 
         $content = trim((string) ($body['content'] ?? ''));
@@ -845,6 +856,11 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request, $body);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
         }
 
         $content = trim((string) ($body['content'] ?? ''));
@@ -1534,6 +1550,11 @@ final readonly class ChatApiController
             return $conversation;
         }
 
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
+        }
+
         $submission = $this->acceptedAnswer($conversation, $body);
         if ($submission instanceof ResponseInterface) {
             return $submission;
@@ -1603,6 +1624,11 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
         }
 
         $body    = $this->parseBody($request);
@@ -1703,6 +1729,11 @@ final readonly class ChatApiController
         $conversation = $this->findConversationOrFail($request);
         if ($conversation instanceof ResponseInterface) {
             return $conversation;
+        }
+
+        $readOnly = $this->refuseReadOnly($conversation);
+        if ($readOnly !== null) {
+            return $readOnly;
         }
 
         // Locked: ai-chat:process or a worker has claimed the turn and is

@@ -3,8 +3,8 @@
 
 /**
  * A conversation about a page that has been deleted is read-only: the server
- * says so with `pageGone`, the chat shows a notice where the input was, and
- * nothing is sent.
+ * says so with `pageGone`, the chat shows a notice where the input was, offers
+ * no edit, no decision and no resume, and sends nothing.
  */
 
 import {describe, test, expect, beforeAll, jest} from '@jest/globals';
@@ -13,6 +13,17 @@ const SURFACES = [
     {name: 'chat-app (full page)', module: '../../Resources/Public/JavaScript/chat-app.js', tag: 'nr-chat-app'},
     {name: 'ai-chat-panel (popup)', module: '../../Resources/Public/JavaScript/ai-chat-panel.js', tag: 'ai-chat-panel', open: true},
 ];
+
+const PROPOSAL = {
+    name: 'update_page_metadata',
+    actionLabel: 'Seiten-Metadaten ändern',
+    heading: 'Seiten-Metadaten ändern',
+    toolStillRegistered: true,
+    previewLines: ['Seite: „Home“'],
+    technicalDetails: '',
+    previewFailed: false,
+    argumentsJson: '{"pageUid":10002}',
+};
 
 const MESSAGES = [
     {role: 'user', content: 'Hero-Text kürzen'},
@@ -65,6 +76,22 @@ describe.each(SURFACES)('$name, conversation about a deleted page', ({module: mo
 
         expect(el.shadowRoot.querySelector('.read-only-notice')).toBeNull();
         expect(el.shadowRoot.querySelector('textarea')).not.toBeNull();
+        el.remove();
+    });
+
+    test.each([
+        [true, 0],
+        [false, 1],
+    ])('pageGone %s: an earlier message can be edited, a waiting proposal decided %i time(s)', async (pageGone, shown) => {
+        const el = await render(modulePath, tag, open, {
+            pageGone,
+            status: 'awaiting_approval',
+            mayDecideApproval: true,
+            pendingApproval: {runUuid: 'run-1', turnDigest: 'digest', configLabel: 'Demo', unreadableReason: null, answers: 'process', calls: [PROPOSAL]},
+        });
+
+        expect(el.shadowRoot.querySelectorAll('.msg-edit')).toHaveLength(shown);
+        expect(el.shadowRoot.querySelectorAll('.approval-frame')).toHaveLength(shown);
         el.remove();
     });
 

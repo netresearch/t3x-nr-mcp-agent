@@ -2852,6 +2852,12 @@ export class AiChatPanel extends LitElement {
     _renderStatusNotice(isResumable) {
         const dismiss = () => { this.chat.errorMessage = ''; this.requestUpdate(); };
 
+        // A conversation about a deleted page offers nothing to decide, retry
+        // or resume: the read-only notice below says why (_renderInput()).
+        if (this.chat.isReadOnly()) {
+            return nothing;
+        }
+
         // A question shows its answers, and the reason it is open again, above
         // the input (ADR-018); an error line here would offer a Retry that
         // steps past it.

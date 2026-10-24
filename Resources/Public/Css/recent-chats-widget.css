@@ -83,8 +83,11 @@
     color: light-dark(var(--token-color-purple-80, #2f2490), var(--token-color-purple-10, #e9e5fb));
 }
 
+/* A fixed column of 92px, as designed, that grows for a longer time of day
+ * ("Yesterday, 11:59 PM") instead of running into the arrow. */
 .nr-recent-chats-time {
-    flex: 0 0 92px;
+    flex: 0 0 auto;
+    min-width: 92px;
     font-size: 12px;
     text-align: right;
     white-space: nowrap;

@@ -878,7 +878,7 @@ export class ChatCoreController {
     canEditMessage(idx) {
         const msg = this.messages[idx];
         return !!msg && msg.role === 'user' && typeof msg.content === 'string'
-            && !this.isProcessing() && !this.sending && this.available;
+            && !this.isProcessing() && !this.sending && this.available && !this.isReadOnly();
     }
 
     startEdit(idx) {

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Functional\Controller;
 
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -94,21 +95,44 @@ final class ChatPageGoneTest extends FunctionalTestCase
         self::assertTrue($this->messages(1)['pageGone']);
     }
 
+    /**
+     * Every request that would continue the conversation, with a body that
+     * would otherwise get past the request's own checks.
+     *
+     * @return iterable<string, array{string, array<string, mixed>, string}>
+     */
+    public static function continuations(): iterable
+    {
+        yield 'a new message' => ['sendMessage', ['conversationUid' => 1, 'content' => 'Weiter'], 'idle'];
+        yield 'an edited message' => ['editMessage', ['conversationUid' => 1, 'messageIndex' => 0, 'content' => 'Anders'], 'idle'];
+        yield 'an answer to a question' => ['submitInput', ['conversationUid' => 1, 'answer' => 'Ja', 'turnDigest' => 'digest'], 'awaiting_input'];
+        yield 'an approval decision' => ['decideApproval', ['conversationUid' => 1, 'approve' => true, 'turnDigest' => 'digest'], 'awaiting_approval'];
+        yield 'a resume' => ['resumeConversation', ['conversationUid' => 1], 'failed'];
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
     #[Test]
-    public function aMessageToAConversationAboutADeletedPageIsRefused(): void
+    #[DataProvider('continuations')]
+    public function aConversationAboutADeletedPageCannotBeContinued(string $action, array $body, string $status): void
     {
         $this->aboutPage(1, 10);
         $this->deletePage(10);
+        $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->update('tx_nrmcpagent_conversation', ['status' => $status], ['uid' => 1]);
         $stream = new Stream('php://temp', 'rw');
-        $stream->write(json_encode(['conversationUid' => 1, 'content' => 'Weiter'], JSON_THROW_ON_ERROR));
+        $stream->write(json_encode($body, JSON_THROW_ON_ERROR));
         $stream->rewind();
 
-        $response = $this->get(ChatApiController::class)->sendMessage((new ServerRequest('/', 'POST'))->withBody($stream));
+        $request = (new ServerRequest('/', 'POST'))->withBody($stream)->withParsedBody($body);
 
-        self::assertSame(409, $response->getStatusCode());
+        $response = $this->get(ChatApiController::class)->{$action}($request);
+
+        self::assertSame(409, $response->getStatusCode(), (string) $response->getBody());
         self::assertStringContainsString('has been deleted', json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR)['error']);
         $row = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation')
             ->select(['message_count', 'status'], 'tx_nrmcpagent_conversation', ['uid' => 1])->fetchAssociative();
-        self::assertSame(['message_count' => 0, 'status' => 'idle'], ['message_count' => (int) ($row['message_count'] ?? -1), 'status' => $row['status'] ?? '']);
+        self::assertSame(['message_count' => 0, 'status' => $status], ['message_count' => (int) ($row['message_count'] ?? -1), 'status' => $row['status'] ?? '']);
     }
 }

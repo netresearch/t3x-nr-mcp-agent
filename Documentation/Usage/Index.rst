@@ -493,7 +493,8 @@ progress and time.
 
 A chat about a page you may not see is not listed. A chat about a page that
 has been deleted since is listed as *Deleted page*; it opens read-only, with
-a notice where the input was, and the chat refuses new messages for it.
+a notice where the input was: it can be read, but no message can be sent or
+edited, and no question answered, proposal decided or run resumed.
 
 For a user the chat is not available to, the widget says so instead of
 listing anything. Which groups may place the widget at all is set per
