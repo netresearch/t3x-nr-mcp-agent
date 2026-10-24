@@ -10,8 +10,9 @@
     } catch { /* The system preference also works when storage is unavailable. */ }
 
     const applyTheme = () => {
-        document.documentElement.dataset.theme = preference === 'system'
-            ? (darkScheme.matches ? 'dark' : 'light') : preference;
+        let theme = preference;
+        if (preference === 'system') theme = darkScheme.matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = theme;
     };
     applyTheme();
     darkScheme.addEventListener('change', applyTheme);

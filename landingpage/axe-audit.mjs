@@ -238,6 +238,16 @@ async function auditPage(browser, port, route, scheme, width) {
   return found;
 }
 
+/** Each render owns mutable browser state and completes before the next starts. */
+async function* auditPages(browser, port, sampled) {
+  const cases = sampled.flatMap(({ route }) => SCHEMES.flatMap((scheme) =>
+    (reportOnly(route) ? [1280] : [320, 1280]).map((width) => ({ route, scheme, width }))));
+  for (const { route, scheme, width } of cases) {
+    // An async generator awaits each yielded result before the consumer advances.
+    yield auditPage(browser, port, route, scheme, width);
+  }
+}
+
 async function main() {
   const files = indexFiles(DIST);
   const routes = htmlRoutes(files);
@@ -257,13 +267,9 @@ async function main() {
   const failures = [];
   let checked = 0;
 
-  for (const { route } of sampled) {
-    for (const scheme of SCHEMES) {
-      for (const width of (reportOnly(route) ? [1280] : [320, 1280])) {
-        failures.push(...(await auditPage(browser, port, route, scheme, width)));
-        checked += 1;
-      }
-    }
+  for await (const found of auditPages(browser, port, sampled)) {
+    failures.push(...found);
+    checked += 1;
   }
 
   await browser.close();

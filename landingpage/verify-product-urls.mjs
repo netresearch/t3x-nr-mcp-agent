@@ -22,19 +22,21 @@ export async function verifyProductUrls(html, pageName, output, slug, deployment
         const href = html.match(new RegExp(`<link rel="alternate" hreflang="${lang}" href="([^"]+)"`))?.[1];
         if (href !== target) errors.push(`hreflang ${lang} must identify ${target}`);
     }
-    for (const [, value] of html.matchAll(/<(?:link[^>]*rel="sitemap"[^>]*href|meta[^>]*(?:property="og:image"|name="twitter:image")[^>]*content)="([^"]+)"/g)) {
+    const resources = [...html.matchAll(/<(?:link[^>]*rel="sitemap"[^>]*href|meta[^>]*(?:property="og:image"|name="twitter:image")[^>]*content)="([^"]+)"/g)];
+    const resourceErrors = await Promise.all(resources.map(async ([, value]) => {
         // A relative URL on /de/ is relative to that page, not the site root.
         const url = new URL(value, canonical);
         if (url.origin !== origin || !url.pathname.startsWith(site.pathname)) {
-            errors.push(`metadata resource leaves the project base path: ${value}`);
-            continue;
+            return `metadata resource leaves the project base path: ${value}`;
         }
         try {
             const resource = await stat(resolve(output, url.pathname.slice(site.pathname.length)));
-            if (!resource.isFile()) errors.push(`metadata resource is not a regular file: ${value}`);
+            if (!resource.isFile()) return `metadata resource is not a regular file: ${value}`;
         } catch {
-            errors.push(`metadata resource does not exist in the build: ${value}`);
+            return `metadata resource does not exist in the build: ${value}`;
         }
-    }
+        return null;
+    }));
+    errors.push(...resourceErrors.filter(Boolean));
     return errors;
 }

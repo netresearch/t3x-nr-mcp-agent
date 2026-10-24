@@ -32,9 +32,10 @@ const output = resolve(root, '.Build/site');
 
 // configure-pages supplies base_path without a trailing slash. Normalize once
 // before deriving locale, metadata, sitemap or documentation URLs.
-const basePath = `${(process.env.PAGES_BASE_PATH ?? '/').replace(/^\/+|\/+$/g, '')}/`;
+const baseSegments = (process.env.PAGES_BASE_PATH ?? '/').split('/').filter(Boolean).join('/');
+const basePath = baseSegments ? `${baseSegments}/` : '/';
 const SITE_URL = process.env.PAGES_ORIGIN
-    ? new URL(basePath, `${process.env.PAGES_ORIGIN.replace(/\/+$/, '')}/`).href
+    ? new URL(basePath, `${new URL(process.env.PAGES_ORIGIN).origin}/`).href
     : 'https://netresearch.github.io/t3x-nr-mcp-agent/';
 
 const CONTACT_BASE = 'https://www.netresearch.de/kontakt/';

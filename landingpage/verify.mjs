@@ -104,23 +104,23 @@ if (!await exists(manifestPath)) {
 const pages = await htmlFiles(output);
 let stubs = 0;
 
-for (const page of pages) {
+const renderedPages = await Promise.all(pages.map(async (page) => {
     const name = relative(output, page);
     const html = await readFile(page, 'utf8');
+    // Redirect stubs have no content of their own and retain their docs canonical.
+    const redirect = /<meta[^>]+http-equiv=["']refresh["']/i.test(html);
+    const problems = manifest && !redirect
+        ? await verifyProductUrls(html, name, output, manifest.slug, deploymentOrigin) : [];
+    return {name, html, redirect, problems};
+}));
 
-    // Redirect stubs keep the old documentation paths working. They are
-    // meta-refresh only and carry no content of their own.
-    if (/<meta[^>]+http-equiv=["']refresh["']/i.test(html)) {
+for (const {name, html, redirect, problems} of renderedPages) {
+    if (redirect) {
         stubs += 1;
         continue;
     }
-
     const text = stripMarkup(html);
-    if (manifest) {
-        for (const problem of await verifyProductUrls(html, name, output, manifest.slug, deploymentOrigin)) {
-            fail(`${name}: ${problem}`);
-        }
-    }
+    for (const problem of problems) fail(`${name}: ${problem}`);
 
     for (const placeholder of PLACEHOLDERS) {
         if (text.includes(placeholder)) fail(`${name}: placeholder text in the initial HTML: ${placeholder}`);

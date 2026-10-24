@@ -199,24 +199,29 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
 
 .site-header__inner {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: .75rem;
     padding-block: 0.85rem;
 }
 
 .brand { display: inline-flex; align-items: center; }
 .brand__logo { inline-size: 2.75rem; block-size: 2.75rem; display: block; }
 
-.site-nav { display: flex; flex-wrap: wrap; gap: 1.25rem; font-family: var(--font-headline); font-weight: 600; }
-.site-nav a { text-decoration: none; }
+.site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; flex: 1; font-family: var(--font-headline); font-weight: 600; }
+.site-nav a { text-decoration: none; padding: .25rem; }
 .site-nav a:hover { text-decoration: underline; }
 .site-nav__repo { color: var(--nr-text); }
 
 /* Sections -------------------------------------------------------------- */
 
-.hero { padding-block: clamp(2.5rem, 1rem + 6vw, 5rem); }
+.hero {
+    padding-block: clamp(2.5rem, 1rem + 6vw, 5rem);
+    position: relative;
+    background: linear-gradient(115deg, #15585E, #0A5057 65%, #073C42);
+    color: #FFFFFF;
+}
 
 .eyebrow {
     font-family: var(--font-headline);
@@ -257,8 +262,7 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
 .card {
     background: var(--nr-bg);
     border: 0.0625rem solid var(--nr-border-light);
-
-    border-radius: 0.25rem;
+    border-radius: 16px;
     padding: 1.35rem 1.4rem;
 }
 
@@ -288,7 +292,7 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
 
 .site-footer a { color: #FFFFFF; }
 .site-footer a:focus-visible { outline-color: #FFFFFF; }
-.site-footer__meta { font-size: 0.875rem; opacity: 0.85; margin-block-start: 0.5rem; }
+.site-footer__meta { font-size: 0.875rem; opacity: 1; margin-block-start: 0.5rem; }
 
 /* Motion ---------------------------------------------------------------- */
 
@@ -384,9 +388,9 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
 /* Orange is the accent and stays reserved for the stages that carry a warning. */
 .status-pill--concept,
 .status-pill--poc,
-.status-pill--alpha { color: var(--nr-accent-text); }
+.status-pill--alpha { color: var(--nr-warning-text); background: var(--nr-warning-bg); }
 .status-pill--beta,
-.status-pill--stable { color: var(--nr-primary-text); }
+.status-pill--stable { color: var(--nr-primary-text); background: var(--nr-tint); }
 .status-pill--maintenance { color: var(--nr-text); }
 
 .note {
@@ -469,7 +473,8 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
     padding: 1rem 1.25rem;
 
     background: var(--nr-bg-alt);
-    border-radius: 0 8px 8px 0;
+    border: 1px solid var(--nr-border-light);
+    border-radius: 16px;
 }
 .flow-list li::before {
     content: counter(flow);
@@ -597,7 +602,7 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
 .scenario-list h3 { margin: 0 0 .35rem; }
 .scenario__control {
     margin-top: .75rem;
-    padding-left: .9rem;
+    padding-inline-start: 0;
 
     color: var(--nr-text);
     font-size: .92rem;
@@ -616,7 +621,7 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
 
 
 /* Shared standalone-page components: theme, compact navigation and brand hero. */
-[hidden] { display: none !important; }
+html [hidden] { display: none; }
 html { scroll-padding-top: 6rem; }
 main > section { scroll-margin-top: 6rem; }
 .wrap, .cards > *, .two-col > *, .status-facts > *, .answers > *,
@@ -627,10 +632,7 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible {
     outline: 3px solid var(--nr-focus);
     outline-offset: 3px;
 }
-.site-header__inner { flex-wrap: nowrap; gap: .75rem; }
-.site-nav { align-items: center; gap: .75rem; flex: 1; }
 .site-nav a, .language-switch { display: inline-flex; align-items: center; min-height: 48px; }
-.site-nav a { padding: .25rem; }
 .language-switch { order: 2; font-family: var(--font-headline); font-weight: 600; }
 .theme-control { display: flex; align-items: center; gap: .5rem; font-size: .875rem; }
 .theme-control select, .menu-toggle {
@@ -642,11 +644,6 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible {
     padding: .5rem .75rem;
 }
 .menu-toggle { cursor: pointer; order: 3; }
-.hero {
-    position: relative;
-    background: linear-gradient(115deg, #15585E, #0A5057 65%, #073C42);
-    color: #FFFFFF;
-}
 .hero::before {
     content: '';
     position: absolute;
@@ -667,15 +664,9 @@ button:focus-visible, select:focus-visible, [tabindex]:focus-visible {
 .hero .btn--secondary:hover { background: #FFFFFF; color: #0A5057; }
 .hero .btn:focus-visible { outline-color: #FFFFFF; }
 .status-pill::before { content: ''; display: inline-block; width: .45rem; height: .45rem; margin-inline-end: .35rem; border-radius: 50%; background: currentColor; }
-.status-pill--concept, .status-pill--poc, .status-pill--alpha { color: var(--nr-warning-text); background: var(--nr-warning-bg); }
-.status-pill--beta, .status-pill--stable { color: var(--nr-primary-text); background: var(--nr-tint); }
 .card, .answers, .status-facts, .capability-check { box-shadow: 0 2px 5px rgb(0 0 0 / .025), 0 8px 24px rgb(0 0 0 / .035); }
-.card { border-radius: 16px; }
 .alpha-banner, .limits, .fallback-note { border: 1px solid var(--nr-border-light); border-radius: 16px; background: var(--nr-bg); color: var(--nr-text); }
-.scenario__control { padding-inline-start: 0; }
-.flow-list li { border: 1px solid var(--nr-border-light); border-radius: 16px; }
 .capability-card__limits { background: var(--nr-bg-alt); }
-.site-footer__meta { opacity: 1; }
 @media (max-width: 63.99rem) {
     .site-header__inner { flex-wrap: wrap; padding-block: .5rem; }
     .brand { margin-inline-end: auto; }

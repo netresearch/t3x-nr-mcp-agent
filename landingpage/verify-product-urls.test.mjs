@@ -58,3 +58,13 @@ test('an existing directory is not an image resource', async () => {
         assert.ok(errors.some((error) => error.includes('regular file')), errors.join('\n'));
     });
 });
+
+for (const image of ['https://wrong.example/nested/project/assets/preview.png', '/outside/preview.png']) {
+    test(`metadata resources must remain on the deployment origin and project path: ${image}`, async () => {
+        await withArtifacts(async (output) => {
+            assert.deepEqual(await verify(markup({image}), output), [
+                `metadata resource leaves the project base path: ${image}`,
+            ]);
+        });
+    });
+}
