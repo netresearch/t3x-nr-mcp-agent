@@ -72,23 +72,46 @@ An editor can mark an image as decorative (see
 fluid_styled_content output such an image with an empty ``alt``
 attribute, so screen readers skip it. It does this with its own copy of
 the partial ``Media/Rendering/Image``, at
-``lib.contentElement.partialRootPaths.5``. Where that path is added
-depends on how the site includes its TypoScript:
+``lib.contentElement.partialRootPaths.5``. That path is meant only for
+sites whose content rendering is fluid_styled_content's. What to do
+depends on how the site loads it:
 
--   **Site sets:** add the set *AI Assistant: decorative images in
-    fluid_styled_content* (``netresearch/nr-mcp-agent-decorative-images``)
-    to the site. It depends on ``typo3/fluid-styled-content`` and is loaded
-    after it. Without the set the extension does not change the site's
-    output.
--   **TypoScript records** (``sys_template``): nothing to do. The path is
-    added right after fluid_styled_content's static template, on sites that
-    include it.
+-   **fluid_styled_content's static template** in a TypoScript record
+    (``sys_template``, *Include static (from extensions)*): nothing to do.
+    The path is added right after that static template.
+-   **fluid_styled_content imported in TypoScript**
+    (``@import 'EXT:fluid_styled_content/Configuration/TypoScript/setup.typoscript'``):
+    import the extension's line right after it:
 
-Sites whose content rendering is not fluid_styled_content's, such as
-bootstrap_package, keep their own image partial and do not get the path. A
-site package with its own image partial (a path at a higher key, such as
+    ..  code-block:: typoscript
+
+        @import 'EXT:fluid_styled_content/Configuration/TypoScript/setup.typoscript'
+        @import 'EXT:nr_mcp_agent/Configuration/Sets/DecorativeImages/setup.typoscript'
+
+-   **fluid_styled_content as a site set:** add the set *AI Assistant:
+    decorative images in fluid_styled_content*
+    (``netresearch/nr-mcp-agent-decorative-images``) to the site. It
+    depends on ``typo3/fluid-styled-content`` and is loaded after it.
+    Without the set the extension does not change the site's output.
+-   **bootstrap_package or any other content rendering of its own:** do
+    not add the set or the import. They would replace the site's own image
+    partial for every image. Add the condition below to your own image
+    partial instead.
+
+A site that includes fluid_styled_content's static template and then a
+content rendering of its own that redefines ``lib.contentElement``
+without clearing it first (bootstrap_package 15 through its static
+template is built like this) also gets the path, and its own image
+partial is replaced. Remove the path after that rendering's TypoScript
+and add the condition to its partial:
+
+..  code-block:: typoscript
+
+    lib.contentElement.partialRootPaths.5 >
+
+A site package with its own image partial at a higher key (such as
 ``styles.templates.partialRootPath`` at 10), and the templates of other
-extensions, for example a news detail view, are not changed either. Add
+extensions, for example a news detail view, are not changed. Add
 the condition there yourself. ``f:media`` replaces an empty ``alt`` with
 the file's alternative text, so render the decorative image with
 ``f:image``:

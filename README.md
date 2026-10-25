@@ -33,9 +33,10 @@ Backend users manage content through natural language.
   lists, code blocks, tables) using vendored [marked.js](https://marked.js.org/) v15
   and [DOMPurify](https://github.com/cure53/DOMPurify) v3. No build step required.
 - **Decorative images** -- A "Decorative image" checkbox on each use of an
-  image; fluid_styled_content then outputs it with `alt=""` (on a site with
-  site sets once the set `netresearch/nr-mcp-agent-decorative-images` is
-  added), and the check for missing alt texts counts it as done.
+  image; fluid_styled_content then outputs it with `alt=""` (with its static
+  template right away, with site sets or an `@import` once the extension's
+  set or setup is added; see the installation documentation), and the check
+  for missing alt texts counts it as done.
 - **Secure by design** -- Group-based access control, message length limits,
   concurrency caps, sanitized error messages, and XSS-safe Markdown rendering.
 

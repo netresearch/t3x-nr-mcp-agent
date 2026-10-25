@@ -1,0 +1,5 @@
+# fluid_styled_content imported in TypoScript, as its documentation
+# recommends, with the extension's line imported right after it.
+@import 'EXT:fluid_styled_content/Configuration/TypoScript/setup.typoscript'
+@import 'EXT:nr_mcp_agent/Configuration/Sets/DecorativeImages/setup.typoscript'
+@import 'EXT:alt_text_render/Configuration/Sets/Page/setup.typoscript'

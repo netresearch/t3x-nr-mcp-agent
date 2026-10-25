@@ -20,7 +20,7 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  * image exactly as the core renders it. A content rendering of its own keeps
  * its own image partial.
  *
- * Four sites render the same content element with three images: one with an
+ * Six sites render the same content element with three images: one with an
  * alt text, one decorative with its own alt text, one decorative inheriting
  * the file list's.
  *
@@ -29,6 +29,10 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  * - "core": the site set typo3/fluid-styled-content alone
  * - "own": a set with a content rendering and an image partial of its own,
  *   like bootstrap_package (fixture extension alt_text_render)
+ * - "import": a sys_template record that imports fluid_styled_content's
+ *   TypoScript and then the extension's set setup, as documented
+ * - "staticown": fluid_styled_content's static template followed by the
+ *   own content rendering and the documented `partialRootPaths.5 >`
  */
 final class DecorativeImageRenderingTest extends FunctionalTestCase
 {
@@ -51,10 +55,12 @@ final class DecorativeImageRenderingTest extends FunctionalTestCase
     ];
 
     private const SITES = [
-        'template' => [1, []],
-        'set'      => [2, ['typo3/fluid-styled-content', 'netresearch/nr-mcp-agent-decorative-images', 'alt-text-render/page']],
-        'core'     => [3, ['typo3/fluid-styled-content', 'alt-text-render/page']],
-        'own'      => [4, ['alt-text-render/own-partial']],
+        'template'  => [1, []],
+        'set'       => [2, ['typo3/fluid-styled-content', 'netresearch/nr-mcp-agent-decorative-images', 'alt-text-render/page']],
+        'core'      => [3, ['typo3/fluid-styled-content', 'alt-text-render/page']],
+        'own'       => [4, ['alt-text-render/own-partial']],
+        'import'    => [5, []],
+        'staticown' => [6, []],
     ];
 
     protected function setUp(): void
@@ -112,6 +118,24 @@ final class DecorativeImageRenderingTest extends FunctionalTestCase
     }
 
     #[Test]
+    public function anImportedFluidStyledContentWithTheImportedSetupOutputsADecorativeImageWithAnEmptyAltText(): void
+    {
+        $this->assertDecorativeImagesHaveAnEmptyAltText($this->images('import'));
+    }
+
+    /** The static template, then an own rendering: the documented line gives it its partial back. */
+    #[Test]
+    public function anOwnRenderingAfterTheStaticTemplateKeepsItsPartialWithTheDocumentedLine(): void
+    {
+        $images = $this->images('staticown');
+
+        self::assertCount(3, $images);
+        foreach ($images as $image) {
+            self::assertStringContainsString('data-own-partial="1"', $image);
+        }
+    }
+
+    #[Test]
     public function theSiteSetOutputsADecorativeImageWithAnEmptyAltText(): void
     {
         $this->assertDecorativeImagesHaveAnEmptyAltText($this->images('set'));
@@ -149,6 +173,7 @@ final class DecorativeImageRenderingTest extends FunctionalTestCase
 
         self::assertSame($core, $this->images('set')[0]);
         self::assertSame($core, $this->images('template')[0]);
+        self::assertSame($core, $this->images('import')[0]);
     }
 
     /** The decorative image keeps what the core's image carries apart from the alt text. */
@@ -157,7 +182,7 @@ final class DecorativeImageRenderingTest extends FunctionalTestCase
     {
         $core = $this->images('core')[1];
 
-        foreach (['set', 'template'] as $site) {
+        foreach (['set', 'template', 'import'] as $site) {
             $decorative = $this->images($site)[1];
             foreach (['class', 'src', 'width', 'height', 'loading'] as $attribute) {
                 preg_match('/\s' . $attribute . '="([^"]*)"/', $core, $expected);

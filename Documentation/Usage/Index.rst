@@ -614,9 +614,9 @@ Each language version of an image can be marked on its own.
 
 A decorative image is output with an empty alt text even if it has an alt
 text of its own or one from the file list, in the standard content
-elements of fluid_styled_content; a site with site sets needs the
-extension's set for this, and other templates need the condition from
-:ref:`installation-decorative-images`. Replacing the image creates a new
+elements of fluid_styled_content. Depending on how the site loads
+fluid_styled_content this needs a set or an import, and other templates
+need the condition; both are in :ref:`installation-decorative-images`. Replacing the image creates a new
 use, which is not marked.
 
 *Decorative image* is an exclude field, like *Alternative text*: editors

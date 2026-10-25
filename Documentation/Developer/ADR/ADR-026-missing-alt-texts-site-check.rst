@@ -93,11 +93,24 @@ comes only together with fluid_styled_content:
     (``addTypoScript(…, 'fluidstyledcontent/Configuration/TypoScript/')``),
     and only when they include that template. bootstrap_package 16.0.1
     ships site sets only, no static template, and its sets do not depend
-    on ``typo3/fluid-styled-content``. A site that includes fluid_styled_content
-    and then another content rendering keeps key 5 and puts its own partial
-    path at 10 or above.
+    on ``typo3/fluid-styled-content``.
 
-A site package or extension with its own image partial keeps it; the
+No further mechanism is added; the remaining setups are documented in the
+installation chapter and covered by the rendering test:
+
+-   fluid_styled_content loaded with ``@import`` in a ``sys_template``
+    record: the static-template key is read only for *Include static*
+    entries, so the site imports the set's ``setup.typoscript`` after
+    fluid_styled_content's.
+-   The static template followed by another content rendering that
+    redefines ``lib.contentElement`` without ``>`` (bootstrap_package 15
+    through its static template): key 5 stays and replaces that
+    rendering's partial, so the site removes it with
+    ``lib.contentElement.partialRootPaths.5 >``.
+-   bootstrap_package or any other own content rendering never takes the
+    set or the import; it adds the condition to its own image partial.
+
+A site package with its own image partial at a higher key keeps it; the
 installation documentation gives the condition to add.
 
 **Which fields count.** Every column of type ``file`` in the TCA, read at
@@ -143,7 +156,8 @@ references in a field the record's type shows: listed in its ``showitem``,
 directly or in a palette, and not turned into another field type by
 ``columnsOverrides``. A reference left in a field after the record's type
 changed (an image on a *Text* element that was *Text & Images*) is in no
-form and in no output.
+form and in no output. Fields a plugin adds through ``subtypes_addlist``
+are not read; a reference in such a field is not checked.
 
 Hidden and timed content counts and carries why it is not visible: a
 parent page that passes its visibility on to its subpages
@@ -151,7 +165,9 @@ parent page that passes its visibility on to its subpages
 page; its translation in the content's language; the element or record; a
 start time in the future, an end time passed; and, beyond the
 specification, a hidden reference (*Bild ausgeblendet*). The level highest
-up wins, a parent page before the page.
+up wins, a parent page before the page. Content in a language for which
+the page has no translation gets no reason, although the frontend may not
+show it.
 
 **Permissions.** A hit is kept only when the user may change the
 reference, as DataHandler would allow it: ``readPageAccess()`` with *edit
