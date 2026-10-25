@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-10-25
+
+### Fixed
+
+- **The list "Fehlende Alt-Texte" has the module's padding (#262).** It now renders in the backend's module body; its breadcrumb, heading, note and table no longer touch the left edge of the module.
+
 ## [0.21.0] - 2026-10-25
 
 ### Upgrading
