@@ -75,6 +75,38 @@ final class ReferenceWriteAccessTest extends FunctionalTestCase
         self::assertSame(ReferenceWriteAccess::NOT_PERMITTED, $result);
     }
 
+    /**
+     * A container of content elements, as an extension declares it: an
+     * inline field of tt_content on tt_content (gridelements, for example),
+     * here content element 118 holding element 101, and 118 locked.
+     */
+    private function containContentElement101InLocked118(): void
+    {
+        $GLOBALS['TCA']['tt_content']['columns']['tx_alttexttest_children_grid'] = [
+            'label'  => 'Children',
+            'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_alttexttest_container'],
+        ];
+        $connection = $this->getConnectionPool()->getConnectionForTable('tt_content');
+        $connection->update('tt_content', ['tx_alttexttest_container' => 118], ['uid' => 101]);
+        $connection->update('tt_content', ['editlock' => 1], ['uid' => 118]);
+    }
+
+    /**
+     * A content element inside a container is edited on its own: the locked
+     * container does not refuse the image of the element (reference 10).
+     */
+    #[Test]
+    #[DataProvider('columns')]
+    public function aLockedContainerOfTheSameTableDoesNotRefuseTheImage(string $column): void
+    {
+        $this->containContentElement101InLocked118();
+
+        $result = $this->get(ReferenceWriteAccess::class)->resolve($this->setUpBackendUser(self::EDITOR), 10, $column);
+
+        self::assertInstanceOf(WritableReference::class, $result, is_string($result) ? $result : '');
+        self::assertSame(['tt_content', 101], [$result->table, (int) ($result->record['uid'] ?? 0)]);
+    }
+
     #[Test]
     #[DataProvider('columns')]
     public function anOuterContentElementOfAForbiddenTypeRefusesTheImage(string $column): void

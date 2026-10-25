@@ -136,7 +136,11 @@ a content element puts the hit under *Seiten*, any other table under its
 own tab, labelled with the table's TCA title. So a carousel item's image
 belongs to its content element on the page, and a content element inside
 a news record to that record. An excluded table also takes the records it
-owns with it.
+owns with it. An inline field from a table to itself is not followed: it
+declares a container of records of its own kind (a grid extension's
+content element holding content elements, for example), whose children the
+page module edits on their own and the DataHandler checks alone, so a
+locked container does not hide or refuse the images of its children.
 
 **When a hit is open.** The image's effective alt text is empty: the
 reference's own text, or, where the reference has none (``NULL``), the

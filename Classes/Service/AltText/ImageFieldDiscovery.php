@@ -88,7 +88,11 @@ class ImageFieldDiscovery
     /**
      * The tables that own records of `$table` through an inline field that
      * names the owner in the child (`foreign_field`). An inline relation over
-     * an intermediate table names no single owner and is not followed.
+     * an intermediate table names no single owner and is not followed, and
+     * neither is one from a table to itself: that is a container of records
+     * of its own kind (a grid element holding content elements), whose
+     * children are edited on their own, and the DataHandler asks only the
+     * child's rights.
      *
      * @return list<InlineOwner>
      */
@@ -98,7 +102,7 @@ class ImageFieldDiscovery
         foreach ($this->tca() as $ownerTable => $config) {
             foreach ($this->columns($config) as $field => $column) {
                 $columnConfig = is_array($column['config'] ?? null) ? $column['config'] : [];
-                if (($columnConfig['type'] ?? null) !== 'inline' || ($columnConfig['foreign_table'] ?? null) !== $table) {
+                if (($columnConfig['type'] ?? null) !== 'inline' || ($columnConfig['foreign_table'] ?? null) !== $table || $ownerTable === $table) {
                     continue;
                 }
 

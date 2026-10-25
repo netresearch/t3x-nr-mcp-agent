@@ -13,5 +13,6 @@ CREATE TABLE tx_alttexttest_child (
 
 CREATE TABLE tt_content (
     tx_alttexttest_children int(11) unsigned DEFAULT 0 NOT NULL,
-    tx_alttexttest_item int(11) unsigned DEFAULT 0 NOT NULL
+    tx_alttexttest_item int(11) unsigned DEFAULT 0 NOT NULL,
+    tx_alttexttest_container int(11) unsigned DEFAULT 0 NOT NULL
 );

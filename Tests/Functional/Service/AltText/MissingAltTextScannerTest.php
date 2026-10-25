@@ -67,6 +67,34 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         return $this->scanner()->scanForCurrentUser();
     }
 
+    /**
+     * A container of content elements, as an extension declares it: an
+     * inline field of tt_content on tt_content (gridelements, for example),
+     * here content element 118 holding element 101, and 118 locked.
+     */
+    private function containContentElement101InLocked118(): void
+    {
+        $GLOBALS['TCA']['tt_content']['columns']['tx_alttexttest_children_grid'] = [
+            'label'  => 'Children',
+            'config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_alttexttest_container'],
+        ];
+        $connection = $this->getConnectionPool()->getConnectionForTable('tt_content');
+        $connection->update('tt_content', ['tx_alttexttest_container' => 118], ['uid' => 101]);
+        $connection->update('tt_content', ['editlock' => 1], ['uid' => 118]);
+    }
+
+    /**
+     * The list asks what the writer asks: a content element inside a locked
+     * container of the same table keeps its image in the list.
+     */
+    #[Test]
+    public function aLockedContainerOfTheSameTableKeepsTheImageListed(): void
+    {
+        $this->containContentElement101InLocked118();
+
+        self::assertContains(10, $this->referenceUids($this->scanAs(2)));
+    }
+
     /** Built here so each test reads the extension configuration as it sets it. */
     private function scanner(): MissingAltTextScanner
     {
