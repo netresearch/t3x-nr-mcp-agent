@@ -7,7 +7,7 @@
 
 ## Overview
 
-PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), `Tool/` (the guided-state tools registered with nr-llm, ADR-020, and the open-point list, ADR-022), `EventListener/` (loads the page module's highlight receiver), `Updates/` (upgrade wizards: one-off corrections of stored rows after a release), plus `Backend/`, `Dashboard/` (the optional dashboard widgets, registered from `Configuration/Services.php`; their seams — chat-start URL, guided skills, frequent tasks, open points — live in `Service/Assistant/`), `Configuration/`, `Utility/`, `Exception/`.
+PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Classes/`). Key layers: `Domain/` (entities, repositories, enums via `Enum/`), `Service/` (chat processing: `ChatService`, `ExecChatProcessor`, `WorkerChatProcessor`), `Controller/` (AJAX endpoints), `Command/` (CLI: `ProcessChatCommand`, `ChatWorkerCommand`, `CleanupCommand`), `Document/` (text extractors for uploads), `Service/AltText/` (the site-wide check for missing alt texts, ADR-026; its query lives in `Domain/Repository/MissingAltTextRepository.php`), `Tool/` (the guided-state tools registered with nr-llm, ADR-020, and the open-point list, ADR-022), `EventListener/` (loads the page module's highlight receiver), `Updates/` (upgrade wizards: one-off corrections of stored rows after a release), plus `Backend/`, `Dashboard/` (the optional dashboard widgets, registered from `Configuration/Services.php`; their seams — chat-start URL, guided skills, frequent tasks, open points — live in `Service/Assistant/`), `Configuration/`, `Utility/`, `Exception/`.
 
 ## Setup
 
@@ -50,5 +50,5 @@ PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Cl
 ## When stuck
 
 - Component map and dependency rules: `../docs/ARCHITECTURE.md`
-- Design rationale: `../Documentation/Developer/ADR/` (ADR-001…017)
+- Design rationale: `../Documentation/Developer/ADR/` (ADR-001…026)
 - Agent loop details: `../Documentation/Developer/AgentLoop.rst`

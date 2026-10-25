@@ -34,5 +34,11 @@ attachmentFolder = ai-chat
 # cat=basic/dashboard; type=string; label=Guided tours offered by the "Improve a page" dashboard widget: comma-separated skills, each either a bare slug (seo-optimieren: the catalogue skill whose identifier ends in :seo-optimieren, the most trusted source first, then the lowest source uid) or a catalogue identifier (3:seo-optimieren: exactly that one). Each needs the labels skill.<key>.title and skill.<key>.description in locallang_dashboard.xlf (or an override of it), where <key> is the identifier with every character other than a letter, digit, - or _ replaced by _. An identifier without a title, or one the chat cannot start for the user, is not shown.
 dashboardGuidedSkills = seo-optimieren,inhalt-verbessern
 
+# cat=basic/altText; type=string; label=Missing alt texts, excluded tables: comma-separated table names whose image references the check leaves out, e.g. records that have no frontend output. Empty by default: every table with an image field is checked.
+altTextExcludedTables =
+
+# cat=basic/altText; type=string; label=Missing alt texts, excluded fields: comma-separated table.field image fields the check leaves out because the frontend does not output their images with an alt text. The default names the page's social-media images, the navigation icon and the backend user's avatar; a value set here replaces the default, so keep the entries you still want.
+altTextExcludedFields = pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar
+
 # cat=basic/dashboard; type=string; label=Entries of the "Frequent tasks" dashboard widget: comma-separated skills (slug or catalogue identifier, as for the guided tours), each followed by |page when the task works on one page, e.g. neue-seite,3:meta-beschreibungen|page; a skill that declares page in its frontmatter decides this itself. Empty by default: the guided tours are not repeated here. The label is task.<key>, else skill.<key>.title, in locallang_dashboard.xlf (or an override of it); an entry without a label, or one the chat cannot start for the user, is not shown.
 dashboardQuickTasks =

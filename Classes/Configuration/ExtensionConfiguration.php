@@ -21,6 +21,9 @@ class ExtensionConfiguration
      */
     public const DEFAULT_PROCESS_RUN_MAX_ITERATIONS = 12;
 
+    /** Image fields the "missing alt texts" check leaves out unless configured otherwise (ADR-026). */
+    public const DEFAULT_ALT_TEXT_EXCLUDED_FIELDS = 'pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar';
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -262,6 +265,48 @@ class ExtensionConfiguration
         }
 
         return $tasks;
+    }
+
+    /**
+     * Tables whose image references the "missing alt texts" check leaves out
+     * (ADR-026), e.g. records that are never shown in the frontend. None by
+     * default. An entry that is not a plain table name is dropped.
+     *
+     * @return list<string>
+     */
+    public function getAltTextExcludedTables(): array
+    {
+        return $this->identifierList('altTextExcludedTables', '', '/^[A-Za-z0-9_]+$/');
+    }
+
+    /**
+     * Image fields, as `table.field`, the "missing alt texts" check leaves out
+     * (ADR-026): fields whose images the frontend does not output as an image
+     * with an alt text. The default names the page's social-media images, the
+     * navigation icon and the backend user's avatar; a site that sets its own
+     * list replaces the default.
+     *
+     * @return list<string>
+     */
+    public function getAltTextExcludedFields(): array
+    {
+        return $this->identifierList('altTextExcludedFields', self::DEFAULT_ALT_TEXT_EXCLUDED_FIELDS, '/^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function identifierList(string $key, string $default, string $pattern): array
+    {
+        $entries = [];
+        foreach (explode(',', $this->getString($key, $default)) as $entry) {
+            $entry = trim($entry);
+            if (preg_match($pattern, $entry) === 1 && !in_array($entry, $entries, true)) {
+                $entries[] = $entry;
+            }
+        }
+
+        return $entries;
     }
 
     private function isSkillIdentifier(string $value): bool
