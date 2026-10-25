@@ -6,6 +6,16 @@ import {readFileSync} from 'node:fs';
 import {renderSiteHeader} from './site-shell/render-site-shell.mjs';
 import {verifyBusinessContacts, verifySiteShell} from './verify-site-shell.mjs';
 const symbol = readFileSync(new URL('./site-shell/netresearch-symbol-only.svg', import.meta.url));
+const inertScriptFixtures = {
+    en: `<script type="application/json"><header>
+        <a class="nr-shell-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Contact</a>
+        <a class="nr-shell-menu-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=menu">Contact</a>
+        </header><a data-cta="business" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=hero">Hero</a></script>`,
+    de: `<script type="application/json"><header>
+        <a class="nr-shell-contact" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Kontakt</a>
+        <a class="nr-shell-menu-contact" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=menu">Kontakt</a>
+        </header><a data-cta="business" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=hero">Hero</a></script>`,
+};
 const header = renderSiteHeader({lang: 'en', assetBase: 'assets/site-shell', languageUrls: {en: './', de: 'de/'}, active: null, contactHref: 'https://www.netresearch.de/kontakt/'});
 test('shared header carries exactly one authentic, linked brand symbol', () => {
     assert.deepEqual(verifySiteShell(header, symbol), []);
@@ -45,7 +55,7 @@ for (const [lang, expected] of Object.entries({
         for (const href of [null, 'https://wrong.test/contact/', contact.replace('https:', 'http:') + 'hero', contact.replace('utm_medium=referral', 'unused=referral') + 'hero', base + '#utm_source=x&utm_medium=x&utm_campaign=x&utm_content=x']) {
             assert.notDeepEqual(verifyBusinessContacts(fixture(href), lang), []);
         }
-        assert.notDeepEqual(verifyBusinessContacts(`<script>${valid}</script>`, lang), []);
+        assert.notDeepEqual(verifyBusinessContacts(inertScriptFixtures[lang], lang), []);
         assert.notDeepEqual(verifyBusinessContacts(`<!--${valid}-->`, lang), []);
     });
 }
