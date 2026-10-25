@@ -68,4 +68,28 @@ describe('labels filled through lll()', () => {
         expect(calls).toBeGreaterThan(0);
         expect(offending).toEqual([]);
     });
+
+    /**
+     * The other half: a label read through lll() without values and filled by
+     * format() must use positional placeholders only — lll() fills a plain
+     * `%s` itself, with the text "undefined", before format() sees it.
+     */
+    test('no label format() fills has a plain placeholder', () => {
+        const texts = labels();
+        const dir = join(ROOT, 'Resources/Public/JavaScript');
+        const offending = [];
+        let calls = 0;
+        for (const file of readdirSync(dir).filter((name) => name.endsWith('.js'))) {
+            const source = readFileSync(join(dir, file), 'utf8');
+            for (const call of source.matchAll(/format\(lll\('([^']+)'\)/g)) {
+                calls++;
+                if ((texts.get(call[1]) ?? []).some((text) => /%[sdf]/.test(text))) {
+                    offending.push(`${file}: ${call[1]}`);
+                }
+            }
+        }
+
+        expect(calls).toBeGreaterThan(0);
+        expect(offending).toEqual([]);
+    });
 });

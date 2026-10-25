@@ -263,8 +263,9 @@ Abschnitt „…“ und braucht deshalb wahrscheinlich einen Alt-Text. Trotzdem
 als dekorativ markieren?"
 
 **The editor confirms the mark once, on that card.** The specification
-saves on "Übernehmen" or "Als dekorativ markieren"; nr-llm saves a write
-only on an approved card (nr-llm ADR-134), and that holds here too. The
+says: „Gespeichert wird erst nach „Übernehmen“ bzw. „Als dekorativ
+markieren“.“ nr-llm saves a write only on an approved card (nr-llm
+ADR-134), and that holds here too. The
 chip "Als dekorativ markieren" therefore does not save anything and does
 not count as a confirmation: it asks for the card, and approving the card
 is the one confirmation, with the warning of case 2 on the card itself. No
@@ -306,8 +307,12 @@ module with ``altTextReference``.
 record, element or field, language, "Dieses Bild hat keinen Alt-Text") is a
 notice with the card's lines as data, written when the conversation takes
 the image up; the model's turn follows. Every line of the chat's own
-(card, divider *Treffer gewechselt*, the editor's chip, the confirmations)
-is a notice the reader sees in their language and the model never reads.
+(card, divider *Treffer gewechselt*, the chip *Überspringen*, the
+confirmations) is a notice the reader sees in their language and the model
+never reads; the chips *Als dekorativ markieren* and *Erneut anbieten* are
+requests the model reads. A label the chat fills with values uses
+positional placeholders only (``%1$s``): TYPO3's ``lll()`` fills a plain
+``%s`` itself, with "undefined" where no value is passed.
 What the model reads of the image is built anew on every turn from the
 database: the latest card becomes the image's context (file, language,
 page or record, element text, neighbouring elements, the record's text
@@ -321,18 +326,28 @@ image that adds nothing, never touch another image — are added to the
 system prompt of a conversation about an image.
 
 **The answers.** On a proposal the card offers *Übernehmen* (approves the
-card), *Andere Variante* (denies it with the reason ``variant``, which
-nr-llm passes to the model), *Als dekorativ markieren* and *Überspringen*.
-The last two are the chat's own actions with fixed texts and no model turn:
-the waiting run is withdrawn, *Überspringen* saves nothing and says that
-the hit stays open, and *Als dekorativ markieren* saves the mark directly,
-as the editor's own choice, through the same writer and checks as the tool,
-after the warning of case 2 where it applies. On the model's own proposal
-of the mark (case 1) the card offers *Als dekorativ markieren* (approves
-it) and *Alt-Text erstellen*. After an approved write the chat confirms it
-itself, "Alt-Text gespeichert." or "Als dekorativ markiert.", in place of
-the model's answer, when the run recorded the write; a failed write keeps
-the model's answer, which says why.
+card; not offered while the approval is blocked), *Andere Variante* (denies
+it with the reason ``variant``, which nr-llm passes to the model), *Als
+dekorativ markieren* and *Überspringen*. *Überspringen* is the chat's own
+action with a fixed text and no model turn: the waiting run is withdrawn,
+nothing is saved, and the chat says that the hit stays open. *Als
+dekorativ markieren* is offered only where the user may set the mark (the
+rights and the exclude-field grant for ``tx_nrmcpagent_decorative``, as the
+tool asks them); it withdraws the waiting run and starts a turn whose
+request the model answers with ``set_file_reference_decorative``. The mark's
+card — the model's own proposal (case 1) or the one the chip asked for —
+shows its lines, with the warning of case 2 where it applies, and offers
+*Als dekorativ markieren* (approves it, the one confirmation) and
+*Alt-Text erstellen*. The specification's buttons for case 2, „Ja, als
+dekorativ markieren“ and „Doch Alt-Text verwenden“, belong to a step of
+their own, which the single confirmation leaves out. After an approved
+write the chat confirms it itself, "Alt-Text gespeichert." or "Als
+dekorativ markiert.", in place of the model's answer, when the run recorded
+the write. When the write of an approved text did not land, the model's
+answer says why and the proposal stays, as the specification has it („der
+Vorschlag bleibt erhalten“): *Erneut anbieten* asks the model to propose
+the same text again, as a new card; the server takes the text from the
+conversation, never from the browser.
 
 **Moving on.** Another row's *Optimieren* and *Nächsten Treffer
 optimieren* move the conversation to another image: a divider naming it,
@@ -340,13 +355,19 @@ its card and a new turn, the waiting proposal withdrawn. The next hit is
 the open hit after the conversation's image in list order across the tabs
 (pages first, then the record types by their label), after the last the
 first again; the conversation keeps the image's place in the list, so
-after a fixed image the next one is the one that followed it. Every move is
-refused while a turn runs.
+after a fixed image the next one is the one that followed it. The server
+refuses every move while a turn runs; the panel keeps an *Optimieren* that
+comes meanwhile and takes it up when the turn ends. Whether the chat folded
+the module menu is kept in the user's settings, so closing the chat after a
+reload unfolds it as well.
 
 **The image goes to the model as a scaled copy, where it may see it.** A
-provider that supports vision gets a copy of at most 1024 pixels with the
-reference's crop; otherwise, and for a file that cannot be read, the card
-says that the proposal rests on the page, the element and the file name.
+provider that supports vision gets a PNG copy of at most 1024 pixels with
+the reference's crop; an image that does not come out as a raster image
+(an SVG the image processor does not convert) is not sent. The card's note
+is decided with the copy: wherever no copy goes to the model — no vision, a
+file that cannot be read or converted — the card says that the proposal
+rests on the page, the element and the file name.
 Whether an image may be sent at all is ``AltTextImagePolicyInterface``
 (``SendEveryImage`` for now), where slice 3's setting plugs in.
 

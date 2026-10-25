@@ -104,4 +104,14 @@ class AltTextGate
 
         return $this->scanner->scan($user, $referenceUid)->find($referenceUid) ?? 'done';
     }
+
+    /**
+     * Whether "Als dekorativ markieren" can work on the image for the user:
+     * the rights for the mark, with its exclude-field grant, asked as the
+     * tool `set_file_reference_decorative` asks them before its card.
+     */
+    public function mayMarkDecorative(BackendUserAuthentication $user, int $referenceUid): bool
+    {
+        return !is_string($this->access->resolve($user, $referenceUid, DecorativeImageWriter::COLUMN));
+    }
 }

@@ -161,17 +161,33 @@ final class ChatAltTextConfirmationTest extends TestCase
         self::assertSame([AltTextConversation::NOTICE_HIT, AltTextConversation::NOTICE_DECORATIVE], $this->notices($conversation));
     }
 
-    /** "Speichern fehlgeschlagen": the model's sentence with the reason stays, the chat claims nothing. */
+    /**
+     * "Speichern fehlgeschlagen": the model's sentence with the reason stays,
+     * the chat claims nothing, and the proposal is kept to be offered again.
+     */
     #[Test]
-    public function aFailedWriteKeepsTheModelsAnswer(): void
+    public function aFailedWriteKeepsTheModelsAnswerAndTheProposal(): void
     {
         $conversation = $this->waiting();
         $service      = $this->service($this->answered($this->written('set_file_reference_alternative_text', failed: true), 'Das Bild liegt auf einer gesperrten Seite.'), 'set_file_reference_alternative_text', ['reference' => 7, 'alternative' => 'Ein Team']);
         $service->recordDecision($conversation, true, 'digest');
         $service->processConversation($conversation);
 
-        self::assertSame([AltTextConversation::NOTICE_HIT, ''], $this->notices($conversation));
+        self::assertSame([AltTextConversation::NOTICE_HIT, '', AltTextConversation::NOTICE_NOT_SAVED], $this->notices($conversation));
         self::assertSame('Das Bild liegt auf einer gesperrten Seite.', $conversation->getDecodedMessages()[1]['content']);
+        self::assertSame(['proposal' => 'Ein Team'], $conversation->getDecodedMessages()[2]['data'] ?? null);
+    }
+
+    /** A failed decorative mark keeps the model's answer only: there is no text to offer again. */
+    #[Test]
+    public function aFailedMarkKeepsTheModelsAnswerOnly(): void
+    {
+        $conversation = $this->waiting();
+        $service      = $this->service($this->answered($this->written('set_file_reference_decorative', failed: true), 'Das Bild liegt auf einer gesperrten Seite.'), 'set_file_reference_decorative', ['reference' => 7, 'decorative' => true]);
+        $service->recordDecision($conversation, true, 'digest');
+        $service->processConversation($conversation);
+
+        self::assertSame([AltTextConversation::NOTICE_HIT, ''], $this->notices($conversation));
     }
 
     /** Any other conversation keeps the model's answer, as before, and its waiting run is not read for it. */

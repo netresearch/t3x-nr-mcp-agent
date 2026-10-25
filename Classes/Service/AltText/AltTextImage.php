@@ -33,6 +33,12 @@ class AltTextImage
     /** The longest side of the copy the model gets. */
     private const MODEL_SIZE = 1024;
 
+    /** The format of the copy the model gets. */
+    private const MODEL_FORMAT = 'png';
+
+    /** What a provider reads as an image. */
+    private const RASTER_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+
     /** The longest side of the preview in the chat. */
     private const PREVIEW_WIDTH = 320;
 
@@ -53,20 +59,13 @@ class AltTextImage
 
     /**
      * Why the model will not see the image, as a note code; empty when it
-     * will. Asked when the card is written, from what the provider reports.
+     * will. Asked when the card is written, from what the provider reports,
+     * and decided as modelBlock() decides it: the note is empty exactly when
+     * a raster copy can be sent.
      */
     public function note(int $referenceUid, bool $vision): string
     {
-        if (!$vision) {
-            return self::NOTE_NO_VISION;
-        }
-
-        $reference = $this->reference($referenceUid);
-        if (!$reference instanceof FileReference || !$reference->getOriginalFile()->exists()) {
-            return self::NOTE_UNREADABLE;
-        }
-
-        return $this->policy->refusal($reference) ?? '';
+        return $this->prepared($referenceUid, $vision)['note'];
     }
 
     /**
@@ -77,30 +76,52 @@ class AltTextImage
      */
     public function modelBlock(int $referenceUid, bool $vision): ?array
     {
-        if ($this->note($referenceUid, $vision) !== '') {
-            return null;
+        return $this->prepared($referenceUid, $vision)['block'];
+    }
+
+    /**
+     * The copy for the model and the note that goes with it. The copy is a
+     * raster image (PNG) of at most MODEL_SIZE pixels: a provider reads no
+     * SVG, and an SVG the image processor cannot convert is not sent.
+     *
+     * @return array{note: string, block: array{type: string, image_url: array{url: string}}|null}
+     */
+    private function prepared(int $referenceUid, bool $vision): array
+    {
+        if (!$vision) {
+            return ['note' => self::NOTE_NO_VISION, 'block' => null];
         }
 
-        $processed = $this->scaled($referenceUid, self::MODEL_SIZE, self::MODEL_SIZE);
+        $reference = $this->reference($referenceUid);
+        if (!$reference instanceof FileReference) {
+            return ['note' => self::NOTE_UNREADABLE, 'block' => null];
+        }
+
+        $refusal = $this->policy->refusal($reference);
+        if ($refusal !== null) {
+            return ['note' => $refusal, 'block' => null];
+        }
+
+        $processed = $this->scaled($referenceUid, self::MODEL_SIZE, self::MODEL_SIZE, self::MODEL_FORMAT);
         if (!$processed instanceof ProcessedFile) {
-            return null;
+            return ['note' => self::NOTE_UNREADABLE, 'block' => null];
         }
 
         try {
             $contents = $processed->getContents();
+            $mimeType = $processed->getMimeType();
         } catch (Throwable) {
-            return null;
+            return ['note' => self::NOTE_UNREADABLE, 'block' => null];
         }
 
-        $mimeType = $processed->getMimeType();
-        if ($contents === '' || !str_starts_with($mimeType, 'image/')) {
-            return null;
+        if ($contents === '' || !in_array($mimeType, self::RASTER_TYPES, true)) {
+            return ['note' => self::NOTE_UNREADABLE, 'block' => null];
         }
 
-        return ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . base64_encode($contents)]];
+        return ['note' => '', 'block' => ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . base64_encode($contents)]]];
     }
 
-    private function scaled(int $referenceUid, int $width, int $height): ?ProcessedFile
+    private function scaled(int $referenceUid, int $width, int $height, string $format = ''): ?ProcessedFile
     {
         $reference = $this->reference($referenceUid);
         if (!$reference instanceof FileReference) {
@@ -113,7 +134,7 @@ class AltTextImage
                 return null;
             }
 
-            $configuration = ['maxWidth' => $width, 'maxHeight' => $height];
+            $configuration = ['maxWidth' => $width, 'maxHeight' => $height, ...($format !== '' ? ['fileExtension' => $format] : [])];
             $crop          = $reference->getProperty('crop');
             $area          = CropVariantCollection::create(is_string($crop) ? $crop : '')->getCropArea();
             if (!$area->isEmpty()) {

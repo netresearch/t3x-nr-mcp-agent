@@ -1130,8 +1130,20 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return;
         }
 
-        if ($altTextCard !== null && ApprovedCallReading::of($result) === ProposalOutcome::Applied) {
+        $outcome = $altTextCard !== null ? ApprovedCallReading::of($result) : null;
+        if ($altTextCard !== null && $outcome === ProposalOutcome::Applied) {
             $this->confirmAltTextWrite($conversation, $before, $altTextCard['kind']);
+        } elseif ($altTextCard !== null && $outcome === ProposalOutcome::NotApplied && $altTextCard['kind'] === AltTextConversation::CARD_PROPOSAL) {
+            // The model's answer says why; the proposal stays, to be offered
+            // again as a new card ("Erneut anbieten").
+            $conversation->appendMessage(
+                MessageRole::Assistant,
+                '[The alt text was not saved.]',
+                AltTextConversation::NOTICE_NOT_SAVED,
+                [],
+                ['proposal' => $altTextCard['proposal']],
+            );
+            $this->persist($conversation);
         }
     }
 

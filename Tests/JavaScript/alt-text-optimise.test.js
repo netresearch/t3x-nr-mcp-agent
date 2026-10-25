@@ -13,9 +13,9 @@ import {describe, test, expect, beforeEach, jest} from '@jest/globals';
 import {initAltTextOptimise, EVENT} from '../../Resources/Public/JavaScript/alt-text-optimise.js';
 
 /** The markup List.html renders: two tabs, the first open; two rows on pages, one on news. */
-function render({available = true} = {}) {
+function render({available = true, count = 3} = {}) {
     const markup = `
-        <h1 data-nr-alt-text-heading data-title-none="Keine fehlenden Alt-Texte" data-title-one="1 fehlender Alt-Text" data-title-other="%d fehlende Alt-Texte">3 fehlende Alt-Texte</h1>
+        <h1 data-nr-alt-text-heading data-count="${count}" data-title-none="Keine fehlenden Alt-Texte" data-title-one="1 fehlender Alt-Text" data-title-other="%d fehlende Alt-Texte">3 fehlende Alt-Texte</h1>
         <div data-nr-alt-texts data-chat-uri="/typo3/module/ai-chat?token=x" data-list-uri="/typo3/module/alt-texts?token=y">
             <p id="nr-alt-texts-optimise-note">Im Arbeitsbereich nicht verfügbar.</p>
             <div role="status" data-nr-alt-text-status></div>
@@ -128,6 +128,17 @@ describe('"Optimieren" in the list', () => {
         expect(badge.querySelector('[aria-hidden="true"]').textContent).toBe('1');
         expect(badge.querySelector('.visually-hidden').textContent).toBe('1 Treffer');
         expect(document.querySelector('[data-nr-alt-text-status]').textContent).toBe('team.jpg erledigt. 2 fehlende Alt-Texte');
+    });
+
+    test('the heading counts every open image, not the rows of this page', () => {
+        const root = render({count: 120});
+        const panel = fakePanel();
+        initAltTextOptimise(root, () => panel, assign);
+
+        panel.emit({version: 1, type: 'done', reference: 1});
+
+        expect(document.querySelector('[data-nr-alt-text-heading]').textContent).toBe('119 fehlende Alt-Texte');
+        expect(document.querySelector('[data-nr-alt-text-heading]').dataset.count).toBe('119');
     });
 
     test('the last row of a tab leaves the tab\'s empty text; the last of all the heading\'s', () => {

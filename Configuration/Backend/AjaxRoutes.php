@@ -111,6 +111,11 @@ return [
         'target'  => ChatApiController::class . '::markAltTextDecorative',
         'methods' => ['POST'],
     ],
+    'ai_chat_alt_text_retry' => [
+        'path'    => '/ai-chat/alt-text/retry',
+        'target'  => ChatApiController::class . '::retryAltText',
+        'methods' => ['POST'],
+    ],
     'ai_chat_file_upload' => [
         'path'    => '/ai-chat/file-upload',
         'target'  => ChatApiController::class . '::fileUpload',

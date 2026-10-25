@@ -665,19 +665,23 @@ use of the image, with these answers:
 
 **Apply**
     Saves the text. The chat confirms it with *Alt text saved.*, and the
-    image leaves the list.
+    image leaves the list. If it cannot be saved, the assistant says why
+    in one sentence, the proposal stays, and **Offer it again** brings it
+    back as a new proposal.
 
 **Another variant**
     The assistant proposes a different text. You can also write a wish,
     such as *Shorter*, and get a new proposal.
 
 **Mark as decorative**
-    Saves the image as decorative, for an image that adds nothing to the
-    content (see :ref:`usage-decorative-images`). For an image that belongs
-    to a section or a record you confirm a warning first, because such an
-    image probably needs an alt text. Where the assistant itself finds the
-    image decorative, it proposes the mark, and **Create an alt text** asks
-    for a text instead.
+    For an image that adds nothing to the content (see
+    :ref:`usage-decorative-images`), offered when you may set the mark.
+    The assistant then proposes the mark; you confirm it once, with **Mark
+    as decorative** on that proposal, and **Create an alt text** asks for a
+    text instead. For an image that belongs to a section or a record the
+    proposal says so, because such an image probably needs an alt text.
+    Where the assistant itself finds the image decorative, it proposes the
+    mark in the same way.
 
 **Skip**
     Saves nothing; the image stays open in the list.
@@ -685,13 +689,16 @@ use of the image, with these answers:
 **Optimise the next hit** below the conversation, or **Optimise** in
 another row, moves the conversation to the next image: a line *Hit
 changed* names it, and its card follows. The next hit is the one after the
-current image in the order of the list, across the tabs. Closing the chat
-gives the keyboard focus back to the row it was on.
+current image in the order of the list, across the tabs. **Optimise** while
+the assistant is still writing its proposal takes effect when it has
+finished. Closing the chat gives the keyboard focus back to the row it was
+on, and unfolds the module menu it folded.
 
 The assistant changes nothing but the alt text of this one use of the
-image, and only after **Apply**. It sees the image where the AI provider
-supports images, as a scaled copy; otherwise the card says that the
-proposal rests on the page, the element and the file name only.
+image, and only after you confirm it. It sees the image where the AI
+provider supports images, as a scaled copy; otherwise, and where the image
+cannot be read, the card says that the proposal rests on the page, the
+element and the file name only.
 
 **Optimise** works in the live workspace, when an administrator has enabled
 the tools ``set_file_reference_alternative_text`` and

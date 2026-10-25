@@ -796,12 +796,6 @@
             <trans-unit id="altText.createText" resname="altText.createText">
                 <source>Create an alt text</source>
             </trans-unit>
-            <trans-unit id="altText.confirmDecorative" resname="altText.confirmDecorative">
-                <source>Yes, mark as decorative</source>
-            </trans-unit>
-            <trans-unit id="altText.useText" resname="altText.useText">
-                <source>Use an alt text after all</source>
-            </trans-unit>
             <trans-unit id="altText.next" resname="altText.next">
                 <source>Optimise the next hit</source>
             </trans-unit>
@@ -814,17 +808,20 @@
             <trans-unit id="altText.skipped" resname="altText.skipped">
                 <source>Skipped. The hit stays open in the list.</source>
             </trans-unit>
-            <trans-unit id="altText.failed" resname="altText.failed">
-                <source>The decorative mark was not saved: %s</source>
+            <trans-unit id="altText.notSaved" resname="altText.notSaved">
+                <source>The alt text “%1$s” was not saved.</source>
+            </trans-unit>
+            <trans-unit id="altText.retry" resname="altText.retry">
+                <source>Offer it again</source>
+            </trans-unit>
+            <trans-unit id="error.altTextNothingToRetry" resname="error.altTextNothingToRetry">
+                <source>There is no proposal to offer again.</source>
             </trans-unit>
             <trans-unit id="altText.switched" resname="altText.switched">
                 <source>Hit changed · %1$s · %2$s</source>
             </trans-unit>
             <trans-unit id="altText.action.skip" resname="altText.action.skip">
                 <source>Skip</source>
-            </trans-unit>
-            <trans-unit id="altText.action.decorative" resname="altText.action.decorative">
-                <source>Mark as decorative</source>
             </trans-unit>
             <trans-unit id="altText.context.label" resname="altText.context.label">
                 <source>What the assistant works on</source>

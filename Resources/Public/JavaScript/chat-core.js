@@ -363,15 +363,14 @@ export class ChatCoreController {
 
     /**
      * The image a conversation about a missing alt text is on (ADR-026):
-     * its reference, whether it is still open, whether another one is.
+     * its reference, whether it is still open, whether another one is, and
+     * whether the editor may set the decorative mark on it.
      * Null for any other conversation.
-     * @type {{reference: number, open: boolean, next: boolean}|null}
+     * @type {{reference: number, open: boolean, next: boolean, decorative: boolean}|null}
      */
     altText = null;
     /** True while one of the chat's own answers on the image is on its way. */
     altTextBusy = false;
-    /** The warning before an image of a section or a record is marked decorative; '' otherwise. */
-    altTextConfirm = '';
 
     /** Index of the user message being edited, or -1. */
     editingIndex = -1;
@@ -509,7 +508,6 @@ export class ChatCoreController {
         this.pendingInput = null;
         this.skill = null;
         this._setAltText(null);
-        this.altTextConfirm = '';
         this.slashOpen = false;
         this.systemPrompt = '';
         this.systemPromptOpen = false;
@@ -1113,6 +1111,11 @@ export class ChatCoreController {
         if (previous?.reference !== state?.reference || previous?.open !== state?.open) {
             this.host.onAltTextChange?.(previous, state);
         }
+        // The turn on the image has ended: an "Optimieren" that came while it
+        // ran can be taken up now.
+        if (state && !this.isProcessing()) {
+            this.host.onAltTextIdle?.();
+        }
     }
 
     /**
@@ -1146,7 +1149,6 @@ export class ChatCoreController {
         }
 
         this.altTextBusy = true;
-        this.altTextConfirm = '';
         this.host.requestUpdate();
         try {
             const data = reference === null ? await this._api.nextAltText(uid) : await this._api.switchAltText(uid, reference);
@@ -1183,23 +1185,17 @@ export class ChatCoreController {
     }
 
     /**
-     * "Als dekorativ markieren". For an image of a section or a record the
-     * server answers with the warning first; the editor confirms it.
-     *
-     * @param {boolean} confirmed
+     * "Als dekorativ markieren": asks for the mark's card. The proposal is
+     * withdrawn and a turn starts whose answer is the card; approving it is
+     * the one confirmation.
      */
-    async markAltTextDecorative(confirmed) {
-        await this._altTextAction(async (uid) => {
-            const data = await this._api.markAltTextDecorative(uid, confirmed);
-            this.altTextConfirm = typeof data.confirm === 'string' ? data.confirm : '';
-            return data;
-        });
+    async markAltTextDecorative() {
+        await this._altTextAction((uid) => this._api.markAltTextDecorative(uid));
     }
 
-    /** "Doch Alt-Text verwenden": the warning goes, the proposal stays. */
-    cancelAltTextDecorative() {
-        this.altTextConfirm = '';
-        this.host.requestUpdate();
+    /** "Erneut anbieten": the proposal whose write did not land, as a new card. */
+    async retryAltText() {
+        await this._altTextAction((uid) => this._api.retryAltText(uid));
     }
 
     async _altTextAction(request) {
@@ -1212,13 +1208,15 @@ export class ChatCoreController {
         this.host.requestUpdate();
         try {
             await request(uid);
-            if (uid === this.activeUid && !this.altTextConfirm) {
+            if (uid === this.activeUid) {
                 this.errorMessage = '';
+                this.pendingApproval = null;
                 await this.loadMessages();
+                // A turn that started (the mark's card, an offer again) is followed.
+                this.startPollingIfNeeded();
             }
         } catch (e) {
             if (uid === this.activeUid) {
-                this.altTextConfirm = '';
                 this.errorMessage = e.message;
                 if (e.code === 'done') {
                     await this.loadMessages();

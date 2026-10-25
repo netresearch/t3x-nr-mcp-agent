@@ -193,14 +193,23 @@ export class ApiClient {
     }
 
     /**
-     * "Als dekorativ markieren" (ADR-026); answers with `confirm`, the
-     * warning, for an image of a section or a record until `confirmed`.
+     * "Als dekorativ markieren" (ADR-026): asks for the mark's card; the
+     * conversation starts the turn that proposes it.
      * @param {number} conversationUid
-     * @param {boolean} confirmed
-     * @returns {Promise<{status: string, saved?: boolean, confirm?: string}>}
+     * @returns {Promise<{status: string}>}
      */
-    async markAltTextDecorative(conversationUid, confirmed) {
-        return this._post('ai_chat_alt_text_decorative', {conversationUid, confirmed});
+    async markAltTextDecorative(conversationUid) {
+        return this._post('ai_chat_alt_text_decorative', {conversationUid});
+    }
+
+    /**
+     * "Erneut anbieten" (ADR-026): the proposal whose write did not land, as
+     * a new card; the server takes the text from the conversation.
+     * @param {number} conversationUid
+     * @returns {Promise<{status: string}>}
+     */
+    async retryAltText(conversationUid) {
+        return this._post('ai_chat_alt_text_retry', {conversationUid});
     }
 
     async resumeConversation(conversationUid) {

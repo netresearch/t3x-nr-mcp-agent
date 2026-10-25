@@ -31,10 +31,7 @@ use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextGate;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImage;
-use Netresearch\NrMcpAgent\Service\AltText\DecorativeImageWriter;
-use Netresearch\NrMcpAgent\Service\AltText\DecorativeWarning;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltText;
-use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
@@ -125,8 +122,6 @@ final readonly class ChatApiController
         private ?AltTextGate $altTextGate = null,
         private ?AltTextConversation $altTextConversation = null,
         private ?AltTextImage $altTextImage = null,
-        private ?DecorativeImageWriter $decorativeWriter = null,
-        private ?DecorativeWarning $decorativeWarning = null,
     ) {}
 
     /**
@@ -348,6 +343,16 @@ final readonly class ChatApiController
         }
 
         return null;
+    }
+
+    /** Whether the current user may set the decorative mark on the reference. */
+    private function mayMarkDecorative(int $referenceUid): bool
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+
+        return $backendUser instanceof BackendUserAuthentication
+            && $this->altTextGate instanceof AltTextGate
+            && $this->altTextGate->mayMarkDecorative($backendUser, $referenceUid);
     }
 
     /**
@@ -864,7 +869,10 @@ final readonly class ChatApiController
      * Treffer optimieren"), asked only while the conversation waits for the
      * editor. Null for any other conversation.
      *
-     * @return array{reference: int, open: bool, next: bool}|null
+     * `decorative`: whether "Als dekorativ markieren" can work on the image
+     * for the user (the rights and the grant for the mark).
+     *
+     * @return array{reference: int, open: bool, next: bool, decorative: bool}|null
      */
     private function altTextState(Conversation $conversation): ?array
     {
@@ -873,15 +881,17 @@ final readonly class ChatApiController
             return null;
         }
 
-        $reference = $conversation->getAltTextHit()['reference'];
+        $reference  = $conversation->getAltTextHit()['reference'];
+        $decorative = $this->mayMarkDecorative($reference);
         if ($this->isBusy($conversation->getStatus())) {
-            return ['reference' => $reference, 'open' => true, 'next' => false];
+            return ['reference' => $reference, 'open' => true, 'next' => false, 'decorative' => $decorative];
         }
 
         return [
-            'reference' => $reference,
-            'open'      => $this->altTextConversation->openHit($conversation, $backendUser) instanceof MissingAltText,
-            'next'      => $this->altTextConversation->next($conversation, $backendUser) instanceof MissingAltText,
+            'reference'  => $reference,
+            'open'       => $this->altTextConversation->openHit($conversation, $backendUser) instanceof MissingAltText,
+            'next'       => $this->altTextConversation->next($conversation, $backendUser) instanceof MissingAltText,
+            'decorative' => $decorative,
         ];
     }
 
@@ -1914,19 +1924,18 @@ final readonly class ChatApiController
         $conversation->appendMessage(MessageRole::User, $this->translate('altText.action.skip'), AltTextConversation::NOTICE_ACTION, ['skip']);
         $conversation->appendMessage(MessageRole::Assistant, '[Skipped. The image stays open in the list.]', AltTextConversation::NOTICE_SKIPPED);
 
-        return $this->settleAltText($conversation, $before, null);
+        return $this->settleAltText($conversation, $before);
     }
 
     /**
      * POST /ai-chat/alt-text/decorative – "Als dekorativ markieren" (ADR-026).
      *
-     * The editor's choice is the decision, as the specification has it: the
-     * mark is saved directly, through the same writer and checks as the tool
-     * `set_file_reference_decorative`, as the editor, and the proposal is
-     * withdrawn. An image that belongs to a section or a record is not marked
-     * at once: the answer carries the warning (case 2), and the mark is saved
-     * when the editor confirms it (`confirmed`). A refusal is said in the
-     * chat, in one sentence; the proposal stays.
+     * The chip asks for the mark; it saves nothing and is no confirmation.
+     * The waiting proposal is withdrawn and the editor's choice goes to the
+     * model, which proposes the mark through `set_file_reference_decorative`:
+     * its approval card, with the warning of case 2 where the image belongs
+     * to a section or a record, is the one confirmation (nr-llm ADR-134). A
+     * user who may not set the mark is refused before the turn.
      */
     public function markAltTextDecorative(ServerRequestInterface $request): ResponseInterface
     {
@@ -1936,33 +1945,69 @@ final readonly class ChatApiController
             return $conversation;
         }
 
-        $backendUser = $GLOBALS['BE_USER'] ?? null;
-        $reference   = $conversation->getAltTextHit()['reference'];
-        $hit         = $this->altTextHit($reference);
-        if ($hit instanceof ResponseInterface || !$backendUser instanceof BackendUserAuthentication || !$this->decorativeWriter instanceof DecorativeImageWriter) {
-            return $hit instanceof ResponseInterface ? $hit : new JsonResponse(['error' => $this->translate('error.altTextToolsUnavailable'), 'code' => 'tools'], 409);
+        $reference = $conversation->getAltTextHit()['reference'];
+        $hit       = $this->altTextHit($reference);
+        if ($hit instanceof ResponseInterface) {
+            return $hit;
         }
 
-        $plan = $this->decorativeWriter->plan($backendUser, $reference);
-        if (is_string($plan)) {
-            $before = clone $conversation;
-            $conversation->appendMessage(MessageRole::Assistant, '[The decorative mark could not be saved.]', AltTextConversation::NOTICE_FAILED, [$plan]);
-
-            return $this->repository->updateIf($conversation, $before->getStatus())
-                ? new JsonResponse(['status' => $conversation->getStatus()->value, 'saved' => false])
-                : new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        if (!$this->mayMarkDecorative($reference)) {
+            return new JsonResponse(['error' => $this->translate('error.altTextNotPermitted')], 403);
         }
 
-        $language = $GLOBALS['LANG'] ?? null;
-        $warning  = $language instanceof LanguageService ? ($this->decorativeWarning?->of($plan, $language) ?? '') : '';
-        if ($warning !== '' && !in_array($body['confirmed'] ?? null, [true, 1, '1'], true)) {
-            return new JsonResponse(['status' => $conversation->getStatus()->value, 'confirm' => $warning]);
+        $before        = clone $conversation;
+        $currentStatus = $conversation->getStatus();
+        $refusal       = $this->refuseNewTurn($currentStatus);
+        if ($refusal !== null) {
+            return $refusal;
         }
 
-        $before = clone $conversation;
-        $conversation->appendMessage(MessageRole::User, $this->translate('altText.action.decorative'), AltTextConversation::NOTICE_ACTION, ['decorative']);
+        $conversation->appendMessage(
+            MessageRole::User,
+            sprintf('[The editor chose "Als dekorativ markieren" for the image use with reference %d. Propose the mark now: call set_file_reference_decorative with that reference and decorative true, without proposing an alt text.]', $reference),
+            AltTextConversation::NOTICE_ASK_DECORATIVE,
+        );
 
-        return $this->settleAltText($conversation, $before, $reference);
+        return $this->queueTurn($conversation, $currentStatus, [], $before);
+    }
+
+    /**
+     * POST /ai-chat/alt-text/retry – "Erneut anbieten" (ADR-026): the
+     * proposal whose approved write did not land is offered again, as a new
+     * card. The text is the one the conversation kept, never the browser's.
+     */
+    public function retryAltText(ServerRequestInterface $request): ResponseInterface
+    {
+        $body         = $this->parseBody($request);
+        $conversation = $this->altTextConversationOf($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $proposal = $this->altTextConversation?->proposalToOfferAgain($conversation);
+        if ($proposal === null) {
+            return new JsonResponse(['error' => $this->translate('error.altTextNothingToRetry'), 'code' => 'nothingToRetry'], 409);
+        }
+
+        $hit = $this->altTextHit($conversation->getAltTextHit()['reference']);
+        if ($hit instanceof ResponseInterface) {
+            return $hit;
+        }
+
+        $before        = clone $conversation;
+        $currentStatus = $conversation->getStatus();
+        $refusal       = $this->refuseNewTurn($currentStatus);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
+        $conversation->appendMessage(
+            MessageRole::User,
+            sprintf('[The editor asks to offer the same alt text again, unchanged: call set_file_reference_alternative_text with reference %d and the text %s.]', $hit->referenceUid, json_encode($proposal, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+            AltTextConversation::NOTICE_RETRY,
+        );
+
+        return $this->queueTurn($conversation, $currentStatus, [], $before);
     }
 
     /**
@@ -2029,13 +2074,12 @@ final readonly class ChatApiController
 
     /**
      * End the conversation's step on the image without a model turn: the
-     * waiting proposal is withdrawn, the decorative mark saved where one is
-     * asked for, and the conversation waits for the editor again.
+     * waiting proposal is withdrawn, and the conversation waits for the
+     * editor again.
      *
-     * @param Conversation $before   the row before this request changed it
-     * @param int|null     $decorate the reference to mark as decorative, or null
+     * @param Conversation $before the row before this request changed it
      */
-    private function settleAltText(Conversation $conversation, Conversation $before, ?int $decorate): ResponseInterface
+    private function settleAltText(Conversation $conversation, Conversation $before): ResponseInterface
     {
         $currentStatus = $before->getStatus();
         $releasesRun   = $currentStatus === ConversationStatus::AwaitingApproval || $currentStatus === ConversationStatus::AwaitingInput;
@@ -2056,25 +2100,10 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
-        $saved = null;
-        if ($decorate !== null) {
-            $backendUser = $GLOBALS['BE_USER'] ?? null;
-            $refusal     = $backendUser instanceof BackendUserAuthentication && $this->decorativeWriter instanceof DecorativeImageWriter
-                ? $this->decorativeWriter->write($backendUser, $decorate, true)
-                : ReferenceWriteAccess::NOT_PERMITTED;
-            $saved = $refusal === null;
-            $conversation->appendMessage(
-                MessageRole::Assistant,
-                $saved ? '[The image is marked as decorative.]' : '[The decorative mark could not be saved.]',
-                $saved ? AltTextConversation::NOTICE_DECORATIVE : AltTextConversation::NOTICE_FAILED,
-                $saved ? [] : [(string) $refusal],
-            );
-        }
-
         $conversation->setStatus(ConversationStatus::Idle);
         $this->repository->updateIf($conversation, ConversationStatus::Locked);
 
-        return new JsonResponse(['status' => ConversationStatus::Idle->value, ...($saved === null ? [] : ['saved' => $saved])]);
+        return new JsonResponse(['status' => ConversationStatus::Idle->value]);
     }
 
     /**

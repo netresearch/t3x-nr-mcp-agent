@@ -18,11 +18,10 @@ use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextGate;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImage;
-use Netresearch\NrMcpAgent\Service\AltText\DecorativeImageWriter;
-use Netresearch\NrMcpAgent\Service\AltText\DecorativeWarning;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltText;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextList;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextScan;
@@ -142,8 +141,6 @@ final class AltTextFlowTest extends FunctionalTestCase
             altTextGate: new AltTextGate($this->get(MissingAltTextScanner::class), $this->get(ReferenceWriteAccess::class), $tools),
             altTextConversation: $this->get(AltTextConversation::class),
             altTextImage: $this->get(AltTextImage::class),
-            decorativeWriter: $this->get(DecorativeImageWriter::class),
-            decorativeWarning: $this->get(DecorativeWarning::class),
         );
     }
 
@@ -165,6 +162,7 @@ final class AltTextFlowTest extends FunctionalTestCase
             'next'       => $subject->nextAltText($request),
             'skip'       => $subject->skipAltText($request),
             'decorative' => $subject->markAltTextDecorative($request),
+            'retry'      => $subject->retryAltText($request),
         };
     }
 
@@ -368,7 +366,7 @@ final class AltTextFlowTest extends FunctionalTestCase
         $data = $this->json($this->subject()->getMessages($request));
 
         self::assertSame('failed', $data['status']);
-        self::assertSame(['reference' => 1, 'open' => true, 'next' => true], $data['altText'] ?? null);
+        self::assertSame(['reference' => 1, 'open' => true, 'next' => true, 'decorative' => true], $data['altText'] ?? null);
     }
 
     /** Once the image is fixed, the next hit is the one that followed it, not the first. */
@@ -438,7 +436,7 @@ final class AltTextFlowTest extends FunctionalTestCase
         $conversation = $this->start(10);
         $this->approval->expects(self::never())->method('releasePendingRun');
 
-        $response = $this->post($action, ['conversationUid' => $conversation->getUid(), 'confirmed' => true]);
+        $response = $this->post($action, ['conversationUid' => $conversation->getUid()]);
 
         self::assertSame(409, $response->getStatusCode());
         $unchanged = $this->conversation($conversation->getUid());
@@ -468,55 +466,95 @@ final class AltTextFlowTest extends FunctionalTestCase
         self::assertNull($this->getConnectionPool()->getConnectionForTable('sys_file_reference')->select(['alternative'], 'sys_file_reference', ['uid' => 1])->fetchOne());
     }
 
-    /** An image without a section is marked at once, and the chat says so. */
+    /**
+     * "Als dekorativ markieren" asks for the mark: the proposal is withdrawn,
+     * nothing is saved, and a turn starts whose request the model reads, to
+     * answer with the tool's approval card — the one confirmation.
+     */
     #[Test]
-    public function anImageWithoutASectionIsMarkedDecorativeAtOnce(): void
+    public function theDecorativeChipAsksForTheCardAndSavesNothing(): void
     {
-        $conversation = $this->settle($this->start(10));
+        $conversation = $this->settle($this->start(1), ConversationStatus::AwaitingApproval);
+        $this->approval->expects(self::once())->method('releasePendingRun')->willReturn(true);
 
         $response = $this->post('decorative', ['conversationUid' => $conversation->getUid()]);
 
-        self::assertSame(['status' => 'idle', 'saved' => true], $this->json($response));
-        self::assertSame(1, $this->mark(10));
-        self::assertSame([AltTextConversation::NOTICE_HIT, AltTextConversation::NOTICE_ACTION, AltTextConversation::NOTICE_DECORATIVE], $this->notices($this->conversation($conversation->getUid())));
+        self::assertSame(202, $response->getStatusCode(), (string) $response->getBody());
+        self::assertSame(0, $this->mark(1));
+        $asked = $this->conversation($conversation->getUid());
+        self::assertSame([AltTextConversation::NOTICE_HIT, AltTextConversation::NOTICE_ASK_DECORATIVE], $this->notices($asked));
+        self::assertSame(ConversationStatus::Processing, $asked->getStatus());
+        self::assertSame(2, $this->dispatched);
+        $transcript = $this->get(AltTextConversation::class)->transcript($asked, $asked->getDecodedMessages(), false);
+        self::assertStringContainsString('call set_file_reference_decorative with that reference and decorative true', (string) ($transcript[1]['content'] ?? ''));
     }
 
     /**
-     * Case 2 of the specification: an image of a section is not marked at
-     * once; the warning comes first, and the mark when the editor confirms.
+     * Without the grant for the mark the chip is not offered (the state says
+     * so), and a request for it is refused before any turn.
      */
     #[Test]
-    public function anImageOfASectionIsMarkedOnlyAfterTheWarning(): void
-    {
-        $conversation = $this->settle($this->start(1), ConversationStatus::AwaitingApproval);
-
-        $warning = $this->json($this->post('decorative', ['conversationUid' => $conversation->getUid()]));
-
-        self::assertStringContainsString('This image belongs to the section “Unser Team”', (string) ($warning['confirm'] ?? ''));
-        self::assertSame(0, $this->mark(1));
-        self::assertSame(ConversationStatus::AwaitingApproval, $this->conversation($conversation->getUid())->getStatus());
-
-        $confirmed = $this->json($this->post('decorative', ['conversationUid' => $conversation->getUid(), 'confirmed' => true]));
-
-        self::assertTrue($confirmed['saved'] ?? null);
-        self::assertSame(1, $this->mark(1));
-    }
-
-    /** Without the grant for the mark, the chat says why in one sentence and nothing is saved. */
-    #[Test]
-    public function aMarkTheEditorMayNotSetIsRefusedInTheChat(): void
+    public function withoutTheGrantForTheMarkTheChipIsNeitherOfferedNorTaken(): void
     {
         // User 3's group may change alt texts, but not the decorative mark.
         $this->loginAs(3);
         $conversation = $this->settle($this->start(10));
+        $request      = (new ServerRequest('/', 'GET'))->withQueryParams(['conversationUid' => (string) $conversation->getUid()]);
 
-        $response = $this->post('decorative', ['conversationUid' => $conversation->getUid(), 'confirmed' => true]);
+        self::assertFalse($this->json($this->subject()->getMessages($request))['altText']['decorative'] ?? null);
 
-        self::assertFalse($this->json($response)['saved'] ?? null);
-        self::assertSame(0, $this->mark(10));
-        $failed = $this->conversation($conversation->getUid());
-        self::assertSame(AltTextConversation::NOTICE_FAILED, $this->notices($failed)[1] ?? null);
-        self::assertStringContainsString('sys_file_reference:tx_nrmcpagent_decorative', (string) ($failed->getDecodedMessages()[1]['noticeArgs'][0] ?? ''));
+        $response = $this->post('decorative', ['conversationUid' => $conversation->getUid()]);
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame([AltTextConversation::NOTICE_HIT], $this->notices($this->conversation($conversation->getUid())));
+        self::assertSame(1, $this->dispatched);
+    }
+
+    /** With the grant, the state offers the chip. */
+    #[Test]
+    public function withTheGrantForTheMarkTheChipIsOffered(): void
+    {
+        $conversation = $this->settle($this->start(10));
+        $request      = (new ServerRequest('/', 'GET'))->withQueryParams(['conversationUid' => (string) $conversation->getUid()]);
+
+        self::assertTrue($this->json($this->subject()->getMessages($request))['altText']['decorative'] ?? null);
+    }
+
+    /**
+     * "Erneut anbieten": the proposal whose approved write did not land is
+     * offered again as a new card. The text is the conversation's, never the
+     * browser's.
+     */
+    #[Test]
+    public function aProposalThatWasNotSavedIsOfferedAgain(): void
+    {
+        $conversation = $this->start(1);
+        $conversation->appendMessage(MessageRole::Assistant, 'Die Seite ist gesperrt.');
+        $conversation->appendMessage(MessageRole::Assistant, '[The alt text was not saved.]', AltTextConversation::NOTICE_NOT_SAVED, [], ['proposal' => 'Ein Team am Tisch']);
+        $conversation = $this->settle($conversation);
+
+        $response = $this->post('retry', ['conversationUid' => $conversation->getUid(), 'proposal' => 'Something else']);
+
+        self::assertSame(202, $response->getStatusCode(), (string) $response->getBody());
+        $retried = $this->conversation($conversation->getUid());
+        self::assertSame(AltTextConversation::NOTICE_RETRY, $this->notices($retried)[3] ?? null);
+        $request = (string) ($retried->getDecodedMessages()[3]['content'] ?? '');
+        self::assertStringContainsString('"Ein Team am Tisch"', $request);
+        self::assertStringNotContainsString('Something else', $request);
+        self::assertSame(2, $this->dispatched);
+    }
+
+    /** Without a proposal that was not saved as the last word, there is nothing to offer again. */
+    #[Test]
+    public function withoutAProposalThatWasNotSavedNothingIsOfferedAgain(): void
+    {
+        $conversation = $this->settle($this->start(1));
+
+        $response = $this->post('retry', ['conversationUid' => $conversation->getUid()]);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('nothingToRetry', $this->json($response)['code'] ?? null);
+        self::assertSame(1, $this->dispatched);
     }
 
     /** These answers belong to a conversation about an image only. */

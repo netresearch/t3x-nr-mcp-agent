@@ -31,6 +31,8 @@ export const COLUMN_KEY_STEP = 16;
 /** Keys in the backend user's uc, namespaced like core's `resize.backend.navigation`. */
 export const PREFERENCE_LAYOUT = 'nrMcpAgent.chatPanel.layout';
 export const PREFERENCE_COLUMN_WIDTH = 'nrMcpAgent.chatPanel.columnWidth';
+/** Whether the chat folded the module menu and unfolds it on closing (ADR-026). */
+export const PREFERENCE_FOLDED_MENU = 'nrMcpAgent.chatPanel.foldedModuleMenu';
 
 const MOUNT_SELECTORS = [
     'typo3-backend-content-navigation[identifier="backend"] > [slot="content"]',
@@ -140,6 +142,16 @@ export function readLayoutPreference(storage = Persistent) {
 /** @param {'floating'|'column'} layout */
 export function saveLayoutPreference(layout, storage = Persistent) {
     writePreference(PREFERENCE_LAYOUT, layout === LAYOUT.COLUMN ? LAYOUT.COLUMN : LAYOUT.FLOATING, storage);
+}
+
+/** Whether the chat folded the module menu, which it unfolds when it closes, also after a reload. */
+export function readFoldedModuleMenu(storage = Persistent) {
+    return readPreference(PREFERENCE_FOLDED_MENU, storage) === true || readPreference(PREFERENCE_FOLDED_MENU, storage) === '1';
+}
+
+/** @param {boolean} folded */
+export function saveFoldedModuleMenu(folded, storage = Persistent) {
+    writePreference(PREFERENCE_FOLDED_MENU, folded ? '1' : '0', storage);
 }
 
 /** The width the user chose, unclamped: the area it is clamped to changes. */

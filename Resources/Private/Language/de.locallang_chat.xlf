@@ -1055,14 +1055,6 @@
                 <source>Create an alt text</source>
                 <target>Alt-Text erstellen</target>
             </trans-unit>
-            <trans-unit id="altText.confirmDecorative" resname="altText.confirmDecorative">
-                <source>Yes, mark as decorative</source>
-                <target>Ja, als dekorativ markieren</target>
-            </trans-unit>
-            <trans-unit id="altText.useText" resname="altText.useText">
-                <source>Use an alt text after all</source>
-                <target>Doch Alt-Text verwenden</target>
-            </trans-unit>
             <trans-unit id="altText.next" resname="altText.next">
                 <source>Optimise the next hit</source>
                 <target>Nächsten Treffer optimieren</target>
@@ -1079,9 +1071,17 @@
                 <source>Skipped. The hit stays open in the list.</source>
                 <target>Übersprungen. Der Treffer bleibt in der Liste offen.</target>
             </trans-unit>
-            <trans-unit id="altText.failed" resname="altText.failed">
-                <source>The decorative mark was not saved: %s</source>
-                <target>Die Markierung wurde nicht gespeichert: %s</target>
+            <trans-unit id="altText.notSaved" resname="altText.notSaved">
+                <source>The alt text “%1$s” was not saved.</source>
+                <target>Der Alt-Text „%1$s“ wurde nicht gespeichert.</target>
+            </trans-unit>
+            <trans-unit id="altText.retry" resname="altText.retry">
+                <source>Offer it again</source>
+                <target>Erneut anbieten</target>
+            </trans-unit>
+            <trans-unit id="error.altTextNothingToRetry" resname="error.altTextNothingToRetry">
+                <source>There is no proposal to offer again.</source>
+                <target>Es gibt keinen Vorschlag, der erneut angeboten werden kann.</target>
             </trans-unit>
             <trans-unit id="altText.switched" resname="altText.switched">
                 <source>Hit changed · %1$s · %2$s</source>
@@ -1090,10 +1090,6 @@
             <trans-unit id="altText.action.skip" resname="altText.action.skip">
                 <source>Skip</source>
                 <target>Überspringen</target>
-            </trans-unit>
-            <trans-unit id="altText.action.decorative" resname="altText.action.decorative">
-                <source>Mark as decorative</source>
-                <target>Als dekorativ markieren</target>
             </trans-unit>
             <trans-unit id="altText.context.label" resname="altText.context.label">
                 <source>What the assistant works on</source>

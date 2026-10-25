@@ -10,8 +10,20 @@
  */
 
 import {describe, test, expect, beforeAll, beforeEach, afterEach, jest} from '@jest/globals';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
 import Persistent from '@typo3/backend/storage/persistent.js';
-import {setModuleMenuOpen} from '../../Resources/Public/JavaScript/chat-column.js';
+import {PREFERENCE_FOLDED_MENU, setModuleMenuOpen} from '../../Resources/Public/JavaScript/chat-column.js';
+
+/** The German labels of the chat as the reader gets them (de.locallang_chat.xlf). */
+function germanLabels() {
+    const xml = readFileSync(join(import.meta.dirname, '../../Resources/Private/Language/de.locallang_chat.xlf'), 'utf8');
+    const labels = {};
+    for (const unit of xml.matchAll(/<trans-unit id="([^"]+)"[^>]*>[\s\S]*?<target>([\s\S]*?)<\/target>/g)) {
+        labels[unit[1]] = unit[2];
+    }
+    return labels;
+}
 
 function el(tag, attributes = {}, children = []) {
     const element = document.createElement(tag);
@@ -98,6 +110,7 @@ describe('"Optimieren" in the chat panel', () => {
     let events;
     let menu;
     let answers;
+    let decorativeGrant;
 
     beforeAll(async () => {
         await import('../../Resources/Public/JavaScript/ai-chat-panel.js');
@@ -111,12 +124,13 @@ describe('"Optimieren" in the chat panel', () => {
         pending = null;
         status = 'idle';
         messages = [];
+        decorativeGrant = true;
         answers = {
             ai_chat_status: () => [200, {available: true, issues: []}],
             ai_chat_conversations: () => [200, {conversations: Array.from({length: created}, (_, i) => ({uid: 5 + i, title: '', status}))}],
             ai_chat_conversation_create: (url, body) => {
                 messages = [{...CARD, data: {...CARD.data, reference: body.altTextReference}}];
-                altText = {reference: body.altTextReference, open: true, next: true};
+                altText = {reference: body.altTextReference, open: true, next: true, decorative: decorativeGrant};
                 return [201, {uid: 5 + created++}];
             },
             ai_chat_conversation_messages: () => [200, {messages, status, totalCount: messages.length, altText, pendingApproval: pending}],
@@ -130,7 +144,17 @@ describe('"Optimieren" in the chat panel', () => {
                 return [202, {status: 'processing', reference: 2, tab: 'tx_news', page: 3}];
             },
             ai_chat_alt_text_skip: () => [200, {status: 'idle'}],
-            ai_chat_alt_text_decorative: (url, body) => (body.confirmed ? [200, {status: 'idle', saved: true}] : [200, {status: 'awaiting_approval', confirm: 'Dieses Bild gehört zum Abschnitt „Unser Team“ …'}]),
+            ai_chat_alt_text_decorative: () => {
+                status = 'processing';
+                pending = null;
+                messages = [...messages, {role: 'user', content: '[request]', notice: 'altTextAskDecorative'}];
+                return [202, {status: 'processing'}];
+            },
+            ai_chat_alt_text_retry: () => {
+                status = 'processing';
+                messages = [...messages, {role: 'user', content: '[request]', notice: 'altTextRetry'}];
+                return [202, {status: 'processing'}];
+            },
             ai_chat_conversation_approve: () => [202, {status: 'processing'}],
         };
         globalThis.fetch = jest.fn(async (url, options = {}) => {
@@ -257,7 +281,7 @@ describe('"Optimieren" in the chat panel', () => {
         expect(routes('ai_chat_conversation_approve').at(-1).body).toEqual({conversationUid: 5, approve: false, turnDigest: 'digest-1', reason: 'variant'});
     });
 
-    test('"Als dekorativ markieren" warns first for an image of a section, and marks it when confirmed', async () => {
+    test('"Als dekorativ markieren" asks for the mark\'s card and saves nothing itself; no warning step comes before it', async () => {
         pending = PROPOSAL;
         status = 'awaiting_approval';
         await panel.optimiseAltText(1);
@@ -267,32 +291,136 @@ describe('"Optimieren" in the chat panel', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         await panel.updateComplete;
 
-        expect(routes('ai_chat_alt_text_decorative')[0].body).toEqual({conversationUid: 5, confirmed: false});
-        const warning = panel.shadowRoot.querySelector('.alt-text-warning');
-        expect(warning.textContent).toContain('Abschnitt „Unser Team“');
-        const confirm = [...panel.shadowRoot.querySelectorAll('.alt-text-proposal button')];
-        expect(confirm.map((b) => b.textContent.trim())).toEqual(['altText.confirmDecorative', 'altText.useText']);
-
-        confirm[0].click();
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(routes('ai_chat_alt_text_decorative')[1].body).toEqual({conversationUid: 5, confirmed: true});
+        expect(routes('ai_chat_alt_text_decorative')).toEqual([{route: 'ai_chat_alt_text_decorative', body: {conversationUid: 5}}]);
+        expect(routes('ai_chat_conversation_approve')).toHaveLength(0);
+        expect(panel.chat.status).toBe('processing');
+        expect(panel.shadowRoot.querySelector('.alt-text-proposal')).toBeNull();
+        // The editor's request stands in the chat as their message.
+        expect([...panel.shadowRoot.querySelectorAll('.message.user')].map((m) => m.textContent)).toContain('altText.decorative');
     });
 
-    test('"Doch Alt-Text verwenden" takes the warning back and keeps the proposal', async () => {
+    test('without the grant for the mark the proposal offers no "Als dekorativ markieren"', async () => {
+        decorativeGrant = false;
         pending = PROPOSAL;
         status = 'awaiting_approval';
         await panel.optimiseAltText(1);
         await panel.updateComplete;
-        panel.shadowRoot.querySelectorAll('.alt-text-proposal button')[2].click();
+
+        const buttons = [...panel.shadowRoot.querySelectorAll('.alt-text-proposal button')];
+        expect(buttons.map((b) => b.textContent.trim())).toEqual(['altText.apply', 'altText.variant', 'altText.skip']);
+        expect(panel.shadowRoot.querySelector('#alt-text-decorative-help')).toBeNull();
+    });
+
+    test('while the approval is blocked, "Übernehmen" is not offered', async () => {
+        pending = {...PROPOSAL, approveBlocked: 'secondApprover'};
+        status = 'awaiting_approval';
+        await panel.optimiseAltText(1);
+        await panel.updateComplete;
+
+        const buttons = [...panel.shadowRoot.querySelectorAll('.alt-text-proposal button')];
+        expect(buttons.map((b) => b.textContent.trim())).toEqual(['altText.variant', 'altText.decorative', 'altText.skip']);
+    });
+
+    test('the mark\'s card shows its lines with the warning, and approving it is the one confirmation', async () => {
+        pending = {...PROPOSAL, answers: 'altTextDecorative', altText: {kind: 'decorative', proposal: ''}, calls: [{heading: 'Mark as decorative', previewLines: ['Image: team.jpg', 'This image belongs to the section “Unser Team” and therefore probably needs an alt text. Mark it as decorative anyway?']}]};
+        status = 'awaiting_approval';
+        await panel.optimiseAltText(1);
+        await panel.updateComplete;
+
+        const card = panel.shadowRoot.querySelector('.alt-text-proposal');
+        expect(card.textContent).toContain('section “Unser Team”');
+        const buttons = [...card.querySelectorAll('button')];
+        expect(buttons.map((b) => b.textContent.trim())).toEqual(['altText.decorative', 'altText.createText', 'altText.skip']);
+
+        buttons[0].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(routes('ai_chat_conversation_approve').at(-1).body).toMatchObject({conversationUid: 5, approve: true});
+        expect(routes('ai_chat_alt_text_decorative')).toHaveLength(0);
+    });
+
+    test('a proposal whose write did not land can be offered again, while it is the last word', async () => {
+        await panel.optimiseAltText(1);
+        messages = [...messages, {role: 'assistant', content: 'The page is locked.'}, {role: 'assistant', content: '[x]', notice: 'altTextNotSaved', data: {proposal: 'Ein Team am Tisch'}}];
+        status = 'idle';
+        await panel.chat.loadMessages();
+        await panel.updateComplete;
+
+        const retry = panel.shadowRoot.querySelector('.alt-text-line.failed + .alt-text-answers button');
+        expect(retry.textContent.trim()).toBe('altText.retry');
+        retry.click();
         await new Promise((resolve) => setTimeout(resolve, 0));
         await panel.updateComplete;
 
-        panel.shadowRoot.querySelectorAll('.alt-text-proposal button')[1].click();
+        expect(routes('ai_chat_alt_text_retry')).toEqual([{route: 'ai_chat_alt_text_retry', body: {conversationUid: 5}}]);
+        expect(panel.chat.status).toBe('processing');
+        expect(panel.shadowRoot.querySelector('.alt-text-line.failed + .alt-text-answers')).toBeNull();
+    });
+
+    test('a proposal that did not land is no longer offered again once the chat has moved on', async () => {
+        await panel.optimiseAltText(1);
+        messages = [...messages, {role: 'assistant', content: '[x]', notice: 'altTextNotSaved', data: {proposal: 'Ein Team am Tisch'}}, {role: 'user', content: 'Something else'}];
+        status = 'idle';
+        await panel.chat.loadMessages();
         await panel.updateComplete;
 
-        expect(panel.shadowRoot.querySelector('.alt-text-warning')).toBeNull();
-        expect(panel.shadowRoot.querySelector('.alt-text-proposal-text').textContent).toContain('Ein Team am Tisch');
-        expect(routes('ai_chat_alt_text_decorative')).toHaveLength(1);
+        expect(panel.shadowRoot.querySelector('.alt-text-line.failed')).not.toBeNull();
+        expect(panel.shadowRoot.querySelector('.alt-text-line.failed + .alt-text-answers')).toBeNull();
+    });
+
+    test('in German the chat\'s lines read with their values filled in, and the card says when the image was not looked at', async () => {
+        globalThis.TYPO3.lang = germanLabels();
+        messages = [];
+        await panel.optimiseAltText(1);
+        messages = [
+            {...CARD, data: {...CARD.data, imageNote: 'unreadable'}},
+            {role: 'assistant', notice: 'altTextSwitched', noticeArgs: ['logo.png', 'Startseite']},
+            {role: 'assistant', content: '[x]', notice: 'altTextNotSaved', data: {proposal: 'Ein Team am Tisch'}},
+        ];
+        status = 'idle';
+        await panel.chat.loadMessages();
+        await panel.updateComplete;
+
+        const root = panel.shadowRoot;
+        expect(root.querySelector('.alt-text-card .alt-text-note').textContent).toBe(globalThis.TYPO3.lang['altText.note.unreadable']);
+        expect(root.querySelector('.alt-text-card .alt-text-note').textContent).toContain('Bild');
+        expect(root.querySelector('.alt-text-divider').textContent).toBe('Treffer gewechselt · logo.png · Startseite');
+        expect(root.querySelector('.alt-text-line.failed').textContent).toBe('Der Alt-Text „Ein Team am Tisch“ wurde nicht gespeichert.');
+        expect(root.querySelector('.alt-text-context-info').textContent).toContain('im Element Text & Images – “Unser Team” auf der Seite Startseite');
+        expect(root.textContent).not.toContain('undefined');
+        expect(root.textContent).not.toMatch(/%\d*\$?[sd]/);
+    });
+
+    test('a row chosen while the proposing turn runs is taken up when the turn ends', async () => {
+        await panel.optimiseAltText(1);
+        status = 'processing';
+        await panel.chat.loadMessages();
+
+        const queued = await panel.optimiseAltText(10);
+
+        expect(queued).toMatchObject({ok: true, code: 'queued'});
+        expect(routes('ai_chat_alt_text_switch')).toHaveLength(0);
+
+        status = 'idle';
+        await panel.chat.loadMessages();
+        for (let i = 0; i < 10 && routes('ai_chat_alt_text_switch').length === 0; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
+        expect(routes('ai_chat_alt_text_switch')[0].body).toEqual({conversationUid: 5, reference: 10});
+    });
+
+    test('the folded module menu is remembered, so a chat closed after a reload unfolds it', async () => {
+        await panel.optimiseAltText(1);
+        expect(Persistent.get(PREFERENCE_FOLDED_MENU)).toBe('1');
+
+        panel.chat.stopPolling();
+        panel.remove();
+        panel = document.createElement('ai-chat-panel');
+        document.body.append(panel);
+        panel.hide();
+
+        expect(menu.scaffold.classList.contains('scaffold-modulemenu-expanded')).toBe(true);
+        expect(Persistent.get(PREFERENCE_FOLDED_MENU)).toBe('0');
     });
 
     test('"Überspringen" saves nothing and reaches the chat\'s own endpoint', async () => {

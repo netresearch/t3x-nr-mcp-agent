@@ -23,8 +23,8 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * The transcript holds the chat's own lines as notices with arguments, so
  * the reader sees them in their language and the model never reads them:
  * the image card ("Alt-Text ergänzen"), the divider when the hit changes,
- * the editor's chip ("Überspringen", "Als dekorativ markieren"), and the
- * confirmations. The model reads the latest image card as the image's
+ * the editor's chip "Überspringen", and the confirmations. The chip "Als
+ * dekorativ markieren" is the one the model reads: it asks for the mark. The model reads the latest image card as the image's
  * context, re-read from the database on every turn, with the scaled image
  * where it may see it.
  */
@@ -45,14 +45,27 @@ class AltTextConversation
     /** "Übersprungen. Der Treffer bleibt in der Liste offen." */
     public const NOTICE_SKIPPED = 'altTextSkipped';
 
-    /** The editor's chip, as their message; argument: `skip`, `decorative` or `next`. */
+    /** The editor's chip, as their message; argument: `skip`. */
     public const NOTICE_ACTION = 'altTextAction';
 
-    /** The decorative mark could not be saved; argument: the reason. */
-    public const NOTICE_FAILED = 'altTextFailed';
+    /**
+     * "Als dekorativ markieren": the editor's request for the mark, which the
+     * reader sees as the chip and the model reads as the request to propose
+     * it through the tool's approval card.
+     */
+    public const NOTICE_ASK_DECORATIVE = 'altTextAskDecorative';
+
+    /** An approved proposal whose write did not land; data: the proposal. */
+    public const NOTICE_NOT_SAVED = 'altTextNotSaved';
+
+    /**
+     * "Erneut anbieten": the editor's request to offer that proposal again,
+     * which the model reads.
+     */
+    public const NOTICE_RETRY = 'altTextRetry';
 
     /** The chat's lines the model does not read. */
-    private const READER_ONLY = [self::NOTICE_SWITCHED, self::NOTICE_SAVED, self::NOTICE_DECORATIVE, self::NOTICE_SKIPPED, self::NOTICE_ACTION, self::NOTICE_FAILED];
+    private const READER_ONLY = [self::NOTICE_SWITCHED, self::NOTICE_SAVED, self::NOTICE_DECORATIVE, self::NOTICE_SKIPPED, self::NOTICE_ACTION, self::NOTICE_NOT_SAVED];
 
     /** The card is a proposal of an alt text. */
     public const CARD_PROPOSAL = 'proposal';
@@ -193,6 +206,24 @@ class AltTextConversation
         }
 
         return $result;
+    }
+
+    /**
+     * The proposal of the last approved write that did not land, while it is
+     * the conversation's last word; null otherwise.
+     */
+    public function proposalToOfferAgain(Conversation $conversation): ?string
+    {
+        $messages = $conversation->getDecodedMessages();
+        $last     = $messages[count($messages) - 1] ?? null;
+        if (!is_array($last) || ($last['notice'] ?? null) !== self::NOTICE_NOT_SAVED) {
+            return null;
+        }
+
+        $data     = is_array($last['data'] ?? null) ? $last['data'] : [];
+        $proposal = is_string($data['proposal'] ?? null) ? trim($data['proposal']) : '';
+
+        return $proposal !== '' ? $proposal : null;
     }
 
     /**

@@ -83,10 +83,14 @@ export function initAltTextOptimise(root, panelOf = findPanel, navigate = (url) 
         }
     }
 
-    /** The heading and the tab's count after a row left the list. */
+    /**
+     * The heading and the tab's count after a row left the list. The heading
+     * counts every open image (`data-count`), not the rows of this page.
+     */
     function updateCounts(tabPanel) {
-        const remaining = root.querySelectorAll('[data-nr-alt-text-row]').length;
+        const remaining = Math.max(0, (Number.parseInt(heading?.dataset.count ?? '', 10) || 0) - 1);
         if (heading) {
+            heading.dataset.count = String(remaining);
             heading.textContent = remaining === 0
                 ? heading.dataset.titleNone
                 : remaining === 1 ? heading.dataset.titleOne : format(heading.dataset.titleOther, remaining);

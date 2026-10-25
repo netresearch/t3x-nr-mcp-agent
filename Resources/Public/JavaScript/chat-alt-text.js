@@ -25,14 +25,19 @@ export const NOTICE = Object.freeze({
     DECORATIVE: 'altTextDecorative',
     SKIPPED: 'altTextSkipped',
     ACTION: 'altTextAction',
-    FAILED: 'altTextFailed',
+    ASK_DECORATIVE: 'altTextAskDecorative',
+    NOT_SAVED: 'altTextNotSaved',
+    RETRY: 'altTextRetry',
 });
 
 const ACTION_LABELS = new Map([
     ['skip', 'altText.skip'],
-    ['decorative', 'altText.decorative'],
     ['next', 'altText.next'],
 ]);
+
+function userLine(text) {
+    return html`<div class="message-row user"><div class="message-bubble"><div class="message user">${text}</div></div></div>`;
+}
 
 const IMAGE_NOTES = new Map([
     ['noVision', 'altText.note.noVision'],
@@ -122,10 +127,6 @@ export const chatAltTextStyles = css`
         flex-wrap: wrap;
         gap: 6px;
     }
-    .alt-text-warning {
-        margin: 0;
-        font-size: 12px;
-    }
     .alt-text-next {
         padding: 8px 12px 0;
     }
@@ -174,18 +175,45 @@ export function renderAltTextMessage(chat, msg, idx) {
         case NOTICE.SWITCHED:
             return html`<p class="alt-text-divider" role="separator" aria-label="${format(lll('altText.switched'), args[0] ?? '', args[1] ?? '')}">${format(lll('altText.switched'), args[0] ?? '', args[1] ?? '')}</p>`;
         case NOTICE.ACTION:
-            return html`<div class="message-row user"><div class="message-bubble"><div class="message user">${lll(ACTION_LABELS.get(args[0]) ?? 'altText.skip')}</div></div></div>`;
+            return userLine(lll(ACTION_LABELS.get(args[0]) ?? 'altText.skip'));
+        case NOTICE.ASK_DECORATIVE:
+            return userLine(lll('altText.decorative'));
+        case NOTICE.RETRY:
+            return userLine(lll('altText.retry'));
+        case NOTICE.NOT_SAVED:
+            return renderNotSaved(chat, msg, idx);
         case NOTICE.SAVED:
             return html`<p class="alt-text-line saved">${lll('altText.saved')}</p>`;
         case NOTICE.DECORATIVE:
             return html`<p class="alt-text-line saved">${lll('altText.decorativeSaved')}</p>`;
         case NOTICE.SKIPPED:
             return html`<p class="alt-text-line">${lll('altText.skipped')}</p>`;
-        case NOTICE.FAILED:
-            return html`<p class="alt-text-line failed">${format(lll('altText.failed'), args[0] ?? '')}</p>`;
         default:
             return null;
     }
+}
+
+/**
+ * A proposal whose approved write did not land (the model's answer before it
+ * says why): the text stays, and while it is the last word and the chat
+ * waits, it can be offered again, as a new card.
+ */
+function renderNotSaved(chat, msg, idx) {
+    const text = format(lll('altText.notSaved'), msg.data?.proposal ?? '');
+    const last = idx === (chat.messages?.length ?? 0) - 1;
+    if (!last || chat.isProcessing?.()) {
+        return html`<p class="alt-text-line failed">${text}</p>`;
+    }
+
+    return html`
+        <div class="alt-text-proposal">
+            <p class="alt-text-line failed">${text}</p>
+            <div class="alt-text-answers" role="group" aria-label="${lll('altText.answers')}">
+                <button type="button" class="btn btn-sm btn-answer btn-primary" ?disabled=${chat.altTextBusy}
+                    @click=${() => chat.retryAltText()}>${lll('altText.retry')}</button>
+            </div>
+        </div>
+    `;
 }
 
 /**
@@ -202,14 +230,18 @@ export function altTextNoticeText(msg) {
             return format(lll('altText.switched'), args[0] ?? '', args[1] ?? '');
         case NOTICE.ACTION:
             return lll(ACTION_LABELS.get(args[0]) ?? 'altText.skip');
+        case NOTICE.ASK_DECORATIVE:
+            return lll('altText.decorative');
+        case NOTICE.RETRY:
+            return lll('altText.retry');
+        case NOTICE.NOT_SAVED:
+            return format(lll('altText.notSaved'), data.proposal ?? '');
         case NOTICE.SAVED:
             return lll('altText.saved');
         case NOTICE.DECORATIVE:
             return lll('altText.decorativeSaved');
         case NOTICE.SKIPPED:
             return lll('altText.skipped');
-        case NOTICE.FAILED:
-            return format(lll('altText.failed'), args[0] ?? '');
         default:
             return null;
     }
@@ -251,12 +283,12 @@ function renderCard(data, idx, current) {
  * The proposal and its answers, in place of the approval card's body.
  *
  * A proposed text: "Übernehmen" approves the card, "Andere Variante" denies it
- * with that reason, "Als dekorativ markieren" and "Überspringen" are the
- * chat's own actions. The model's proposal to mark the image decorative
- * (case 1): its card's lines, "Als dekorativ markieren" approves it, "Alt-Text
- * erstellen" asks for a text instead. Before an image of a section or a
- * record is marked, the warning and "Ja, als dekorativ markieren" / "Doch
- * Alt-Text verwenden".
+ * with that reason, "Überspringen" is the chat's own action, and "Als
+ * dekorativ markieren" — offered only where the editor may set the mark —
+ * asks for the mark's card. The mark's card (the model's proposal, case 1, or
+ * the one the chip asked for): its lines, with the warning of case 2 where it
+ * applies, "Als dekorativ markieren" approves it — the one confirmation —
+ * and "Alt-Text erstellen" asks for a text instead.
  *
  * @param {object} chat the ChatCoreController
  * @param {object} pending the card as getMessages() returns it
@@ -264,20 +296,7 @@ function renderCard(data, idx, current) {
 export function renderAltTextCard(chat, pending) {
     const busy = chat.approvalBusy || chat.altTextBusy;
     const blocked = Boolean(pending.approveBlocked);
-    if (chat.altTextConfirm) {
-        return html`
-            <div class="alt-text-proposal">
-                <p class="alt-text-warning" role="alert">${chat.altTextConfirm}</p>
-                <div class="alt-text-answers" role="group" aria-label="${lll('altText.answers')}">
-                    <button type="button" class="btn btn-sm btn-answer btn-primary" ?disabled=${busy}
-                        @click=${() => chat.markAltTextDecorative(true)}>${lll('altText.confirmDecorative')}</button>
-                    <button type="button" class="btn btn-sm btn-answer" ?disabled=${busy}
-                        @click=${() => chat.cancelAltTextDecorative()}>${lll('altText.useText')}</button>
-                </div>
-            </div>
-        `;
-    }
-
+    const decorative = Boolean(chat.altText?.decorative);
     if (pending.answers === 'altTextDecorative') {
         const lines = pending.calls?.[0]?.previewLines ?? [];
         return html`
@@ -304,21 +323,21 @@ export function renderAltTextCard(chat, pending) {
                     @click=${() => chat.decideApproval(true)}>${lll('altText.apply')}</button>`}
                 <button type="button" class="btn btn-sm btn-answer" ?disabled=${busy}
                     @click=${() => chat.decideApproval(false, 'variant')}>${lll('altText.variant')}</button>
-                <button type="button" class="btn btn-sm btn-answer" ?disabled=${busy}
+                ${decorative ? html`<button type="button" class="btn btn-sm btn-answer" ?disabled=${busy}
                     title="${lll('altText.decorative.help')}" aria-describedby="alt-text-decorative-help"
-                    @click=${() => chat.markAltTextDecorative(false)}>${lll('altText.decorative')}</button>
+                    @click=${() => chat.markAltTextDecorative()}>${lll('altText.decorative')}</button>` : nothing}
                 <button type="button" class="btn btn-sm btn-answer" ?disabled=${busy}
                     @click=${() => chat.skipAltText()}>${lll('altText.skip')}</button>
             </div>
-            <p class="alt-text-note" id="alt-text-decorative-help">${lll('altText.decorative.help')}</p>
+            ${decorative ? html`<p class="alt-text-note" id="alt-text-decorative-help">${lll('altText.decorative.help')}</p>` : nothing}
         </div>
     `;
 }
 
 /**
  * Below the transcript, while the conversation waits for the editor and no
- * proposal is open: the decorative warning when one is asked for, and
- * "Nächsten Treffer optimieren" while another image is open.
+ * proposal is open: "Nächsten Treffer optimieren" while another image is
+ * open.
  *
  * @param {object} chat the ChatCoreController
  */
@@ -326,20 +345,6 @@ export function renderAltTextNext(chat) {
     const state = chat.altText;
     if (!state || chat.isProcessing() || chat.status === 'awaiting_approval' || chat.status === 'awaiting_input') {
         return nothing;
-    }
-
-    if (chat.altTextConfirm) {
-        return html`
-            <div class="alt-text-next alt-text-proposal">
-                <p class="alt-text-warning" role="alert">${chat.altTextConfirm}</p>
-                <div class="alt-text-answers" role="group" aria-label="${lll('altText.answers')}">
-                    <button type="button" class="btn btn-sm btn-answer btn-primary" ?disabled=${chat.altTextBusy}
-                        @click=${() => chat.markAltTextDecorative(true)}>${lll('altText.confirmDecorative')}</button>
-                    <button type="button" class="btn btn-sm btn-answer" ?disabled=${chat.altTextBusy}
-                        @click=${() => chat.cancelAltTextDecorative()}>${lll('altText.useText')}</button>
-                </div>
-            </div>
-        `;
     }
 
     if (!state.next) {

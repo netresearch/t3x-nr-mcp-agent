@@ -11,8 +11,8 @@ import { test, expect, waitForBackend, dashboardWidgetsLoaded } from '../fixture
  *
  * Fixtures (seed-and-test.sh, `configured` variant): alt-texts-seed.sql adds
  * three images without an alt text and the administrator `e2e-alttexts`;
- * alt-text-optimise-seed.sql enables the two tools of the flow and holds a
- * conversation of that user waiting on a proposed alt text for the image of
+ * alt-text-optimise-seed.sql enables the two tools of the flow and holds two
+ * conversations of that user waiting on a proposed alt text for the image of
  * "E2E Hidden". Nothing here writes an image, so missing-alt-texts.spec.ts
  * still finds three.
  *
@@ -111,39 +111,53 @@ test.describe('"Optimieren" in the list of missing alt texts', () => {
         await expect(frame.getByRole('button', { name: /^Optimise\s*: e2e-pattern\.jpg$/ })).toBeFocused();
     });
 
-    test('a proposal offers the answers; "Mark as decorative" warns first, and "Skip" saves nothing', async ({ page }) => {
+    /** Open a seeded conversation by its title, from the tab row or the "More" list. */
+    async function openConversation(page: Page, title: string): Promise<Locator> {
         const panel = page.locator('ai-chat-panel');
         await page.locator('.ai-chat-toolbar-btn').click();
         await expect(panel).toHaveAttribute('state', 'expanded');
-        const tab = panel.getByRole('tab', { name: 'E2E alt text proposal' });
+        const tab = panel.getByRole('tab', { name: title });
         if (await tab.count() > 0) {
             await tab.click();
         } else {
             await panel.locator('.conv-tab-more').click();
-            await panel.getByRole('combobox', { name: /search/i }).fill('E2E alt text proposal');
+            await panel.getByRole('combobox', { name: /search/i }).fill(title);
             await page.keyboard.press('Enter');
         }
+
+        return panel;
+    }
+
+    test('a proposal offers the four answers, and "Skip" saves nothing', async ({ page }) => {
+        const panel = await openConversation(page, 'E2E alt text proposal');
 
         const proposal = panel.locator('.alt-text-proposal');
         await expect(proposal).toContainText('Two people at a desk');
         await expect(proposal.getByRole('group', { name: 'Answers' }).getByRole('button'))
             .toHaveText(['Apply', 'Another variant', 'Mark as decorative', 'Skip']);
 
-        // The image belongs to the section "E2E Hidden": the warning comes first.
-        await proposal.getByRole('button', { name: 'Mark as decorative' }).click();
-        await expect(proposal.getByRole('alert')).toContainText('E2E Hidden');
-        await expect(proposal.getByRole('button')).toHaveText(['Yes, mark as decorative', 'Use an alt text after all']);
-
-        // "Use an alt text after all": the proposal is back, nothing was saved.
-        await proposal.getByRole('button', { name: 'Use an alt text after all' }).click();
-        await expect(proposal.getByRole('alert')).toHaveCount(0);
-        await expect(proposal).toContainText('Two people at a desk');
-
-        // "Skip": the chat's own answer, the proposal withdrawn.
         await proposal.getByRole('button', { name: 'Skip' }).click();
         await expect(panel.getByText('Skipped. The hit stays open in the list.')).toBeVisible();
         await expect(panel.locator('.alt-text-proposal')).toHaveCount(0);
         await expect.poll(() => panel.evaluate((el: any) => el.chat.status)).toBe('idle');
+
+        await panel.getByRole('button', { name: 'Close' }).first().click();
+    });
+
+    test('"Mark as decorative" asks for the mark\'s card: no warning step, nothing saved by the chip', async ({ page }) => {
+        const panel = await openConversation(page, 'E2E alt text decorative');
+        const proposal = panel.locator('.alt-text-proposal');
+        await expect(proposal).toContainText('Two people at a desk');
+
+        await proposal.getByRole('button', { name: 'Mark as decorative' }).click();
+
+        // The request stands in the chat as the editor's message, and the turn
+        // that would answer with the card starts; no warning step comes first.
+        await expect(panel.locator('.message.user').filter({ hasText: 'Mark as decorative' })).toBeVisible();
+        await expect(panel.getByRole('alert')).toHaveCount(0);
+        await expect(panel.locator('.alt-text-proposal')).toHaveCount(0);
+        // The E2E provider is never reachable: the turn fails, nothing was saved.
+        await expect.poll(() => panel.evaluate((el: any) => el.chat.status), { timeout: 20000 }).toBe('failed');
 
         await panel.getByRole('button', { name: 'Close' }).first().click();
     });

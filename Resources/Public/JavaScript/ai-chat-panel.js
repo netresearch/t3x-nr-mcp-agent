@@ -10,7 +10,7 @@ import {splitConversationTabs, filterConversations} from '@netresearch/nr-mcp-ag
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_COLUMN, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
-import {COLUMN_DEFAULT_WIDTH, COLUMN_MIN_WIDTH, LAYOUT, clampColumnWidth, columnMaxWidth, findColumnMount, markColumnMount, readColumnWidth, readLayoutPreference, saveColumnWidth, saveLayoutPreference, setModuleMenuOpen, splitterKeyWidth} from '@netresearch/nr-mcp-agent/chat-column.js';
+import {COLUMN_DEFAULT_WIDTH, COLUMN_MIN_WIDTH, LAYOUT, clampColumnWidth, columnMaxWidth, findColumnMount, markColumnMount, readColumnWidth, readLayoutPreference, saveColumnWidth, saveLayoutPreference, readFoldedModuleMenu, saveFoldedModuleMenu, setModuleMenuOpen, splitterKeyWidth} from '@netresearch/nr-mcp-agent/chat-column.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
 import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
@@ -1098,8 +1098,11 @@ export class AiChatPanel extends LitElement {
         // The conversation startConversation() created last (_reusableStart()).
         this._startedUid = null;
         // Whether optimiseAltText() folded the module menu, which then
-        // unfolds when the chat closes (ADR-026).
-        this._foldedModuleMenu = false;
+        // unfolds when the chat closes (ADR-026); kept in the user's settings,
+        // so a chat closed after a reload still unfolds it.
+        this._foldedModuleMenu = readFoldedModuleMenu();
+        // A row whose "Optimieren" came while the proposing turn ran.
+        this._queuedAltText = 0;
         this._restoreState();
     }
 
@@ -2052,10 +2055,19 @@ export class AiChatPanel extends LitElement {
             }
             if (setModuleMenuOpen(globalThis.document, false)) {
                 this._foldedModuleMenu = true;
+                saveFoldedModuleMenu(true);
             }
             await this.chat.ready;
             await this.updateComplete;
 
+            // While the proposing turn runs the image cannot change under it:
+            // the row is queued and taken up when the turn ends.
+            if (this.chat.altText?.reference && this.chat.isProcessing()) {
+                this._queuedAltText = reference;
+                return {ok: true, code: 'queued', error: ''};
+            }
+
+            this._queuedAltText = 0;
             const result = this.chat.altText?.reference
                 ? await this.chat.switchAltText(reference)
                 : await this.chat.startAltText(reference);
@@ -2088,6 +2100,21 @@ export class AiChatPanel extends LitElement {
         }
     }
 
+    /** The turn on the image has ended: take up a row queued meanwhile. */
+    onAltTextIdle() {
+        const reference = this._queuedAltText;
+        if (!reference || this._starting) {
+            return;
+        }
+
+        if (reference !== this.chat.altText?.reference) {
+            this._queuedAltText = 0;
+            void this.optimiseAltText(reference);
+        } else {
+            this._queuedAltText = 0;
+        }
+    }
+
     /** "Nächsten Treffer optimieren" moved the chat to another image. */
     onAltTextTakenUp(result) {
         this._emitAltText('active', {reference: result.reference, tab: result.tab, page: result.page});
@@ -2101,6 +2128,7 @@ export class AiChatPanel extends LitElement {
         }
         if (this._foldedModuleMenu) {
             this._foldedModuleMenu = false;
+            saveFoldedModuleMenu(false);
             setModuleMenuOpen(globalThis.document, true);
         }
     }
