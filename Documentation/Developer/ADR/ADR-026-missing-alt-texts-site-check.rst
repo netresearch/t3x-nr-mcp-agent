@@ -84,9 +84,10 @@ configuration (the specification asked whether this is possible: it is;
 13.4 migrates the older inline FAL fields to type ``file``). Of these, the
 file must be an image (``sys_file.type``). Excluded by default, in
 :confval:`altTextExcludedFields`: ``pages.og_image``,
-``pages.twitter_image`` and ``be_users.avatar`` (no visible image with an
-alt text), and ``pages.nav_icon``: bootstrap_package renders it with its
-icon ViewHelper, which outputs no alt text from the reference. Unlike the
+``pages.twitter_image``, ``be_users.avatar`` and ``backend_layout.icon``
+(no image with an alt text in the frontend), and ``pages.nav_icon``:
+bootstrap_package renders it with its icon ViewHelper, which outputs no
+alt text from the reference. Unlike the
 specification's "pages = content elements and *Medien*", every other image
 field of ``pages`` counts too, ``thumbnail`` among them: bootstrap_package
 renders it through the image partial with the reference's alt text, in

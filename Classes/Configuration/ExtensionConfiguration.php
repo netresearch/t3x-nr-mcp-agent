@@ -22,7 +22,7 @@ class ExtensionConfiguration
     public const DEFAULT_PROCESS_RUN_MAX_ITERATIONS = 12;
 
     /** Image fields the "missing alt texts" check leaves out unless configured otherwise (ADR-026). */
-    public const DEFAULT_ALT_TEXT_EXCLUDED_FIELDS = 'pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar';
+    public const DEFAULT_ALT_TEXT_EXCLUDED_FIELDS = 'pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar,backend_layout.icon';
 
     /** @var array<string, mixed> */
     private array $config;
@@ -283,8 +283,8 @@ class ExtensionConfiguration
      * Image fields, as `table.field`, the "missing alt texts" check leaves out
      * (ADR-026): fields whose images the frontend does not output as an image
      * with an alt text. The default names the page's social-media images, the
-     * navigation icon and the backend user's avatar; a site that sets its own
-     * list replaces the default.
+     * navigation icon, the backend user's avatar and the backend layout's
+     * icon; a site that sets its own list replaces the default.
      *
      * @return list<string>
      */

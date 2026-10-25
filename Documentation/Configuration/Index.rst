@@ -412,13 +412,14 @@ setting. These two settings leave fields and tables out.
 
 ..  confval:: altTextExcludedFields
     :type: string
-    :default: pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar
+    :default: pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar,backend_layout.icon
 
     Image fields that are not checked, as ``table.field``, comma-separated:
     fields whose images the frontend does not output as an image with an
     alt text. The default leaves out the page's social-media images, the
     navigation icon (bootstrap_package renders it as an icon without the
-    alt text) and the backend user's avatar. A value set here replaces the
+    alt text), the backend user's avatar and the backend layout's icon,
+    which only the backend shows. A value set here replaces the
     default, so keep the entries you still want.
 
 Worker mode production setup

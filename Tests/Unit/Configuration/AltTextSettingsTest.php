@@ -44,7 +44,7 @@ final class AltTextSettingsTest extends TestCase
         $config = $this->configured([]);
 
         self::assertSame([], $config->getAltTextExcludedTables());
-        self::assertSame(['pages.og_image', 'pages.twitter_image', 'pages.nav_icon', 'be_users.avatar'], $config->getAltTextExcludedFields());
+        self::assertSame(['pages.og_image', 'pages.twitter_image', 'pages.nav_icon', 'be_users.avatar', 'backend_layout.icon'], $config->getAltTextExcludedFields());
     }
 
     #[Test]
