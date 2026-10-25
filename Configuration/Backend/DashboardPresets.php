@@ -24,13 +24,15 @@ return [
         'iconIdentifier' => 'module-nr-mcp-agent',
         // In the order of the design: the free question on top, then the
         // ways into a page ("Improve a page", "Frequent tasks"), the recent
-        // chats, and the recommendations last.
+        // chats, the recommendations, and the site-wide checks ("Website
+        // prüfen", ADR-026) last.
         'defaultWidgets' => [
             'nrMcpAgentPrompt',
             'nrMcpAgentImprovePage',
             'nrMcpAgentQuickTasks',
             'nrMcpAgentAiChat',
             'nrMcpAgentRecommendations',
+            'nrMcpAgentWebsiteCheck',
         ],
         'showInWizard' => true,
     ],

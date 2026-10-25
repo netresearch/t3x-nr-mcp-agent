@@ -11,11 +11,13 @@ namespace Netresearch\NrMcpAgent\Dashboard;
 
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
+use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextList;
 use Netresearch\NrMcpAgent\Service\Assistant\ChatStartUriBuilder;
 use Netresearch\NrMcpAgent\Service\Assistant\OpenPointReaderInterface;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillResolverInterface;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
+use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Dashboard\Widgets\WidgetConfigurationInterface;
 
 /**
@@ -28,6 +30,10 @@ use TYPO3\CMS\Dashboard\Widgets\WidgetConfigurationInterface;
  * and its skill has a title and resolves (SkillResolverInterface); its
  * summary is model-written text and is rendered escaped. The link starts the
  * resolved skill on the page in the point's language.
+ *
+ * Above the points, a tile for the check of missing alt texts (ADR-026):
+ * how many images lack one, on how many pages and in how many records, and
+ * a link to the list. It is left out while none is open.
  */
 final class RecommendationsWidget extends AbstractAssistantWidget
 {
@@ -53,6 +59,7 @@ final class RecommendationsWidget extends AbstractAssistantWidget
         private readonly SkillLabels $labels,
         private readonly SkillResolverInterface $resolver,
         private readonly ChatStartUriBuilder $chatStart,
+        private readonly ?MissingAltTextList $altTexts = null,
         array $options = [],
     ) {
         parent::__construct($configuration, $backendViewFactory, $options);
@@ -64,12 +71,12 @@ final class RecommendationsWidget extends AbstractAssistantWidget
     }
 
     /**
-     * @return array{available: bool, points: list<array{summary: string, pageTitle: string, skillTitle: string, uri: string}>}
+     * @return array{available: bool, points: list<array{summary: string, pageTitle: string, skillTitle: string, uri: string}>, altTexts: array{count: int, found: string, uri: string}|null}
      */
     public function templateVariables(): array
     {
         if (!$this->chatAccess->checkAccess()) {
-            return ['available' => false, 'points' => []];
+            return ['available' => false, 'points' => [], 'altTexts' => null];
         }
 
         $points = [];
@@ -92,6 +99,42 @@ final class RecommendationsWidget extends AbstractAssistantWidget
             }
         }
 
-        return ['available' => true, 'points' => $points];
+        return ['available' => true, 'points' => $points, 'altTexts' => $this->altTextTile()];
+    }
+
+    /**
+     * The alt-text tile, or null when no image lacks one.
+     *
+     * @return array{count: int, found: string, uri: string}|null
+     */
+    private function altTextTile(): ?array
+    {
+        $summary = $this->altTexts?->summary();
+        if ($this->altTexts === null || $summary === null || $summary['count'] === 0) {
+            return null;
+        }
+
+        $parts = [];
+        if ($summary['pages'] > 0) {
+            $parts[] = $summary['pages'] === 1 ? $this->label('altTexts.onPage') : sprintf($this->label('altTexts.onPages'), $summary['pages']);
+        }
+
+        if ($summary['records'] > 0) {
+            $parts[] = $summary['records'] === 1 ? $this->label('altTexts.inRecord') : sprintf($this->label('altTexts.inRecords'), $summary['records']);
+        }
+
+        $found = count($parts) === 2
+            ? sprintf($this->label('altTexts.foundBoth'), $parts[0], $parts[1])
+            : sprintf($this->label('altTexts.foundOne'), $parts[0] ?? '');
+
+        return ['count' => $summary['count'], 'found' => $found, 'uri' => $this->altTexts->uri()];
+    }
+
+    private function label(string $key): string
+    {
+        $language = $GLOBALS['LANG'] ?? null;
+        $label    = $language instanceof LanguageService ? $language->sL('LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:' . $key) : '';
+
+        return $label !== '' ? $label : $key;
     }
 }

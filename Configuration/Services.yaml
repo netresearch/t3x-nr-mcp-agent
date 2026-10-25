@@ -39,6 +39,9 @@ services:
   Netresearch\NrMcpAgent\Controller\ChatApiController:
     public: true
 
+  Netresearch\NrMcpAgent\Controller\MissingAltTextsController:
+    public: true
+
   # Processor: chosen by the extension setting processingStrategy (exec | worker)
   Netresearch\NrMcpAgent\Service\ChatProcessorInterface:
     factory: ['@Netresearch\NrMcpAgent\Service\ChatProcessorFactory', 'create']

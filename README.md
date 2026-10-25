@@ -32,6 +32,9 @@ Backend users manage content through natural language.
 - **Markdown rendering** -- LLM responses are rendered as rich Markdown (headings,
   lists, code blocks, tables) using vendored [marked.js](https://marked.js.org/) v15
   and [DOMPurify](https://github.com/cure53/DOMPurify) v3. No build step required.
+- **Missing alt texts** -- A list in the chat module of every image without an
+  alt text the editor may fix, across pages and records, reached from the
+  dashboard widgets "Check website" and "Recommended for your website".
 - **Decorative images** -- A "Decorative image" checkbox on each use of an
   image; fluid_styled_content then outputs it with `alt=""` (with its static
   template right away, with site sets or an `@import` once the extension's

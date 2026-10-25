@@ -149,7 +149,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     public function theWidgetsAreRegisteredInTheirGroupAndPreset(): void
     {
         $widgets = $this->get(WidgetRegistry::class)->getAllWidgets();
-        foreach (['nrMcpAgentPrompt', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentRecommendations', 'nrMcpAgentAiChat'] as $identifier) {
+        foreach (['nrMcpAgentPrompt', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentRecommendations', 'nrMcpAgentWebsiteCheck', 'nrMcpAgentAiChat'] as $identifier) {
             self::assertArrayHasKey($identifier, $widgets);
         }
 
@@ -163,7 +163,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
             $presets['nrMcpAgent']->getDefaultWidgets(),
         );
         self::assertSame(
-            ['nrMcpAgentPrompt', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentAiChat', 'nrMcpAgentRecommendations'],
+            ['nrMcpAgentPrompt', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentAiChat', 'nrMcpAgentRecommendations', 'nrMcpAgentWebsiteCheck'],
             $defaultWidgets,
         );
         self::assertTrue($presets['nrMcpAgent']->isShowInWizard());

@@ -12,6 +12,7 @@ use Netresearch\NrMcpAgent\Dashboard\ImprovePageWidget;
 use Netresearch\NrMcpAgent\Dashboard\PromptWidget;
 use Netresearch\NrMcpAgent\Dashboard\QuickTasksWidget;
 use Netresearch\NrMcpAgent\Dashboard\RecommendationsWidget;
+use Netresearch\NrMcpAgent\Dashboard\WebsiteCheckWidget;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Dashboard\WidgetRegistry;
 
@@ -52,6 +53,7 @@ return static function (ContainerConfigurator $configurator): void {
         'nrMcpAgentImprovePage'     => [ImprovePageWidget::class, 'improve', 'medium', 'small'],
         'nrMcpAgentQuickTasks'      => [QuickTasksWidget::class, 'tasks', 'medium', 'small'],
         'nrMcpAgentRecommendations' => [RecommendationsWidget::class, 'recommendations', 'medium', 'medium'],
+        'nrMcpAgentWebsiteCheck'    => [WebsiteCheckWidget::class, 'websiteCheck', 'small', 'small'],
     ];
     foreach ($assistantWidgets as $identifier => [$class, $labelPrefix, $height, $width]) {
         $configurator->services()

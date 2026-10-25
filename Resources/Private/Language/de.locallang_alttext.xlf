@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages" date="2026-10-25T00:00:00Z" product-name="nr_mcp_agent">
+        <body>
+            <trans-unit id="module.title" resname="module.title">
+                <source>Missing alt texts</source>
+                <target>Fehlende Alt-Texte</target>
+            </trans-unit>
+            <trans-unit id="breadcrumb.label" resname="breadcrumb.label">
+                <source>Breadcrumb</source>
+                <target>Brotkrumen-Navigation</target>
+            </trans-unit>
+            <trans-unit id="breadcrumb.assistant" resname="breadcrumb.assistant">
+                <source>AI Assistant</source>
+                <target>KI-Assistent</target>
+            </trans-unit>
+            <trans-unit id="breadcrumb.check" resname="breadcrumb.check">
+                <source>Check website</source>
+                <target>Website prüfen</target>
+            </trans-unit>
+            <trans-unit id="breadcrumb.missingAltTexts" resname="breadcrumb.missingAltTexts">
+                <source>Missing alt texts</source>
+                <target>Fehlende Alt-Texte</target>
+            </trans-unit>
+            <trans-unit id="title.none" resname="title.none">
+                <source>Missing alt texts</source>
+                <target>Fehlende Alt-Texte</target>
+            </trans-unit>
+            <trans-unit id="title.one" resname="title.one">
+                <source>1 missing alt text</source>
+                <target>1 fehlender Alt-Text</target>
+            </trans-unit>
+            <trans-unit id="title.other" resname="title.other">
+                <source>%d missing alt texts</source>
+                <target>%d fehlende Alt-Texte</target>
+            </trans-unit>
+            <trans-unit id="subtitle" resname="subtitle">
+                <source>Images that are currently used without a suitable alternative text.</source>
+                <target>Bilder, die aktuell ohne passenden Alternativtext verwendet werden.</target>
+            </trans-unit>
+            <trans-unit id="info" resname="info">
+                <source>An alt text has to fit the context the image is used in. The same image may therefore need different alt texts on different pages. Purely decorative images such as patterns or ornaments need no alt text. Mark them as decorative, and screen readers skip them.</source>
+                <target>Ein Alt-Text muss zum Kontext passen, in dem das Bild eingebunden ist. Dasselbe Bild kann deshalb auf verschiedenen Seiten unterschiedliche Alt-Texte brauchen. Rein dekorative Bilder wie Muster oder Schmuckgrafiken brauchen keinen Alt-Text. Markiere sie als dekorativ, dann werden sie von Screenreadern übersprungen.</target>
+            </trans-unit>
+            <trans-unit id="tabs.label" resname="tabs.label">
+                <source>Hits by origin</source>
+                <target>Treffer nach Herkunft</target>
+            </trans-unit>
+            <trans-unit id="tab.pages" resname="tab.pages">
+                <source>Pages</source>
+                <target>Seiten</target>
+            </trans-unit>
+            <trans-unit id="tab.count" resname="tab.count">
+                <source>%d open</source>
+                <target>%d offen</target>
+            </trans-unit>
+            <trans-unit id="column.image" resname="column.image">
+                <source>Image</source>
+                <target>Bild</target>
+            </trans-unit>
+            <trans-unit id="column.file" resname="column.file">
+                <source>File</source>
+                <target>Datei</target>
+            </trans-unit>
+            <trans-unit id="column.element" resname="column.element">
+                <source>Content element</source>
+                <target>Content-Element</target>
+            </trans-unit>
+            <trans-unit id="column.field" resname="column.field">
+                <source>Field</source>
+                <target>Feld</target>
+            </trans-unit>
+            <trans-unit id="column.language" resname="column.language">
+                <source>Language</source>
+                <target>Sprache</target>
+            </trans-unit>
+            <trans-unit id="column.actions" resname="column.actions">
+                <source>Actions</source>
+                <target>Aktionen</target>
+            </trans-unit>
+            <trans-unit id="table.caption" resname="table.caption">
+                <source>Images without alt text in %s</source>
+                <target>Bilder ohne Alt-Text in %s</target>
+            </trans-unit>
+            <trans-unit id="group.folder" resname="group.folder">
+                <source>Folder %s</source>
+                <target>Ordner %s</target>
+            </trans-unit>
+            <trans-unit id="element.withHeader" resname="element.withHeader">
+                <source>%1$s – “%2$s”</source>
+                <target>%1$s – „%2$s“</target>
+            </trans-unit>
+            <trans-unit id="element.unknownType" resname="element.unknownType">
+                <source>Content element</source>
+                <target>Content-Element</target>
+            </trans-unit>
+            <trans-unit id="element.pageProperty" resname="element.pageProperty">
+                <source>Page properties: %s</source>
+                <target>Seiteneigenschaften: %s</target>
+            </trans-unit>
+            <trans-unit id="field.unknown" resname="field.unknown">
+                <source>Image</source>
+                <target>Bild</target>
+            </trans-unit>
+            <trans-unit id="hidden.hint" resname="hidden.hint">
+                <source>Currently not visible · %s</source>
+                <target>Aktuell nicht sichtbar · %s</target>
+            </trans-unit>
+            <trans-unit id="hidden.explanation" resname="hidden.explanation">
+                <source>The image is not shown in the frontend at the moment. The alt text is still needed as soon as the content is visible again.</source>
+                <target>Das Bild wird im Frontend derzeit nicht angezeigt. Der Alt-Text wird trotzdem gebraucht, sobald der Inhalt wieder sichtbar ist.</target>
+            </trans-unit>
+            <trans-unit id="hidden.page" resname="hidden.page">
+                <source>Page hidden</source>
+                <target>Seite ausgeblendet</target>
+            </trans-unit>
+            <trans-unit id="hidden.parentPage" resname="hidden.parentPage">
+                <source>Parent page hidden</source>
+                <target>Übergeordnete Seite ausgeblendet</target>
+            </trans-unit>
+            <trans-unit id="hidden.element" resname="hidden.element">
+                <source>Element hidden</source>
+                <target>Element ausgeblendet</target>
+            </trans-unit>
+            <trans-unit id="hidden.record" resname="hidden.record">
+                <source>Record hidden</source>
+                <target>Datensatz ausgeblendet</target>
+            </trans-unit>
+            <trans-unit id="hidden.scheduled" resname="hidden.scheduled">
+                <source>Visible from %s</source>
+                <target>Sichtbar ab %s</target>
+            </trans-unit>
+            <trans-unit id="hidden.expired" resname="hidden.expired">
+                <source>Expired since %s</source>
+                <target>Abgelaufen seit %s</target>
+            </trans-unit>
+            <trans-unit id="hidden.image" resname="hidden.image">
+                <source>Image hidden</source>
+                <target>Bild ausgeblendet</target>
+            </trans-unit>
+            <trans-unit id="action.openPage" resname="action.openPage">
+                <source>Open page</source>
+                <target>Seite öffnen</target>
+            </trans-unit>
+            <trans-unit id="action.openDetail" resname="action.openDetail">
+                <source>Open detail page</source>
+                <target>Detailseite öffnen</target>
+            </trans-unit>
+            <trans-unit id="action.context" resname="action.context">
+                <source>%s, opens in a new tab</source>
+                <target>%s, öffnet in neuem Tab</target>
+            </trans-unit>
+            <trans-unit id="empty.all" resname="empty.all">
+                <source>All images have an alt text or are marked as decorative.</source>
+                <target>Alle Bilder haben einen Alt-Text oder sind als dekorativ markiert.</target>
+            </trans-unit>
+            <trans-unit id="empty.tab" resname="empty.tab">
+                <source>No open hits in %s.</source>
+                <target>Keine offenen Treffer in %s.</target>
+            </trans-unit>
+            <trans-unit id="pagination.label" resname="pagination.label">
+                <source>Pages of the list for %s</source>
+                <target>Seiten der Liste für %s</target>
+            </trans-unit>
+            <trans-unit id="pagination.status" resname="pagination.status">
+                <source>Page %1$d of %2$d</source>
+                <target>Seite %1$d von %2$d</target>
+            </trans-unit>
+            <trans-unit id="pagination.previous" resname="pagination.previous">
+                <source>Previous</source>
+                <target>Zurück</target>
+            </trans-unit>
+            <trans-unit id="pagination.next" resname="pagination.next">
+                <source>Next</source>
+                <target>Weiter</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

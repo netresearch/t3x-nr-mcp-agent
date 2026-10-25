@@ -1,0 +1,20 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<f:layout name="Widget/Widget" />
+<f:section name="main">
+    <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
+    <f:if condition="{available}">
+        <f:then>
+            <ul class="list-unstyled nr-mcp-agent-website-check">
+                <f:for each="{checks}" as="check">
+                    <li class="mb-2"><a href="{check.uri}">{f:translate(key: '{ll}{check.label}')}</a></li>
+                </f:for>
+            </ul>
+        </f:then>
+        <f:else>
+            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+        </f:else>
+    </f:if>
+</f:section>

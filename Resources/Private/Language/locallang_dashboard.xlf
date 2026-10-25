@@ -112,6 +112,42 @@
             <trans-unit id="skill.inhalt-verbessern.description" resname="skill.inhalt-verbessern.description">
                 <source>Check the texts of the page for clarity, structure and spelling, and improve them.</source>
             </trans-unit>
+            <trans-unit id="websiteCheck.title" resname="websiteCheck.title">
+                <source>Check website</source>
+            </trans-unit>
+            <trans-unit id="websiteCheck.description" resname="websiteCheck.description">
+                <source>Site-wide checks of your website, such as images without an alt text.</source>
+            </trans-unit>
+            <trans-unit id="websiteCheck.altTexts" resname="websiteCheck.altTexts">
+                <source>Missing alt texts</source>
+            </trans-unit>
+            <trans-unit id="altTexts.label" resname="altTexts.label">
+                <source>Images without alt text</source>
+            </trans-unit>
+            <trans-unit id="altTexts.onPage" resname="altTexts.onPage">
+                <source>on 1 page</source>
+            </trans-unit>
+            <trans-unit id="altTexts.onPages" resname="altTexts.onPages">
+                <source>on %d pages</source>
+            </trans-unit>
+            <trans-unit id="altTexts.inRecord" resname="altTexts.inRecord">
+                <source>in 1 record</source>
+            </trans-unit>
+            <trans-unit id="altTexts.inRecords" resname="altTexts.inRecords">
+                <source>in %d records</source>
+            </trans-unit>
+            <trans-unit id="altTexts.foundBoth" resname="altTexts.foundBoth">
+                <source>Found %1$s and %2$s</source>
+            </trans-unit>
+            <trans-unit id="altTexts.foundOne" resname="altTexts.foundOne">
+                <source>Found %s</source>
+            </trans-unit>
+            <trans-unit id="altTexts.view" resname="altTexts.view">
+                <source>View</source>
+            </trans-unit>
+            <trans-unit id="altTexts.viewName" resname="altTexts.viewName">
+                <source>View: images without alt text</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

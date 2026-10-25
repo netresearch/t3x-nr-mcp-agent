@@ -128,7 +128,7 @@ final class AssistantWidgetsTest extends TestCase
             ['available' => false, 'tasks' => [], 'pages' => [], 'form' => null, 'idPrefix' => ''],
             $this->tasks(false, $tasks, $pages)->templateVariables(),
         );
-        self::assertSame(['available' => false, 'points' => []], $this->recommendations(false, $reader, $pages)->templateVariables());
+        self::assertSame(['available' => false, 'points' => [], 'altTexts' => null], $this->recommendations(false, $reader, $pages)->templateVariables());
         self::assertSame(['available' => false, 'form' => null, 'idPrefix' => ''], $this->prompt(false)->templateVariables());
     }
 
