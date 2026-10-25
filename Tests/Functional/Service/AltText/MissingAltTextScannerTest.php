@@ -36,7 +36,8 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  * Users: 1 admin; 2 an editor with every right the check asks for, mounted
  * on "Wurzel" (1) and allowed the default language only; 3–6 the same editor
  * missing one right each (the article tables, the reference's alternative
- * text, the article image field, sys_file_reference).
+ * text, the article image field, sys_file_reference); 7 an editor allowed
+ * one content element type only.
  */
 final class MissingAltTextScannerTest extends FunctionalTestCase
 {
@@ -149,7 +150,7 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         $uids = $this->referenceUids($this->scanAs(1));
         sort($uids);
 
-        self::assertSame([1, 2, 4, 7, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 27, 28, 29, 30, 31, 32, 34, 35, 37, 39, 40, 41, 42, 45, 46, 47, 48, 49, 50, 51, 52, 54], $uids);
+        self::assertSame([1, 2, 4, 7, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 27, 28, 29, 30, 31, 32, 34, 35, 37, 39, 40, 41, 42, 45, 46, 47, 48, 49, 50, 51, 52, 54, 55], $uids);
     }
 
     /** The editor's list in list order: page tree, content order, then the records by folder and title. */
@@ -171,6 +172,9 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         yield 'a page outside the web mounts' => [2, 10, 16];
         yield 'a page without "edit content"' => [2, 10, 17];
         yield 'a page property on a page with "edit content" but not "edit page"' => [2, 47, 46];
+        // The tool that writes the text asks both: the DataHandler, writing
+        // the reference alone, asks "edit content" on its page.
+        yield 'a page property on a page with "edit page" but not "edit content"' => [2, 25, 55];
         yield 'a record in a folder without "edit content"' => [2, 28, 49];
         yield 'a page locked for editing' => [2, 10, 18];
         yield 'a content element locked for editing' => [2, 10, 23];
@@ -185,6 +189,10 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         yield 'a content element inside such a record' => [3, 10, 30];
         yield 'a child table the editor may not modify' => [3, 10, 27];
         yield 'an image field that is an excluded field and not granted' => [5, 40, 28];
+        // The content type is a value the editor may be allowed or not
+        // (authMode, explicit_allowdeny), which the alt text writer asks of
+        // the element; user 7 may edit "Text & Images" elements only.
+        yield 'a content element of a type the editor may not edit' => [7, 1, 10];
     }
 
     #[Test]

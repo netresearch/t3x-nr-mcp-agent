@@ -30,11 +30,13 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  *
  * A hit is kept only when the user may change the reference's alt text, the
  * same conditions DataHandler applies:
- * - the page passes readPageAccess() with "edit page" for a page property and
- *   "edit content" for everything else (records: the folder they lie in);
- *   that covers the web mounts;
+ * - the page passes readPageAccess() with "edit content", and for a page
+ *   property "edit page" as well (records: the folder they lie in); that
+ *   covers the web mounts;
  * - neither the page nor a record on the way is locked for editing;
- * - every table on the way, and sys_file_reference, may be modified;
+ * - every table on the way, and sys_file_reference, may be modified, and
+ *   the values of each record's authMode fields (the content type) are
+ *   allowed;
  * - the image field, every inline field on the way and the reference's
  *   "Alternative text" are not excluded fields, or are granted;
  * - the user may edit the reference's language and each record's.
@@ -270,8 +272,12 @@ class MissingAltTextScanner
             }
         }
 
-        $pageUid    = $this->pageUidOf($top);
-        $permission = $top['table'] === 'pages' ? Permission::PAGE_EDIT : Permission::CONTENT_EDIT;
+        $pageUid = $this->pageUidOf($top);
+        // An image of the page itself needs both: the form edits it as a page
+        // property ("edit page"), and the DataHandler, writing the reference
+        // row alone, asks "edit content" on its page (it asks "edit page" only
+        // with `pages` in the same datamap).
+        $permission = $top['table'] === 'pages' ? Permission::PAGE_EDIT | Permission::CONTENT_EDIT : Permission::CONTENT_EDIT;
         $page       = $this->editablePage($user, $pageUid, $permission);
         if ($page === null || !$this->mayEdit($user, $reference, $chain)) {
             return null;
@@ -348,6 +354,34 @@ class MissingAltTextScanner
 
             $editlock = is_string($ctrl['editlock'] ?? null) ? $ctrl['editlock'] : '';
             if ($editlock !== '' && $this->int($link['row'][$editlock] ?? 0) !== 0) {
+                return false;
+            }
+
+            if (!$this->mayUseValues($user, $table, $link['row'])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The values of the record's `authMode` fields, the content type above
+     * all, are ones the user is allowed (explicit_allowdeny), as nr-llm's
+     * alt text writer asks it of the record before its card.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function mayUseValues(BackendUserAuthentication $user, string $table, array $row): bool
+    {
+        $columns = $this->tableConfig($table)['columns'] ?? null;
+        foreach (is_array($columns) ? $columns : [] as $name => $column) {
+            $config = is_array($column) ? ($column['config'] ?? null) : null;
+            if (!is_array($config) || ($config['type'] ?? null) !== 'select' || !(bool) ($config['authMode'] ?? false)) {
+                continue;
+            }
+
+            if (array_key_exists($name, $row) && !$user->checkAuthMode($table, $name, $this->string($row[$name]))) {
                 return false;
             }
         }

@@ -170,17 +170,28 @@ the page has no translation gets no reason, although the frontend may not
 show it.
 
 **Permissions.** A hit is kept only when the user may change the
-reference, as DataHandler would allow it: ``readPageAccess()`` with *edit
-page* for a page property and *edit content* otherwise (records: their
-folder), which includes the web mounts; no ``editlock`` on the page or a
-record on the way (admins excepted); ``tables_modify`` for every table on
-the way and for ``sys_file_reference``; the image field, the inline fields
-on the way and ``sys_file_reference.alternative`` granted where they are
-exclude fields; the language of the reference and of each record. The
-same filter feeds the list, its tabs and the dashboard number. Not
-enforced in this slice: per-value access to the content type
-(``explicit_allowdeny``) and access checks extensions add to DataHandler
-through hooks; DataHandler still applies both when slice 2 writes.
+reference, as nr-llm's writer asks it before its card (nr-llm ADR-230):
+``readPageAccess()`` with *edit content*, and for a page property *edit
+page* as well (records: their folder), which includes the web mounts; no
+``editlock`` on the page or a record on the way (admins excepted);
+``tables_modify`` for every table on the way and for
+``sys_file_reference``; the values of each record's ``authMode`` fields,
+the content type above all (``explicit_allowdeny``); the image field, the
+inline fields on the way and ``sys_file_reference.alternative`` granted
+where they are exclude fields; the language of the reference and of each
+record. A page property needs both page rights because the form edits it
+as a page property, while the DataHandler, writing the reference row
+alone, asks *edit content* on its page and *edit page* only with ``pages``
+in the same datamap. The same filter feeds the list, its tabs and the
+dashboard number.
+
+The DataHandler does not repeat these checks for the records the
+reference hangs on: writing ``sys_file_reference`` alone, it checks that
+row, its page and its table, field and language rights, not the record it
+belongs to, and for an inline child not the outer content element either.
+So nr-llm's writer asks the record's rights itself before its card
+(nr-llm ADR-230), and the list asks the same. Not enforced anywhere before the write: access checks extensions add
+to DataHandler through hooks.
 
 **Workspaces.** In a workspace each row is overlaid with its workspace
 version: an alt text or mark set there, a file list text set there, and a
