@@ -1,0 +1,15 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" data-namespace-typo3-fluid="true">
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+    fluid_styled_content's Media/Rendering/Image partial (identical in 13.4 and
+    14.3) with one addition: a reference marked as decorative (ADR-026) is
+    output with alt="". f:media treats an empty alt as missing and falls back
+    to the file's alternative text; f:image keeps an explicit alt="".
+</f:comment>
+<f:if condition="{file.properties.tx_nrmcpagent_decorative}">
+<f:then><f:image class="image-embed-item" image="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="" title="{file.title}" loading="{settings.media.lazyLoading}" decoding="{settings.media.imageDecoding}" /></f:then>
+<f:else><f:media class="image-embed-item" file="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="{file.alternative}" title="{file.title}" loading="{settings.media.lazyLoading}" decoding="{settings.media.imageDecoding}" /></f:else>
+</f:if>
+</html>

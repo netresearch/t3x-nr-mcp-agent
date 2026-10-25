@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" datatype="plaintext" original="messages" date="2026-10-25T00:00:00Z" product-name="nr_mcp_agent">
+        <body>
+            <trans-unit id="sys_file_reference.tx_nrmcpagent_decorative" resname="sys_file_reference.tx_nrmcpagent_decorative">
+                <source>Decorative image</source>
+            </trans-unit>
+            <trans-unit id="sys_file_reference.tx_nrmcpagent_decorative.description" resname="sys_file_reference.tx_nrmcpagent_decorative.description">
+                <source>For images without a function for the content, such as patterns or ornaments. They get no alt text and are skipped by screen readers.</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

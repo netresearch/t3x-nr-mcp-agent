@@ -62,6 +62,44 @@ ships a wizard and names it in the changelog:
     vendor/bin/typo3 upgrade:list
     vendor/bin/typo3 upgrade:run
 
+.. _installation-decorative-images:
+
+Decorative images in your own templates
+=======================================
+
+An editor can mark an image as decorative (see
+:ref:`usage-decorative-images`). The extension makes
+fluid_styled_content output such an image with an empty ``alt``
+attribute, so screen readers skip it. It does this with its own copy of
+the partial ``Media/Rendering/Image``, added at
+``lib.contentElement.partialRootPaths.5``.
+
+A site package with its own image partial (a path at a higher key, such as
+``styles.templates.partialRootPath`` at 10), and the templates of other
+extensions, for example a news detail view, are not changed. Add the
+condition there yourself. ``f:media`` replaces an empty ``alt`` with the
+file's alternative text, so render the decorative image with ``f:image``:
+
+..  code-block:: html
+
+    <f:if condition="{file.properties.tx_nrmcpagent_decorative}">
+        <f:then>
+            <f:image image="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="" />
+        </f:then>
+        <f:else>
+            <f:media file="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="{file.alternative}" title="{file.title}" />
+        </f:else>
+    </f:if>
+
+``{file}`` is a ``TYPO3\CMS\Core\Resource\FileReference``. In an Extbase
+template the image is usually an Extbase file reference: read the mark with
+``{image.originalResource.properties.tx_nrmcpagent_decorative}`` and pass
+``image="{image}"``.
+
+After uninstalling the extension the field and its values are gone. A
+decorative image has no alt text of its own, so its output stays the same
+unless the file list holds one.
+
 DDEV development setup
 ======================
 
