@@ -217,6 +217,36 @@ describe('a module link that starts a conversation', () => {
         expect(document.createElement('nr-chat-app').initialStartContext()).toBeNull();
     });
 
+    test('a link from "Optimieren" starts a conversation about that image alone, and the URL then names it', async () => {
+        document.body.replaceChildren();
+        await import('../../Resources/Public/JavaScript/chat-app.js');
+        const {ApiClient} = await import('../../Resources/Public/JavaScript/api-client.js');
+        globalThis.history.replaceState(null, '', '/typo3/module/ai-chat?altTextReference=7&pageUid=10&skill=seo-page-tour');
+        const create = jest.spyOn(ApiClient.prototype, 'createConversation').mockResolvedValue({uid: 43});
+        jest.spyOn(ApiClient.prototype, 'getStatus').mockResolvedValue({available: true, issues: []});
+        jest.spyOn(ApiClient.prototype, 'listConversations').mockResolvedValue({conversations: [{uid: 43, title: '', status: 'idle'}]});
+        jest.spyOn(ApiClient.prototype, 'getMessages').mockResolvedValue({status: 'idle', messages: [], totalCount: 0});
+        const el = document.createElement('nr-chat-app');
+
+        expect(el.initialStartContext()).toEqual({altTextReference: 7});
+
+        document.body.append(el);
+        for (let i = 0; i < 20 && el.chat.activeUid !== 43; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+        jest.restoreAllMocks();
+
+        expect(create).toHaveBeenCalledWith({altTextReference: 7});
+        expect(globalThis.location.search).toBe('?conversation=43');
+    });
+
+    test('an image reference that is not a positive number starts none', async () => {
+        await import('../../Resources/Public/JavaScript/chat-app.js');
+        globalThis.history.replaceState(null, '', '/typo3/module/ai-chat?altTextReference=0');
+
+        expect(document.createElement('nr-chat-app').initialStartContext()).toBeNull();
+    });
+
     test('a link without page or skill starts none', async () => {
         await import('../../Resources/Public/JavaScript/chat-app.js');
         globalThis.history.replaceState(null, '', '/typo3/module/ai-chat?pageUid=abc');

@@ -225,3 +225,42 @@ export function attachPanel(panel, doc, storage = Persistent) {
     panel.layout = mount ? LAYOUT.COLUMN : LAYOUT.FLOATING;
     doc.body.append(panel);
 }
+
+/**
+ * The backend's module menu, by shape, as the column itself is found: the
+ * scaffold's class while the menu is open, and the control that opens and
+ * closes it. 14.3 has the sidebar toggle element, 13.4 the top bar button;
+ * neither offers an API another module can call.
+ */
+const MODULE_MENU_SHAPES = Object.freeze([
+    {expanded: 'scaffold-sidebar-expanded', toggle: 'typo3-backend-sidebar-toggle'},
+    {expanded: 'scaffold-modulemenu-expanded', toggle: '.t3js-topbar-button-modulemenu'},
+]);
+
+/**
+ * Fold or unfold the module menu through its own control, so the backend
+ * keeps its state as when the user clicks it (ADR-026: the menu folds while
+ * the chat works beside the list of missing alt texts).
+ *
+ * @param {Document} doc the backend's top document
+ * @param {boolean} open
+ * @returns {boolean} whether the menu changed
+ */
+export function setModuleMenuOpen(doc, open) {
+    const scaffold = doc.querySelector('.t3js-scaffold');
+    if (!scaffold) {
+        return false;
+    }
+    for (const shape of MODULE_MENU_SHAPES) {
+        const toggle = doc.querySelector(shape.toggle);
+        if (!toggle) {
+            continue;
+        }
+        if (scaffold.classList.contains(shape.expanded) === open) {
+            return false;
+        }
+        toggle.click();
+        return scaffold.classList.contains(shape.expanded) === open;
+    }
+    return false;
+}

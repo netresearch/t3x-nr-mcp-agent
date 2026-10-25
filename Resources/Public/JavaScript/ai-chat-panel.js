@@ -10,11 +10,12 @@ import {splitConversationTabs, filterConversations} from '@netresearch/nr-mcp-ag
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_COLUMN, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
-import {COLUMN_DEFAULT_WIDTH, COLUMN_MIN_WIDTH, LAYOUT, clampColumnWidth, columnMaxWidth, findColumnMount, markColumnMount, readColumnWidth, readLayoutPreference, saveColumnWidth, saveLayoutPreference, splitterKeyWidth} from '@netresearch/nr-mcp-agent/chat-column.js';
+import {COLUMN_DEFAULT_WIDTH, COLUMN_MIN_WIDTH, LAYOUT, clampColumnWidth, columnMaxWidth, findColumnMount, markColumnMount, readColumnWidth, readLayoutPreference, saveColumnWidth, saveLayoutPreference, setModuleMenuOpen, splitterKeyWidth} from '@netresearch/nr-mcp-agent/chat-column.js';
 import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat-activity.js';
 import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
+import {chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextContext, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
@@ -82,7 +83,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -1096,6 +1097,9 @@ export class AiChatPanel extends LitElement {
         this._layoutForThisOpening = false;
         // The conversation startConversation() created last (_reusableStart()).
         this._startedUid = null;
+        // Whether optimiseAltText() folded the module menu, which then
+        // unfolds when the chat closes (ADR-026).
+        this._foldedModuleMenu = false;
         this._restoreState();
     }
 
@@ -1980,6 +1984,7 @@ export class AiChatPanel extends LitElement {
             this.state = STATES.HIDDEN;
             this.chat.stopPolling();
             this._backToChosenLayout();
+            this._closeAltText();
         }
         this._saveState();
     }
@@ -2000,6 +2005,116 @@ export class AiChatPanel extends LitElement {
         this.chat.stopPolling();
         this._backToChosenLayout();
         this._saveState();
+        this._closeAltText();
+    }
+
+    // ── The list of missing alt texts (ADR-026) ─────────────────────────
+
+    /**
+     * The image the open chat works on, for the list beside it; 0 when the
+     * chat is closed or on no image.
+     */
+    get activeAltTextReference() {
+        return this.state === STATES.HIDDEN ? 0 : (this.chat.altText?.reference ?? 0);
+    }
+
+    /**
+     * "Optimieren" in the list of missing alt texts: the chat opens as the
+     * column beside the list, for this opening only, the module menu folds,
+     * and the chat works on the image: in the open conversation about an
+     * image, which moves to it ("Treffer gewechselt"), or in a new one. The
+     * keyboard focus goes to the image's card.
+     *
+     * The list learns what happens through the event `nr-mcp-agent:alt-text`
+     * on this element (detail `{version: 1, type, reference, tab?, page?}`):
+     * `active` when the chat is on an image (reference 0: on none), `done`
+     * when it is fixed, `gone` when it was fixed before the chat got to it,
+     * `closed` when the chat closes.
+     *
+     * @param {number} reference the image's sys_file_reference uid
+     * @returns {Promise<{ok: boolean, code: string, error: string}>}
+     */
+    async optimiseAltText(reference) {
+        if (this._starting) {
+            return {ok: false, code: 'busy', error: lll('chat.stillSending')};
+        }
+        this._starting = true;
+        try {
+            await this.chat.ready;
+            if (!this.chat.available) {
+                return {ok: false, code: 'unavailable', error: lll('chat.notAvailable')};
+            }
+            if (this.layout !== LAYOUT.COLUMN) {
+                this.setLayout(LAYOUT.COLUMN, {remember: false});
+            }
+            if (this.state === STATES.HIDDEN || this.state === STATES.COLLAPSED) {
+                this.expand();
+            }
+            if (setModuleMenuOpen(globalThis.document, false)) {
+                this._foldedModuleMenu = true;
+            }
+            await this.chat.ready;
+            await this.updateComplete;
+
+            const result = this.chat.altText?.reference
+                ? await this.chat.switchAltText(reference)
+                : await this.chat.startAltText(reference);
+            if (result.ok) {
+                this._emitAltText('active', {reference, tab: result.tab, page: result.page});
+                this._focusAltTextCard();
+            } else if (result.code === 'done') {
+                this._emitAltText('gone', {reference});
+            }
+            if (!result.ok && !this.chat.activeUid) {
+                // No conversation is open, so its status line is not
+                // rendered: the reason goes into the banner.
+                this.chat.issues = [...this.chat.issues.filter((issue) => issue !== result.error), result.error];
+                this.requestUpdate();
+            }
+            return result;
+        } finally {
+            this._starting = false;
+        }
+    }
+
+    /** The controller's state changed: a fixed image, or another one. */
+    onAltTextChange(previous, state) {
+        if (previous?.reference && previous.reference === state?.reference && previous.open && !state.open) {
+            this._emitAltText('done', {reference: state.reference});
+            return;
+        }
+        if (previous?.reference !== state?.reference && this.state !== STATES.HIDDEN) {
+            this._emitAltText('active', {reference: state?.reference ?? 0});
+        }
+    }
+
+    /** "Nächsten Treffer optimieren" moved the chat to another image. */
+    onAltTextTakenUp(result) {
+        this._emitAltText('active', {reference: result.reference, tab: result.tab, page: result.page});
+        this._focusAltTextCard();
+    }
+
+    _closeAltText() {
+        const reference = this.chat.altText?.reference ?? 0;
+        if (reference) {
+            this._emitAltText('closed', {reference});
+        }
+        if (this._foldedModuleMenu) {
+            this._foldedModuleMenu = false;
+            setModuleMenuOpen(globalThis.document, true);
+        }
+    }
+
+    _emitAltText(type, detail) {
+        this.dispatchEvent(new CustomEvent('nr-mcp-agent:alt-text', {detail: {version: 1, type, ...detail}}));
+    }
+
+    /** Focus the heading of the card of the image the chat is on. */
+    _focusAltTextCard() {
+        void this.updateComplete.then(() => {
+            const cards = this.renderRoot?.querySelectorAll('[data-alt-text-current]') ?? [];
+            cards[cards.length - 1]?.focus();
+        });
     }
 
     /**
@@ -2915,12 +3030,20 @@ export class AiChatPanel extends LitElement {
                     </div>
                 ` : nothing}
                 ${this._renderStatusNotice(isResumable)}
+                ${renderAltTextNext(this.chat)}
             </div>
             ${this._renderInput()}
         `;
     }
 
     _renderMessage(msg, idx) {
+        // The chat's own lines in a conversation about a missing alt text
+        // (ADR-026): the image card, the divider, the confirmations.
+        const altText = renderAltTextMessage(this.chat, msg, idx);
+        if (altText !== null) {
+            return altText;
+        }
+
         const role = msg.role || 'system';
         if (role === 'assistant' && msg.tool_calls && !msg.content) return nothing;
 
@@ -3169,6 +3292,10 @@ export class AiChatPanel extends LitElement {
                     ${this._renderApprovalLink()}
                 </div>
             `;
+        }
+
+        if (isAltTextCard(pending)) {
+            return renderAltTextCard(this.chat, pending);
         }
 
         if (isProposal(pending)) {
@@ -3441,6 +3568,7 @@ export class AiChatPanel extends LitElement {
             ${renderRoundLimit(this.chat)}
             ${renderTourEnd(this.chat)}
             ${renderActiveSkill(this.chat)}
+            ${renderAltTextContext(this.chat)}
             ${renderSlashList(this.chat)}
             ${this._renderFileBadge()}
             <div class="panel-input">

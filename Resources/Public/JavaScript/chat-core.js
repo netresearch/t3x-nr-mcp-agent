@@ -3,6 +3,7 @@
 
 import {ApiClient} from '@netresearch/nr-mcp-agent/api-client.js';
 import {lll} from '@typo3/core/lit-helper.js';
+import {altTextNoticeText} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {ModuleStateStorage} from '@typo3/backend/storage/module-state-storage.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
 import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
@@ -360,6 +361,18 @@ export class ChatCoreController {
     /** Whether the activity list is shown. */
     activityOpen = false;
 
+    /**
+     * The image a conversation about a missing alt text is on (ADR-026):
+     * its reference, whether it is still open, whether another one is.
+     * Null for any other conversation.
+     * @type {{reference: number, open: boolean, next: boolean}|null}
+     */
+    altText = null;
+    /** True while one of the chat's own answers on the image is on its way. */
+    altTextBusy = false;
+    /** The warning before an image of a section or a record is marked decorative; '' otherwise. */
+    altTextConfirm = '';
+
     /** Index of the user message being edited, or -1. */
     editingIndex = -1;
     editDraft = '';
@@ -495,6 +508,8 @@ export class ChatCoreController {
         this.highlightAnnounced = '';
         this.pendingInput = null;
         this.skill = null;
+        this._setAltText(null);
+        this.altTextConfirm = '';
         this.slashOpen = false;
         this.systemPrompt = '';
         this.systemPromptOpen = false;
@@ -649,6 +664,7 @@ export class ChatCoreController {
             this.skill = data.skill || null;
             this.activity = data.activity || [];
             this.pageGone = data.pageGone === true;
+            this._setAltText(data.altText ?? null);
             if (data.pendingApproval) {
                 // The decision was refused and the run handed back: what is on
                 // screen is a question again, not a confirmation.
@@ -735,6 +751,9 @@ export class ChatCoreController {
                 }
                 if ('dashboardUrl' in data) {
                     this.dashboardUrl = data.dashboardUrl || '';
+                }
+                if ('altText' in data) {
+                    this._setAltText(data.altText ?? null);
                 }
                 this.pendingInput = data.pendingInput || null;
                 this._knownMessageCount = data.totalCount;
@@ -1077,6 +1096,137 @@ export class ChatCoreController {
             this.errorMessage = e.message;
             this.host.requestUpdate();
             return null;
+        }
+    }
+
+    // ── A missing alt text (ADR-026) ──────────────────────────────────
+
+    /**
+     * Take up the image state of the server's answer and tell the host,
+     * which tells the list of missing alt texts beside it.
+     *
+     * @param {{reference: number, open: boolean, next: boolean}|null} state
+     */
+    _setAltText(state) {
+        const previous = this.altText;
+        this.altText = state;
+        if (previous?.reference !== state?.reference || previous?.open !== state?.open) {
+            this.host.onAltTextChange?.(previous, state);
+        }
+    }
+
+    /**
+     * Start a conversation about one image of the list.
+     *
+     * @param {number} reference the image's sys_file_reference uid
+     * @returns {Promise<{ok: boolean, code: string, error: string}>}
+     */
+    async startAltText(reference) {
+        try {
+            const data = await this._api.createConversation({altTextReference: reference});
+            await this.loadConversations();
+            await this.selectConversation(data.uid);
+            return {ok: true, code: '', error: ''};
+        } catch (e) {
+            return {ok: false, code: e.code ?? '', error: e.message};
+        }
+    }
+
+    /**
+     * Move the conversation to another image, or to the next open one when
+     * no reference is given ("Nächsten Treffer optimieren").
+     *
+     * @param {number|null} reference
+     * @returns {Promise<{ok: boolean, code: string, error: string, tab?: string, page?: number, reference?: number}>}
+     */
+    async switchAltText(reference = null) {
+        const uid = this.activeUid;
+        if (!uid || this.altTextBusy) {
+            return {ok: false, code: 'busy', error: lll('chat.stillSending')};
+        }
+
+        this.altTextBusy = true;
+        this.altTextConfirm = '';
+        this.host.requestUpdate();
+        try {
+            const data = reference === null ? await this._api.nextAltText(uid) : await this._api.switchAltText(uid, reference);
+            if (uid === this.activeUid) {
+                this.errorMessage = '';
+                this.pendingApproval = null;
+                await this.loadMessages();
+                this.startPollingIfNeeded();
+            }
+            return {ok: true, code: '', error: '', ...data};
+        } catch (e) {
+            if (uid === this.activeUid) {
+                this.errorMessage = e.message;
+            }
+            return {ok: false, code: e.code ?? '', error: e.message};
+        } finally {
+            this.altTextBusy = false;
+            this.host.requestUpdate();
+        }
+    }
+
+    /** "Nächsten Treffer optimieren"; the host learns the new image from the state. */
+    async nextAltText() {
+        const result = await this.switchAltText(null);
+        if (result.ok) {
+            this.host.onAltTextTakenUp?.(result);
+        }
+        return result;
+    }
+
+    /** "Überspringen": nothing is saved, the proposal is withdrawn. */
+    async skipAltText() {
+        await this._altTextAction((uid) => this._api.skipAltText(uid));
+    }
+
+    /**
+     * "Als dekorativ markieren". For an image of a section or a record the
+     * server answers with the warning first; the editor confirms it.
+     *
+     * @param {boolean} confirmed
+     */
+    async markAltTextDecorative(confirmed) {
+        await this._altTextAction(async (uid) => {
+            const data = await this._api.markAltTextDecorative(uid, confirmed);
+            this.altTextConfirm = typeof data.confirm === 'string' ? data.confirm : '';
+            return data;
+        });
+    }
+
+    /** "Doch Alt-Text verwenden": the warning goes, the proposal stays. */
+    cancelAltTextDecorative() {
+        this.altTextConfirm = '';
+        this.host.requestUpdate();
+    }
+
+    async _altTextAction(request) {
+        const uid = this.activeUid;
+        if (!uid || this.altTextBusy) {
+            return;
+        }
+
+        this.altTextBusy = true;
+        this.host.requestUpdate();
+        try {
+            await request(uid);
+            if (uid === this.activeUid && !this.altTextConfirm) {
+                this.errorMessage = '';
+                await this.loadMessages();
+            }
+        } catch (e) {
+            if (uid === this.activeUid) {
+                this.altTextConfirm = '';
+                this.errorMessage = e.message;
+                if (e.code === 'done') {
+                    await this.loadMessages();
+                }
+            }
+        } finally {
+            this.altTextBusy = false;
+            this.host.requestUpdate();
         }
     }
 
@@ -1649,7 +1799,7 @@ export class ChatCoreController {
             if (msg.fileName) {
                 parts.push(`*${lll('export.attachment')}: ${msg.fileName}*`);
             }
-            parts.push((this.formatRunNotice(msg) ?? this._extractText(msg)).trim());
+            parts.push((altTextNoticeText(msg) ?? this.formatRunNotice(msg) ?? this._extractText(msg)).trim());
         }
 
         return parts.join('\n\n') + '\n';
