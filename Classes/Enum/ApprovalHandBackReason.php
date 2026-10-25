@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Enum;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -36,6 +37,12 @@ enum ApprovalHandBackReason: string
 
     /** The reader is not allowed to decide this run. */
     case ApproverNotPermitted = 'handBack.approverNotPermitted';
+
+    /**
+     * An administrator switched the pending tool off while the run waited. Not
+     * the reader's permissions: nobody can approve it until the tool is on again.
+     */
+    case ToolDisabled = 'handBack.toolDisabled';
 
     /** The run's LLM configuration was deactivated while it waited. */
     case ConfigurationInactive = 'handBack.configurationInactive';
@@ -71,11 +78,39 @@ enum ApprovalHandBackReason: string
         return match (true) {
             $e instanceof StaleApprovalTurnException        => self::StaleTurn,
             $e instanceof RunAlreadyResumingException       => self::AlreadyResuming,
-            $e instanceof ApproverNotPermittedException     => self::ApproverNotPermitted,
+            $e instanceof ApproverNotPermittedException     => self::forApproverRefusal(self::denialReasonOf($e)),
             $e instanceof RunConfigurationInactiveException => self::ConfigurationInactive,
             $e instanceof SelfApprovalDeniedException       => self::SecondApproverRequired,
             default                                         => self::NotAwaitingApproval,
         };
+    }
+
+    /**
+     * The approver gate's refusal, by the tool policy's reason: a switched-off
+     * tool gets its own sentence, every other reason — and no reason at all —
+     * the permissions sentence.
+     */
+    public static function forApproverRefusal(?ToolDenialReason $reason): self
+    {
+        return $reason === ToolDenialReason::TOOL_DISABLED ? self::ToolDisabled : self::ApproverNotPermitted;
+    }
+
+    /**
+     * The tool policy's reason behind an approver refusal, or null where nr-llm
+     * does not say. nr-llm exposes it as getDenialReason() from the release
+     * that ships t3x-nr-llm#1179; 0.41.x carries the reason only in the
+     * message, which is not parsed. Duck-typed on `object` so the check holds
+     * against both versions without a version switch.
+     */
+    public static function denialReasonOf(object $refusal): ?ToolDenialReason
+    {
+        if (!method_exists($refusal, 'getDenialReason')) {
+            return null;
+        }
+
+        $reason = $refusal->getDenialReason();
+
+        return $reason instanceof ToolDenialReason ? $reason : null;
     }
 
     /**

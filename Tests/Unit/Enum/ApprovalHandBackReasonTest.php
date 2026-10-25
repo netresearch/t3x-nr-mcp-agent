@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Enum;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -18,6 +20,7 @@ use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -43,6 +46,100 @@ final class ApprovalHandBackReasonTest extends TestCase
     public function eachExceptionMapsToItsReason(StaleApprovalTurnException|RunAlreadyResumingException|ApproverNotPermittedException|RunConfigurationInactiveException|RunNotAwaitingApprovalException $e, ApprovalHandBackReason $expected): void
     {
         self::assertSame($expected, ApprovalHandBackReason::fromException($e));
+    }
+
+    /**
+     * nr-llm 0.41.x does not say why the approver was refused: every refusal
+     * keeps the permissions sentence, as before.
+     */
+    #[Test]
+    public function aRefusalWithoutADenialReasonKeepsThePermissionsSentence(): void
+    {
+        $refusal = new ApproverNotPermittedException('run-1', 'denied');
+
+        self::assertNull(ApprovalHandBackReason::denialReasonOf($refusal));
+        self::assertSame(ApprovalHandBackReason::ApproverNotPermitted, ApprovalHandBackReason::fromException($refusal));
+    }
+
+    /**
+     * The nr-llm release with getDenialReason() (t3x-nr-llm#1179): the reason
+     * is read through the method. The exception is final, so a stand-in with
+     * the same method proves the bridge on 0.41.x as well.
+     */
+    #[Test]
+    public function theDenialReasonIsReadWhereNrLlmExposesIt(): void
+    {
+        $refusal = new class {
+            public function getDenialReason(): ToolDenialReason
+            {
+                return ToolDenialReason::TOOL_DISABLED;
+            }
+        };
+
+        self::assertSame(ToolDenialReason::TOOL_DISABLED, ApprovalHandBackReason::denialReasonOf($refusal));
+    }
+
+    #[Test]
+    public function aValueThatIsNoDenialReasonCountsAsNone(): void
+    {
+        $refusal = new class {
+            public function getDenialReason(): string
+            {
+                return 'toolDisabled';
+            }
+        };
+
+        self::assertNull(ApprovalHandBackReason::denialReasonOf($refusal));
+    }
+
+    #[Test]
+    public function aSwitchedOffToolGetsItsOwnSentence(): void
+    {
+        self::assertSame(ApprovalHandBackReason::ToolDisabled, ApprovalHandBackReason::forApproverRefusal(ToolDenialReason::TOOL_DISABLED));
+    }
+
+    /**
+     * Every other reason is about what the approver may do, so it keeps the
+     * permissions sentence.
+     */
+    #[Test]
+    public function everyOtherDenialReasonKeepsThePermissionsSentence(): void
+    {
+        self::assertSame(ApprovalHandBackReason::ApproverNotPermitted, ApprovalHandBackReason::forApproverRefusal(null));
+        foreach (ToolDenialReason::cases() as $reason) {
+            if ($reason === ToolDenialReason::TOOL_DISABLED) {
+                continue;
+            }
+
+            self::assertSame(ApprovalHandBackReason::ApproverNotPermitted, ApprovalHandBackReason::forApproverRefusal($reason), $reason->name);
+        }
+    }
+
+    /**
+     * End to end against the real exception, where the installed nr-llm has
+     * the accessor; skipped on 0.41.x, which the tests above cover.
+     */
+    #[Test]
+    #[RequiresMethod(ApproverNotPermittedException::class, 'getDenialReason')]
+    public function aRealRefusalForASwitchedOffToolMapsToItsOwnSentence(): void
+    {
+        $actor = AiActorContext::backendUser(2);
+
+        self::assertSame(
+            ApprovalHandBackReason::ToolDisabled,
+            ApprovalHandBackReason::fromException(ApproverNotPermittedException::forDeniedTool('run-1', $actor, 'update_page_metadata', ToolDenialReason::TOOL_DISABLED)),
+        );
+        self::assertSame(
+            ApprovalHandBackReason::ApproverNotPermitted,
+            ApprovalHandBackReason::fromException(ApproverNotPermittedException::forDeniedTool('run-1', $actor, 'update_page_metadata', ToolDenialReason::REQUIRES_ADMIN)),
+        );
+    }
+
+    #[Test]
+    public function aSwitchedOffToolDoesNotSendTheReaderToTheRun(): void
+    {
+        // Nothing in AI Tasks changes that: the tool has to be switched on again.
+        self::assertFalse(ApprovalHandBackReason::ToolDisabled->pointsToRun());
     }
 
     /**
