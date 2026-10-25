@@ -152,6 +152,16 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         self::assertStringContainsString('/module/nr/mcp/agent/chat/missing-alt-texts', $this->list()->uri());
     }
 
+    /** The list stands in the backend's module body, which gives it the module's padding. */
+    #[Test]
+    public function theListStandsInTheModuleBody(): void
+    {
+        $this->login(2);
+        $xpath = $this->render();
+
+        self::assertSame(1, $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " module-body ")]//h1')->length);
+    }
+
     #[Test]
     public function theHeadingCountsEveryOpenHit(): void
     {
