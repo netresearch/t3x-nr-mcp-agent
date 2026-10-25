@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service\AltText;
 
 use Throwable;
+use TYPO3\CMS\Core\Context\AspectInterface;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\FileProcessingAspect;
 use TYPO3\CMS\Core\Imaging\ImageManipulation\CropVariantCollection;
 use TYPO3\CMS\Core\Resource\FileReference;
 use TYPO3\CMS\Core\Resource\ProcessedFile;
@@ -47,6 +50,7 @@ class AltTextImage
     public function __construct(
         private readonly ResourceFactory $resourceFactory,
         private readonly AltTextImagePolicyInterface $policy,
+        private readonly Context $context,
     ) {}
 
     /** The URL of the backend preview, empty where there is none. */
@@ -102,7 +106,7 @@ class AltTextImage
             return ['note' => $refusal, 'block' => null];
         }
 
-        $processed = $this->scaled($referenceUid, self::MODEL_SIZE, self::MODEL_SIZE, self::MODEL_FORMAT);
+        $processed = $this->processedNow(fn (): ?ProcessedFile => $this->scaled($referenceUid, self::MODEL_SIZE, self::MODEL_SIZE, self::MODEL_FORMAT));
         if (!$processed instanceof ProcessedFile) {
             return ['note' => self::NOTE_UNREADABLE, 'block' => null];
         }
@@ -119,6 +123,31 @@ class AltTextImage
         }
 
         return ['note' => '', 'block' => ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . base64_encode($contents)]]];
+    }
+
+    /**
+     * The copy processed at once, also in a backend request. There the core's
+     * DeferredBackendImageProcessor only records a processing and leaves the
+     * file to the first request of its URL; the model's copy is read here and
+     * never requested by URL. The core's ImageProcessingService turns the
+     * deferral off the same way; the request's own setting is restored, so the
+     * preview stays deferred.
+     *
+     * @param callable(): ?ProcessedFile $process
+     */
+    private function processedNow(callable $process): ?ProcessedFile
+    {
+        $previous = $this->context->hasAspect('fileProcessing') ? $this->context->getAspect('fileProcessing') : null;
+        $this->context->setAspect('fileProcessing', new FileProcessingAspect(false));
+        try {
+            return $process();
+        } finally {
+            if ($previous instanceof AspectInterface) {
+                $this->context->setAspect('fileProcessing', $previous);
+            } else {
+                $this->context->unsetAspect('fileProcessing');
+            }
+        }
     }
 
     private function scaled(int $referenceUid, int $width, int $height, string $format = ''): ?ProcessedFile
