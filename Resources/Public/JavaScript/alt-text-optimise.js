@@ -33,6 +33,25 @@ export const EVENT = 'nr-mcp-agent:alt-text';
  * @param {() => object|null} [panelOf] where the chat panel is found
  * @param {(url: string) => void} [navigate] how the frame loads another URL
  */
+function buttonOf(row) {
+    return row?.querySelector('[data-nr-alt-text-optimise]') ?? null;
+}
+
+function setLabel(button, activeLabel) {
+    const label = button?.querySelector('[data-nr-alt-text-label]');
+    if (label) {
+        label.textContent = activeLabel ? button.dataset.labelActive : button.dataset.label;
+    }
+}
+
+/** The heading for the number of open images: none, one or the count. */
+function headingText(heading, remaining) {
+    if (remaining === 0) {
+        return heading.dataset.titleNone;
+    }
+    return remaining === 1 ? heading.dataset.titleOne : format(heading.dataset.titleOther, remaining);
+}
+
 export function initAltTextOptimise(root, panelOf = findPanel, navigate = (url) => root.ownerDocument.location.assign(url)) {
     const doc = root.ownerDocument;
     const status = root.querySelector('[data-nr-alt-text-status]');
@@ -42,17 +61,6 @@ export function initAltTextOptimise(root, panelOf = findPanel, navigate = (url) 
 
     function rowOf(reference) {
         return root.querySelector(`[data-nr-alt-text-row="${Number(reference)}"]`);
-    }
-
-    function buttonOf(row) {
-        return row?.querySelector('[data-nr-alt-text-optimise]') ?? null;
-    }
-
-    function setLabel(button, activeLabel) {
-        const label = button?.querySelector('[data-nr-alt-text-label]');
-        if (label) {
-            label.textContent = activeLabel ? button.dataset.labelActive : button.dataset.label;
-        }
     }
 
     function highlight(reference) {
@@ -91,9 +99,7 @@ export function initAltTextOptimise(root, panelOf = findPanel, navigate = (url) 
         const remaining = Math.max(0, (Number.parseInt(heading?.dataset.count ?? '', 10) || 0) - 1);
         if (heading) {
             heading.dataset.count = String(remaining);
-            heading.textContent = remaining === 0
-                ? heading.dataset.titleNone
-                : remaining === 1 ? heading.dataset.titleOne : format(heading.dataset.titleOther, remaining);
+            heading.textContent = headingText(heading, remaining);
         }
         if (!tabPanel) {
             return;
@@ -124,7 +130,7 @@ export function initAltTextOptimise(root, panelOf = findPanel, navigate = (url) 
         const group = row.closest('tbody');
         const file = row.dataset.fileName ?? '';
         row.remove();
-        if (group && group.querySelectorAll('[data-nr-alt-text-row]').length === 0) {
+        if (group?.querySelectorAll('[data-nr-alt-text-row]').length === 0) {
             group.remove();
         }
         updateCounts(tabPanel);
@@ -185,7 +191,7 @@ export function initAltTextOptimise(root, panelOf = findPanel, navigate = (url) 
 
     root.addEventListener('click', (event) => {
         const button = event.target instanceof Element ? event.target.closest('[data-nr-alt-text-optimise], [data-nr-alt-text-optimise-disabled]') : null;
-        if (!button || button.hasAttribute('data-nr-alt-text-optimise-disabled')) {
+        if (!button || 'nrAltTextOptimiseDisabled' in button.dataset) {
             return;
         }
         const reference = Number.parseInt(button.dataset.nrAltTextOptimise ?? '', 10);

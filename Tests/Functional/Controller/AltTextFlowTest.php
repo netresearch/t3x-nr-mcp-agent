@@ -79,6 +79,10 @@ final class AltTextFlowTest extends FunctionalTestCase
 
     private const EDITOR = 2;
 
+    private const RUN = '7f0c6a52-6d1e-4b8f-9a35-0c2f7b1e4d10';
+
+    private const TEAM_IMAGE = 'Bild: team.jpg';
+
     private ConversationRepository $repository;
 
     private ChatProcessorInterface&MockObject $processor;
@@ -203,7 +207,7 @@ final class AltTextFlowTest extends FunctionalTestCase
     {
         $conversation->setStatus($status);
         if ($status === ConversationStatus::AwaitingApproval) {
-            $conversation->setApprovalRunUuid('7f0c6a52-6d1e-4b8f-9a35-0c2f7b1e4d10');
+            $conversation->setApprovalRunUuid(self::RUN);
         }
 
         $this->repository->update($conversation);
@@ -524,7 +528,7 @@ final class AltTextFlowTest extends FunctionalTestCase
     private function waiting(string $tool, array $arguments, array $previewLines, bool $previewFailed = false): WaitingRunView
     {
         return new WaitingRunView(
-            '7f0c6a52-6d1e-4b8f-9a35-0c2f7b1e4d10',
+            self::RUN,
             WaitingRunView::MODE_APPROVAL,
             0,
             'Chat',
@@ -585,18 +589,18 @@ final class AltTextFlowTest extends FunctionalTestCase
         $this->loginAs(3);
         $conversation = $this->settle($this->start(10), ConversationStatus::AwaitingApproval);
 
-        $asString = $this->pendingCard($conversation, $this->waiting('set_file_reference_decorative', ['reference' => '10', 'decorative' => true], ['Bild: team.jpg']));
+        $asString = $this->pendingCard($conversation, $this->waiting('set_file_reference_decorative', ['reference' => '10', 'decorative' => true], [self::TEAM_IMAGE]));
         self::assertSame(['altTextMarkNotPermitted', 'altTextDecorative'], [$asString['approveBlocked'], $asString['answers']]);
 
         $several = new WaitingRunView(
-            '7f0c6a52-6d1e-4b8f-9a35-0c2f7b1e4d10',
+            self::RUN,
             WaitingRunView::MODE_APPROVAL,
             0,
             'Chat',
             'digest',
             [
-                new PendingCallView('set_file_reference_alternative_text', '{"reference":10,"alternative":"Ein Team"}', true, ['Bild: team.jpg']),
-                new PendingCallView('set_file_reference_decorative', '{"reference":10,"decorative":true}', true, ['Bild: team.jpg']),
+                new PendingCallView('set_file_reference_alternative_text', '{"reference":10,"alternative":"Ein Team"}', true, [self::TEAM_IMAGE]),
+                new PendingCallView('set_file_reference_decorative', '{"reference":10,"decorative":true}', true, [self::TEAM_IMAGE]),
             ],
         );
         self::assertSame('altTextMarkNotPermitted', $this->pendingCard($conversation, $several)['approveBlocked']);
@@ -605,7 +609,7 @@ final class AltTextFlowTest extends FunctionalTestCase
         self::assertSame(403, $response->getStatusCode(), (string) $response->getBody());
 
         // Clearing the mark is not setting it: that block is not this one.
-        $clearing = $this->pendingCard($conversation, $this->waiting('set_file_reference_decorative', ['reference' => 10, 'decorative' => false], ['Bild: team.jpg']));
+        $clearing = $this->pendingCard($conversation, $this->waiting('set_file_reference_decorative', ['reference' => 10, 'decorative' => false], [self::TEAM_IMAGE]));
         self::assertNotSame('altTextMarkNotPermitted', $clearing['approveBlocked']);
     }
 

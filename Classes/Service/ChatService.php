@@ -1130,18 +1130,35 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return;
         }
 
-        $outcome = $altTextCard !== null ? ApprovedCallReading::of($result) : null;
-        if ($altTextCard !== null && $outcome === ProposalOutcome::Applied) {
-            $this->confirmAltTextWrite($conversation, $before, $altTextCard['kind']);
-        } elseif ($altTextCard !== null && $outcome === ProposalOutcome::NotApplied && $altTextCard['kind'] === AltTextConversation::CARD_PROPOSAL) {
-            // The model's answer says why; the proposal stays, to be offered
-            // again as a new card ("Erneut anbieten").
+        if ($altTextCard !== null) {
+            $this->settleAltTextCard($conversation, $before, $altTextCard, $result);
+        }
+    }
+
+    /**
+     * What became of an approved card of a conversation about a missing alt
+     * text (ADR-026): a write the run recorded is confirmed by the chat; a
+     * proposed text that did not land stays, to be offered again as a new
+     * card ("Erneut anbieten"), after the model's answer that says why.
+     *
+     * @param array{kind: string, proposal: string} $card
+     */
+    private function settleAltTextCard(Conversation $conversation, int $before, array $card, AgentRunResult $result): void
+    {
+        $outcome = ApprovedCallReading::of($result);
+        if ($outcome === ProposalOutcome::Applied) {
+            $this->confirmAltTextWrite($conversation, $before, $card['kind']);
+
+            return;
+        }
+
+        if ($outcome === ProposalOutcome::NotApplied && $card['kind'] === AltTextConversation::CARD_PROPOSAL) {
             $conversation->appendMessage(
                 MessageRole::Assistant,
                 '[The alt text was not saved.]',
                 AltTextConversation::NOTICE_NOT_SAVED,
                 [],
-                ['proposal' => $altTextCard['proposal']],
+                ['proposal' => $card['proposal']],
             );
             $this->persist($conversation);
         }

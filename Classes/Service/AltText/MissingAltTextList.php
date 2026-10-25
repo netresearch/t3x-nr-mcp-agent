@@ -181,12 +181,13 @@ class MissingAltTextList
      */
     public function describe(MissingAltText $hit): array
     {
-        $isPages = $hit->type === MissingAltTextScan::PAGES;
+        $isPages     = $hit->type === MissingAltTextScan::PAGES;
+        $recordTitle = $hit->groupTitle !== '' ? $hit->groupTitle : BackendUtility::getNoRecordTitle();
 
         return [
             'fileName'    => $hit->fileName,
             'subjectType' => $isPages ? '' : $this->tableLabel($hit->type),
-            'subject'     => $isPages ? $hit->pageTitle : ($hit->groupTitle !== '' ? $hit->groupTitle : BackendUtility::getNoRecordTitle()),
+            'subject'     => $isPages ? $hit->pageTitle : $recordTitle,
             'partType'    => $hit->elementUid > 0 ? 'element' : 'field',
             'part'        => $hit->elementUid > 0 ? $this->elementLabel($hit) : $this->fieldLabel($hit->table, $hit->field),
             'language'    => $this->languageTitle($hit->pageUid, $hit->languageUid),

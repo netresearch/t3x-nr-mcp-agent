@@ -268,9 +268,11 @@ export function altTextNoticeText(msg) {
 
 /** @returns {Array<[string, string]>} */
 function cardLines(data) {
-    const lines = [[lll('altText.file'), data.fileName ?? '']];
-    lines.push(data.subjectType ? [data.subjectType, data.subject ?? ''] : [lll('altText.page'), data.subject ?? '']);
-    lines.push([data.partType === 'field' ? lll('altText.field') : lll('altText.element'), data.part ?? '']);
+    const lines = [
+        [lll('altText.file'), data.fileName ?? ''],
+        data.subjectType ? [data.subjectType, data.subject ?? ''] : [lll('altText.page'), data.subject ?? ''],
+        [data.partType === 'field' ? lll('altText.field') : lll('altText.element'), data.part ?? ''],
+    ];
     if (data.language) {
         lines.push([lll('altText.language'), data.language]);
     }

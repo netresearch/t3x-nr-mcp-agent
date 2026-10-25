@@ -51,6 +51,10 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  */
 final class MissingAltTextsControllerTest extends FunctionalTestCase
 {
+    private const OPTIMISE_BUTTON = '//button[@data-nr-alt-text-optimise]';
+
+    private const OPTIMISE_NOTE = '//*[@id="nr-alt-texts-optimise-note"]';
+
     protected array $coreExtensionsToLoad = ['filelist'];
 
     protected array $testExtensionsToLoad = [
@@ -523,8 +527,8 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         self::assertSame('team.jpg', $this->one($xpath, '//tr[@data-nr-alt-text-row="1"]')->getAttribute('data-file-name'));
         self::assertSame('Optimise: team.jpg', trim((string) preg_replace('/\s+/u', ' ', $button->textContent)));
         self::assertSame(['Optimise', 'In the chat'], [$button->getAttribute('data-label'), $button->getAttribute('data-label-active')]);
-        self::assertSame(26, $xpath->query('//button[@data-nr-alt-text-optimise]')?->length);
-        self::assertSame(0, $xpath->query('//*[@id="nr-alt-texts-optimise-note"]')?->length);
+        self::assertSame(26, $xpath->query(self::OPTIMISE_BUTTON)?->length);
+        self::assertSame(0, $xpath->query(self::OPTIMISE_NOTE)?->length);
         self::assertSame(1, $xpath->query('//*[@role="status"][@data-nr-alt-text-status]')?->length);
         $heading = $this->one($xpath, '//h1');
         self::assertSame(['Missing alt texts', '1 missing alt text', '%d missing alt texts'], [$heading->getAttribute('data-title-none'), $heading->getAttribute('data-title-one'), $heading->getAttribute('data-title-other')]);
@@ -545,8 +549,8 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
 
         self::assertSame(['true', 'nr-alt-texts-optimise-note'], [$button->getAttribute('aria-disabled'), $button->getAttribute('aria-describedby')]);
         self::assertFalse($button->hasAttribute('disabled'));
-        self::assertStringContainsString('an administrator has to enable the tools', $this->texts($xpath, '//*[@id="nr-alt-texts-optimise-note"]')[0] ?? '');
-        self::assertSame(0, $xpath->query('//button[@data-nr-alt-text-optimise]')?->length);
+        self::assertStringContainsString('an administrator has to enable the tools', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
+        self::assertSame(0, $xpath->query(self::OPTIMISE_BUTTON)?->length);
     }
 
     /** In a draft workspace the tools do not write, and the list says so. */
@@ -557,7 +561,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $GLOBALS['BE_USER']->workspace = 1;
         $xpath                         = $this->render([], $this->controllerWithTools());
 
-        self::assertStringContainsString('live workspace only', $this->texts($xpath, '//*[@id="nr-alt-texts-optimise-note"]')[0] ?? '');
-        self::assertSame(0, $xpath->query('//button[@data-nr-alt-text-optimise]')?->length);
+        self::assertStringContainsString('live workspace only', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
+        self::assertSame(0, $xpath->query(self::OPTIMISE_BUTTON)?->length);
     }
 }

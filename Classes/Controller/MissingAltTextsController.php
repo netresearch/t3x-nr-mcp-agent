@@ -55,7 +55,7 @@ final readonly class MissingAltTextsController
             $view->assignMultiple($data);
             $title = $data['title'];
             $view->assignMultiple([
-                'optimise'     => $this->optimise($request),
+                'optimise'     => $this->optimise(),
                 'titles'       => ['none' => $this->list->title(0), 'one' => $this->list->title(1), 'other' => $this->list->titlePattern()],
                 'countPattern' => $this->list->countPattern(),
             ]);
@@ -81,7 +81,7 @@ final readonly class MissingAltTextsController
      *
      * @return array{available: bool, note: string, label: string, labelActive: string, chatUri: string, listUri: string}
      */
-    private function optimise(ServerRequestInterface $request): array
+    private function optimise(): array
     {
         $user     = $GLOBALS['BE_USER'] ?? null;
         $language = $GLOBALS['LANG'] ?? null;
