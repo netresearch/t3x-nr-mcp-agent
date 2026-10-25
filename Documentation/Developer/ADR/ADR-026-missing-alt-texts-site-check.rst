@@ -91,8 +91,9 @@ comes only together with fluid_styled_content:
 -   Sites with ``sys_template`` records get it right after
     fluid_styled_content's static template
     (``addTypoScript(…, 'fluidstyledcontent/Configuration/TypoScript/')``),
-    and only when they include that template. bootstrap_package's static
-    template does not include it. A site that includes fluid_styled_content
+    and only when they include that template. bootstrap_package 16.0.1
+    ships site sets only, no static template, and its sets do not depend
+    on ``typo3/fluid-styled-content``. A site that includes fluid_styled_content
     and then another content rendering keeps key 5 and puts its own partial
     path at 10 or above.
 
@@ -204,8 +205,9 @@ Consequences
     own image partial need the documented condition until they add it.
 -   The check costs one query over the references, one query per table and
     level for the records, one per 500 pages for the pages and their
-    translations, and the page access check and rootline per page (each
-    with the core's runtime cache); it scales with the number of open hits,
+    translations, and per page one page access check (a query of its own
+    plus the rootline from the core's runtime cache), which the scanner
+    keeps for the rest of the scan; it scales with the number of open hits,
     not with the number of pages.
 -   The tests need ``typo3/cms-fluid-styled-content`` and
     ``typo3/cms-workspaces`` as development dependencies, to prove the
