@@ -17,7 +17,9 @@ const SURFACES = [
 ];
 
 const TOUR = {pageUid: 20, languageUid: 0, pageTitle: 'Über uns', languageName: 'Deutsch'};
-const START = {skill: '3:seo/page-tour', choosePage: false};
+const START = {skill: '3:seo/page-tour', choosePage: false, startsRun: true};
+// A skill that needs a page but is no process (ADR-025).
+const PLAIN = {skill: 'translate-page', choosePage: false, startsRun: false};
 
 async function settle(el) {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -91,6 +93,18 @@ describe.each(SURFACES)('$name page choice', ({module: modulePath, tag, open}) =
         await settle(el);
 
         expect(el.chat._api.sendMessage).toHaveBeenCalledWith(1, 'guided.checkPage', null, expect.any(Object));
+    });
+
+    test('a skill that is no process asks for a page without a button that sends a turn', async () => {
+        const el = await render(modulePath, tag, open, {tourStart: {...PLAIN, choosePage: true}, backendPage: {pageId: 20}});
+        const group = el.shadowRoot.querySelector('.guided-choice');
+
+        expect(el.shadowRoot.getElementById(group.getAttribute('aria-labelledby')).textContent).toBe('guided.choosePage');
+        expect(group.textContent).toContain('guided.choosePageThenWrite');
+        expect(group.textContent).not.toContain('guided.choosePageHint');
+        expect(action(el, 'check-page')).toBeNull();
+        await el.chat.checkBackendPage();
+        expect(el.chat._api.sendMessage).not.toHaveBeenCalled();
     });
 
     test('a process with a page asks for none', async () => {
@@ -187,6 +201,16 @@ describe.each(SURFACES)('$name another page in the page module', ({module: modul
 
         expect(el.chat._api.endTour).toHaveBeenCalledWith(1);
         expect(el.chat._api.createConversation).toHaveBeenCalledWith({pageUid: 30, languageUid: 1, skill: '3:seo/page-tour'});
+    });
+
+    test('a skill that is no process switches to the new page without ending anything', async () => {
+        const el = await render(modulePath, tag, open, {tour: TOUR, tourStart: PLAIN, backendPage: {pageId: 30, languageId: 1}});
+        action(el, 'switch-page').click();
+        await settle(el);
+        await settle(el);
+
+        expect(el.chat._api.endTour).not.toHaveBeenCalled();
+        expect(el.chat._api.createConversation).toHaveBeenCalledWith({pageUid: 30, languageUid: 1, skill: 'translate-page'});
     });
 
     test('a refused end starts nothing', async () => {

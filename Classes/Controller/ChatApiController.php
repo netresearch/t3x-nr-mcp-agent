@@ -774,12 +774,16 @@ final readonly class ChatApiController
      * elsewhere.
      *
      * The page choice and the new starts are for a skill that needs a page
-     * (ADR-025). A skill that is no process gets the page choice only, while
-     * it has no page, and needs no invocation for it: its turns carry the
-     * skill as a forced skill. It is offered no new start, because ending a
-     * conversation that is not a process withdraws no waiting run.
+     * (ADR-025). `startsRun` says whether choosing the page starts the run:
+     * for a process the page choice sends its own words as the first turn.
+     * A skill that is no process needs no invocation and starts nothing on
+     * the choice (`startsRun` false): the editor's own next message carries
+     * the page the page module shows (queueTurn()), and its turns carry the
+     * skill as a forced skill. Its switch to another page opens a new
+     * conversation and leaves this one as it is: there is no process run
+     * to withdraw.
      *
-     * @return array{skill: string, choosePage: bool}|null
+     * @return array{skill: string, choosePage: bool, startsRun: bool}|null
      */
     private function tourStart(Conversation $conversation): ?array
     {
@@ -792,11 +796,11 @@ final readonly class ChatApiController
         if ($this->isNoProcess($identifier)) {
             // A deleted page is no page for a skill that is no process
             // (keepsItsPage()).
-            return $choosePage || !$this->keepsItsPage($conversation) ? ['skill' => $identifier, 'choosePage' => true] : null;
+            return ['skill' => $identifier, 'choosePage' => $choosePage || !$this->keepsItsPage($conversation), 'startsRun' => false];
         }
 
         return $this->skillInvocation instanceof SkillInvocationInterface
-            ? ['skill' => $identifier, 'choosePage' => $choosePage]
+            ? ['skill' => $identifier, 'choosePage' => $choosePage, 'startsRun' => true]
             : null;
     }
 

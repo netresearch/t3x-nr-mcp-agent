@@ -61,17 +61,23 @@ page need decides everything about the page:
 ``required``
     The conversation keeps its page (``keepsItsPage()``: the sent message
     updates only the module; a deleted page makes a process read-only).
-    Without a
-    page the chat asks for one (``tourStart().choosePage``). For a process
-    this needs, as before, an nr-llm that starts a run with an invocation,
-    and ``tourStart`` keeps offering *Andere Seite wählen* and *Zur neuen
-    Seite wechseln*. A skill that is no process gets the page choice only
-    while it has no page, without needing an invocation: its turns carry
-    the skill as a forced skill. It is offered no restart, because ending
-    a conversation that is not a process does not withdraw a waiting run.
-    For the same reason a deleted page does not make it read-only: it
-    gives the page up and asks for a new one. The prompt keeps ``NO_PAGE``
-    while there is no page.
+    Without a page the chat asks for one (``tourStart().choosePage``). For
+    a process this needs, as before, an nr-llm that starts a run with an
+    invocation; its page choice sends *Diese Seite prüfen* as the first
+    turn (``tourStart().startsRun`` true), and ``tourStart`` keeps offering
+    *Andere Seite wählen* and *Zur neuen Seite wechseln*. A skill that is
+    no process needs no invocation: its turns carry the skill as a forced
+    skill. Its page choice starts nothing (``startsRun`` false): the chat
+    says to choose the page in the page tree and then write what to do,
+    shows no button, and the editor's own next message carries the page
+    the page module shows (``queueTurn()`` binds it while the conversation
+    has none). The editor's words are the first turn, never the page
+    choice's. *Zur neuen Seite wechseln* opens a new conversation on the
+    new page and leaves this one as it is, without ending it: ending a
+    conversation that is not a process would withdraw no waiting run. For
+    the same reason a deleted page does not make it read-only: it gives
+    the page up and asks for a new one. The prompt keeps ``NO_PAGE`` while
+    there is no page.
 ``optional``
     Today's behaviour of a skill that is no process: the page follows the
     browser with every message, the prompt names it or says ``NO_PAGE``,
@@ -111,8 +117,12 @@ Consequences
 -   The *Improve a page* widget (:confval:`dashboardGuidedSkills`) is not
     changed: it offers guided processes about a page and always asks for
     one.
--   The page choice of a skill that is no process sends *Diese Seite
-    prüfen*, the page choice's own words, as its first message, as it does
-    for a process.
+-   The page choice of a skill that is no process sends nothing: the
+    first turn is the editor's own message, written after choosing the
+    page, and the input stays open during the choice.
+-   The recent-chats widget names a conversation's page by the same rule
+    (``pageNeed`` ``required``): a process declared ``optional`` is listed
+    without the page the editor last browsed, and is not hidden when that
+    page is not readable.
 -   A ``|page`` suffix on an entry whose skill declares ``optional`` or
     ``none`` is ignored.

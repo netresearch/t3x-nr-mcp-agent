@@ -188,7 +188,7 @@ final class ChatPageGoneTest extends FunctionalTestCase
 
         $poll = json_decode((string) $subject->getMessages((new ServerRequest())->withQueryParams(['conversationUid' => 1]))->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertFalse($poll['pageGone']);
-        self::assertSame(['skill' => 'translate-page', 'choosePage' => true], $poll['tourStart']);
+        self::assertSame(['skill' => 'translate-page', 'choosePage' => true, 'startsRun' => false], $poll['tourStart']);
 
         $response = $subject->sendMessage($this->post(['conversationUid' => 1, 'content' => 'Check this page', 'context' => ['pageId' => 20, 'module' => 'web_layout']]));
         self::assertSame(202, $response->getStatusCode(), (string) $response->getBody());
@@ -272,7 +272,7 @@ final class ChatPageGoneTest extends FunctionalTestCase
         // Refused for being read-only would be 409 before the content is read.
         self::assertSame(400, $controller->sendMessage($this->post(['conversationUid' => 1, 'content' => '']))->getStatusCode());
         // The chat asks for a page.
-        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => true], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
+        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => true, 'startsRun' => true], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
     }
 
     /** A page that is still there stays the page a process picked in the chat works on. */
@@ -285,7 +285,7 @@ final class ChatPageGoneTest extends FunctionalTestCase
 
         self::assertSame(200, $picked->getStatusCode(), (string) $picked->getBody());
         self::assertSame(['pageId' => 10, 'module' => 'web_layout'], json_decode($this->viewContextOf(1), true, 512, JSON_THROW_ON_ERROR));
-        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => false], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
+        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => false, 'startsRun' => true], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
     }
 
     /**

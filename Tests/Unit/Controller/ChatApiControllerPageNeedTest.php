@@ -160,19 +160,21 @@ final class ChatApiControllerPageNeedTest extends TestCase
     {
         $this->conversation('page-needed', 0);
 
-        self::assertSame(['skill' => 'page-needed', 'choosePage' => true], $this->poll($this->subject(invocation: false))['tourStart'] ?? 'missing');
+        self::assertSame(['skill' => 'page-needed', 'choosePage' => true, 'startsRun' => false], $this->poll($this->subject(invocation: false))['tourStart'] ?? 'missing');
     }
 
-    /** Once it has its page it is offered no new start: ending it would withdraw no waiting run. */
+    /**
+     * Once it has its page it asks for none, and the chat may still switch to
+     * another page; `startsRun` false tells the client that the switch ends
+     * nothing (no process run to withdraw) and that the page choice sends
+     * nothing.
+     */
     #[Test]
-    public function aPlainSkillThatHasItsPageIsOfferedNoNewStart(): void
+    public function aPlainSkillThatHasItsPageMaySwitchWithoutStartingARun(): void
     {
         $this->conversation('page-needed', 20);
 
-        $data = $this->poll($this->subject());
-
-        self::assertArrayHasKey('tourStart', $data);
-        self::assertNull($data['tourStart']);
+        self::assertSame(['skill' => 'page-needed', 'choosePage' => false, 'startsRun' => false], $this->poll($this->subject(invocation: false))['tourStart'] ?? 'missing');
     }
 
     /**
@@ -204,7 +206,7 @@ final class ChatApiControllerPageNeedTest extends TestCase
     {
         $this->conversation('old-tour', 0);
 
-        self::assertSame(['skill' => 'old-tour', 'choosePage' => true], $this->poll($this->subject())['tourStart'] ?? 'missing');
+        self::assertSame(['skill' => 'old-tour', 'choosePage' => true, 'startsRun' => true], $this->poll($this->subject())['tourStart'] ?? 'missing');
     }
 
     /** A skill that needs a page keeps it, whatever page the browser shows (ADR-023). */

@@ -193,9 +193,11 @@ key of nr-llm, :ref:`adr-025`):
 
 ``page: required``
     The conversation is about one page. Without one, the chat asks for it:
-    choose the page in the page tree and confirm it with **Diese Seite
-    prüfen**. Once set, the page stays, whatever page the page module shows
-    later.
+    for a guided process, choose the page in the page tree and confirm it
+    with **Diese Seite prüfen**; for any other skill, choose the page and
+    then write what to do -- your message carries the page. Once set, the
+    page stays, whatever page the page module shows later; **Zur neuen
+    Seite wechseln** opens a new conversation on the other page.
 ``page: optional``
     The chat passes along the page the page module shows with each message,
     when there is one; it does not ask for one.

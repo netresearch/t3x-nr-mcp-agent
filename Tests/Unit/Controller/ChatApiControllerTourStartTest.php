@@ -117,20 +117,20 @@ final class ChatApiControllerTourStartTest extends TestCase
     #[Test]
     public function aProcessWithoutAPageAsksForOne(): void
     {
-        self::assertSame(['skill' => '3:seo/page-tour', 'choosePage' => true], $this->messagesOf(self::conversation(0), true)['tourStart'] ?? 'missing');
+        self::assertSame(['skill' => '3:seo/page-tour', 'choosePage' => true, 'startsRun' => true], $this->messagesOf(self::conversation(0), true)['tourStart'] ?? 'missing');
     }
 
     #[Test]
     public function aProcessOnAPageAsksForNone(): void
     {
-        self::assertSame(['skill' => '3:seo/page-tour', 'choosePage' => false], $this->messagesOf(self::conversation(20), true)['tourStart'] ?? 'missing');
+        self::assertSame(['skill' => '3:seo/page-tour', 'choosePage' => false, 'startsRun' => true], $this->messagesOf(self::conversation(20), true)['tourStart'] ?? 'missing');
     }
 
     /** A skill the catalogue does not know as a process or not counts as one, as elsewhere. */
     #[Test]
     public function aSkillTheCatalogueDoesNotMarkCountsAsAProcess(): void
     {
-        self::assertSame(['skill' => '3:seo/page-tour', 'choosePage' => true], $this->messagesOf(self::conversation(0), true, ['uid' => 4, 'name' => 'SEO', 'process' => null])['tourStart'] ?? 'missing');
+        self::assertSame(['skill' => '3:seo/page-tour', 'choosePage' => true, 'startsRun' => true], $this->messagesOf(self::conversation(0), true, ['uid' => 4, 'name' => 'SEO', 'process' => null])['tourStart'] ?? 'missing');
     }
 
     /**

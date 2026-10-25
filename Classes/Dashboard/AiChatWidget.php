@@ -20,6 +20,8 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\ProcessRunDetectorInterface;
+use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use Netresearch\NrMcpAgent\Service\SkillPageNeed;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -97,6 +99,7 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
         private readonly SkillLabels $skillLabels,
         private readonly ProcessRunDetectorInterface $processRuns,
         private readonly Context $context,
+        private readonly ?SkillCatalogueInterface $skills = null,
         private readonly array $options = [],
     ) {}
 
@@ -186,15 +189,20 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
         $guided   = $conversation->getSkillIdentifier() !== '' && $this->processRuns->isProcessRun($conversation);
         $progress = $guided ? $conversation->getGuidedState()['progress'] : null;
 
-        // Only a guided process is bound to its page; any other conversation
-        // stores the page the browser showed with its last message, which is
-        // where the editor was, not what the chat is about. Such a chat gets
-        // no page, no page check and no page module.
+        // Only a conversation whose skill needs its page is bound to it
+        // (ADR-025, as ChatApiController::keepsItsPage()); any other stores
+        // the page the browser showed with its last message, which is where
+        // the editor was, not what the chat is about. Such a chat gets no
+        // page, no page check and no page module.
         $viewContext = $conversation->getViewContext();
-        $pageUid     = $guided ? $viewContext['pageId'] : 0;
+        $pageUid     = $this->bindsPage($conversation, $guided) ? $viewContext['pageId'] : 0;
         $page        = $pageUid > 0 ? $this->pages->findAccessible($pageUid) : null;
         $pageGone    = $pageUid > 0 && $page === null && $this->pages->isGone($pageUid);
-        if ($pageUid > 0 && $page === null && !$pageGone) {
+        // A skill that is no process gives up a deleted page and asks for a
+        // new one; only a process is shown read-only on it.
+        if ($pageGone && !$guided) {
+            $pageGone = false;
+        } elseif ($pageUid > 0 && $page === null && !$pageGone) {
             return null;
         }
 
@@ -224,6 +232,24 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
             'progress' => !$pageGone && $progress !== null && !$progress['completed'] && $progress['current'] >= 1 ? ['current' => $progress['current'], 'total' => $progress['total']] : null,
             'time'     => $time,
         ];
+    }
+
+    /**
+     * Whether the conversation is bound to its page: its skill needs one
+     * (ADR-025). Without the catalogue the process marker decides, as before.
+     */
+    private function bindsPage(Conversation $conversation, bool $guided): bool
+    {
+        $identifier = $conversation->getSkillIdentifier();
+        if ($identifier === '') {
+            return false;
+        }
+
+        if (!$this->skills instanceof SkillCatalogueInterface) {
+            return $guided;
+        }
+
+        return SkillPageNeed::of($this->skills->find($identifier)) === SkillPageNeed::Required;
     }
 
     /** The request's time, in the server's time zone. */
