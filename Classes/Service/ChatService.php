@@ -63,6 +63,8 @@ use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
 use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextFlowPrompt;
 use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
@@ -234,6 +236,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?SkillInvocationInterface $skillInvocation = null,
         private readonly ?OpenPointTrackerInterface $openPoints = null,
         private readonly ?ToolCallPolicyInterface $toolPolicy = null,
+        private readonly ?AltTextConversation $altText = null,
     ) {}
 
     /**
@@ -412,7 +415,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $messages[] = ChatMessage::system($systemPrompt);
         }
 
-        foreach ($this->buildLlmMessages($conversation->getDecodedMessages(), $provider) as $message) {
+        // A conversation about a missing alt text (ADR-026): the model reads
+        // the image card as the image's context, read again now, with the
+        // scaled image where the provider can see it, and not the chat's own
+        // lines.
+        $transcript = $conversation->getDecodedMessages();
+        if ($this->altText instanceof AltTextConversation && AltTextConversation::isAbout($conversation)) {
+            $transcript = $this->altText->transcript($conversation, $transcript, $provider instanceof VisionCapableInterface && $provider->supportsVision());
+        }
+
+        foreach ($this->buildLlmMessages($transcript, $provider) as $message) {
             $messages[] = $message;
         }
 
@@ -654,8 +666,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     public function releasePendingRun(Conversation $before): bool
     {
+        // A conversation about a missing alt text cancels its waiting card
+        // too (ADR-026): a free-text wish ("Kürzer") is answered with a new
+        // proposal, and the old one must not be approvable beside it.
         $runUuid = $before->getApprovalRunUuid();
-        if ($runUuid === '' || !($this->processRuns?->isProcessRun($before) ?? false)) {
+        if ($runUuid === '' || (!($this->processRuns?->isProcessRun($before) ?? false) && !AltTextConversation::isAbout($before))) {
             return true;
         }
 
@@ -1010,10 +1025,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // open point is keyed by what that card showed (ADR-022).
         $denyReason = $conversation->getApprovalDenyReason();
         $card       = $conversation->getApprovalCard();
-        $cardTarget = $this->openPoints?->cardTarget(
-            $conversation,
-            $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid),
-        );
+        $readView   = fn (): ?WaitingRunView => $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid);
+        $cardTarget = $this->openPoints?->cardTarget($conversation, $readView());
+        // The card of a conversation about a missing alt text (ADR-026): an
+        // approved write is confirmed by the chat, in the reader's language.
+        $altTextCard = $approved && AltTextConversation::isAbout($conversation) ? $this->altText?->card($conversation, $readView()) : null;
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
@@ -1107,9 +1123,42 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // (ADR-023, amendment of 2026-10-23). The turn is started here and
         // nowhere else, and its own result is applied without this option, so
         // a second open step shows the line and the button: no loop is possible.
+        $before = $conversation->getMessageCount();
         if ($this->applyResult($conversation, $result, $approved)) {
             $this->processTurn($conversation, self::OPERATION_CHAT_TURN, afterApproval: true);
+
+            return;
         }
+
+        if ($altTextCard !== null && ApprovedCallReading::of($result) === ProposalOutcome::Applied) {
+            $this->confirmAltTextWrite($conversation, $before, $altTextCard['kind']);
+        }
+    }
+
+    /**
+     * "Alt-Text gespeichert." or "Als dekorativ markiert." in place of what
+     * the model answered after the write it was approved for (ADR-026): the
+     * write is the chat's to confirm, in the reader's language and in the
+     * specification's words, from what the run recorded. A failed write keeps
+     * the model's answer, which says why.
+     */
+    private function confirmAltTextWrite(Conversation $conversation, int $before, string $kind): void
+    {
+        $messages = $conversation->getDecodedMessages();
+        $kept     = array_slice($messages, 0, $before);
+        foreach (array_slice($messages, $before) as $message) {
+            if (($message['role'] ?? null) !== MessageRole::Assistant->value) {
+                $kept[] = $message;
+            }
+        }
+
+        $conversation->setMessages($kept);
+        $conversation->appendMessage(
+            MessageRole::Assistant,
+            $kind === AltTextConversation::CARD_DECORATIVE ? '[The image is marked as decorative.]' : '[The alt text is saved.]',
+            $kind === AltTextConversation::CARD_DECORATIVE ? AltTextConversation::NOTICE_DECORATIVE : AltTextConversation::NOTICE_SAVED,
+        );
+        $this->persist($conversation);
     }
 
     /**
@@ -1856,6 +1905,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $openPoints = $this->openPoints?->promptFor($conversation) ?? '';
         if ($openPoints !== '') {
             $parts[] = $openPoints;
+        }
+
+        // A conversation about one missing alt text gets the flow's
+        // instructions (ADR-026): the chat's own text, like the language
+        // rules; the image's data stays fenced in the transcript.
+        if (AltTextConversation::isAbout($conversation)) {
+            $parts[] = AltTextFlowPrompt::text();
         }
 
         // The user's own context — answer language and where they are in the

@@ -16,9 +16,13 @@ use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Controller\MissingAltTextsController;
 use Netresearch\NrMcpAgent\Domain\Repository\MissingAltTextRepository;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextGate;
 use Netresearch\NrMcpAgent\Service\AltText\ImageFieldDiscovery;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextList;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextScanner;
+use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
+use Netresearch\NrMcpAgent\Service\Assistant\ChatStartUriBuilder;
+use Netresearch\NrMcpAgent\Service\ToolAvailabilityInterface;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Backend\Routing\Route;
@@ -321,7 +325,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $this->login(1);
         $xpath = $this->render();
 
-        $english = $xpath->query('//*[@id="nr-alt-texts-panel-pages"]//tbody/tr[td[4][normalize-space()="EN"]]/td[5]/a');
+        $english = $xpath->query('//*[@id="nr-alt-texts-panel-pages"]//tbody/tr[td[4][normalize-space()="EN"]]/td[5]//a');
         self::assertGreaterThan(0, $english?->length);
         $link = $english?->item(0);
         self::assertInstanceOf(DOMElement::class, $link);
@@ -366,7 +370,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $this->login(2);
         $xpath = $this->render();
 
-        $link = $this->one($xpath, '(//*[@id="nr-alt-texts-panel-pages"]//tbody/tr[td])[1]/td[5]/a');
+        $link = $this->one($xpath, '(//*[@id="nr-alt-texts-panel-pages"]//tbody/tr[td])[1]/td[5]//a');
         self::assertSame('Open page', trim($link->textContent));
         self::assertSame(['_blank', 'noopener'], [$link->getAttribute('target'), $link->getAttribute('rel')]);
         self::assertSame('Open page: team.jpg, opens in a new tab', $link->getAttribute('aria-label'));
@@ -380,13 +384,13 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $this->login(2);
         $xpath = $this->render();
 
-        $link = $this->one($xpath, '(//*[@id="nr-alt-texts-panel-tx_alttexttest_item"]//tbody/tr[td])[1]/td[5]/a');
+        $link = $this->one($xpath, '(//*[@id="nr-alt-texts-panel-tx_alttexttest_item"]//tbody/tr[td])[1]/td[5]//a');
         self::assertSame('Open detail page', trim($link->textContent));
         self::assertStringContainsString('tx_test%5Bitem%5D=1', $link->getAttribute('href'));
 
         $this->get(ConnectionPool::class)->getConnectionForTable('pages')->update('pages', ['TSconfig' => ''], ['uid' => 1]);
         $this->get(CacheManager::class)->getCache('runtime')->flush();
-        self::assertSame(0, $this->render()->query('//*[@id="nr-alt-texts-panel-tx_alttexttest_item"]//tbody/tr[td]/td[5]/a')?->length);
+        self::assertSame(0, $this->render()->query('//*[@id="nr-alt-texts-panel-tx_alttexttest_item"]//tbody/tr[td]/td[5]//a')?->length);
     }
 
     /** The thumbnail shows the reference's image; a file that is not there shows an icon instead of a broken image. */
@@ -486,5 +490,74 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         self::assertSame('Seiten', $this->texts($xpath, '//*[@role="tab"]/text()')[0] ?? '');
         self::assertSame('22 offen', $this->texts($xpath, '//*[@role="tab"]/span[@class="badge"]/span[@class="visually-hidden"]')[0] ?? '');
         self::assertContains('Aktuell nicht sichtbar · Element ausgeblendet', $this->texts($xpath, '//*[contains(@class, "nr-alt-texts-hidden")]/span[@class="nr-alt-texts-reason"]'));
+    }
+
+    /** A controller whose chat may use both tools, and whatever the gate answers otherwise. */
+    private function controllerWithTools(): MissingAltTextsController
+    {
+        $tools = $this->createMock(ToolAvailabilityInterface::class);
+        $tools->method('unavailableTools')->willReturn([]);
+
+        return new MissingAltTextsController(
+            $this->get(ModuleTemplateFactory::class),
+            $this->get(PageRenderer::class),
+            $this->get(ChatToolbarItem::class),
+            $this->list(),
+            new AltTextGate($this->get(MissingAltTextScanner::class), $this->get(ReferenceWriteAccess::class), $tools),
+            $this->get(ChatStartUriBuilder::class),
+        );
+    }
+
+    /**
+     * "Optimieren" on every row (ADR-026): a button naming the image, the
+     * labels the list's script switches to "Im Chat", and the row it marks.
+     */
+    #[Test]
+    public function everyRowOffersOptimise(): void
+    {
+        $this->login(2);
+        $xpath  = $this->render([], $this->controllerWithTools());
+        $button = $this->one($xpath, '//tr[@data-nr-alt-text-row="1"]//button[@data-nr-alt-text-optimise="1"]');
+
+        self::assertSame('nr-alt-texts-row-1', $this->one($xpath, '//tr[@data-nr-alt-text-row="1"]')->getAttribute('id'));
+        self::assertSame('team.jpg', $this->one($xpath, '//tr[@data-nr-alt-text-row="1"]')->getAttribute('data-file-name'));
+        self::assertSame('Optimise: team.jpg', trim((string) preg_replace('/\s+/u', ' ', $button->textContent)));
+        self::assertSame(['Optimise', 'In the chat'], [$button->getAttribute('data-label'), $button->getAttribute('data-label-active')]);
+        self::assertSame(26, $xpath->query('//button[@data-nr-alt-text-optimise]')?->length);
+        self::assertSame(0, $xpath->query('//*[@id="nr-alt-texts-optimise-note"]')?->length);
+        self::assertSame(1, $xpath->query('//*[@role="status"][@data-nr-alt-text-status]')?->length);
+        $heading = $this->one($xpath, '//h1');
+        self::assertSame(['Missing alt texts', '1 missing alt text', '%d missing alt texts'], [$heading->getAttribute('data-title-none'), $heading->getAttribute('data-title-one'), $heading->getAttribute('data-title-other')]);
+    }
+
+    /**
+     * Where the chat cannot work on an image, the button stays focusable,
+     * marked unavailable, and names the reason the list shows (a disabled
+     * button could not be focused, so keyboard users would not reach it).
+     */
+    #[Test]
+    public function withoutTheToolsOptimiseSaysWhy(): void
+    {
+        $this->login(2);
+        // The real chat: no nr-llm Task, so no configuration, so no tool.
+        $xpath  = $this->render();
+        $button = $this->one($xpath, '//tr[@data-nr-alt-text-row="1"]//button[@data-nr-alt-text-optimise-disabled]');
+
+        self::assertSame(['true', 'nr-alt-texts-optimise-note'], [$button->getAttribute('aria-disabled'), $button->getAttribute('aria-describedby')]);
+        self::assertFalse($button->hasAttribute('disabled'));
+        self::assertStringContainsString('an administrator has to enable the tools', $this->texts($xpath, '//*[@id="nr-alt-texts-optimise-note"]')[0] ?? '');
+        self::assertSame(0, $xpath->query('//button[@data-nr-alt-text-optimise]')?->length);
+    }
+
+    /** In a draft workspace the tools do not write, and the list says so. */
+    #[Test]
+    public function inADraftWorkspaceOptimiseSaysWhy(): void
+    {
+        $this->login(2);
+        $GLOBALS['BE_USER']->workspace = 1;
+        $xpath                         = $this->render([], $this->controllerWithTools());
+
+        self::assertStringContainsString('live workspace only', $this->texts($xpath, '//*[@id="nr-alt-texts-optimise-note"]')[0] ?? '');
+        self::assertSame(0, $xpath->query('//button[@data-nr-alt-text-optimise]')?->length);
     }
 }

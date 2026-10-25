@@ -190,6 +190,7 @@ final class ChatApiControllerInputTest extends TestCase
             'approval_run_uuid' => 'run-uuid-1234',
             'tstamp'            => time(),
             'activity'          => [],
+            'about_image'       => false,
         ]);
         $this->asking();
         $this->question();

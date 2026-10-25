@@ -33,6 +33,12 @@ services:
   Netresearch\NrMcpAgent\Service\Assistant\SkillResolverInterface:
     alias: Netresearch\NrMcpAgent\Service\Assistant\CatalogueSkillResolver
 
+  # Whether a scaled copy of an image may go to the AI provider for an alt
+  # text proposal (ADR-026). Slice 3, the privacy setting "Bildanalyse",
+  # re-binds this alias.
+  Netresearch\NrMcpAgent\Service\AltText\AltTextImagePolicyInterface:
+    alias: Netresearch\NrMcpAgent\Service\AltText\SendEveryImage
+
   Netresearch\NrMcpAgent\Controller\ChatModuleController:
     public: true
 

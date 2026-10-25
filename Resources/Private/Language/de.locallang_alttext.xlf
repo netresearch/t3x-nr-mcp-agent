@@ -208,6 +208,18 @@
                 <source>Decorative images get no alt text. Screen readers then skip them. That only fits if the image adds nothing to the content. This image belongs to the %1$s “%2$s” and therefore probably needs an alt text. Mark it as decorative anyway?</source>
                 <target>Dekorative Bilder bekommen keinen Alt-Text. Screenreader überspringen sie dann. Das passt nur, wenn das Bild nichts zum Inhalt beiträgt. Dieses Bild gehört zum %1$s „%2$s“ und braucht deshalb wahrscheinlich einen Alt-Text. Trotzdem als dekorativ markieren?</target>
             </trans-unit>
+            <trans-unit id="action.optimise" resname="action.optimise">
+                <source>Optimise</source>
+                <target>Optimieren</target>
+            </trans-unit>
+            <trans-unit id="action.inChat" resname="action.inChat">
+                <source>In the chat</source>
+                <target>Im Chat</target>
+            </trans-unit>
+            <trans-unit id="status.done" resname="status.done">
+                <source>%1$s is done. %2$s</source>
+                <target>%1$s ist erledigt. %2$s</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

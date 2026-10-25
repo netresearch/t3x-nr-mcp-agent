@@ -35,6 +35,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
@@ -94,6 +95,7 @@ class ChatServiceTest extends TestCase
         ?GuidedStateLinker $guidedState = null,
         ?OpenPointTrackerInterface $openPoints = null,
         ?SkillCatalogueInterface $skills = null,
+        ?AltTextConversation $altText = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -135,7 +137,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState, skills: $skills, openPoints: $openPoints);
+        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState, skills: $skills, openPoints: $openPoints, altText: $altText);
     }
 
     /**
@@ -214,6 +216,47 @@ class ChatServiceTest extends TestCase
         $assistant = end($messages);
         self::assertSame('assistant', $assistant['role']);
         self::assertSame('Final answer.', $assistant['content']);
+    }
+
+    /**
+     * A conversation about a missing alt text (ADR-026): the flow's
+     * instructions in the system prompt, and the transcript as the flow
+     * gives it to the model, with the provider's vision.
+     */
+    #[Test]
+    public function aConversationAboutAnImageGetsTheFlowsInstructionsAndTranscript(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setAltTextHit(7);
+        $conversation->appendMessage(MessageRole::Assistant, '[Image card]', AltTextConversation::NOTICE_HIT, [], ['reference' => 7]);
+
+        $flow = $this->createMock(AltTextConversation::class);
+        $flow->expects(self::once())->method('transcript')
+            ->with($conversation, self::anything(), true)
+            ->willReturn([['role' => 'user', 'content' => '<image_context>Reference 7</image_context>']]);
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+
+        $this->createChatService(provider: $provider, altText: $flow)->processConversation($conversation);
+
+        self::assertStringContainsString('## This conversation: an alt text for one image use', $this->capturedSystemPrompt());
+        self::assertSame('<image_context>Reference 7</image_context>', $this->capturedUserMessage()['content']);
+    }
+
+    #[Test]
+    public function anyOtherConversationGetsNeitherTheInstructionsNorTheTranscript(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $flow = $this->createMock(AltTextConversation::class);
+        $flow->expects(self::never())->method('transcript');
+
+        $this->createChatService(altText: $flow)->processConversation($conversation);
+
+        self::assertStringNotContainsString('an alt text for one image use', $this->capturedSystemPrompt());
     }
 
     #[Test]

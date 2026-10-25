@@ -79,6 +79,7 @@ final class ApprovalLinkTargetTest extends TestCase
             'error_message'     => 'This step writes data.',
             'approval_run_uuid' => 'run-uuid-1234',
             'tstamp'            => 1710000000,
+            'about_image'       => false,
         ]);
         // A parked conversation no longer answers from the poll fast path — it
         // falls through so the approval card can be built, and the link comes

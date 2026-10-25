@@ -479,6 +479,7 @@ final class ChatApiControllerEditTest extends TestCase
             'approval_run_uuid' => '',
             'tstamp'            => time(),
             'activity'          => [['kind' => 'llm', 'round' => 1, 'ms' => 900]],
+            'about_image'       => false,
         ]);
         $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
 

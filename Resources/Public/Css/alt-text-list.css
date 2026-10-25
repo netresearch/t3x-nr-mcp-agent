@@ -42,3 +42,29 @@
     align-items: center;
     margin-top: 0.25rem;
 }
+
+.nr-alt-texts-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+/* The row the chat works on ("Optimieren"): marked by more than colour. */
+.nr-alt-texts-active > td {
+    background-color: var(--typo3-component-active-bg, var(--typo3-state-info-bg, #e6f2fb));
+}
+
+.nr-alt-texts-active > td:first-child {
+    box-shadow: inset 4px 0 0 var(--typo3-state-info-border-color, var(--typo3-state-focus-color, currentColor));
+}
+
+.nr-alt-texts-optimise-note {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+[data-nr-alt-text-optimise-disabled] {
+    cursor: not-allowed;
+    opacity: 0.65;
+}

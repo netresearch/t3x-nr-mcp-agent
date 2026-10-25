@@ -12,7 +12,7 @@
 <f:layout name="Module" />
 <f:section name="Content">
     <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_alttext.xlf:" />
-    <div class="nr-alt-texts">
+    <div class="nr-alt-texts" data-nr-alt-texts data-chat-uri="{optimise.chatUri}" data-list-uri="{optimise.listUri}">
         <nav aria-label="{f:translate(key: '{ll}breadcrumb.label')}">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">{f:translate(key: '{ll}breadcrumb.assistant')}</li>
@@ -20,7 +20,7 @@
                 <li class="breadcrumb-item active" aria-current="page">{f:translate(key: '{ll}breadcrumb.missingAltTexts')}</li>
             </ol>
         </nav>
-        <h1>{heading}</h1>
+        <h1 data-nr-alt-text-heading data-title-none="{titles.none}" data-title-one="{titles.one}" data-title-other="{titles.other}">{heading}</h1>
         <f:if condition="{available}">
             <f:then>
                 <p class="lead">{f:translate(key: '{ll}subtitle')}</p>
@@ -32,9 +32,16 @@
                         <div class="callout-body">{f:translate(key: '{ll}info')}</div>
                     </div>
                 </div>
+                <f:if condition="{optimise.note}">
+                    <p class="nr-alt-texts-optimise-note" id="nr-alt-texts-optimise-note">
+                        <core:icon identifier="actions-info" />
+                        {optimise.note}
+                    </p>
+                </f:if>
+                <div class="visually-hidden" role="status" data-nr-alt-text-status></div>
                 <f:if condition="{count}">
                     <f:then>
-                        <div class="nav nav-tabs nr-alt-texts-tabs" role="tablist" aria-label="{f:translate(key: '{ll}tabs.label')}" data-nr-alt-text-tabs>
+                        <div class="nav nav-tabs nr-alt-texts-tabs" role="tablist" aria-label="{f:translate(key: '{ll}tabs.label')}" data-nr-alt-text-tabs data-count-pattern="{countPattern}">
                             <f:for each="{tabs}" as="tab">
                                 <button
                                     type="button"
@@ -55,6 +62,7 @@
                                 id="nr-alt-texts-panel-{tab.id}"
                                 aria-labelledby="nr-alt-texts-tab-{tab.id}"
                                 tabindex="0"
+                                data-empty-text="{tab.empty}"
                                 {f:if(condition: tab.active, else: 'hidden')}
                             >
                                 <f:if condition="{tab.groups}">
@@ -77,7 +85,7 @@
                                                             <th scope="rowgroup" colspan="5">{group.title}<f:if condition="{group.folder}"> · <span class="text-variant">{group.folder}</span></f:if></th>
                                                         </tr>
                                                         <f:for each="{group.rows}" as="row">
-                                                            <tr>
+                                                            <tr id="nr-alt-texts-row-{row.referenceUid}" data-nr-alt-text-row="{row.referenceUid}" data-file-name="{row.fileName}">
                                                                 <td class="nr-alt-texts-thumbnail">
                                                                     <f:if condition="{row.image}">
                                                                         <f:then><f:image image="{row.image}" maxWidth="80" maxHeight="60" alt="" /></f:then>
@@ -97,12 +105,28 @@
                                                                 </td>
                                                                 <td>{row.language}</td>
                                                                 <td>
-                                                                    <f:if condition="{row.action}">
-                                                                        <a class="btn btn-default btn-sm" href="{row.action.uri}" target="_blank" rel="noopener" aria-label="{row.action.name}">
-                                                                            <core:icon identifier="actions-document-view" />
-                                                                            {row.action.label}
-                                                                        </a>
-                                                                    </f:if>
+                                                                    <div class="nr-alt-texts-actions">
+                                                                        <f:if condition="{row.action}">
+                                                                            <a class="btn btn-default btn-sm" href="{row.action.uri}" target="_blank" rel="noopener" aria-label="{row.action.name}">
+                                                                                <core:icon identifier="actions-document-view" />
+                                                                                {row.action.label}
+                                                                            </a>
+                                                                        </f:if>
+                                                                        <f:if condition="{optimise.available}">
+                                                                            <f:then>
+                                                                                <button type="button" class="btn btn-default btn-sm" data-nr-alt-text-optimise="{row.referenceUid}" data-label="{optimise.label}" data-label-active="{optimise.labelActive}">
+                                                                                    <core:icon identifier="actions-chat" />
+                                                                                    <span data-nr-alt-text-label>{optimise.label}</span><span class="visually-hidden">: {row.fileName}</span>
+                                                                                </button>
+                                                                            </f:then>
+                                                                            <f:else>
+                                                                                <button type="button" class="btn btn-default btn-sm" aria-disabled="true" aria-describedby="nr-alt-texts-optimise-note" data-nr-alt-text-optimise-disabled>
+                                                                                    <core:icon identifier="actions-chat" />
+                                                                                    {optimise.label}<span class="visually-hidden">: {row.fileName}</span>
+                                                                                </button>
+                                                                            </f:else>
+                                                                        </f:if>
+                                                                    </div>
                                                                 </td>
                                                             </tr>
                                                         </f:for>
