@@ -50,6 +50,24 @@ function isProjectAsset(asset, siteRoot) {
     }
 }
 
+function inertSpans(html) {
+    return [...html.matchAll(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)]
+        .map(match => ({start: match.index, end: match.index + match[0].length}));
+}
+
+function verifyRecoveryAssets(html, siteRoot) {
+    const errors = [];
+    const inert = inertSpans(html);
+    for (const tag of html.matchAll(/<(script|link|img)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)) {
+        if (inert.some(span => tag.index > span.start && tag.index < span.end)) continue;
+        const attribute = attrs(tag[0])[tag[1].toLowerCase() === 'link' ? 'href' : 'src'];
+        if (attribute === undefined) continue;
+        const asset = decodeMarkupAttribute(attribute);
+        if (!isProjectAsset(asset, siteRoot)) errors.push(`404 recovery asset must be absolute within the project: ${asset}`);
+    }
+    return errors;
+}
+
 export function verifyNotFoundPage(html, symbol, siteRoot) {
     const errors = [...verifySiteShell(html, symbol, 'en'), ...checkAccessibility(html), ...verifyBusinessContacts(html, 'en', ['footer'])];
     if (!/<meta\b[^>]*name="robots"[^>]*content="noindex,follow"/.test(html)) errors.push('404 recovery must be noindex');
@@ -58,10 +76,7 @@ export function verifyNotFoundPage(html, symbol, siteRoot) {
     for (const [locale, path] of [['en', ''], ['de', 'de/']]) {
         if (!html.includes(`href="${siteRoot}${path}" lang="${locale}" hreflang="${locale}"`)) errors.push(`404 recovery needs its ${locale} project home`);
     }
-    for (const [, asset] of html.matchAll(/<(?:script|link|img)\b[^>]+(?:src|href)="([^"]+)"/g)) {
-        if (!isProjectAsset(asset, siteRoot)) errors.push(`404 recovery asset must be absolute within the project: ${asset}`);
-    }
-    return errors;
+    return [...errors, ...verifyRecoveryAssets(html, siteRoot)];
 }
 
 
@@ -95,8 +110,7 @@ function contactIssues(link, lang) {
 }
 
 export function verifyBusinessContacts(html, lang, requiredPositions = []) {
-    const inert = [...html.matchAll(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)]
-        .map(match => ({start: match.index, end: match.index + match[0].length}));
+    const inert = inertSpans(html);
     const links = [...html.matchAll(/<a\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)]
         .filter(match => !inert.some(span => match.index >= span.start && match.index < span.end))
         .map(match => Object.fromEntries(Object.entries(attrs(match[0])).map(([name, value]) => [name, decodeMarkupAttribute(value)])));
