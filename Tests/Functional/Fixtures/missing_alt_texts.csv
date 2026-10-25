@@ -1,10 +1,11 @@
 "be_groups"
-,"uid","pid","title","db_mountpoints","allowed_languages","tables_select","tables_modify","non_exclude_fields","tstamp","crdate"
-,1,0,"Redaktion",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,pages:media,tx_alttexttest_item:image",1710000000,1710000000
-,2,0,"Redaktion ohne Artikel",1,"0","pages,tt_content,sys_file_reference","pages,tt_content,sys_file_reference","sys_file_reference:alternative,pages:media",1710000000,1710000000
-,3,0,"Redaktion ohne Alternativtext",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages:media,tx_alttexttest_item:image",1710000000,1710000000
-,4,0,"Redaktion ohne Bildfeld",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,pages:media",1710000000,1710000000
-,5,0,"Redaktion ohne Referenzen",1,"0","pages,tt_content,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,pages:media,tx_alttexttest_item:image",1710000000,1710000000
+,"uid","pid","title","db_mountpoints","allowed_languages","tables_select","tables_modify","non_exclude_fields","explicit_allowdeny","custom_options","tstamp","crdate"
+,1,0,"Redaktion",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,sys_file_reference:tx_nrmcpagent_decorative,pages:media,tx_alttexttest_item:image","tt_content:CType:textpic,tt_content:CType:image,tt_content:CType:carousel,tt_content:CType:text,tt_content:CType:textmedia","tx_nrmcpagent:approve_own_changes",1710000000,1710000000
+,2,0,"Redaktion ohne Artikel",1,"0","pages,tt_content,sys_file_reference","pages,tt_content,sys_file_reference","sys_file_reference:alternative,pages:media","tt_content:CType:textpic,tt_content:CType:image,tt_content:CType:carousel,tt_content:CType:text,tt_content:CType:textmedia","tx_nrmcpagent:approve_own_changes",1710000000,1710000000
+,3,0,"Redaktion ohne Alternativtext",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages:media,tx_alttexttest_item:image","tt_content:CType:textpic,tt_content:CType:image,tt_content:CType:carousel,tt_content:CType:text,tt_content:CType:textmedia","tx_nrmcpagent:approve_own_changes",1710000000,1710000000
+,4,0,"Redaktion ohne Bildfeld",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,pages:media","tt_content:CType:textpic,tt_content:CType:image,tt_content:CType:carousel,tt_content:CType:text,tt_content:CType:textmedia","tx_nrmcpagent:approve_own_changes",1710000000,1710000000
+,5,0,"Redaktion ohne Referenzen",1,"0","pages,tt_content,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,pages:media,tx_alttexttest_item:image","tt_content:CType:textpic,tt_content:CType:image,tt_content:CType:carousel,tt_content:CType:text,tt_content:CType:textmedia","tx_nrmcpagent:approve_own_changes",1710000000,1710000000
+,6,0,"Redaktion ohne Bildelemente",1,"0","pages,tt_content,sys_file_reference","pages,tt_content,sys_file_reference","sys_file_reference:alternative,sys_file_reference:tx_nrmcpagent_decorative,pages:media","tt_content:CType:textpic","",1710000000,1710000000
 "be_users"
 ,"uid","pid","username","password","admin","db_mountpoints","options","usergroup","workspace_id","tstamp","crdate"
 ,1,0,"admin","$2y$12$xxx",1,"",0,"",0,1710000000,1710000000
@@ -13,6 +14,7 @@
 ,4,0,"editor-no-alternative","$2y$12$xxx",0,"",3,"3",0,1710000000,1710000000
 ,5,0,"editor-no-image-field","$2y$12$xxx",0,"",3,"4",0,1710000000,1710000000
 ,6,0,"editor-no-references","$2y$12$xxx",0,"",3,"5",0,1710000000,1710000000
+,7,0,"editor-textpic-only","$2y$12$xxx",0,"",3,"6",0,1710000000,1710000000
 "pages"
 ,"uid","pid","title","doktype","sorting","sys_language_uid","l10n_parent","perms_userid","perms_groupid","perms_user","perms_group","perms_everybody","deleted","hidden","extendToSubpages","starttime","endtime","editlock"
 ,1,0,"Wurzel",1,10,0,0,1,0,31,0,31,0,0,0,0,0,0
@@ -42,6 +44,7 @@
 ,33,1,"Aussen abgelaufen",1,1600,0,0,1,0,31,0,1,0,0,1,0,946684800,0
 ,34,33,"Innen versteckt",1,10,0,0,1,0,31,0,1,0,1,1,0,0,0
 ,35,34,"Ganz unten",1,10,0,0,1,0,31,0,1,0,0,0,0,0,0
+,36,1,"Nur Seite",1,1700,0,0,1,0,31,0,3,0,0,0,0,0,0
 "tt_content"
 ,"uid","pid","CType","header","colPos","sorting","sys_language_uid","deleted","hidden","starttime","endtime","editlock","tx_alttexttest_item"
 ,100,10,"textpic","Unser Team",0,256,0,0,0,0,0,0,0
@@ -163,3 +166,4 @@
 ,52,32,1,123,"tt_content","image",1,0,\NULL,0,0,0
 ,53,10,8,110,"tt_content","image",5,1,\NULL,0,0,0
 ,54,35,1,125,"tt_content","image",1,0,\NULL,0,0,0
+,55,36,1,36,"pages","media",1,0,\NULL,0,0,0

@@ -57,10 +57,11 @@ readonly class MissingAltTextRepository
      * overlay's field list.
      *
      * @param array<string, list<string>> $fieldsByTable image fields per table
+     * @param int|null                    $referenceUid  only this reference, for a question about one image
      *
      * @return list<array<string, mixed>>
      */
-    public function findOpenReferences(array $fieldsByTable, int $workspace): array
+    public function findOpenReferences(array $fieldsByTable, int $workspace, ?int $referenceUid = null): array
     {
         if ($fieldsByTable === []) {
             return [];
@@ -136,6 +137,7 @@ readonly class MissingAltTextRepository
                         ),
                     ),
                 ),
+                ...($referenceUid === null ? [] : [$qb->expr()->eq('r.uid', $qb->createNamedParameter($referenceUid, Connection::PARAM_INT))]),
             )
             ->orderBy('r.uid');
 

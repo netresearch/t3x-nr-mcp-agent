@@ -46,6 +46,7 @@ use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
@@ -83,7 +84,7 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * strong TYPO3-backend identity system prompt), and maps the run outcome back
  * onto the conversation. Tools are no longer sourced from MCP servers here.
  */
-final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface, ProcessPinReleaseInterface
+final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterface, ProcessPinReleaseInterface, ToolAvailabilityInterface
 {
     private const DECISION_APPROVE = 'approve';
 
@@ -232,6 +233,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?SkillCatalogueInterface $skills = null,
         private readonly ?SkillInvocationInterface $skillInvocation = null,
         private readonly ?OpenPointTrackerInterface $openPoints = null,
+        private readonly ?ToolCallPolicyInterface $toolPolicy = null,
     ) {}
 
     /**
@@ -276,6 +278,36 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             'maxFileSize'      => 0,
             'supportedFormats' => $extractionFormats,
         ];
+    }
+
+    /**
+     * Asked through nr-llm's own policy, the gate the run itself passes, for
+     * the configuration the current user's chat runs on. Without the policy,
+     * or without a configuration the user may use, no tool counts as
+     * available: an offer the run would then refuse is the worse answer.
+     */
+    public function unavailableTools(array $toolNames): array
+    {
+        if (!$this->toolPolicy instanceof ToolCallPolicyInterface) {
+            return $toolNames;
+        }
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $user        = $backendUser instanceof BackendUserAuthentication ? $backendUser : null;
+
+        try {
+            $configuration = $this->resolveConfiguration($this->resolveActor($this->currentBackendUserUid()));
+            $unavailable   = [];
+            foreach ($toolNames as $name) {
+                if (!$this->toolPolicy->decide($name, $configuration, $user)->allowed) {
+                    $unavailable[] = $name;
+                }
+            }
+        } catch (Throwable) {
+            return $toolNames;
+        }
+
+        return $unavailable;
     }
 
     public function processConversation(Conversation $conversation): void

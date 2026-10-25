@@ -721,6 +721,27 @@
             <trans-unit id="openPoint.open" resname="openPoint.open">
                 <source>%1$s open on “%2$s”</source>
             </trans-unit>
+            <trans-unit id="error.altTextStart" resname="error.altTextStart">
+                <source>A conversation about an image starts from the image alone.</source>
+            </trans-unit>
+            <trans-unit id="error.altTextWorkspace" resname="error.altTextWorkspace">
+                <source>Alt texts are saved from the chat in the live workspace only. Switch to the live workspace to optimise this image.</source>
+            </trans-unit>
+            <trans-unit id="error.altTextToolsUnavailable" resname="error.altTextToolsUnavailable">
+                <source>Optimising is not available: an administrator has to enable the tools “set_file_reference_alternative_text” and “set_file_reference_decorative” for the chat.</source>
+            </trans-unit>
+            <trans-unit id="error.altTextHitDone" resname="error.altTextHitDone">
+                <source>This image is no longer in your list: it may have an alt text or a decorative mark by now, or you may no longer change it. The list is updated.</source>
+            </trans-unit>
+            <trans-unit id="error.altTextNotPermitted" resname="error.altTextNotPermitted">
+                <source>This image does not exist, or you may not edit it.</source>
+            </trans-unit>
+            <trans-unit id="error.altTextApprovalNotAllowed" resname="error.altTextApprovalNotAllowed">
+                <source>You may not apply changes in the chat yourself, so the chat cannot save an alt text for you. Ask an administrator for the permission “Approve own changes in the chat”.</source>
+            </trans-unit>
+            <trans-unit id="error.altTextSecondApprover" resname="error.altTextSecondApprover">
+                <source>This chat's configuration requires a second person to approve every change, so it cannot save an alt text right away. Ask an administrator for another configuration.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

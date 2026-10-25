@@ -642,9 +642,11 @@ once the content is shown again. Many images are listed page by page.
 
 An image counts as open when neither its use nor the file list
 (*Alternative text* of the file) gives it an alt text, and it is not marked
-as decorative. You see only images you may change: on pages you may edit,
-in languages you may edit, with the right to change *Alternative text* and
-the record and its image field. Fixing an image with the assistant from the
+as decorative. You see only images you may change: on pages whose content
+you may edit (an image in the page properties needs the right to edit the
+page as well), in languages you may edit, in content elements of a type you
+may use, with the right to change *Alternative text* and the record and its
+image field. Fixing an image with the assistant from the
 list follows in a later release. Which tables and fields are checked is set
 in :confval:`altTextExcludedTables` and :confval:`altTextExcludedFields`.
 

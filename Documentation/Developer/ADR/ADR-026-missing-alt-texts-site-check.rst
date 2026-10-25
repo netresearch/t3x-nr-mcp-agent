@@ -55,8 +55,8 @@ workspaces and the record history apply, and the tool is useful without
 this extension. Setting ``tx_nrmcpagent_decorative`` is a tool of this
 extension, registered with nr-llm's tool registry like the guided-state
 tools (:ref:`adr-020`): nr-llm does not know the field, and the field goes
-away with this extension. It writes through DataHandler as well. Whether it
-asks for approval is slice 2's decision.
+away with this extension. It writes through DataHandler as well. It asks for
+approval (below, *Slice 2*).
 
 **The decorative field.** ``sys_file_reference.tx_nrmcpagent_decorative``
 (the extension's prefix; the specification's ``tx_aiassistant_`` is an
@@ -136,7 +136,11 @@ a content element puts the hit under *Seiten*, any other table under its
 own tab, labelled with the table's TCA title. So a carousel item's image
 belongs to its content element on the page, and a content element inside
 a news record to that record. An excluded table also takes the records it
-owns with it.
+owns with it. An inline field from a table to itself is not followed: it
+declares a container of records of its own kind (a grid extension's
+content element holding content elements, for example), whose children the
+page module edits on their own and the DataHandler checks alone, so a
+locked container does not hide or refuse the images of its children.
 
 **When a hit is open.** The image's effective alt text is empty: the
 reference's own text, or, where the reference has none (``NULL``), the
@@ -170,17 +174,38 @@ the page has no translation gets no reason, although the frontend may not
 show it.
 
 **Permissions.** A hit is kept only when the user may change the
-reference, as DataHandler would allow it: ``readPageAccess()`` with *edit
-page* for a page property and *edit content* otherwise (records: their
-folder), which includes the web mounts; no ``editlock`` on the page or a
-record on the way (admins excepted); ``tables_modify`` for every table on
-the way and for ``sys_file_reference``; the image field, the inline fields
-on the way and ``sys_file_reference.alternative`` granted where they are
-exclude fields; the language of the reference and of each record. The
-same filter feeds the list, its tabs and the dashboard number. Not
-enforced in this slice: per-value access to the content type
-(``explicit_allowdeny``) and access checks extensions add to DataHandler
-through hooks; DataHandler still applies both when slice 2 writes.
+reference, as nr-llm's writer asks it before its card (nr-llm ADR-230):
+``readPageAccess()`` with *edit content*, and for a page property *edit
+page* as well (records: their folder), which includes the web mounts; no
+``editlock`` on the page or a record on the way (admins excepted);
+``tables_modify`` for every table on the way and for
+``sys_file_reference``; the values of each record's ``authMode`` fields,
+the content type above all (``explicit_allowdeny``); the image field, the
+inline fields on the way and ``sys_file_reference.alternative`` granted
+where they are exclude fields; the language of the reference and of each
+record. Before these, every table on the way has to be writable at all,
+for admins too: not on nr-llm's denylist of credential and audit tables,
+not ``readOnly``, and not ``adminOnly`` for an editor; the list and the
+writers ask this in one place (``TableWriteEligibility``). A page property
+needs both page rights because the form edits it
+as a page property, while the DataHandler, writing the reference row
+alone, asks *edit content* on its page and *edit page* only with ``pages``
+in the same datamap. The same filter feeds the list, its tabs and the
+dashboard number.
+
+The DataHandler does not repeat these checks for the records the
+reference hangs on: writing ``sys_file_reference`` alone, it checks that
+row, its page and its table, field and language rights, not the record it
+belongs to, and for an inline child not the outer content element either.
+So ``ReferenceWriteAccess`` asks, before its card, the rights of the record
+and of every record that owns it through an inline field, up to the
+outermost one: an image on a carousel item is refused when its content
+element is locked or of a type the user may not use. The list asks the
+same of the same chain. nr-llm's ``set_file_reference_alternative_text``
+(nr-llm ADR-230) asks the record's own rights but not those of its owners,
+so such an image passes it; that gap is closed in nr-llm on its own. Not
+enforced anywhere before the write: access checks extensions add to
+DataHandler through hooks.
 
 **Workspaces.** In a workspace each row is overlaid with its workspace
 version: an alt text or mark set there, a file list text set there, and a
@@ -210,6 +235,61 @@ every action of the feature leads into the chat. *Optimieren* is left out
 until slice 2 rather than shown disabled: a disabled button cannot be
 focused, so its explanation would not reach keyboard users.
 
+Slice 2
+=======
+
+**The decorative mark is a tool that asks for approval.**
+``set_file_reference_decorative(reference, decorative)`` sets or clears
+``tx_nrmcpagent_decorative`` on one reference through nr-llm's
+``ToolDataHandler``, the DataHandler its own writers run (nr-llm ADR-206),
+as the acting user, in the live workspace only, reads it back, and names
+the reference as its write target, so nr-llm announces the write with
+``AfterAiRecordWrittenEvent`` as it does for its own writers. nr-llm pauses
+every call of a tool that declares a write for an approval card
+(``ToolApprovalRule``, nr-llm ADR-134), and no declaration lifts that;
+declaring the tool a read to save the editor a click would mislabel a
+record write, which the guided-state tools' ``READ_ONLY`` does not do
+(they write the chat's own bookkeeping only). Like nr-llm's writers it is
+disabled until an administrator enables it, in the writers' group
+``editing``, and usable by editors. Before the card it asks what nr-llm's
+``set_file_reference_alternative_text`` asks (``ReferenceWriteAccess``),
+with the grant for the mark instead of the alternative text, so no card is
+offered that the DataHandler would then refuse. Its card names the image
+use and, when the image belongs to a section (the header of its content
+element, also through a carousel item) or to a record outside the pages,
+carries the specification's warning (case 2): "Dieses Bild gehört zum
+Abschnitt „…“ und braucht deshalb wahrscheinlich einen Alt-Text. Trotzdem
+als dekorativ markieren?"
+
+**The editor confirms the mark once, on that card.** The specification
+saves on "Übernehmen" or "Als dekorativ markieren"; nr-llm saves a write
+only on an approved card (nr-llm ADR-134), and that holds here too. The
+chip "Als dekorativ markieren" therefore does not save anything and does
+not count as a confirmation: it asks for the card, and approving the card
+is the one confirmation, with the warning of case 2 on the card itself. No
+further "really?" step comes before or after it.
+
+**A conversation starts from the reference alone.**
+``POST /ai-chat/conversations/create`` takes ``altTextReference``, the
+reference's uid, and nothing else: a page or a skill sent along is
+refused. The server reads everything about the image again: the hit has to
+be one the list shows the user (``MissingAltTextScan::find()``, the list's
+own filter) and one nr-llm's writer would accept (``ReferenceWriteAccess``
+for ``alternative``). A reference that is not there and one that is not
+the user's get one neutral 403, so a uid alone does not tell whether it
+exists; a reference the user may edit that is no longer open gets 409
+``done`` ("Treffer zwischenzeitlich erledigt"). A draft workspace gets 409
+``workspace``: nr-llm's writer writes the live workspace only. A chat whose
+runs may not call both tools, as nr-llm's own policy answers it
+(``ToolCallPolicyInterface::decide()`` for the chat's configuration),
+gets 409 ``tools`` and the names of the tools an administrator has to
+enable. A user who may not approve their own changes in the chat
+(:ref:`adr-021`) gets 409 ``approval``, and a chat whose configuration
+requires a second approver 409 ``secondApprover``: the proposal is saved by
+approving its card, which neither could do. The conversation keeps the reference uid only (column
+``alt_text_hit``), and is about the image's page in the reference's
+language when the image lies on a page; a record's image binds no page.
+
 Consequences
 ============
 
@@ -228,3 +308,8 @@ Consequences
 -   The tests need ``typo3/cms-fluid-styled-content`` and
     ``typo3/cms-workspaces`` as development dependencies, to prove the
     frontend output and the workspace overlay.
+-   Slice 2 needs nr-llm 0.41.6 (``set_file_reference_alternative_text``)
+    and adds the column ``tx_nrmcpagent_conversation.alt_text_hit``: run the
+    database analyzer after upgrading. An administrator enables both
+    writing tools, nr-llm's and ``set_file_reference_decorative``, and gives
+    editors the field ``sys_file_reference:tx_nrmcpagent_decorative``.

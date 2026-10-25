@@ -174,6 +174,17 @@ final class Conversation
      */
     private string $lastRunUuid = '';
 
+    /**
+     * The image use the conversation is about, when it was started with
+     * "Optimieren" in the list of missing alt texts (ADR-026), as JSON:
+     * `reference`, the sys_file_reference uid. Empty for any other
+     * conversation. Only the uid is kept: whatever the chat says or sends
+     * about the image is read again from the reference, with the user's
+     * rights, when it is needed. Written with the new row and then on its
+     * own column, never by a full-row write.
+     */
+    private string $altTextHit = '';
+
     private int $tstamp = 0;
 
     /** @phpstan-ignore-next-line property.onlyWritten */
@@ -213,6 +224,7 @@ final class Conversation
         $conversation->pendingInput       = (string) self::val($row, 'pending_input', '');
         $conversation->approvalDenyReason = (string) self::val($row, 'approval_deny_reason', '');
         $conversation->lastRunUuid        = (string) self::val($row, 'last_run_uuid', '');
+        $conversation->altTextHit         = (string) self::val($row, 'alt_text_hit', '');
         $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate             = (int) self::val($row, 'crdate', 0);
 
@@ -507,6 +519,30 @@ final class Conversation
     {
         $this->skillIdentifier = self::isSkillIdentifier($identifier) ? $identifier : '';
         $this->skillUid        = $this->skillIdentifier !== '' ? max(0, $uid) : 0;
+    }
+
+    /**
+     * The image use the conversation is about (ADR-026); `reference` is 0
+     * for a conversation about none.
+     *
+     * @return array{reference: int}
+     */
+    public function getAltTextHit(): array
+    {
+        $decoded   = $this->altTextHit !== '' ? json_decode($this->altTextHit, true) : null;
+        $reference = is_array($decoded) ? ($decoded['reference'] ?? null) : null;
+
+        return ['reference' => is_int($reference) && $reference > 0 ? $reference : 0];
+    }
+
+    public function getAltTextHitJson(): string
+    {
+        return $this->altTextHit;
+    }
+
+    public function setAltTextHit(int $referenceUid): void
+    {
+        $this->altTextHit = $referenceUid > 0 ? json_encode(['reference' => $referenceUid], JSON_THROW_ON_ERROR) : '';
     }
 
     public function getSkillUid(): int

@@ -15,7 +15,7 @@ Requirements
 *   EXT:filelist (``typo3/cms-filelist``) -- the file picker
     uses its element browser
 *   `netresearch/nr-llm <https://github.com/netresearch/
-    t3x-nr-llm>`__ (^0.41.1) -- LLM abstraction layer
+    t3x-nr-llm>`__ (^0.41.6) -- LLM abstraction layer
 
 Optional:
 

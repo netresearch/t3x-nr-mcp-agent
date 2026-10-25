@@ -30,11 +30,13 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  *
  * A hit is kept only when the user may change the reference's alt text, the
  * same conditions DataHandler applies:
- * - the page passes readPageAccess() with "edit page" for a page property and
- *   "edit content" for everything else (records: the folder they lie in);
- *   that covers the web mounts;
+ * - the page passes readPageAccess() with "edit content", and for a page
+ *   property "edit page" as well (records: the folder they lie in); that
+ *   covers the web mounts;
  * - neither the page nor a record on the way is locked for editing;
- * - every table on the way, and sys_file_reference, may be modified;
+ * - every table on the way, and sys_file_reference, may be modified, and
+ *   the values of each record's authMode fields (the content type) are
+ *   allowed;
  * - the image field, every inline field on the way and the reference's
  *   "Alternative text" are not excluded fields, or are granted;
  * - the user may edit the reference's language and each record's.
@@ -77,6 +79,7 @@ class MissingAltTextScanner
         private readonly ImageFieldDiscovery $discovery,
         private readonly MissingAltTextRepository $repository,
         private readonly Context $context,
+        private readonly TableWriteEligibility $tables = new TableWriteEligibility(),
     ) {}
 
     /**
@@ -89,7 +92,11 @@ class MissingAltTextScanner
         return $user instanceof BackendUserAuthentication ? $this->scan($user) : new MissingAltTextScan([]);
     }
 
-    public function scan(BackendUserAuthentication $user): MissingAltTextScan
+    /**
+     * The open hits the user may fix; with a reference, that one image only,
+     * decided by the same filter (the start of a conversation about it).
+     */
+    public function scan(BackendUserAuthentication $user, ?int $referenceUid = null): MissingAltTextScan
     {
         $this->records        = [];
         $this->pageAccess     = [];
@@ -103,32 +110,7 @@ class MissingAltTextScanner
         $workspace       = $user->workspace;
         $this->workspace = $workspace;
 
-        $rows = $this->repository->findOpenReferences($fieldsByTable, $workspace);
-        if ($workspace !== 0) {
-            $this->load(array_map(fn (array $row): array => ['sys_file_metadata', $this->int($row['_metadata_uid'] ?? 0), ''], $rows), $workspace);
-        }
-
-        $references = [];
-        foreach ($rows as $row) {
-            $fileName    = $this->string($row['_file_name'] ?? null);
-            $metadataUid = $this->int($row['_metadata_uid'] ?? 0);
-            unset($row['_file_name'], $row['_metadata_uid']);
-            if ($workspace !== 0) {
-                // The query decided on the live rows; the workspace versions
-                // may have the alt text or the mark, or be deleted.
-                $row = $this->overlay('sys_file_reference', $row, $workspace);
-                if ($row === null || $this->int($row['tx_nrmcpagent_decorative'] ?? 0) !== 0 || trim($this->string($row['alternative'] ?? null)) !== '') {
-                    continue;
-                }
-
-                $metadata = $this->records['sys_file_metadata'][$metadataUid] ?? null;
-                if ($row['alternative'] === null && trim($this->string($metadata['alternative'] ?? null)) !== '') {
-                    continue;
-                }
-            }
-
-            $references[] = ['row' => $row, 'fileName' => $fileName];
-        }
+        $references = $this->openReferences($this->repository->findOpenReferences($fieldsByTable, $workspace, $referenceUid), $workspace);
 
         $chains = $this->chains($references, $workspace);
         $this->loadPages($chains, $workspace);
@@ -145,6 +127,55 @@ class MissingAltTextScanner
         usort($keyed, static fn (array $a, array $b): int => $a['key'] <=> $b['key']);
 
         return new MissingAltTextScan(array_map(static fn (array $entry): MissingAltText => $entry['hit'], $keyed));
+    }
+
+    /**
+     * The references the query found, each with its file name; in a draft
+     * workspace only those whose workspace version is still open.
+     *
+     * @param list<array<string, mixed>> $rows
+     *
+     * @return list<array{row: array<string, mixed>, fileName: string}>
+     */
+    private function openReferences(array $rows, int $workspace): array
+    {
+        if ($workspace !== 0) {
+            $this->load(array_map(fn (array $row): array => ['sys_file_metadata', $this->int($row['_metadata_uid'] ?? 0), ''], $rows), $workspace);
+        }
+
+        $references = [];
+        foreach ($rows as $row) {
+            $fileName    = $this->string($row['_file_name'] ?? null);
+            $metadataUid = $this->int($row['_metadata_uid'] ?? 0);
+            unset($row['_file_name'], $row['_metadata_uid']);
+            $row = $workspace === 0 ? $row : $this->openInWorkspace($row, $metadataUid, $workspace);
+            if ($row !== null) {
+                $references[] = ['row' => $row, 'fileName' => $fileName];
+            }
+        }
+
+        return $references;
+    }
+
+    /**
+     * The workspace version of a reference the query found open on its live
+     * row, while it is still open: it may have the alt text or the mark by
+     * now, or be deleted.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>|null
+     */
+    private function openInWorkspace(array $row, int $metadataUid, int $workspace): ?array
+    {
+        $row = $this->overlay('sys_file_reference', $row, $workspace);
+        if ($row === null || $this->int($row['tx_nrmcpagent_decorative'] ?? 0) !== 0 || trim($this->string($row['alternative'] ?? null)) !== '') {
+            return null;
+        }
+
+        $metadata = $this->records['sys_file_metadata'][$metadataUid] ?? null;
+
+        return $row['alternative'] === null && trim($this->string($metadata['alternative'] ?? null)) !== '' ? null : $row;
     }
 
     /**
@@ -265,13 +296,23 @@ class MissingAltTextScanner
                 return null;
             }
 
+            // What the writers ask before any record right: a table they
+            // may not write keeps its images out of the list.
+            if (!$this->tables->mayWrite($link['table'], $user)) {
+                return null;
+            }
+
             if (!$this->discovery->isShown($link['table'], (string) BackendUtility::getTCAtypeValue($link['table'], $link['row']), $link['via'])) {
                 return null;
             }
         }
 
-        $pageUid    = $this->pageUidOf($top);
-        $permission = $top['table'] === 'pages' ? Permission::PAGE_EDIT : Permission::CONTENT_EDIT;
+        $pageUid = $this->pageUidOf($top);
+        // An image of the page itself needs both: the form edits it as a page
+        // property ("edit page"), and the DataHandler, writing the reference
+        // row alone, asks "edit content" on its page (it asks "edit page" only
+        // with `pages` in the same datamap).
+        $permission = $top['table'] === 'pages' ? Permission::PAGE_EDIT | Permission::CONTENT_EDIT : Permission::CONTENT_EDIT;
         $page       = $this->editablePage($user, $pageUid, $permission);
         if ($page === null || !$this->mayEdit($user, $reference, $chain)) {
             return null;
@@ -348,6 +389,34 @@ class MissingAltTextScanner
 
             $editlock = is_string($ctrl['editlock'] ?? null) ? $ctrl['editlock'] : '';
             if ($editlock !== '' && $this->int($link['row'][$editlock] ?? 0) !== 0) {
+                return false;
+            }
+
+            if (!$this->mayUseValues($user, $table, $link['row'])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The values of the record's `authMode` fields, the content type above
+     * all, are ones the user is allowed (explicit_allowdeny), as nr-llm's
+     * alt text writer asks it of the record before its card.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function mayUseValues(BackendUserAuthentication $user, string $table, array $row): bool
+    {
+        $columns = $this->tableConfig($table)['columns'] ?? null;
+        foreach (is_array($columns) ? $columns : [] as $name => $column) {
+            $config = is_array($column) ? ($column['config'] ?? null) : null;
+            if (!is_array($config) || ($config['type'] ?? null) !== 'select' || !(bool) ($config['authMode'] ?? false)) {
+                continue;
+            }
+
+            if (array_key_exists($name, $row) && !$user->checkAuthMode($table, $name, $this->string($row[$name]))) {
                 return false;
             }
         }

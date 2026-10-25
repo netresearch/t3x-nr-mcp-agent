@@ -716,4 +716,54 @@ class ConversationTest extends TestCase
         $arguments = $decoded[0]['tool_calls'][0]['function']['arguments'];
         self::assertIsString($arguments);
     }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, int}>
+     */
+    public static function altTextHitRows(): iterable
+    {
+        yield 'no hit' => [[], 0];
+        yield 'empty JSON' => [['alt_text_hit' => ''], 0];
+        yield 'malformed JSON' => [['alt_text_hit' => '{"reference":'], 0];
+        yield 'not an object' => [['alt_text_hit' => '12'], 0];
+        yield 'a string reference' => [['alt_text_hit' => '{"reference":"12"}'], 0];
+        yield 'a non-positive reference' => [['alt_text_hit' => '{"reference":-3}'], 0];
+        yield 'a positive reference' => [['alt_text_hit' => '{"reference":12}'], 12];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    #[Test]
+    #[DataProvider('altTextHitRows')]
+    public function theAltTextHitIsReadFromItsStoredJson(array $row, int $reference): void
+    {
+        $conversation = Conversation::fromRow($row);
+
+        self::assertSame(['reference' => $reference], $conversation->getAltTextHit());
+        self::assertSame((string) ($row['alt_text_hit'] ?? ''), $conversation->getAltTextHitJson());
+    }
+
+    /**
+     * @return iterable<string, array{int, string, int}>
+     */
+    public static function altTextHitReferences(): iterable
+    {
+        yield 'a positive reference' => [12, '{"reference":12}', 12];
+        yield 'zero clears it' => [0, '', 0];
+        yield 'a negative reference clears it' => [-5, '', 0];
+    }
+
+    #[Test]
+    #[DataProvider('altTextHitReferences')]
+    public function settingTheAltTextHitStoresAPositiveReferenceOnly(int $referenceUid, string $json, int $reference): void
+    {
+        $conversation = new Conversation();
+        $conversation->setAltTextHit(7);
+
+        $conversation->setAltTextHit($referenceUid);
+
+        self::assertSame($json, $conversation->getAltTextHitJson());
+        self::assertSame(['reference' => $reference], $conversation->getAltTextHit());
+    }
 }
