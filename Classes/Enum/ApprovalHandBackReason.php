@@ -98,7 +98,7 @@ enum ApprovalHandBackReason: string
     /**
      * The tool policy's reason behind an approver or submitter refusal, or null
      * where nr-llm does not say. nr-llm exposes it as getDenialReason() from the
-     * release that ships t3x-nr-llm#1179 (0.41.5, the required floor); up to 0.41.4 the
+     * release that ships t3x-nr-llm#1179 (0.41.5, below the required floor); up to 0.41.4 the
      * reason is only in the message, which is not parsed. {@see InputHandBackReason} uses it too. Duck-typed on `object` so the check holds
      * against both versions without a version switch.
      */

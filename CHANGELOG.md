@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Upgrading
 
 - **Update the database schema.** `tx_nrmcpagent_conversation` gains the column `alt_text_hit` (ADR-026); run the database analyzer.
-- **Requires nr-llm 0.41.6** (`^0.41.6` in `composer.json`, `0.41.6-0.41.99` in `ext_emconf.php`), the release that ships the tool `set_file_reference_alternative_text`.
+- **Requires nr-llm 0.41.7** (`^0.41.7` in `composer.json`, `0.41.7-0.41.99` in `ext_emconf.php`). Its alt text writer `set_file_reference_alternative_text` checks every inline owner of an image before it writes, as "Optimieren" relies on.
 - **"Optimieren" needs both writing tools enabled.** `set_file_reference_alternative_text` (nr-llm) and `set_file_reference_decorative` (this extension) ship disabled; an administrator enables them in nr-llm's *Tools* module.
 - **Editors who use "Optimieren" need the right to approve their own changes.** nr-llm pauses every write of these tools for an approval card, so an editor's backend group needs "Approve own changes in the chat" (*Custom module options*, `tx_nrmcpagent:approve_own_changes`, ADR-021); administrators and users of AI Tasks need nothing. "Optimieren" is not available on an AI configuration that requires a second approver, nor in a draft workspace. Where it is not available, a note above the list says why.
 - **The decorative mark from the chat needs the exclude-field grant** *File Reference: Decorative image* (`sys_file_reference:tx_nrmcpagent_decorative`) under *Allowed excludefields*. Without it the chat offers no "Als dekorativ markieren", and a mark the assistant proposes cannot be approved.
