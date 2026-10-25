@@ -87,6 +87,9 @@ final class AltTextFlowTest extends FunctionalTestCase
 
     private int $dispatched = 0;
 
+    /** The run the conversation waits on, as the next controller reads it. */
+    private ?WaitingRunView $pendingView = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -107,6 +110,7 @@ final class AltTextFlowTest extends FunctionalTestCase
         });
         $this->approval = $this->createMock(ChatApprovalInterface::class);
         $this->approval->method('releasePendingRun')->willReturn(true);
+        $this->approval->method('pendingApproval')->willReturnCallback(fn (): ?WaitingRunView => $this->pendingView);
         $this->loginAs(self::EDITOR);
     }
 
@@ -124,7 +128,7 @@ final class AltTextFlowTest extends FunctionalTestCase
         $tools->method('unavailableTools')->willReturn([]);
         $capabilities = $this->createMock(ChatCapabilitiesInterface::class);
         $capabilities->method('getProviderCapabilities')->willReturn(['visionSupported' => false, 'maxFileSize' => 0, 'supportedFormats' => []]);
-        $this->approval->method('pendingApproval')->willReturn($pending);
+        $this->pendingView = $pending;
 
         return new ChatApiController(
             $this->repository,
@@ -163,6 +167,7 @@ final class AltTextFlowTest extends FunctionalTestCase
             'skip'       => $subject->skipAltText($request),
             'decorative' => $subject->markAltTextDecorative($request),
             'retry'      => $subject->retryAltText($request),
+            'approve'    => $subject->decideApproval($request),
         };
     }
 
@@ -508,6 +513,102 @@ final class AltTextFlowTest extends FunctionalTestCase
         self::assertSame(403, $response->getStatusCode());
         self::assertSame([AltTextConversation::NOTICE_HIT], $this->notices($this->conversation($conversation->getUid())));
         self::assertSame(1, $this->dispatched);
+    }
+
+    /**
+     * A card of one call, waiting for an approval, as nr-llm's inbox reads it.
+     *
+     * @param array<string, mixed> $arguments
+     * @param list<string>         $previewLines
+     */
+    private function waiting(string $tool, array $arguments, array $previewLines, bool $previewFailed = false): WaitingRunView
+    {
+        return new WaitingRunView(
+            '7f0c6a52-6d1e-4b8f-9a35-0c2f7b1e4d10',
+            WaitingRunView::MODE_APPROVAL,
+            0,
+            'Chat',
+            'digest',
+            [new PendingCallView($tool, json_encode($arguments, JSON_THROW_ON_ERROR), true, $previewLines, $previewFailed)],
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function pendingCard(Conversation $conversation, WaitingRunView $pending): array
+    {
+        $request = (new ServerRequest('/', 'GET'))->withQueryParams(['conversationUid' => (string) $conversation->getUid()]);
+        $card    = $this->json($this->subject($pending)->getMessages($request))['pendingApproval'] ?? null;
+        self::assertIsArray($card);
+
+        return $card;
+    }
+
+    /**
+     * The model's own decorative mark (case 1) reaches a user without the
+     * grant for it as a card that cannot be approved and says why in the
+     * reader's language, without the tool's refusal, a sentence for
+     * developers; approving it is refused. The model is told the mark is not
+     * available, so it proposes an alt text.
+     */
+    #[Test]
+    public function withoutTheGrantForTheMarkTheModelsMarkCannotBeApproved(): void
+    {
+        $this->loginAs(3);
+        $conversation = $this->settle($this->start(10), ConversationStatus::AwaitingApproval);
+        $refusal      = 'Refused: the acting backend user holds no field-level ("exclude field") grant for sys_file_reference:tx_nrmcpagent_decorative. Nothing was written.';
+        $pending      = $this->waiting('set_file_reference_decorative', ['reference' => 10, 'decorative' => true], [$refusal], true);
+
+        $card = $this->pendingCard($conversation, $pending);
+
+        self::assertSame('altTextMarkNotPermitted', $card['approveBlocked']);
+        self::assertSame('altTextDecorative', $card['answers']);
+        self::assertStringNotContainsString('Refused', json_encode($card, JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('exclude field', json_encode($card, JSON_THROW_ON_ERROR));
+
+        $response = $this->post('approve', ['conversationUid' => $conversation->getUid(), 'approve' => true], $pending);
+        self::assertSame(403, $response->getStatusCode(), (string) $response->getBody());
+        self::assertSame('You may not mark this image as decorative. You can have an alt text proposed instead.', $this->json($response)['error'] ?? null);
+
+        $transcript = $this->get(AltTextConversation::class)->transcript($conversation, $conversation->getDecodedMessages(), false);
+        self::assertStringContainsString('The editor may not mark this image as decorative', (string) ($transcript[0]['content'] ?? ''));
+    }
+
+    /** With the grant, the model's mark is approvable and the model may propose it. */
+    #[Test]
+    public function withTheGrantForTheMarkTheModelsMarkCanBeApproved(): void
+    {
+        $conversation = $this->settle($this->start(10), ConversationStatus::AwaitingApproval);
+
+        $card = $this->pendingCard($conversation, $this->waiting('set_file_reference_decorative', ['reference' => 10, 'decorative' => true], ['Als dekorativ markieren']));
+
+        self::assertSame('', $card['approveBlocked']);
+        $transcript = $this->get(AltTextConversation::class)->transcript($conversation, $conversation->getDecodedMessages(), false);
+        self::assertStringNotContainsString('may not mark this image as decorative', (string) ($transcript[0]['content'] ?? ''));
+    }
+
+    /**
+     * A call of the flow's tools on another image than the conversation's
+     * is not approved here: the card says so, and approving is refused. The
+     * same call on the conversation's image is approvable.
+     */
+    #[Test]
+    public function aCallOnAnotherImageCannotBeApproved(): void
+    {
+        $conversation = $this->settle($this->start(1), ConversationStatus::AwaitingApproval);
+        foreach (['set_file_reference_alternative_text' => ['alternative' => 'x'], 'set_file_reference_decorative' => ['decorative' => true]] as $tool => $arguments) {
+            $other = $this->waiting($tool, ['reference' => 2, ...$arguments], ['Image: logo.png']);
+
+            self::assertSame('altTextOtherImage', $this->pendingCard($conversation, $other)['approveBlocked'], $tool);
+
+            $response = $this->post('approve', ['conversationUid' => $conversation->getUid(), 'approve' => true], $other);
+            self::assertSame(409, $response->getStatusCode(), $tool . ': ' . $response->getBody());
+            self::assertSame('This proposal concerns a different image than the one in this chat and cannot be applied here. You can deny it.', $this->json($response)['error'] ?? null);
+        }
+
+        $own = $this->waiting('set_file_reference_alternative_text', ['reference' => 1, 'alternative' => 'x'], ['Image: team.jpg']);
+        self::assertSame('', $this->pendingCard($conversation, $own)['approveBlocked']);
     }
 
     /** With the grant, the state offers the chip. */

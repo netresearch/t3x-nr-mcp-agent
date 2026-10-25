@@ -78,6 +78,7 @@ class AltTextConversation
         private readonly MissingAltTextList $list,
         private readonly AltTextContext $context,
         private readonly AltTextImage $image,
+        private readonly ?ReferenceWriteAccess $access = null,
     ) {}
 
     public static function isAbout(Conversation $conversation): bool
@@ -253,6 +254,45 @@ class AltTextConversation
     }
 
     /**
+     * Whether the run waits on a call of the flow's two tools for another
+     * image than the conversation's. Only the system prompt binds the model
+     * to the conversation's reference; such a call is not approved here.
+     */
+    public function callsAnotherImage(Conversation $conversation, ?WaitingRunView $view): bool
+    {
+        if (!$view instanceof WaitingRunView || !self::isAbout($conversation)) {
+            return false;
+        }
+
+        $reference = $conversation->getAltTextHit()['reference'];
+        foreach ($view->pendingCalls as $call) {
+            if (!in_array($call->name, [AltTextFlowPrompt::ALT_TEXT_TOOL, SetDecorativeImageTool::NAME], true)) {
+                continue;
+            }
+
+            $arguments = json_decode($call->argumentsJson, true);
+            $called    = is_array($arguments) ? ($arguments['reference'] ?? null) : null;
+            if (!is_numeric($called) || (int) $called !== $reference) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the user may set the decorative mark on the reference: the
+     * rights and the exclude-field grant, as set_file_reference_decorative
+     * asks them.
+     */
+    public function mayMarkDecorative(?BackendUserAuthentication $user, int $referenceUid): bool
+    {
+        return $user instanceof BackendUserAuthentication
+            && $this->access instanceof ReferenceWriteAccess
+            && !is_string($this->access->resolve($user, $referenceUid, DecorativeImageWriter::COLUMN));
+    }
+
+    /**
      * The user message that carries the image's context, and the image.
      *
      * @return string|list<array<string, mixed>>
@@ -265,7 +305,8 @@ class AltTextConversation
         }
 
         $block = $this->image->modelBlock($reference, $vision);
-        $text  = $this->context->describe($hit, $block !== null);
+        $user  = $GLOBALS['BE_USER'] ?? null;
+        $text  = $this->context->describe($hit, $block !== null, $this->mayMarkDecorative($user instanceof BackendUserAuthentication ? $user : null, $reference));
 
         return $block === null ? $text : [['type' => 'text', 'text' => $text], $block];
     }

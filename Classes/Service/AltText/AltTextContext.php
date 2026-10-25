@@ -46,9 +46,10 @@ class AltTextContext
 
     /**
      * The fenced context block for an open hit; `$imageAttached` says
-     * whether the scaled image follows it.
+     * whether the scaled image follows it, `$mayMarkDecorative` whether the
+     * editor may set the decorative mark.
      */
-    public function describe(MissingAltText $hit, bool $imageAttached): string
+    public function describe(MissingAltText $hit, bool $imageAttached, bool $mayMarkDecorative = true): string
     {
         $card  = $this->list->describe($hit);
         $lines = [
@@ -75,6 +76,9 @@ class AltTextContext
         $lines[] = $imageAttached
             ? 'The image itself (a scaled copy, cropped as on the website) follows this block.'
             : 'The image itself is NOT attached: propose from the context above and the file name only.';
+        if (!$mayMarkDecorative) {
+            $lines[] = 'The editor may not mark this image as decorative: do not propose the mark and do not call set_file_reference_decorative; propose an alt text.';
+        }
 
         return "<image_context>\n" . str_replace(['<image_context>', '</image_context>'], '', implode("\n", $lines)) . "\n</image_context>";
     }

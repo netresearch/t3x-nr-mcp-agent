@@ -15,7 +15,7 @@ import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat
 import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
-import {chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextContext, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
+import {approveBlockedLabel, chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextContext, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
@@ -2122,6 +2122,9 @@ export class AiChatPanel extends LitElement {
     }
 
     _closeAltText() {
+        // A row queued while the proposing turn ran is dropped with the
+        // chat: reopening it must not take that row up unasked.
+        this._queuedAltText = 0;
         const reference = this.chat.altText?.reference ?? 0;
         if (reference) {
             this._emitAltText('closed', {reference});
@@ -3377,9 +3380,8 @@ export class AiChatPanel extends LitElement {
             return nothing;
         }
 
-        const label = pending.approveBlocked === 'secondApprover' ? 'chat.approvalSecondApprover' : 'chat.approvalOwnNeedsPreview';
         return html`
-            <p class="approval-warning approval-blocked">${lll(label)}</p>
+            <p class="approval-warning approval-blocked">${lll(approveBlockedLabel(pending.approveBlocked))}</p>
             ${this._renderRunDetailsLink()}
         `;
     }

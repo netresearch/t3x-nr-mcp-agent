@@ -155,6 +155,25 @@ export const chatAltTextStyles = css`
 `;
 
 /** Whether the card is one of a conversation about a missing alt text. */
+/**
+ * The label that says why a card offers no approve button (ADR-021,
+ * ADR-026): a second person is needed, the preview could not be built with
+ * the reader's rights, the reader may not set the decorative mark, or the
+ * call is about another image than the conversation's.
+ */
+export function approveBlockedLabel(reason) {
+    switch (reason) {
+        case 'secondApprover':
+            return 'chat.approvalSecondApprover';
+        case 'altTextMarkNotPermitted':
+            return 'altText.markNotPermitted';
+        case 'altTextOtherImage':
+            return 'altText.otherImage';
+        default:
+            return 'chat.approvalOwnNeedsPreview';
+    }
+}
+
 export function isAltTextCard(pending) {
     return pending?.answers === 'altText' || pending?.answers === 'altTextDecorative';
 }
@@ -302,6 +321,7 @@ export function renderAltTextCard(chat, pending) {
         return html`
             <div class="alt-text-proposal">
                 ${lines.map((line) => html`<p class="alt-text-proposal-text">${line}</p>`)}
+                ${blocked ? html`<p class="alt-text-note">${lll(approveBlockedLabel(pending.approveBlocked))}</p>` : nothing}
                 <div class="alt-text-answers" role="group" aria-label="${lll('altText.answers')}">
                     ${blocked ? nothing : html`<button type="button" class="btn btn-sm btn-answer btn-primary" ?disabled=${busy}
                         title="${lll('altText.decorative.help')}"
@@ -318,6 +338,7 @@ export function renderAltTextCard(chat, pending) {
     return html`
         <div class="alt-text-proposal">
             <p class="alt-text-proposal-text"><strong>${lll('altText.proposal')}</strong> ${pending.altText?.proposal ?? ''}</p>
+            ${blocked ? html`<p class="alt-text-note">${lll(approveBlockedLabel(pending.approveBlocked))}</p>` : nothing}
             <div class="alt-text-answers" role="group" aria-label="${lll('altText.answers')}">
                 ${blocked ? nothing : html`<button type="button" class="btn btn-sm btn-answer btn-primary" ?disabled=${busy}
                     @click=${() => chat.decideApproval(true)}>${lll('altText.apply')}</button>`}

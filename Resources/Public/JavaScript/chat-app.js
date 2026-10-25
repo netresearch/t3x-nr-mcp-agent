@@ -12,7 +12,7 @@ import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat
 import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
-import {chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextContext, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
+import {approveBlockedLabel, chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextContext, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
@@ -1125,9 +1125,8 @@ export class ChatApp extends LitElement {
             return nothing;
         }
 
-        const label = pending.approveBlocked === 'secondApprover' ? 'chat.approvalSecondApprover' : 'chat.approvalOwnNeedsPreview';
         return html`
-            <p class="approval-warning approval-blocked">${lll(label)}</p>
+            <p class="approval-warning approval-blocked">${lll(approveBlockedLabel(pending.approveBlocked))}</p>
             ${this._renderRunDetailsLink()}
         `;
     }

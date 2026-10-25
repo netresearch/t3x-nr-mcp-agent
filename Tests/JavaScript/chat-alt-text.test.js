@@ -409,6 +409,41 @@ describe('"Optimieren" in the chat panel', () => {
         expect(routes('ai_chat_alt_text_switch')[0].body).toEqual({conversationUid: 5, reference: 10});
     });
 
+    test('a row queued while the turn runs is dropped when the chat is closed', async () => {
+        await panel.optimiseAltText(1);
+        status = 'processing';
+        await panel.chat.loadMessages();
+        expect(await panel.optimiseAltText(10)).toMatchObject({ok: true, code: 'queued'});
+
+        panel.hide();
+        panel.toggle();
+        status = 'idle';
+        await panel.chat.loadMessages();
+        for (let i = 0; i < 10; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
+        expect(routes('ai_chat_alt_text_switch')).toHaveLength(0);
+    });
+
+    test('a card that cannot be approved says why, in German: the mark the reader may not set, a call on another image', async () => {
+        globalThis.TYPO3.lang = germanLabels();
+        pending = {...PROPOSAL, answers: 'altTextDecorative', approveBlocked: 'altTextMarkNotPermitted', altText: {kind: 'decorative', proposal: ''}, calls: [{heading: '', previewLines: []}]};
+        status = 'awaiting_approval';
+        await panel.optimiseAltText(1);
+        await panel.updateComplete;
+
+        const card = panel.shadowRoot.querySelector('.alt-text-proposal');
+        expect(card.querySelector('.alt-text-note').textContent).toBe('Dieses Bild darfst du nicht als dekorativ markieren. Du kannst dir stattdessen einen Alt-Text vorschlagen lassen.');
+        expect([...card.querySelectorAll('button')].map((b) => b.textContent.trim())).toEqual([globalThis.TYPO3.lang['altText.createText'], globalThis.TYPO3.lang['altText.skip']]);
+
+        pending = {runUuid: 'r', turnDigest: 'd', approveBlocked: 'altTextOtherImage', answers: 'plain', altText: null, calls: [{heading: 'Alt-Text', previewLines: ['Bild: logo.png'], toolStillRegistered: true}]};
+        await panel.chat.loadMessages();
+        await panel.updateComplete;
+
+        expect(panel.shadowRoot.querySelector('.approval-blocked').textContent).toBe('Dieser Vorschlag betrifft ein anderes Bild als das im Chat und kann hier nicht übernommen werden. Ablehnen kannst du ihn.');
+    });
+
     test('the folded module menu is remembered, so a chat closed after a reload unfolds it', async () => {
         await panel.optimiseAltText(1);
         expect(Persistent.get(PREFERENCE_FOLDED_MENU)).toBe('1');

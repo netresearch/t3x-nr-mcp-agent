@@ -1477,10 +1477,39 @@ final readonly class ChatApiController
             return 'secondApprover';
         }
 
+        $altText = $this->altTextApproveBlockedReason($conversation, $view);
+        if ($altText !== '') {
+            return $altText;
+        }
+
         $backendUser     = $GLOBALS['BE_USER'] ?? null;
         $byOwnPermission = $backendUser instanceof BackendUserAuthentication && !$this->decidesEveryApproval($backendUser);
 
         return $byOwnPermission && !$this->everyCallPreviewed($view) ? 'preview' : '';
+    }
+
+    /**
+     * In a conversation about an image (ADR-026): a call of the flow's tools
+     * on another image than the conversation's, or the decorative mark for a
+     * reader who may not set it. Neither can be approved here.
+     */
+    private function altTextApproveBlockedReason(Conversation $conversation, ?WaitingRunView $view): string
+    {
+        if (!$this->altTextConversation instanceof AltTextConversation) {
+            return '';
+        }
+
+        if ($this->altTextConversation->callsAnotherImage($conversation, $view)) {
+            return 'altTextOtherImage';
+        }
+
+        $card = $this->altTextConversation->card($conversation, $view);
+        if ($card !== null && $card['kind'] === AltTextConversation::CARD_DECORATIVE
+            && !$this->mayMarkDecorative($conversation->getAltTextHit()['reference'])) {
+            return 'altTextMarkNotPermitted';
+        }
+
+        return '';
     }
 
     private function everyCallPreviewed(?WaitingRunView $view): bool
@@ -1679,6 +1708,19 @@ final readonly class ChatApiController
         // The reader's language, the same source translate() reads.
         $language    = $GLOBALS['LANG'] ?? null;
         $altTextCard = $this->altTextConversation?->card($conversation, $view);
+        $blocked     = $this->approveBlockedReason($conversation, $view);
+        $calls       = ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
+            $view->pendingCalls,
+            $language instanceof LanguageService ? $language : null,
+            $this->previewLanguage($conversation),
+            $conversation->getViewContext()['pageId'],
+            $this->showsTechnicalDetails(),
+        );
+        if ($blocked === 'altTextMarkNotPermitted') {
+            // The tool's preview is its refusal, a sentence for developers;
+            // the card says why in the reader's language instead.
+            $calls = array_map(static fn (array $call): array => [...$call, 'actionLabel' => '', 'heading' => '', 'previewLines' => [], 'technicalDetails' => ''], $calls);
+        }
 
         return [
             'runUuid'          => $view->runUuid,
@@ -1687,7 +1729,7 @@ final readonly class ChatApiController
             'unreadableReason' => $view->unreadableReason,
             // Whether the approve button is offered; the ways to say no always
             // are (ADR-021).
-            'approveBlocked' => $this->approveBlockedReason($conversation, $view),
+            'approveBlocked' => $blocked,
             // "Übernehmen / Andere Variante / Überspringen" for a write in a
             // process run, approve and cancel for every other card (ADR-018).
             'answers' => match (true) {
@@ -1700,13 +1742,7 @@ final readonly class ChatApiController
             'altText' => $altTextCard,
             // The tool name, its arguments and the technical line leave the
             // server for administrators only; nothing else in the chat reads them.
-            'calls' => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
-                $view->pendingCalls,
-                $language instanceof LanguageService ? $language : null,
-                $this->previewLanguage($conversation),
-                $conversation->getViewContext()['pageId'],
-                $this->showsTechnicalDetails(),
-            ),
+            'calls' => $calls,
         ];
     }
 
@@ -2196,9 +2232,11 @@ final readonly class ChatApiController
         $blocked = $approve ? $this->approveBlockedReason($conversation, $this->chatApproval->pendingApproval($conversation)) : '';
 
         return match ($blocked) {
-            'secondApprover' => new JsonResponse(['error' => $this->translate('error.handBack.secondApprover')], 409),
-            'preview'        => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
-            default          => null,
+            'secondApprover'          => new JsonResponse(['error' => $this->translate('error.handBack.secondApprover')], 409),
+            'preview'                 => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
+            'altTextMarkNotPermitted' => new JsonResponse(['error' => $this->translate('altText.markNotPermitted')], 403),
+            'altTextOtherImage'       => new JsonResponse(['error' => $this->translate('altText.otherImage')], 409),
+            default                   => null,
         };
     }
 

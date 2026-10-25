@@ -1043,6 +1043,14 @@
                 <source>Mark as decorative</source>
                 <target>Als dekorativ markieren</target>
             </trans-unit>
+            <trans-unit id="altText.markNotPermitted" resname="altText.markNotPermitted">
+                <source>You may not mark this image as decorative. You can have an alt text proposed instead.</source>
+                <target>Dieses Bild darfst du nicht als dekorativ markieren. Du kannst dir stattdessen einen Alt-Text vorschlagen lassen.</target>
+            </trans-unit>
+            <trans-unit id="altText.otherImage" resname="altText.otherImage">
+                <source>This proposal concerns a different image than the one in this chat and cannot be applied here. You can deny it.</source>
+                <target>Dieser Vorschlag betrifft ein anderes Bild als das im Chat und kann hier nicht übernommen werden. Ablehnen kannst du ihn.</target>
+            </trans-unit>
             <trans-unit id="altText.decorative.help" resname="altText.decorative.help">
                 <source>For images without a function for the content, such as patterns or ornaments. They get no alt text and are skipped by screen readers.</source>
                 <target>Für Bilder ohne inhaltliche Funktion, z. B. Muster oder Schmuckgrafiken. Sie bekommen keinen Alt-Text und werden von Screenreadern übersprungen.</target>

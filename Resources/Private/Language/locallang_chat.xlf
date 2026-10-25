@@ -787,6 +787,12 @@
             <trans-unit id="altText.decorative" resname="altText.decorative">
                 <source>Mark as decorative</source>
             </trans-unit>
+            <trans-unit id="altText.markNotPermitted" resname="altText.markNotPermitted">
+                <source>You may not mark this image as decorative. You can have an alt text proposed instead.</source>
+            </trans-unit>
+            <trans-unit id="altText.otherImage" resname="altText.otherImage">
+                <source>This proposal concerns a different image than the one in this chat and cannot be applied here. You can deny it.</source>
+            </trans-unit>
             <trans-unit id="altText.decorative.help" resname="altText.decorative.help">
                 <source>For images without a function for the content, such as patterns or ornaments. They get no alt text and are skipped by screen readers.</source>
             </trans-unit>

@@ -340,7 +340,14 @@ shows its lines, with the warning of case 2 where it applies, and offers
 *Als dekorativ markieren* (approves it, the one confirmation) and
 *Alt-Text erstellen*. The specification's buttons for case 2, „Ja, als
 dekorativ markieren“ and „Doch Alt-Text verwenden“, belong to a step of
-their own, which the single confirmation leaves out. After an approved
+their own, which the single confirmation leaves out. The model's own mark
+reaches a user who may not set it as a card without the approve button,
+which says so in the reader's language in place of the tool's refusal, and
+the image's context tells the model that the mark is not available. Only
+the system prompt binds the model to the conversation's image; a call of
+either tool on another reference is therefore not approved in the chat: the
+card says that the proposal concerns a different image, and an approval is
+refused. After an approved
 write the chat confirms it itself, "Alt-Text gespeichert." or "Als
 dekorativ markiert.", in place of the model's answer, when the run recorded
 the write. When the write of an approved text did not land, the model's
@@ -357,7 +364,8 @@ the open hit after the conversation's image in list order across the tabs
 first again; the conversation keeps the image's place in the list, so
 after a fixed image the next one is the one that followed it. The server
 refuses every move while a turn runs; the panel keeps an *Optimieren* that
-comes meanwhile and takes it up when the turn ends. Whether the chat folded
+comes meanwhile and takes it up when the turn ends, unless the chat is
+closed in between. Whether the chat folded
 the module menu is kept in the user's settings, so closing the chat after a
 reload unfolds it as well.
 
