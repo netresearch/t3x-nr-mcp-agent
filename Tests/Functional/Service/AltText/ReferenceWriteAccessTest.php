@@ -107,6 +107,34 @@ final class ReferenceWriteAccessTest extends FunctionalTestCase
         self::assertSame(['tt_content', 101], [$result->table, (int) ($result->record['uid'] ?? 0)]);
     }
 
+    /**
+     * @return iterable<string, array{string, int, string}>
+     */
+    public static function ineligibleOwnerTables(): iterable
+    {
+        foreach (self::columns() as $label => [$column]) {
+            yield 'adminOnly, for an editor, ' . $label => ['adminOnly', self::EDITOR, $column];
+            yield 'readOnly, for an admin too, ' . $label => ['readOnly', 1, $column];
+        }
+    }
+
+    /**
+     * An owner table that may not be written refuses the image it owns, as
+     * the list hides it: reference 30 is on content element 117, which
+     * belongs to test article 1.
+     */
+    #[Test]
+    #[DataProvider('ineligibleOwnerTables')]
+    public function anOwnerTableThatMayNotBeWrittenRefusesTheImage(string $flag, int $userUid, string $column): void
+    {
+        $user = $this->setUpBackendUser($userUid);
+        self::assertInstanceOf(WritableReference::class, $this->get(ReferenceWriteAccess::class)->resolve($user, 30, $column));
+
+        $GLOBALS['TCA']['tx_alttexttest_item']['ctrl'][$flag] = true;
+
+        self::assertSame(ReferenceWriteAccess::NOT_PERMITTED, $this->get(ReferenceWriteAccess::class)->resolve($user, 30, $column));
+    }
+
     #[Test]
     #[DataProvider('columns')]
     public function anOuterContentElementOfAForbiddenTypeRefusesTheImage(string $column): void

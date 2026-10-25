@@ -95,6 +95,31 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         self::assertContains(10, $this->referenceUids($this->scanAs(2)));
     }
 
+    /**
+     * @return iterable<string, array{string, int}>
+     */
+    public static function ineligibleOwnerTables(): iterable
+    {
+        yield 'adminOnly, for an editor' => ['adminOnly', 2];
+        yield 'readOnly, for an admin too' => ['readOnly', 1];
+    }
+
+    /**
+     * An owner table the writers may not write keeps the images it owns out
+     * of the list: reference 30 is on content element 117, which belongs to
+     * test article 1.
+     */
+    #[Test]
+    #[DataProvider('ineligibleOwnerTables')]
+    public function anOwnerTableTheWritersMayNotWriteKeepsItsImagesOut(string $flag, int $userUid): void
+    {
+        self::assertContains(30, $this->referenceUids($this->scanAs($userUid)));
+
+        $GLOBALS['TCA']['tx_alttexttest_item']['ctrl'][$flag] = true;
+
+        self::assertNotContains(30, $this->referenceUids($this->scanAs($userUid)));
+    }
+
     /** Built here so each test reads the extension configuration as it sets it. */
     private function scanner(): MissingAltTextScanner
     {

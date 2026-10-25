@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service\AltText;
 
-use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrMcpAgent\Domain\Repository\ImageReferenceRepository;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -59,7 +58,7 @@ class ReferenceWriteAccess
     public function __construct(
         private readonly ImageReferenceRepository $rows,
         private readonly ImageFieldDiscovery $discovery,
-        private readonly ?TableReadAccessService $tableAccess = null,
+        private readonly TableWriteEligibility $tables = new TableWriteEligibility(),
     ) {}
 
     /**
@@ -79,7 +78,7 @@ class ReferenceWriteAccess
 
         $table = $this->string($reference['tablenames'] ?? null);
         $field = $this->string($reference['fieldname'] ?? null);
-        if ($table === '' || !$this->isFileField($table, $field) || !$this->mayWriteTable($table, $user)) {
+        if ($table === '' || !$this->isFileField($table, $field) || !$this->tables->mayWrite($table, $user)) {
             return self::NOT_PERMITTED;
         }
 
@@ -108,25 +107,9 @@ class ReferenceWriteAccess
             return self::NOT_PERMITTED;
         }
 
-        foreach ($chain as $link) {
-            if (!$this->mayEditRecord($link['table'], $link['row'], $user)) {
-                return self::NOT_PERMITTED;
-            }
-        }
-
-        $ungranted = [];
-        foreach ($chain as $link) {
-            if (!$this->mayEditField($user, $link['table'], $link['via'])) {
-                $ungranted[] = $link['table'] . ':' . $link['via'];
-            }
-        }
-
-        if (!$this->mayEditField($user, self::TABLE, $column)) {
-            $ungranted[] = self::TABLE . ':' . $column;
-        }
-
-        if ($ungranted !== []) {
-            return sprintf('Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was written.', implode(', ', $ungranted));
+        $refusal = $this->chainRefusal($chain, $column, $user);
+        if ($refusal !== null) {
+            return $refusal;
         }
 
         return new WritableReference(
@@ -138,6 +121,34 @@ class ReferenceWriteAccess
             page: $page,
             language: $language,
         );
+    }
+
+    /**
+     * Why the user may not write `$column` through this chain, or null: a
+     * table that may not be written, a record the user may not edit, or a
+     * field without its grant.
+     *
+     * @param non-empty-list<array{table: string, row: array<string, mixed>, via: string}> $chain
+     */
+    private function chainRefusal(array $chain, string $column, BackendUserAuthentication $user): ?string
+    {
+        foreach ($chain as $link) {
+            if (!$this->tables->mayWrite($link['table'], $user) || !$this->mayEditRecord($link['table'], $link['row'], $user)) {
+                return self::NOT_PERMITTED;
+            }
+        }
+
+        $fields   = array_map(static fn (array $link): array => [$link['table'], $link['via']], $chain);
+        $fields[] = [self::TABLE, $column];
+
+        $ungranted = [];
+        foreach ($fields as [$table, $field]) {
+            if (!$this->mayEditField($user, $table, $field)) {
+                $ungranted[] = $table . ':' . $field;
+            }
+        }
+
+        return $ungranted === [] ? null : sprintf('Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was written.', implode(', ', $ungranted));
     }
 
     /**
@@ -203,30 +214,13 @@ class ReferenceWriteAccess
      */
     private function editablePageOf(string $table, array $record, BackendUserAuthentication $user): array|string
     {
-        if ($table === 'pages') {
-            if (!$user->doesUserHaveAccess($record, Permission::PAGE_EDIT)) {
-                return self::NOT_PERMITTED;
-            }
+        if ($table !== 'pages' && $this->int($record['pid'] ?? 0) === 0) {
+            return $user->isAdmin() ? [] : self::NOT_PERMITTED;
+        }
 
-            if (!$user->doesUserHaveAccess($record, Permission::CONTENT_EDIT)) {
-                return sprintf(
-                    'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [%d], '
-                    . 'and the acting backend user lacks "edit content" there. Nothing was written.',
-                    $this->int($record['uid'] ?? 0),
-                );
-            }
-
-            $page = $record;
-        } else {
-            $pid = $this->int($record['pid'] ?? 0);
-            if ($pid === 0) {
-                return $user->isAdmin() ? [] : self::NOT_PERMITTED;
-            }
-
-            $page = $this->liveRow('pages', $pid);
-            if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
-                return self::NOT_PERMITTED;
-            }
+        $page = $table === 'pages' ? $this->editablePageItself($record, $user) : $this->pageWithContentRight($record, $user);
+        if (!is_array($page)) {
+            return $page;
         }
 
         $editlock = $this->ctrlString('pages', 'editlock');
@@ -235,6 +229,42 @@ class ReferenceWriteAccess
         }
 
         return $page;
+    }
+
+    /**
+     * A page whose own file field holds the image: the form edits it as a
+     * page property ("edit page"), the DataHandler writes the reference with
+     * "edit content".
+     *
+     * @param array<string, mixed> $page
+     *
+     * @return array<string, mixed>|string
+     */
+    private function editablePageItself(array $page, BackendUserAuthentication $user): array|string
+    {
+        if (!$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)) {
+            return self::NOT_PERMITTED;
+        }
+
+        return $user->doesUserHaveAccess($page, Permission::CONTENT_EDIT) ? $page : sprintf(
+            'Refused: an image on a page\'s own file field needs both "edit page" and "edit content" on page [%d], '
+            . 'and the acting backend user lacks "edit content" there. Nothing was written.',
+            $this->int($page['uid'] ?? 0),
+        );
+    }
+
+    /**
+     * The page a record lies on, once the user may edit content there.
+     *
+     * @param array<string, mixed> $record
+     *
+     * @return array<string, mixed>|string
+     */
+    private function pageWithContentRight(array $record, BackendUserAuthentication $user): array|string
+    {
+        $page = $this->liveRow('pages', $this->int($record['pid'] ?? 0));
+
+        return $page !== null && $user->doesUserHaveAccess($page, Permission::CONTENT_EDIT) ? $page : self::NOT_PERMITTED;
     }
 
     /**
@@ -291,24 +321,6 @@ class ReferenceWriteAccess
         $config     = is_array($definition) ? ($definition['config'] ?? null) : null;
 
         return is_array($config) && ($config['type'] ?? null) === 'file';
-    }
-
-    /**
-     * Not on nr-llm's denylist of credential and audit tables, not
-     * `readOnly`, and not `adminOnly` unless the user is an admin.
-     */
-    private function mayWriteTable(string $table, BackendUserAuthentication $user): bool
-    {
-        if ($this->tableAccess?->isSensitiveTable($table) ?? false) {
-            return false;
-        }
-
-        $ctrl = $this->ctrl($table);
-        if ((bool) ($ctrl['readOnly'] ?? false)) {
-            return false;
-        }
-
-        return $user->isAdmin() || !(bool) ($ctrl['adminOnly'] ?? false);
     }
 
     /**

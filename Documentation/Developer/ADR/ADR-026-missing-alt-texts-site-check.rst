@@ -183,7 +183,11 @@ page* as well (records: their folder), which includes the web mounts; no
 the content type above all (``explicit_allowdeny``); the image field, the
 inline fields on the way and ``sys_file_reference.alternative`` granted
 where they are exclude fields; the language of the reference and of each
-record. A page property needs both page rights because the form edits it
+record. Before these, every table on the way has to be writable at all,
+for admins too: not on nr-llm's denylist of credential and audit tables,
+not ``readOnly``, and not ``adminOnly`` for an editor; the list and the
+writers ask this in one place (``TableWriteEligibility``). A page property
+needs both page rights because the form edits it
 as a page property, while the DataHandler, writing the reference row
 alone, asks *edit content* on its page and *edit page* only with ``pages``
 in the same datamap. The same filter feeds the list, its tabs and the

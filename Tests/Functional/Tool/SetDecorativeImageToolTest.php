@@ -42,6 +42,14 @@ final class SetDecorativeImageToolTest extends FunctionalTestCase
 
     private const EDITOR = 2;
 
+    private const HEADING = 'Mark the image as decorative';
+
+    private const ON_START_PAGE = 'On page: “Startseite”';
+
+    private const FIELD_IMAGES = 'Field: Images';
+
+    private const FILE_TEAM = 'File: “team.jpg”';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -264,35 +272,35 @@ final class SetDecorativeImageToolTest extends FunctionalTestCase
     {
         $warning = 'Decorative images get no alt text. Screen readers then skip them. That only fits if the image adds nothing to the content. ';
         yield 'an image of a content element with a header' => [1, [
-            'Mark the image as decorative',
+            self::HEADING,
             'Page Content: “Unser Team”',
-            'On page: “Startseite”',
-            'Field: Images',
-            'File: “team.jpg”',
+            self::ON_START_PAGE,
+            self::FIELD_IMAGES,
+            self::FILE_TEAM,
             $warning . 'This image belongs to the section “Unser Team” and therefore probably needs an alt text. Mark it as decorative anyway?',
         ]];
         yield 'a carousel item: the section is its content element' => [27, [
-            'Mark the image as decorative',
+            self::HEADING,
             'Test carousel items: “Slide 1”',
-            'On page: “Startseite”',
+            self::ON_START_PAGE,
             'Field: Image',
-            'File: “team.jpg”',
+            self::FILE_TEAM,
             $warning . 'This image belongs to the section “Karussell” and therefore probably needs an alt text. Mark it as decorative anyway?',
         ]];
         yield 'a record: named by its type and title' => [28, [
-            'Mark the image as decorative',
+            self::HEADING,
             'Test articles: “Erster Artikel”',
             'On page: “Ordner Presse”',
-            'Field: Images',
-            'File: “team.jpg”',
+            self::FIELD_IMAGES,
+            self::FILE_TEAM,
             $warning . 'This image belongs to the Test articles “Erster Artikel” and therefore probably needs an alt text. Mark it as decorative anyway?',
         ]];
         yield 'a content element without a header: no warning' => [10, [
-            'Mark the image as decorative',
+            self::HEADING,
             'Page Content: “[No title]”',
-            'On page: “Startseite”',
-            'Field: Images',
-            'File: “team.jpg”',
+            self::ON_START_PAGE,
+            self::FIELD_IMAGES,
+            self::FILE_TEAM,
         ]];
     }
 

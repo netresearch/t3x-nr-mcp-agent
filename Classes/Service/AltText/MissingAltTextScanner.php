@@ -79,6 +79,7 @@ class MissingAltTextScanner
         private readonly ImageFieldDiscovery $discovery,
         private readonly MissingAltTextRepository $repository,
         private readonly Context $context,
+        private readonly TableWriteEligibility $tables = new TableWriteEligibility(),
     ) {}
 
     /**
@@ -109,32 +110,7 @@ class MissingAltTextScanner
         $workspace       = $user->workspace;
         $this->workspace = $workspace;
 
-        $rows = $this->repository->findOpenReferences($fieldsByTable, $workspace, $referenceUid);
-        if ($workspace !== 0) {
-            $this->load(array_map(fn (array $row): array => ['sys_file_metadata', $this->int($row['_metadata_uid'] ?? 0), ''], $rows), $workspace);
-        }
-
-        $references = [];
-        foreach ($rows as $row) {
-            $fileName    = $this->string($row['_file_name'] ?? null);
-            $metadataUid = $this->int($row['_metadata_uid'] ?? 0);
-            unset($row['_file_name'], $row['_metadata_uid']);
-            if ($workspace !== 0) {
-                // The query decided on the live rows; the workspace versions
-                // may have the alt text or the mark, or be deleted.
-                $row = $this->overlay('sys_file_reference', $row, $workspace);
-                if ($row === null || $this->int($row['tx_nrmcpagent_decorative'] ?? 0) !== 0 || trim($this->string($row['alternative'] ?? null)) !== '') {
-                    continue;
-                }
-
-                $metadata = $this->records['sys_file_metadata'][$metadataUid] ?? null;
-                if ($row['alternative'] === null && trim($this->string($metadata['alternative'] ?? null)) !== '') {
-                    continue;
-                }
-            }
-
-            $references[] = ['row' => $row, 'fileName' => $fileName];
-        }
+        $references = $this->openReferences($this->repository->findOpenReferences($fieldsByTable, $workspace, $referenceUid), $workspace);
 
         $chains = $this->chains($references, $workspace);
         $this->loadPages($chains, $workspace);
@@ -151,6 +127,55 @@ class MissingAltTextScanner
         usort($keyed, static fn (array $a, array $b): int => $a['key'] <=> $b['key']);
 
         return new MissingAltTextScan(array_map(static fn (array $entry): MissingAltText => $entry['hit'], $keyed));
+    }
+
+    /**
+     * The references the query found, each with its file name; in a draft
+     * workspace only those whose workspace version is still open.
+     *
+     * @param list<array<string, mixed>> $rows
+     *
+     * @return list<array{row: array<string, mixed>, fileName: string}>
+     */
+    private function openReferences(array $rows, int $workspace): array
+    {
+        if ($workspace !== 0) {
+            $this->load(array_map(fn (array $row): array => ['sys_file_metadata', $this->int($row['_metadata_uid'] ?? 0), ''], $rows), $workspace);
+        }
+
+        $references = [];
+        foreach ($rows as $row) {
+            $fileName    = $this->string($row['_file_name'] ?? null);
+            $metadataUid = $this->int($row['_metadata_uid'] ?? 0);
+            unset($row['_file_name'], $row['_metadata_uid']);
+            $row = $workspace === 0 ? $row : $this->openInWorkspace($row, $metadataUid, $workspace);
+            if ($row !== null) {
+                $references[] = ['row' => $row, 'fileName' => $fileName];
+            }
+        }
+
+        return $references;
+    }
+
+    /**
+     * The workspace version of a reference the query found open on its live
+     * row, while it is still open: it may have the alt text or the mark by
+     * now, or be deleted.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>|null
+     */
+    private function openInWorkspace(array $row, int $metadataUid, int $workspace): ?array
+    {
+        $row = $this->overlay('sys_file_reference', $row, $workspace);
+        if ($row === null || $this->int($row['tx_nrmcpagent_decorative'] ?? 0) !== 0 || trim($this->string($row['alternative'] ?? null)) !== '') {
+            return null;
+        }
+
+        $metadata = $this->records['sys_file_metadata'][$metadataUid] ?? null;
+
+        return $row['alternative'] === null && trim($this->string($metadata['alternative'] ?? null)) !== '' ? null : $row;
     }
 
     /**
@@ -268,6 +293,12 @@ class MissingAltTextScanner
         $workspace = $user->workspace;
         foreach ($chain as $link) {
             if ($this->discovery->isExcludedTable($link['table']) || ($workspace !== 0 && !$this->isWorkspaceAware($link['table']))) {
+                return null;
+            }
+
+            // What the writers ask before any record right: a table they
+            // may not write keeps its images out of the list.
+            if (!$this->tables->mayWrite($link['table'], $user)) {
                 return null;
             }
 
