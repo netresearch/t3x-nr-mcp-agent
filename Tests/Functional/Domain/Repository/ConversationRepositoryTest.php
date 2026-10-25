@@ -362,6 +362,18 @@ class ConversationRepositoryTest extends FunctionalTestCase
         self::assertSame('idle', $result['status']);
         self::assertSame(0, $result['message_count']);
         self::assertSame('', $result['error_message']);
+        self::assertFalse($result['about_image']);
+    }
+
+    /** The poll knows a conversation about a missing alt text (ADR-026). */
+    #[Test]
+    public function findPollStatusSaysWhetherTheConversationIsAboutAnImage(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setAltTextHit(7);
+
+        self::assertTrue($this->subject->findPollStatus($this->subject->add($conversation), 1)['about_image'] ?? null);
     }
 
     /**

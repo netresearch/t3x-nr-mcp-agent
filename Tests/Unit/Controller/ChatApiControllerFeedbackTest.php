@@ -302,6 +302,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
             'approval_run_uuid' => '',
             'tstamp'            => time(),
             'activity'          => [],
+            'about_image'       => false,
         ]);
 
         $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1', 'after' => '1'])));

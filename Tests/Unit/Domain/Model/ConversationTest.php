@@ -732,6 +732,41 @@ class ConversationTest extends TestCase
     }
 
     /**
+     * @return iterable<string, array{string, array{type: string, label: string, key: list<int|string>}|null}>
+     */
+    public static function altTextHitPositions(): iterable
+    {
+        yield 'no position' => ['{"reference":12}', null];
+        yield 'a position' => ['{"reference":12,"position":{"type":"pages","label":"","key":[0,"Start",3]}}', ['type' => 'pages', 'label' => '', 'key' => [0, 'Start', 3]]];
+        yield 'a key part that is neither int nor string is dropped' => ['{"reference":12,"position":{"type":"pages","label":"","key":[0,null,1.5,"a"]}}', ['type' => 'pages', 'label' => '', 'key' => [0, 'a']]];
+        yield 'a position without a key' => ['{"reference":12,"position":{"type":"pages","label":""}}', null];
+        yield 'a position without a type' => ['{"reference":12,"position":{"label":"","key":[1]}}', null];
+    }
+
+    /**
+     * @param array{type: string, label: string, key: list<int|string>}|null $position
+     */
+    #[Test]
+    #[DataProvider('altTextHitPositions')]
+    public function theAltTextHitsListPositionIsReadOnlyWhenComplete(string $json, ?array $position): void
+    {
+        self::assertSame(['reference' => 12, 'position' => $position], Conversation::fromRow(['alt_text_hit' => $json])->getAltTextHit());
+    }
+
+    #[Test]
+    public function aStoredPositionIsKeptAndAnAbsentOneIsLeftOut(): void
+    {
+        $conversation = new Conversation();
+        $position     = ['type' => 'tx_news_domain_model_news', 'label' => 'News', 'key' => [1, 'Erster']];
+
+        $conversation->setAltTextHit(12, $position);
+        self::assertSame(['reference' => 12, 'position' => $position], $conversation->getAltTextHit());
+
+        $conversation->setAltTextHit(12);
+        self::assertSame('{"reference":12}', $conversation->getAltTextHitJson());
+    }
+
+    /**
      * @param array<string, mixed> $row
      */
     #[Test]
@@ -740,7 +775,7 @@ class ConversationTest extends TestCase
     {
         $conversation = Conversation::fromRow($row);
 
-        self::assertSame(['reference' => $reference], $conversation->getAltTextHit());
+        self::assertSame(['reference' => $reference, 'position' => null], $conversation->getAltTextHit());
         self::assertSame((string) ($row['alt_text_hit'] ?? ''), $conversation->getAltTextHitJson());
     }
 
@@ -764,6 +799,6 @@ class ConversationTest extends TestCase
         $conversation->setAltTextHit($referenceUid);
 
         self::assertSame($json, $conversation->getAltTextHitJson());
-        self::assertSame(['reference' => $reference], $conversation->getAltTextHit());
+        self::assertSame(['reference' => $reference, 'position' => null], $conversation->getAltTextHit());
     }
 }

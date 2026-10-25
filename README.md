@@ -35,6 +35,9 @@ Backend users manage content through natural language.
 - **Missing alt texts** -- A list in the chat module of every image without an
   alt text the editor may fix, across pages and records, reached from the
   dashboard widgets "Check website" and "Recommended for your website".
+  "Optimise" opens the chat beside the list on one image: the assistant
+  proposes an alt text for that use, which the editor applies, varies, marks
+  as decorative or skips, and moves on to the next hit.
 - **Decorative images** -- A "Decorative image" checkbox on each use of an
   image; fluid_styled_content then outputs it with `alt=""` (with its static
   template right away, with site sets or an `@import` once the extension's

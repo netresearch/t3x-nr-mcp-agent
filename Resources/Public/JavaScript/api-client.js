@@ -27,7 +27,7 @@ export class ApiClient {
     }
 
     /**
-     * @param {{pageUid?: number, languageUid?: number, skill?: string}} [start] what the conversation is about (ADR-019)
+     * @param {{pageUid?: number, languageUid?: number, skill?: string, altTextReference?: number}} [start] what the conversation is about (ADR-019, ADR-026)
      * @returns {Promise<{uid: number}>}
      */
     async createConversation(start = {}) {
@@ -163,6 +163,55 @@ export class ApiClient {
         return this._post('ai_chat_conversation_input', {conversationUid, turnDigest, ...answer});
     }
 
+    /**
+     * Move a conversation about a missing alt text to another image of the
+     * list (ADR-026).
+     * @param {number} conversationUid
+     * @param {number} reference the image's sys_file_reference uid
+     * @returns {Promise<{status: string, reference: number, tab?: string, page?: number}>}
+     */
+    async switchAltText(conversationUid, reference) {
+        return this._post('ai_chat_alt_text_switch', {conversationUid, reference});
+    }
+
+    /**
+     * "Nächsten Treffer optimieren" (ADR-026).
+     * @param {number} conversationUid
+     * @returns {Promise<{status: string, reference: number, tab?: string, page?: number}>}
+     */
+    async nextAltText(conversationUid) {
+        return this._post('ai_chat_alt_text_next', {conversationUid});
+    }
+
+    /**
+     * "Überspringen" (ADR-026).
+     * @param {number} conversationUid
+     * @returns {Promise<{status: string}>}
+     */
+    async skipAltText(conversationUid) {
+        return this._post('ai_chat_alt_text_skip', {conversationUid});
+    }
+
+    /**
+     * "Als dekorativ markieren" (ADR-026): asks for the mark's card; the
+     * conversation starts the turn that proposes it.
+     * @param {number} conversationUid
+     * @returns {Promise<{status: string}>}
+     */
+    async markAltTextDecorative(conversationUid) {
+        return this._post('ai_chat_alt_text_decorative', {conversationUid});
+    }
+
+    /**
+     * "Erneut anbieten" (ADR-026): the proposal whose write did not land, as
+     * a new card; the server takes the text from the conversation.
+     * @param {number} conversationUid
+     * @returns {Promise<{status: string}>}
+     */
+    async retryAltText(conversationUid) {
+        return this._post('ai_chat_alt_text_retry', {conversationUid});
+    }
+
     async resumeConversation(conversationUid) {
         return this._post('ai_chat_conversation_resume', {conversationUid});
     }
@@ -272,6 +321,9 @@ export class ApiClient {
         if (!res.ok) {
             const error = new Error(data.error || `HTTP ${res.status}`);
             error.status = res.status;
+            // Why, as a code the caller can act on (ADR-026: `done`,
+            // `workspace`, `tools`, …); empty where the server sent none.
+            error.code = typeof data.code === 'string' ? data.code : '';
             throw error;
         }
         return data;

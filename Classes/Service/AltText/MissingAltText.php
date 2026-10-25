@@ -49,5 +49,11 @@ final readonly class MissingAltText
         public ?HiddenReason $hiddenReason = null,
         /** The start time for Scheduled, the end time for Expired, else 0. */
         public int $hiddenDate = 0,
+        /**
+         * Its place in its tab: hits of one tab compare by it in list order.
+         *
+         * @var list<int|string>
+         */
+        public array $sortKey = [],
     ) {}
 }

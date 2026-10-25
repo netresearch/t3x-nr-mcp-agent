@@ -28,9 +28,10 @@ use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextGate;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextImage;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltText;
-use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextScanner;
-use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
@@ -42,9 +43,7 @@ use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use Netresearch\NrMcpAgent\Service\SkillPageNeed;
-use Netresearch\NrMcpAgent\Service\ToolAvailabilityInterface;
 use Netresearch\NrMcpAgent\Service\TourContext;
-use Netresearch\NrMcpAgent\Tool\SetDecorativeImageTool;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -88,13 +87,6 @@ final readonly class ChatApiController
     /** The length the conversation model keeps; longer input is refused rather than cut. */
     private const MAX_SYSTEM_PROMPT_LENGTH = 10000;
 
-    /**
-     * The tools a conversation about a missing alt text writes with
-     * (ADR-026): nr-llm's alt text writer and this extension's decorative
-     * mark. Without both, "Optimieren" says so instead of starting.
-     */
-    public const ALT_TEXT_TOOLS = ['set_file_reference_alternative_text', SetDecorativeImageTool::NAME];
-
     public function __construct(
         private ConversationRepository $repository,
         private ChatProcessorInterface $processor,
@@ -127,9 +119,9 @@ final readonly class ChatApiController
         private ?PageChoiceRepository $pages = null,
         // Without them a conversation cannot start about an image of the
         // list of missing alt texts (ADR-026).
-        private ?MissingAltTextScanner $altTexts = null,
-        private ?ReferenceWriteAccess $referenceAccess = null,
-        private ?ToolAvailabilityInterface $tools = null,
+        private ?AltTextGate $altTextGate = null,
+        private ?AltTextConversation $altTextConversation = null,
+        private ?AltTextImage $altTextImage = null,
     ) {}
 
     /**
@@ -256,7 +248,10 @@ final readonly class ChatApiController
         // prüfen", sent for the editor, and its run carries the invocation.
         // The start is a turn, so the limit on running conversations applies.
         $startsTour = $refusal === null && $this->startsTour($conversation);
-        $refusal ??= $startsTour ? $this->refuseNewTurn($conversation->getStatus()) : null;
+        // A conversation about a missing alt text starts with the image card
+        // and the run that proposes the text (ADR-026).
+        $startsAltText = $refusal === null && AltTextConversation::isAbout($conversation) && $this->altTextConversation instanceof AltTextConversation;
+        $refusal ??= $startsTour || $startsAltText ? $this->refuseNewTurn($conversation->getStatus()) : null;
         if ($refusal !== null) {
             return $refusal;
         }
@@ -266,8 +261,12 @@ final readonly class ChatApiController
             $conversation->setStatus(ConversationStatus::Processing);
         }
 
+        if ($startsAltText) {
+            $conversation->setStatus(ConversationStatus::Processing);
+        }
+
         $uid = $this->repository->add($conversation);
-        if ($startsTour) {
+        if ($startsTour || $startsAltText) {
             $this->processor->dispatch($uid);
         }
 
@@ -337,57 +336,45 @@ final readonly class ChatApiController
             $conversation->setViewContext($hit->pageUid, '', max(0, $hit->languageUid));
         }
 
-        $conversation->setAltTextHit($hit->referenceUid);
+        if ($this->altTextConversation instanceof AltTextConversation) {
+            $this->altTextConversation->takeUp($conversation, $hit, (bool) ($this->chatService->getProviderCapabilities()['visionSupported'] ?? false));
+        } else {
+            $conversation->setAltTextHit($hit->referenceUid);
+        }
 
         return null;
     }
 
+    /** Whether the current user may set the decorative mark on the reference. */
+    private function mayMarkDecorative(int $referenceUid): bool
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+
+        return $backendUser instanceof BackendUserAuthentication
+            && $this->altTextGate instanceof AltTextGate
+            && $this->altTextGate->mayMarkDecorative($backendUser, $referenceUid);
+    }
+
     /**
      * The open hit of the reference, as the list shows it to the user, or
-     * the refusal: a draft workspace and missing tools first, as they say
-     * why no hit can be worked on; then a hit that is no longer open to a
-     * user who may edit the reference, and one neutral refusal for a
-     * reference that is not there or not theirs.
+     * the refusal (AltTextGate): the workspace and the chat's set-up first,
+     * then a hit that is no longer open to a user who may edit the
+     * reference, and one neutral refusal for a reference that is not there
+     * or not theirs.
      */
     private function altTextHit(int $referenceUid): MissingAltText|ResponseInterface
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if (!$backendUser instanceof BackendUserAuthentication
-            || !$this->altTexts instanceof MissingAltTextScanner
-            || !$this->referenceAccess instanceof ReferenceWriteAccess
-            || !$this->tools instanceof ToolAvailabilityInterface
-        ) {
-            return new JsonResponse(['error' => $this->translate('error.altTextToolsUnavailable')], 409);
+        $hit         = $backendUser instanceof BackendUserAuthentication && $this->altTextGate instanceof AltTextGate
+            ? $this->altTextGate->hit($backendUser, $referenceUid)
+            : 'tools';
+        if ($hit instanceof MissingAltText) {
+            return $hit;
         }
 
-        if ($backendUser->workspace !== 0) {
-            return new JsonResponse(['error' => $this->translate('error.altTextWorkspace'), 'code' => 'workspace'], 409);
-        }
+        [$status, $key] = AltTextGate::answer($hit);
 
-        if ($this->tools->unavailableTools(self::ALT_TEXT_TOOLS) !== []) {
-            return new JsonResponse(['error' => $this->translate('error.altTextToolsUnavailable'), 'code' => 'tools'], 409);
-        }
-
-        // The proposal is saved by approving its card: a user who may not
-        // approve their own changes in the chat (ADR-021), or a chat whose
-        // configuration requires a second approver, could only look at it.
-        if (!$this->decidesEveryApproval($backendUser) && !$backendUser->check('custom_options', self::PERMISSION_APPROVE_OWN)) {
-            return new JsonResponse(['error' => $this->translate('error.altTextApprovalNotAllowed'), 'code' => 'approval'], 409);
-        }
-
-        if ($this->skills?->requiresSecondApprover() ?? false) {
-            return new JsonResponse(['error' => $this->translate('error.altTextSecondApprover'), 'code' => 'secondApprover'], 409);
-        }
-
-        // The list's own filter, and the question nr-llm's writer asks before
-        // its card: both must let the image through, or the chat would offer
-        // a proposal the writer then refuses.
-        if (is_string($this->referenceAccess->resolve($backendUser, $referenceUid, 'alternative'))) {
-            return new JsonResponse(['error' => $this->translate('error.altTextNotPermitted')], 403);
-        }
-
-        return $this->altTexts->scan($backendUser, $referenceUid)->find($referenceUid)
-            ?? new JsonResponse(['error' => $this->translate('error.altTextHitDone'), 'code' => 'done'], 409);
+        return new JsonResponse(['error' => $this->translate($key), ...($status === 409 ? ['code' => $hit] : [])], $status);
     }
 
     /**
@@ -426,6 +413,12 @@ final readonly class ChatApiController
      */
     private function keepsItsPage(Conversation $conversation): bool
     {
+        // A conversation about a missing alt text stays on its image's page
+        // (ADR-026): the list beside it is no page.
+        if (AltTextConversation::isAbout($conversation)) {
+            return $conversation->getViewContext()['pageId'] > 0;
+        }
+
         $identifier = $conversation->getSkillIdentifier();
         $pageId     = $conversation->getViewContext()['pageId'];
         if ($identifier === '' || $pageId <= 0 || $this->pageNeed($identifier) !== SkillPageNeed::Required) {
@@ -768,7 +761,13 @@ final readonly class ChatApiController
             $isAwaitingApproval = $meta['status'] === ConversationStatus::AwaitingApproval->value
                 || $meta['status'] === ConversationStatus::AwaitingInput->value;
 
-            if ($meta['message_count'] <= $afterIndex && !$mayNeedRepair && !$isAwaitingApproval) {
+            // A conversation about a missing alt text whose turn has ended
+            // falls through as well: only the full answer says whether its
+            // image is still open and whether another one is (ADR-026), and
+            // polling stops with this answer.
+            $settledImage = $meta['about_image'] && !$this->isBusy(ConversationStatus::tryFrom($meta['status']) ?? ConversationStatus::Processing);
+
+            if ($meta['message_count'] <= $afterIndex && !$mayNeedRepair && !$isAwaitingApproval && !$settledImage) {
                 return new JsonResponse([
                     'status'     => $meta['status'],
                     'messages'   => [],
@@ -790,7 +789,7 @@ final readonly class ChatApiController
         $this->chatApproval->reconcile($conversation);
 
         $messages    = $conversation->getDecodedMessages();
-        $newMessages = array_slice($messages, $afterIndex);
+        $newMessages = $this->withAltTextPreviews(array_slice($messages, $afterIndex));
 
         return new JsonResponse([
             'status'     => $conversation->getStatus()->value,
@@ -836,7 +835,64 @@ final readonly class ChatApiController
             // The page a guided process is bound to has been deleted: the
             // chat shows it read-only, with a notice (refuseReadOnly()).
             'pageGone' => $this->isPageGone($conversation),
+            // The image a conversation about a missing alt text is on, and
+            // what the chat may do next (ADR-026).
+            'altText' => $this->altTextState($conversation),
         ]);
+    }
+
+    /**
+     * The image card of a conversation about a missing alt text shows the
+     * image with its crop (ADR-026): its preview URL is made when the card is
+     * read, never stored, since a processed file can be removed.
+     *
+     * @param list<array<string, mixed>> $messages
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function withAltTextPreviews(array $messages): array
+    {
+        foreach ($messages as $index => $message) {
+            $data = $message['data'] ?? null;
+            if (($message['notice'] ?? null) === AltTextConversation::NOTICE_HIT && is_array($data) && is_int($data['reference'] ?? null)) {
+                $data['preview']          = $this->altTextImage?->previewUrl($data['reference']) ?? '';
+                $messages[$index]['data'] = $data;
+            }
+        }
+
+        return $messages;
+    }
+
+    /**
+     * The image of a conversation about a missing alt text: its reference,
+     * whether it is still open, and whether another one is ("Nächsten
+     * Treffer optimieren"), asked only while the conversation waits for the
+     * editor. Null for any other conversation.
+     *
+     * `decorative`: whether "Als dekorativ markieren" can work on the image
+     * for the user (the rights and the grant for the mark).
+     *
+     * @return array{reference: int, open: bool, next: bool, decorative: bool}|null
+     */
+    private function altTextState(Conversation $conversation): ?array
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!AltTextConversation::isAbout($conversation) || !$this->altTextConversation instanceof AltTextConversation || !$backendUser instanceof BackendUserAuthentication) {
+            return null;
+        }
+
+        $reference  = $conversation->getAltTextHit()['reference'];
+        $decorative = $this->mayMarkDecorative($reference);
+        if ($this->isBusy($conversation->getStatus())) {
+            return ['reference' => $reference, 'open' => true, 'next' => false, 'decorative' => $decorative];
+        }
+
+        return [
+            'reference'  => $reference,
+            'open'       => $this->altTextConversation->openHit($conversation, $backendUser) instanceof MissingAltText,
+            'next'       => $this->altTextConversation->next($conversation, $backendUser) instanceof MissingAltText,
+            'decorative' => $decorative,
+        ];
     }
 
     /**
@@ -1421,10 +1477,38 @@ final readonly class ChatApiController
             return 'secondApprover';
         }
 
+        $altText = $this->altTextApproveBlockedReason($conversation, $view);
+        if ($altText !== '') {
+            return $altText;
+        }
+
         $backendUser     = $GLOBALS['BE_USER'] ?? null;
         $byOwnPermission = $backendUser instanceof BackendUserAuthentication && !$this->decidesEveryApproval($backendUser);
 
         return $byOwnPermission && !$this->everyCallPreviewed($view) ? 'preview' : '';
+    }
+
+    /**
+     * In a conversation about an image (ADR-026): a call of the flow's tools
+     * on another image than the conversation's, or the decorative mark for a
+     * reader who may not set it. Neither can be approved here.
+     */
+    private function altTextApproveBlockedReason(Conversation $conversation, ?WaitingRunView $view): string
+    {
+        if (!$this->altTextConversation instanceof AltTextConversation) {
+            return '';
+        }
+
+        if ($this->altTextConversation->callsAnotherImage($conversation, $view)) {
+            return 'altTextOtherImage';
+        }
+
+        if ($this->altTextConversation->marksItsImageDecorative($conversation, $view)
+            && !$this->mayMarkDecorative($conversation->getAltTextHit()['reference'])) {
+            return 'altTextMarkNotPermitted';
+        }
+
+        return '';
     }
 
     private function everyCallPreviewed(?WaitingRunView $view): bool
@@ -1621,7 +1705,21 @@ final readonly class ChatApiController
         }
 
         // The reader's language, the same source translate() reads.
-        $language = $GLOBALS['LANG'] ?? null;
+        $language    = $GLOBALS['LANG'] ?? null;
+        $altTextCard = $this->altTextConversation?->card($conversation, $view);
+        $blocked     = $this->approveBlockedReason($conversation, $view);
+        $calls       = ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
+            $view->pendingCalls,
+            $language instanceof LanguageService ? $language : null,
+            $this->previewLanguage($conversation),
+            $conversation->getViewContext()['pageId'],
+            $this->showsTechnicalDetails(),
+        );
+        if ($blocked === 'altTextMarkNotPermitted') {
+            // The tool's preview is its refusal, a sentence for developers;
+            // the card says why in the reader's language instead.
+            $calls = array_map(static fn (array $call): array => [...$call, 'actionLabel' => '', 'heading' => '', 'previewLines' => [], 'technicalDetails' => ''], $calls);
+        }
 
         return [
             'runUuid'          => $view->runUuid,
@@ -1630,19 +1728,20 @@ final readonly class ChatApiController
             'unreadableReason' => $view->unreadableReason,
             // Whether the approve button is offered; the ways to say no always
             // are (ADR-021).
-            'approveBlocked' => $this->approveBlockedReason($conversation, $view),
+            'approveBlocked' => $blocked,
             // "Übernehmen / Andere Variante / Überspringen" for a write in a
             // process run, approve and cancel for every other card (ADR-018).
-            'answers' => $this->chatApproval->offersProcessAnswers($conversation, $view) ? 'process' : 'plain',
+            'answers' => match (true) {
+                $altTextCard !== null                                           => $altTextCard['kind'] === AltTextConversation::CARD_PROPOSAL ? 'altText' : 'altTextDecorative',
+                $this->chatApproval->offersProcessAnswers($conversation, $view) => 'process',
+                default                                                         => 'plain',
+            },
+            // The proposed text of a card of a conversation about a missing
+            // alt text (ADR-026), which the chat shows as "Vorschlag".
+            'altText' => $altTextCard,
             // The tool name, its arguments and the technical line leave the
             // server for administrators only; nothing else in the chat reads them.
-            'calls' => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->present(
-                $view->pendingCalls,
-                $language instanceof LanguageService ? $language : null,
-                $this->previewLanguage($conversation),
-                $conversation->getViewContext()['pageId'],
-                $this->showsTechnicalDetails(),
-            ),
+            'calls' => $calls,
         ];
     }
 
@@ -1787,6 +1886,262 @@ final readonly class ChatApiController
     }
 
     /**
+     * POST /ai-chat/alt-text/switch – The chat moves to another image of the
+     * list of missing alt texts (ADR-026): "Optimieren" on another row while
+     * the conversation is open. No new conversation: the divider "Treffer
+     * gewechselt", the new image card and a new proposal; a proposal nobody
+     * took over is withdrawn. The image is read again with the user's rights,
+     * like at the start.
+     */
+    public function switchAltText(ServerRequestInterface $request): ResponseInterface
+    {
+        $body         = $this->parseBody($request);
+        $conversation = $this->altTextConversationOf($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $reference = (int) ($body['reference'] ?? 0);
+        if ($reference === $conversation->getAltTextHit()['reference'] && !$this->isBusy($conversation->getStatus())) {
+            return new JsonResponse(['status' => $conversation->getStatus()->value, 'reference' => $reference]);
+        }
+
+        $hit = $this->altTextHit($reference);
+        if ($hit instanceof ResponseInterface) {
+            return $hit;
+        }
+
+        return $this->takeUpAltText($conversation, $hit);
+    }
+
+    /**
+     * POST /ai-chat/alt-text/next – "Nächsten Treffer optimieren": the open
+     * image after the conversation's image in list order, across the tabs
+     * (ADR-026), taken up like a switch. 409 `noNext` when none is open.
+     */
+    public function nextAltText(ServerRequestInterface $request): ResponseInterface
+    {
+        $body         = $this->parseBody($request);
+        $conversation = $this->altTextConversationOf($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $next        = $backendUser instanceof BackendUserAuthentication ? $this->altTextConversation?->next($conversation, $backendUser) : null;
+        if (!$next instanceof MissingAltText) {
+            return new JsonResponse(['error' => $this->translate('error.altTextNoNext'), 'code' => 'noNext'], 409);
+        }
+
+        $hit = $this->altTextHit($next->referenceUid);
+        if ($hit instanceof ResponseInterface) {
+            return $hit;
+        }
+
+        return $this->takeUpAltText($conversation, $hit);
+    }
+
+    /**
+     * POST /ai-chat/alt-text/skip – "Überspringen" (ADR-026): nothing is
+     * saved, the proposal is withdrawn, and the chat answers in the
+     * specification's words that the image stays open in the list. No model
+     * turn.
+     */
+    public function skipAltText(ServerRequestInterface $request): ResponseInterface
+    {
+        $body         = $this->parseBody($request);
+        $conversation = $this->altTextConversationOf($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $before = clone $conversation;
+        $conversation->appendMessage(MessageRole::User, $this->translate('altText.action.skip'), AltTextConversation::NOTICE_ACTION, ['skip']);
+        $conversation->appendMessage(MessageRole::Assistant, '[Skipped. The image stays open in the list.]', AltTextConversation::NOTICE_SKIPPED);
+
+        return $this->settleAltText($conversation, $before);
+    }
+
+    /**
+     * POST /ai-chat/alt-text/decorative – "Als dekorativ markieren" (ADR-026).
+     *
+     * The chip asks for the mark; it saves nothing and is no confirmation.
+     * The waiting proposal is withdrawn and the editor's choice goes to the
+     * model, which proposes the mark through `set_file_reference_decorative`:
+     * its approval card, with the warning of case 2 where the image belongs
+     * to a section or a record, is the one confirmation (nr-llm ADR-134). A
+     * user who may not set the mark is refused before the turn.
+     */
+    public function markAltTextDecorative(ServerRequestInterface $request): ResponseInterface
+    {
+        $body         = $this->parseBody($request);
+        $conversation = $this->altTextConversationOf($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $reference = $conversation->getAltTextHit()['reference'];
+        $hit       = $this->altTextHit($reference);
+        if ($hit instanceof ResponseInterface) {
+            return $hit;
+        }
+
+        if (!$this->mayMarkDecorative($reference)) {
+            return new JsonResponse(['error' => $this->translate('error.altTextNotPermitted')], 403);
+        }
+
+        $before        = clone $conversation;
+        $currentStatus = $conversation->getStatus();
+        $refusal       = $this->refuseNewTurn($currentStatus);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
+        $conversation->appendMessage(
+            MessageRole::User,
+            sprintf('[The editor chose "Als dekorativ markieren" for the image use with reference %d. Propose the mark now: call set_file_reference_decorative with that reference and decorative true, without proposing an alt text.]', $reference),
+            AltTextConversation::NOTICE_ASK_DECORATIVE,
+        );
+
+        return $this->queueTurn($conversation, $currentStatus, [], $before);
+    }
+
+    /**
+     * POST /ai-chat/alt-text/retry – "Erneut anbieten" (ADR-026): the
+     * proposal whose approved write did not land is offered again, as a new
+     * card. The text is the one the conversation kept, never the browser's.
+     */
+    public function retryAltText(ServerRequestInterface $request): ResponseInterface
+    {
+        $body         = $this->parseBody($request);
+        $conversation = $this->altTextConversationOf($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $proposal = $this->altTextConversation?->proposalToOfferAgain($conversation);
+        if ($proposal === null) {
+            return new JsonResponse(['error' => $this->translate('error.altTextNothingToRetry'), 'code' => 'nothingToRetry'], 409);
+        }
+
+        $hit = $this->altTextHit($conversation->getAltTextHit()['reference']);
+        if ($hit instanceof ResponseInterface) {
+            return $hit;
+        }
+
+        $before        = clone $conversation;
+        $currentStatus = $conversation->getStatus();
+        $refusal       = $this->refuseNewTurn($currentStatus);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
+        $conversation->appendMessage(
+            MessageRole::User,
+            sprintf('[The editor asks to offer the same alt text again, unchanged: call set_file_reference_alternative_text with reference %d and the text %s.]', $hit->referenceUid, json_encode($proposal, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+            AltTextConversation::NOTICE_RETRY,
+        );
+
+        return $this->queueTurn($conversation, $currentStatus, [], $before);
+    }
+
+    /**
+     * The conversation about a missing alt text the request names, when the
+     * user may use the chat and it is not working on a turn.
+     *
+     * @param array<string, string|int> $body
+     */
+    private function altTextConversationOf(ServerRequestInterface $request, array $body): Conversation|ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied !== null) {
+            return $accessDenied;
+        }
+
+        $conversation = $this->findConversationOrFail($request, $body);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        if (!AltTextConversation::isAbout($conversation) || !$this->altTextConversation instanceof AltTextConversation) {
+            return new JsonResponse(['error' => $this->translate('error.altTextStart')], 400);
+        }
+
+        return $this->isBusy($conversation->getStatus())
+            ? new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409)
+            : $conversation;
+    }
+
+    /**
+     * Take the hit up in the conversation and start the turn that proposes
+     * its alt text: the claim, which writes the image with the card, the
+     * withdrawal of a waiting proposal and the dispatch (queueTurn()).
+     */
+    private function takeUpAltText(Conversation $conversation, MissingAltText $hit): ResponseInterface
+    {
+        $before        = clone $conversation;
+        $currentStatus = $conversation->getStatus();
+        $refusal       = $this->refuseNewTurn($currentStatus);
+        if ($refusal !== null || !$this->altTextConversation instanceof AltTextConversation) {
+            return $refusal ?? new JsonResponse(['error' => $this->translate('error.altTextToolsUnavailable')], 409);
+        }
+
+        $this->altTextConversation->takeUp($conversation, $hit, (bool) ($this->chatService->getProviderCapabilities()['visionSupported'] ?? false));
+        if ($hit->type === 'pages') {
+            $conversation->setViewContext($hit->pageUid, '', max(0, $hit->languageUid));
+        } else {
+            $conversation->setViewContext(0, '');
+        }
+
+        $response = $this->queueTurn($conversation, $currentStatus, [], $before);
+        if ($response->getStatusCode() !== 202) {
+            return $response;
+        }
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+
+        return new JsonResponse([
+            'status'    => 'processing',
+            'reference' => $hit->referenceUid,
+            ...($backendUser instanceof BackendUserAuthentication ? $this->altTextConversation->locate($hit, $backendUser) : []),
+        ], 202);
+    }
+
+    /**
+     * End the conversation's step on the image without a model turn: the
+     * waiting proposal is withdrawn, and the conversation waits for the
+     * editor again.
+     *
+     * @param Conversation $before the row before this request changed it
+     */
+    private function settleAltText(Conversation $conversation, Conversation $before): ResponseInterface
+    {
+        $currentStatus = $before->getStatus();
+        $releasesRun   = $currentStatus === ConversationStatus::AwaitingApproval || $currentStatus === ConversationStatus::AwaitingInput;
+
+        $conversation->setStatus(ConversationStatus::Locked);
+        $conversation->setErrorMessage('');
+        $conversation->setApprovalRunUuid('');
+        $conversation->clearApprovalDecision();
+        if (!$this->repository->updateIf($conversation, $currentStatus)) {
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        if ($releasesRun && !$this->chatApproval->releasePendingRun($before)) {
+            // The run is being carried on, or a decision won the race: the
+            // row goes back to what it was.
+            $this->repository->updateIf($before, ConversationStatus::Locked);
+
+            return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
+        }
+
+        $conversation->setStatus(ConversationStatus::Idle);
+        $this->repository->updateIf($conversation, ConversationStatus::Locked);
+
+        return new JsonResponse(['status' => ConversationStatus::Idle->value]);
+    }
+
+    /**
      * POST /ai-chat/conversations/approve.
      *
      * Records the decision and hands it to the worker, like every other path
@@ -1835,7 +2190,11 @@ final readonly class ChatApiController
         $reason      = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
         $view        = $this->chatApproval->pendingApproval($conversation);
         $processCard = $view !== null && $this->chatApproval->offersProcessAnswers($conversation, $view);
-        if (!$processCard) {
+        // A card of a conversation about a missing alt text takes "Andere
+        // Variante" (ADR-026); "Überspringen" and "Als dekorativ markieren"
+        // are the chat's own actions there, not denials.
+        $altTextCard = !$processCard && $reason === DenyReason::Variant && $this->altTextConversation?->card($conversation, $view) !== null;
+        if (!$processCard && !$altTextCard) {
             $reason = null;
         }
 
@@ -1872,9 +2231,11 @@ final readonly class ChatApiController
         $blocked = $approve ? $this->approveBlockedReason($conversation, $this->chatApproval->pendingApproval($conversation)) : '';
 
         return match ($blocked) {
-            'secondApprover' => new JsonResponse(['error' => $this->translate('error.handBack.secondApprover')], 409),
-            'preview'        => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
-            default          => null,
+            'secondApprover'          => new JsonResponse(['error' => $this->translate('error.handBack.secondApprover')], 409),
+            'preview'                 => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
+            'altTextMarkNotPermitted' => new JsonResponse(['error' => $this->translate('altText.markNotPermitted')], 403),
+            'altTextOtherImage'       => new JsonResponse(['error' => $this->translate('altText.otherImage')], 409),
+            default                   => null,
         };
     }
 

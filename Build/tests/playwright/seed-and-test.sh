@@ -25,7 +25,9 @@
 #                 one on a deleted page (recent-chats-widget.spec.ts). A
 #                 second administrator's dashboard holds the two entries to
 #                 the list of images without an alt text, of which three
-#                 are seeded on a page of their own (missing-alt-texts.spec.ts).
+#                 are seeded on a page of their own (missing-alt-texts.spec.ts);
+#                 the tools of "Optimieren" are enabled, and one conversation
+#                 waits on a proposed alt text (alt-text-optimise.spec.ts).
 #
 # DB coordinates are the fixed defaults the reusable workflow's default mode
 # provisions (see its "Setup TYPO3" step): host 127.0.0.1, root/root, db typo3.
@@ -82,6 +84,9 @@ case "${E2E_VARIANT:-}" in
 
     echo "Seeding three images without an alt text and a user whose dashboard leads to their list (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/alt-texts-seed.sql"
+
+    echo "Enabling the alt text tools and seeding a conversation that waits on a proposed alt text (${DB_CLIENT})..."
+    "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/alt-text-optimise-seed.sql"
 
     echo "Pointing llmTaskUid at the seeded Task..."
     cat >> config/system/additional.php << 'PHPEOF'

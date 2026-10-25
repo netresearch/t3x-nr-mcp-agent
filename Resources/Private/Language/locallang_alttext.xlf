@@ -157,6 +157,15 @@
             <trans-unit id="decorative.warning.record" resname="decorative.warning.record">
                 <source>Decorative images get no alt text. Screen readers then skip them. That only fits if the image adds nothing to the content. This image belongs to the %1$s “%2$s” and therefore probably needs an alt text. Mark it as decorative anyway?</source>
             </trans-unit>
+            <trans-unit id="action.optimise" resname="action.optimise">
+                <source>Optimise</source>
+            </trans-unit>
+            <trans-unit id="action.inChat" resname="action.inChat">
+                <source>In the chat</source>
+            </trans-unit>
+            <trans-unit id="status.done" resname="status.done">
+                <source>%1$s is done. %2$s</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

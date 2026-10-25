@@ -14,6 +14,7 @@ use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextGate;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextScanner;
 use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
@@ -88,10 +89,7 @@ final class AltTextConversationStartTest extends FunctionalTestCase
             new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
             siteFinder: $this->get(SiteFinder::class),
-            skills: $skills,
-            altTexts: $this->get(MissingAltTextScanner::class),
-            referenceAccess: $this->get(ReferenceWriteAccess::class),
-            tools: $tools,
+            altTextGate: new AltTextGate($this->get(MissingAltTextScanner::class), $this->get(ReferenceWriteAccess::class), $tools, $skills),
         );
     }
 
@@ -144,7 +142,7 @@ final class AltTextConversationStartTest extends FunctionalTestCase
         self::assertSame(201, $status);
         $stored = $this->repository->findByUid((int) $body['uid']);
         self::assertNotNull($stored);
-        self::assertSame(['reference' => 1], $stored->getAltTextHit());
+        self::assertSame(1, $stored->getAltTextHit()['reference']);
         self::assertSame(['pageId' => 10, 'module' => '', 'languageId' => 0], $stored->getViewContext());
         self::assertSame('', $stored->getSkillIdentifier());
     }
@@ -160,7 +158,7 @@ final class AltTextConversationStartTest extends FunctionalTestCase
         self::assertSame(201, $status);
         $stored = $this->repository->findByUid((int) $body['uid']);
         self::assertNotNull($stored);
-        self::assertSame(['reference' => 28], $stored->getAltTextHit());
+        self::assertSame(28, $stored->getAltTextHit()['reference']);
         self::assertSame(0, $stored->getViewContext()['pageId']);
     }
 

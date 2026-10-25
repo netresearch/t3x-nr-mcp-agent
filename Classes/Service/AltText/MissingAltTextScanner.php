@@ -351,7 +351,29 @@ class MissingAltTextScanner
             hiddenDate: $date,
         );
 
-        return ['key' => $this->sortKey($hit, $element, $chain, $this->int($reference['sorting_foreign'] ?? 0)), 'hit' => $hit];
+        $key = $this->sortKey($hit, $element, $chain, $this->int($reference['sorting_foreign'] ?? 0));
+
+        return ['key' => $key, 'hit' => new MissingAltText(
+            referenceUid: $hit->referenceUid,
+            fileUid: $hit->fileUid,
+            fileName: $hit->fileName,
+            crop: $hit->crop,
+            type: $hit->type,
+            table: $hit->table,
+            recordUid: $hit->recordUid,
+            field: $hit->field,
+            languageUid: $hit->languageUid,
+            pageUid: $hit->pageUid,
+            pageTitle: $hit->pageTitle,
+            groupUid: $hit->groupUid,
+            groupTitle: $hit->groupTitle,
+            elementUid: $hit->elementUid,
+            elementType: $hit->elementType,
+            elementHeader: $hit->elementHeader,
+            hiddenReason: $hit->hiddenReason,
+            hiddenDate: $hit->hiddenDate,
+            sortKey: $key,
+        )];
     }
 
     /**

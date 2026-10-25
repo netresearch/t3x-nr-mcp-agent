@@ -219,7 +219,6 @@ readonly class ConversationRepository
         $data['system_prompt']    = $conversation->getSystemPrompt();
         $data['skill_identifier'] = $conversation->getSkillIdentifier();
         $data['skill_uid']        = $conversation->getSkillUid();
-        $data['alt_text_hit']     = $conversation->getAltTextHitJson();
 
         return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
             $conn->insert(self::TABLE, $data);
@@ -323,20 +322,6 @@ readonly class ConversationRepository
     }
 
     /**
-     * Single-column write of the image use the conversation is about
-     * (ADR-026), like the skill: a turn that settles later cannot put the
-     * previous one back.
-     */
-    public function updateAltTextHit(int $uid, Conversation $conversation, int $beUserUid): void
-    {
-        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $conn->update(self::TABLE, [
-            'alt_text_hit' => $conversation->getAltTextHitJson(),
-            'tstamp'       => time(),
-        ], ['uid' => $uid, 'be_user' => $beUserUid]);
-    }
-
-    /**
      * Single-column clear of the start marker, once a run carried the
      * invocation. Not part of a full-row write, so a save from a snapshot
      * taken before the skill was picked cannot clear a newer marker.
@@ -370,12 +355,14 @@ readonly class ConversationRepository
     /**
      * Lightweight poll check — returns status metadata without loading messages.
      *
-     * @return array{status: string, message_count: int, error_message: string, error_code: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>}|null
+     * `about_image`: the conversation is about a missing alt text (ADR-026).
+     *
+     * @return array{status: string, message_count: int, error_message: string, error_code: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>, about_image: bool}|null
      */
     public function findPollStatus(int $uid, int $beUserUid): ?array
     {
         $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $qb->select('status', 'message_count', 'error_message', 'error_code', 'approval_run_uuid', 'tstamp', 'activity')
+        $row = $qb->select('status', 'message_count', 'error_message', 'error_code', 'approval_run_uuid', 'tstamp', 'activity', 'alt_text_hit')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -411,6 +398,7 @@ readonly class ConversationRepository
             'approval_run_uuid' => is_string($approvalRunUuid) ? $approvalRunUuid : '',
             'tstamp'            => is_numeric($tstamp) ? (int) $tstamp : 0,
             'activity'          => Conversation::decodeActivity(is_string($activity) ? $activity : ''),
+            'about_image'       => is_string($row['alt_text_hit'] ?? null) && $row['alt_text_hit'] !== '',
         ];
     }
 

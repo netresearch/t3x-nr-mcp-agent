@@ -90,6 +90,32 @@ return [
         'target'  => ChatApiController::class . '::renameConversation',
         'methods' => ['POST'],
     ],
+    // A conversation about a missing alt text (ADR-026).
+    'ai_chat_alt_text_switch' => [
+        'path'    => '/ai-chat/alt-text/switch',
+        'target'  => ChatApiController::class . '::switchAltText',
+        'methods' => ['POST'],
+    ],
+    'ai_chat_alt_text_next' => [
+        'path'    => '/ai-chat/alt-text/next',
+        'target'  => ChatApiController::class . '::nextAltText',
+        'methods' => ['POST'],
+    ],
+    'ai_chat_alt_text_skip' => [
+        'path'    => '/ai-chat/alt-text/skip',
+        'target'  => ChatApiController::class . '::skipAltText',
+        'methods' => ['POST'],
+    ],
+    'ai_chat_alt_text_decorative' => [
+        'path'    => '/ai-chat/alt-text/decorative',
+        'target'  => ChatApiController::class . '::markAltTextDecorative',
+        'methods' => ['POST'],
+    ],
+    'ai_chat_alt_text_retry' => [
+        'path'    => '/ai-chat/alt-text/retry',
+        'target'  => ChatApiController::class . '::retryAltText',
+        'methods' => ['POST'],
+    ],
     'ai_chat_file_upload' => [
         'path'    => '/ai-chat/file-upload',
         'target'  => ChatApiController::class . '::fileUpload',

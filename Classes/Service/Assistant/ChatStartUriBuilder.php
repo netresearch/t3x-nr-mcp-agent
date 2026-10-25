@@ -59,6 +59,19 @@ final readonly class ChatStartUriBuilder
         return (string) $this->uriBuilder->buildUriFromRoute(self::ROUTE, $parameters);
     }
 
+    /** Query parameter carrying the image reference a conversation about a missing alt text starts with (ADR-026). */
+    public const PARAMETER_ALT_TEXT = 'altTextReference';
+
+    /**
+     * The chat module's link without the image, which the list of missing
+     * alt texts completes with `&altTextReference=<uid>` where the chat
+     * panel is not available (ADR-026).
+     */
+    public function forAltText(): string
+    {
+        return (string) $this->uriBuilder->buildUriFromRoute(self::ROUTE);
+    }
+
     /**
      * What a GET form needs to reach the same URL as build() with the skill,
      * page and language taken from its own fields.

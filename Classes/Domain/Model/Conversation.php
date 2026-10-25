@@ -180,8 +180,10 @@ final class Conversation
      * `reference`, the sys_file_reference uid. Empty for any other
      * conversation. Only the uid is kept: whatever the chat says or sends
      * about the image is read again from the reference, with the user's
-     * rights, when it is needed. Written with the new row and then on its
-     * own column, never by a full-row write.
+     * rights, when it is needed. Written with the row: the chat moves to
+     * another image only while no turn runs, and the move is the claim of
+     * the turn that proposes its text, so the turn reads the image its card
+     * names.
      */
     private string $altTextHit = '';
 
@@ -275,6 +277,7 @@ final class Conversation
             'last_run_uuid'        => $this->lastRunUuid,
             'pending_input'        => $this->pendingInput,
             'approval_deny_reason' => $this->approvalDenyReason,
+            'alt_text_hit'         => $this->altTextHit,
         ];
     }
 
@@ -368,13 +371,16 @@ final class Conversation
     }
 
     /**
-     * @param string|array<mixed> $content
-     * @param string              $notice     a code the chat renders as a label in the reader's language
-     *                                        (ADR-017); nr-llm's message factory ignores the key, so it
-     *                                        does not reach the model
-     * @param list<string>        $noticeArgs values the label is filled with, e.g. record references
+     * @param string|array<mixed>  $content
+     * @param string               $notice     a code the chat renders as a label in the reader's language
+     *                                         (ADR-017); nr-llm's message factory ignores the key, so it
+     *                                         does not reach the model
+     * @param list<string>         $noticeArgs values the label is filled with, e.g. record references
+     * @param array<string, mixed> $data       what the chat renders beside the label (the image card of a
+     *                                         conversation about an alt text, ADR-026), under `data`; never
+     *                                         sent to the model as it is
      */
-    public function appendMessage(MessageRole $role, string|array $content, string $notice = '', array $noticeArgs = []): void
+    public function appendMessage(MessageRole $role, string|array $content, string $notice = '', array $noticeArgs = [], array $data = []): void
     {
         $messages = $this->getDecodedMessages();
         $message  = ['role' => $role->value, 'content' => $content, 'createdAt' => (new DateTimeImmutable())->format(DateTimeInterface::ATOM)];
@@ -383,6 +389,10 @@ final class Conversation
             if ($noticeArgs !== []) {
                 $message['noticeArgs'] = $noticeArgs;
             }
+        }
+
+        if ($data !== []) {
+            $message['data'] = $data;
         }
 
         $messages[] = $message;
@@ -523,16 +533,25 @@ final class Conversation
 
     /**
      * The image use the conversation is about (ADR-026); `reference` is 0
-     * for a conversation about none.
+     * for a conversation about none. `position` is where the image stood in
+     * the list when the chat took it up, so the image after it can be found
+     * once it is fixed.
      *
-     * @return array{reference: int}
+     * @return array{reference: int, position: array{type: string, label: string, key: list<int|string>}|null}
      */
     public function getAltTextHit(): array
     {
         $decoded   = $this->altTextHit !== '' ? json_decode($this->altTextHit, true) : null;
         $reference = is_array($decoded) ? ($decoded['reference'] ?? null) : null;
+        $position  = is_array($decoded) ? ($decoded['position'] ?? null) : null;
+        $key       = is_array($position) && is_array($position['key'] ?? null) ? $position['key'] : null;
 
-        return ['reference' => is_int($reference) && $reference > 0 ? $reference : 0];
+        return [
+            'reference' => is_int($reference) && $reference > 0 ? $reference : 0,
+            'position'  => is_array($position) && is_string($position['type'] ?? null) && is_string($position['label'] ?? null) && $key !== null
+                ? ['type' => $position['type'], 'label' => $position['label'], 'key' => array_values(array_filter($key, static fn (mixed $part): bool => is_int($part) || is_string($part)))]
+                : null,
+        ];
     }
 
     public function getAltTextHitJson(): string
@@ -540,9 +559,14 @@ final class Conversation
         return $this->altTextHit;
     }
 
-    public function setAltTextHit(int $referenceUid): void
+    /**
+     * @param array{type: string, label: string, key: list<int|string>}|null $position
+     */
+    public function setAltTextHit(int $referenceUid, ?array $position = null): void
     {
-        $this->altTextHit = $referenceUid > 0 ? json_encode(['reference' => $referenceUid], JSON_THROW_ON_ERROR) : '';
+        $this->altTextHit = $referenceUid > 0
+            ? json_encode(array_filter(['reference' => $referenceUid, 'position' => $position], static fn (mixed $value): bool => $value !== null), JSON_THROW_ON_ERROR)
+            : '';
     }
 
     public function getSkillUid(): int

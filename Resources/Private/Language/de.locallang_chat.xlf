@@ -983,6 +983,138 @@
                 <source>This chat's configuration requires a second person to approve every change, so it cannot save an alt text right away. Ask an administrator for another configuration.</source>
                 <target>Die Konfiguration dieses Chats verlangt für jede Änderung eine zweite Person, deshalb kann er keinen Alt-Text direkt speichern. Bitte einen Administrator um eine andere Konfiguration.</target>
             </trans-unit>
+            <trans-unit id="altText.title" resname="altText.title">
+                <source>Alt text: %s</source>
+                <target>Alt-Text: %s</target>
+            </trans-unit>
+            <trans-unit id="altText.heading" resname="altText.heading">
+                <source>Add an alt text</source>
+                <target>Alt-Text ergänzen</target>
+            </trans-unit>
+            <trans-unit id="altText.file" resname="altText.file">
+                <source>Image</source>
+                <target>Bild</target>
+            </trans-unit>
+            <trans-unit id="altText.page" resname="altText.page">
+                <source>Page</source>
+                <target>Seite</target>
+            </trans-unit>
+            <trans-unit id="altText.element" resname="altText.element">
+                <source>Content element</source>
+                <target>Content-Element</target>
+            </trans-unit>
+            <trans-unit id="altText.field" resname="altText.field">
+                <source>Field</source>
+                <target>Feld</target>
+            </trans-unit>
+            <trans-unit id="altText.language" resname="altText.language">
+                <source>Language</source>
+                <target>Sprache</target>
+            </trans-unit>
+            <trans-unit id="altText.missing" resname="altText.missing">
+                <source>This image has no alt text.</source>
+                <target>Für dieses Bild fehlt ein Alt-Text.</target>
+            </trans-unit>
+            <trans-unit id="altText.note.noVision" resname="altText.note.noVision">
+                <source>The image itself is not analysed: the AI provider of this chat cannot see images. The proposal is based on the page, the content element and the file name only. Check that it fits the image.</source>
+                <target>Das Bild selbst wird nicht ausgewertet: Der KI-Anbieter dieses Chats kann keine Bilder auswerten. Der Vorschlag beruht nur auf Seite, Content-Element und Dateiname. Prüfe, ob er zum Bild passt.</target>
+            </trans-unit>
+            <trans-unit id="altText.note.unreadable" resname="altText.note.unreadable">
+                <source>The image could not be analysed. The proposal is based on the page, the content element and the file name only. Check that it fits the image.</source>
+                <target>Das Bild konnte nicht analysiert werden. Der Vorschlag beruht nur auf Seite, Content-Element und Dateiname. Prüfe, ob er zum Bild passt.</target>
+            </trans-unit>
+            <trans-unit id="altText.proposal" resname="altText.proposal">
+                <source>Proposal:</source>
+                <target>Vorschlag:</target>
+            </trans-unit>
+            <trans-unit id="altText.answers" resname="altText.answers">
+                <source>Answers</source>
+                <target>Antwortvorschläge</target>
+            </trans-unit>
+            <trans-unit id="altText.apply" resname="altText.apply">
+                <source>Apply</source>
+                <target>Übernehmen</target>
+            </trans-unit>
+            <trans-unit id="altText.variant" resname="altText.variant">
+                <source>Another variant</source>
+                <target>Andere Variante</target>
+            </trans-unit>
+            <trans-unit id="altText.decorative" resname="altText.decorative">
+                <source>Mark as decorative</source>
+                <target>Als dekorativ markieren</target>
+            </trans-unit>
+            <trans-unit id="altText.markNotPermitted" resname="altText.markNotPermitted">
+                <source>You may not mark this image as decorative. You can have an alt text proposed instead.</source>
+                <target>Dieses Bild darfst du nicht als dekorativ markieren. Du kannst dir stattdessen einen Alt-Text vorschlagen lassen.</target>
+            </trans-unit>
+            <trans-unit id="altText.otherImage" resname="altText.otherImage">
+                <source>This proposal concerns a different image than the one in this chat and cannot be applied here. You can deny it.</source>
+                <target>Dieser Vorschlag betrifft ein anderes Bild als das im Chat und kann hier nicht übernommen werden. Ablehnen kannst du ihn.</target>
+            </trans-unit>
+            <trans-unit id="altText.decorative.help" resname="altText.decorative.help">
+                <source>For images without a function for the content, such as patterns or ornaments. They get no alt text and are skipped by screen readers.</source>
+                <target>Für Bilder ohne inhaltliche Funktion, z. B. Muster oder Schmuckgrafiken. Sie bekommen keinen Alt-Text und werden von Screenreadern übersprungen.</target>
+            </trans-unit>
+            <trans-unit id="altText.skip" resname="altText.skip">
+                <source>Skip</source>
+                <target>Überspringen</target>
+            </trans-unit>
+            <trans-unit id="altText.createText" resname="altText.createText">
+                <source>Create an alt text</source>
+                <target>Alt-Text erstellen</target>
+            </trans-unit>
+            <trans-unit id="altText.next" resname="altText.next">
+                <source>Optimise the next hit</source>
+                <target>Nächsten Treffer optimieren</target>
+            </trans-unit>
+            <trans-unit id="altText.saved" resname="altText.saved">
+                <source>Alt text saved.</source>
+                <target>Alt-Text gespeichert.</target>
+            </trans-unit>
+            <trans-unit id="altText.decorativeSaved" resname="altText.decorativeSaved">
+                <source>Marked as decorative.</source>
+                <target>Als dekorativ markiert.</target>
+            </trans-unit>
+            <trans-unit id="altText.skipped" resname="altText.skipped">
+                <source>Skipped. The hit stays open in the list.</source>
+                <target>Übersprungen. Der Treffer bleibt in der Liste offen.</target>
+            </trans-unit>
+            <trans-unit id="altText.notSaved" resname="altText.notSaved">
+                <source>The alt text “%1$s” was not saved.</source>
+                <target>Der Alt-Text „%1$s“ wurde nicht gespeichert.</target>
+            </trans-unit>
+            <trans-unit id="altText.retry" resname="altText.retry">
+                <source>Offer it again</source>
+                <target>Erneut anbieten</target>
+            </trans-unit>
+            <trans-unit id="error.altTextNothingToRetry" resname="error.altTextNothingToRetry">
+                <source>There is no proposal to offer again.</source>
+                <target>Es gibt keinen Vorschlag, der erneut angeboten werden kann.</target>
+            </trans-unit>
+            <trans-unit id="altText.switched" resname="altText.switched">
+                <source>Hit changed · %1$s · %2$s</source>
+                <target>Treffer gewechselt · %1$s · %2$s</target>
+            </trans-unit>
+            <trans-unit id="altText.action.skip" resname="altText.action.skip">
+                <source>Skip</source>
+                <target>Überspringen</target>
+            </trans-unit>
+            <trans-unit id="altText.context.label" resname="altText.context.label">
+                <source>What the assistant works on</source>
+                <target>Woran der Assistant arbeitet</target>
+            </trans-unit>
+            <trans-unit id="altText.context.infoElement" resname="altText.context.infoElement">
+                <source>The assistant changes only the alt text of this use of the image in the element %1$s on the page %2$s. Nothing is saved before “Apply”.</source>
+                <target>Der Assistant ändert nur den Alt-Text dieser Bildverwendung im Element %1$s auf der Seite %2$s. Gespeichert wird erst nach „Übernehmen“.</target>
+            </trans-unit>
+            <trans-unit id="altText.context.infoField" resname="altText.context.infoField">
+                <source>The assistant changes only the alt text of this use of the image in the field %1$s of %2$s. Nothing is saved before “Apply”.</source>
+                <target>Der Assistant ändert nur den Alt-Text dieser Bildverwendung im Feld %1$s von %2$s. Gespeichert wird erst nach „Übernehmen“.</target>
+            </trans-unit>
+            <trans-unit id="error.altTextNoNext" resname="error.altTextNoNext">
+                <source>No other hit is open.</source>
+                <target>Es ist kein weiterer Treffer offen.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

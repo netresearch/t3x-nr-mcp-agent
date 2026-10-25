@@ -231,9 +231,10 @@ not with the number of pages.
 listing *Fehlende Alt-Texte*) and a tile in *Für deine Website empfohlen*
 (shown only with open hits). Both are behind the same gate as the other
 assistant widgets, ``ChatToolbarItem::checkAccess()`` (:ref:`adr-009`):
-every action of the feature leads into the chat. *Optimieren* is left out
-until slice 2 rather than shown disabled: a disabled button cannot be
-focused, so its explanation would not reach keyboard users.
+every action of the feature leads into the chat. Where *Optimieren* cannot
+work (slice 2) it is not ``disabled``, which cannot be focused, so its
+explanation would not reach keyboard users: the button stays focusable with
+``aria-disabled`` and ``aria-describedby`` on a visible note that says why.
 
 Slice 2
 =======
@@ -262,8 +263,9 @@ Abschnitt „…“ und braucht deshalb wahrscheinlich einen Alt-Text. Trotzdem
 als dekorativ markieren?"
 
 **The editor confirms the mark once, on that card.** The specification
-saves on "Übernehmen" or "Als dekorativ markieren"; nr-llm saves a write
-only on an approved card (nr-llm ADR-134), and that holds here too. The
+says: „Gespeichert wird erst nach „Übernehmen“ bzw. „Als dekorativ
+markieren“.“ nr-llm saves a write only on an approved card (nr-llm
+ADR-134), and that holds here too. The
 chip "Als dekorativ markieren" therefore does not save anything and does
 not count as a confirmation: it asks for the card, and approving the card
 is the one confirmation, with the warning of case 2 on the card itself. No
@@ -289,6 +291,93 @@ requires a second approver 409 ``secondApprover``: the proposal is saved by
 approving its card, which neither could do. The conversation keeps the reference uid only (column
 ``alt_text_hit``), and is about the image's page in the reference's
 language when the image lies on a page; a record's image binds no page.
+
+**The chat opens beside the list, on the image.** *Optimieren* opens the
+chat as the column (:ref:`adr-024`) for this opening only, folds the module
+menu through its own toggle and unfolds it on closing when it folded it,
+and starts the conversation, or moves the open one to the row's image. The
+list follows the chat through the panel's event ``nr-mcp-agent:alt-text``
+(``active``, ``done``, ``gone``, ``closed``): the row the chat is on is
+marked (``aria-current``) and its button reads *Im Chat*, a fixed image
+leaves the list with its counts and a live region, and closing gives the
+keyboard focus back to the row. Without the panel the button opens the chat
+module with ``altTextReference``.
+
+**The first message is the server's.** The image card (image, page or
+record, element or field, language, "Dieses Bild hat keinen Alt-Text") is a
+notice with the card's lines as data, written when the conversation takes
+the image up; the model's turn follows. Every line of the chat's own
+(card, divider *Treffer gewechselt*, the chip *Überspringen*, the
+confirmations) is a notice the reader sees in their language and the model
+never reads; the chips *Als dekorativ markieren* and *Erneut anbieten* are
+requests the model reads. A label the chat fills with values uses
+positional placeholders only (``%1$s``): TYPO3's ``lll()`` fills a plain
+``%s`` itself, with "undefined" where no value is passed.
+What the model reads of the image is built anew on every turn from the
+database: the latest card becomes the image's context (file, language,
+page or record, element text, neighbouring elements, the record's text
+fields), an earlier card a line saying the editor moved on.
+
+**The flow is a section of the system prompt, not a skill.** An extension
+cannot ship a skill to nr-llm (nr-llm ADR-163), so the instructions —
+propose one text through ``set_file_reference_alternative_text``, propose
+the decorative mark through ``set_file_reference_decorative`` only for an
+image that adds nothing, never touch another image — are added to the
+system prompt of a conversation about an image.
+
+**The answers.** On a proposal the card offers *Übernehmen* (approves the
+card; not offered while the approval is blocked), *Andere Variante* (denies
+it with the reason ``variant``, which nr-llm passes to the model), *Als
+dekorativ markieren* and *Überspringen*. *Überspringen* is the chat's own
+action with a fixed text and no model turn: the waiting run is withdrawn,
+nothing is saved, and the chat says that the hit stays open. *Als
+dekorativ markieren* is offered only where the user may set the mark (the
+rights and the exclude-field grant for ``tx_nrmcpagent_decorative``, as the
+tool asks them); it withdraws the waiting run and starts a turn whose
+request the model answers with ``set_file_reference_decorative``. The mark's
+card — the model's own proposal (case 1) or the one the chip asked for —
+shows its lines, with the warning of case 2 where it applies, and offers
+*Als dekorativ markieren* (approves it, the one confirmation) and
+*Alt-Text erstellen*. The specification's buttons for case 2, „Ja, als
+dekorativ markieren“ and „Doch Alt-Text verwenden“, belong to a step of
+their own, which the single confirmation leaves out. The model's own mark
+reaches a user who may not set it as a card without the approve button,
+which says so in the reader's language in place of the tool's refusal, and
+the image's context tells the model that the mark is not available. Only
+the system prompt binds the model to the conversation's image; a call of
+either tool on another reference is therefore not approved in the chat: the
+card says that the proposal concerns a different image, and an approval is
+refused. After an approved
+write the chat confirms it itself, "Alt-Text gespeichert." or "Als
+dekorativ markiert.", in place of the model's answer, when the run recorded
+the write. When the write of an approved text did not land, the model's
+answer says why and the proposal stays, as the specification has it („der
+Vorschlag bleibt erhalten“): *Erneut anbieten* asks the model to propose
+the same text again, as a new card; the server takes the text from the
+conversation, never from the browser.
+
+**Moving on.** Another row's *Optimieren* and *Nächsten Treffer
+optimieren* move the conversation to another image: a divider naming it,
+its card and a new turn, the waiting proposal withdrawn. The next hit is
+the open hit after the conversation's image in list order across the tabs
+(pages first, then the record types by their label), after the last the
+first again; the conversation keeps the image's place in the list, so
+after a fixed image the next one is the one that followed it. The server
+refuses every move while a turn runs; the panel keeps an *Optimieren* that
+comes meanwhile and takes it up when the turn ends, unless the chat is
+closed in between. Whether the chat folded
+the module menu is kept in the user's settings, so closing the chat after a
+reload unfolds it as well.
+
+**The image goes to the model as a scaled copy, where it may see it.** A
+provider that supports vision gets a PNG copy of at most 1024 pixels with
+the reference's crop; an image that does not come out as a raster image
+(an SVG the image processor does not convert) is not sent. The card's note
+is decided with the copy: wherever no copy goes to the model — no vision, a
+file that cannot be read or converted — the card says that the proposal
+rests on the page, the element and the file name.
+Whether an image may be sent at all is ``AltTextImagePolicyInterface``
+(``SendEveryImage`` for now), where slice 3's setting plugs in.
 
 Consequences
 ============

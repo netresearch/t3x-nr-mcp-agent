@@ -12,6 +12,7 @@ import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat
 import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
+import {approveBlockedLabel, chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextContext, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
@@ -29,7 +30,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -570,6 +571,12 @@ export class ChatApp extends LitElement {
         const page = params.get('pageUid') ?? '';
         const language = params.get('languageUid') ?? '';
         const skill = params.get('skill') ?? '';
+        // "Optimieren" in the list of missing alt texts where the panel is
+        // not available (ADR-026): the image is the whole start.
+        const altText = params.get('altTextReference') ?? '';
+        if (/^\d+$/.test(altText) && Number(altText) > 0) {
+            return {altTextReference: Number(altText)};
+        }
         if (/^\d+$/.test(page) && Number(page) > 0) {
             start.pageUid = Number(page);
             if (/^\d+$/.test(language)) start.languageUid = Number(language);
@@ -581,7 +588,7 @@ export class ChatApp extends LitElement {
     /** Point the URL at the conversation it started, so a reload opens it again. */
     onStartContextConsumed(uid) {
         const url = new URL(globalThis.location.href);
-        ['pageUid', 'languageUid', 'skill'].forEach((key) => url.searchParams.delete(key));
+        ['pageUid', 'languageUid', 'skill', 'altTextReference'].forEach((key) => url.searchParams.delete(key));
         url.searchParams.set('conversation', String(uid));
         globalThis.history?.replaceState?.(globalThis.history.state, '', url.toString());
     }
@@ -811,6 +818,7 @@ export class ChatApp extends LitElement {
                     </div>
                 ` : nothing}
                 ${this._renderStatusNotice(isResumable)}
+                ${renderAltTextNext(this.chat)}
             </div>
 
             ${this._renderInput()}
@@ -830,6 +838,7 @@ export class ChatApp extends LitElement {
             ${renderRoundLimit(this.chat)}
             ${renderTourEnd(this.chat)}
             ${renderActiveSkill(this.chat)}
+            ${renderAltTextContext(this.chat)}
             ${renderSlashList(this.chat)}
             ${this._renderFileBadge()}
             <div class="input-area">
@@ -1061,6 +1070,10 @@ export class ChatApp extends LitElement {
             `;
         }
 
+        if (isAltTextCard(pending)) {
+            return renderAltTextCard(this.chat, pending);
+        }
+
         if (isProposal(pending)) {
             return this._renderProposalCard(pending);
         }
@@ -1112,9 +1125,8 @@ export class ChatApp extends LitElement {
             return nothing;
         }
 
-        const label = pending.approveBlocked === 'secondApprover' ? 'chat.approvalSecondApprover' : 'chat.approvalOwnNeedsPreview';
         return html`
-            <p class="approval-warning approval-blocked">${lll(label)}</p>
+            <p class="approval-warning approval-blocked">${lll(approveBlockedLabel(pending.approveBlocked))}</p>
             ${this._renderRunDetailsLink()}
         `;
     }
@@ -1318,6 +1330,13 @@ export class ChatApp extends LitElement {
     }
 
     _renderMessage(msg, idx) {
+        // The chat's own lines in a conversation about a missing alt text
+        // (ADR-026): the image card, the divider, the confirmations.
+        const altText = renderAltTextMessage(this.chat, msg, idx);
+        if (altText !== null) {
+            return altText;
+        }
+
         const role = msg.role || 'system';
         if (role === 'assistant' && msg.tool_calls && !msg.content) return nothing;
 

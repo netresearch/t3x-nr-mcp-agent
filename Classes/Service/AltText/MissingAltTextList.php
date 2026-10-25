@@ -116,6 +116,111 @@ class MissingAltTextList
     }
 
     /**
+     * The hits in list order across the tabs: "pages" first, then the
+     * record types by label, each in its own order.
+     *
+     * @return list<MissingAltText>
+     */
+    public function ordered(MissingAltTextScan $scan): array
+    {
+        $hits = $scan->hits;
+        usort($hits, fn (MissingAltText $a, MissingAltText $b): int => $this->compare($this->position($a), $this->position($b)));
+
+        return $hits;
+    }
+
+    /**
+     * Where a hit stands in the list, kept so that the hit after it can be
+     * found once it is no longer open: its tab, the tab's label and its
+     * place in the tab.
+     *
+     * @return array{type: string, label: string, key: list<int|string>}
+     */
+    public function position(MissingAltText $hit): array
+    {
+        return ['type' => $hit->type, 'label' => $this->tabLabel($hit->type), 'key' => $hit->sortKey];
+    }
+
+    /**
+     * The open hit after the given place in list order, across the tabs
+     * ("Nächsten Treffer optimieren"); after the last, the first one again
+     * that is not the hit at that place. Null when no other hit is open.
+     *
+     * @param array{type: string, label: string, key: list<int|string>} $after
+     */
+    public function next(MissingAltTextScan $scan, array $after, int $currentReference): ?MissingAltText
+    {
+        $others = array_values(array_filter($this->ordered($scan), static fn (MissingAltText $hit): bool => $hit->referenceUid !== $currentReference));
+        foreach ($others as $hit) {
+            if ($this->compare($this->position($hit), $after) > 0) {
+                return $hit;
+            }
+        }
+
+        return $others[0] ?? null;
+    }
+
+    /**
+     * The tab and the page of the tab the hit is listed on.
+     *
+     * @return array{tab: string, page: int}
+     */
+    public function locate(MissingAltTextScan $scan, MissingAltText $hit, int $pageSize = self::PAGE_SIZE): array
+    {
+        $index = array_search($hit->referenceUid, array_map(static fn (MissingAltText $other): int => $other->referenceUid, $scan->ofType($hit->type)), true);
+
+        return ['tab' => $hit->type, 'page' => is_int($index) ? intdiv($index, max(1, $pageSize)) + 1 : 1];
+    }
+
+    /**
+     * What the chat's card says about a hit, in the editor's language: the
+     * file, the page or the record (with its type), the element or the
+     * field, the language.
+     *
+     * @return array{fileName: string, subjectType: string, subject: string, partType: string, part: string, language: string, section: string}
+     */
+    public function describe(MissingAltText $hit): array
+    {
+        $isPages     = $hit->type === MissingAltTextScan::PAGES;
+        $recordTitle = $hit->groupTitle !== '' ? $hit->groupTitle : BackendUtility::getNoRecordTitle();
+
+        return [
+            'fileName'    => $hit->fileName,
+            'subjectType' => $isPages ? '' : $this->tableLabel($hit->type),
+            'subject'     => $isPages ? $hit->pageTitle : $recordTitle,
+            'partType'    => $hit->elementUid > 0 ? 'element' : 'field',
+            'part'        => $hit->elementUid > 0 ? $this->elementLabel($hit) : $this->fieldLabel($hit->table, $hit->field),
+            'language'    => $this->languageTitle($hit->pageUid, $hit->languageUid),
+            'section'     => $isPages ? trim($hit->elementHeader) : '',
+        ];
+    }
+
+    /**
+     * @param array{type: string, label: string, key: list<int|string>} $a
+     * @param array{type: string, label: string, key: list<int|string>} $b
+     */
+    private function compare(array $a, array $b): int
+    {
+        return [$a['type'] === MissingAltTextScan::PAGES ? 0 : 1, strnatcasecmp($a['label'], $b['label']), $a['type'], $a['key']]
+            <=> [$b['type'] === MissingAltTextScan::PAGES ? 0 : 1, 0, $b['type'], $b['key']];
+    }
+
+    private function tabLabel(string $type): string
+    {
+        return $type === MissingAltTextScan::PAGES ? $this->text('tab.pages') : $this->tableLabel($type);
+    }
+
+    /** The language's title in the site ("Deutsch"); empty for a page outside every site. */
+    private function languageTitle(int $pageUid, int $languageUid): string
+    {
+        try {
+            return $this->siteFinder->getSiteByPageId($pageUid)->getLanguageById(max(0, $languageUid))->getTitle();
+        } catch (Throwable) {
+            return '';
+        }
+    }
+
+    /**
      * Whether a requested tab names a table whose images the check reads:
      * one with image fields of its own, other than pages and content, which
      * are the "pages" tab.
@@ -136,6 +241,18 @@ class MissingAltTextList
             $count === 1 => $this->text('title.one'),
             default      => sprintf($this->text('title.other'), $count),
         };
+    }
+
+    /** The heading for more than one hit, with `%d` for the count, for the list's script. */
+    public function titlePattern(): string
+    {
+        return $this->text('title.other');
+    }
+
+    /** A tab's count for screen readers, with `%d`, for the list's script. */
+    public function countPattern(): string
+    {
+        return $this->text('tab.count');
     }
 
     /**

@@ -742,6 +742,105 @@
             <trans-unit id="error.altTextSecondApprover" resname="error.altTextSecondApprover">
                 <source>This chat's configuration requires a second person to approve every change, so it cannot save an alt text right away. Ask an administrator for another configuration.</source>
             </trans-unit>
+            <trans-unit id="altText.title" resname="altText.title">
+                <source>Alt text: %s</source>
+            </trans-unit>
+            <trans-unit id="altText.heading" resname="altText.heading">
+                <source>Add an alt text</source>
+            </trans-unit>
+            <trans-unit id="altText.file" resname="altText.file">
+                <source>Image</source>
+            </trans-unit>
+            <trans-unit id="altText.page" resname="altText.page">
+                <source>Page</source>
+            </trans-unit>
+            <trans-unit id="altText.element" resname="altText.element">
+                <source>Content element</source>
+            </trans-unit>
+            <trans-unit id="altText.field" resname="altText.field">
+                <source>Field</source>
+            </trans-unit>
+            <trans-unit id="altText.language" resname="altText.language">
+                <source>Language</source>
+            </trans-unit>
+            <trans-unit id="altText.missing" resname="altText.missing">
+                <source>This image has no alt text.</source>
+            </trans-unit>
+            <trans-unit id="altText.note.noVision" resname="altText.note.noVision">
+                <source>The image itself is not analysed: the AI provider of this chat cannot see images. The proposal is based on the page, the content element and the file name only. Check that it fits the image.</source>
+            </trans-unit>
+            <trans-unit id="altText.note.unreadable" resname="altText.note.unreadable">
+                <source>The image could not be analysed. The proposal is based on the page, the content element and the file name only. Check that it fits the image.</source>
+            </trans-unit>
+            <trans-unit id="altText.proposal" resname="altText.proposal">
+                <source>Proposal:</source>
+            </trans-unit>
+            <trans-unit id="altText.answers" resname="altText.answers">
+                <source>Answers</source>
+            </trans-unit>
+            <trans-unit id="altText.apply" resname="altText.apply">
+                <source>Apply</source>
+            </trans-unit>
+            <trans-unit id="altText.variant" resname="altText.variant">
+                <source>Another variant</source>
+            </trans-unit>
+            <trans-unit id="altText.decorative" resname="altText.decorative">
+                <source>Mark as decorative</source>
+            </trans-unit>
+            <trans-unit id="altText.markNotPermitted" resname="altText.markNotPermitted">
+                <source>You may not mark this image as decorative. You can have an alt text proposed instead.</source>
+            </trans-unit>
+            <trans-unit id="altText.otherImage" resname="altText.otherImage">
+                <source>This proposal concerns a different image than the one in this chat and cannot be applied here. You can deny it.</source>
+            </trans-unit>
+            <trans-unit id="altText.decorative.help" resname="altText.decorative.help">
+                <source>For images without a function for the content, such as patterns or ornaments. They get no alt text and are skipped by screen readers.</source>
+            </trans-unit>
+            <trans-unit id="altText.skip" resname="altText.skip">
+                <source>Skip</source>
+            </trans-unit>
+            <trans-unit id="altText.createText" resname="altText.createText">
+                <source>Create an alt text</source>
+            </trans-unit>
+            <trans-unit id="altText.next" resname="altText.next">
+                <source>Optimise the next hit</source>
+            </trans-unit>
+            <trans-unit id="altText.saved" resname="altText.saved">
+                <source>Alt text saved.</source>
+            </trans-unit>
+            <trans-unit id="altText.decorativeSaved" resname="altText.decorativeSaved">
+                <source>Marked as decorative.</source>
+            </trans-unit>
+            <trans-unit id="altText.skipped" resname="altText.skipped">
+                <source>Skipped. The hit stays open in the list.</source>
+            </trans-unit>
+            <trans-unit id="altText.notSaved" resname="altText.notSaved">
+                <source>The alt text “%1$s” was not saved.</source>
+            </trans-unit>
+            <trans-unit id="altText.retry" resname="altText.retry">
+                <source>Offer it again</source>
+            </trans-unit>
+            <trans-unit id="error.altTextNothingToRetry" resname="error.altTextNothingToRetry">
+                <source>There is no proposal to offer again.</source>
+            </trans-unit>
+            <trans-unit id="altText.switched" resname="altText.switched">
+                <source>Hit changed · %1$s · %2$s</source>
+            </trans-unit>
+            <trans-unit id="altText.action.skip" resname="altText.action.skip">
+                <source>Skip</source>
+            </trans-unit>
+            <trans-unit id="altText.context.label" resname="altText.context.label">
+                <source>What the assistant works on</source>
+            </trans-unit>
+            <trans-unit id="altText.context.infoElement" resname="altText.context.infoElement">
+                <source>The assistant changes only the alt text of this use of the image in the element %1$s on the page %2$s. Nothing is saved before “Apply”.</source>
+            </trans-unit>
+            <trans-unit id="altText.context.infoField" resname="altText.context.infoField">
+                <source>The assistant changes only the alt text of this use of the image in the field %1$s of %2$s. Nothing is saved before “Apply”.</source>
+            </trans-unit>
+            <trans-unit id="error.altTextNoNext" resname="error.altTextNoNext">
+                <source>No other hit is open.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

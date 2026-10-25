@@ -214,6 +214,22 @@ final class ChatServiceTourRunTest extends TestCase
         self::assertTrue($this->service(AgentRunStatus::RUNNING)->releasePendingRun($this->parked()), 'no detector: no process run, no 409');
     }
 
+    /**
+     * A conversation about a missing alt text withdraws its waiting proposal
+     * too (ADR-026): the editor's wish ("Kürzer") gets a new proposal, and
+     * the old one must not stay approvable beside it.
+     */
+    #[Test]
+    public function aConversationAboutAnImageCancelsItsWaitingProposal(): void
+    {
+        $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, processRuns: $this->processRun(false));
+        $this->runtime->expects(self::once())->method('cancel')->with(self::anything(), self::RUN)->willReturn(true);
+        $conversation = $this->parked();
+        $conversation->setAltTextHit(7);
+
+        self::assertTrue($service->releasePendingRun($conversation));
+    }
+
     // ---- which answers the card offers ------------------------------------
 
     /** A card with one pending call, as nr-llm's view factory declares its effect. */
