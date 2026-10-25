@@ -49,7 +49,7 @@ final class ApprovalHandBackReasonTest extends TestCase
     }
 
     /**
-     * nr-llm 0.41.x does not say why the approver was refused: every refusal
+     * nr-llm up to 0.41.4 does not say why the approver was refused: every refusal
      * keeps the permissions sentence, as before.
      */
     #[Test]
@@ -64,7 +64,7 @@ final class ApprovalHandBackReasonTest extends TestCase
     /**
      * The nr-llm release with getDenialReason() (t3x-nr-llm#1179): the reason
      * is read through the method. The exception is final, so a stand-in with
-     * the same method proves the bridge on 0.41.x as well.
+     * the same method proves the bridge on 0.41.4 as well.
      */
     #[Test]
     public function theDenialReasonIsReadWhereNrLlmExposesIt(): void
@@ -117,7 +117,7 @@ final class ApprovalHandBackReasonTest extends TestCase
 
     /**
      * End to end against the real exception, where the installed nr-llm has
-     * the accessor; skipped on 0.41.x, which the tests above cover.
+     * the accessor; skipped before that, where the tests above cover the path.
      */
     #[Test]
     #[RequiresMethod(ApproverNotPermittedException::class, 'getDenialReason')]

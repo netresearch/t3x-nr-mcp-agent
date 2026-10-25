@@ -417,6 +417,9 @@
             <trans-unit id="error.handBack.inputAlreadyResuming" resname="error.handBack.inputAlreadyResuming">
                 <source>This question was already answered, so this answer was not taken. The result appears in AI Tasks, under this run.</source>
             </trans-unit>
+            <trans-unit id="error.handBack.inputToolOff" resname="error.handBack.inputToolOff">
+                <source>The action this question belongs to has been switched off by an administrator, so the answer was not taken. The question waits until the action is switched on again; then answer again.</source>
+            </trans-unit>
             <trans-unit id="error.handBack.inputConfigOff" resname="error.handBack.inputConfigOff">
                 <source>The AI configuration of this chat is switched off, so the answer was not taken. The question waits until it is switched on again; then answer again.</source>
             </trans-unit>

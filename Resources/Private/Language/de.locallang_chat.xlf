@@ -551,6 +551,10 @@
                 <source>This question was already answered, so this answer was not taken. The result appears in AI Tasks, under this run.</source>
                 <target>Diese Rückfrage wurde bereits beantwortet, deshalb wurde diese Antwort nicht übernommen. Das Ergebnis erscheint in KI-Aufgaben bei diesem Lauf.</target>
             </trans-unit>
+            <trans-unit id="error.handBack.inputToolOff" resname="error.handBack.inputToolOff">
+                <source>The action this question belongs to has been switched off by an administrator, so the answer was not taken. The question waits until the action is switched on again; then answer again.</source>
+                <target>Die Aktion, zu der diese Rückfrage gehört, wurde von der Administration ausgeschaltet, deshalb wurde die Antwort nicht übernommen. Die Rückfrage wartet, bis die Aktion wieder eingeschaltet ist; danach bitte erneut antworten.</target>
+            </trans-unit>
             <trans-unit id="error.handBack.inputConfigOff" resname="error.handBack.inputConfigOff">
                 <source>The AI configuration of this chat is switched off, so the answer was not taken. The question waits until it is switched on again; then answer again.</source>
                 <target>Die KI-Konfiguration dieses Chats ist ausgeschaltet, deshalb wurde die Antwort nicht übernommen. Die Rückfrage wartet, bis sie wieder eingeschaltet ist; danach bitte erneut antworten.</target>
