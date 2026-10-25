@@ -257,7 +257,8 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
 
         // A type the TCA does not list ("carousel" of the fixture) is named generically.
         self::assertStringStartsWith('Content element – “Karussell”', $label('', 'pages', 12));
-        self::assertStringStartsWith('Page properties: Media', $label('', 'pages', 17));
+        // The core labels pages.media "Files" in 13.4 and "Media" in 14.3.
+        self::assertMatchesRegularExpression('/^Page properties: (Files|Media)$/', $label('', 'pages', 17));
         self::assertStringStartsWith('Images', $label('', 'tx_alttexttest_item', 1));
         self::assertStringStartsWith('Teaser image', $label('', 'tx_alttexttest_item', 2));
     }
