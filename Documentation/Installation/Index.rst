@@ -114,13 +114,15 @@ A site package with its own image partial at a higher key (such as
 extensions, for example a news detail view, are not changed. Add
 the condition there yourself. ``f:media`` replaces an empty ``alt`` with
 the file's alternative text, so render the decorative image with
-``f:image``:
+``f:image``. Give it ``title=""`` as well: without it, ``f:image`` adds the
+file's title, and a decorative image carries neither text (W3C technique
+H67):
 
 ..  code-block:: html
 
     <f:if condition="{file.properties.tx_nrmcpagent_decorative}">
         <f:then>
-            <f:image image="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="" />
+            <f:image image="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="" title="" />
         </f:then>
         <f:else>
             <f:media file="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="{file.alternative}" title="{file.title}" />
@@ -132,9 +134,11 @@ template the image is usually an Extbase file reference: read the mark with
 ``{image.originalResource.properties.tx_nrmcpagent_decorative}`` and pass
 ``image="{image}"``.
 
-After uninstalling the extension the field and its values are gone. A
-decorative image has no alt text of its own, so its output stays the same
-unless the file list holds one.
+After uninstalling the extension, its partial is no longer used, and
+fluid_styled_content outputs a decorative image with its own alt text or,
+without one, the file list's. Uninstalling does not drop the column
+``tx_nrmcpagent_decorative``; the database analyzer in *Maintenance* removes
+it and its values.
 
 DDEV development setup
 ======================

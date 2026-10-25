@@ -109,6 +109,10 @@ final class DecorativeImageRenderingTest extends FunctionalTestCase
         self::assertStringNotContainsString('Ein Muster', $images[1]);
         self::assertStringContainsString('alt=""', $images[2]);
         self::assertStringNotContainsString('Text aus der Dateiliste', $images[2]);
+        // W3C H67: a decorative image carries no title either, neither the
+        // reference's nor, through f:image's fallback, the file list's.
+        self::assertDoesNotMatchRegularExpression('/\\stitle="[^"]+"/', $images[1]);
+        self::assertDoesNotMatchRegularExpression('/\\stitle="[^"]+"/', $images[2]);
     }
 
     #[Test]
@@ -150,6 +154,8 @@ final class DecorativeImageRenderingTest extends FunctionalTestCase
         self::assertCount(3, $images);
         self::assertStringContainsString('alt="Ein Muster"', $images[1]);
         self::assertStringContainsString('alt="Text aus der Dateiliste"', $images[2]);
+        self::assertStringContainsString('title="Muster-Titel"', $images[1]);
+        self::assertStringContainsString('title="Titel aus der Dateiliste"', $images[2]);
     }
 
     /** A content rendering of its own keeps its image partial for every image. */
