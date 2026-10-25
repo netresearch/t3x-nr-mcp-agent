@@ -32,6 +32,9 @@ Backend users manage content through natural language.
 - **Markdown rendering** -- LLM responses are rendered as rich Markdown (headings,
   lists, code blocks, tables) using vendored [marked.js](https://marked.js.org/) v15
   and [DOMPurify](https://github.com/cure53/DOMPurify) v3. No build step required.
+- **Decorative images** -- A "Decorative image" checkbox on each use of an
+  image; fluid_styled_content then outputs it with `alt=""`, and the check for
+  missing alt texts counts it as done.
 - **Secure by design** -- Group-based access control, message length limits,
   concurrency caps, sanitized error messages, and XSS-safe Markdown rendering.
 
@@ -134,6 +137,8 @@ All settings are in **Admin Tools > Settings > Extension Configuration > nr_mcp_
 | `maxConversationsPerUser` | `50` | Max conversations kept per user |
 | `autoArchiveDays` | `30` | Auto-archive after N days of inactivity |
 | `attachmentFolder` | `ai-chat` | Folder for chat attachments in the default storage; a per-user subfolder is created inside it |
+| `altTextExcludedTables` | *(empty)* | Tables the check for missing alt texts leaves out |
+| `altTextExcludedFields` | `pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar,backend_layout.icon` | Image fields (`table.field`) the check leaves out |
 
 For the full documentation, see the [Documentation/](Documentation/) folder or
 the rendered docs on [docs.typo3.org](https://docs.typo3.org/).
