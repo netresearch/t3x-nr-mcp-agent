@@ -1,0 +1,14 @@
+{
+    "name": "netresearch/alt-text-test",
+    "description": "Test fixture for the missing alt texts check: a record table with an image field, a content element child and content elements inside records.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "typo3/cms-core": "^13.4 || ^14.3"
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "alt_text_test"
+        }
+    }
+}

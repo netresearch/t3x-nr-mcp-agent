@@ -141,7 +141,9 @@ beside the floating panel shows, read from its URL while it matters.
 
 -   Site-wide scan tiles, and the widgets "Website prüfen" and "Website
     bearbeiten" (bulk operations): no scanner exists, and bulk writes
-    conflict with one write per turn.
+    conflict with one write per turn. Superseded for the check of missing
+    alt texts and the widget "Website prüfen" by :ref:`adr-026`; bulk
+    operations stay not adopted.
 -   Markers in the page tree: the tree is core UI, and a dot has no text
     alternative.
 -   An analysis checklist with ticking checkboxes: no tool reports progress

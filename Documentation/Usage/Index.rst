@@ -599,6 +599,30 @@ instead.
 Offering a page is not permission to change it: what the assistant does on
 the page is checked again when it does it.
 
+.. _usage-decorative-images:
+
+Decorative images
+=================
+
+Not every image needs an alt text. A purely decorative image, such as a
+pattern, an ornament or a divider, is output with an empty alt text, and
+screen readers skip it. Mark such an image with **Decorative image**: the
+checkbox sits next to *Alternative text* where an image is added to a
+content element or a record (for example a news article), not in the file
+list, because whether an image is decorative depends on where it is used.
+Each language version of an image can be marked on its own.
+
+A decorative image is output with an empty alt text even if it has an alt
+text of its own or one from the file list, in the standard content
+elements of fluid_styled_content. Depending on how the site loads
+fluid_styled_content this needs a set or an import, and other templates
+need the condition; both are in :ref:`installation-decorative-images`. Replacing the image creates a new
+use, which is not marked.
+
+*Decorative image* is an exclude field, like *Alternative text*: editors
+see it once their backend group is granted it under *Allowed excludefields*
+(*File Reference: Decorative image*).
+
 Error handling
 ==============
 

@@ -1,0 +1,6 @@
+# After fluid_styled_content's static template: a content rendering of its
+# own that redefines lib.contentElement without clearing it, and the line
+# the installation documentation tells such a site to add.
+@import 'EXT:alt_text_render/Configuration/Sets/OwnPartial/setup.typoscript'
+@import 'EXT:alt_text_render/Configuration/Sets/Page/setup.typoscript'
+lib.contentElement.partialRootPaths.5 >

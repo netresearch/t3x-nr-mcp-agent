@@ -1,0 +1,16 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+
+    fluid_styled_content's Media/Rendering/Image partial (identical in 13.4 and
+    14.3) with one addition: a reference marked as decorative (ADR-026) is
+    output with alt="" and title="" (W3C technique H67). f:media treats an
+    empty alt as missing and falls back to the file's alternative text;
+    f:image keeps an explicit alt="", and an explicit title="" stops it from
+    taking the file's title.
+    Unlike the core's file it has no html wrapper: f is a global namespace.
+</f:comment>
+<f:if condition="{file.properties.tx_nrmcpagent_decorative}">
+<f:then><f:image class="image-embed-item" image="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="" title="" loading="{settings.media.lazyLoading}" decoding="{settings.media.imageDecoding}" /></f:then>
+<f:else><f:media class="image-embed-item" file="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="{file.alternative}" title="{file.title}" loading="{settings.media.lazyLoading}" decoding="{settings.media.imageDecoding}" /></f:else>
+</f:if>

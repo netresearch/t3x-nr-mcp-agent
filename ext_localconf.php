@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+
 defined('TYPO3') || exit;
 
 // Lets an editor decide approvals in their own chat conversations (ADR-021).
@@ -23,3 +25,16 @@ $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['tx_nrmcpagent'] = [
         ],
     ],
 ];
+
+// A decorative image (ADR-026) is output with alt="" by fluid_styled_content.
+// On a site with sys_template records the partial path is added right after
+// fluid_styled_content's static template, and only there: a content rendering
+// of its own (bootstrap_package and the like) keeps its image partial. A site
+// with site sets opts in with the set netresearch/nr-mcp-agent-decorative-images
+// (Configuration/Sets/DecorativeImages), which carries the same line.
+ExtensionManagementUtility::addTypoScript(
+    'nr_mcp_agent',
+    'setup',
+    'lib.contentElement.partialRootPaths.5 = EXT:nr_mcp_agent/Resources/Private/FluidStyledContent/Partials/',
+    'fluidstyledcontent/Configuration/TypoScript/',
+);

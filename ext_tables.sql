@@ -83,3 +83,9 @@ CREATE TABLE tx_nrmcpagent_open_point (
     KEY target (target_table, target_uid, target_field),
     KEY subject (subject_table, subject_uid)
 );
+
+-- "Decorative image" on an image reference (ADR-026): the frontend outputs the
+-- image with alt="", and the "missing alt texts" check counts it as done.
+CREATE TABLE sys_file_reference (
+    tx_nrmcpagent_decorative tinyint(1) unsigned DEFAULT 0 NOT NULL
+);

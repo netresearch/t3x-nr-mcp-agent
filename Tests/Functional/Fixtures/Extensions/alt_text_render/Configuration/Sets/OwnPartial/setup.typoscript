@@ -1,0 +1,14 @@
+# Like bootstrap_package: a content rendering of its own, without
+# fluid_styled_content's set, that redefines lib.contentElement without
+# clearing it first and brings its own image partial below key 5.
+@import 'EXT:fluid_styled_content/Configuration/TypoScript/ContentElement/Image.typoscript'
+
+lib.contentElement = FLUIDTEMPLATE
+lib.contentElement {
+    templateName = Default
+    templateRootPaths.0 = EXT:fluid_styled_content/Resources/Private/Templates/
+    partialRootPaths.0 = EXT:fluid_styled_content/Resources/Private/Partials/
+    partialRootPaths.1 = EXT:alt_text_render/Resources/Private/Partials/
+    layoutRootPaths.0 = EXT:fluid_styled_content/Resources/Private/Layouts/
+    dataProcessing.1770716912 = record-transformation
+}

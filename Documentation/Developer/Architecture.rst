@@ -371,6 +371,13 @@ Component map
    * - **CLI Commands**
      - ``ai-chat:process`` (exec), ``ai-chat:worker`` (long-running)
      - ``Classes/Command/``
+   * - **Missing alt texts**
+     - Site-wide check for image uses without an alt text, the
+       "decorative image" field and its frontend output (ADR-026)
+     - ``Classes/Service/AltText/``,
+       ``Classes/Domain/Repository/MissingAltTextRepository.php``,
+       ``Configuration/Sets/DecorativeImages/``,
+       ``Resources/Private/FluidStyledContent/``
    * - **Access Control**
      - Group-based access, concurrency caps, length limits
      - ``Classes/Controller/ChatApiController.php`` (``checkAccess()``),

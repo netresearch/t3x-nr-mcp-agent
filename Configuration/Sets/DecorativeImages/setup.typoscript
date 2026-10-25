@@ -1,0 +1,4 @@
+# A decorative image (ADR-026) is output with alt="": a partial path for
+# fluid_styled_content's image partial. Key 5 lies above the core's own path
+# (0) and below the site package's (10, `styles.templates.partialRootPath`).
+lib.contentElement.partialRootPaths.5 = EXT:nr_mcp_agent/Resources/Private/FluidStyledContent/Partials/

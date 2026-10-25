@@ -62,6 +62,84 @@ ships a wizard and names it in the changelog:
     vendor/bin/typo3 upgrade:list
     vendor/bin/typo3 upgrade:run
 
+.. _installation-decorative-images:
+
+Decorative images in your own templates
+=======================================
+
+An editor can mark an image as decorative (see
+:ref:`usage-decorative-images`). The extension makes
+fluid_styled_content output such an image with an empty ``alt``
+attribute, so screen readers skip it. It does this with its own copy of
+the partial ``Media/Rendering/Image``, at
+``lib.contentElement.partialRootPaths.5``. That path is meant only for
+sites whose content rendering is fluid_styled_content's. What to do
+depends on how the site loads it:
+
+-   **fluid_styled_content's static template** in a TypoScript record
+    (``sys_template``, *Include static (from extensions)*): nothing to do.
+    The path is added right after that static template.
+-   **fluid_styled_content imported in TypoScript**
+    (``@import 'EXT:fluid_styled_content/Configuration/TypoScript/setup.typoscript'``):
+    import the extension's line right after it:
+
+    ..  code-block:: typoscript
+
+        @import 'EXT:fluid_styled_content/Configuration/TypoScript/setup.typoscript'
+        @import 'EXT:nr_mcp_agent/Configuration/Sets/DecorativeImages/setup.typoscript'
+
+-   **fluid_styled_content as a site set:** add the set *AI Assistant:
+    decorative images in fluid_styled_content*
+    (``netresearch/nr-mcp-agent-decorative-images``) to the site. It
+    depends on ``typo3/fluid-styled-content`` and is loaded after it.
+    Without the set the extension does not change the site's output.
+-   **bootstrap_package or any other content rendering of its own:** do
+    not add the set or the import. They would replace the site's own image
+    partial for every image. Add the condition below to your own image
+    partial instead.
+
+A site that includes fluid_styled_content's static template and then a
+content rendering of its own that redefines ``lib.contentElement``
+without clearing it first (bootstrap_package 15 through its static
+template is built like this) also gets the path, and its own image
+partial is replaced. Remove the path after that rendering's TypoScript
+and add the condition to its partial:
+
+..  code-block:: typoscript
+
+    lib.contentElement.partialRootPaths.5 >
+
+A site package with its own image partial at a higher key (such as
+``styles.templates.partialRootPath`` at 10), and the templates of other
+extensions, for example a news detail view, are not changed. Add
+the condition there yourself. ``f:media`` replaces an empty ``alt`` with
+the file's alternative text, so render the decorative image with
+``f:image``. Give it ``title=""`` as well: without it, ``f:image`` adds the
+file's title, and a decorative image carries neither text (W3C technique
+H67):
+
+..  code-block:: html
+
+    <f:if condition="{file.properties.tx_nrmcpagent_decorative}">
+        <f:then>
+            <f:image image="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="" title="" />
+        </f:then>
+        <f:else>
+            <f:media file="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="{file.alternative}" title="{file.title}" />
+        </f:else>
+    </f:if>
+
+``{file}`` is a ``TYPO3\CMS\Core\Resource\FileReference``. In an Extbase
+template the image is usually an Extbase file reference: read the mark with
+``{image.originalResource.properties.tx_nrmcpagent_decorative}`` and pass
+``image="{image}"``.
+
+After uninstalling the extension, its partial is no longer used, and
+fluid_styled_content outputs a decorative image with its own alt text or,
+without one, the file list's. Uninstalling does not drop the column
+``tx_nrmcpagent_decorative``; the database analyzer in *Maintenance* removes
+it and its values.
+
 DDEV development setup
 ======================
 

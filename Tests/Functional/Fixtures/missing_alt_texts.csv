@@ -1,0 +1,165 @@
+"be_groups"
+,"uid","pid","title","db_mountpoints","allowed_languages","tables_select","tables_modify","non_exclude_fields","tstamp","crdate"
+,1,0,"Redaktion",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,pages:media,tx_alttexttest_item:image",1710000000,1710000000
+,2,0,"Redaktion ohne Artikel",1,"0","pages,tt_content,sys_file_reference","pages,tt_content,sys_file_reference","sys_file_reference:alternative,pages:media",1710000000,1710000000
+,3,0,"Redaktion ohne Alternativtext",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages:media,tx_alttexttest_item:image",1710000000,1710000000
+,4,0,"Redaktion ohne Bildfeld",1,"0","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,sys_file_reference,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,pages:media",1710000000,1710000000
+,5,0,"Redaktion ohne Referenzen",1,"0","pages,tt_content,tx_alttexttest_item,tx_alttexttest_child","pages,tt_content,tx_alttexttest_item,tx_alttexttest_child","sys_file_reference:alternative,pages:media,tx_alttexttest_item:image",1710000000,1710000000
+"be_users"
+,"uid","pid","username","password","admin","db_mountpoints","options","usergroup","workspace_id","tstamp","crdate"
+,1,0,"admin","$2y$12$xxx",1,"",0,"",0,1710000000,1710000000
+,2,0,"editor","$2y$12$xxx",0,"",3,"1",0,1710000000,1710000000
+,3,0,"editor-no-articles","$2y$12$xxx",0,"",3,"2",0,1710000000,1710000000
+,4,0,"editor-no-alternative","$2y$12$xxx",0,"",3,"3",0,1710000000,1710000000
+,5,0,"editor-no-image-field","$2y$12$xxx",0,"",3,"4",0,1710000000,1710000000
+,6,0,"editor-no-references","$2y$12$xxx",0,"",3,"5",0,1710000000,1710000000
+"pages"
+,"uid","pid","title","doktype","sorting","sys_language_uid","l10n_parent","perms_userid","perms_groupid","perms_user","perms_group","perms_everybody","deleted","hidden","extendToSubpages","starttime","endtime","editlock"
+,1,0,"Wurzel",1,10,0,0,1,0,31,0,31,0,0,0,0,0,0
+,10,1,"Startseite",1,100,0,0,1,0,31,0,31,0,0,0,0,0,0
+,11,1,"Zweite Seite",1,50,0,0,1,0,31,0,31,0,0,0,0,0,0
+,12,1,"Versteckt",1,200,0,0,1,0,31,0,31,0,1,0,0,0,0
+,13,1,"Bereich versteckt",1,300,0,0,1,0,31,0,31,0,1,1,0,0,0
+,14,13,"Unterseite",1,10,0,0,1,0,31,0,31,0,0,0,0,0,0
+,15,1,"Geloescht",1,1000,0,0,1,0,31,0,31,1,0,0,0,0,0
+,16,0,"Fremder Bereich",1,20,0,0,1,0,31,0,31,0,0,0,0,0,0
+,17,1,"Nur ansehen",1,400,0,0,1,0,31,0,1,0,0,0,0,0,0
+,18,1,"Gesperrt",1,500,0,0,1,0,31,0,31,0,0,0,0,0,1
+,19,1,"Ordner Presse",254,600,0,0,1,0,31,0,31,0,0,0,0,0,0
+,20,1,"Geplant",1,700,0,0,1,0,31,0,31,0,0,0,4102444800,0,0
+,21,1,"Abgelaufen",1,800,0,0,1,0,31,0,31,0,0,0,0,946684800,0
+,22,1,"Medienseite",1,900,0,0,1,0,31,0,31,0,0,0,0,0,0
+,23,1,"Media page",1,900,1,22,1,0,31,0,31,0,0,0,0,0,0
+,24,1,"Nur Inhalte",1,1100,0,0,1,0,31,0,17,0,0,0,0,0,0
+,25,12,"Unter Versteckt",1,10,0,0,1,0,31,0,31,0,0,0,0,0,0
+,26,1,"Ordner gesperrt",254,1200,0,0,1,0,31,0,1,0,0,0,0,0,0
+,27,1,"Uebersetzt",1,1300,0,0,1,0,31,0,31,0,0,0,0,0,0
+,28,1,"Translated",1,1300,1,27,1,0,31,0,31,0,1,0,0,0,0
+,29,1,"Bereich abgelaufen",1,1400,0,0,1,0,31,0,31,0,0,1,0,946684800,0
+,30,29,"Unter Abgelaufen",1,10,0,0,1,0,31,0,31,0,0,0,0,0,0
+,31,1,"Bereich geplant",1,1500,0,0,1,0,31,0,31,0,0,1,4102444800,0,0
+,32,31,"Unter Geplant",1,10,0,0,1,0,31,0,31,0,0,0,0,0,0
+,33,1,"Aussen abgelaufen",1,1600,0,0,1,0,31,0,1,0,0,1,0,946684800,0
+,34,33,"Innen versteckt",1,10,0,0,1,0,31,0,1,0,1,1,0,0,0
+,35,34,"Ganz unten",1,10,0,0,1,0,31,0,1,0,0,0,0,0,0
+"tt_content"
+,"uid","pid","CType","header","colPos","sorting","sys_language_uid","deleted","hidden","starttime","endtime","editlock","tx_alttexttest_item"
+,100,10,"textpic","Unser Team",0,256,0,0,0,0,0,0,0
+,101,10,"image","",0,128,0,0,0,0,0,0,0
+,102,10,"image","Versteckt",0,384,0,0,1,0,0,0,0
+,103,10,"image","Geloescht",0,400,0,1,0,0,0,0,0
+,104,11,"image","",0,256,0,0,0,0,0,0,0
+,105,12,"image","",0,256,0,0,0,0,0,0,0
+,106,14,"image","",0,256,0,0,0,0,0,0,0
+,107,16,"image","",0,256,0,0,0,0,0,0,0
+,108,17,"image","",0,256,0,0,0,0,0,0,0
+,109,18,"image","",0,256,0,0,0,0,0,0,0
+,110,10,"image","English",0,256,1,0,0,0,0,0,0
+,111,20,"image","",0,256,0,0,0,0,0,0,0
+,112,21,"image","",0,256,0,0,0,0,0,0,0
+,113,10,"image","Spaeter",0,512,0,0,0,4102444800,0,0,0
+,114,10,"image","Gesperrt",0,768,0,0,0,0,0,1,0
+,115,15,"image","",0,256,0,0,0,0,0,0,0
+,116,10,"carousel","Karussell",0,640,0,0,0,0,0,0,0
+,117,19,"image","Im Artikel",0,256,0,0,0,0,0,0,1
+,118,10,"text","Nur Text",0,1024,0,0,0,0,0,0,0
+,119,24,"image","",0,256,0,0,0,0,0,0,0
+,120,25,"image","",0,256,0,0,0,0,0,0,0
+,121,27,"image","Uebersetzt",0,256,1,0,0,0,0,0,0
+,122,30,"image","",0,256,0,0,0,0,0,0,0
+,123,32,"image","",0,256,0,0,0,0,0,0,0
+,124,10,"textmedia","Text und Medien",0,300,0,0,0,0,0,0,0
+,125,35,"image","",0,256,0,0,0,0,0,0,0
+"tx_alttexttest_child"
+,"uid","pid","title","parent_content","deleted","hidden","sys_language_uid"
+,1,10,"Slide 1",116,0,0,0
+"tx_alttexttest_item"
+,"uid","pid","title","sys_language_uid","l10n_parent","deleted","hidden","starttime","endtime","editlock"
+,1,19,"Erster Artikel",0,0,0,0,0,0,0
+,2,19,"Zweiter Artikel",0,0,0,1,0,0,0
+,3,19,"Gesperrter Artikel",0,0,0,0,0,0,1
+,4,19,"Geloeschter Artikel",0,0,1,0,0,0,0
+,5,26,"Artikel im gesperrten Ordner",0,0,0,0,0,0,0
+"sys_file_storage"
+,"uid","pid","name","driver","configuration","is_default","is_browsable","is_public","is_writable","is_online"
+,1,0,"fileadmin","Local","<?xml version=""1.0"" encoding=""utf-8"" standalone=""yes"" ?><T3FlexForms><data><sheet index=""sDEF""><language index=""lDEF""><field index=""basePath""><value index=""vDEF"">fileadmin/</value></field><field index=""pathType""><value index=""vDEF"">relative</value></field><field index=""caseSensitive""><value index=""vDEF"">1</value></field></language></sheet></data></T3FlexForms>",1,1,1,1,1
+"sys_file"
+,"uid","pid","storage","type","identifier","identifier_hash","folder_hash","name","extension","mime_type","size","missing"
+,1,0,1,2,"/team.jpg","1","1","team.jpg","jpg","image/jpeg",100,0
+,2,0,1,5,"/flyer.pdf","2","1","flyer.pdf","pdf","application/pdf",100,0
+,3,0,1,2,"/with-metadata.jpg","3","1","with-metadata.jpg","jpg","image/jpeg",100,0
+,4,0,1,2,"/translated-metadata.jpg","4","1","translated-metadata.jpg","jpg","image/jpeg",100,0
+,5,0,1,2,"/empty-translation.jpg","5","1","empty-translation.jpg","jpg","image/jpeg",100,0
+,6,0,1,2,"/draft-empty.jpg","6","1","draft-empty.jpg","jpg","image/jpeg",100,0
+,7,0,1,2,"/draft-and-live-empty.jpg","7","1","draft-and-live-empty.jpg","jpg","image/jpeg",100,0
+,8,0,1,2,"/draft-translation.jpg","8","1","draft-translation.jpg","jpg","image/jpeg",100,0
+"sys_file_metadata"
+,"uid","pid","file","sys_language_uid","l10n_parent","alternative","t3ver_wsid","t3ver_oid","t3ver_state"
+,1,0,3,0,0,"Text aus der Dateiliste",0,0,0
+,2,0,4,0,0,"",0,0,0
+,3,0,4,1,2,"Text from the file list",0,0,0
+,4,0,5,0,0,"Standardtext",0,0,0
+,5,0,5,1,4,"",0,0,0
+,6,0,6,0,0,"Text in Live",0,0,0
+,7,0,6,0,0,"",1,6,0
+,8,0,7,0,0,"",0,0,0
+,9,0,7,0,0,"",1,8,0
+,10,0,8,0,0,"Standardtext",0,0,0
+,11,0,8,1,10,"English text",0,0,0
+,12,0,8,1,10,"",1,11,0
+"sys_file_reference"
+,"uid","pid","uid_local","uid_foreign","tablenames","fieldname","sorting_foreign","sys_language_uid","alternative","hidden","deleted","tx_nrmcpagent_decorative"
+,1,10,1,100,"tt_content","image",1,0,\NULL,0,0,0
+,2,10,1,100,"tt_content","image",2,0,"",0,0,0
+,3,10,1,100,"tt_content","image",3,0,"Ein Team am Tisch",0,0,0
+,4,10,1,100,"tt_content","image",4,0,"   ",0,0,0
+,5,10,2,100,"tt_content","image",5,0,\NULL,0,0,0
+,6,10,3,100,"tt_content","image",6,0,\NULL,0,0,0
+,7,10,3,100,"tt_content","image",7,0,"",0,0,0
+,8,10,1,100,"tt_content","image",8,0,\NULL,0,0,1
+,9,10,1,100,"tt_content","image",9,0,\NULL,0,1,0
+,10,10,1,101,"tt_content","image",1,0,\NULL,0,0,0
+,11,10,1,102,"tt_content","image",1,0,\NULL,0,0,0
+,12,10,1,103,"tt_content","image",1,0,\NULL,0,0,0
+,13,11,1,104,"tt_content","image",1,0,\NULL,0,0,0
+,14,12,1,105,"tt_content","image",1,0,\NULL,0,0,0
+,15,14,1,106,"tt_content","image",1,0,\NULL,0,0,0
+,16,16,1,107,"tt_content","image",1,0,\NULL,0,0,0
+,17,17,1,108,"tt_content","image",1,0,\NULL,0,0,0
+,18,18,1,109,"tt_content","image",1,0,\NULL,0,0,0
+,19,10,1,110,"tt_content","image",1,1,\NULL,0,0,0
+,20,20,1,111,"tt_content","image",1,0,\NULL,0,0,0
+,21,21,1,112,"tt_content","image",1,0,\NULL,0,0,0
+,22,10,1,113,"tt_content","image",1,0,\NULL,0,0,0
+,23,10,1,114,"tt_content","image",1,0,\NULL,0,0,0
+,24,15,1,115,"tt_content","image",1,0,\NULL,0,0,0
+,25,22,1,22,"pages","media",1,0,\NULL,0,0,0
+,26,0,1,2,"be_users","avatar",1,0,\NULL,0,0,0
+,27,10,1,1,"tx_alttexttest_child","image",1,0,\NULL,0,0,0
+,28,19,1,1,"tx_alttexttest_item","image",1,0,\NULL,0,0,0
+,29,19,1,2,"tx_alttexttest_item","image",1,0,\NULL,0,0,0
+,30,19,1,117,"tt_content","image",1,0,\NULL,0,0,0
+,31,10,1,101,"tt_content","image",2,0,\NULL,1,0,0
+,32,10,1,124,"tt_content","assets",1,0,\NULL,0,0,0
+,33,10,4,110,"tt_content","image",2,1,\NULL,0,0,0
+,34,10,5,110,"tt_content","image",3,1,\NULL,0,0,0
+,35,10,4,101,"tt_content","image",3,0,\NULL,0,0,0
+,36,10,5,101,"tt_content","image",4,0,\NULL,0,0,0
+,37,19,1,3,"tx_alttexttest_item","image",1,0,\NULL,0,0,0
+,38,19,1,4,"tx_alttexttest_item","image",1,0,\NULL,0,0,0
+,39,23,1,23,"pages","media",1,1,\NULL,0,0,0
+,40,19,1,1,"tx_alttexttest_item","teaser_image",2,0,\NULL,0,0,0
+,41,10,1,110,"tt_content","image",4,0,\NULL,0,0,0
+,42,10,1,101,"tt_content","image",5,1,\NULL,0,0,0
+,43,10,1,118,"tt_content","image",1,0,\NULL,0,0,0
+,44,10,6,101,"tt_content","image",6,0,\NULL,0,0,0
+,45,10,7,101,"tt_content","image",7,0,\NULL,0,0,0
+,46,24,1,24,"pages","media",1,0,\NULL,0,0,0
+,47,24,1,119,"tt_content","image",1,0,\NULL,0,0,0
+,48,25,1,120,"tt_content","image",1,0,\NULL,0,0,0
+,49,26,1,5,"tx_alttexttest_item","image",1,0,\NULL,0,0,0
+,50,27,1,121,"tt_content","image",1,1,\NULL,0,0,0
+,51,30,1,122,"tt_content","image",1,0,\NULL,0,0,0
+,52,32,1,123,"tt_content","image",1,0,\NULL,0,0,0
+,53,10,8,110,"tt_content","image",5,1,\NULL,0,0,0
+,54,35,1,125,"tt_content","image",1,0,\NULL,0,0,0

@@ -23,6 +23,7 @@ A Lit-based chat UI in the TYPO3 backend polls `ChatApiController` via AJAX. Mes
 | Conversation store | Persistence, state machine, auto-archive | `Classes/Domain/Model/Conversation.php`, `Classes/Domain/Repository/ConversationRepository.php` |
 | Document extraction | Text extraction from uploaded PDF/DOCX/XLSX/TXT | `Classes/Document/DocumentExtractorRegistry.php`, `Classes/Document/Extractor/` |
 | Upgrade wizards | One-off corrections of stored rows after a release, run from the Install Tool or `typo3 upgrade:run` | `Classes/Updates/` |
+| Missing alt texts | Site-wide check for image uses without an alt text (ADR-026): `ImageFieldDiscovery` finds the image fields and inline owners in the TCA, `MissingAltTextRepository` queries the open references and their records, `MissingAltTextScanner` follows each reference to its page or record and keeps what the user may edit (`MissingAltTextScan` holds the hits and counts); the "decorative image" field on `sys_file_reference` and fluid_styled_content's image partial that renders it with `alt=""` (after fluid_styled_content's static template, or through the opt-in site set `netresearch/nr-mcp-agent-decorative-images`) | `Classes/Service/AltText/`, `Classes/Domain/Repository/MissingAltTextRepository.php`, `Classes/Enum/HiddenReason.php`, `Configuration/TCA/Overrides/sys_file_reference.php`, `Configuration/Sets/DecorativeImages/`, `ext_localconf.php`, `Resources/Private/FluidStyledContent/` |
 | Frontend | Lit web components, polling API client, sanitized markdown | `Resources/Public/JavaScript/` (`chat-app.js`, `chat-core.js`, `api-client.js`, `markdown.js`) |
 
 ## Dependency rules
@@ -45,4 +46,4 @@ Enforced by phpat; the rules run as part of PHPStan (`Build/phpstan/phpstan.neon
 
 ## Key decisions
 
-Recorded as ADRs in `Documentation/Developer/ADR/` (ADR-001 … ADR-025). Most load-bearing for code changes: CLI-based processing (ADR-002), nr-llm as abstraction layer (ADR-004), conversation state machine (ADR-005), phpat-enforced layering (ADR-006), polling over WebSockets/SSE (ADR-007), Lit without build step (ADR-008), group-based access control (ADR-009), error-message sanitization (ADR-010).
+Recorded as ADRs in `Documentation/Developer/ADR/` (ADR-001 … ADR-026). Most load-bearing for code changes: CLI-based processing (ADR-002), nr-llm as abstraction layer (ADR-004), conversation state machine (ADR-005), phpat-enforced layering (ADR-006), polling over WebSockets/SSE (ADR-007), Lit without build step (ADR-008), group-based access control (ADR-009), error-message sanitization (ADR-010).

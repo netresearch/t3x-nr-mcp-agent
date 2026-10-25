@@ -394,6 +394,34 @@ link the chat would refuse.
     for the page, ``optional`` and ``none`` do not, whatever the suffix
     says. The suffix applies to skills that declare nothing.
 
+Missing alt texts
+=================
+
+The check for images without an alt text (see :ref:`usage-decorative-images`
+and :ref:`adr-026`) reads every image field of type ``file`` in the TCA, so
+the image fields of a newly installed extension are checked without any
+setting. These two settings leave fields and tables out.
+
+..  confval:: altTextExcludedTables
+    :type: string
+    :default: (empty)
+
+    Tables whose images are not checked, comma-separated, such as records
+    that are never shown in the frontend. Content elements inside such a
+    record are left out with it. By default every table is checked.
+
+..  confval:: altTextExcludedFields
+    :type: string
+    :default: pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar,backend_layout.icon
+
+    Image fields that are not checked, as ``table.field``, comma-separated:
+    fields whose images the frontend does not output as an image with an
+    alt text. The default leaves out the page's social-media images, the
+    navigation icon (bootstrap_package renders it as an icon without the
+    alt text), the backend user's avatar and the backend layout's icon,
+    which only the backend shows. A value set here replaces the
+    default, so keep the entries you still want.
+
 Worker mode production setup
 ============================
 
