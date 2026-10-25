@@ -206,6 +206,17 @@ export function renderPageChoice(chat) {
         return nothing;
     }
 
+    // A skill that is no process (ADR-025): no button sends words the editor
+    // did not choose; their own next message carries the page.
+    if (chat.tourStart.startsRun === false) {
+        return html`
+            <div class="guided-block guided-choice" role="group" aria-labelledby="nr-chat-guided-choice">
+                <p id="nr-chat-guided-choice"><strong>${lll('guided.choosePage')}</strong></p>
+                <p>${lll('guided.choosePageThenWrite')}</p>
+            </div>
+        `;
+    }
+
     return html`
         <div class="guided-block guided-choice" role="group" aria-labelledby="nr-chat-guided-choice">
             <p id="nr-chat-guided-choice"><strong>${lll('guided.choosePage')}</strong></p>

@@ -27,6 +27,14 @@ parameters:
           path: ../../Classes/Document/Extractor/XlsxExtractor.php
         - identifier: argument.type
           path: ../../Classes/Document/Extractor/XlsxExtractor.php
+        # composer.json allows nr-llm versions with and without
+        # Skill::getPageNeed() (nr-llm ADR-229, ADR-025). Against one that has
+        # it the guard is always true; against one that does not there is
+        # nothing to ignore, hence reportUnmatched: false.
+        - identifier: function.alreadyNarrowedType
+          message: '#^Call to function method_exists\(\) with Netresearch\\NrLlm\\Domain\\Model\\Skill and ''getPageNeed'' will always evaluate to true\.$#'
+          path: ../../Classes/Service/NrLlmSkillCatalogue.php
+          reportUnmatched: false
 
 services:
     -

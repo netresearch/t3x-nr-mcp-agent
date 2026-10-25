@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
+use BackedEnum;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\Task;
@@ -61,6 +62,8 @@ final readonly class NrLlmSkillCatalogue implements SkillCatalogueInterface
                 'uid'         => (int) $skill->getUid(),
                 // nr-llm's process marker (nr-llm ADR-214, PR 1025).
                 'process' => $skill->isProcess(),
+                // What the skill declares about a page (nr-llm ADR-229, ADR-025).
+                'page' => $this->pageOf($skill),
             ];
         }
 
@@ -102,6 +105,24 @@ final readonly class NrLlmSkillCatalogue implements SkillCatalogueInterface
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * The skill's declared page need, null when it declares none or the
+     * installed nr-llm has no such field: composer.json allows nr-llm
+     * versions without it, and SkillPageNeed::of() then keeps the behaviour
+     * from before. Only the enum's value is read, so the nr-llm enum need not
+     * exist either.
+     */
+    private function pageOf(Skill $skill): ?string
+    {
+        if (!method_exists($skill, 'getPageNeed')) {
+            return null;
+        }
+
+        $need = $skill->getPageNeed();
+
+        return $need instanceof BackedEnum && is_string($need->value) ? $need->value : null;
     }
 
     /**

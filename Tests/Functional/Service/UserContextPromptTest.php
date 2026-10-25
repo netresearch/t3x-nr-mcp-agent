@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Functional\Service;
 
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
+use Netresearch\NrMcpAgent\Service\SkillPageNeed;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -82,5 +83,33 @@ final class UserContextPromptTest extends FunctionalTestCase
         $prompt = $this->get(UserContextPrompt::class)->build($this->conversationOf(1, 999));
 
         self::assertStringNotContainsString('uid 999', $prompt);
+    }
+
+    /**
+     * A skill that works on no page (ADR-025) is told neither about a page
+     * the conversation still names nor to ask for one.
+     */
+    #[Test]
+    public function aSkillThatWorksOnNoPageGetsNoPage(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+
+        $prompt = $this->get(UserContextPrompt::class)->build($this->conversationOf(1, 10), SkillPageNeed::None);
+
+        self::assertStringNotContainsString('Startseite', $prompt);
+        self::assertStringNotContainsString('uid 10', $prompt);
+        self::assertStringNotContainsString(UserContextPrompt::NO_PAGE, $prompt);
+        self::assertStringContainsString('Answer language', $prompt);
+    }
+
+    /** A skill that needs its page gets it as any conversation does. */
+    #[Test]
+    public function aSkillThatNeedsAPageGetsIt(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+
+        $prompt = $this->get(UserContextPrompt::class)->build($this->conversationOf(1, 10), SkillPageNeed::Required);
+
+        self::assertStringContainsString('- Selected page: uid 10, title "Startseite"', $prompt);
     }
 }

@@ -851,6 +851,10 @@
                 <source>Select the page to check in the page tree, then confirm it here.</source>
                 <target>Wähle im Seitenbaum die Seite, die geprüft werden soll, und bestätige sie hier.</target>
             </trans-unit>
+            <trans-unit id="guided.choosePageThenWrite" resname="guided.choosePageThenWrite">
+                <source>Select the page in the page tree, then write what to do.</source>
+                <target>Wähle die Seite im Seitenbaum und schreibe dann, was zu tun ist.</target>
+            </trans-unit>
             <trans-unit id="guided.checkPage" resname="guided.checkPage">
                 <source>Check this page</source>
                 <target>Diese Seite prüfen</target>

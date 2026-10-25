@@ -13,6 +13,10 @@ ADR-023: The chat guides a process
 
 **Date:** 2026-10-10
 
+**Amended by:** :ref:`adr-025` — whether a conversation keeps its page,
+asks for one or binds none follows the skill's declared page need; the
+process marker stays the default for a skill that declares nothing.
+
 Context
 =======
 

@@ -98,12 +98,16 @@ final class ChatPageGoneTest extends FunctionalTestCase
         $config->method('getMaxMessageLength')->willReturn(10000);
         $config->method('getMaxActiveConversationsPerUser')->willReturn(3);
 
-        $entry  = ['identifier' => 'seo-optimieren', 'name' => 'seo-optimieren', 'description' => '', 'uid' => 9422, 'process' => true];
+        $entries = [
+            'seo-optimieren' => ['identifier' => 'seo-optimieren', 'name' => 'seo-optimieren', 'description' => '', 'uid' => 9422, 'process' => true],
+            // No process, but declared to need its page (ADR-025).
+            'translate-page' => ['identifier' => 'translate-page', 'name' => 'translate-page', 'description' => '', 'uid' => 9423, 'process' => false, 'page' => 'required'],
+        ];
         $skills = $this->createMock(SkillCatalogueInterface::class);
         $skills->method('isAvailable')->willReturn(true);
         $skills->method('requiresSecondApprover')->willReturn(false);
-        $skills->method('catalogue')->willReturn([$entry]);
-        $skills->method('find')->willReturnCallback(static fn (string $identifier): ?array => $identifier === 'seo-optimieren' ? $entry : null);
+        $skills->method('catalogue')->willReturn(array_values($entries));
+        $skills->method('find')->willReturnCallback(static fn (string $identifier): ?array => $entries[$identifier] ?? null);
 
         return new ChatApiController(
             $this->get(ConversationRepository::class),
@@ -168,6 +172,27 @@ final class ChatPageGoneTest extends FunctionalTestCase
         $this->deletePage(10);
 
         self::assertTrue($this->messages(1)['pageGone']);
+    }
+
+    /**
+     * A skill that is no process but needs its page (ADR-025) is not made
+     * read-only by a deleted page: ending it would withdraw no waiting run.
+     * It asks for a new page instead, and the next message takes it.
+     */
+    #[Test]
+    public function aPlainSkillWhosePageWasDeletedAsksForANewOne(): void
+    {
+        $this->aboutPage(1, 10, skill: 'translate-page');
+        $this->deletePage(10);
+        $subject = $this->withProcessSkill();
+
+        $poll = json_decode((string) $subject->getMessages((new ServerRequest())->withQueryParams(['conversationUid' => 1]))->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertFalse($poll['pageGone']);
+        self::assertSame(['skill' => 'translate-page', 'choosePage' => true, 'startsRun' => false], $poll['tourStart']);
+
+        $response = $subject->sendMessage($this->post(['conversationUid' => 1, 'content' => 'Check this page', 'context' => ['pageId' => 20, 'module' => 'web_layout']]));
+        self::assertSame(202, $response->getStatusCode(), (string) $response->getBody());
+        self::assertStringContainsString('"pageId":20', $this->viewContextOf(1));
     }
 
     /**
@@ -247,7 +272,7 @@ final class ChatPageGoneTest extends FunctionalTestCase
         // Refused for being read-only would be 409 before the content is read.
         self::assertSame(400, $controller->sendMessage($this->post(['conversationUid' => 1, 'content' => '']))->getStatusCode());
         // The chat asks for a page.
-        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => true], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
+        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => true, 'startsRun' => true], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
     }
 
     /** A page that is still there stays the page a process picked in the chat works on. */
@@ -260,7 +285,7 @@ final class ChatPageGoneTest extends FunctionalTestCase
 
         self::assertSame(200, $picked->getStatusCode(), (string) $picked->getBody());
         self::assertSame(['pageId' => 10, 'module' => 'web_layout'], json_decode($this->viewContextOf(1), true, 512, JSON_THROW_ON_ERROR));
-        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => false], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
+        self::assertSame(['skill' => 'seo-optimieren', 'choosePage' => false, 'startsRun' => true], json_decode((string) $picked->getBody(), true, 512, JSON_THROW_ON_ERROR)['tourStart']);
     }
 
     /**

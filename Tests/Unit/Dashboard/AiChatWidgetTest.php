@@ -17,6 +17,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
 use Netresearch\NrMcpAgent\Service\ProcessRunDetectorInterface;
+use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Tests\Unit\Service\Assistant\SkillLabelsStub;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -70,6 +71,7 @@ final class AiChatWidgetTest extends TestCase
         array $gonePages = [],
         bool $processRun = true,
         string $now = self::NOW,
+        ?SkillCatalogueInterface $skills = null,
     ): AiChatWidget {
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn($taskUid);
@@ -99,6 +101,7 @@ final class AiChatWidgetTest extends TestCase
             $this->skillLabels(['skill.seo-optimieren.title' => 'SEO optimieren']),
             $processRuns,
             $context,
+            $skills,
         );
         $widget->setRequest($this->createMock(ServerRequestInterface::class));
 
@@ -318,6 +321,82 @@ final class AiChatWidgetTest extends TestCase
         self::assertSame([], $entries[0]['context']);
         self::assertNull($entries[0]['page']);
         self::assertFalse($entries[0]['pageGone']);
+    }
+
+    /**
+     * A catalogue whose one skill declares a page need (ADR-025).
+     */
+    private function catalogueDeclaring(string $page, bool $process): SkillCatalogueInterface
+    {
+        $skills = $this->createStub(SkillCatalogueInterface::class);
+        $skills->method('find')->willReturn(['identifier' => 'seo-optimieren', 'name' => 'SEO', 'description' => '', 'uid' => 4, 'process' => $process, 'page' => $page]);
+
+        return $skills;
+    }
+
+    /**
+     * A process that only may work on a page (ADR-025) follows the browser,
+     * so its stored page is where the editor last was: not named, and not a
+     * reason to hide it when the user may not see that page.
+     *
+     * @return iterable<string, array{array<int, array{uid: int, title: string}>}>
+     */
+    public static function lastPagesOfAnOptionalProcess(): iterable
+    {
+        yield 'a page the user may see' => [[12 => ['uid' => 12, 'title' => 'Über uns']]];
+        yield 'a page the user may not see' => [[]];
+    }
+
+    /**
+     * @param array<int, array{uid: int, title: string}> $accessible
+     */
+    #[Test]
+    #[DataProvider('lastPagesOfAnOptionalProcess')]
+    public function aProcessThatMayWorkOnAPageIsListedWithoutItsLastPage(array $accessible): void
+    {
+        $this->actingAs(3);
+        $conversation = $this->conversation(1);
+        $conversation->setViewContext(12, 'web_layout', 0);
+        $conversation->setSkillIdentifier('seo-optimieren');
+
+        $entries = $this->widget(1, $this->repository([$conversation]), $accessible, skills: $this->catalogueDeclaring('optional', true))->templateVariables()['conversations'];
+
+        self::assertCount(1, $entries);
+        self::assertNull($entries[0]['page']);
+        self::assertSame([['key' => self::LL . 'widget.context.guidedTour', 'arguments' => []]], $entries[0]['context']);
+    }
+
+    /** A skill that is no process but needs its page is bound to it, and named by it. */
+    #[Test]
+    public function aPlainSkillThatNeedsAPageNamesItsPage(): void
+    {
+        $this->actingAs(3);
+        $conversation = $this->conversation(1);
+        $conversation->setViewContext(12, 'web_layout', 1);
+        $conversation->setSkillIdentifier('seo-optimieren');
+
+        $entry = $this->widget(1, $this->repository([$conversation]), [12 => ['uid' => 12, 'title' => 'Über uns']], processRun: false, skills: $this->catalogueDeclaring('required', false))
+            ->templateVariables()['conversations'][0];
+
+        self::assertSame(['uid' => 12, 'languageUid' => 1], $entry['page']);
+        self::assertSame([['key' => self::LL . 'widget.context.page', 'arguments' => ['Über uns']]], $entry['context']);
+    }
+
+    /** Such a skill gives up a deleted page (it asks for a new one), so the list shows no deleted page. */
+    #[Test]
+    public function aPlainSkillOnADeletedPageIsNotShownAsDeleted(): void
+    {
+        $this->actingAs(3);
+        $conversation = $this->conversation(1);
+        $conversation->setViewContext(42, 'web_layout', 0);
+        $conversation->setSkillIdentifier('seo-optimieren');
+
+        $entries = $this->widget(1, $this->repository([$conversation]), gonePages: [42], processRun: false, skills: $this->catalogueDeclaring('required', false))->templateVariables()['conversations'];
+
+        self::assertCount(1, $entries);
+        self::assertFalse($entries[0]['pageGone']);
+        self::assertNull($entries[0]['page']);
+        self::assertSame([], $entries[0]['context']);
     }
 
     /** A deleted page is no reason to hide the guided process: it is said, not named; it cannot go on, so no point is shown. */

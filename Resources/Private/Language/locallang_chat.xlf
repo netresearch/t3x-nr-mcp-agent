@@ -643,6 +643,9 @@
             <trans-unit id="guided.choosePageHint" resname="guided.choosePageHint">
                 <source>Select the page to check in the page tree, then confirm it here.</source>
             </trans-unit>
+            <trans-unit id="guided.choosePageThenWrite" resname="guided.choosePageThenWrite">
+                <source>Select the page in the page tree, then write what to do.</source>
+            </trans-unit>
             <trans-unit id="guided.checkPage" resname="guided.checkPage">
                 <source>Check this page</source>
             </trans-unit>

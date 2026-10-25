@@ -15,7 +15,9 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Service\NrLlmSkillCatalogue;
+use Netresearch\NrMcpAgent\Service\SkillPageNeed;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -75,8 +77,8 @@ final class NrLlmSkillCatalogueTest extends TestCase
 
         self::assertSame(
             [
-                ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour', 'uid' => 5, 'process' => $process],
-                ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour', 'uid' => 0, 'process' => $process],
+                ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'about seo-page-tour', 'uid' => 5, 'process' => $process, 'page' => null],
+                ['identifier' => 'content-tour', 'name' => 'content-tour', 'description' => 'about content-tour', 'uid' => 0, 'process' => $process, 'page' => null],
             ],
             $this->catalogue($this->task())->catalogue(),
         );
@@ -93,6 +95,79 @@ final class NrLlmSkillCatalogueTest extends TestCase
 
         self::assertTrue($this->catalogue($task)->find('guided-tour')['process'] ?? null);
         self::assertFalse($this->catalogue($task)->find('content-tour')['process'] ?? null);
+    }
+
+    /**
+     * A skill that declares nothing about a page has no `page`. That is also
+     * what an nr-llm without the field yields (nr-llm ADR-229, ADR-025): the
+     * chat then keeps the behaviour from before.
+     */
+    #[Test]
+    public function aSkillThatDeclaresNoPageNeedHasNone(): void
+    {
+        $entry = $this->catalogue($this->task())->find('content-tour');
+
+        self::assertIsArray($entry);
+        self::assertArrayHasKey('page', $entry);
+        self::assertNull($entry['page']);
+    }
+
+    /**
+     * @return iterable<string, array{string, string|null}>
+     */
+    public static function declaredPageNeeds(): iterable
+    {
+        yield 'required' => ['required', 'required'];
+        yield 'optional' => ['optional', 'optional'];
+        yield 'none' => ['none', 'none'];
+        yield 'nothing declared' => ['', null];
+    }
+
+    /**
+     * What the skill declares about a page reaches the entry as the value of
+     * nr-llm's enum (nr-llm ADR-229).
+     */
+    #[Test]
+    #[DataProvider('declaredPageNeeds')]
+    public function theDeclaredPageNeedIsListed(string $declared, ?string $expected): void
+    {
+        $task = $this->task();
+        $task->addSkill($this->skillDeclaring('page-skill', $declared));
+
+        $entry = $this->catalogue($task)->find('page-skill');
+
+        self::assertIsArray($entry);
+        self::assertArrayHasKey('page', $entry);
+        self::assertSame($expected, $entry['page']);
+    }
+
+    /**
+     * A skill declaring a page need. nr-llm before ADR-229 has no
+     * getPageNeed(); the double adds it there, returning a backed enum as
+     * nr-llm does. Where nr-llm has it, the real setter is used.
+     */
+    private function skillDeclaring(string $identifier, string $page): Skill
+    {
+        if (method_exists(Skill::class, 'setPage')) {
+            $skill = $this->skill($identifier);
+            $skill->setPage($page);
+
+            return $skill;
+        }
+
+        $skill = new class extends Skill {
+            public string $declared = '';
+
+            public function getPageNeed(): ?SkillPageNeed
+            {
+                return SkillPageNeed::tryFrom($this->declared);
+            }
+        };
+        $skill->declared = $page;
+        $skill->setIdentifier($identifier);
+        $skill->setEnabled(true);
+
+        return $skill;
     }
 
     /**

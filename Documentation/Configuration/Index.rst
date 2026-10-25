@@ -389,6 +389,11 @@ link the chat would refuse.
     the chat. Empty by default, so the preset does not repeat the guided
     tours; the widget then says that no task is set up yet.
 
+    A skill that declares ``page`` in its frontmatter (see
+    :ref:`usage-skill-page`) decides this itself: ``page: required`` asks
+    for the page, ``optional`` and ``none`` do not, whatever the suffix
+    says. The suffix applies to skills that declare nothing.
+
 Worker mode production setup
 ============================
 

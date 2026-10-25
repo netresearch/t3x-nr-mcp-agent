@@ -307,8 +307,10 @@ export class ChatCoreController {
     endingTour = false;
     /**
      * What the chat may offer to start a guided process anew, from the server
-     * (ADR-023): `{skill, choosePage}`, or null where nr-llm cannot start a
-     * run with an invocation.
+     * (ADR-023): `{skill, choosePage, startsRun}`, or null where nr-llm cannot
+     * start a run with an invocation. `startsRun` is false for a skill that
+     * needs a page but is no process (ADR-025): choosing the page sends
+     * nothing, and switching to another page ends nothing.
      */
     tourStart = null;
     /** Where "Fertig" leads at the end of a process; '' without a dashboard. */
@@ -1257,7 +1259,7 @@ export class ChatCoreController {
      * turn carries that page as the run's subject, as every message does.
      */
     async checkBackendPage() {
-        if (!this.tourStart?.choosePage || this.backendPage.pageId <= 0) return;
+        if (!this.tourStart?.choosePage || this.tourStart.startsRun === false || this.backendPage.pageId <= 0) return;
         this.inputValue = lll('guided.checkPage');
         this.hasInput = true;
         await this.handleSend();
@@ -1312,13 +1314,19 @@ export class ChatCoreController {
         return Boolean(this.tour) && pageId > 0 && pageId !== this.tour.pageUid && pageId !== this.pageKept;
     }
 
-    /** End the process here and start it on the page the page module shows. */
+    /**
+     * End the process here and start it on the page the page module shows. A
+     * skill that is no process (`startsRun` false) has no run to withdraw:
+     * this conversation stays as it is, and the new one opens beside it.
+     */
     async switchToBackendPage() {
         const skill = this.tourStart?.skill;
         const {pageId, languageId} = this.backendPage;
         if (!skill || !this.pageChanged()) return;
-        await this.endTour();
-        if (this.tour) return;
+        if (this.tourStart.startsRun !== false) {
+            await this.endTour();
+            if (this.tour) return;
+        }
         const start = {pageUid: pageId, skill};
         if (Number.isInteger(languageId) && languageId >= 0) {
             start.languageUid = languageId;

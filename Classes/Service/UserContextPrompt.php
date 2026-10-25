@@ -32,6 +32,9 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * The page is re-checked here, with the permissions the turn runs under,
  * instead of being trusted from the browser: the browser sends a page id, and
  * only a page the user may show makes it into the prompt, with its title.
+ *
+ * A conversation whose skill works on no page (ADR-025) gets neither the page
+ * nor the request to ask for one.
  */
 readonly class UserContextPrompt
 {
@@ -45,7 +48,7 @@ readonly class UserContextPrompt
         private LanguageServiceFactory $languageServiceFactory,
     ) {}
 
-    public function build(Conversation $conversation): string
+    public function build(Conversation $conversation, SkillPageNeed $pageNeed = SkillPageNeed::Optional): string
     {
         $user = $this->ownerAsCurrentUser($conversation);
         if (!$user instanceof BackendUserAuthentication) {
@@ -54,7 +57,7 @@ readonly class UserContextPrompt
 
         $parts = [$this->answerLanguage($user)];
 
-        $view = $this->viewContext($conversation, $user);
+        $view = $this->viewContext($conversation, $user, $pageNeed);
         if ($view !== '') {
             $parts[] = $view;
         }
@@ -86,7 +89,7 @@ readonly class UserContextPrompt
         );
     }
 
-    private function viewContext(Conversation $conversation, BackendUserAuthentication $user): string
+    private function viewContext(Conversation $conversation, BackendUserAuthentication $user, SkillPageNeed $pageNeed): string
     {
         $context = $conversation->getViewContext();
         $lines   = [];
@@ -100,7 +103,8 @@ readonly class UserContextPrompt
             );
         }
 
-        $page = $context['pageId'] > 0 ? $this->readablePage($context['pageId'], $user) : null;
+        $bindsPage = $pageNeed !== SkillPageNeed::None;
+        $page      = $bindsPage && $context['pageId'] > 0 ? $this->readablePage($context['pageId'], $user) : null;
         if ($page !== null) {
             $lines[] = sprintf(
                 '- Selected page: uid %d, title %s',
@@ -117,7 +121,7 @@ readonly class UserContextPrompt
 
         // A question asked without a page, from the dashboard for one, may
         // still be about a page; the model must not pick one itself.
-        $noPage = $page === null ? self::NO_PAGE : '';
+        $noPage = $page === null && $bindsPage ? self::NO_PAGE : '';
         if ($lines === []) {
             return $noPage;
         }
