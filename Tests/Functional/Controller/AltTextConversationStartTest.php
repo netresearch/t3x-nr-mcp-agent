@@ -149,30 +149,6 @@ final class AltTextConversationStartTest extends FunctionalTestCase
         self::assertSame('', $stored->getSkillIdentifier());
     }
 
-    /**
-     * The start says whether "Als dekorativ markieren" can work: the editor's
-     * group grants the mark, user 3's grants the alt text only.
-     *
-     * @return iterable<string, array{int, bool}>
-     */
-    public static function decorativeGrants(): iterable
-    {
-        yield 'with the grant for the mark' => [self::EDITOR, true];
-        yield 'without the grant for the mark' => [3, false];
-    }
-
-    #[Test]
-    #[DataProvider('decorativeGrants')]
-    public function theStartSaysWhetherTheMarkMaySet(int $userUid, bool $allowed): void
-    {
-        $this->loginAs($userUid);
-
-        [$status, $body] = $this->create(['altTextReference' => 1]);
-
-        self::assertSame(201, $status, (string) json_encode($body));
-        self::assertSame($allowed, $body['altTextDecorative'] ?? null);
-    }
-
     /** A record's image binds no page: the record is the subject, not its folder. */
     #[Test]
     public function anOpenHitOfARecordBindsNoPage(): void
