@@ -6,7 +6,7 @@
     14.3) with one addition: a reference marked as decorative (ADR-026) is
     output with alt="". f:media treats an empty alt as missing and falls back
     to the file's alternative text; f:image keeps an explicit alt="".
-    Without the core's <html> wrapper: f is a global namespace.
+    Unlike the core's file it has no html wrapper: f is a global namespace.
 </f:comment>
 <f:if condition="{file.properties.tx_nrmcpagent_decorative}">
 <f:then><f:image class="image-embed-item" image="{file}" width="{dimensions.width}" height="{dimensions.height}" alt="" title="{file.title}" loading="{settings.media.lazyLoading}" decoding="{settings.media.imageDecoding}" /></f:then>
