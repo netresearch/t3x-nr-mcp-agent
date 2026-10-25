@@ -9,10 +9,9 @@
 -- nr-llm 0.41 turns no writing tool on by default; an administrator enables
 -- one in its Tools module, which writes the override row below. Without it a
 -- run could never have proposed this call, and an approval of it is refused.
--- The chat shows that refusal as handBack.toolDisabled with an nr-llm that
--- exposes the reason (getDenialReason(), planned for 0.41.5), and as
--- handBack.approverNotPermitted before that; nr-llm's log message names
--- "update_page_metadata (toolDisabled)" in both.
+-- The chat shows that refusal as handBack.toolDisabled: nr-llm 0.41.5
+-- exposes the reason (getDenialReason()), and its log message names
+-- "update_page_metadata (toolDisabled)".
 INSERT INTO tx_nrllm_tool_state (pid, tool_name, enabled)
 VALUES (0, 'update_page_metadata', 1)
 ON DUPLICATE KEY UPDATE enabled = 1;
