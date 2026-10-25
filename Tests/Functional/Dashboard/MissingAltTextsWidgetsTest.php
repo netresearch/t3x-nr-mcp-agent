@@ -44,7 +44,7 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  * The two ways into the list "Fehlende Alt-Texte" (ADR-026): the entry in
  * "Website prüfen", always there, and the tile in "Für deine Website
  * empfohlen", there while images lack an alt text. Fixture of the scan
- * (missing_alt_texts.csv): editor 2 has 21 open hits on 7 pages and in 2
+ * (missing_alt_texts.csv): editor 2 has 26 open hits on 11 pages and in 2
  * records, editor 4 none.
  */
 final class MissingAltTextsWidgetsTest extends FunctionalTestCase
@@ -165,8 +165,8 @@ final class MissingAltTextsWidgetsTest extends FunctionalTestCase
 
         $html = (string) preg_replace('/\s+/', ' ', $this->recommendations());
 
-        self::assertStringContainsString('<span class="fs-3 fw-bold me-1">21</span>Images without alt text', $html);
-        self::assertStringContainsString('Found on 7 pages and in 2 records', $html);
+        self::assertStringContainsString('<span class="fs-3 fw-bold me-1">26</span>Images without alt text', $html);
+        self::assertStringContainsString('Found on 11 pages and in 2 records', $html);
         self::assertMatchesRegularExpression('#<a class="btn btn-default btn-sm" href="[^"]*/missing-alt-texts[^"]*" aria-label="View: images without alt text">View</a>#', $html);
         // With the tile there, "no open recommendations" would contradict it.
         self::assertStringNotContainsString('No open recommendations', $html);

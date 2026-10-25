@@ -43,7 +43,7 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  * in German and English and a preview configuration for the test articles on
  * their folder (19).
  *
- * Editor 2 has 21 open hits: 17 on pages, 4 in two test articles.
+ * Editor 2 has 26 open hits: 22 on pages, 4 in two test articles.
  */
 final class MissingAltTextsControllerTest extends FunctionalTestCase
 {
@@ -158,7 +158,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $xpath = $this->render();
 
         self::assertSame(['AI Assistant', 'Check website', 'Missing alt texts'], $this->texts($xpath, '//nav/ol[@class="breadcrumb"]/li'));
-        self::assertSame(['21 missing alt texts'], $this->texts($xpath, '//h1'));
+        self::assertSame(['26 missing alt texts'], $this->texts($xpath, '//h1'));
         self::assertSame(['Images that are currently used without a suitable alternative text.'], $this->texts($xpath, '//p[@class="lead"]'));
         self::assertStringStartsWith('An alt text has to fit the context', $this->texts($xpath, '//*[@role="note"]')[0] ?? '');
     }
@@ -179,7 +179,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $this->login(2);
         $xpath = $this->render();
 
-        self::assertSame(['Pages 17', 'Test articles 4'], $this->texts($xpath, '//*[@role="tablist"]/*[@role="tab"]'));
+        self::assertSame(['Pages 22', 'Test articles 4'], $this->texts($xpath, '//*[@role="tablist"]/*[@role="tab"]'));
         $pages = $this->one($xpath, '//*[@role="tab"][@data-tab-type="pages"]');
         self::assertSame(['true', '0'], [$pages->getAttribute('aria-selected'), $pages->getAttribute('tabindex')]);
         $articles = $this->one($xpath, '//*[@role="tab"][@data-tab-type="tx_alttexttest_item"]');
@@ -199,7 +199,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $this->get(ConnectionPool::class)->getConnectionForTable('sys_file_collection')
             ->insert('sys_file_collection', ['uid' => 1, 'pid' => 19, 'title' => 'Bilder', 'type' => 'static', 'files' => 1]);
         $this->get(ConnectionPool::class)->getConnectionForTable('sys_file_reference')
-            ->insert('sys_file_reference', ['uid' => 50, 'pid' => 19, 'uid_local' => 1, 'uid_foreign' => 1, 'tablenames' => 'sys_file_collection', 'fieldname' => 'files']);
+            ->insert('sys_file_reference', ['uid' => 900, 'pid' => 19, 'uid_local' => 1, 'uid_foreign' => 1, 'tablenames' => 'sys_file_collection', 'fieldname' => 'files']);
 
         $tabs = $this->list()->build('pages', 1)['tabs'];
 
@@ -235,7 +235,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $xpath = $this->render();
 
         self::assertSame(
-            ['Zweite Seite', 'Startseite', 'Versteckt', 'Unterseite', 'Geplant', 'Abgelaufen', 'Medienseite'],
+            ['Zweite Seite', 'Startseite', 'Versteckt', 'Unter Versteckt', 'Unterseite', 'Geplant', 'Abgelaufen', 'Medienseite', 'Nur Inhalte', 'Unter Abgelaufen', 'Unter Geplant'],
             $this->texts($xpath, '//*[@id="nr-alt-texts-panel-pages"]//tbody/tr/th[@scope="rowgroup"]'),
         );
         self::assertSame(
@@ -256,9 +256,9 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $label = fn (string $file, string $panel, int $row): string => $this->texts($xpath, sprintf('(//*[@id="nr-alt-texts-panel-%s"]//tbody/tr[td])[%d]/td[3]', $panel, $row))[0] ?? '';
 
         // A type the TCA does not list ("carousel" of the fixture) is named generically.
-        self::assertStringStartsWith('Content element – “Karussell”', $label('', 'pages', 12));
+        self::assertStringStartsWith('Content element – “Karussell”', $label('', 'pages', 13));
         // The core labels pages.media "Files" in 13.4 and "Media" in 14.3.
-        self::assertMatchesRegularExpression('/^Page properties: (Files|Media)$/', $label('', 'pages', 17));
+        self::assertMatchesRegularExpression('/^Page properties: (Files|Media)$/', $label('', 'pages', 19));
         self::assertStringStartsWith('Images', $label('', 'tx_alttexttest_item', 1));
         self::assertStringStartsWith('Teaser image', $label('', 'tx_alttexttest_item', 2));
     }
@@ -375,14 +375,14 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $second = $this->list()->build('pages', 2, 5)['tabs'][0];
         $last   = $this->list()->build('pages', 99, 5)['tabs'][0];
 
-        self::assertSame('Page 1 of 4', $first['pagination']['status']);
+        self::assertSame('Page 1 of 5', $first['pagination']['status']);
         self::assertSame('', $first['pagination']['previous']);
         self::assertStringContainsString('page=2', $first['pagination']['next']);
         self::assertSame(['Zweite Seite', 'Startseite'], array_column($first['groups'], 'title'));
         self::assertSame(['Startseite'], array_column($second['groups'], 'title'));
         self::assertCount(5, $second['groups'][0]['rows']);
         // A page past the end shows the last one.
-        self::assertSame('Page 4 of 4', $last['pagination']['status']);
+        self::assertSame('Page 5 of 5', $last['pagination']['status']);
         self::assertSame('', $last['pagination']['next']);
         // The other tabs stay on their first page.
         self::assertNull($this->list()->build('pages', 2, 5)['tabs'][1]['pagination']);
@@ -414,9 +414,9 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $this->login(2);
         $xpath = $this->render();
 
-        self::assertSame(['21 fehlende Alt-Texte'], $this->texts($xpath, '//h1'));
+        self::assertSame(['26 fehlende Alt-Texte'], $this->texts($xpath, '//h1'));
         self::assertSame(['KI-Assistent', 'Website prüfen', 'Fehlende Alt-Texte'], $this->texts($xpath, '//nav/ol[@class="breadcrumb"]/li'));
-        self::assertSame('Seiten 17', $this->texts($xpath, '//*[@role="tab"]')[0] ?? '');
+        self::assertSame('Seiten 22', $this->texts($xpath, '//*[@role="tab"]')[0] ?? '');
         self::assertContains('Aktuell nicht sichtbar · Element ausgeblendet', $this->texts($xpath, '//*[contains(@class, "nr-alt-texts-hidden")]/span[@title]'));
     }
 }
