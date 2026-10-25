@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-25
+
+### Upgrading
+
+- **Update the database schema.** `tx_nrmcpagent_conversation` gains the column `alt_text_hit` (ADR-026); run the database analyzer.
+- **Requires nr-llm 0.41.7** (`^0.41.7` in `composer.json`, `0.41.7-0.41.99` in `ext_emconf.php`). Its alt text writer `set_file_reference_alternative_text` checks every inline owner of an image before it writes, as "Optimieren" relies on.
+- **"Optimieren" needs both writing tools enabled.** `set_file_reference_alternative_text` (nr-llm) and `set_file_reference_decorative` (this extension) ship disabled; an administrator enables them in nr-llm's *Tools* module.
+- **Editors who use "Optimieren" need the right to approve their own changes.** nr-llm pauses every write of these tools for an approval card, so an editor's backend group needs "Approve own changes in the chat" (*Custom module options*, `tx_nrmcpagent:approve_own_changes`, ADR-021); administrators and users of AI Tasks need nothing. "Optimieren" is not available on an AI configuration that requires a second approver, nor in a draft workspace. Where it is not available, a note above the list says why.
+- **The decorative mark from the chat needs the exclude-field grant** *File Reference: Decorative image* (`sys_file_reference:tx_nrmcpagent_decorative`) under *Allowed excludefields*. Without it the chat offers no "Als dekorativ markieren", and a mark the assistant proposes cannot be approved.
+
+### Added
+
+- **"Optimieren" in the list of missing alt texts (#265, ADR-026).** "Optimieren" in a row opens the chat beside the list on that image; the module menu folds to make room and unfolds when the chat closes, and the row is marked "Im Chat". The chat starts with a card of the image (where it is used, its language, that it has no alt text), and the assistant proposes an alt text for this use of the image. "Übernehmen" saves it, "Andere Variante" asks for another text, "Als dekorativ markieren" asks for the decorative mark, which the editor confirms once on its card, and "Überspringen" saves nothing. "Nächsten Treffer optimieren" moves on to the next hit in the order of the list, across the tabs. The assistant sees the image as a scaled copy where the AI provider supports images; otherwise the card says that the proposal rests on the page, the element and the file name. Nothing is saved without the editor's approval, and a proposal for another image cannot be approved in this chat. Without the chat panel, "Optimieren" opens the chat module on the image.
+- **The assistant can mark an image use as decorative (#264).** The new tool `set_file_reference_decorative` sets or clears the mark on one image use, in the live workspace, after an approval. It checks the same rights as nr-llm's alt text writer, including those of the records an image on an inline record such as a carousel item belongs to. For an image that belongs to a section or a record, its card warns that the image probably needs an alt text.
+
+### Fixed
+
+- **The list of missing alt texts shows only images whose alt text the editor may write (#264).** An image in the page properties needs "edit page" and "edit content", an image on a record needs the editor's right to the record's type (such as the content type), and every table on the way to the image has to be writable for the editor. Before, the list could show an image whose alt text nr-llm's writer then refused.
+
 ## [0.21.1] - 2026-10-25
 
 ### Fixed

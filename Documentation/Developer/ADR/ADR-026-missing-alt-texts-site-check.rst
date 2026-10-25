@@ -202,8 +202,9 @@ and of every record that owns it through an inline field, up to the
 outermost one: an image on a carousel item is refused when its content
 element is locked or of a type the user may not use. The list asks the
 same of the same chain. nr-llm's ``set_file_reference_alternative_text``
-(nr-llm ADR-230) asks the record's own rights but not those of its owners,
-so such an image passes it; that gap is closed in nr-llm on its own. Not
+(nr-llm ADR-230) asked the record's own rights but not those of its owners
+up to 0.41.6; nr-llm 0.41.7 asks every inline owner in another table too,
+and this extension requires 0.41.7 from 0.22.0 on. Not
 enforced anywhere before the write: access checks extensions add to
 DataHandler through hooks.
 
@@ -397,7 +398,7 @@ Consequences
 -   The tests need ``typo3/cms-fluid-styled-content`` and
     ``typo3/cms-workspaces`` as development dependencies, to prove the
     frontend output and the workspace overlay.
--   Slice 2 needs nr-llm 0.41.6 (``set_file_reference_alternative_text``)
+-   Slice 2 needs nr-llm 0.41.7 (``set_file_reference_alternative_text``)
     and adds the column ``tx_nrmcpagent_conversation.alt_text_hit``: run the
     database analyzer after upgrading. An administrator enables both
     writing tools, nr-llm's and ``set_file_reference_decorative``, and gives
