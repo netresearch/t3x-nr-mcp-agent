@@ -31,6 +31,8 @@ const require = createRequire(import.meta.url);
 const axePath = require.resolve('axe-core/axe.min.js');
 
 const DIST = process.argv[2] ?? '.Build/site';
+const ALPHA_NOTES = Object.fromEntries(['en', 'de'].map(locale => [locale,
+  JSON.parse(readFileSync(new URL(`./content/${locale}.json`, import.meta.url), 'utf8')).hero.alphaNote]));
 
 // Product controls and manual controls differ, but every route is gated for
 // accessibility, asset availability, page initialization and viewport reflow.
@@ -252,15 +254,18 @@ async function chooseTheme(page, preference) {
   await picker.locator(`input[value="${preference}"]`).check();
 }
 
-async function auditAlphaWarning(page) {
-  const state = await page.evaluate(() => {
+async function auditAlphaWarning(page, route) {
+  const expected = ALPHA_NOTES[route === '/de/' ? 'de' : 'en'];
+  const state = await page.evaluate((expectedNote) => {
     const banner = document.querySelector('[data-nr-hero] p.alpha-banner');
     const action = document.querySelector('[data-nr-hero] [data-cta="business"][data-cta-position="hero"]');
     if (!banner || !action) return null;
     const note = [...banner.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('').trim();
     return {warningBottom: banner.getBoundingClientRect().bottom, actionTop: action.getBoundingClientRect().top,
-      visible: banner.checkVisibility(), note: Boolean(note), precedes: Boolean(banner.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING)};
-  });
+      visible: banner.checkVisibility({visibilityProperty: true, opacityProperty: true}),
+      note: typeof expectedNote === 'string' && expectedNote.trim().length > 0 && note === expectedNote.trim(),
+      precedes: Boolean(banner.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING)};
+  }, expected);
   if (state?.visible && state.note && state.precedes && state.warningBottom <= state.actionTop) return [];
   return [{id: 'alpha-warning-order', impact: 'serious', help: 'The full alpha warning must precede the evaluation action',
     nodes: [{target: ['.alpha-banner'], failureSummary: JSON.stringify(state)}]}];
@@ -319,7 +324,7 @@ async function auditPage(browser, port, route, scheme, width) {
     id: 'page-reflow', impact: 'serious', help: 'The document must fit the viewport',
     nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
   });
-  if (route === '/' || route === '/de/') results.violations.push(...await auditAlphaWarning(page), ...await auditPrintedGuidance(page));
+  if (route === '/' || route === '/de/') results.violations.push(...await auditAlphaWarning(page, route), ...await auditPrintedGuidance(page));
   if (width === 320 && !isDocumentation(route)) {
     results.violations.push(
       ...(await auditTextAdaptation(page, scheme)),
