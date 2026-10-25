@@ -38,6 +38,7 @@ use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
+use Netresearch\NrMcpAgent\Service\SkillPageNeed;
 use Netresearch\NrMcpAgent\Service\TourContext;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
@@ -276,7 +277,8 @@ final readonly class ChatApiController
             return $refusal;
         }
 
-        if ($pageUid > 0) {
+        // A skill that works on no page binds none (ADR-025).
+        if ($pageUid > 0 && !$this->bindsNoPage($skill)) {
             $conversation->setViewContext($pageUid, '', $languageUid);
         }
 
@@ -292,7 +294,8 @@ final readonly class ChatApiController
      * tourStart() offers a new start, so every start it offers begins; a
      * skill the catalogue does not mark counts as a process, as there.
      * Without a page the chat asks for one first; a skill marked as no
-     * process waits for the editor's message.
+     * process waits for the editor's message, and so does a process that
+     * does not need a page (ADR-025).
      */
     private function startsTour(Conversation $conversation): bool
     {
@@ -301,23 +304,53 @@ final readonly class ChatApiController
         return $this->skillInvocation instanceof SkillInvocationInterface
             && $identifier !== ''
             && $conversation->getViewContext()['pageId'] > 0
-            && ($this->skills?->find($identifier)['process'] ?? null) !== false;
+            && ($this->skills?->find($identifier)['process'] ?? null) !== false
+            && $this->pageNeed($identifier) === SkillPageNeed::Required;
     }
 
     /**
-     * Whether the conversation's page is the subject of its guided process and
+     * Whether the conversation's page is the subject of its skill and
      * therefore stays, whatever page the browser shows when a message is sent
      * (ADR-023): another page is a new conversation ("Zur neuen Seite
-     * wechseln"). A skill the catalogue does not mark counts as a process, as
-     * in tourStart().
+     * wechseln"). That is the case for a skill that needs a page (ADR-025): a
+     * process and a skill the catalogue does not mark, unless they declare
+     * otherwise, and any skill that declares it.
+     *
+     * A skill that is no process gives up a page that has been deleted, and
+     * asks for a new one (tourStart()): the read-only state of a process on a
+     * deleted page (isPageGone()) ends through endTour(), which withdraws
+     * the waiting run of a process only.
      */
     private function keepsItsPage(Conversation $conversation): bool
     {
         $identifier = $conversation->getSkillIdentifier();
+        $pageId     = $conversation->getViewContext()['pageId'];
+        if ($identifier === '' || $pageId <= 0 || $this->pageNeed($identifier) !== SkillPageNeed::Required) {
+            return false;
+        }
 
-        return $identifier !== ''
-            && $conversation->getViewContext()['pageId'] > 0
-            && ($this->skills?->find($identifier)['process'] ?? null) !== false;
+        return !$this->isNoProcess($identifier) || !($this->pages?->isGone($pageId) ?? false);
+    }
+
+    /** Whether the catalogue marks the skill as no process; a skill it does not mark counts as one. */
+    private function isNoProcess(string $identifier): bool
+    {
+        return ($this->skills?->find($identifier)['process'] ?? null) === false;
+    }
+
+    /**
+     * The page need of a skill (ADR-025); a conversation without a skill
+     * follows the browser.
+     */
+    private function pageNeed(string $identifier): SkillPageNeed
+    {
+        return $identifier === '' ? SkillPageNeed::Optional : SkillPageNeed::of($this->skills?->find($identifier));
+    }
+
+    /** Whether the skill works on no page, so the conversation binds none (ADR-025). */
+    private function bindsNoPage(string $identifier): bool
+    {
+        return $identifier !== '' && $this->pageNeed($identifier) === SkillPageNeed::None;
     }
 
     /** Why the user cannot start a conversation about this page in this language, or null. */
@@ -481,8 +514,10 @@ final readonly class ChatApiController
         // deleted since — the one a tour ended on, or where an ordinary chat
         // last was — would bind the new process to nothing and make the chat
         // read-only at once; without it the chat asks for a page instead.
+        // A skill that works on no page drops the one the conversation has
+        // (ADR-025).
         $context = $conversation->getViewContext();
-        if ($skill !== '' && $context['pageId'] > 0 && ($this->pages?->isGone($context['pageId']) ?? false)) {
+        if ($skill !== '' && $context['pageId'] > 0 && ($this->bindsNoPage($skill) || ($this->pages?->isGone($context['pageId']) ?? false))) {
             $conversation->setViewContext(0, $context['module']);
             $this->repository->updateViewContext($conversation, $this->getBeUserUid());
         }
@@ -738,19 +773,31 @@ final readonly class ChatApiController
      * process. A skill the catalogue does not mark counts as a process, as
      * elsewhere.
      *
+     * The page choice and the new starts are for a skill that needs a page
+     * (ADR-025). A skill that is no process gets the page choice only, while
+     * it has no page, and needs no invocation for it: its turns carry the
+     * skill as a forced skill. It is offered no new start, because ending a
+     * conversation that is not a process withdraws no waiting run.
+     *
      * @return array{skill: string, choosePage: bool}|null
      */
     private function tourStart(Conversation $conversation): ?array
     {
         $identifier = $conversation->getSkillIdentifier();
-        if (!$this->skillInvocation instanceof SkillInvocationInterface
-            || $identifier === ''
-            || ($this->skills?->find($identifier)['process'] ?? null) === false
-        ) {
+        if ($identifier === '' || $this->pageNeed($identifier) !== SkillPageNeed::Required) {
             return null;
         }
 
-        return ['skill' => $identifier, 'choosePage' => $conversation->getViewContext()['pageId'] <= 0];
+        $choosePage = $conversation->getViewContext()['pageId'] <= 0;
+        if ($this->isNoProcess($identifier)) {
+            // A deleted page is no page for a skill that is no process
+            // (keepsItsPage()).
+            return $choosePage || !$this->keepsItsPage($conversation) ? ['skill' => $identifier, 'choosePage' => true] : null;
+        }
+
+        return $this->skillInvocation instanceof SkillInvocationInterface
+            ? ['skill' => $identifier, 'choosePage' => $choosePage]
+            : null;
     }
 
     /** The dashboard module's URL, '' where EXT:dashboard is not installed. */
@@ -1022,6 +1069,11 @@ final readonly class ChatApiController
             $stored = $conversation->getViewContext();
             $module = is_array($context) ? ($context['module'] ?? '') : '';
             $conversation->setViewContext($stored['pageId'], is_string($module) ? $module : '', $stored['languageId']);
+        } elseif ($this->bindsNoPage($conversation->getSkillIdentifier())) {
+            // A skill that works on no page binds none (ADR-025): only the
+            // module follows.
+            $module = is_array($context) ? ($context['module'] ?? '') : '';
+            $conversation->setViewContext(0, is_string($module) ? $module : '');
         } elseif (is_array($context)) {
             $pageId     = is_int($context['pageId'] ?? null) ? $context['pageId'] : 0;
             $module     = $context['module'] ?? '';

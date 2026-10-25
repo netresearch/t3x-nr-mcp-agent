@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
+use Netresearch\NrMcpAgent\Service\SkillPageNeed;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Backend\Module\ModuleInterface;
@@ -163,5 +165,30 @@ final class UserContextPromptTest extends TestCase
         self::assertStringContainsString('- Open backend module: "Seite"', $withModule);
         self::assertStringEndsWith("\n\n" . UserContextPrompt::NO_PAGE, $withoutModule);
         self::assertStringContainsString('ask which page they mean', UserContextPrompt::NO_PAGE);
+    }
+
+    /**
+     * A skill that needs or may use a page asks for one when there is none; a
+     * skill that works on no page (ADR-025) has nothing to ask for.
+     *
+     * @return iterable<string, array{SkillPageNeed, bool}>
+     */
+    public static function pageNeeds(): iterable
+    {
+        yield 'required' => [SkillPageNeed::Required, true];
+        yield 'optional' => [SkillPageNeed::Optional, true];
+        yield 'none' => [SkillPageNeed::None, false];
+    }
+
+    #[Test]
+    #[DataProvider('pageNeeds')]
+    public function onlyASkillThatWorksOnNoPageIsNotToldToAskForOne(SkillPageNeed $need, bool $asks): void
+    {
+        $this->actingAs(1, 'de');
+
+        $prompt = $this->subject()->build($this->conversationOf(1), $need);
+
+        self::assertSame($asks, str_contains($prompt, UserContextPrompt::NO_PAGE));
+        self::assertStringContainsString('backend is set to German (de)', $prompt);
     }
 }

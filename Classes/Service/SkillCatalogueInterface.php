@@ -30,15 +30,17 @@ interface SkillCatalogueInterface
     /**
      * The skills the current user can invoke: enabled ones attached to the
      * chat's configuration or Task, by name. Empty when not available.
+     * `page` is what the skill declares about a page (ADR-025), null or
+     * absent when it declares nothing; read it through SkillPageNeed.
      *
-     * @return list<array{identifier: string, name: string, description: string, uid: int, process: bool|null}>
+     * @return list<array{identifier: string, name: string, description: string, uid: int, process: bool|null, page?: string|null}>
      */
     public function catalogue(): array;
 
     /**
      * One entry of catalogue(), or null when the user cannot invoke it.
      *
-     * @return array{identifier: string, name: string, description: string, uid: int, process: bool|null}|null
+     * @return array{identifier: string, name: string, description: string, uid: int, process: bool|null, page?: string|null}|null
      */
     public function find(string $identifier): ?array;
 

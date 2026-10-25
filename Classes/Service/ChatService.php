@@ -1170,6 +1170,17 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
+     * The page need of the conversation's skill (ADR-025); a conversation
+     * without a skill follows the browser.
+     */
+    private function pageNeedOf(Conversation $conversation): SkillPageNeed
+    {
+        $identifier = $conversation->getSkillIdentifier();
+
+        return $identifier === '' ? SkillPageNeed::Optional : SkillPageNeed::of($this->skills?->find($identifier));
+    }
+
+    /**
      * Whether the conversation runs a guided process that is not completed.
      * Called for a run that finished: it neither waits for a choice nor for a
      * decision on a proposal, so a running process was left mid-step.
@@ -1818,7 +1829,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The user's own context — answer language and where they are in the
         // backend (NEXT-172) — last, and for every conversation, a custom
         // system prompt included.
-        $userContext = $this->userContextPrompt->build($conversation);
+        $userContext = $this->userContextPrompt->build($conversation, $this->pageNeedOf($conversation));
         if ($userContext !== '') {
             $parts[] = $userContext;
         }

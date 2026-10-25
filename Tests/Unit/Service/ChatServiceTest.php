@@ -40,6 +40,8 @@ use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
+use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use Netresearch\NrMcpAgent\Service\SkillPageNeed;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -91,6 +93,7 @@ class ChatServiceTest extends TestCase
         ?RunActivityRecorder $activityRecorder = null,
         ?GuidedStateLinker $guidedState = null,
         ?OpenPointTrackerInterface $openPoints = null,
+        ?SkillCatalogueInterface $skills = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if ($config === null) {
@@ -132,7 +135,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState, openPoints: $openPoints);
+        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState, skills: $skills, openPoints: $openPoints);
     }
 
     /**
@@ -934,6 +937,41 @@ class ChatServiceTest extends TestCase
         $service->processConversation($conversation);
 
         self::assertStringEndsWith("\n\nUSER-CONTEXT-BLOCK", $this->capturedSystemPrompt());
+    }
+
+    /**
+     * The user context is told what the conversation's skill declares about a
+     * page (ADR-025); a conversation without a skill follows the browser.
+     *
+     * @return iterable<string, array{string, array<string, mixed>|null, SkillPageNeed}>
+     */
+    public static function pageNeedsOfTheSkill(): iterable
+    {
+        yield 'no skill' => ['', null, SkillPageNeed::Optional];
+        yield 'works on no page' => ['newsletter', ['identifier' => 'newsletter', 'name' => 'N', 'description' => '', 'uid' => 3, 'process' => false, 'page' => 'none'], SkillPageNeed::None];
+        yield 'needs a page' => ['translate', ['identifier' => 'translate', 'name' => 'T', 'description' => '', 'uid' => 4, 'process' => false, 'page' => 'required'], SkillPageNeed::Required];
+        yield 'a process that declares nothing' => ['tour', ['identifier' => 'tour', 'name' => 'T', 'description' => '', 'uid' => 5, 'process' => true], SkillPageNeed::Required];
+        yield 'a skill the catalogue does not list' => ['gone', null, SkillPageNeed::Required];
+    }
+
+    /**
+     * @param array<string, mixed>|null $entry
+     */
+    #[Test]
+    #[DataProvider('pageNeedsOfTheSkill')]
+    public function theUserContextIsBuiltForTheSkillsPageNeed(string $skill, ?array $entry, SkillPageNeed $expected): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setSkillIdentifier($skill, 0);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        $skills = $this->createStub(SkillCatalogueInterface::class);
+        $skills->method('find')->willReturn($entry);
+        $userContext = $this->createMock(UserContextPrompt::class);
+        $userContext->expects(self::once())->method('build')->with($conversation, $expected)->willReturn('USER-CONTEXT-BLOCK');
+
+        $this->createChatService(userContextPrompt: $userContext, skills: $skills)->processConversation($conversation);
     }
 
     #[Test]

@@ -183,6 +183,31 @@ change, no skill can be started, and the chat says so: a guided process
 is decided on the chat's own approval card, where you cannot release
 your own change.
 
+.. _usage-skill-page:
+
+Whether a skill works on a page
+-------------------------------
+
+A skill states in its frontmatter whether it works on a page (the ``page``
+key of nr-llm, :ref:`adr-025`):
+
+``page: required``
+    The conversation is about one page. Without one, the chat asks for it:
+    choose the page in the page tree and confirm it with **Diese Seite
+    prüfen**. Once set, the page stays, whatever page the page module shows
+    later.
+``page: optional``
+    The chat passes along the page the page module shows with each message,
+    when there is one; it does not ask for one.
+``page: none``
+    The conversation is about no page. The chat does not ask for one, does
+    not pass one along and does not keep one, even when the conversation is
+    started with a page.
+
+A skill without the key behaves as before: a guided process as
+``required``, any other skill as ``optional``. The *Frequent tasks* widget
+follows the same declaration (:confval:`dashboardQuickTasks`).
+
 Instructions for a conversation
 -------------------------------
 

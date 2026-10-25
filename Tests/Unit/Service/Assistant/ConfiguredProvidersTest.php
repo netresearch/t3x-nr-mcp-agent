@@ -15,6 +15,8 @@ use Netresearch\NrMcpAgent\Service\Assistant\ConfiguredQuickTaskProvider;
 use Netresearch\NrMcpAgent\Service\Assistant\GuidedSkill;
 use Netresearch\NrMcpAgent\Service\Assistant\QuickTask;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillResolverInterface;
+use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -78,6 +80,41 @@ final class ConfiguredProvidersTest extends TestCase
             ],
             $tasks,
         );
+    }
+
+    /**
+     * Whether a task asks for its page is the skill's declaration (ADR-025);
+     * the `|page` suffix decides for a skill that declares nothing, a process
+     * included, and where nr-llm exposes no declaration.
+     *
+     * @return iterable<string, array{array<string, mixed>|null, bool, bool}>
+     */
+    public static function pageDeclarations(): iterable
+    {
+        yield 'required, without suffix' => [['process' => false, 'page' => 'required'], false, true];
+        yield 'optional, with suffix' => [['process' => false, 'page' => 'optional'], true, false];
+        yield 'none, with suffix' => [['process' => true, 'page' => 'none'], true, false];
+        yield 'nothing declared, with suffix' => [['process' => false, 'page' => null], true, true];
+        yield 'nothing declared, without suffix' => [['process' => false, 'page' => null], false, false];
+        yield 'a process that declares nothing, without suffix' => [['process' => true], false, false];
+        yield 'not in the catalogue, with suffix' => [null, true, true];
+    }
+
+    /**
+     * @param array<string, mixed>|null $entry
+     */
+    #[Test]
+    #[DataProvider('pageDeclarations')]
+    public function aQuickTaskAsksForItsPageAsTheSkillDeclares(?array $entry, bool $suffix, bool $asks): void
+    {
+        $config = $this->createMock(ExtensionConfiguration::class);
+        $config->method('getDashboardQuickTasks')->willReturn([['skill' => 'neue-seite', 'needsPage' => $suffix]]);
+        $catalogue = $this->createMock(SkillCatalogueInterface::class);
+        $catalogue->method('find')->with('3:neue-seite')->willReturn($entry);
+
+        $tasks = (new ConfiguredQuickTaskProvider($config, $this->skillLabels(self::LABELS), $this->resolver(), $catalogue))->getQuickTasks();
+
+        self::assertEquals([new QuickTask('Neue Seite anlegen', '3:neue-seite', $asks)], $tasks);
     }
 
     /** A labelled skill the chat cannot start is not offered: no link the chat would refuse. */

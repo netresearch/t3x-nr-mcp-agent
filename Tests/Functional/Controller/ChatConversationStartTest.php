@@ -23,6 +23,7 @@ use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
@@ -174,6 +175,10 @@ final class ChatConversationStartTest extends FunctionalTestCase
             self::SEO_TOUR       => ['identifier' => self::SEO_TOUR, 'name' => 'seo-optimieren', 'description' => '', 'uid' => 9422, 'process' => true],
             '9403:tone-check'    => ['identifier' => '9403:tone-check', 'name' => 'tone-check', 'description' => '', 'uid' => 9421, 'process' => false],
             '9404:unmarked-tour' => ['identifier' => '9404:unmarked-tour', 'name' => 'unmarked-tour', 'description' => '', 'uid' => 9424, 'process' => null],
+            // What the skills declare about a page (ADR-025).
+            '9405:no-page-tour'  => ['identifier' => '9405:no-page-tour', 'name' => 'no-page-tour', 'description' => '', 'uid' => 9425, 'process' => true, 'page' => 'none'],
+            '9406:optional-tour' => ['identifier' => '9406:optional-tour', 'name' => 'optional-tour', 'description' => '', 'uid' => 9426, 'process' => true, 'page' => 'optional'],
+            '9407:page-needed'   => ['identifier' => '9407:page-needed', 'name' => 'page-needed', 'description' => '', 'uid' => 9427, 'process' => false, 'page' => 'required'],
         ];
         $skills = $this->createMock(SkillCatalogueInterface::class);
         $skills->method('isAvailable')->willReturn(true);
@@ -302,6 +307,60 @@ final class ChatConversationStartTest extends FunctionalTestCase
         self::assertNotNull($stored);
         self::assertSame(ConversationStatus::Idle, $stored->getStatus());
         self::assertSame([], $stored->getDecodedMessages());
+    }
+
+    /**
+     * A process that works on no page (ADR-025) binds none: the page it was
+     * started with is not stored, and nothing runs before the editor's
+     * message.
+     */
+    #[Test]
+    public function aProcessThatWorksOnNoPageBindsNoneAndStartsNoRun(): void
+    {
+        $this->loginWithLanguage();
+        $processor = $this->createMock(ChatProcessorInterface::class);
+        $processor->expects(self::never())->method('dispatch');
+
+        $body = json_decode((string) $this->createWith($this->tourSubject($processor), ['pageUid' => 10, 'skill' => '9405:no-page-tour'])->getBody(), true);
+        self::assertIsArray($body);
+        $stored = $this->repository->findByUid((int) $body['uid']);
+
+        self::assertNotNull($stored);
+        self::assertSame(ConversationStatus::Idle, $stored->getStatus());
+        self::assertSame([], $stored->getDecodedMessages());
+        self::assertSame(0, $stored->getViewContext()['pageId']);
+    }
+
+    /**
+     * A process that may work on a page, and a skill that is no process but
+     * needs one, keep the page they are started with and wait for the
+     * editor's message: only a process that needs its page starts at once
+     * (ADR-025).
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function storedPageNoRun(): iterable
+    {
+        yield 'process, page optional' => ['9406:optional-tour'];
+        yield 'no process, page required' => ['9407:page-needed'];
+    }
+
+    #[Test]
+    #[DataProvider('storedPageNoRun')]
+    public function otherSkillsAboutAPageKeepItAndStartNoRun(string $skill): void
+    {
+        $this->loginWithLanguage();
+        $processor = $this->createMock(ChatProcessorInterface::class);
+        $processor->expects(self::never())->method('dispatch');
+
+        $body = json_decode((string) $this->createWith($this->tourSubject($processor), ['pageUid' => 10, 'skill' => $skill])->getBody(), true);
+        self::assertIsArray($body);
+        $stored = $this->repository->findByUid((int) $body['uid']);
+
+        self::assertNotNull($stored);
+        self::assertSame(ConversationStatus::Idle, $stored->getStatus());
+        self::assertSame([], $stored->getDecodedMessages());
+        self::assertSame(10, $stored->getViewContext()['pageId']);
     }
 
     /**
