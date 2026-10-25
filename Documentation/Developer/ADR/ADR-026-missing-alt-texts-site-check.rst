@@ -66,17 +66,38 @@ Like *Alternative text* it is an exclude field: an editor sees it once
 their group is granted it. No ``l10n_mode``, so each language version of a
 reference has its own. It is not on ``sys_file_metadata``.
 
-**Frontend output.** fluid_styled_content's ``Media/Rendering/Image``
-partial (the same in 13.4 and 14.3) gets an override that renders a
-decorative image with ``f:image … alt=""`` and every other image with the
-core's own line. ``f:media`` cannot be used for the decorative branch: it
-treats ``alt=""`` as missing and falls back to the file's alternative
-text; ``f:image`` keeps an explicit empty one. The partial path is added
-with ``addTypoScript(…, 'defaultContentRendering')``, right after the
-content rendering TypoScript, at key 5: above the core's (0), below a site
-package's (10). A site package or extension with its own image partial
-(bootstrap_package among them) keeps its own; the installation
-documentation gives the condition to add.
+**Frontend output.** fluid_styled_content's image partial
+(``Media/Rendering/Image.html`` in 13.4, ``Image.fluid.html`` in 14.3, the
+same markup) gets an override that renders a decorative image with
+``f:image … alt=""`` and every other image with the core's own line.
+``f:media`` cannot be used for the decorative branch: it treats ``alt=""``
+as missing and falls back to the file's alternative text; ``f:image``
+keeps an explicit empty one. The partial path sits at key 5: above the
+core's (0), below a site package's (10, ``styles.templates.partialRootPath``).
+
+The path is never added to every site. A content rendering of its own
+with its image partial below key 5 would lose that partial for every
+image: bootstrap_package 16 sets its own path at 0 and, at 10, a setting
+whose default names a folder it does not ship (``Partials/ContentElement/``;
+its partials are in ``Partials/ContentElements/``), so key 5 would win and
+its images would lose their ``<picture>`` and ``srcset`` output. The path
+comes only together with fluid_styled_content:
+
+-   Sites with site sets opt in with the set
+    ``netresearch/nr-mcp-agent-decorative-images``, which depends on
+    ``typo3/fluid-styled-content``. A ``defaultContentRendering`` addition
+    would not reach them at all: the core adds it before the sets, and
+    fluid_styled_content's TypoScript starts with ``lib.contentElement >``.
+-   Sites with ``sys_template`` records get it right after
+    fluid_styled_content's static template
+    (``addTypoScript(…, 'fluidstyledcontent/Configuration/TypoScript/')``),
+    and only when they include that template. bootstrap_package's static
+    template does not include it. A site that includes fluid_styled_content
+    and then another content rendering keeps key 5 and puts its own partial
+    path at 10 or above.
+
+A site package or extension with its own image partial keeps it; the
+installation documentation gives the condition to add.
 
 **Which fields count.** Every column of type ``file`` in the TCA, read at
 runtime: a newly installed extension's image fields are checked without
@@ -106,13 +127,28 @@ owns with it.
 **When a hit is open.** The image's effective alt text is empty: the
 reference's own text, or, where the reference has none (``NULL``), the
 file list's text in the reference's language where the file has a metadata
-translation, else in the default language. A reference whose text was
-overridden with an empty one is open even if the file list has a text,
-because the frontend then renders it empty; whitespace counts as empty.
-Not decorative; reference, records on the way and page not deleted.
-Hidden and timed content counts and carries why it is not visible:
-a parent page hidden for its subpages, the page, the element or record,
-a start time in the future, an end time passed, and, beyond the
+translation, else in the default language. The file list's text is read in
+its live version; a draft in a workspace does not decide outside it. A
+reference whose text was overridden with an empty one is open even if the
+file list has a text, because the frontend then renders it empty;
+whitespace counts as empty. A reference for all languages
+(``sys_language_uid`` -1) is checked against the default language's file
+list text only; on a translated page the frontend shows that language's
+metadata translation instead, so such a reference can be listed although
+a translation has a text, or the other way round.
+
+Not decorative; reference, records on the way and page not deleted. Only
+references in a field the record's type shows: listed in its ``showitem``,
+directly or in a palette, and not turned into another field type by
+``columnsOverrides``. A reference left in a field after the record's type
+changed (an image on a *Text* element that was *Text & Images*) is in no
+form and in no output.
+
+Hidden and timed content counts and carries why it is not visible: a
+parent page that passes its visibility on to its subpages
+(``extendToSubpages``) and is hidden, not started yet or expired; the
+page; its translation in the content's language; the element or record; a
+start time in the future, an end time passed; and, beyond the
 specification, a hidden reference (*Bild ausgeblendet*). The level highest
 up wins, a parent page before the page.
 
@@ -130,17 +166,23 @@ enforced in this slice: per-value access to the content type
 through hooks; DataHandler still applies both when slice 2 writes.
 
 **Workspaces.** In a workspace each row is overlaid with its workspace
-version: an alt text or mark set there, and a record deleted there, count;
-references new in the workspace are found. Records of tables that are not
-workspace-aware are left out. Not covered: a reference whose live alt text
-is set and that is emptied only in the workspace is not found. The test
-setup has no EXT:workspaces, so this part is not covered by the automated
-tests.
+version: an alt text or mark set there, a file list text set there, and a
+record deleted there, count; references new in the workspace are found.
+Records of tables that are not workspace-aware are left out. Not covered:
+an alt text that is set live and emptied only in the workspace, on the
+reference or in the file list, is not found, because the query decides on
+the live rows; a metadata translation that exists only in the workspace is
+not read. The tests load EXT:workspaces for this part.
 
 **Live, no cache.** The list and the dashboard number run the query and
 the filter on every request, and the list pages in memory. The
 specification's nightly cache for large sites is not built; it is added
-when a site needs it.
+when a site needs it. The query over the references has no limit and the
+number is not counted in SQL: whether a hit counts depends on the page
+access over the rootline, the field and language rights and the record
+type, which are decided per reference in PHP. A limit would make the
+dashboard number wrong. Its cost grows with the number of open references,
+not with the number of pages.
 
 **The list and its entries.** A second route of the existing module
 ``nr_mcp_agent_chat``, reached from the widget *Website prüfen* (always
@@ -156,11 +198,15 @@ Consequences
 
 -   An editor sees every image without an alt text they may fix, in one
     place, without opening pages.
--   A decorative image is output with ``alt=""`` in fluid_styled_content;
-    sites with their own image partial need the documented condition
-    until they add it.
--   The check costs one query over the references plus one query per table
-    and level for the records, and a rootline per page; it scales with the
-    number of open hits, not with the number of pages.
--   The tests need ``typo3/cms-fluid-styled-content`` as a development
-    dependency, to prove the frontend output.
+-   A decorative image is output with ``alt=""`` in fluid_styled_content:
+    on ``sys_template`` sites that include its static template right away,
+    on site set sites once the extension's set is added. Sites with their
+    own image partial need the documented condition until they add it.
+-   The check costs one query over the references, one query per table and
+    level for the records, one per 500 pages for the pages and their
+    translations, and the page access check and rootline per page (each
+    with the core's runtime cache); it scales with the number of open hits,
+    not with the number of pages.
+-   The tests need ``typo3/cms-fluid-styled-content`` and
+    ``typo3/cms-workspaces`` as development dependencies, to prove the
+    frontend output and the workspace overlay.
