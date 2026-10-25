@@ -148,6 +148,54 @@
                 <source>Check the texts of the page for clarity, structure and spelling, and improve them.</source>
                 <target>Texte der Seite auf Verständlichkeit, Aufbau und Rechtschreibung prüfen und verbessern.</target>
             </trans-unit>
+            <trans-unit id="websiteCheck.title" resname="websiteCheck.title">
+                <source>Check website</source>
+                <target>Website prüfen</target>
+            </trans-unit>
+            <trans-unit id="websiteCheck.description" resname="websiteCheck.description">
+                <source>Site-wide checks of your website, such as images without an alt text.</source>
+                <target>Websiteweite Prüfungen, zum Beispiel Bilder ohne Alt-Text.</target>
+            </trans-unit>
+            <trans-unit id="websiteCheck.altTexts" resname="websiteCheck.altTexts">
+                <source>Missing alt texts</source>
+                <target>Fehlende Alt-Texte</target>
+            </trans-unit>
+            <trans-unit id="altTexts.label" resname="altTexts.label">
+                <source>Images without alt text</source>
+                <target>Bilder ohne Alt-Text</target>
+            </trans-unit>
+            <trans-unit id="altTexts.onPage" resname="altTexts.onPage">
+                <source>on 1 page</source>
+                <target>auf 1 Seite</target>
+            </trans-unit>
+            <trans-unit id="altTexts.onPages" resname="altTexts.onPages">
+                <source>on %d pages</source>
+                <target>auf %d Seiten</target>
+            </trans-unit>
+            <trans-unit id="altTexts.inRecord" resname="altTexts.inRecord">
+                <source>in 1 record</source>
+                <target>in 1 Datensatz</target>
+            </trans-unit>
+            <trans-unit id="altTexts.inRecords" resname="altTexts.inRecords">
+                <source>in %d records</source>
+                <target>in %d Datensätzen</target>
+            </trans-unit>
+            <trans-unit id="altTexts.foundBoth" resname="altTexts.foundBoth">
+                <source>Found %1$s and %2$s</source>
+                <target>%1$s und %2$s gefunden</target>
+            </trans-unit>
+            <trans-unit id="altTexts.foundOne" resname="altTexts.foundOne">
+                <source>Found %s</source>
+                <target>%s gefunden</target>
+            </trans-unit>
+            <trans-unit id="altTexts.view" resname="altTexts.view">
+                <source>View</source>
+                <target>Ansehen</target>
+            </trans-unit>
+            <trans-unit id="altTexts.viewName" resname="altTexts.viewName">
+                <source>View: images without alt text</source>
+                <target>Ansehen: Bilder ohne Alt-Text</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

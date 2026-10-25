@@ -7,6 +7,15 @@
     <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
     <f:if condition="{available}">
         <f:then>
+            <f:if condition="{altTexts}">
+                <div class="nr-mcp-agent-alt-text-tile card mb-3">
+                    <div class="card-body">
+                        <p class="mb-1"><span class="fs-3 fw-bold me-1">{altTexts.count}</span>{f:translate(key: '{ll}altTexts.label')}</p>
+                        <p class="text-variant small mb-2">{altTexts.found}</p>
+                        <a class="btn btn-default btn-sm" href="{altTexts.uri}" aria-label="{f:translate(key: '{ll}altTexts.viewName')}">{f:translate(key: '{ll}altTexts.view')}</a>
+                    </div>
+                </div>
+            </f:if>
             <f:if condition="{points}">
                 <f:then>
                     <ul class="list-unstyled nr-mcp-agent-recommendations">
@@ -19,7 +28,9 @@
                     </ul>
                 </f:then>
                 <f:else>
-                    <p>{f:translate(key: '{ll}recommendations.empty')}</p>
+                    <f:if condition="{altTexts}">
+                        <f:else><p>{f:translate(key: '{ll}recommendations.empty')}</p></f:else>
+                    </f:if>
                 </f:else>
             </f:if>
         </f:then>

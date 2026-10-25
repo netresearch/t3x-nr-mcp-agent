@@ -542,7 +542,7 @@ the widgets in the *AI Assistant* group (*Add widget > AI Assistant*), or
 start from the **AI Assistant** preset when creating a dashboard, which
 holds all of them and the **Recent chats** widget, in this order:
 **AI Assistant**, **Improve a page**, **Frequent tasks**, **Recent chats**,
-**Recommended for your website**.
+**Recommended for your website**, **Check website**.
 
 **AI Assistant**
     A question of your own, without choosing a tour or a page first: type it
@@ -591,6 +591,15 @@ holds all of them and the **Recent chats** widget, in this order:
     point whose skill no longer exists is not shown. Until open points are
     recorded, the widget says how they come about.
 
+    Above the points, a tile counts the **images without alt text** you may
+    fix, says on how many pages and in how many records they are, and leads
+    to the list with **View** (see :ref:`usage-missing-alt-texts`). It is
+    not shown while no image lacks one.
+
+**Check website**
+    Site-wide checks. **Missing alt texts** is always listed and opens the
+    list, also when nothing is open.
+
 Only tours and tasks the chat can actually start are offered: a configured
 skill that does not exist (yet), is not attached to the chat, or cannot run
 on this installation is left out, and a widget left empty says that nothing
@@ -598,6 +607,43 @@ is set up yet. For a user the chat is not available to, each widget says so
 instead.
 Offering a page is not permission to change it: what the assistant does on
 the page is checked again when it does it.
+
+.. _usage-missing-alt-texts:
+
+Missing alt texts
+=================
+
+The list **Missing alt texts** shows every use of an image without an alt
+text that you may fix, across all pages and records, without opening them
+one by one. Open it from **Check website** or from the tile in
+**Recommended for your website** on the dashboard. It is checked when the
+list opens: an alt text you add in a content element is gone from the list
+the next time you open it.
+
+The heading counts the open images. **Pages** lists the images in content
+elements and in the page properties, grouped by page in page tree order and
+within a page in the order of its content. Each record type with open
+images follows as a tab of its own, named as in the list module, for
+example *News*; its images are grouped by record, with the folder the
+record lies in. The tabs work with the arrow keys, :kbd:`Home` and
+:kbd:`End`.
+
+Each row shows the image (with its crop), the file name, the content
+element or the image field, the language, and a button that opens the page,
+or the record's detail page, in a new tab. A record type gets **Open detail
+page** only where its preview is configured (Page TSconfig
+``TCEMAIN.preview``), as **View** in the list module. Hidden and timed
+content stays in the list: *Currently not visible* says why, for example
+*Element hidden* or *Expired since …*, because the image needs its alt text
+once the content is shown again. Many images are listed page by page.
+
+An image counts as open when neither its use nor the file list
+(*Alternative text* of the file) gives it an alt text, and it is not marked
+as decorative. You see only images you may change: on pages you may edit,
+in languages you may edit, with the right to change *Alternative text* and
+the record and its image field. Fixing an image with the assistant from the
+list follows in a later release. Which tables and fields are checked is set
+in :confval:`altTextExcludedTables` and :confval:`altTextExcludedFields`.
 
 .. _usage-decorative-images:
 

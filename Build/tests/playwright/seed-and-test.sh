@@ -22,7 +22,10 @@
 #                 cancel (editor-journey.spec.ts). The admin's only dashboard
 #                 holds the prompt widget (prompt-widget.spec.ts) and the
 #                 "Recent chats" widget, with a guided process on a page and
-#                 one on a deleted page (recent-chats-widget.spec.ts).
+#                 one on a deleted page (recent-chats-widget.spec.ts). A
+#                 second administrator's dashboard holds the two entries to
+#                 the list of images without an alt text, of which three
+#                 are seeded on a page of their own (missing-alt-texts.spec.ts).
 #
 # DB coordinates are the fixed defaults the reusable workflow's default mode
 # provisions (see its "Setup TYPO3" step): host 127.0.0.1, root/root, db typo3.
@@ -76,6 +79,9 @@ case "${E2E_VARIANT:-}" in
 
     echo "Adding the prompt widget to that dashboard, the admin's only one (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/prompt-widget-seed.sql"
+
+    echo "Seeding three images without an alt text and a user whose dashboard leads to their list (${DB_CLIENT})..."
+    "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/alt-texts-seed.sql"
 
     echo "Pointing llmTaskUid at the seeded Task..."
     cat >> config/system/additional.php << 'PHPEOF'
