@@ -226,6 +226,26 @@ describe('"Optimieren" in the chat panel', () => {
         expect(panel.shadowRoot.querySelector('.alt-text-divider').textContent).toBe('altText.switched');
     });
 
+    test('the header and the tab name the new image after a switch, without reloading the list', async () => {
+        answers.ai_chat_conversations = () => [200, {conversations: Array.from({length: created}, (_, i) => ({uid: 5 + i, title: 'Alt-Text: page-templates.png', status}))}];
+        const switchTo = answers.ai_chat_alt_text_switch;
+        answers.ai_chat_alt_text_switch = (url, body) => {
+            const [code, data] = switchTo(url, body);
+            return [code, {...data, title: 'Alt-Text: elements.png'}];
+        };
+        await panel.optimiseAltText(1);
+        await panel.updateComplete;
+        expect(panel.shadowRoot.querySelector('.panel-header .title').textContent).toBe('Alt-Text: page-templates.png');
+
+        await panel.optimiseAltText(10);
+        await panel.updateComplete;
+
+        expect(panel.shadowRoot.querySelector('.panel-header .title').textContent).toBe('Alt-Text: elements.png');
+        const tab = panel.shadowRoot.querySelector('.conv-tab.active');
+        expect(tab.getAttribute('title')).toContain('Alt-Text: elements.png');
+        expect(tab.textContent).toContain('Alt-Text: elements.png');
+    });
+
     test('an image fixed meanwhile is reported to the list, which drops it', async () => {
         answers.ai_chat_conversation_create = () => [409, {error: 'Dieses Bild ist nicht mehr offen.', code: 'done'}];
 

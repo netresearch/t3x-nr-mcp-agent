@@ -2103,6 +2103,7 @@ final readonly class ChatApiController
         return new JsonResponse([
             'status'    => 'processing',
             'reference' => $hit->referenceUid,
+            'title'     => $conversation->getTitle(),
             ...($backendUser instanceof BackendUserAuthentication ? $this->altTextConversation->locate($hit, $backendUser) : []),
         ], 202);
     }

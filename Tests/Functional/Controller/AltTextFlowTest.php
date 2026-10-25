@@ -284,13 +284,39 @@ final class AltTextFlowTest extends FunctionalTestCase
         $response = $this->post('switch', ['conversationUid' => $conversation->getUid(), 'reference' => 10]);
 
         self::assertSame(202, $response->getStatusCode(), (string) $response->getBody());
-        self::assertSame(['status' => 'processing', 'reference' => 10, 'tab' => 'pages', 'page' => 1], $this->json($response));
+        self::assertSame(['status' => 'processing', 'reference' => 10, 'title' => 'Alt text: team.jpg', 'tab' => 'pages', 'page' => 1], $this->json($response));
         $moved = $this->conversation($conversation->getUid());
         self::assertSame(10, $moved->getAltTextHit()['reference']);
         self::assertSame([AltTextConversation::NOTICE_HIT, AltTextConversation::NOTICE_SWITCHED, AltTextConversation::NOTICE_HIT], $this->notices($moved));
         self::assertSame(['team.jpg', 'Startseite'], $moved->getDecodedMessages()[1]['noticeArgs']);
         self::assertSame(2, $this->dispatched);
         self::assertSame(1, $this->getConnectionPool()->getConnectionForTable('tx_nrmcpagent_conversation')->count('*', 'tx_nrmcpagent_conversation', []));
+    }
+
+    /** The title follows the image: the stored one and the one the answer gives the panel. */
+    #[Test]
+    public function theTitleFollowsTheNewImage(): void
+    {
+        $conversation = $this->settle($this->start(1));
+
+        $response = $this->post('switch', ['conversationUid' => $conversation->getUid(), 'reference' => 7]);
+
+        self::assertSame(202, $response->getStatusCode(), (string) $response->getBody());
+        self::assertSame('Alt text: with-metadata.jpg', $this->conversation($conversation->getUid())->getTitle());
+        self::assertSame('Alt text: with-metadata.jpg', $this->json($response)['title'] ?? null);
+    }
+
+    /** A title the editor gave the conversation stays when it moves on. */
+    #[Test]
+    public function aTitleTheEditorChoseStays(): void
+    {
+        $conversation = $this->start(1);
+        $conversation->setTitle('Teamfotos');
+        $conversation = $this->settle($conversation);
+
+        $this->post('switch', ['conversationUid' => $conversation->getUid(), 'reference' => 7]);
+
+        self::assertSame('Teamfotos', $this->conversation($conversation->getUid())->getTitle());
     }
 
     /** While a turn runs, the image does not change under it. */
