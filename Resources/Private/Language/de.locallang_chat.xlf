@@ -491,6 +491,10 @@
                 <source>Your own permissions do not cover this change, so you may not approve it and nothing was carried out. Someone whose permissions cover it can approve it.</source>
                 <target>Deine eigenen Rechte decken diese Änderung nicht ab, deshalb darfst du sie nicht freigeben, und es wurde nichts ausgeführt. Freigeben kann jemand, dessen Rechte sie abdecken.</target>
             </trans-unit>
+            <trans-unit id="error.handBack.toolDisabled" resname="error.handBack.toolDisabled">
+                <source>This action has been switched off by an administrator, so it cannot be carried out right now. The step waits until it is switched on again; then decide again.</source>
+                <target>Diese Aktion wurde von der Administration ausgeschaltet, deshalb kann sie gerade nicht ausgeführt werden. Der Schritt wartet, bis sie wieder eingeschaltet ist; danach bitte erneut entscheiden.</target>
+            </trans-unit>
             <trans-unit id="error.handBack.configurationInactive" resname="error.handBack.configurationInactive">
                 <source>The AI configuration of this chat is switched off, so nothing was carried out. The step waits until it is switched on again; then decide again.</source>
                 <target>Die KI-Konfiguration dieses Chats ist ausgeschaltet, deshalb wurde nichts ausgeführt. Der Schritt wartet, bis sie wieder eingeschaltet ist; danach bitte erneut entscheiden.</target>
@@ -546,6 +550,10 @@
             <trans-unit id="error.handBack.inputAlreadyResuming" resname="error.handBack.inputAlreadyResuming">
                 <source>This question was already answered, so this answer was not taken. The result appears in AI Tasks, under this run.</source>
                 <target>Diese Rückfrage wurde bereits beantwortet, deshalb wurde diese Antwort nicht übernommen. Das Ergebnis erscheint in KI-Aufgaben bei diesem Lauf.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputToolOff" resname="error.handBack.inputToolOff">
+                <source>The action this question belongs to has been switched off by an administrator, so the answer was not taken. The question waits until the action is switched on again; then answer again.</source>
+                <target>Die Aktion, zu der diese Rückfrage gehört, wurde von der Administration ausgeschaltet, deshalb wurde die Antwort nicht übernommen. Die Rückfrage wartet, bis die Aktion wieder eingeschaltet ist; danach bitte erneut antworten.</target>
             </trans-unit>
             <trans-unit id="error.handBack.inputConfigOff" resname="error.handBack.inputConfigOff">
                 <source>The AI configuration of this chat is switched off, so the answer was not taken. The question waits until it is switched on again; then answer again.</source>

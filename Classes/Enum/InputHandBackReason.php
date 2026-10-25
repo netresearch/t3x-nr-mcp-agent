@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Enum;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationInactiveException;
@@ -36,6 +37,13 @@ enum InputHandBackReason: string
 
     /** The user may not run the step the question belongs to. */
     case SubmitterNotPermitted = 'handBack.inputNotPermitted';
+
+    /**
+     * An administrator switched off the tool the question belongs to while the
+     * run waited. Not the user's permissions: nobody can answer until it is on
+     * again.
+     */
+    case ToolDisabled = 'handBack.inputToolOff';
 
     /** Another answer to the same question is already being carried out. */
     case AlreadyResuming = 'handBack.inputAlreadyResuming';
@@ -66,11 +74,22 @@ enum InputHandBackReason: string
         return match (true) {
             $e instanceof StaleInputTurnException           => self::StaleTurn,
             $e instanceof InvalidInputSubmissionException   => self::InvalidInput,
-            $e instanceof SubmitterNotPermittedException    => self::SubmitterNotPermitted,
+            $e instanceof SubmitterNotPermittedException    => self::forSubmitterRefusal(ApprovalHandBackReason::denialReasonOf($e)),
             $e instanceof RunAlreadyResumingException       => self::AlreadyResuming,
             $e instanceof RunConfigurationInactiveException => self::ConfigurationInactive,
             default                                         => self::NotAwaitingInput,
         };
+    }
+
+    /**
+     * The submitter gate's refusal, by the tool policy's reason: a switched-off
+     * tool gets its own sentence, every other reason — and no reason at all —
+     * the permissions sentence. The reason is read through the same bridge as
+     * for an approval, {@see ApprovalHandBackReason::denialReasonOf()}.
+     */
+    public static function forSubmitterRefusal(?ToolDenialReason $reason): self
+    {
+        return $reason === ToolDenialReason::TOOL_DISABLED ? self::ToolDisabled : self::SubmitterNotPermitted;
     }
 
     /** The key of the reader-facing sentence in locallang_chat.xlf. */
