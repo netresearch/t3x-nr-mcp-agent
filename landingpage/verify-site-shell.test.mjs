@@ -4,8 +4,18 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {renderSiteHeader} from './site-shell/render-site-shell.mjs';
-import {verifySiteShell} from './verify-site-shell.mjs';
+import {verifyBusinessContacts, verifySiteShell} from './verify-site-shell.mjs';
 const symbol = readFileSync(new URL('./site-shell/netresearch-symbol-only.svg', import.meta.url));
+const inertScriptFixtures = {
+    en: `<script type="application/json"><header>
+        <a class="nr-shell-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Contact</a>
+        <a class="nr-shell-menu-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=menu">Contact</a>
+        </header><a data-cta="business" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=hero">Hero</a></script>`,
+    de: `<script type="application/json"><header>
+        <a class="nr-shell-contact" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Kontakt</a>
+        <a class="nr-shell-menu-contact" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=menu">Kontakt</a>
+        </header><a data-cta="business" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=hero">Hero</a></script>`,
+};
 const header = renderSiteHeader({lang: 'en', assetBase: 'assets/site-shell', languageUrls: {en: './', de: 'de/'}, active: null, contactHref: 'https://www.netresearch.de/kontakt/'});
 test('shared header carries exactly one authentic, linked brand symbol', () => {
     assert.deepEqual(verifySiteShell(header, symbol), []);
@@ -16,3 +26,36 @@ test('logo gate rejects duplicates, wrong company targets and altered assets', (
     assert.notDeepEqual(verifySiteShell(header.replace('https://www.netresearch.de/', 'https://example.com/'), symbol), []);
     assert.notDeepEqual(verifySiteShell(header, Buffer.from(symbol.toString().replace('#2F99A4', '#000000'))), []);
 });
+
+for (const [lang, expected] of Object.entries({
+    en: ['https://netresearch.github.io/', 'https://netresearch.github.io/projects/', 'https://netresearch.github.io/modularer-ki-stack-page/en/', 'https://netresearch.github.io/claude-code-marketplace/en/', 'https://netresearch.github.io/maint/'],
+    de: ['https://netresearch.github.io/de/', 'https://netresearch.github.io/de/projekte/', 'https://netresearch.github.io/modularer-ki-stack-page/', 'https://netresearch.github.io/claude-code-marketplace/de/', 'https://netresearch.github.io/maint/de/'],
+})) {
+    test(`desktop and mobile family navigation retain every ${lang} destination`, () => {
+        const markup = renderSiteHeader({lang, assetBase: 'assets/site-shell', languageUrls: {en: './', de: 'de/'}, active: null, contactHref: 'https://www.netresearch.de/kontakt/'});
+        const links = [...markup.matchAll(/class="nr-shell-link" href="([^"]+)"/g)].map(match => match[1]);
+        assert.deepEqual(links, [...expected, ...expected]);
+        assert.deepEqual(verifySiteShell(markup, symbol, lang), []);
+        assert.notDeepEqual(verifySiteShell(markup.replace(expected[3], 'https://wrong.test/skills/'), symbol, lang), []);
+        assert.notDeepEqual(verifySiteShell(markup.replace('nr-shell-menu-panel', 'missing-menu'), symbol, lang), []);
+    });
+    test(`all marked ${lang} business CTAs are checked even while a valid footer remains`, () => {
+        const base = lang === 'de' ? 'https://www.netresearch.de/kontakt/' : 'https://www.netresearch.de/en/contact/';
+        const contact = `${base}?utm_source=github-pages&amp;utm_medium=referral&amp;utm_campaign=fixture&amp;utm_content=`;
+        const shell = renderSiteHeader({lang, assetBase: 'assets/site-shell', languageUrls: {en: './', de: 'de/'}, active: null, contactHref: contact.replaceAll('&amp;', '&') + 'header'});
+        const fixture = href => shell + `<a data-cta="business"${href === null ? '' : ` href="${href}"`}>Hero</a><a data-cta="business" href="${contact}footer">Footer</a>`;
+        const valid = fixture(contact + 'hero');
+        assert.deepEqual(verifyBusinessContacts(valid, lang), []);
+        assert.deepEqual(verifyBusinessContacts(valid.replaceAll('&amp;', '&#38;'), lang), []);
+        assert.deepEqual(verifyBusinessContacts(valid.replaceAll('&amp;', '&#x26;').replaceAll('"', "'"), lang), []);
+        assert.deepEqual(verifyBusinessContacts(valid.replaceAll('&amp;', '&AMP;'), lang), []);
+        assert.notDeepEqual(verifyBusinessContacts(valid.replaceAll('&amp;', '&aMp;'), lang), []);
+        assert.notDeepEqual(verifyBusinessContacts(fixture('https://wrong.test/contact/').replace('data-cta="business"', 'data-cta="bu&#115;iness"'), lang), []);
+        assert.notDeepEqual(verifyBusinessContacts(fixture(contact.replaceAll('&amp;', '&amp;amp;') + 'hero'), lang), []);
+        for (const href of [null, 'https://wrong.test/contact/', contact.replace('https:', 'http:') + 'hero', contact.replace('utm_medium=referral', 'unused=referral') + 'hero', base + '#utm_source=x&utm_medium=x&utm_campaign=x&utm_content=x']) {
+            assert.notDeepEqual(verifyBusinessContacts(fixture(href), lang), []);
+        }
+        assert.notDeepEqual(verifyBusinessContacts(inertScriptFixtures[lang], lang), []);
+        assert.notDeepEqual(verifyBusinessContacts(`<!--${valid}-->`, lang), []);
+    });
+}
