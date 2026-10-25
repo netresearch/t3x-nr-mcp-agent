@@ -282,8 +282,10 @@ async function auditPage(browser, port, route, scheme, width) {
     nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
   });
   if (width === 320 && !isDocumentation(route)) {
-    results.violations.push(...(await auditTextAdaptation(page, scheme)));
-    results.violations.push(...(await auditPageControls(page, scheme)));
+    results.violations.push(
+      ...(await auditTextAdaptation(page, scheme)),
+      ...(await auditPageControls(page, scheme)),
+    );
   }
 
   await context.close();
