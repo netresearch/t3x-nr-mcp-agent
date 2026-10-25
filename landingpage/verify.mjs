@@ -16,7 +16,7 @@ import {fileURLToPath} from 'node:url';
 
 import {checkAccessibility} from './check-accessibility.mjs';
 import {verifyProductUrls} from './verify-product-urls.mjs';
-import {verifySiteShell} from './verify-site-shell.mjs';
+import {verifyNotFoundPage, verifySiteShell} from './verify-site-shell.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, '.Build/site');
@@ -24,6 +24,10 @@ const headerSymbol = await readFile(resolve(output, 'assets/site-shell/netresear
 
 // Trusted deployment configuration, independent of the rendered canonical.
 const deploymentOrigin = process.env.PAGES_ORIGIN || 'https://netresearch.github.io';
+const configuredBase = (process.env.PAGES_BASE_PATH ?? '/').split('/').filter(Boolean).join('/');
+const recoveryRoot = process.env.PAGES_ORIGIN
+    ? new URL(configuredBase ? `${configuredBase}/` : '/', `${new URL(deploymentOrigin).origin}/`).href
+    : 'https://netresearch.github.io/t3x-nr-mcp-agent/';
 
 const errors = [];
 const fail = (message) => errors.push(message);
@@ -111,7 +115,7 @@ const renderedPages = await Promise.all(pages.map(async (page) => {
     const html = await readFile(page, 'utf8');
     // Redirect stubs have no content of their own and retain their docs canonical.
     const redirect = /<meta[^>]+http-equiv=["']refresh["']/i.test(html);
-    const problems = manifest && !redirect
+    const problems = manifest && !redirect && name !== '404.html'
         ? await verifyProductUrls(html, name, output, manifest.slug, deploymentOrigin) : [];
     return {name, html, redirect, problems};
 }));
@@ -119,6 +123,10 @@ const renderedPages = await Promise.all(pages.map(async (page) => {
 for (const {name, html, redirect, problems} of renderedPages) {
     if (redirect) {
         stubs += 1;
+        continue;
+    }
+    if (name === '404.html') {
+        for (const problem of verifyNotFoundPage(html, headerSymbol, recoveryRoot)) fail(`${name}: ${problem}`);
         continue;
     }
     const text = stripMarkup(html);
@@ -143,15 +151,18 @@ for (const {name, html, redirect, problems} of renderedPages) {
         }
     }
 
-    const contactLinks = [...html.matchAll(/href="([^"]*netresearch\.de\/kontakt\/[^"]*)"/g)].map((m) => m[1]);
+    const contactLinks = [...html.matchAll(/href="(https:\/\/www\.netresearch\.de\/(?:kontakt|en\/contact)\/[^"]*)"/g)].map((m) => m[1]);
     if (contactLinks.length === 0) fail(`${name}: no business CTA to the contact form`);
+    const lang = /<html\b[^>]*\blang="de"/.test(html) ? 'de' : 'en';
+    const expectedContactPath = lang === 'de' ? '/kontakt/' : '/en/contact/';
     for (const href of contactLinks) {
+        if (new URL(href).pathname !== expectedContactPath) fail(`${name}: contact link changes language: ${href}`);
         for (const param of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content']) {
             if (!href.includes(`${param}=`)) fail(`${name}: contact link without ${param}`);
         }
     }
 
-    for (const problem of verifySiteShell(html, headerSymbol)) fail(`${name}: ${problem}`);
+    for (const problem of verifySiteShell(html, headerSymbol, lang)) fail(`${name}: ${problem}`);
 
     // Accessibility and semantics decidable from the markup alone.
     for (const problem of checkAccessibility(html)) fail(`${name}: ${problem}`);
@@ -199,7 +210,8 @@ if (!await exists(resolve(output, 'docs/index.html'))) {
     fail('missing .Build/site/docs/index.html — the documentation did not render');
 }
 
-const productPages = pages.length - stubs;
+if (!await exists(resolve(output, '404.html'))) fail('missing .Build/site/404.html project recovery page');
+const productPages = pages.length - stubs - (await exists(resolve(output, '404.html')) ? 1 : 0);
 if (productPages !== 2) fail(`expected 2 product pages, found ${productPages}`);
 
 for (const message of errors) process.stderr.write(`ERROR ${message}\n`);

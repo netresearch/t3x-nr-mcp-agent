@@ -7,6 +7,7 @@ import {tmpdir} from 'node:os';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
+import {verifyNotFoundPage} from './verify-site-shell.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -39,14 +40,30 @@ for (const [basePath, expected] of [
                 assert.ok(html.includes(`hreflang="de" href="${expected}de/"`));
                 assert.ok(html.includes(`content="${expected}assets/og-mcp-agent-${locale}.png"`));
                 assert.ok(html.includes(`rel="sitemap" href="${expected}sitemap.xml"`));
+                const contactPath = locale === 'de' ? '/kontakt/' : '/en/contact/';
+                const contactLinks = [...html.matchAll(/href="(https:\/\/www\.netresearch\.de\/(?:kontakt|en\/contact)\/[^"]*)"/g)];
+                assert.ok(contactLinks.length >= 4, 'header, hero, final CTA and footer retain contact links');
+                for (const [, href] of contactLinks) {
+                    assert.equal(new URL(href).pathname, contactPath, `contact link changes language: ${href}`);
+                }
+                const imprintUrl = locale === 'de' ? 'https://www.netresearch.de/impressum/' : 'https://www.netresearch.de/en/imprint/';
+                const privacyUrl = locale === 'de' ? 'https://www.netresearch.de/datenschutz/' : 'https://www.netresearch.de/en/privacy-policy/';
+                assert.ok(html.includes(`href="${imprintUrl}" lang="${locale}"`));
+                assert.ok(html.includes(`href="${privacyUrl}" lang="${locale}"`));
                 for (const [, url] of html.matchAll(/(?:href|content)="(https:\/\/pages\.example[^"#]*)"/g)) {
                     assert.ok(url.startsWith(expected), `URL leaves project base path: ${url}`);
                 }
                 assert.ok(html.includes(`href="${expected}docs/"`));
             }
+            const notFound = await readFile(resolve(fixture, '.Build/site/404.html'), 'utf8');
+            const symbol = await readFile(resolve(root, 'landingpage/site-shell/netresearch-symbol-only.svg'));
+            assert.deepEqual(verifyNotFoundPage(notFound, symbol, expected), []);
+            assert.notDeepEqual(verifyNotFoundPage(notFound.replace('noindex,follow', 'index,follow'), symbol, expected), []);
+            assert.notDeepEqual(verifyNotFoundPage(notFound.replace(`${new URL(expected).pathname}assets/product.css`, 'assets/product.css'), symbol, expected), []);
             const sitemap = await readFile(resolve(fixture, '.Build/site/sitemap.xml'), 'utf8');
             assert.ok(sitemap.includes(`<loc>${expected}</loc>`));
             assert.ok(sitemap.includes(`<loc>${expected}de/</loc>`));
+            assert.ok(!sitemap.includes('404.html'));
         } finally {
             await rm(fixture, {recursive: true, force: true});
         }
