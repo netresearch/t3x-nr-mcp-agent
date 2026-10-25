@@ -154,7 +154,6 @@ export const chatAltTextStyles = css`
     }
 `;
 
-/** Whether the card is one of a conversation about a missing alt text. */
 /**
  * The label that says why a card offers no approve button (ADR-021,
  * ADR-026): a second person is needed, the preview could not be built with
@@ -174,6 +173,7 @@ export function approveBlockedLabel(reason) {
     }
 }
 
+/** Whether the card is one of a conversation about a missing alt text. */
 export function isAltTextCard(pending) {
     return pending?.answers === 'altText' || pending?.answers === 'altTextDecorative';
 }

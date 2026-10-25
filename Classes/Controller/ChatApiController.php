@@ -1503,8 +1503,7 @@ final readonly class ChatApiController
             return 'altTextOtherImage';
         }
 
-        $card = $this->altTextConversation->card($conversation, $view);
-        if ($card !== null && $card['kind'] === AltTextConversation::CARD_DECORATIVE
+        if ($this->altTextConversation->marksItsImageDecorative($conversation, $view)
             && !$this->mayMarkDecorative($conversation->getAltTextHit()['reference'])) {
             return 'altTextMarkNotPermitted';
         }

@@ -575,6 +575,40 @@ final class AltTextFlowTest extends FunctionalTestCase
         self::assertStringContainsString('The editor may not mark this image as decorative', (string) ($transcript[0]['content'] ?? ''));
     }
 
+    /**
+     * The same holds when the model passes the reference as a string, and
+     * when the mark is one of several calls the run waits on.
+     */
+    #[Test]
+    public function withoutTheGrantTheMarkIsBlockedAsAStringAndAmongSeveralCalls(): void
+    {
+        $this->loginAs(3);
+        $conversation = $this->settle($this->start(10), ConversationStatus::AwaitingApproval);
+
+        $asString = $this->pendingCard($conversation, $this->waiting('set_file_reference_decorative', ['reference' => '10', 'decorative' => true], ['Bild: team.jpg']));
+        self::assertSame(['altTextMarkNotPermitted', 'altTextDecorative'], [$asString['approveBlocked'], $asString['answers']]);
+
+        $several = new WaitingRunView(
+            '7f0c6a52-6d1e-4b8f-9a35-0c2f7b1e4d10',
+            WaitingRunView::MODE_APPROVAL,
+            0,
+            'Chat',
+            'digest',
+            [
+                new PendingCallView('set_file_reference_alternative_text', '{"reference":10,"alternative":"Ein Team"}', true, ['Bild: team.jpg']),
+                new PendingCallView('set_file_reference_decorative', '{"reference":10,"decorative":true}', true, ['Bild: team.jpg']),
+            ],
+        );
+        self::assertSame('altTextMarkNotPermitted', $this->pendingCard($conversation, $several)['approveBlocked']);
+
+        $response = $this->post('approve', ['conversationUid' => $conversation->getUid(), 'approve' => true], $several);
+        self::assertSame(403, $response->getStatusCode(), (string) $response->getBody());
+
+        // Clearing the mark is not setting it: that block is not this one.
+        $clearing = $this->pendingCard($conversation, $this->waiting('set_file_reference_decorative', ['reference' => 10, 'decorative' => false], ['Bild: team.jpg']));
+        self::assertNotSame('altTextMarkNotPermitted', $clearing['approveBlocked']);
+    }
+
     /** With the grant, the model's mark is approvable and the model may propose it. */
     #[Test]
     public function withTheGrantForTheMarkTheModelsMarkCanBeApproved(): void
@@ -721,6 +755,8 @@ final class AltTextFlowTest extends FunctionalTestCase
 
         self::assertSame(['kind' => 'proposal', 'proposal' => 'Ein Team am Tisch'], $flow->card($conversation, $view('set_file_reference_alternative_text', ['reference' => 1, 'alternative' => ' Ein Team am Tisch '])));
         self::assertSame(['kind' => 'decorative', 'proposal' => ''], $flow->card($conversation, $view('set_file_reference_decorative', ['reference' => 1, 'decorative' => true])));
+        self::assertSame(['kind' => 'decorative', 'proposal' => ''], $flow->card($conversation, $view('set_file_reference_decorative', ['reference' => '1', 'decorative' => true])));
+        self::assertSame(['kind' => 'proposal', 'proposal' => 'x'], $flow->card($conversation, $view('set_file_reference_alternative_text', ['reference' => '1', 'alternative' => 'x'])));
         self::assertNull($flow->card($conversation, $view('set_file_reference_alternative_text', ['reference' => 2, 'alternative' => 'x'])));
         self::assertNull($flow->card($conversation, $view('set_file_alternative_text', ['file' => 1, 'alternative' => 'x'])));
         self::assertNull($flow->card($conversation, $view('set_file_reference_decorative', ['reference' => 1, 'decorative' => false])));

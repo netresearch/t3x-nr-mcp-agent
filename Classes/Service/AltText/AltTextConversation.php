@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Tool\SetDecorativeImageTool;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
@@ -78,7 +79,10 @@ class AltTextConversation
         private readonly MissingAltTextList $list,
         private readonly AltTextContext $context,
         private readonly AltTextImage $image,
-        private readonly ?ReferenceWriteAccess $access = null,
+        // Lazy: the gate reaches ChatService through ToolAvailabilityInterface,
+        // and ChatService needs this class.
+        #[Autowire(lazy: true)]
+        private readonly ?AltTextGate $gate = null,
     ) {}
 
     public static function isAbout(Conversation $conversation): bool
@@ -242,7 +246,7 @@ class AltTextConversation
 
         $call      = $view->pendingCalls[0];
         $arguments = json_decode($call->argumentsJson, true);
-        if (!is_array($arguments) || ($arguments['reference'] ?? null) !== $conversation->getAltTextHit()['reference']) {
+        if (!is_array($arguments) || $this->referenceArgument($arguments) !== $conversation->getAltTextHit()['reference']) {
             return null;
         }
 
@@ -271,8 +275,7 @@ class AltTextConversation
             }
 
             $arguments = json_decode($call->argumentsJson, true);
-            $called    = is_array($arguments) ? ($arguments['reference'] ?? null) : null;
-            if (!is_numeric($called) || (int) $called !== $reference) {
+            if (!is_array($arguments) || $this->referenceArgument($arguments) !== $reference) {
                 return true;
             }
         }
@@ -281,15 +284,38 @@ class AltTextConversation
     }
 
     /**
-     * Whether the user may set the decorative mark on the reference: the
-     * rights and the exclude-field grant, as set_file_reference_decorative
-     * asks them.
+     * Whether any call the run waits on sets the decorative mark on the
+     * conversation's image, however many calls the run waits on.
      */
-    public function mayMarkDecorative(?BackendUserAuthentication $user, int $referenceUid): bool
+    public function marksItsImageDecorative(Conversation $conversation, ?WaitingRunView $view): bool
     {
-        return $user instanceof BackendUserAuthentication
-            && $this->access instanceof ReferenceWriteAccess
-            && !is_string($this->access->resolve($user, $referenceUid, DecorativeImageWriter::COLUMN));
+        if (!$view instanceof WaitingRunView || !self::isAbout($conversation)) {
+            return false;
+        }
+
+        $reference = $conversation->getAltTextHit()['reference'];
+        foreach ($view->pendingCalls as $call) {
+            $arguments = json_decode($call->argumentsJson, true);
+            if ($call->name === SetDecorativeImageTool::NAME && is_array($arguments)
+                && $this->referenceArgument($arguments) === $reference && ($arguments['decorative'] ?? null) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The call's reference as a uid, also when the model passed it as a
+     * numeric string; null for anything else.
+     *
+     * @param array<mixed> $arguments
+     */
+    private function referenceArgument(array $arguments): ?int
+    {
+        $reference = $arguments['reference'] ?? null;
+
+        return is_numeric($reference) ? (int) $reference : null;
     }
 
     /**
@@ -306,7 +332,8 @@ class AltTextConversation
 
         $block = $this->image->modelBlock($reference, $vision);
         $user  = $GLOBALS['BE_USER'] ?? null;
-        $text  = $this->context->describe($hit, $block !== null, $this->mayMarkDecorative($user instanceof BackendUserAuthentication ? $user : null, $reference));
+        $mark  = $user instanceof BackendUserAuthentication && $this->gate instanceof AltTextGate && $this->gate->mayMarkDecorative($user, $reference);
+        $text  = $this->context->describe($hit, $block !== null, $mark);
 
         return $block === null ? $text : [['type' => 'text', 'text' => $text], $block];
     }
