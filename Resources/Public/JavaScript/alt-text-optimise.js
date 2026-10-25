@@ -28,11 +28,6 @@ import {format} from '@netresearch/nr-mcp-agent/text-format.js';
 
 export const EVENT = 'nr-mcp-agent:alt-text';
 
-/**
- * @param {HTMLElement} root the list (`[data-nr-alt-texts]`)
- * @param {() => object|null} [panelOf] where the chat panel is found
- * @param {(url: string) => void} [navigate] how the frame loads another URL
- */
 function buttonOf(row) {
     return row?.querySelector('[data-nr-alt-text-optimise]') ?? null;
 }
@@ -52,6 +47,11 @@ function headingText(heading, remaining) {
     return remaining === 1 ? heading.dataset.titleOne : format(heading.dataset.titleOther, remaining);
 }
 
+/**
+ * @param {HTMLElement} root the list (`[data-nr-alt-texts]`)
+ * @param {() => object|null} [panelOf] where the chat panel is found
+ * @param {(url: string) => void} [navigate] how the frame loads another URL
+ */
 export function initAltTextOptimise(root, panelOf = findPanel, navigate = (url) => root.ownerDocument.location.assign(url)) {
     const doc = root.ownerDocument;
     const status = root.querySelector('[data-nr-alt-text-status]');
