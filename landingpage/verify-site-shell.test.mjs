@@ -7,6 +7,35 @@ import {renderSiteHeader} from './site-shell/render-site-shell.mjs';
 import {hasStatusFacts, verifyBusinessContacts, verifyNotFoundPage, verifySiteShell} from './verify-site-shell.mjs';
 import {attrs} from './check-accessibility.mjs';
 const symbol = readFileSync(new URL('./site-shell/netresearch-symbol-only.svg', import.meta.url));
+const contextFixtures = JSON.parse(readFileSync(new URL('./site-shell-context-fixtures.json', import.meta.url), 'utf8'));
+test('header identity and family navigation require real document elements', () => {
+    assert.deepEqual(verifySiteShell(contextFixtures.positive, symbol), []);
+    assert.notDeepEqual(verifySiteShell(contextFixtures.positive.replace('data-nr-shell', 'data-note="data-nr-shell"'), symbol), []);
+    for (const [name, markup] of Object.entries(contextFixtures.negative)) {
+        assert.notDeepEqual(verifySiteShell(markup, symbol), [], name);
+        assert.deepEqual(verifySiteShell(contextFixtures.positive + markup, symbol), [], name);
+    }
+});
+const recoveryRoot = 'https://netresearch.github.io/example/';
+const realRecoveryMetadata = '<meta name="robots" content="noindex,follow"><meta name="viewport" content="width=device-width, initial-scale=1">';
+const recoveryHomes = `<a href="${recoveryRoot}" lang="en" hreflang="en">English</a><a href="${recoveryRoot}de/" lang="de" hreflang="de">Deutsch</a>`;
+function recoveryFixture(metadata = realRecoveryMetadata, homes = recoveryHomes) {
+    const shell = renderSiteHeader({lang: 'en', assetBase: '/example/assets/site-shell',
+        languageUrls: {en: recoveryRoot, de: recoveryRoot + 'de/'}, active: null,
+        contactHref: 'https://www.netresearch.de/en/contact/?utm_source=fixture&utm_medium=fixture&utm_campaign=fixture&utm_content=header'});
+    return `<!doctype html><html lang="en"><head>${metadata}</head><body>${shell}<main><h1>Page not found</h1>${homes}</main>
+        <footer><a data-cta="business" data-cta-position="footer" href="https://www.netresearch.de/en/contact/?utm_source=fixture&amp;utm_medium=fixture&amp;utm_campaign=fixture&amp;utm_content=footer">Contact</a></footer></body></html>`;
+}
+test('recovery metadata must be real and home links must be inside the actual main', () => {
+    assert.deepEqual(verifyNotFoundPage(recoveryFixture(), symbol, recoveryRoot), []);
+    for (const [name, {markup, error}] of Object.entries(contextFixtures.recovery_metadata)) {
+        const found = verifyNotFoundPage(recoveryFixture(markup), symbol, recoveryRoot);
+        if (error) assert.ok(found.includes(error), name);
+        else assert.deepEqual(found, [], name);
+    }
+    const noEnglishHome = recoveryFixture(realRecoveryMetadata, `<a href="${recoveryRoot}de/" lang="de" hreflang="de">Deutsch</a>`);
+    assert.ok(verifyNotFoundPage(noEnglishHome, symbol, recoveryRoot).includes('404 recovery needs its en project home'));
+});
 test('status facts remain mandatory when a layout adds a class token', () => {
     assert.ok(hasStatusFacts('<dl class="status-facts nr-hero-facts"></dl>'));
     assert.ok(hasStatusFacts("<dl class='nr-hero-facts status-facts'></dl>"));
@@ -131,11 +160,11 @@ test('attribute parsing consumes complete names and quoted values atomically', (
 });
 // Static examples keep real contact nodes after script-shaped attribute text.
 const quotedScriptFixtures = {
-    en: `<div data-example="<script>"></div><header>
+    en: `<div data-example="<script>"></div><header data-nr-shell>
         <a class="nr-shell-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Contact</a>
         <a class="nr-shell-menu-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=menu">Contact</a>
         </header><a data-cta="business" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=hero">Hero</a></script>`,
-    de: `<div data-example="<script>"></div><header>
+    de: `<div data-example="<script>"></div><header data-nr-shell>
         <a class="nr-shell-contact" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Kontakt</a>
         <a class="nr-shell-menu-contact" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=menu">Kontakt</a>
         </header><a data-cta="business" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=hero">Hero</a></script>`,
@@ -180,6 +209,9 @@ for (const [lang, expected] of Object.entries({
         const fixture = href => shell + `<a data-cta="business"${href === null ? '' : ` href="${href}"`}>Hero</a><a data-cta="business" href="${contact}footer">Footer</a>`;
         const valid = fixture(contact + 'hero');
         assert.deepEqual(verifyBusinessContacts(valid, lang), []);
+        const unmarked = valid.replaceAll('nr-shell-contact', 'unmarked-contact').replaceAll('nr-shell-menu-contact', 'unmarked-menu');
+        const outsideContacts = `<a class="nr-shell-contact" href="${contact}header">Contact</a><a class="nr-shell-menu-contact" href="${contact}menu">Contact</a>`;
+        assert.notDeepEqual(verifyBusinessContacts(unmarked + outsideContacts, lang), []);
         assert.deepEqual(verifyBusinessContacts(quotedScriptFixtures[lang], lang), []);
         assert.deepEqual(verifyBusinessContacts(`<div data-example="<!--"></div>${valid}-->`, lang), []);
         const quotedFake = `<div data-example="<a data-cta='business' href='https://wrong.test/'>Example</a>"></div>`;
