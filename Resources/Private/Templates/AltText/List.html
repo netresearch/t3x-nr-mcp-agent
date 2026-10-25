@@ -5,13 +5,8 @@
     The list "Fehlende Alt-Texte" (ADR-026). The tabs follow the WAI-ARIA
     tabs pattern (alt-text-tabs.js adds arrow keys, Home and End); without
     JavaScript every panel's page links still work, as the open tab is a
-    query parameter.
+    query parameter. No html wrapper: f and core are global namespaces.
 </f:comment>
-<html
-    xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
-    xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
-    data-namespace-typo3-fluid="true"
->
 <f:layout name="Default" />
 <f:section name="Content">
     <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_alttext.xlf:" />
@@ -145,4 +140,3 @@
         </f:if>
     </div>
 </f:section>
-</html>
