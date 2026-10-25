@@ -1,0 +1,44 @@
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-FileCopyrightText: Netresearch DTT GmbH
+ *
+ * The list "Fehlende Alt-Texte" (ADR-026). Colours come from the backend's
+ * own variables, so the light and the dark theme both apply.
+ */
+.nr-alt-texts-tabs {
+    margin-top: 1.5rem;
+}
+
+.nr-alt-texts-tabs .badge {
+    margin-inline-start: 0.25rem;
+}
+
+.nr-alt-texts-panel {
+    padding-top: 1rem;
+}
+
+.nr-alt-texts-panel:focus-visible {
+    outline: 2px solid var(--typo3-state-focus-color, currentColor);
+    outline-offset: 2px;
+}
+
+.nr-alt-texts-group th {
+    font-weight: bold;
+}
+
+.nr-alt-texts-thumbnail {
+    width: 96px;
+}
+
+.nr-alt-texts-thumbnail img {
+    display: block;
+    max-width: 80px;
+    height: auto;
+}
+
+.nr-alt-texts-hidden {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    margin-top: 0.25rem;
+}

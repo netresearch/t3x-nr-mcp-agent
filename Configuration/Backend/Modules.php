@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use Netresearch\NrMcpAgent\Controller\ChatModuleController;
+use Netresearch\NrMcpAgent\Controller\MissingAltTextsController;
 
 return [
     'nr_mcp_agent_chat' => [
@@ -19,6 +20,11 @@ return [
         'routes'         => [
             '_default' => [
                 'target' => ChatModuleController::class . '::indexAction',
+            ],
+            // "Fehlende Alt-Texte" (ADR-026): route nr_mcp_agent_chat.missingAltTexts.
+            'missingAltTexts' => [
+                'path'   => '/missing-alt-texts',
+                'target' => MissingAltTextsController::class . '::listAction',
             ],
         ],
     ],
