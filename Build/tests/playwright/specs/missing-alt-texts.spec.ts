@@ -118,7 +118,7 @@ test.describe('The list of missing alt texts', () => {
         await expect(pages.getByRole('columnheader')).toHaveText(['Image', 'File', 'Content element', 'Language', 'Actions']);
         // Each page heads its group of rows.
         await expect(pages.getByRole('rowheader')).toHaveText(['E2E Alt texts']);
-        await expect(pages.getByRole('cell', { name: 'e2e-team.jpg' })).toBeVisible();
+        await expect(pages.getByRole('cell', { name: 'e2e-team.jpg', exact: true })).toBeVisible();
         // A hidden content element stays in the list, marked with its reason in words.
         await expect(pages.getByText('Currently not visible · Element hidden')).toBeVisible();
     });

@@ -231,9 +231,10 @@ not with the number of pages.
 listing *Fehlende Alt-Texte*) and a tile in *Für deine Website empfohlen*
 (shown only with open hits). Both are behind the same gate as the other
 assistant widgets, ``ChatToolbarItem::checkAccess()`` (:ref:`adr-009`):
-every action of the feature leads into the chat. *Optimieren* is left out
-until slice 2 rather than shown disabled: a disabled button cannot be
-focused, so its explanation would not reach keyboard users.
+every action of the feature leads into the chat. Where *Optimieren* cannot
+work (slice 2) it is not ``disabled``, which cannot be focused, so its
+explanation would not reach keyboard users: the button stays focusable with
+``aria-disabled`` and ``aria-describedby`` on a visible note that says why.
 
 Slice 2
 =======
@@ -289,6 +290,65 @@ requires a second approver 409 ``secondApprover``: the proposal is saved by
 approving its card, which neither could do. The conversation keeps the reference uid only (column
 ``alt_text_hit``), and is about the image's page in the reference's
 language when the image lies on a page; a record's image binds no page.
+
+**The chat opens beside the list, on the image.** *Optimieren* opens the
+chat as the column (:ref:`adr-024`) for this opening only, folds the module
+menu through its own toggle and unfolds it on closing when it folded it,
+and starts the conversation, or moves the open one to the row's image. The
+list follows the chat through the panel's event ``nr-mcp-agent:alt-text``
+(``active``, ``done``, ``gone``, ``closed``): the row the chat is on is
+marked (``aria-current``) and its button reads *Im Chat*, a fixed image
+leaves the list with its counts and a live region, and closing gives the
+keyboard focus back to the row. Without the panel the button opens the chat
+module with ``altTextReference``.
+
+**The first message is the server's.** The image card (image, page or
+record, element or field, language, "Dieses Bild hat keinen Alt-Text") is a
+notice with the card's lines as data, written when the conversation takes
+the image up; the model's turn follows. Every line of the chat's own
+(card, divider *Treffer gewechselt*, the editor's chip, the confirmations)
+is a notice the reader sees in their language and the model never reads.
+What the model reads of the image is built anew on every turn from the
+database: the latest card becomes the image's context (file, language,
+page or record, element text, neighbouring elements, the record's text
+fields), an earlier card a line saying the editor moved on.
+
+**The flow is a section of the system prompt, not a skill.** An extension
+cannot ship a skill to nr-llm (nr-llm ADR-163), so the instructions —
+propose one text through ``set_file_reference_alternative_text``, propose
+the decorative mark through ``set_file_reference_decorative`` only for an
+image that adds nothing, never touch another image — are added to the
+system prompt of a conversation about an image.
+
+**The answers.** On a proposal the card offers *Übernehmen* (approves the
+card), *Andere Variante* (denies it with the reason ``variant``, which
+nr-llm passes to the model), *Als dekorativ markieren* and *Überspringen*.
+The last two are the chat's own actions with fixed texts and no model turn:
+the waiting run is withdrawn, *Überspringen* saves nothing and says that
+the hit stays open, and *Als dekorativ markieren* saves the mark directly,
+as the editor's own choice, through the same writer and checks as the tool,
+after the warning of case 2 where it applies. On the model's own proposal
+of the mark (case 1) the card offers *Als dekorativ markieren* (approves
+it) and *Alt-Text erstellen*. After an approved write the chat confirms it
+itself, "Alt-Text gespeichert." or "Als dekorativ markiert.", in place of
+the model's answer, when the run recorded the write; a failed write keeps
+the model's answer, which says why.
+
+**Moving on.** Another row's *Optimieren* and *Nächsten Treffer
+optimieren* move the conversation to another image: a divider naming it,
+its card and a new turn, the waiting proposal withdrawn. The next hit is
+the open hit after the conversation's image in list order across the tabs
+(pages first, then the record types by their label), after the last the
+first again; the conversation keeps the image's place in the list, so
+after a fixed image the next one is the one that followed it. Every move is
+refused while a turn runs.
+
+**The image goes to the model as a scaled copy, where it may see it.** A
+provider that supports vision gets a copy of at most 1024 pixels with the
+reference's crop; otherwise, and for a file that cannot be read, the card
+says that the proposal rests on the page, the element and the file name.
+Whether an image may be sent at all is ``AltTextImagePolicyInterface``
+(``SendEveryImage`` for now), where slice 3's setting plugs in.
 
 Consequences
 ============

@@ -112,4 +112,8 @@ Consequences
     the Jest tests pin both shapes, the E2E tests check the geometry.
 -   CI's E2E job runs against 13.4 and 14.3; the specs feature-detect the
     backend shell of both.
--   The module menu is not collapsed automatically when the column opens.
+-   The module menu is not collapsed automatically when the column opens,
+    with one exception: *Optimieren* in the list of missing alt texts folds
+    it through its own toggle, so the list keeps its width beside the chat,
+    and unfolds it when the chat closes, unless the user had folded it
+    already (:ref:`adr-026`).

@@ -83,6 +83,8 @@ When the question changed after it was shown, or your answer could not be
 taken, the question comes back with the reason above the buttons; answer
 again.
 
+.. _usage-approving-a-step:
+
 Approving a step in the chat
 ----------------------------
 
@@ -646,9 +648,57 @@ as decorative. You see only images you may change: on pages whose content
 you may edit (an image in the page properties needs the right to edit the
 page as well), in languages you may edit, in content elements of a type you
 may use, with the right to change *Alternative text* and the record and its
-image field. Fixing an image with the assistant from the
-list follows in a later release. Which tables and fields are checked is set
-in :confval:`altTextExcludedTables` and :confval:`altTextExcludedFields`.
+image field. Which tables and fields are checked is set in
+:confval:`altTextExcludedTables` and :confval:`altTextExcludedFields`.
+
+.. _usage-optimise-alt-text:
+
+Optimise an alt text with the assistant
+---------------------------------------
+
+**Optimise** in a row opens the chat beside the list, on that image. The
+module menu folds to make room and unfolds again when you close the chat;
+the row the chat works on is marked, and its button reads **In the chat**.
+The chat starts with a card of the image: where it is used, its language,
+and that it has no alt text. The assistant then proposes a text for this
+use of the image, with these answers:
+
+**Apply**
+    Saves the text. The chat confirms it with *Alt text saved.*, and the
+    image leaves the list.
+
+**Another variant**
+    The assistant proposes a different text. You can also write a wish,
+    such as *Shorter*, and get a new proposal.
+
+**Mark as decorative**
+    Saves the image as decorative, for an image that adds nothing to the
+    content (see :ref:`usage-decorative-images`). For an image that belongs
+    to a section or a record you confirm a warning first, because such an
+    image probably needs an alt text. Where the assistant itself finds the
+    image decorative, it proposes the mark, and **Create an alt text** asks
+    for a text instead.
+
+**Skip**
+    Saves nothing; the image stays open in the list.
+
+**Optimise the next hit** below the conversation, or **Optimise** in
+another row, moves the conversation to the next image: a line *Hit
+changed* names it, and its card follows. The next hit is the one after the
+current image in the order of the list, across the tabs. Closing the chat
+gives the keyboard focus back to the row it was on.
+
+The assistant changes nothing but the alt text of this one use of the
+image, and only after **Apply**. It sees the image where the AI provider
+supports images, as a scaled copy; otherwise the card says that the
+proposal rests on the page, the element and the file name only.
+
+**Optimise** works in the live workspace, when an administrator has enabled
+the tools ``set_file_reference_alternative_text`` and
+``set_file_reference_decorative`` in nr-llm's **Tools** module, and when
+you may approve your own changes in the chat
+(:ref:`usage-approving-a-step`). Otherwise the button stays in
+the list, and a note above the list says why it does not work.
 
 .. _usage-decorative-images:
 
