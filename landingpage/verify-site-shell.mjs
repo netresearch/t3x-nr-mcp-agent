@@ -55,6 +55,13 @@ function inertSpans(html) {
         .map(match => ({start: match.index, end: match.index + match[0].length}));
 }
 
+export function hasStatusFacts(html) {
+    const inert = inertSpans(html);
+    return [...html.matchAll(/<dl\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)]
+        .filter(match => !inert.some(span => match.index >= span.start && match.index < span.end))
+        .some(match => decodeMarkupAttribute(attrs(match[0]).class ?? '').split(/\s+/).includes('status-facts'));
+}
+
 function verifyRecoveryAssets(html, siteRoot) {
     const errors = [];
     const inert = inertSpans(html);

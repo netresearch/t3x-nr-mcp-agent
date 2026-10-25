@@ -4,8 +4,16 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {renderSiteHeader} from './site-shell/render-site-shell.mjs';
-import {verifyBusinessContacts, verifySiteShell} from './verify-site-shell.mjs';
+import {hasStatusFacts, verifyBusinessContacts, verifySiteShell} from './verify-site-shell.mjs';
 const symbol = readFileSync(new URL('./site-shell/netresearch-symbol-only.svg', import.meta.url));
+test('status facts remain mandatory when a layout adds a class token', () => {
+    assert.ok(hasStatusFacts('<dl class="status-facts nr-hero-facts"></dl>'));
+    assert.ok(hasStatusFacts("<dl class='nr-hero-facts status-facts'></dl>"));
+    for (const invalid of ['', '<dl class="nr-hero-facts"></dl>', '<dl class="old-status-facts"></dl>',
+        '<!-- <dl class="status-facts"></dl> -->', '<script><dl class="status-facts"></dl></script>']) {
+        assert.equal(hasStatusFacts(invalid), false);
+    }
+});
 const inertScriptFixtures = {
     en: `<script type="application/json"><header>
         <a class="nr-shell-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Contact</a>
