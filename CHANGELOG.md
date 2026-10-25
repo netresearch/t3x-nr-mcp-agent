@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.19.0] - 2026-10-24
+## [0.20.0] - 2026-10-25
+
+### Added
+
+- **A skill decides whether a conversation needs a page (#255, ADR-025).** nr-llm skills declare `page: required`, `optional` or `none` in their frontmatter. `required` asks for a page as a guided process does; a skill that is no process then shows a hint without a button, and the editor's own next message carries the page. `none` binds no page and tells the model nothing about pages. A skill that declares nothing behaves as before: a process as `required`, any other skill as `optional`. The quick-task suffix `:page` still works.
+
+### Changed
+
+- **Requires nr-llm 0.41.5.** It exposes the skill page field and the reason behind a refused approval or answer.
+- **The "AI Chat" dashboard widget binds a conversation to its page by the skill's page need (#255),** the same rule the chat uses.
+
+### Fixed
+
+- **A refused approval or answer says when an administrator switched the tool off (#254).** The chat no longer blames the editor's permissions in that case; it says that the step waits until the action is switched on again.
+ - 2026-10-24
 
 ### Added
 
