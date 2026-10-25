@@ -149,7 +149,7 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         $uids = $this->referenceUids($this->scanAs(1));
         sort($uids);
 
-        self::assertSame([1, 2, 4, 7, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 27, 28, 29, 30, 31, 32, 34, 35, 37, 39, 40, 41, 42, 45, 46, 47, 48, 49, 50, 51, 52], $uids);
+        self::assertSame([1, 2, 4, 7, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 27, 28, 29, 30, 31, 32, 34, 35, 37, 39, 40, 41, 42, 45, 46, 47, 48, 49, 50, 51, 52, 54], $uids);
     }
 
     /** The editor's list in list order: page tree, content order, then the records by folder and title. */
@@ -276,6 +276,19 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
 
         self::assertSame($reason, $hit->hiddenReason);
         self::assertSame($date, $hit->hiddenDate);
+    }
+
+    /**
+     * Two ancestors that pass their visibility on: the one highest up names
+     * the reason (an expired area above a hidden one). Pages the editor may
+     * only view, so read as admin.
+     */
+    #[Test]
+    public function theAncestorHighestUpNamesTheReason(): void
+    {
+        $hit = $this->hit($this->scanAs(1), 54);
+
+        self::assertSame([HiddenReason::Expired, 946684800], [$hit->hiddenReason, $hit->hiddenDate]);
     }
 
     /** Content in a language counts its page translation: hidden there, the image is not shown. */

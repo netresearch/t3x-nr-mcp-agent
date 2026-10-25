@@ -39,6 +39,9 @@
 ,30,29,"Unter Abgelaufen",1,10,0,0,1,0,31,0,31,0,0,0,0,0,0
 ,31,1,"Bereich geplant",1,1500,0,0,1,0,31,0,31,0,0,1,4102444800,0,0
 ,32,31,"Unter Geplant",1,10,0,0,1,0,31,0,31,0,0,0,0,0,0
+,33,1,"Aussen abgelaufen",1,1600,0,0,1,0,31,0,1,0,0,1,0,946684800,0
+,34,33,"Innen versteckt",1,10,0,0,1,0,31,0,1,0,1,1,0,0,0
+,35,34,"Ganz unten",1,10,0,0,1,0,31,0,1,0,0,0,0,0,0
 "tt_content"
 ,"uid","pid","CType","header","colPos","sorting","sys_language_uid","deleted","hidden","starttime","endtime","editlock","tx_alttexttest_item"
 ,100,10,"textpic","Unser Team",0,256,0,0,0,0,0,0,0
@@ -66,6 +69,7 @@
 ,122,30,"image","",0,256,0,0,0,0,0,0,0
 ,123,32,"image","",0,256,0,0,0,0,0,0,0
 ,124,10,"textmedia","Text und Medien",0,300,0,0,0,0,0,0,0
+,125,35,"image","",0,256,0,0,0,0,0,0,0
 "tx_alttexttest_child"
 ,"uid","pid","title","parent_content","deleted","hidden","sys_language_uid"
 ,1,10,"Slide 1",116,0,0,0
@@ -158,3 +162,4 @@
 ,51,30,1,122,"tt_content","image",1,0,\NULL,0,0,0
 ,52,32,1,123,"tt_content","image",1,0,\NULL,0,0,0
 ,53,10,8,110,"tt_content","image",5,1,\NULL,0,0,0
+,54,35,1,125,"tt_content","image",1,0,\NULL,0,0,0
