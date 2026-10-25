@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **A refused approval or answer says when an administrator switched the tool off (#254).** The chat no longer blames the editor's permissions in that case; it says that the step waits until the action is switched on again.
- - 2026-10-24
+
+## [0.19.0] - 2026-10-24
 
 ### Added
 
