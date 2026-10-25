@@ -151,3 +151,22 @@ export async function waitForBackend(page: Page): Promise<void> {
         }
     }, null, { timeout: 15000 });
 }
+
+/**
+ * Wait until every widget of the dashboard in the module frame has its
+ * content (its Lit fetch task done or failed), if the module frame shows the
+ * dashboard. Leaving the dashboard while a widget still loads aborts its
+ * request, and the core's dashboard.js logs "Error while retrieving widget
+ * [...]: Failed to fetch", which the error guard reports.
+ */
+export async function dashboardWidgetsLoaded(page: Page): Promise<void> {
+    const module = await page.evaluate(() => (document.querySelector('typo3-backend-module-router') as any)?.module ?? '');
+    if (module !== 'dashboard') {
+        return;
+    }
+    await page.waitForFunction(() => {
+        const frame = (window as any).frames?.list_frame;
+        const widgets = frame ? Array.from(frame.document.querySelectorAll('typo3-dashboard-widget')) : [];
+        return widgets.length > 0 && widgets.every((widget: any) => (widget.fetchTask?.status ?? 0) >= 2);
+    }, null, { timeout: 15000 });
+}

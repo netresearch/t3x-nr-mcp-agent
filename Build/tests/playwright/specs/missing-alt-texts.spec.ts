@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 import { FrameLocator, Locator, Page } from '@playwright/test';
-import { test, expect, waitForBackend } from '../fixtures/backend';
+import { test, expect, waitForBackend, dashboardWidgetsLoaded } from '../fixtures/backend';
 
 /**
  * The list "Fehlende Alt-Texte" (ADR-026) and its two dashboard entries,
@@ -29,20 +29,8 @@ async function login(page: Page): Promise<void> {
     }
     await waitForBackend(page);
     await page.waitForFunction(() => (document.querySelector('ai-chat-panel') as any)?.chat?.loading === false, null, { timeout: 15000 });
-    // The startup module is the dashboard: leaving it while a widget still
-    // loads makes the dashboard log that it could not fetch the widget.
-    if (await routerModule(page) === 'dashboard') {
-        await widgetsLoaded(page);
-    }
-}
-
-/** Every widget on the dashboard in the module frame has its content (Lit task done or failed). */
-async function widgetsLoaded(page: Page): Promise<void> {
-    await page.waitForFunction(() => {
-        const frame = (window as any).frames?.list_frame;
-        const widgets = frame ? Array.from(frame.document.querySelectorAll('typo3-dashboard-widget')) : [];
-        return widgets.length > 0 && widgets.every((widget: any) => (widget.fetchTask?.status ?? 0) >= 2);
-    }, null, { timeout: 15000 });
+    // The startup module is the dashboard: let its widgets load before leaving.
+    await dashboardWidgetsLoaded(page);
 }
 
 async function routerModule(page: Page): Promise<string> {
@@ -56,7 +44,7 @@ async function openDashboard(page: Page): Promise<FrameLocator> {
     const frame = page.frameLocator('iframe[name="list_frame"]');
     await expect(frame.locator('.nr-mcp-agent-website-check')).toBeVisible({ timeout: 15000 });
     await expect(frame.locator('.nr-mcp-agent-alt-text-tile')).toBeVisible({ timeout: 15000 });
-    await widgetsLoaded(page);
+    await dashboardWidgetsLoaded(page);
 
     return frame;
 }
