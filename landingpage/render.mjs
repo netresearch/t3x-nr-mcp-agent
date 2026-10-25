@@ -250,6 +250,10 @@ ${renderPageNavigation({lang, title: 'MCP Agent', titleHref: canonical,
       <p class="nr-hero-eyebrow">${e(c.hero.eyebrow)}</p>
       <h1 class="nr-hero-title">${e(c.hero.title)}</h1>
       <p class="nr-hero-lead">${e(c.hero.lead)}</p>
+      <p class="alpha-banner" role="note">
+        <span class="status-pill status-pill--${e(manifest.stage)}">${e(stage)}</span>
+        ${e(c.hero.alphaNote)}
+      </p>
       <p class="nr-hero-actions">
         <a class="btn btn--primary" href="${e(contactUrl('hero', lang))}" data-cta="business" data-cta-position="hero">${e(c.hero.ctaBusiness)}</a>
         <a class="btn btn--secondary" href="${e(docsUrl)}">${e(c.hero.ctaTechnical)}</a>
@@ -257,10 +261,6 @@ ${renderPageNavigation({lang, title: 'MCP Agent', titleHref: canonical,
       </div>
       <aside class="nr-hero-aside" aria-labelledby="product-status-heading">
       <h2 id="product-status-heading">${e(c.status.heading)}</h2>
-      <p class="alpha-banner" role="note">
-        <span class="status-pill status-pill--${e(manifest.stage)}">${e(stage)}</span>
-        ${e(c.hero.alphaNote)}
-      </p>
       <dl class="status-facts nr-hero-facts" aria-label="${e(c.status.heading)}">
         <div><dt>${e(c.status.stageLabel)}</dt><dd><span class="status-pill status-pill--${e(manifest.stage)}">${e(stage)}</span></dd></div>
         ${manifest.latest_release ? `<div><dt>${e(c.status.releaseLabel)}</dt><dd><a href="${e(manifest.repository)}/releases/tag/${e(manifest.latest_release)}">${e(manifest.latest_release)}</a></dd></div>` : ''}

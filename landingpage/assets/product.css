@@ -278,6 +278,24 @@ pre:not(.nr-browser-ai *) code { background: none; padding: 0; font-size: 1em; }
     }
 }
 
+@media print {
+    body .answers,
+    body .answers dt,
+    body .answers dd {
+        color: #000;
+        background: #fff;
+        border-color: #000;
+        box-shadow: none;
+    }
+    .nr-hero .alpha-banner,
+    .nr-hero .status-pill {
+        color: #000;
+        background: #fff;
+        border-color: #000;
+        box-shadow: none;
+    }
+}
+
 @media (prefers-contrast: more) {
     .card, pre, .fallback-note { border-color: CanvasText; }
 }

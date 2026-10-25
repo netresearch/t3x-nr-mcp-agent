@@ -5,14 +5,34 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {renderSiteHeader} from './site-shell/render-site-shell.mjs';
 import {hasStatusFacts, verifyBusinessContacts, verifySiteShell} from './verify-site-shell.mjs';
+import {attrs} from './check-accessibility.mjs';
 const symbol = readFileSync(new URL('./site-shell/netresearch-symbol-only.svg', import.meta.url));
 test('status facts remain mandatory when a layout adds a class token', () => {
     assert.ok(hasStatusFacts('<dl class="status-facts nr-hero-facts"></dl>'));
     assert.ok(hasStatusFacts("<dl class='nr-hero-facts status-facts'></dl>"));
+    assert.ok(hasStatusFacts('<dl class="status-facts\tnr-hero-facts"></dl>'));
+    assert.ok(hasStatusFacts('<dl class="status-facts&#9;nr-hero-facts"></dl>'));
     for (const invalid of ['', '<dl class="nr-hero-facts"></dl>', '<dl class="old-status-facts"></dl>',
-        '<!-- <dl class="status-facts"></dl> -->', '<script><dl class="status-facts"></dl></script>']) {
+        '<!-- <dl class="status-facts"></dl> -->', '<script><dl class="status-facts"></dl></script>',
+        '<dl-status class="status-facts"></dl-status>', '<dl data_class="status-facts"></dl>',
+        '<dl data-note=" status-facts class " data_class="status-facts"></dl>',
+        '<dl class="status-facts\u00a0nr-hero-facts"></dl>', '<dl class="status-facts&#160;nr-hero-facts"></dl>',
+        '<dl class="status-facts\u2003nr-hero-facts"></dl>', '<dl class="status-facts\vnr-hero-facts"></dl>']) {
         assert.equal(hasStatusFacts(invalid), false);
     }
+});
+test('attribute parsing consumes complete names and quoted values atomically', () => {
+    const parsed = attrs('<input data-note=" disabled hidden " data_class="status-facts" aria-label="Name" required disabled=false>');
+    assert.equal(parsed.class, undefined);
+    assert.equal(parsed.hidden, undefined);
+    assert.equal(parsed.data_class, 'status-facts');
+    assert.equal(parsed['aria-label'], 'Name');
+    assert.equal(parsed.required, '');
+    assert.equal(parsed.disabled, 'false');
+    assert.equal(attrs('<a href="first" href="second">').href, 'first');
+    assert.equal(attrs('<input title="adjacent"class="real" required>').class, 'real');
+    assert.equal(attrs('<input =class="fake">').class, undefined);
+    assert.equal(attrs('<input src=asset.svg/>').src, 'asset.svg/');
 });
 const inertScriptFixtures = {
     en: `<script type="application/json"><header>
