@@ -71,14 +71,27 @@ An editor can mark an image as decorative (see
 :ref:`usage-decorative-images`). The extension makes
 fluid_styled_content output such an image with an empty ``alt``
 attribute, so screen readers skip it. It does this with its own copy of
-the partial ``Media/Rendering/Image``, added at
-``lib.contentElement.partialRootPaths.5``.
+the partial ``Media/Rendering/Image``, at
+``lib.contentElement.partialRootPaths.5``. Where that path is added
+depends on how the site includes its TypoScript:
 
-A site package with its own image partial (a path at a higher key, such as
+-   **Site sets:** add the set *AI Assistant: decorative images in
+    fluid_styled_content* (``netresearch/nr-mcp-agent-decorative-images``)
+    to the site. It depends on ``typo3/fluid-styled-content`` and is loaded
+    after it. Without the set the extension does not change the site's
+    output.
+-   **TypoScript records** (``sys_template``): nothing to do. The path is
+    added right after fluid_styled_content's static template, on sites that
+    include it.
+
+Sites whose content rendering is not fluid_styled_content's, such as
+bootstrap_package, keep their own image partial and do not get the path. A
+site package with its own image partial (a path at a higher key, such as
 ``styles.templates.partialRootPath`` at 10), and the templates of other
-extensions, for example a news detail view, are not changed. Add the
-condition there yourself. ``f:media`` replaces an empty ``alt`` with the
-file's alternative text, so render the decorative image with ``f:image``:
+extensions, for example a news detail view, are not changed either. Add
+the condition there yourself. ``f:media`` replaces an empty ``alt`` with
+the file's alternative text, so render the decorative image with
+``f:image``:
 
 ..  code-block:: html
 

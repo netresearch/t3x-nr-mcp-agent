@@ -1,0 +1,4 @@
+name: netresearch/nr-mcp-agent-decorative-images
+label: 'AI Assistant: decorative images in fluid_styled_content'
+dependencies:
+  - typo3/fluid-styled-content

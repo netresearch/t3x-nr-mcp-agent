@@ -26,16 +26,15 @@ $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['tx_nrmcpagent'] = [
     ],
 ];
 
-// A decorative image (ADR-026) is output with alt="" by fluid_styled_content:
-// a partial path for its image partial, added right after the content
-// rendering TypoScript (fluid_styled_content's static template or site set).
-// Key 5 lies above the core's own path (0) and below the site package's
-// (10, `styles.templates.partialRootPath`), so a site package that brings its
-// own image partial keeps it and has to add the condition itself
-// (Documentation/Installation).
+// A decorative image (ADR-026) is output with alt="" by fluid_styled_content.
+// On a site with sys_template records the partial path is added right after
+// fluid_styled_content's static template, and only there: a content rendering
+// of its own (bootstrap_package and the like) keeps its image partial. A site
+// with site sets opts in with the set netresearch/nr-mcp-agent-decorative-images
+// (Configuration/Sets/DecorativeImages), which carries the same line.
 ExtensionManagementUtility::addTypoScript(
     'nr_mcp_agent',
     'setup',
     'lib.contentElement.partialRootPaths.5 = EXT:nr_mcp_agent/Resources/Private/FluidStyledContent/Partials/',
-    'defaultContentRendering',
+    'fluidstyledcontent/Configuration/TypoScript/',
 );

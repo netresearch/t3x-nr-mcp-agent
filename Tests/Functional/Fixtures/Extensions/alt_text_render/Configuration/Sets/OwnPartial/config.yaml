@@ -1,0 +1,4 @@
+name: alt-text-render/own-partial
+label: 'Test: content rendering with an image partial of its own'
+dependencies:
+  - alt-text-render/page

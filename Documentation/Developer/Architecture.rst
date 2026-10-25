@@ -376,6 +376,7 @@ Component map
        "decorative image" field and its frontend output (ADR-026)
      - ``Classes/Service/AltText/``,
        ``Classes/Domain/Repository/MissingAltTextRepository.php``,
+       ``Configuration/Sets/DecorativeImages/``,
        ``Resources/Private/FluidStyledContent/``
    * - **Access Control**
      - Group-based access, concurrency caps, length limits
