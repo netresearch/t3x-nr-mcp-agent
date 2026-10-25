@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 import {createHash} from 'node:crypto';
-import {attrs, checkAccessibility} from './check-accessibility.mjs';
+import {parse} from 'parse5';
+import {checkAccessibility} from './check-accessibility.mjs';
 
 // Unmodified symbol-only asset from Netresearch branding 3.1.0.
 const SYMBOL_SHA256 = 'ca88779a6d008b4606bbe8d45f4640d6967f82b66b302d95b9153dcf2cfb9e29';
@@ -50,26 +51,34 @@ function isProjectAsset(asset, siteRoot) {
     }
 }
 
-function inertSpans(html) {
-    return [...html.matchAll(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)]
-        .map(match => ({start: match.index, end: match.index + match[0].length}));
+/** Real, explicit elements in document order, without executing or loading HTML.
+ * Template contents are separate fragments, not document child nodes. Source
+ * locations exclude implied elements and retain the original opening tags.
+ */
+function documentElements(html) {
+    const pending = [parse(html, {sourceCodeLocationInfo: true})];
+    const elements = [];
+    while (pending.length) {
+        const node = pending.pop();
+        const opening = node.sourceCodeLocation?.startTag;
+        if (opening) elements.push({name: node.tagName, start: opening.startOffset,
+            attributes: Object.fromEntries(node.attrs.map(({name, value}) => [name, value]))});
+        pending.push(...node.childNodes ?? []);
+    }
+    return elements.sort((left, right) => left.start - right.start);
 }
 
+/** Require a real document definition list carrying the HTML class token. */
 export function hasStatusFacts(html) {
-    const inert = inertSpans(html);
-    return [...html.matchAll(/<dl(?=[\t\n\f\r />])(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)]
-        .filter(match => !inert.some(span => match.index >= span.start && match.index < span.end))
-        .some(match => decodeMarkupAttribute(attrs(match[0]).class ?? '').split(/[\t\n\f\r ]+/).includes('status-facts'));
+    return documentElements(html).some(element => element.name === 'dl'
+        && (element.attributes.class ?? '').split(/[\t\n\f\r ]+/).includes('status-facts'));
 }
 
 function verifyRecoveryAssets(html, siteRoot) {
     const errors = [];
-    const inert = inertSpans(html);
-    for (const tag of html.matchAll(/<(script|link|img)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)) {
-        if (inert.some(span => tag.index > span.start && tag.index < span.end)) continue;
-        const attribute = attrs(tag[0])[tag[1].toLowerCase() === 'link' ? 'href' : 'src'];
-        if (attribute === undefined) continue;
-        const asset = decodeMarkupAttribute(attribute);
+    for (const tag of documentElements(html).filter(element => ['script', 'link', 'img'].includes(element.name))) {
+        const asset = tag.attributes[tag.name === 'link' ? 'href' : 'src'];
+        if (asset === undefined) continue;
         if (!isProjectAsset(asset, siteRoot)) errors.push(`404 recovery asset must be absolute within the project: ${asset}`);
     }
     return errors;
@@ -86,16 +95,6 @@ export function verifyNotFoundPage(html, symbol, siteRoot) {
     return [...errors, ...verifyRecoveryAssets(html, siteRoot)];
 }
 
-
-function decodeMarkupAttribute(value) {
-    const named = {amp: '&', quot: '"', apos: "'", lt: '<', gt: '>'};
-    return value.replace(/&(#(?:[xX][0-9a-fA-F]+|\d+)|amp|AMP|quot|QUOT|apos|lt|LT|gt|GT);/g, (_, entity) => {
-        if (!entity.startsWith('#')) return named[entity.toLowerCase()];
-        const code = entity.toLowerCase().startsWith('#x')
-            ? Number.parseInt(entity.slice(2), 16) : Number(entity.slice(1));
-        return Number.isSafeInteger(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '\ufffd';
-    });
-}
 
 function contactIssues(link, lang) {
     const errors = [];
@@ -117,15 +116,12 @@ function contactIssues(link, lang) {
 }
 
 export function verifyBusinessContacts(html, lang, requiredPositions = []) {
-    const inert = inertSpans(html);
-    const links = [...html.matchAll(/<a\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)]
-        .filter(match => !inert.some(span => match.index >= span.start && match.index < span.end))
-        .map(match => Object.fromEntries(Object.entries(attrs(match[0])).map(([name, value]) => [name, decodeMarkupAttribute(value)])));
-    const isContact = link => ['nr-shell-contact', 'nr-shell-menu-contact'].some(name => (link.class ?? '').split(/\s+/).includes(name));
+    const links = documentElements(html).filter(element => element.name === 'a').map(element => element.attributes);
+    const isContact = link => ['nr-shell-contact', 'nr-shell-menu-contact'].some(name => (link.class ?? '').split(/[\t\n\f\r ]+/).includes(name));
     const selected = links.filter(link => link['data-cta'] === 'business' || isContact(link));
     const errors = [];
     for (const name of ['nr-shell-contact', 'nr-shell-menu-contact']) {
-        if (links.filter(link => (link.class ?? '').split(/\s+/).includes(name)).length !== 1) errors.push(`expected one ${name} business contact link`);
+        if (links.filter(link => (link.class ?? '').split(/[\t\n\f\r ]+/).includes(name)).length !== 1) errors.push(`expected one ${name} business contact link`);
     }
     if (!links.some(link => link['data-cta'] === 'business')) errors.push('no marked business CTA remains');
     for (const position of requiredPositions) {

@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {renderSiteHeader} from './site-shell/render-site-shell.mjs';
-import {hasStatusFacts, verifyBusinessContacts, verifySiteShell} from './verify-site-shell.mjs';
+import {hasStatusFacts, verifyBusinessContacts, verifyNotFoundPage, verifySiteShell} from './verify-site-shell.mjs';
 import {attrs} from './check-accessibility.mjs';
 const symbol = readFileSync(new URL('./site-shell/netresearch-symbol-only.svg', import.meta.url));
 test('status facts remain mandatory when a layout adds a class token', () => {
@@ -21,6 +21,101 @@ test('status facts remain mandatory when a layout adds a class token', () => {
         assert.equal(hasStatusFacts(invalid), false);
     }
 });
+test('maturity requires real document elements, not quoted or inert examples', () => {
+    const cases = [
+        [
+            "real_dl",
+            "<dl class=\"status-facts nr-hero-facts\"></dl>",
+            true
+        ],
+        [
+            "quoted_parent_double",
+            "<div data-example=\"<dl class='status-facts'>\"></div>",
+            false
+        ],
+        [
+            "quoted_parent_single",
+            "<div data-example='<dl class=\"status-facts\">'></div>",
+            false
+        ],
+        [
+            "quoted_parent_unquoted_class",
+            "<div data-example=\"<dl class=status-facts>\"></div>",
+            false
+        ],
+        [
+            "real_after_quoted_fake_dl",
+            "<div data-example=\"<dl class='status-facts'>\"></div><dl class=\"status-facts\"></dl>",
+            true
+        ],
+        [
+            "real_after_fake_script_attr",
+            "<div data-example=\"<script>\"></div><dl class=\"status-facts\"></dl></script>",
+            true
+        ],
+        [
+            "real_after_fake_style_attr",
+            "<div data-example=\"<style>\"></div><dl class=\"status-facts\"></dl></style>",
+            true
+        ],
+        [
+            "real_after_fake_comment_attr",
+            "<div data-example=\"<!--\"></div><dl class=\"status-facts\"></dl>-->",
+            true
+        ],
+        [
+            "textarea_inert",
+            "<textarea><dl class=\"status-facts\"></dl></textarea>",
+            false
+        ],
+        [
+            "title_inert",
+            "<title><dl class=\"status-facts\"></dl></title>",
+            false
+        ],
+        [
+            "template_inert",
+            "<template><dl class=\"status-facts\"></dl></template>",
+            false
+        ],
+        [
+            "template_then_real",
+            "<template><dl class=\"other\"></dl></template><dl class=\"status-facts\"></dl>",
+            true
+        ],
+        [
+            "script_inert",
+            "<script type=\"application/json\"><dl class=\"status-facts\"></dl></script>",
+            false
+        ],
+        [
+            "style_inert",
+            "<style><dl class=\"status-facts\"></dl></style>",
+            false
+        ],
+        [
+            "comment_inert",
+            "<!-- <dl class=\"status-facts\"></dl> -->",
+            false
+        ],
+        [
+            "textarea_then_real",
+            "<textarea><dl class=\"other\"></dl></textarea><dl class=\"status-facts\"></dl>",
+            true
+        ]
+    ];
+    for (const [name, markup, expected] of cases) assert.equal(hasStatusFacts(markup), expected, name);
+});
+test('recovery resource checks distinguish actual elements from quoted examples', () => {
+    const root = 'https://netresearch.github.io/example/';
+    const invalidAsset = markup => verifyNotFoundPage(markup, symbol, root)
+        .some(error => error.includes('404 recovery asset must be absolute within the project'));
+    assert.equal(invalidAsset('<img src="https://outside.test/x.svg" alt="">'), true);
+    assert.equal(invalidAsset(`<div data-example="<img src='https://outside.test/x.svg' alt=''>"></div>`), false);
+    assert.equal(invalidAsset('<template><img src="https://outside.test/x.svg" alt=""></template>'), false);
+    assert.equal(invalidAsset('<div data-example="<script>"></div><img src="https://outside.test/x.svg" alt=""></script>'), true);
+    assert.equal(invalidAsset('<div data-example="<!--"></div><img src="https://outside.test/x.svg" alt="">-->'), true);
+});
 test('attribute parsing consumes complete names and quoted values atomically', () => {
     const parsed = attrs('<input data-note=" disabled hidden " data_class="status-facts" aria-label="Name" required disabled=false>');
     assert.equal(parsed.class, undefined);
@@ -34,6 +129,17 @@ test('attribute parsing consumes complete names and quoted values atomically', (
     assert.equal(attrs('<input =class="fake">').class, undefined);
     assert.equal(attrs('<input src=asset.svg/>').src, 'asset.svg/');
 });
+// Static examples keep real contact nodes after script-shaped attribute text.
+const quotedScriptFixtures = {
+    en: `<div data-example="<script>"></div><header>
+        <a class="nr-shell-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Contact</a>
+        <a class="nr-shell-menu-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=menu">Contact</a>
+        </header><a data-cta="business" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=hero">Hero</a></script>`,
+    de: `<div data-example="<script>"></div><header>
+        <a class="nr-shell-contact" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Kontakt</a>
+        <a class="nr-shell-menu-contact" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=menu">Kontakt</a>
+        </header><a data-cta="business" href="https://www.netresearch.de/kontakt/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=hero">Hero</a></script>`,
+};
 const inertScriptFixtures = {
     en: `<script type="application/json"><header>
         <a class="nr-shell-contact" href="https://www.netresearch.de/en/contact/?utm_source=x&amp;utm_medium=x&amp;utm_campaign=x&amp;utm_content=header">Contact</a>
@@ -74,6 +180,11 @@ for (const [lang, expected] of Object.entries({
         const fixture = href => shell + `<a data-cta="business"${href === null ? '' : ` href="${href}"`}>Hero</a><a data-cta="business" href="${contact}footer">Footer</a>`;
         const valid = fixture(contact + 'hero');
         assert.deepEqual(verifyBusinessContacts(valid, lang), []);
+        assert.deepEqual(verifyBusinessContacts(quotedScriptFixtures[lang], lang), []);
+        assert.deepEqual(verifyBusinessContacts(`<div data-example="<!--"></div>${valid}-->`, lang), []);
+        const quotedFake = `<div data-example="<a data-cta='business' href='https://wrong.test/'>Example</a>"></div>`;
+        assert.deepEqual(verifyBusinessContacts(valid + quotedFake, lang), []);
+        assert.deepEqual(verifyBusinessContacts(valid + "<template><a data-cta='business' href='https://wrong.test/'>Example</a></template>", lang), []);
         assert.deepEqual(verifyBusinessContacts(valid.replaceAll('&amp;', '&#38;'), lang), []);
         assert.deepEqual(verifyBusinessContacts(valid.replaceAll('&amp;', '&#x26;').replaceAll('"', "'"), lang), []);
         assert.deepEqual(verifyBusinessContacts(valid.replaceAll('&amp;', '&AMP;'), lang), []);
