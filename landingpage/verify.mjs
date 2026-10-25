@@ -16,9 +16,11 @@ import {fileURLToPath} from 'node:url';
 
 import {checkAccessibility} from './check-accessibility.mjs';
 import {verifyProductUrls} from './verify-product-urls.mjs';
+import {verifySiteShell} from './verify-site-shell.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, '.Build/site');
+const headerSymbol = await readFile(resolve(output, 'assets/site-shell/netresearch-symbol-only.svg')).catch(() => Buffer.alloc(0));
 
 // Trusted deployment configuration, independent of the rendered canonical.
 const deploymentOrigin = process.env.PAGES_ORIGIN || 'https://netresearch.github.io';
@@ -149,8 +151,7 @@ for (const {name, html, redirect, problems} of renderedPages) {
         }
     }
 
-    const logos = html.match(/<title>Netresearch DTT GmbH<\/title>/g) ?? [];
-    if (logos.length !== 1) fail(`${name}: the logo appears ${logos.length} times, expected exactly once`);
+    for (const problem of verifySiteShell(html, headerSymbol)) fail(`${name}: ${problem}`);
 
     // Accessibility and semantics decidable from the markup alone.
     for (const problem of checkAccessibility(html)) fail(`${name}: ${problem}`);

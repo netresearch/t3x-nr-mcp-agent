@@ -79,15 +79,18 @@ report-only exception.
 
 ## Page navigation and appearance
 
-The header and footer keep a route back to the portfolio and the AI stack in
-the selected language. On small screens the section links use a menu button;
-Escape closes it and returns focus. Without JavaScript all links remain visible.
+The shared Netresearch header provides the portfolio, projects, AI stack and
+impact routes, DE/EN links and an appearance disclosure with native System,
+Light and Dark radio buttons. The global menu uses native details on mobile;
+it remains usable without JavaScript. Escape closes an enhanced disclosure and
+returns focus to its summary. Product-specific links stay in the local bar below.
 
-The appearance selector follows the operating system by default and also offers
-light and dark themes. Only this preference is saved, under `nr-theme`; no
-question, answer or page content is stored by the page controls. Page typography
-uses Raleway and Open Sans with a 14px minimum. Text colours use the brand's
-enhanced-contrast variants; the logo keeps its canonical colours.
+The operating system controls appearance by default; explicit preferences use
+`nr-theme`. An explicit System choice overrides older preferences. Only appearance
+is stored: no question, answer or page content is saved by these controls.
+The canonical source is copied unchanged into `site-shell/`; the build publishes
+only its runtime CSS, JavaScript and authentic symbol asset. The static gate
+checks that the symbol is unchanged, appears once and links to Netresearch.
 
 ## URL regression checks
 
