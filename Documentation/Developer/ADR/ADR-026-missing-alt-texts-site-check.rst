@@ -55,8 +55,8 @@ workspaces and the record history apply, and the tool is useful without
 this extension. Setting ``tx_nrmcpagent_decorative`` is a tool of this
 extension, registered with nr-llm's tool registry like the guided-state
 tools (:ref:`adr-020`): nr-llm does not know the field, and the field goes
-away with this extension. It writes through DataHandler as well. Whether it
-asks for approval is slice 2's decision.
+away with this extension. It writes through DataHandler as well. It asks for
+approval (below, *Slice 2*).
 
 **The decorative field.** ``sys_file_reference.tx_nrmcpagent_decorative``
 (the extension's prefix; the specification's ``tx_aiassistant_`` is an
@@ -189,8 +189,9 @@ The DataHandler does not repeat these checks for the records the
 reference hangs on: writing ``sys_file_reference`` alone, it checks that
 row, its page and its table, field and language rights, not the record it
 belongs to, and for an inline child not the outer content element either.
-So nr-llm's writer asks the record's rights itself before its card
-(nr-llm ADR-230), and the list asks the same. Not enforced anywhere before the write: access checks extensions add
+So the writers ask the record's rights themselves before their card
+(nr-llm ADR-230, ``ReferenceWriteAccess`` here), and the list asks the
+same. Not enforced anywhere before the write: access checks extensions add
 to DataHandler through hooks.
 
 **Workspaces.** In a workspace each row is overlaid with its workspace
@@ -221,6 +222,50 @@ every action of the feature leads into the chat. *Optimieren* is left out
 until slice 2 rather than shown disabled: a disabled button cannot be
 focused, so its explanation would not reach keyboard users.
 
+Slice 2
+=======
+
+**The decorative mark is a tool that asks for approval.**
+``set_file_reference_decorative(reference, decorative)`` sets or clears
+``tx_nrmcpagent_decorative`` on one reference through DataHandler, as the
+acting user, in the live workspace only, and reads it back. nr-llm pauses
+every call of a tool that declares a write for an approval card
+(``ToolApprovalRule``, nr-llm ADR-134), and no declaration lifts that;
+declaring the tool a read to save the editor a click would mislabel a
+record write, which the guided-state tools' ``READ_ONLY`` does not do
+(they write the chat's own bookkeeping only). Like nr-llm's writers it is
+disabled until an administrator enables it, in the writers' group
+``editing``, and usable by editors. Before the card it asks what nr-llm's
+``set_file_reference_alternative_text`` asks (``ReferenceWriteAccess``),
+with the grant for the mark instead of the alternative text, so no card is
+offered that the DataHandler would then refuse. Its card names the image
+use and, when the image belongs to a section (the header of its content
+element, also through a carousel item) or to a record outside the pages,
+carries the specification's warning (case 2): "Dieses Bild gehört zum
+Abschnitt „…“ und braucht deshalb wahrscheinlich einen Alt-Text. Trotzdem
+als dekorativ markieren?"
+
+**A conversation starts from the reference alone.**
+``POST /ai-chat/conversations/create`` takes ``altTextReference``, the
+reference's uid, and nothing else: a page or a skill sent along is
+refused. The server reads everything about the image again: the hit has to
+be one the list shows the user (``MissingAltTextScan::find()``, the list's
+own filter) and one nr-llm's writer would accept (``ReferenceWriteAccess``
+for ``alternative``). A reference that is not there and one that is not
+the user's get one neutral 403, so a uid alone does not tell whether it
+exists; a reference the user may edit that is no longer open gets 409
+``done`` ("Treffer zwischenzeitlich erledigt"). A draft workspace gets 409
+``workspace``: nr-llm's writer writes the live workspace only. A chat whose
+runs may not call both tools, as nr-llm's own policy answers it
+(``ToolCallPolicyInterface::decide()`` for the chat's configuration),
+gets 409 ``tools`` and the names of the tools an administrator has to
+enable. A user who may not approve their own changes in the chat
+(:ref:`adr-021`) gets 409 ``approval``, and a chat whose configuration
+requires a second approver 409 ``secondApprover``: the proposal is saved by
+approving its card, which neither could do. The conversation keeps the reference uid only (column
+``alt_text_hit``), and is about the image's page in the reference's
+language when the image lies on a page; a record's image binds no page.
+
 Consequences
 ============
 
@@ -239,3 +284,8 @@ Consequences
 -   The tests need ``typo3/cms-fluid-styled-content`` and
     ``typo3/cms-workspaces`` as development dependencies, to prove the
     frontend output and the workspace overlay.
+-   Slice 2 needs nr-llm 0.41.6 (``set_file_reference_alternative_text``)
+    and adds the column ``tx_nrmcpagent_conversation.alt_text_hit``: run the
+    database analyzer after upgrading. An administrator enables both
+    writing tools, nr-llm's and ``set_file_reference_decorative``, and gives
+    editors the field ``sys_file_reference:tx_nrmcpagent_decorative``.

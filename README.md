@@ -39,7 +39,9 @@ Backend users manage content through natural language.
   image; fluid_styled_content then outputs it with `alt=""` (with its static
   template right away, with site sets or an `@import` once the extension's
   set or setup is added; see the installation documentation), and the check
-  for missing alt texts counts it as done.
+  for missing alt texts counts it as done. The assistant sets it with the
+  tool `set_file_reference_decorative`, after an approval, once an
+  administrator has enabled the tool.
 - **Secure by design** -- Group-based access control, message length limits,
   concurrency caps, sanitized error messages, and XSS-safe Markdown rendering.
 

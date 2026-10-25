@@ -133,6 +133,30 @@
             <trans-unit id="pagination.next" resname="pagination.next">
                 <source>Next</source>
             </trans-unit>
+            <trans-unit id="tool.heading.set" resname="tool.heading.set">
+                <source>Mark the image as decorative</source>
+            </trans-unit>
+            <trans-unit id="tool.heading.unset" resname="tool.heading.unset">
+                <source>Take the decorative mark off the image</source>
+            </trans-unit>
+            <trans-unit id="tool.record" resname="tool.record">
+                <source>%1$s: “%2$s”</source>
+            </trans-unit>
+            <trans-unit id="tool.page" resname="tool.page">
+                <source>On page: “%s”</source>
+            </trans-unit>
+            <trans-unit id="tool.field" resname="tool.field">
+                <source>Field: %s</source>
+            </trans-unit>
+            <trans-unit id="tool.file" resname="tool.file">
+                <source>File: “%s”</source>
+            </trans-unit>
+            <trans-unit id="decorative.warning.section" resname="decorative.warning.section">
+                <source>Decorative images get no alt text. Screen readers then skip them. That only fits if the image adds nothing to the content. This image belongs to the section “%s” and therefore probably needs an alt text. Mark it as decorative anyway?</source>
+            </trans-unit>
+            <trans-unit id="decorative.warning.record" resname="decorative.warning.record">
+                <source>Decorative images get no alt text. Screen readers then skip them. That only fits if the image adds nothing to the content. This image belongs to the %1$s “%2$s” and therefore probably needs an alt text. Mark it as decorative anyway?</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

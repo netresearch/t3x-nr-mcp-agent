@@ -28,6 +28,9 @@ use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
+use Netresearch\NrMcpAgent\Service\AltText\MissingAltText;
+use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextScanner;
+use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
@@ -39,7 +42,9 @@ use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use Netresearch\NrMcpAgent\Service\SkillPageNeed;
+use Netresearch\NrMcpAgent\Service\ToolAvailabilityInterface;
 use Netresearch\NrMcpAgent\Service\TourContext;
+use Netresearch\NrMcpAgent\Tool\SetDecorativeImageTool;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -83,6 +88,13 @@ final readonly class ChatApiController
     /** The length the conversation model keeps; longer input is refused rather than cut. */
     private const MAX_SYSTEM_PROMPT_LENGTH = 10000;
 
+    /**
+     * The tools a conversation about a missing alt text writes with
+     * (ADR-026): nr-llm's alt text writer and this extension's decorative
+     * mark. Without both, "Optimieren" says so instead of starting.
+     */
+    public const ALT_TEXT_TOOLS = ['set_file_reference_alternative_text', SetDecorativeImageTool::NAME];
+
     public function __construct(
         private ConversationRepository $repository,
         private ChatProcessorInterface $processor,
@@ -113,6 +125,11 @@ final readonly class ChatApiController
         // Tells a deleted page from one the user may not see; without it no
         // conversation counts as one about a deleted page.
         private ?PageChoiceRepository $pages = null,
+        // Without them a conversation cannot start about an image of the
+        // list of missing alt texts (ADR-026).
+        private ?MissingAltTextScanner $altTexts = null,
+        private ?ReferenceWriteAccess $referenceAccess = null,
+        private ?ToolAvailabilityInterface $tools = null,
     ) {}
 
     /**
@@ -267,6 +284,11 @@ final readonly class ChatApiController
      */
     private function applyStartContext(Conversation $conversation, array $body): ?ResponseInterface
     {
+        $altText = (int) ($body['altTextReference'] ?? 0);
+        if ($altText > 0 || array_key_exists('altTextReference', $body)) {
+            return $this->applyAltTextStart($conversation, $altText, $body);
+        }
+
         $pageUid     = (int) ($body['pageUid'] ?? 0);
         $languageUid = (int) ($body['languageUid'] ?? 0);
         $skill       = trim((string) ($body['skill'] ?? ''));
@@ -285,6 +307,87 @@ final readonly class ChatApiController
         $conversation->setSkillIdentifier($skill, $this->skillUid($skill));
 
         return null;
+    }
+
+    /**
+     * A conversation about one image use of the list of missing alt texts
+     * (ADR-026): the request names the reference and nothing else, and the
+     * server reads everything about it again, with the user's rights. The
+     * hit has to be open and one the user may fix, as the list decides it;
+     * a page or a skill sent along is refused, as is a draft workspace, where
+     * the tools do not write, and a chat whose runs may not use them.
+     *
+     * The conversation is about the page an image of the pages lies on, in
+     * the reference's language; a record's image binds no page.
+     *
+     * @param array<string, string|int> $body
+     */
+    private function applyAltTextStart(Conversation $conversation, int $referenceUid, array $body): ?ResponseInterface
+    {
+        if ($referenceUid <= 0 || (int) ($body['pageUid'] ?? 0) > 0 || trim((string) ($body['skill'] ?? '')) !== '') {
+            return new JsonResponse(['error' => $this->translate('error.altTextStart')], 400);
+        }
+
+        $hit = $this->altTextHit($referenceUid);
+        if ($hit instanceof ResponseInterface) {
+            return $hit;
+        }
+
+        if ($hit->type === 'pages') {
+            $conversation->setViewContext($hit->pageUid, '', max(0, $hit->languageUid));
+        }
+
+        $conversation->setAltTextHit($hit->referenceUid);
+
+        return null;
+    }
+
+    /**
+     * The open hit of the reference, as the list shows it to the user, or
+     * the refusal: a draft workspace and missing tools first, as they say
+     * why no hit can be worked on; then a hit that is no longer open to a
+     * user who may edit the reference, and one neutral refusal for a
+     * reference that is not there or not theirs.
+     */
+    private function altTextHit(int $referenceUid): MissingAltText|ResponseInterface
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication
+            || !$this->altTexts instanceof MissingAltTextScanner
+            || !$this->referenceAccess instanceof ReferenceWriteAccess
+            || !$this->tools instanceof ToolAvailabilityInterface
+        ) {
+            return new JsonResponse(['error' => $this->translate('error.altTextToolsUnavailable')], 409);
+        }
+
+        if ($backendUser->workspace !== 0) {
+            return new JsonResponse(['error' => $this->translate('error.altTextWorkspace'), 'code' => 'workspace'], 409);
+        }
+
+        if ($this->tools->unavailableTools(self::ALT_TEXT_TOOLS) !== []) {
+            return new JsonResponse(['error' => $this->translate('error.altTextToolsUnavailable'), 'code' => 'tools'], 409);
+        }
+
+        // The proposal is saved by approving its card: a user who may not
+        // approve their own changes in the chat (ADR-021), or a chat whose
+        // configuration requires a second approver, could only look at it.
+        if (!$this->decidesEveryApproval($backendUser) && !$backendUser->check('custom_options', self::PERMISSION_APPROVE_OWN)) {
+            return new JsonResponse(['error' => $this->translate('error.altTextApprovalNotAllowed'), 'code' => 'approval'], 409);
+        }
+
+        if ($this->skills?->requiresSecondApprover() ?? false) {
+            return new JsonResponse(['error' => $this->translate('error.altTextSecondApprover'), 'code' => 'secondApprover'], 409);
+        }
+
+        // The list's own filter, and the question nr-llm's writer asks before
+        // its card: both must let the image through, or the chat would offer
+        // a proposal the writer then refuses.
+        if (is_string($this->referenceAccess->resolve($backendUser, $referenceUid, 'alternative'))) {
+            return new JsonResponse(['error' => $this->translate('error.altTextNotPermitted')], 403);
+        }
+
+        return $this->altTexts->scan($backendUser)->find($referenceUid)
+            ?? new JsonResponse(['error' => $this->translate('error.altTextHitDone'), 'code' => 'done'], 409);
     }
 
     /**

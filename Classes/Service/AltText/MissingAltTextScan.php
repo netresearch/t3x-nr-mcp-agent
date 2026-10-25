@@ -57,6 +57,18 @@ final readonly class MissingAltTextScan
         return array_values(array_filter($this->hits, static fn (MissingAltText $hit): bool => $hit->type === $type));
     }
 
+    /** The open hit of one image reference, or null when the reference is not among them. */
+    public function find(int $referenceUid): ?MissingAltText
+    {
+        foreach ($this->hits as $hit) {
+            if ($hit->referenceUid === $referenceUid) {
+                return $hit;
+            }
+        }
+
+        return null;
+    }
+
     /** On how many pages hits lie ("auf {n} Seiten"). */
     public function pageCount(): int
     {

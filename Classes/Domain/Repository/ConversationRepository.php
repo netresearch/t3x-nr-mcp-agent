@@ -219,6 +219,7 @@ readonly class ConversationRepository
         $data['system_prompt']    = $conversation->getSystemPrompt();
         $data['skill_identifier'] = $conversation->getSkillIdentifier();
         $data['skill_uid']        = $conversation->getSkillUid();
+        $data['alt_text_hit']     = $conversation->getAltTextHitJson();
 
         return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
             $conn->insert(self::TABLE, $data);
@@ -318,6 +319,20 @@ readonly class ConversationRepository
             'skill_uid'           => $skillIdentifier !== '' ? $skillUid : 0,
             'skill_start_pending' => (int) ($skillIdentifier !== '' && $startPending),
             'tstamp'              => time(),
+        ], ['uid' => $uid, 'be_user' => $beUserUid]);
+    }
+
+    /**
+     * Single-column write of the image use the conversation is about
+     * (ADR-026), like the skill: a turn that settles later cannot put the
+     * previous one back.
+     */
+    public function updateAltTextHit(int $uid, Conversation $conversation, int $beUserUid): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, [
+            'alt_text_hit' => $conversation->getAltTextHitJson(),
+            'tstamp'       => time(),
         ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 

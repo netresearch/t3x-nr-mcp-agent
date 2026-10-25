@@ -955,6 +955,34 @@
                 <source>%1$s open on “%2$s”</source>
                 <target>%1$s auf „%2$s“ offen</target>
             </trans-unit>
+            <trans-unit id="error.altTextStart" resname="error.altTextStart">
+                <source>A conversation about an image starts from the image alone.</source>
+                <target>Eine Unterhaltung zu einem Bild startet nur mit dem Bild.</target>
+            </trans-unit>
+            <trans-unit id="error.altTextWorkspace" resname="error.altTextWorkspace">
+                <source>Alt texts are saved from the chat in the live workspace only. Switch to the live workspace to optimise this image.</source>
+                <target>Alt-Texte speichert der Chat nur im Live-Arbeitsbereich. Wechsle in den Live-Arbeitsbereich, um dieses Bild zu optimieren.</target>
+            </trans-unit>
+            <trans-unit id="error.altTextToolsUnavailable" resname="error.altTextToolsUnavailable">
+                <source>Optimising is not available: an administrator has to enable the tools “set_file_reference_alternative_text” and “set_file_reference_decorative” for the chat.</source>
+                <target>Optimieren ist nicht verfügbar: Ein Administrator muss die Werkzeuge „set_file_reference_alternative_text“ und „set_file_reference_decorative“ für den Chat freischalten.</target>
+            </trans-unit>
+            <trans-unit id="error.altTextHitDone" resname="error.altTextHitDone">
+                <source>This image is no longer open: it has an alt text by now or is marked as decorative. The list is updated.</source>
+                <target>Dieses Bild ist nicht mehr offen: Es hat inzwischen einen Alt-Text oder ist als dekorativ markiert. Die Liste wird aktualisiert.</target>
+            </trans-unit>
+            <trans-unit id="error.altTextNotPermitted" resname="error.altTextNotPermitted">
+                <source>This image does not exist, or you may not edit it.</source>
+                <target>Dieses Bild gibt es nicht, oder du darfst es nicht bearbeiten.</target>
+            </trans-unit>
+            <trans-unit id="error.altTextApprovalNotAllowed" resname="error.altTextApprovalNotAllowed">
+                <source>You may not apply changes in the chat yourself, so the chat cannot save an alt text for you. Ask an administrator for the permission “Approve own changes in the chat”.</source>
+                <target>Du darfst Änderungen im Chat nicht selbst übernehmen, deshalb kann der Chat keinen Alt-Text für dich speichern. Bitte einen Administrator um die Berechtigung „Eigene Änderungen im Chat freigeben“.</target>
+            </trans-unit>
+            <trans-unit id="error.altTextSecondApprover" resname="error.altTextSecondApprover">
+                <source>This chat's configuration requires a second person to approve every change, so it cannot save an alt text right away. Ask an administrator for another configuration.</source>
+                <target>Die Konfiguration dieses Chats verlangt für jede Änderung eine zweite Person, deshalb kann er keinen Alt-Text direkt speichern. Bitte einen Administrator um eine andere Konfiguration.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
