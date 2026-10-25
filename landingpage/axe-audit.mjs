@@ -25,7 +25,7 @@ import { readFile } from 'node:fs/promises';
 import { readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, extname, relative, sep } from 'node:path';
 import { createRequire } from 'node:module';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve('axe-core/axe.min.js');
@@ -211,6 +211,47 @@ async function auditTextAdaptation(page, scheme) {
 }
 
 /** Audits one page and returns the failures found on it. */
+async function auditPageControls(page, scheme) {
+  const defects = [];
+  const requested = scheme === 'light' ? 'dark' : 'light';
+  const picker = page.locator('[data-nr-theme-picker]');
+  await chooseTheme(page, requested);
+  if ((await page.locator('html').getAttribute('data-theme')) !== requested) defects.push('Theme selection failed');
+  await page.reload();
+  if (!(await picker.locator(`input[value="${requested}"]`).isChecked())) defects.push('Theme did not persist');
+  await page.evaluate(() => localStorage.setItem('nrllm-theme', 'dark'));
+  await chooseTheme(page, 'system');
+  await page.reload();
+  const restored = await page.evaluate(() => ({stored: localStorage.getItem('nr-theme'), effective: document.documentElement.dataset.theme}));
+  if (restored.stored !== 'system' || restored.effective !== scheme) defects.push('System did not override legacy preference');
+  await page.emulateMedia({colorScheme: requested});
+  await page.waitForFunction((expected) => document.documentElement.dataset.theme === expected, requested);
+  if ((await page.locator('html').getAttribute('data-theme')) !== requested) defects.push('System did not follow OS');
+  await picker.locator('summary').click();
+  await page.keyboard.press('Escape');
+  if (await picker.evaluate((element) => element.open || document.activeElement !== element.querySelector('summary'))) defects.push('Theme Escape/focus failed');
+  const menu = page.locator('[data-nr-mobile-menu]');
+  await menu.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  if (!(await menu.evaluate((element) => element.open))) defects.push('Native menu keyboard open failed');
+  await page.keyboard.press('Escape');
+  if (await menu.evaluate((element) => element.open || document.activeElement !== element.querySelector('summary'))) defects.push('Menu Escape/focus failed');
+  const local = page.locator('[data-nr-page-menu]');
+  await local.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  if (!(await local.locator('a').first().isVisible())) defects.push('Local menu did not open');
+  await page.keyboard.press('Escape');
+  if (await local.evaluate((element) => element.open || document.activeElement !== element.querySelector('summary'))) defects.push('Local menu Escape/focus failed');
+  return defects.length ? [{id: 'page-controls', impact: 'serious', help: 'Theme and native disclosure controls must work',
+    nodes: defects.map((defect) => ({target: [defect], failureSummary: ''}))}] : [];
+}
+
+async function chooseTheme(page, preference) {
+  const picker = page.locator('[data-nr-theme-picker]');
+  if (!(await picker.evaluate((element) => element.open))) await picker.locator('summary').click();
+  await picker.locator(`input[value="${preference}"]`).check();
+}
+
 async function auditPage(browser, port, route, scheme, width) {
   const context = await browser.newContext({
     colorScheme: scheme,
@@ -241,19 +282,10 @@ async function auditPage(browser, port, route, scheme, width) {
     nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
   });
   if (width === 320 && !isDocumentation(route)) {
-    results.violations.push(...(await auditTextAdaptation(page, scheme)));
-    const menu = page.locator('.menu-toggle');
-    await menu.click();
-    const requestedTheme = scheme === 'light' ? 'dark' : 'light';
-    await page.locator('[data-theme-control]').selectOption(requestedTheme);
-    const selected = await page.locator('html').getAttribute('data-theme');
-    await page.keyboard.press('Escape');
-    const closed = await menu.getAttribute('aria-expanded') === 'false';
-    const focused = await menu.evaluate((element) => document.activeElement === element);
-    if (selected !== requestedTheme || !closed || !focused) results.violations.push({
-      id: 'page-controls', impact: 'serious', help: 'Theme and mobile-menu controls must work',
-      nodes: [{target: ['.menu-toggle'], failureSummary: 'Theme selection or Escape/focus return failed'}],
-    });
+    results.violations.push(
+      ...(await auditTextAdaptation(page, scheme)),
+      ...(await auditPageControls(page, scheme)),
+    );
   }
 
   await context.close();
@@ -292,6 +324,42 @@ async function* auditPages(browser, port, sampled) {
   }
 }
 
+async function auditNoJavaScript(browser, port, routes) {
+  const failures = [];
+  // Separate contexts keep this progressive-enhancement probe isolated.
+  await routes.reduce((sequence, route) => sequence.then(async () => {
+    const context = await browser.newContext({javaScriptEnabled: false, viewport: {width: 320, height: 900}});
+    const page = await context.newPage();
+    await page.goto(`http://127.0.0.1:${port}${BASE}${route.slice(1)}`);
+    await page.locator('.skip-link').focus();
+    // Poll from the Node test host: page rAF callbacks are disabled in this context.
+    await expect.poll(() => page.locator('.skip-link').evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.top >= 0 && element.contains(document.elementFromPoint(rect.left + 8, rect.top + 8));
+    })).toBe(true);
+    const local = page.locator('[data-nr-page-menu]');
+    if (await local.count()) {
+      await local.locator('summary').focus();
+      await page.keyboard.press('Enter');
+      await expect(local.locator('a').first()).toBeVisible();
+      await page.keyboard.press('Enter');
+    }
+    const menu = page.locator('[data-nr-mobile-menu]');
+    await menu.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    const valid = await menu.locator('nav a').first().isVisible()
+      && await page.locator('.nr-shell-locales').isVisible()
+      && !(await page.locator('[data-nr-theme-picker]').isVisible())
+      && await page.evaluate(() => document.documentElement.scrollWidth === innerWidth);
+    if (!valid) failures.push({route, scheme: 'no-js/320px', violation: {
+      id: 'native-navigation', impact: 'serious', help: 'Native navigation and locales must work without JavaScript',
+      nodes: [{target: ['[data-nr-shell]'], failureSummary: 'Unavailable links, inert appearance control or document overflow'}],
+    }});
+    await context.close();
+  }), Promise.resolve());
+  return failures;
+}
+
 async function main() {
   const files = indexFiles(DIST);
   const routes = htmlRoutes(files);
@@ -316,6 +384,7 @@ async function main() {
     checked += 1;
   }
 
+  failures.push(...(await auditNoJavaScript(browser, port, ['/', '/de/'])));
   await browser.close();
   server.close();
 

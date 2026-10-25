@@ -25,10 +25,12 @@
 import {readFile, writeFile, mkdir, cp} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {renderSiteHeader, renderPageNavigation} from './site-shell/render-site-shell.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const output = resolve(root, '.Build/site');
+const themeBootstrap = await readFile(resolve(here, 'site-shell/theme-bootstrap.js'), 'utf8');
 
 // configure-pages supplies base_path without a trailing slash. Normalize once
 // before deriving locale, metadata, sitemap or documentation URLs.
@@ -113,13 +115,7 @@ async function buildManifest() {
     };
 }
 
-const logo = `<svg class="brand__logo" viewBox="-75 -75 440 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Netresearch">
-        <title>Netresearch DTT GmbH</title>
-        <g>
-          <path fill="#2F99A4" d="M209.6,0V31.62h32.77a26.38,26.38,0,0,1,26.44,26.43V242a26.38,26.38,0,0,1-26.44,26.44H209.6V300h47.93a42.77,42.77,0,0,0,42.86-42.86V42.89A42.76,42.76,0,0,0,257.53,0ZM43.25,0A42.76,42.76,0,0,0,.39,42.89V257.18A42.76,42.76,0,0,0,43.25,300H91.18V268.46H58.4A26.38,26.38,0,0,1,32,242v-184A26.37,26.37,0,0,1,58.4,31.62H91.18V0Z" transform="translate(-0.39 -0.04)"/>
-          <path fill="#585961" d="M221.44,120.41c0-34.48-13.94-57.82-48.93-57.82-26.62,0-48.54,7.74-64.17,26.56l-.7-22.06-28.31.06V232.94h31.59V124.69c7.14-18.38,32.14-34.8,53-34.5,27.38.4,25.2,26.24,26,45.81v96.94h31.58" transform="translate(-0.39 -0.04)"/>
-        </g>
-      </svg>`;
+
 
 function capabilityCard(c, manifest) {
     const card = c.capabilityCard;
@@ -206,7 +202,7 @@ function page(c, manifest, lang) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<script src="${base}assets/site-controls.js"></script>
+<script>${themeBootstrap}</script>
 
 <title>${e(c.meta.title)}</title>
 <meta name="description" content="${e(c.meta.description)}">
@@ -231,6 +227,8 @@ function page(c, manifest, lang) {
 <link rel="icon" href="${base}assets/icon.svg" type="image/svg+xml">
 <link rel="sitemap" href="${e(SITE_URL)}sitemap.xml">
 <link rel="stylesheet" href="${base}assets/product.css">
+<link rel="stylesheet" href="${base}assets/site-shell/site-shell.css">
+<script defer src="${base}assets/site-shell/site-shell.js"></script>
 
 <script type="application/ld+json">${jsonLd(c, manifest, canonical)}</script>
 </head>
@@ -238,30 +236,11 @@ function page(c, manifest, lang) {
 
 <a class="skip-link" href="#main">${e(c.skipToContent)}</a>
 
-<header class="site-header">
-  <div class="wrap site-header__inner">
-    <!-- Brand rule: the logo appears exactly once, here. -->
-    <a class="brand" href="https://www.netresearch.de/" aria-label="Netresearch DTT GmbH">
-      ${logo}
-    </a>
-    <a class="language-switch" href="${e(`${SITE_URL}${PATHS[c.otherLang]}`)}" hreflang="${e(c.otherLang)}" lang="${e(c.otherLang)}">${e(c.otherLabel)}</a>
-    <button class="menu-toggle" type="button" hidden aria-expanded="false" aria-controls="site-navigation">${lang === 'de' ? 'Menü' : 'Menu'}</button>
-    <nav id="site-navigation" class="site-nav" aria-label="${e(c.nav.label)}">
-      <a href="https://netresearch.github.io/${lang === 'de' ? 'de/' : ''}">Portfolio</a>
-      <a href="https://netresearch.github.io/modularer-ki-stack-page/${lang === 'en' ? 'en/' : ''}">${lang === 'de' ? 'KI-Stack' : 'AI stack'}</a>
-      ${c.nav.items.map((item) => `<a href="${e(item.href)}">${e(item.label)}</a>`).join('\n      ')}
-      <a href="${e(docsUrl)}">${e(c.nav.docs)}</a>
-      <a class="site-nav__repo" href="${e(manifest.repository)}">${e(c.nav.repo)}</a>
-      <label class="theme-control" for="site-theme" hidden>${lang === 'de' ? 'Darstellung' : 'Appearance'}
-        <select id="site-theme" data-theme-control>
-          <option value="system">System</option>
-          <option value="light">${lang === 'de' ? 'Hell' : 'Light'}</option>
-          <option value="dark">${lang === 'de' ? 'Dunkel' : 'Dark'}</option>
-        </select>
-      </label>
-    </nav>
-  </div>
-</header>
+${renderSiteHeader({lang, assetBase: `${base}assets/site-shell`,
+    languageUrls: {en: SITE_URL, de: `${SITE_URL}de/`}, active: null,
+    contactHref: contactUrl('header')})}
+${renderPageNavigation({lang, title: 'MCP Agent', titleHref: canonical,
+    links: [...c.nav.items, {href: docsUrl, label: c.nav.docs}, {href: manifest.repository, label: c.nav.repo}]})}
 
 <main id="main">
 
@@ -457,6 +436,10 @@ for (const lang of LANGS) {
 
 await mkdir(resolve(output, 'assets'), {recursive: true});
 await cp(resolve(here, 'assets'), resolve(output, 'assets'), {recursive: true});
+await mkdir(resolve(output, 'assets/site-shell'), {recursive: true});
+await Promise.all(['site-shell.css', 'site-shell.js', 'theme-bootstrap.js', 'netresearch-symbol-only.svg'].map(
+    (file) => cp(resolve(here, 'site-shell', file), resolve(output, 'assets/site-shell', file)),
+));
 await cp(resolve(root, 'Resources/Public/Icons/Extension.svg'), resolve(output, 'assets/icon.svg'));
 
 await writeFile(
