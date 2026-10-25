@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 import {createHash} from 'node:crypto';
-import {checkAccessibility} from './check-accessibility.mjs';
+import {attrs, checkAccessibility} from './check-accessibility.mjs';
 
 // Unmodified symbol-only asset from Netresearch branding 3.1.0.
 const SYMBOL_SHA256 = 'ca88779a6d008b4606bbe8d45f4640d6967f82b66b302d95b9153dcf2cfb9e29';
@@ -39,9 +39,19 @@ export function verifySiteShell(html, symbol, lang = 'en') {
     return [...errors, ...verifyFamilyNavigation(headers[0]?.[0] ?? '', lang)];
 }
 
+function isProjectAsset(asset, siteRoot) {
+    if (asset.startsWith('//') || (!asset.startsWith('/') && !/^https?:\/\//i.test(asset))) return false;
+    try {
+        const root = new URL(siteRoot);
+        const target = new URL(asset, root);
+        return target.origin === root.origin && target.pathname.startsWith(root.pathname);
+    } catch {
+        return false;
+    }
+}
+
 export function verifyNotFoundPage(html, symbol, siteRoot) {
-    const projectPath = new URL(siteRoot).pathname;
-    const errors = [...verifySiteShell(html, symbol, 'en'), ...checkAccessibility(html)];
+    const errors = [...verifySiteShell(html, symbol, 'en'), ...checkAccessibility(html), ...verifyBusinessContacts(html, 'en', ['footer'])];
     if (!/<meta\b[^>]*name="robots"[^>]*content="noindex,follow"/.test(html)) errors.push('404 recovery must be noindex');
     if (!/<meta\b[^>]*name="viewport"/.test(html)) errors.push('404 recovery requires a responsive viewport');
     if (/<link\b[^>]*rel="(?:canonical|alternate)"/.test(html)) errors.push('404 recovery must not declare an indexable page counterpart');
@@ -49,7 +59,56 @@ export function verifyNotFoundPage(html, symbol, siteRoot) {
         if (!html.includes(`href="${siteRoot}${path}" lang="${locale}" hreflang="${locale}"`)) errors.push(`404 recovery needs its ${locale} project home`);
     }
     for (const [, asset] of html.matchAll(/<(?:script|link|img)\b[^>]+(?:src|href)="([^"]+)"/g)) {
-        if (!asset.startsWith(siteRoot) && (!asset.startsWith(projectPath) || asset.startsWith('//'))) errors.push(`404 recovery asset must be absolute within the project: ${asset}`);
+        if (!isProjectAsset(asset, siteRoot)) errors.push(`404 recovery asset must be absolute within the project: ${asset}`);
     }
     return errors;
+}
+
+
+function decodeMarkupAttribute(value) {
+    const named = {amp: '&', quot: '"', apos: "'", lt: '<', gt: '>'};
+    return value.replace(/&(#(?:[xX][0-9a-fA-F]+|\d+)|amp|AMP|quot|QUOT|apos|lt|LT|gt|GT);/g, (_, entity) => {
+        if (!entity.startsWith('#')) return named[entity.toLowerCase()];
+        const code = entity.toLowerCase().startsWith('#x')
+            ? Number.parseInt(entity.slice(2), 16) : Number(entity.slice(1));
+        return Number.isSafeInteger(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '\ufffd';
+    });
+}
+
+function contactIssues(link, lang) {
+    const errors = [];
+    let target;
+    try {
+        target = new URL(link.href ?? '');
+    } catch {
+        return ['business contact link has a missing or invalid href'];
+    }
+    const expectedPath = lang === 'de' ? '/kontakt/' : '/en/contact/';
+    if (target.origin !== 'https://www.netresearch.de' || target.pathname !== expectedPath) {
+        errors.push(`business contact link has the wrong destination or language: ${link.href}`);
+    }
+    for (const param of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content']) {
+        const values = target.searchParams.getAll(param);
+        if (values.length !== 1 || !values[0].trim()) errors.push(`business contact link needs one nonempty ${param}`);
+    }
+    return errors;
+}
+
+export function verifyBusinessContacts(html, lang, requiredPositions = []) {
+    const inert = [...html.matchAll(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)]
+        .map(match => ({start: match.index, end: match.index + match[0].length}));
+    const links = [...html.matchAll(/<a\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)]
+        .filter(match => !inert.some(span => match.index >= span.start && match.index < span.end))
+        .map(match => Object.fromEntries(Object.entries(attrs(match[0])).map(([name, value]) => [name, decodeMarkupAttribute(value)])));
+    const isContact = link => ['nr-shell-contact', 'nr-shell-menu-contact'].some(name => (link.class ?? '').split(/\s+/).includes(name));
+    const selected = links.filter(link => link['data-cta'] === 'business' || isContact(link));
+    const errors = [];
+    for (const name of ['nr-shell-contact', 'nr-shell-menu-contact']) {
+        if (links.filter(link => (link.class ?? '').split(/\s+/).includes(name)).length !== 1) errors.push(`expected one ${name} business contact link`);
+    }
+    if (!links.some(link => link['data-cta'] === 'business')) errors.push('no marked business CTA remains');
+    for (const position of requiredPositions) {
+        if (links.filter(link => link['data-cta'] === 'business' && link['data-cta-position'] === position).length !== 1) errors.push(`expected one marked business contact link at ${position}`);
+    }
+    return [...errors, ...selected.flatMap(link => contactIssues(link, lang))];
 }

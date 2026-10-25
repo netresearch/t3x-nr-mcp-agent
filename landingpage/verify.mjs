@@ -16,7 +16,7 @@ import {fileURLToPath} from 'node:url';
 
 import {checkAccessibility} from './check-accessibility.mjs';
 import {verifyProductUrls} from './verify-product-urls.mjs';
-import {verifyNotFoundPage, verifySiteShell} from './verify-site-shell.mjs';
+import {verifyBusinessContacts, verifyNotFoundPage, verifySiteShell} from './verify-site-shell.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, '.Build/site');
@@ -25,8 +25,9 @@ const headerSymbol = await readFile(resolve(output, 'assets/site-shell/netresear
 // Trusted deployment configuration, independent of the rendered canonical.
 const deploymentOrigin = process.env.PAGES_ORIGIN || 'https://netresearch.github.io';
 const configuredBase = (process.env.PAGES_BASE_PATH ?? '/').split('/').filter(Boolean).join('/');
+const configuredPath = configuredBase ? `${configuredBase}/` : '/';
 const recoveryRoot = process.env.PAGES_ORIGIN
-    ? new URL(configuredBase ? `${configuredBase}/` : '/', `${new URL(deploymentOrigin).origin}/`).href
+    ? new URL(configuredPath, `${new URL(deploymentOrigin).origin}/`).href
     : 'https://netresearch.github.io/t3x-nr-mcp-agent/';
 
 const errors = [];
@@ -151,16 +152,8 @@ for (const {name, html, redirect, problems} of renderedPages) {
         }
     }
 
-    const contactLinks = [...html.matchAll(/href="(https:\/\/www\.netresearch\.de\/(?:kontakt|en\/contact)\/[^"]*)"/g)].map((m) => m[1]);
-    if (contactLinks.length === 0) fail(`${name}: no business CTA to the contact form`);
     const lang = /<html\b[^>]*\blang="de"/.test(html) ? 'de' : 'en';
-    const expectedContactPath = lang === 'de' ? '/kontakt/' : '/en/contact/';
-    for (const href of contactLinks) {
-        if (new URL(href).pathname !== expectedContactPath) fail(`${name}: contact link changes language: ${href}`);
-        for (const param of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content']) {
-            if (!href.includes(`${param}=`)) fail(`${name}: contact link without ${param}`);
-        }
-    }
+    for (const problem of verifyBusinessContacts(html, lang, ['hero', 'cta-band', 'footer'])) fail(`${name}: ${problem}`);
 
     for (const problem of verifySiteShell(html, headerSymbol, lang)) fail(`${name}: ${problem}`);
 

@@ -91,12 +91,17 @@ jobs:
       # metadata, an untagged contact link, a missing "what is not claimed"
       # section, a third-party asset request, or a docs tree that did not render.
       - name: Verify the rendered site
+        env:
+          PAGES_ORIGIN: ${{ steps.pages.outputs.origin }}
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: node landingpage/verify.mjs
 
       # Contrast and anything else that depends on resolved CSS is not decidable
       # from markup, so verify.mjs cannot see it. axe found four contrast
       # failures on a page that gate passed.
       - name: Audit accessibility with axe
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: |
           npm ci --ignore-scripts
           npm run test:landingpage

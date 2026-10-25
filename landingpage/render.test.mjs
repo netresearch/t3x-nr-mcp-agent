@@ -60,6 +60,11 @@ for (const [basePath, expected] of [
             assert.deepEqual(verifyNotFoundPage(notFound, symbol, expected), []);
             assert.notDeepEqual(verifyNotFoundPage(notFound.replace('noindex,follow', 'index,follow'), symbol, expected), []);
             assert.notDeepEqual(verifyNotFoundPage(notFound.replace(`${new URL(expected).pathname}assets/product.css`, 'assets/product.css'), symbol, expected), []);
+            if (new URL(expected).pathname !== '/') {
+                for (const invalid of [`${new URL(expected).pathname}../assets/product.css`, `${expected}%2e%2e/assets/product.css`, '//wrong.test/assets/product.css']) {
+                    assert.notDeepEqual(verifyNotFoundPage(notFound.replace(`${new URL(expected).pathname}assets/product.css`, invalid), symbol, expected), []);
+                }
+            }
             const sitemap = await readFile(resolve(fixture, '.Build/site/sitemap.xml'), 'utf8');
             assert.ok(sitemap.includes(`<loc>${expected}</loc>`));
             assert.ok(sitemap.includes(`<loc>${expected}de/</loc>`));

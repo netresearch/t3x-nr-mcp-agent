@@ -463,7 +463,7 @@ ${renderPageNavigation({lang: 'en', title: 'MCP Agent', titleHref: SITE_URL,
 </main>
 <footer class="site-footer"><div class="wrap site-footer__inner"><p>
   <a href="https://www.netresearch.de/">Netresearch DTT GmbH</a> ·
-  <a href="${e(contactUrl('footer', 'en'))}">Contact</a> ·
+  <a href="${e(contactUrl('footer', 'en'))}" data-cta="business" data-cta-position="footer">Contact</a> ·
   <a href="https://www.netresearch.de/en/imprint/" lang="en">Imprint</a> ·
   <a href="https://www.netresearch.de/en/privacy-policy/" lang="en">Privacy</a>
 </p></div></footer>

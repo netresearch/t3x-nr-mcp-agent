@@ -15,7 +15,7 @@
  */
 
 /** All attributes of one tag, lower-cased keys. */
-function attrs(tag) {
+export function attrs(tag) {
   const out = {};
   for (const match of tag.matchAll(/([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) {
     out[match[1].toLowerCase()] = match[2] ?? match[3] ?? match[4] ?? '';
