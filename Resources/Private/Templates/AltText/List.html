@@ -6,8 +6,10 @@
     tabs pattern (alt-text-tabs.js adds arrow keys, Home and End); without
     JavaScript every panel's page links still work, as the open tab is a
     query parameter. No html wrapper: f and core are global namespaces.
+    The backend's Module layout gives the page the module body and its
+    padding; the extension's Default layout is the chat app's, edge to edge.
 </f:comment>
-<f:layout name="Default" />
+<f:layout name="Module" />
 <f:section name="Content">
     <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_alttext.xlf:" />
     <div class="nr-alt-texts">
