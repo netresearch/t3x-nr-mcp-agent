@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 import { Locator, Page } from '@playwright/test';
-import { test, expect, waitForBackend } from '../fixtures/backend';
+import { test, expect, waitForBackend, dashboardWidgetsLoaded } from '../fixtures/backend';
 
 /**
  * One editor's way through the chat column, clicked as an editor clicks it,
@@ -37,6 +37,8 @@ async function login(page: Page): Promise<void> {
     }
     await waitForBackend(page);
     await page.waitForFunction(() => (document.querySelector('ai-chat-panel') as any)?.chat?.loading === false, null, { timeout: 15000 });
+    // The startup module is the dashboard: let its widgets load before leaving.
+    await dashboardWidgetsLoaded(page);
 }
 
 async function storePreferences(page: Page, layout: string, width: string): Promise<void> {
@@ -117,6 +119,7 @@ test.describe('An editor working with the chat column', () => {
 
         // 1. Dashboard: open the chat, dock it as a column.
         await openModule(page, '[data-modulemenu-identifier="dashboard"]', /^dashboard$/);
+        await dashboardWidgetsLoaded(page);
         await page.locator('.ai-chat-toolbar-btn').click();
         await expect(panel).toHaveAttribute('state', 'expanded');
         await panel.getByRole('button', { name: 'Column mode' }).click();
