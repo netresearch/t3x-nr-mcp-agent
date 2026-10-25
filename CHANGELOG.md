@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-25
+
+### Upgrading
+
+- **Update the database schema.** `sys_file_reference` gains the column `tx_nrmcpagent_decorative` (ADR-026).
+- **Decorative images in the frontend need one step per setup** (Installation chapter): nothing for fluid_styled_content's static template; one `@import` line after an imported fluid_styled_content; the set `netresearch/nr-mcp-agent-decorative-images` for fluid_styled_content as a site set; and, for bootstrap_package or another rendering of its own, the documented condition in the site's own image partial.
+- **The new dashboard widget "Website prüfen"** is available to editor groups once an administrator allows it under *Dashboard widgets*.
+
+### Added
+
+- **Missing alt texts: a site-wide check and its list (#258, #259, ADR-026).** The AI Assistant module lists every image use without an alt text: on content elements, in the image fields of the page properties (such as "Media" and the thumbnail), and in every other table with a file field, which get a tab each. Social-media images, page navigation icons and backend avatars are excluded by default; more fields and tables can be excluded in the extension configuration. A hit is open when neither the reference nor the file list has an alt text and the image is not marked decorative. Hidden and timed content counts and says why it is not visible. The list shows only what the editor may edit. "Seite öffnen" / "Detailseite öffnen" opens the page or the record's detail page in the hit's language. The scan is a database query and calls no page.
+- **"Dekoratives Bild" on an image reference (#258).** Editors mark an image as decorative next to its alt text. It then leaves the list, and fluid_styled_content outputs it with `alt=""` and no title.
+- **Dashboard (#259):** the widget "Website prüfen" lists the check, and "Für deine Website empfohlen" shows a tile with the number of open hits.
+
 ## [0.20.0] - 2026-10-25
 
 ### Added
