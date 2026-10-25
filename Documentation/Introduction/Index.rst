@@ -89,6 +89,13 @@ Key features
         headings, lists, code blocks, and tables --
         using marked.js with DOMPurify for XSS safety.
 
+    ..  card:: Missing alt texts
+
+        One list of every image without an alt text,
+        on pages and in records, that you may fix. A
+        purely decorative image is marked as such and
+        is output with an empty alt text.
+
     ..  card:: Secure by design
 
         Access is restricted to configured backend user
