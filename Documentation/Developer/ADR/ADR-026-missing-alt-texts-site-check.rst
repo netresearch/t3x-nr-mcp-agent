@@ -189,10 +189,15 @@ The DataHandler does not repeat these checks for the records the
 reference hangs on: writing ``sys_file_reference`` alone, it checks that
 row, its page and its table, field and language rights, not the record it
 belongs to, and for an inline child not the outer content element either.
-So the writers ask the record's rights themselves before their card
-(nr-llm ADR-230, ``ReferenceWriteAccess`` here), and the list asks the
-same. Not enforced anywhere before the write: access checks extensions add
-to DataHandler through hooks.
+So ``ReferenceWriteAccess`` asks, before its card, the rights of the record
+and of every record that owns it through an inline field, up to the
+outermost one: an image on a carousel item is refused when its content
+element is locked or of a type the user may not use. The list asks the
+same of the same chain. nr-llm's ``set_file_reference_alternative_text``
+(nr-llm ADR-230) asks the record's own rights but not those of its owners,
+so such an image passes it; that gap is closed in nr-llm on its own. Not
+enforced anywhere before the write: access checks extensions add to
+DataHandler through hooks.
 
 **Workspaces.** In a workspace each row is overlaid with its workspace
 version: an alt text or mark set there, a file list text set there, and a
@@ -227,8 +232,11 @@ Slice 2
 
 **The decorative mark is a tool that asks for approval.**
 ``set_file_reference_decorative(reference, decorative)`` sets or clears
-``tx_nrmcpagent_decorative`` on one reference through DataHandler, as the
-acting user, in the live workspace only, and reads it back. nr-llm pauses
+``tx_nrmcpagent_decorative`` on one reference through nr-llm's
+``ToolDataHandler``, the DataHandler its own writers run (nr-llm ADR-206),
+as the acting user, in the live workspace only, reads it back, and names
+the reference as its write target, so nr-llm announces the write with
+``AfterAiRecordWrittenEvent`` as it does for its own writers. nr-llm pauses
 every call of a tool that declares a write for an approval card
 (``ToolApprovalRule``, nr-llm ADR-134), and no declaration lifts that;
 declaring the tool a read to save the editor a click would mislabel a
@@ -244,6 +252,14 @@ element, also through a carousel item) or to a record outside the pages,
 carries the specification's warning (case 2): "Dieses Bild gehört zum
 Abschnitt „…“ und braucht deshalb wahrscheinlich einen Alt-Text. Trotzdem
 als dekorativ markieren?"
+
+**The editor confirms the mark once, on that card.** The specification
+saves on "Übernehmen" or "Als dekorativ markieren"; nr-llm saves a write
+only on an approved card (nr-llm ADR-134), and that holds here too. The
+chip "Als dekorativ markieren" therefore does not save anything and does
+not count as a confirmation: it asks for the card, and approving the card
+is the one confirmation, with the warning of case 2 on the card itself. No
+further "really?" step comes before or after it.
 
 **A conversation starts from the reference alone.**
 ``POST /ai-chat/conversations/create`` takes ``altTextReference``, the

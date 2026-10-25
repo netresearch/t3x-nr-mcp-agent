@@ -153,6 +153,33 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         self::assertSame([1, 2, 4, 7, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 27, 28, 29, 30, 31, 32, 34, 35, 37, 39, 40, 41, 42, 45, 46, 47, 48, 49, 50, 51, 52, 54, 55], $uids);
     }
 
+    /**
+     * A question about one image reads that reference only, and the same
+     * filter decides: an open hit of the editor, one the editor may not fix
+     * (page outside the web mounts), one with an alt text.
+     *
+     * @return iterable<string, array{int, list<int>}>
+     */
+    public static function singleReferences(): iterable
+    {
+        yield 'an open hit of the editor' => [1, [1]];
+        yield 'an image the editor may not fix' => [16, []];
+        yield 'an image with an alt text' => [3, []];
+    }
+
+    /**
+     * @param list<int> $expected
+     */
+    #[Test]
+    #[DataProvider('singleReferences')]
+    public function oneReferenceIsScannedAlone(int $referenceUid, array $expected): void
+    {
+        $user            = $this->setUpBackendUser(2);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($user);
+
+        self::assertSame($expected, $this->referenceUids($this->scanner()->scan($user, $referenceUid)));
+    }
+
     /** The editor's list in list order: page tree, content order, then the records by folder and title. */
     #[Test]
     public function theEditorsHitsAreInListOrder(): void

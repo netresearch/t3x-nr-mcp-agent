@@ -9,16 +9,18 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service\AltText;
 
+use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrMcpAgent\Domain\Repository\ImageReferenceRepository;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Sets or clears the "decorative image" mark of one image reference
- * (`sys_file_reference.tx_nrmcpagent_decorative`, ADR-026) through the
- * DataHandler as the given backend user, in the live workspace only, and
- * reads it back. Asked first, the way nr-llm's alt text writer asks:
+ * (`sys_file_reference.tx_nrmcpagent_decorative`, ADR-026) through nr-llm's
+ * ToolDataHandler, the DataHandler every nr-llm writer runs (a hook that fails
+ * after the write no longer turns a landed write into a failed one, nr-llm
+ * ADR-206), as the given backend user, in the live workspace only, and reads
+ * it back. Asked first, the way nr-llm's alt text writer asks:
  * ReferenceWriteAccess.
  *
  * The one write behind the tool `set_file_reference_decorative`, so the model's
@@ -60,7 +62,7 @@ class DecorativeImageWriter
             return $plan;
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([self::TABLE => [$referenceUid => [self::COLUMN => $decorative ? 1 : 0]]], [], $user);
         $dataHandler->process_datamap();
         if ($dataHandler->errorLog !== []) {

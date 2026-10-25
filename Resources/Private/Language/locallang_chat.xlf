@@ -731,7 +731,7 @@
                 <source>Optimising is not available: an administrator has to enable the tools “set_file_reference_alternative_text” and “set_file_reference_decorative” for the chat.</source>
             </trans-unit>
             <trans-unit id="error.altTextHitDone" resname="error.altTextHitDone">
-                <source>This image is no longer open: it has an alt text by now or is marked as decorative. The list is updated.</source>
+                <source>This image is no longer in your list: it may have an alt text or a decorative mark by now, or you may no longer change it. The list is updated.</source>
             </trans-unit>
             <trans-unit id="error.altTextNotPermitted" resname="error.altTextNotPermitted">
                 <source>This image does not exist, or you may not edit it.</source>

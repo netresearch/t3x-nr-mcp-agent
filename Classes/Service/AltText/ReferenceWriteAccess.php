@@ -32,10 +32,16 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  *   root level is an admin's;
  * - no edit lock on the page (admins excepted), which the permission bits do
  *   not carry and the DataHandler refuses;
- * - the reference's language; the record's own rights (`tables_modify`, its
- *   language, `authMode`, its edit lock); `tables_modify` for
- *   sys_file_reference;
- * - the field grants for the record's file field and the column written.
+ * - the reference's language; the rights of the record and of every record
+ *   that owns it through an inline field, up to the outermost one, as the
+ *   list asks them (`tables_modify`, the language, `authMode` such as the
+ *   content type, the edit lock): an image on a carousel item is refused
+ *   when its content element is locked or of a type the user may not use;
+ *   `tables_modify` for sys_file_reference;
+ * - the field grants for the record's file field, for each owner's inline
+ *   field and for the column written.
+ *
+ * The page is the outermost owner's.
  *
  * A reference or record that is not there and one the user may not edit get
  * the same refusal, so a refusal never confirms that a uid exists; the
@@ -47,8 +53,12 @@ class ReferenceWriteAccess
 
     private const TABLE = 'sys_file_reference';
 
+    /** As deep as the list follows owners (MissingAltTextScanner). */
+    private const MAX_OWNER_DEPTH = 4;
+
     public function __construct(
         private readonly ImageReferenceRepository $rows,
+        private readonly ImageFieldDiscovery $discovery,
         private readonly ?TableReadAccessService $tableAccess = null,
     ) {}
 
@@ -78,7 +88,13 @@ class ReferenceWriteAccess
             return self::NOT_PERMITTED;
         }
 
-        $page = $this->editablePageOf($table, $record, $user);
+        $chain = $this->ownerChain($table, $record, $field);
+        if ($chain === null) {
+            return self::NOT_PERMITTED;
+        }
+
+        $top  = $chain[count($chain) - 1];
+        $page = $this->editablePageOf($top['table'], $top['row'], $user);
         if (is_string($page)) {
             return $page;
         }
@@ -88,13 +104,21 @@ class ReferenceWriteAccess
             return sprintf('Refused: file reference [%d] is in language %d, which the acting backend user may not edit. Nothing was written.', $referenceUid, $language);
         }
 
-        if (!$this->mayEditRecord($table, $record, $user) || (!$user->isAdmin() && !$user->check('tables_modify', self::TABLE))) {
+        if (!$user->isAdmin() && !$user->check('tables_modify', self::TABLE)) {
             return self::NOT_PERMITTED;
         }
 
+        foreach ($chain as $link) {
+            if (!$this->mayEditRecord($link['table'], $link['row'], $user)) {
+                return self::NOT_PERMITTED;
+            }
+        }
+
         $ungranted = [];
-        if (!$this->mayEditField($user, $table, $field)) {
-            $ungranted[] = $table . ':' . $field;
+        foreach ($chain as $link) {
+            if (!$this->mayEditField($user, $link['table'], $link['via'])) {
+                $ungranted[] = $link['table'] . ':' . $link['via'];
+            }
         }
 
         if (!$this->mayEditField($user, self::TABLE, $column)) {
@@ -114,6 +138,58 @@ class ReferenceWriteAccess
             page: $page,
             language: $language,
         );
+    }
+
+    /**
+     * The record and the records that own it through an inline field, from
+     * the record outward, each with the field the next one down hangs on.
+     * Null when an owner is gone or the chain is deeper than the list follows.
+     *
+     * @param array<string, mixed> $record
+     *
+     * @return non-empty-list<array{table: string, row: array<string, mixed>, via: string}>|null
+     */
+    private function ownerChain(string $table, array $record, string $field): ?array
+    {
+        $chain = [['table' => $table, 'row' => $record, 'via' => $field]];
+        for ($depth = 0; $depth <= self::MAX_OWNER_DEPTH; ++$depth) {
+            $owner = $this->ownerOf($table, $record);
+            if ($owner === null) {
+                return $chain;
+            }
+
+            [$table, $uid, $field] = $owner;
+            $row                   = $this->liveRow($table, $uid);
+            if ($row === null) {
+                return null;
+            }
+
+            $record  = $row;
+            $chain[] = ['table' => $table, 'row' => $record, 'via' => $field];
+        }
+
+        return null;
+    }
+
+    /**
+     * The owner of a row through an inline field, as [table, uid, field].
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array{0: string, 1: int, 2: string}|null
+     */
+    private function ownerOf(string $table, array $row): ?array
+    {
+        foreach ($this->discovery->ownersOf($table) as $owner) {
+            $uid = $this->int($row[$owner->foreignField] ?? 0);
+            if ($uid <= 0 || ($owner->foreignTableField !== '' && $this->string($row[$owner->foreignTableField] ?? null) !== $owner->table)) {
+                continue;
+            }
+
+            return [$owner->table, $uid, $owner->field];
+        }
+
+        return null;
     }
 
     /**

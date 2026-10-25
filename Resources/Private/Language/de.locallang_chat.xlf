@@ -968,8 +968,8 @@
                 <target>Optimieren ist nicht verfügbar: Ein Administrator muss die Werkzeuge „set_file_reference_alternative_text“ und „set_file_reference_decorative“ für den Chat freischalten.</target>
             </trans-unit>
             <trans-unit id="error.altTextHitDone" resname="error.altTextHitDone">
-                <source>This image is no longer open: it has an alt text by now or is marked as decorative. The list is updated.</source>
-                <target>Dieses Bild ist nicht mehr offen: Es hat inzwischen einen Alt-Text oder ist als dekorativ markiert. Die Liste wird aktualisiert.</target>
+                <source>This image is no longer in your list: it may have an alt text or a decorative mark by now, or you may no longer change it. The list is updated.</source>
+                <target>Dieses Bild steht nicht mehr in deiner Liste: Es hat inzwischen vielleicht einen Alt-Text oder eine Markierung als dekorativ, oder du darfst es nicht mehr ändern. Die Liste wird aktualisiert.</target>
             </trans-unit>
             <trans-unit id="error.altTextNotPermitted" resname="error.altTextNotPermitted">
                 <source>This image does not exist, or you may not edit it.</source>

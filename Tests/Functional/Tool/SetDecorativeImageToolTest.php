@@ -18,6 +18,7 @@ use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
 use Netresearch\NrMcpAgent\Tool\SetDecorativeImageTool;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
@@ -155,6 +156,63 @@ final class SetDecorativeImageToolTest extends FunctionalTestCase
         self::assertSame($before, $this->mark($referenceUid));
         // The card says the same before anyone decides.
         self::assertStringContainsString($refusal, implode("\n", $this->tool()->previewCall(['reference' => $referenceUid, 'decorative' => true], $this->contextAs($userUid))));
+    }
+
+    /**
+     * A carousel item's image is refused when its content element is locked
+     * or of a type the editor may not use, as the list hides it then; the
+     * editor may mark it otherwise.
+     *
+     * @return iterable<string, array{string, array<string, int|string>, array<string, int>, bool}>
+     */
+    public static function outerContentElements(): iterable
+    {
+        yield 'the content element as it is' => ['tt_content', ['editlock' => 0], ['uid' => 116], true];
+        yield 'the content element locked for editing' => ['tt_content', ['editlock' => 1], ['uid' => 116], false];
+        yield 'the content element of a type the editor may not use' => [
+            'be_groups',
+            ['explicit_allowdeny' => 'tt_content:CType:textpic,tt_content:CType:image,tt_content:CType:text,tt_content:CType:textmedia'],
+            ['uid' => 1],
+            false,
+        ];
+    }
+
+    /**
+     * @param array<string, int|string> $values
+     * @param array<string, int>        $where
+     */
+    #[Test]
+    #[DataProvider('outerContentElements')]
+    public function theOuterContentElementDecidesForACarouselItemsImage(string $table, array $values, array $where, bool $allowed): void
+    {
+        $this->getConnectionPool()->getConnectionForTable($table)->update($table, $values, $where);
+
+        $result = $this->tool()->execute(['reference' => 27, 'decorative' => true], $this->contextAs(self::EDITOR));
+
+        self::assertSame(!$allowed, $result->isError, $result->content);
+        self::assertSame($allowed ? 1 : 0, $this->mark(27));
+    }
+
+    /**
+     * The write goes through nr-llm's ToolDataHandler (nr-llm ADR-206): a
+     * hook of the installation that fails after the write no longer turns a
+     * landed mark into a failed call, which the model would retry.
+     */
+    #[Test]
+    public function aHookFailingAfterTheWriteDoesNotFailTheCall(): void
+    {
+        $hook = new class {
+            public function processDatamap_afterAllOperations(): never
+            {
+                throw new RuntimeException('A hook of the installation failed after the write.', 1790000001);
+            }
+        };
+        $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass']['nrMcpAgentTest'] = $hook::class;
+
+        $result = $this->tool()->execute(['reference' => 1, 'decorative' => true], $this->contextAs(self::EDITOR));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->mark(1));
     }
 
     /** The tool writes the live workspace only, as nr-llm's writers do. */

@@ -11,7 +11,10 @@ namespace Netresearch\NrMcpAgent\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
@@ -108,7 +111,7 @@ final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataCl
                 ? 'File reference [%d] is marked as decorative: it is rendered with alt="" and no longer listed as missing an alt text.'
                 : 'File reference [%d] is no longer marked as decorative.',
             $call['reference'],
-        ));
+        ))->withWriteTarget(new RecordReference(self::TABLE, $call['reference']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
     /**

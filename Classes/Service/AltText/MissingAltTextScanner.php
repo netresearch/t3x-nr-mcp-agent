@@ -91,7 +91,11 @@ class MissingAltTextScanner
         return $user instanceof BackendUserAuthentication ? $this->scan($user) : new MissingAltTextScan([]);
     }
 
-    public function scan(BackendUserAuthentication $user): MissingAltTextScan
+    /**
+     * The open hits the user may fix; with a reference, that one image only,
+     * decided by the same filter (the start of a conversation about it).
+     */
+    public function scan(BackendUserAuthentication $user, ?int $referenceUid = null): MissingAltTextScan
     {
         $this->records        = [];
         $this->pageAccess     = [];
@@ -105,7 +109,7 @@ class MissingAltTextScanner
         $workspace       = $user->workspace;
         $this->workspace = $workspace;
 
-        $rows = $this->repository->findOpenReferences($fieldsByTable, $workspace);
+        $rows = $this->repository->findOpenReferences($fieldsByTable, $workspace, $referenceUid);
         if ($workspace !== 0) {
             $this->load(array_map(fn (array $row): array => ['sys_file_metadata', $this->int($row['_metadata_uid'] ?? 0), ''], $rows), $workspace);
         }

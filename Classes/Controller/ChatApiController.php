@@ -28,6 +28,7 @@ use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
+use Netresearch\NrMcpAgent\Service\AltText\DecorativeImageWriter;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltText;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextScanner;
 use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
@@ -271,8 +272,13 @@ final readonly class ChatApiController
             $this->processor->dispatch($uid);
         }
 
+        $reference = $conversation->getAltTextHit()['reference'];
+
         return new JsonResponse([
             'uid' => $uid,
+            // Whether "Als dekorativ markieren" can work on the image: the
+            // user's rights for the mark, asked as for the alt text (ADR-026).
+            ...($reference > 0 ? ['altTextDecorative' => $this->mayMarkDecorative($reference)] : []),
         ], 201);
     }
 
@@ -342,6 +348,16 @@ final readonly class ChatApiController
         return null;
     }
 
+    /** Whether the current user may set the decorative mark on the reference. */
+    private function mayMarkDecorative(int $referenceUid): bool
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+
+        return $backendUser instanceof BackendUserAuthentication
+            && $this->referenceAccess instanceof ReferenceWriteAccess
+            && !is_string($this->referenceAccess->resolve($backendUser, $referenceUid, DecorativeImageWriter::COLUMN));
+    }
+
     /**
      * The open hit of the reference, as the list shows it to the user, or
      * the refusal: a draft workspace and missing tools first, as they say
@@ -386,7 +402,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.altTextNotPermitted')], 403);
         }
 
-        return $this->altTexts->scan($backendUser)->find($referenceUid)
+        return $this->altTexts->scan($backendUser, $referenceUid)->find($referenceUid)
             ?? new JsonResponse(['error' => $this->translate('error.altTextHitDone'), 'code' => 'done'], 409);
     }
 
