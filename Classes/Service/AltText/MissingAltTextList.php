@@ -17,6 +17,7 @@ use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Resource\FileReference;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
@@ -26,6 +27,8 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * record's detail page.
  *
  * Tabs: "pages" first, then one per record type with open hits, by label.
+ * A requested record type whose hits are all fixed keeps its tab, empty,
+ * until the list is opened without it (reload, paging).
  * Each tab pages its hits on its own; `$type` and `$page` name the tab that
  * is open and its page, every other tab shows its first page.
  *
@@ -46,11 +49,15 @@ class MissingAltTextList
     /** @var array<string, string> */
     private array $languageCodes = [];
 
+    /** @var array<string, array<string, int>> per site: how many languages have each language code and each tag */
+    private array $sharedCodes = [];
+
     public function __construct(
         private readonly MissingAltTextScanner $scanner,
         private readonly SiteFinder $siteFinder,
         private readonly ResourceFactory $resourceFactory,
         private readonly UriBuilder $uriBuilder,
+        private readonly ImageFieldDiscovery $discovery,
     ) {}
 
     /**
@@ -84,7 +91,12 @@ class MissingAltTextList
         $scan   = $this->scanner->scanForCurrentUser();
         $counts = $scan->countsByType();
         $labels = [MissingAltTextScan::PAGES => $this->text('tab.pages')];
-        foreach (array_keys($counts) as $recordType) {
+        $types  = array_keys($counts);
+        if (!array_key_exists($type, $counts) && $this->isRecordType($type)) {
+            $types[] = $type;
+        }
+
+        foreach ($types as $recordType) {
             if ($recordType !== MissingAltTextScan::PAGES) {
                 $labels[$recordType] = $this->tableLabel($recordType);
             }
@@ -101,6 +113,17 @@ class MissingAltTextList
         }
 
         return ['count' => $scan->count(), 'title' => $this->title($scan->count()), 'tabs' => $tabs];
+    }
+
+    /**
+     * Whether a requested tab names a table whose images the check reads:
+     * one with image fields of its own, other than pages and content, which
+     * are the "pages" tab.
+     */
+    private function isRecordType(string $type): bool
+    {
+        return !in_array($type, [MissingAltTextScan::PAGES, 'pages', 'tt_content'], true)
+            && array_key_exists($type, $this->discovery->fieldsByTable());
     }
 
     /**
@@ -154,6 +177,7 @@ class MissingAltTextList
             'id'         => preg_replace('/[^a-z0-9_-]/i', '_', $type) ?? $type,
             'label'      => $label,
             'count'      => count($hits),
+            'countText'  => sprintf($this->text('tab.count'), count($hits)),
             'active'     => $active,
             'column'     => $this->text($type === MissingAltTextScan::PAGES ? 'column.element' : 'column.field'),
             'groups'     => $groups,
@@ -263,23 +287,57 @@ class MissingAltTextList
     }
 
     /**
-     * The language's code from the site configuration ("DE", "EN"); empty
-     * for a page outside every site.
+     * The language's code from the site configuration ("DE", "EN"); the
+     * whole tag ("DE-CH") where another language of the site has the same
+     * code, or the language's title where the tag does not tell them apart
+     * either; empty for a page outside every site.
      */
     private function languageCode(int $pageUid, int $languageUid): string
     {
         $key = $pageUid . ':' . $languageUid;
         if (!array_key_exists($key, $this->languageCodes)) {
             try {
-                $code = $this->siteFinder->getSiteByPageId($pageUid)->getLanguageById($languageUid)->getLocale()->getLanguageCode();
+                $site     = $this->siteFinder->getSiteByPageId($pageUid);
+                $language = $site->getLanguageById($languageUid);
+                $locale   = $language->getLocale();
+                $code     = strtoupper($locale->getLanguageCode());
+                $tag      = $this->tag($locale->getLanguageCode(), $locale->getCountryCode());
+                $counts   = $this->sharedCodes[$site->getIdentifier()] ??= $this->codeCounts($site->getAllLanguages());
+                if (($counts[$code] ?? 0) > 1) {
+                    $code = ($counts[$tag] ?? 0) > 1 || !str_contains($tag, '-') ? $language->getTitle() : $tag;
+                }
             } catch (Throwable) {
                 $code = '';
             }
 
-            $this->languageCodes[$key] = strtoupper($code);
+            $this->languageCodes[$key] = $code;
         }
 
         return $this->languageCodes[$key];
+    }
+
+    /**
+     * @param array<int, SiteLanguage> $languages
+     *
+     * @return array<string, int>
+     */
+    private function codeCounts(array $languages): array
+    {
+        $counts = [];
+        foreach ($languages as $language) {
+            $locale = $language->getLocale();
+            foreach (array_unique([strtoupper($locale->getLanguageCode()), $this->tag($locale->getLanguageCode(), $locale->getCountryCode())]) as $key) {
+                $counts[$key] = ($counts[$key] ?? 0) + 1;
+            }
+        }
+
+        return $counts;
+    }
+
+    /** "DE-CH", or "DE" without a country. */
+    private function tag(string $languageCode, ?string $countryCode): string
+    {
+        return strtoupper($languageCode . ($countryCode !== null && $countryCode !== '' ? '-' . $countryCode : ''));
     }
 
     /**

@@ -94,7 +94,7 @@
             </trans-unit>
             <trans-unit id="element.unknownType" resname="element.unknownType">
                 <source>Content element</source>
-                <target>Inhaltselement</target>
+                <target>Content-Element</target>
             </trans-unit>
             <trans-unit id="element.pageProperty" resname="element.pageProperty">
                 <source>Page properties: %s</source>

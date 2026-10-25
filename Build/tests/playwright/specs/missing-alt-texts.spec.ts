@@ -122,8 +122,8 @@ test.describe('The list of missing alt texts', () => {
         const tabs = frame.getByRole('tablist', { name: 'Hits by origin' }).getByRole('tab');
 
         await expect(tabs).toHaveCount(2);
-        await expect(tabs.nth(0)).toHaveText(/^Pages\s*2$/);
-        await expect(tabs.nth(1)).toHaveText(/^File collections?\s*1$/i);
+        await expect(tabs.nth(0)).toHaveAccessibleName(/^Pages\s*2 open$/);
+        await expect(tabs.nth(1)).toHaveAccessibleName(/^File collections?\s*1 open$/i);
         await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true');
 
         const pages = frame.getByRole('tabpanel', { name: /^Pages/ });

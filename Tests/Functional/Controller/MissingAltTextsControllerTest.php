@@ -91,13 +91,14 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
 
     private function list(?ExtensionConfiguration $config = null): MissingAltTextList
     {
-        $scanner = new MissingAltTextScanner(
-            new ImageFieldDiscovery($config ?? new ExtensionConfiguration()),
+        $discovery = new ImageFieldDiscovery($config ?? new ExtensionConfiguration());
+        $scanner   = new MissingAltTextScanner(
+            $discovery,
             new MissingAltTextRepository($this->get(ConnectionPool::class)),
             $this->get(Context::class),
         );
 
-        return new MissingAltTextList($scanner, $this->get(SiteFinder::class), $this->get(ResourceFactory::class), $this->get(UriBuilder::class));
+        return new MissingAltTextList($scanner, $this->get(SiteFinder::class), $this->get(ResourceFactory::class), $this->get(UriBuilder::class), $discovery);
     }
 
     /**
@@ -179,7 +180,10 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $this->login(2);
         $xpath = $this->render();
 
-        self::assertSame(['Pages 22', 'Test articles 4'], $this->texts($xpath, '//*[@role="tablist"]/*[@role="tab"]'));
+        self::assertSame(['Pages', 'Test articles'], $this->texts($xpath, '//*[@role="tablist"]/*[@role="tab"]/text()'));
+        // The badge shows the number; screen readers hear "22 open".
+        self::assertSame(['22', '4'], $this->texts($xpath, '//*[@role="tab"]/span[@class="badge"]/span[@aria-hidden="true"]'));
+        self::assertSame(['22 open', '4 open'], $this->texts($xpath, '//*[@role="tab"]/span[@class="badge"]/span[@class="visually-hidden"]'));
         $pages = $this->one($xpath, '//*[@role="tab"][@data-tab-type="pages"]');
         self::assertSame(['true', '0'], [$pages->getAttribute('aria-selected'), $pages->getAttribute('tabindex')]);
         $articles = $this->one($xpath, '//*[@role="tab"][@data-tab-type="tx_alttexttest_item"]');
@@ -269,7 +273,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $this->login(2);
         $xpath = $this->render();
 
-        $hints = $this->texts($xpath, '//*[contains(@class, "nr-alt-texts-hidden")]/span[@title]');
+        $hints = $this->texts($xpath, '//*[contains(@class, "nr-alt-texts-hidden")]/span[@class="nr-alt-texts-reason"]');
         self::assertContains('Currently not visible · Element hidden', $hints);
         self::assertContains('Currently not visible · Image hidden', $hints);
         self::assertContains('Currently not visible · Parent page hidden', $hints);
@@ -279,6 +283,59 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
             'The image is not shown in the frontend at the moment. The alt text is still needed as soon as the content is visible again.',
             $this->texts($xpath, '//*[contains(@class, "nr-alt-texts-hidden")]/span[@class="visually-hidden"]'),
         );
+    }
+
+    /** A record type whose hits are all fixed keeps its tab while it is the one asked for, saying it has no hits. */
+    #[Test]
+    public function aRequestedRecordTypeWithoutHitsKeepsAnEmptyTab(): void
+    {
+        $this->login(2);
+        $this->get(ConnectionPool::class)->getConnectionForTable('sys_file_reference')
+            ->update('sys_file_reference', ['alternative' => 'Erledigt'], ['tablenames' => 'tx_alttexttest_item']);
+        $this->get(ConnectionPool::class)->getConnectionForTable('sys_file_reference')
+            ->update('sys_file_reference', ['alternative' => 'Erledigt'], ['uid_foreign' => 117, 'tablenames' => 'tt_content']);
+
+        $asked = $this->list()->build('tx_alttexttest_item', 1);
+        self::assertSame(['pages', 'tx_alttexttest_item'], array_column($asked['tabs'], 'type'));
+        self::assertSame([0, true, 'No open hits in Test articles.'], [$asked['tabs'][1]['count'], $asked['tabs'][1]['active'], $asked['tabs'][1]['empty']]);
+
+        // Opened without it, the tab is gone; a table without images is no tab.
+        self::assertSame(['pages'], array_column($this->list()->build('pages', 1)['tabs'], 'type'));
+        self::assertSame(['pages'], array_column($this->list()->build('be_groups', 1)['tabs'], 'type'));
+    }
+
+    /** "Open page" for an image in a language opens that language's page. */
+    #[Test]
+    public function aPageHitInALanguageOpensThatLanguagesPage(): void
+    {
+        $this->login(1);
+        $xpath = $this->render();
+
+        $english = $xpath->query('//*[@id="nr-alt-texts-panel-pages"]//tbody/tr[td[4][normalize-space()="EN"]]/td[5]/a');
+        self::assertGreaterThan(0, $english?->length);
+        $link = $english?->item(0);
+        self::assertInstanceOf(DOMElement::class, $link);
+        self::assertStringContainsString('/en/', $link->getAttribute('href'));
+    }
+
+    /** Two languages with one language code are told apart by their tag. */
+    #[Test]
+    public function languagesSharingACodeShowTheirTag(): void
+    {
+        $this->get(SiteWriter::class)->write('main', [
+            'rootPageId' => 1,
+            'base'       => 'https://example.com/',
+            'languages'  => [
+                ['languageId' => 0, 'title' => 'Deutsch', 'locale' => 'de_DE.UTF-8', 'base' => '/', 'flag' => 'de'],
+                ['languageId' => 1, 'title' => 'Schweiz', 'locale' => 'de_CH.UTF-8', 'base' => '/ch/', 'flag' => 'ch'],
+            ],
+        ]);
+        $this->login(1);
+
+        $languages = $this->texts($this->render(), '//*[@id="nr-alt-texts-panel-pages"]//tbody/tr[td]/td[4]');
+        self::assertContains('DE-DE', $languages);
+        self::assertContains('DE-CH', $languages);
+        self::assertNotContains('DE', $languages);
     }
 
     #[Test]
@@ -416,7 +473,8 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
 
         self::assertSame(['26 fehlende Alt-Texte'], $this->texts($xpath, '//h1'));
         self::assertSame(['KI-Assistent', 'Website prüfen', 'Fehlende Alt-Texte'], $this->texts($xpath, '//nav/ol[@class="breadcrumb"]/li'));
-        self::assertSame('Seiten 22', $this->texts($xpath, '//*[@role="tab"]')[0] ?? '');
-        self::assertContains('Aktuell nicht sichtbar · Element ausgeblendet', $this->texts($xpath, '//*[contains(@class, "nr-alt-texts-hidden")]/span[@title]'));
+        self::assertSame('Seiten', $this->texts($xpath, '//*[@role="tab"]/text()')[0] ?? '');
+        self::assertSame('22 offen', $this->texts($xpath, '//*[@role="tab"]/span[@class="badge"]/span[@class="visually-hidden"]')[0] ?? '');
+        self::assertContains('Aktuell nicht sichtbar · Element ausgeblendet', $this->texts($xpath, '//*[contains(@class, "nr-alt-texts-hidden")]/span[@class="nr-alt-texts-reason"]'));
     }
 }

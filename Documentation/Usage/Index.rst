@@ -625,11 +625,14 @@ elements and in the page properties, grouped by page in page tree order and
 within a page in the order of its content. Each record type with open
 images follows as a tab of its own, named as in the list module, for
 example *News*; its images are grouped by record, with the folder the
-record lies in. The tabs work with the arrow keys, :kbd:`Home` and
-:kbd:`End`.
+record lies in. A tab whose last image you fixed stays open, saying it has
+no open hits, until you open the list again. The tabs work with the arrow
+keys, :kbd:`Home` and :kbd:`End`.
 
 Each row shows the image (with its crop), the file name, the content
-element or the image field, the language, and a button that opens the page,
+element or the image field, the language (its code, such as *DE*, or *DE-CH*
+where two languages of the site share a code), and a button that opens the
+page in that language,
 or the record's detail page, in a new tab. A record type gets **Open detail
 page** only where its preview is configured (Page TSconfig
 ``TCEMAIN.preview``), as **View** in the list module. Hidden and timed

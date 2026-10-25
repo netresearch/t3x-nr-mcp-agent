@@ -82,7 +82,7 @@ final class MissingAltTextsWidgetsTest extends FunctionalTestCase
             $this->get(Context::class),
         );
 
-        return new MissingAltTextList($scanner, $this->get(SiteFinder::class), $this->get(ResourceFactory::class), $this->get(UriBuilder::class));
+        return new MissingAltTextList($scanner, $this->get(SiteFinder::class), $this->get(ResourceFactory::class), $this->get(UriBuilder::class), new ImageFieldDiscovery(new ExtensionConfiguration()));
     }
 
     /**
@@ -165,7 +165,7 @@ final class MissingAltTextsWidgetsTest extends FunctionalTestCase
 
         $html = (string) preg_replace('/\s+/', ' ', $this->recommendations());
 
-        self::assertStringContainsString('<span class="fs-3 fw-bold me-1">26</span>Images without alt text', $html);
+        self::assertStringContainsString('<span class="fs-3 fw-bold me-1">26</span> Images without alt text', $html);
         self::assertStringContainsString('Found on 11 pages and in 2 records', $html);
         self::assertMatchesRegularExpression('#<a class="btn btn-default btn-sm" href="[^"]*/missing-alt-texts[^"]*" aria-label="View: images without alt text">View</a>#', $html);
         // With the tile there, "no open recommendations" would contradict it.

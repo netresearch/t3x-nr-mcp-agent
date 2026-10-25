@@ -43,7 +43,7 @@
                                     aria-controls="nr-alt-texts-panel-{tab.id}"
                                     aria-selected="{f:if(condition: tab.active, then: 'true', else: 'false')}"
                                     tabindex="{f:if(condition: tab.active, then: '0', else: '-1')}"
-                                >{tab.label} <span class="badge">{tab.count}</span></button>
+                                >{tab.label} <span class="badge"><span aria-hidden="true">{tab.count}</span><span class="visually-hidden">{tab.countText}</span></span></button>
                             </f:for>
                         </div>
                         <f:for each="{tabs}" as="tab">
@@ -88,7 +88,7 @@
                                                                     <f:if condition="{row.hidden}">
                                                                         <div class="nr-alt-texts-hidden text-variant small">
                                                                             <core:icon identifier="overlay-hidden" />
-                                                                            <span title="{f:translate(key: '{ll}hidden.explanation')}">{row.hidden}</span>
+                                                                            <span class="nr-alt-texts-reason">{row.hidden}</span>
                                                                             <span class="visually-hidden">{f:translate(key: '{ll}hidden.explanation')}</span>
                                                                         </div>
                                                                     </f:if>
