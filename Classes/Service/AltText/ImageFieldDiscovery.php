@@ -116,6 +116,86 @@ class ImageFieldDiscovery
     }
 
     /**
+     * Whether a record of the given type shows the field in its form: listed
+     * in the type's `showitem`, directly or in one of its palettes, and not
+     * turned into another kind of field by the type's `columnsOverrides`. A
+     * reference left over in a field its record's type does not show (an
+     * image on a "Text" content element whose type was "Text & Images") is in
+     * no form and in no output, and not checked. A table without types shows
+     * every field.
+     */
+    public function isShown(string $table, string $type, string $field): bool
+    {
+        $config = $this->tca()[$table] ?? [];
+        $types  = is_array($config['types'] ?? null) ? $config['types'] : [];
+        if ($types === []) {
+            return true;
+        }
+
+        // A type the TCA does not define falls back to "0", then "1", as the
+        // form does; a table without a type field has only one of them.
+        $typeConfig = $types[$type] ?? $types['0'] ?? $types['1'] ?? null;
+        $typeConfig = is_array($typeConfig) ? $typeConfig : [];
+
+        $overrides = is_array($typeConfig['columnsOverrides'] ?? null) ? $typeConfig['columnsOverrides'] : [];
+        $override  = is_array($overrides[$field] ?? null) ? $this->fieldType($overrides[$field]) : null;
+        $baseType  = $this->fieldType($this->columns($config)[$field] ?? []);
+        if ($override !== null && $override !== $baseType) {
+            return false;
+        }
+
+        $palettes = is_array($config['palettes'] ?? null) ? $config['palettes'] : [];
+        foreach ($this->items($typeConfig['showitem'] ?? null) as $item) {
+            if ($item[0] === $field) {
+                return true;
+            }
+
+            if ($item[0] === '--palette--' && is_array($palettes[$item[2] ?? ''] ?? null)) {
+                foreach ($this->items($palettes[$item[2] ?? '']['showitem'] ?? null) as $paletteItem) {
+                    if ($paletteItem[0] === $field) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<mixed> $column
+     */
+    private function fieldType(array $column): ?string
+    {
+        $type = is_array($column['config'] ?? null) ? ($column['config']['type'] ?? null) : null;
+
+        return is_string($type) ? $type : null;
+    }
+
+    /**
+     * The items of a `showitem` list, each split at `;` into field, label and
+     * palette name.
+     *
+     * @return list<list<string>>
+     */
+    private function items(mixed $showitem): array
+    {
+        if (!is_string($showitem)) {
+            return [];
+        }
+
+        $items = [];
+        foreach (explode(',', $showitem) as $item) {
+            $item = trim($item);
+            if ($item !== '') {
+                $items[] = array_map(trim(...), explode(';', $item));
+            }
+        }
+
+        return $items;
+    }
+
+    /**
      * @return array<string, array<mixed>>
      */
     private function tca(): array

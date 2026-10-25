@@ -1,0 +1,32 @@
+"be_users"
+,"uid","pid","username","password","admin","workspace_id","tstamp","crdate"
+,1,0,"admin","$2y$12$xxx",1,0,1710000000,1710000000
+"sys_workspace"
+,"uid","pid","title"
+,1,0,"Entwurf"
+"pages"
+,"uid","pid","title","doktype","sorting","perms_userid","perms_user","perms_everybody"
+,1,0,"Wurzel",1,10,1,31,31
+"tt_content"
+,"uid","pid","CType","header","colPos","sorting","sys_language_uid"
+,10,1,"image","",0,256,0
+"sys_file_storage"
+,"uid","pid","name","driver","configuration","is_default","is_browsable","is_public","is_writable","is_online"
+,1,0,"fileadmin","Local","<?xml version=""1.0"" encoding=""utf-8"" standalone=""yes"" ?><T3FlexForms><data><sheet index=""sDEF""><language index=""lDEF""><field index=""basePath""><value index=""vDEF"">fileadmin/</value></field><field index=""pathType""><value index=""vDEF"">relative</value></field><field index=""caseSensitive""><value index=""vDEF"">1</value></field></language></sheet></data></T3FlexForms>",1,1,1,1,1
+"sys_file"
+,"uid","pid","storage","type","identifier","identifier_hash","folder_hash","name","extension","mime_type","size","missing"
+,1,0,1,2,"/text-in-draft.jpg","1","1","text-in-draft.jpg","jpg","image/jpeg",100,0
+,2,0,1,2,"/empty.jpg","2","1","empty.jpg","jpg","image/jpeg",100,0
+"sys_file_metadata"
+,"uid","pid","file","sys_language_uid","alternative","t3ver_wsid","t3ver_oid","t3ver_state"
+,1,0,1,0,"",0,0,0
+,2,0,1,0,"Text im Entwurf",1,1,0
+,3,0,2,0,"",0,0,0
+"sys_file_reference"
+,"uid","pid","uid_local","uid_foreign","tablenames","fieldname","sorting_foreign","sys_language_uid","alternative","t3ver_wsid","t3ver_oid","t3ver_state"
+,1,1,1,10,"tt_content","image",1,0,\NULL,0,0,0
+,2,1,2,10,"tt_content","image",2,0,\NULL,0,0,0
+,3,1,2,10,"tt_content","image",3,0,\NULL,0,0,0
+,4,1,2,10,"tt_content","image",3,0,"Im Entwurf",1,3,0
+,5,1,2,10,"tt_content","image",4,0,\NULL,0,0,0
+,6,1,2,10,"tt_content","image",4,0,\NULL,1,5,2

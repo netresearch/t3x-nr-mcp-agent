@@ -23,3 +23,8 @@ ExtensionManagementUtility::addTCAcolumns('tt_content', [
         'config' => ['type' => 'passthrough'],
     ],
 ]);
+
+// The content element showing the carousel items.
+$GLOBALS['TCA']['tt_content']['types']['carousel'] = [
+    'showitem' => 'CType, header, tx_alttexttest_children',
+];

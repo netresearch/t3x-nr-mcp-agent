@@ -130,6 +130,57 @@ final class ImageFieldDiscoveryTest extends TestCase
         self::assertSame([], $this->discovery()->ownersOf('pages'));
     }
 
+    /** A field counts for a record type when its form shows it: in `showitem`, directly or in a palette. */
+    #[Test]
+    public function aFieldIsShownWhenTheTypeListsItDirectlyOrInAPalette(): void
+    {
+        $GLOBALS['TCA']['tt_content']['types'] = [
+            'textpic'   => ['showitem' => '--palette--;;general, bodytext, --div--;Images, image, --palette--;;imagelinks'],
+            'textmedia' => ['showitem' => 'bodytext, --palette--;Media;media'],
+            'text'      => ['showitem' => '--palette--;;general, bodytext'],
+        ];
+        $GLOBALS['TCA']['tt_content']['palettes'] = [
+            'general' => ['showitem' => 'CType, --linebreak--, header'],
+            'media'   => ['showitem' => 'assets;Media, --linebreak--, imageorient'],
+        ];
+        $discovery = $this->discovery();
+
+        self::assertTrue($discovery->isShown('tt_content', 'textpic', 'image'));
+        self::assertTrue($discovery->isShown('tt_content', 'textmedia', 'assets'));
+        self::assertFalse($discovery->isShown('tt_content', 'textpic', 'assets'));
+        self::assertFalse($discovery->isShown('tt_content', 'text', 'image'));
+        self::assertTrue($discovery->isShown('tt_content', 'text', 'header'));
+    }
+
+    /** A type the TCA does not define is shown as "0", then "1"; a table without types shows every field. */
+    #[Test]
+    public function anUnknownTypeFallsBackAndATableWithoutTypesShowsEverything(): void
+    {
+        $GLOBALS['TCA']['tt_content']['types'] = ['1' => ['showitem' => 'image']];
+        $discovery                             = $this->discovery();
+
+        self::assertTrue($discovery->isShown('tt_content', 'unknown', 'image'));
+        self::assertFalse($discovery->isShown('tt_content', 'unknown', 'assets'));
+        self::assertTrue($discovery->isShown('tx_shop_product', '0', 'images'));
+
+        $GLOBALS['TCA']['tt_content']['types']['0'] = ['showitem' => 'assets'];
+        self::assertTrue($discovery->isShown('tt_content', 'unknown', 'assets'));
+    }
+
+    /** A type that turns the field into another kind of field does not show it as an image field. */
+    #[Test]
+    public function aColumnsOverrideToAnotherFieldTypeHidesTheField(): void
+    {
+        $GLOBALS['TCA']['tt_content']['types'] = [
+            'plain'  => ['showitem' => 'image', 'columnsOverrides' => ['image' => ['config' => ['type' => 'passthrough']]]],
+            'styled' => ['showitem' => 'image', 'columnsOverrides' => ['image' => ['config' => ['type' => 'file', 'maxitems' => 1]]]],
+        ];
+        $discovery = $this->discovery();
+
+        self::assertFalse($discovery->isShown('tt_content', 'plain', 'image'));
+        self::assertTrue($discovery->isShown('tt_content', 'styled', 'image'));
+    }
+
     #[Test]
     public function withoutTcaNothingIsFound(): void
     {

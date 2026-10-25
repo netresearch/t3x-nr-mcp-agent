@@ -65,8 +65,11 @@ class MissingAltTextScanner
     /** @var array<int, string> */
     private array $treePaths = [];
 
-    /** @var array<int, bool> */
+    /** @var array<int, array{0: HiddenReason|null, 1: int}> */
     private array $hiddenByParent = [];
+
+    /** @var array<string, array<string, mixed>|null> page translations by "page:language", null when there is none */
+    private array $pageTranslations = [];
 
     private int $workspace = 0;
 
@@ -94,19 +97,32 @@ class MissingAltTextScanner
         $this->treePaths      = [];
         $this->hiddenByParent = [];
 
+        $this->pageTranslations = [];
+
         $fieldsByTable   = $this->discovery->fieldsByTable();
         $workspace       = $user->workspace;
         $this->workspace = $workspace;
 
+        $rows = $this->repository->findOpenReferences($fieldsByTable, $workspace);
+        if ($workspace !== 0) {
+            $this->load(array_map(fn (array $row): array => ['sys_file_metadata', $this->int($row['_metadata_uid'] ?? 0), ''], $rows), $workspace);
+        }
+
         $references = [];
-        foreach ($this->repository->findOpenReferences($fieldsByTable, $workspace) as $row) {
-            $fileName = $this->string($row['_file_name'] ?? null);
-            unset($row['_file_name']);
+        foreach ($rows as $row) {
+            $fileName    = $this->string($row['_file_name'] ?? null);
+            $metadataUid = $this->int($row['_metadata_uid'] ?? 0);
+            unset($row['_file_name'], $row['_metadata_uid']);
             if ($workspace !== 0) {
-                // The query decided on the live row; the workspace version may
-                // have the alt text or the mark, or be deleted.
+                // The query decided on the live rows; the workspace versions
+                // may have the alt text or the mark, or be deleted.
                 $row = $this->overlay('sys_file_reference', $row, $workspace);
                 if ($row === null || $this->int($row['tx_nrmcpagent_decorative'] ?? 0) !== 0 || trim($this->string($row['alternative'] ?? null)) !== '') {
+                    continue;
+                }
+
+                $metadata = $this->records['sys_file_metadata'][$metadataUid] ?? null;
+                if ($row['alternative'] === null && trim($this->string($metadata['alternative'] ?? null)) !== '') {
                     continue;
                 }
             }
@@ -115,8 +131,9 @@ class MissingAltTextScanner
         }
 
         $chains = $this->chains($references, $workspace);
-        $now    = $this->now();
-        $keyed  = [];
+        $this->loadPages($chains, $workspace);
+        $now   = $this->now();
+        $keyed = [];
         foreach ($references as $index => $reference) {
             $chain = $chains[$index] ?? null;
             $hit   = $chain === null ? null : $this->hit($user, $reference['row'], $reference['fileName'], $chain, $now);
@@ -247,17 +264,15 @@ class MissingAltTextScanner
             if ($this->discovery->isExcludedTable($link['table']) || ($workspace !== 0 && !$this->isWorkspaceAware($link['table']))) {
                 return null;
             }
+
+            if (!$this->discovery->isShown($link['table'], (string) BackendUtility::getTCAtypeValue($link['table'], $link['row']), $link['via'])) {
+                return null;
+            }
         }
 
-        if ($top['table'] === 'pages') {
-            $pageUid    = $this->defaultLanguageUid($top['row']);
-            $permission = Permission::PAGE_EDIT;
-        } else {
-            $pageUid    = $this->int($top['row']['pid'] ?? 0);
-            $permission = Permission::CONTENT_EDIT;
-        }
-
-        $page = $this->editablePage($user, $pageUid, $permission);
+        $pageUid    = $this->pageUidOf($top);
+        $permission = $top['table'] === 'pages' ? Permission::PAGE_EDIT : Permission::CONTENT_EDIT;
+        $page       = $this->editablePage($user, $pageUid, $permission);
         if ($page === null || !$this->mayEdit($user, $reference, $chain)) {
             return null;
         }
@@ -271,7 +286,8 @@ class MissingAltTextScanner
         }
 
         $pageTitle       = $this->string($page['title'] ?? null);
-        [$reason, $date] = $this->hiddenReason($reference, $chain, $isPages ? $pageUid : 0, $now);
+        $language        = $this->languageOf($top);
+        [$reason, $date] = $this->hiddenReason($reference, $chain, $isPages ? $pageUid : 0, $language, $now);
 
         $hit = new MissingAltText(
             referenceUid: $this->int($reference['uid'] ?? 0),
@@ -369,26 +385,33 @@ class MissingAltTextScanner
 
     /**
      * Why the image is not shown in the frontend now, and the date that goes
-     * with it. The level highest up wins: the parent pages, the page, then
-     * each record from the outermost down, then the reference; on one level
-     * being hidden before a start time before an end time.
+     * with it. The level highest up wins: the parent pages, the page, its
+     * translation in the language of the outermost record, then each record
+     * from the outermost down, then the reference; on one level being hidden
+     * before a start time before an end time.
      *
      * @param array<string, mixed>                                                         $reference
      * @param non-empty-list<array{table: string, row: array<string, mixed>, via: string}> $chain
      *
      * @return array{0: HiddenReason|null, 1: int}
      */
-    private function hiddenReason(array $reference, array $chain, int $pageUid, int $now): array
+    private function hiddenReason(array $reference, array $chain, int $pageUid, int $language, int $now): array
     {
         $levels = [];
         if ($pageUid > 0) {
-            if ($this->isHiddenByParent($pageUid)) {
-                return [HiddenReason::ParentPage, 0];
+            $byParent = $this->hiddenByParent($pageUid, $now);
+            if ($byParent[0] !== null) {
+                return $byParent;
             }
 
             $page = $this->pageRow($pageUid);
             if ($page !== null) {
                 $levels[] = ['pages', $page, HiddenReason::Page];
+            }
+
+            $translation = $language > 0 ? ($this->pageTranslations[$pageUid . ':' . $language] ?? null) : null;
+            if ($translation !== null) {
+                $levels[] = ['pages', $translation, HiddenReason::Page];
             }
         }
 
@@ -423,21 +446,35 @@ class MissingAltTextScanner
     }
 
     /**
-     * Whether a page above this one is hidden and passes it on to its
-     * subpages (`extendToSubpages`), as the frontend treats it.
+     * Why a page above this one hides it: one that passes its visibility on
+     * to its subpages (`extendToSubpages`) and is hidden, not started yet or
+     * expired, as the frontend treats it. The page highest up wins.
+     *
+     * @return array{0: HiddenReason|null, 1: int}
      */
-    private function isHiddenByParent(int $pageUid): bool
+    private function hiddenByParent(int $pageUid, int $now): array
     {
         if (!array_key_exists($pageUid, $this->hiddenByParent)) {
-            $hidden = false;
-            foreach ($this->rootLine($pageUid) as $page) {
-                if ($this->int($page['uid'] ?? 0) !== $pageUid && $this->int($page['hidden'] ?? 0) !== 0 && $this->int($page['extendToSubpages'] ?? 0) !== 0) {
-                    $hidden = true;
+            $reason = [null, 0];
+            foreach (array_reverse($this->rootLine($pageUid)) as $page) {
+                if ($this->int($page['uid'] ?? 0) === $pageUid || $this->int($page['extendToSubpages'] ?? 0) === 0) {
+                    continue;
+                }
+
+                $start  = $this->int($page['starttime'] ?? 0);
+                $end    = $this->int($page['endtime'] ?? 0);
+                $reason = match (true) {
+                    $this->int($page['hidden'] ?? 0) !== 0 => [HiddenReason::ParentPage, 0],
+                    $start > $now                          => [HiddenReason::Scheduled, $start],
+                    $end > 0 && $end <= $now               => [HiddenReason::Expired, $end],
+                    default                                => [null, 0],
+                };
+                if ($reason[0] !== null) {
                     break;
                 }
             }
 
-            $this->hiddenByParent[$pageUid] = $hidden;
+            $this->hiddenByParent[$pageUid] = $reason;
         }
 
         return $this->hiddenByParent[$pageUid];
@@ -468,7 +505,7 @@ class MissingAltTextScanner
      */
     private function rootLine(int $pageUid): array
     {
-        $rootLine = BackendUtility::BEgetRootLine($pageUid, '', true, ['hidden', 'extendToSubpages', 'sorting']);
+        $rootLine = BackendUtility::BEgetRootLine($pageUid, '', true, ['hidden', 'starttime', 'endtime', 'extendToSubpages', 'sorting']);
         $pages    = [];
         foreach ($rootLine as $page) {
             if (!is_array($page) || $this->int($page['uid'] ?? 0) <= 0) {
@@ -496,6 +533,63 @@ class MissingAltTextScanner
         }
 
         return $this->records['pages'][$pageUid] ?? null;
+    }
+
+    /**
+     * Reads the page of every chain, and its translation in the language of
+     * the chain's outermost record, with one query per chunk of pages.
+     *
+     * @param array<int, non-empty-list<array{table: string, row: array<string, mixed>, via: string}>> $chains
+     */
+    private function loadPages(array $chains, int $workspace): void
+    {
+        $pages        = [];
+        $translations = [];
+        foreach ($chains as $chain) {
+            $top      = $chain[count($chain) - 1];
+            $pageUid  = $this->pageUidOf($top);
+            $pages[]  = ['pages', $pageUid, ''];
+            $language = $this->languageOf($top);
+            if ($language > 0 && in_array($top['table'], ['pages', 'tt_content'], true)) {
+                $translations[$pageUid . ':' . $language] = $pageUid;
+            }
+        }
+
+        $this->load($pages, $workspace);
+
+        foreach (array_keys($translations) as $key) {
+            $this->pageTranslations[$key] = null;
+        }
+
+        foreach ($this->repository->findPageTranslations(array_values(array_unique($translations)), $workspace) as $row) {
+            $key = $this->int($row['l10n_parent'] ?? 0) . ':' . $this->int($row['sys_language_uid'] ?? 0);
+            if (array_key_exists($key, $this->pageTranslations)) {
+                $this->pageTranslations[$key] = $this->overlay('pages', $row, $workspace);
+            }
+        }
+    }
+
+    /**
+     * The page a chain's outermost record is filed under: the page itself in
+     * the default language, or the page the record lies on.
+     *
+     * @param array{table: string, row: array<string, mixed>, via: string} $top
+     */
+    private function pageUidOf(array $top): int
+    {
+        return $top['table'] === 'pages' ? $this->defaultLanguageUid($top['row']) : $this->int($top['row']['pid'] ?? 0);
+    }
+
+    /**
+     * The language of a record, 0 for a table without languages.
+     *
+     * @param array{table: string, row: array<string, mixed>, via: string} $link
+     */
+    private function languageOf(array $link): int
+    {
+        $field = $this->ctrl($link['table'])['languageField'] ?? null;
+
+        return is_string($field) ? $this->int($link['row'][$field] ?? 0) : 0;
     }
 
     /**

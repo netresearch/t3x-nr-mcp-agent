@@ -46,11 +46,15 @@ readonly class MissingAltTextRepository
      *   shows that value (FileReference::getProperties()). Whitespace counts
      *   as empty.
      *
-     * In a workspace the live rows and the rows new in that workspace are
-     * read; their workspace versions are the caller's to overlay.
+     * The file's metadata is read in its live version: a draft in a
+     * workspace never decides here. In a workspace the live references and
+     * those new in that workspace are read; the workspace versions of the
+     * reference and of the metadata are the caller's to overlay.
      *
-     * Columns are the reference's own, plus `_file_name`; the underscore
-     * keeps the alias out of a workspace overlay's field list.
+     * Columns are the reference's own, plus `_file_name` and the uid of the
+     * metadata row whose text the reference inherits, `_metadata_uid` (0
+     * without one); the underscore keeps the aliases out of a workspace
+     * overlay's field list.
      *
      * @param array<string, list<string>> $fieldsByTable image fields per table
      *
@@ -95,16 +99,19 @@ readonly class MissingAltTextRepository
             'r.t3ver_state',
         )
             ->addSelectLiteral($qb->quoteIdentifier('f.name') . ' AS ' . $qb->quoteIdentifier('_file_name'))
+            ->addSelectLiteral('COALESCE(' . $qb->quoteIdentifier('ml.uid') . ', ' . $qb->quoteIdentifier('m0.uid') . ', 0) AS ' . $qb->quoteIdentifier('_metadata_uid'))
             ->from('sys_file_reference', 'r')
             ->innerJoin('r', 'sys_file', 'f', $qb->expr()->eq('f.uid', $qb->quoteIdentifier('r.uid_local')))
             ->leftJoin('f', 'sys_file_metadata', 'm0', (string) $qb->expr()->and(
                 $qb->expr()->eq('m0.file', $qb->quoteIdentifier('f.uid')),
                 $qb->expr()->eq('m0.sys_language_uid', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                ...$this->isLive($qb, 'm0'),
             ))
             ->leftJoin('f', 'sys_file_metadata', 'ml', (string) $qb->expr()->and(
                 $qb->expr()->eq('ml.file', $qb->quoteIdentifier('f.uid')),
                 $qb->expr()->eq('ml.sys_language_uid', $qb->quoteIdentifier('r.sys_language_uid')),
                 $qb->expr()->gt('r.sys_language_uid', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                ...$this->isLive($qb, 'ml'),
             ))
             ->where(
                 $qb->expr()->eq('f.type', $qb->createNamedParameter(FileType::IMAGE->value, Connection::PARAM_INT)),
@@ -168,6 +175,52 @@ readonly class MissingAltTextRepository
         }
 
         return $rows;
+    }
+
+    /**
+     * The translations of the given pages, deleted ones left out; in a
+     * workspace the live rows and those new in it, not yet overlaid.
+     *
+     * @param list<int> $pageUids pages in the default language
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findPageTranslations(array $pageUids, int $workspace): array
+    {
+        $pageUids = array_values(array_unique(array_filter($pageUids, static fn (int $uid): bool => $uid > 0)));
+        $rows     = [];
+        foreach (array_chunk($pageUids, self::CHUNK) as $chunk) {
+            $qb = $this->connectionPool->getQueryBuilderForTable('pages');
+            $qb->getRestrictions()
+                ->removeAll()
+                ->add(new DeletedRestriction())
+                ->add(new WorkspaceRestriction($workspace));
+            $result = $qb->select('*')
+                ->from('pages')
+                ->where(
+                    $qb->expr()->in('l10n_parent', $qb->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)),
+                    $qb->expr()->gt('sys_language_uid', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                )
+                ->executeQuery();
+            while (($row = $result->fetchAssociative()) !== false) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The row is the live version, not a draft of a workspace.
+     *
+     * @return list<string>
+     */
+    private function isLive(QueryBuilder $qb, string $alias): array
+    {
+        return [
+            $qb->expr()->eq($alias . '.t3ver_wsid', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            $qb->expr()->eq($alias . '.t3ver_oid', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+        ];
     }
 
     /** `TRIM(column) = ''` or the column is NULL. */

@@ -50,7 +50,7 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
     ];
 
     /** What the editor (user 2) may fix, in list order. */
-    private const EDITOR_ORDER = [13, 10, 31, 35, 1, 32, 2, 4, 7, 11, 22, 27, 14, 15, 20, 21, 25, 28, 40, 30, 29];
+    private const EDITOR_ORDER = [13, 10, 31, 35, 45, 1, 2, 4, 7, 32, 11, 22, 27, 14, 48, 15, 20, 21, 25, 47, 51, 52, 28, 40, 30, 29];
 
     protected function setUp(): void
     {
@@ -123,6 +123,11 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         yield 'a page property is checked' => [25, true];
         yield 'a record field is checked' => [28, true];
         yield 'a content element child is checked' => [27, true];
+        yield 'a field the record type shows is checked' => [32, true];
+        yield 'a field the record type does not show is not checked' => [43, false];
+        yield 'a draft of the file list text does not decide' => [44, false];
+        yield 'a draft of the file list translation does not decide' => [53, false];
+        yield 'an empty file list text with an empty draft is open' => [45, true];
     }
 
     #[Test]
@@ -144,7 +149,7 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         $uids = $this->referenceUids($this->scanAs(1));
         sort($uids);
 
-        self::assertSame([1, 2, 4, 7, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 27, 28, 29, 30, 31, 32, 34, 35, 37, 39, 40, 41, 42], $uids);
+        self::assertSame([1, 2, 4, 7, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 27, 28, 29, 30, 31, 32, 34, 35, 37, 39, 40, 41, 42, 45, 46, 47, 48, 49, 50, 51, 52], $uids);
     }
 
     /** The editor's list in list order: page tree, content order, then the records by folder and title. */
@@ -165,6 +170,8 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         // [user, kept reference, dropped reference]
         yield 'a page outside the web mounts' => [2, 10, 16];
         yield 'a page without "edit content"' => [2, 10, 17];
+        yield 'a page property on a page with "edit content" but not "edit page"' => [2, 47, 46];
+        yield 'a record in a folder without "edit content"' => [2, 28, 49];
         yield 'a page locked for editing' => [2, 10, 18];
         yield 'a content element locked for editing' => [2, 10, 23];
         yield 'a record locked for editing' => [2, 28, 37];
@@ -214,7 +221,7 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         self::assertSame(MissingAltTextScan::PAGES, $this->hit($scan, 27)->type);
         self::assertSame('tx_alttexttest_item', $this->hit($scan, 28)->type);
         self::assertSame('tx_alttexttest_item', $this->hit($scan, 30)->type);
-        self::assertSame(['pages' => 17, 'tx_alttexttest_item' => 4], $scan->countsByType());
+        self::assertSame(['pages' => 22, 'tx_alttexttest_item' => 4], $scan->countsByType());
     }
 
     #[Test]
@@ -250,6 +257,9 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         yield 'hidden content element' => [11, HiddenReason::Element, 0];
         yield 'hidden page' => [14, HiddenReason::Page, 0];
         yield 'page under a hidden page that extends to subpages' => [15, HiddenReason::ParentPage, 0];
+        yield 'page under a hidden page that does not extend to subpages' => [48, null, 0];
+        yield 'page under an expired page that extends to subpages' => [51, HiddenReason::Expired, 946684800];
+        yield 'page under a scheduled page that extends to subpages' => [52, HiddenReason::Scheduled, 4102444800];
         yield 'page with a future start time' => [20, HiddenReason::Scheduled, 4102444800];
         yield 'page past its end time' => [21, HiddenReason::Expired, 946684800];
         yield 'content element with a future start time' => [22, HiddenReason::Scheduled, 4102444800];
@@ -268,14 +278,23 @@ final class MissingAltTextScannerTest extends FunctionalTestCase
         self::assertSame($date, $hit->hiddenDate);
     }
 
+    /** Content in a language counts its page translation: hidden there, the image is not shown. */
+    #[Test]
+    public function aHiddenPageTranslationHidesItsContent(): void
+    {
+        $hit = $this->hit($this->scanAs(1), 50);
+
+        self::assertSame(HiddenReason::Page, $hit->hiddenReason);
+    }
+
     #[Test]
     public function theCountsAgreeWithTheHits(): void
     {
         $scan = $this->scanAs(2);
 
         self::assertSame(count(self::EDITOR_ORDER), $scan->count());
-        // Pages 10, 11, 12, 14, 20, 21 and 22; articles 1 and 2.
-        self::assertSame(7, $scan->pageCount());
+        // Pages 10, 11, 12, 14, 20, 21, 22, 24, 25, 30 and 32; articles 1 and 2.
+        self::assertSame(11, $scan->pageCount());
         self::assertSame(2, $scan->recordCount());
     }
 
