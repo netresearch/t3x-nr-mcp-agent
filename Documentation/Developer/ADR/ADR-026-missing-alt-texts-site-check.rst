@@ -483,7 +483,10 @@ would go on sending it after a switch to *Nur Kontext*. The policy reads
 the setting on every decision, and resolves the folders once per value. A
 turn queued before the stamp existed runs with the process's values. The
 card also binds the turn: where it says the setting keeps the image back,
-the image is not sent.
+the image is not sent, also after the setting allows it again, until the
+chat moves to another image. That is the one direction a change does not
+reach at the next turn, chosen so that the card and the model never
+disagree and the error, if any, is an image not sent.
 
 Consequences
 ============

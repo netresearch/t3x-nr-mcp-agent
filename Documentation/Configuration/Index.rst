@@ -440,7 +440,10 @@ covers the AI provider's processing, images of people included.
 A change applies from the next turn of a conversation, also with
 :confval:`processingStrategy` ``worker``: each turn runs with the setting of
 the backend request that started it, which the request stores with the
-conversation.
+conversation. One exception keeps the image card and the model in
+agreement: where the card of an alt text conversation already says the
+image is not sent, the image stays unsent after analysis is switched back
+on, until the chat moves on to another image.
 
 It is part of the extension configuration (category *privacy*), which
 only administrators with system maintainer rights can change, as every
