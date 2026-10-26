@@ -16,6 +16,7 @@ someone deciding whether to evaluate it — and it never said anywhere that this
 is alpha software.
 
 ```bash
+npm ci --ignore-scripts             # install the locked build and verifier dependencies
 node landingpage/render.mjs          # render both product pages into .Build/site/
 node landingpage/redirect-stubs.mjs  # keep old documentation links working
 node landingpage/verify.mjs          # gate the result

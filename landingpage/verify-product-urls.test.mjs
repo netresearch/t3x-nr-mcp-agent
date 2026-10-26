@@ -11,6 +11,7 @@ function markup({origin = 'https://pages.example', image = '../assets/preview.pn
     return `<link rel="canonical" href="${origin}/nested/project/de/">
 <link rel="alternate" hreflang="en" href="${origin}/nested/project/">
 <link rel="alternate" hreflang="de" href="${origin}/nested/project/de/">
+<link rel="alternate" hreflang="x-default" href="${origin}/nested/project/">
 <link rel="sitemap" href="../sitemap.xml">
 <meta property="og:image" content="${image}">`;
 }
@@ -68,3 +69,29 @@ for (const image of ['https://wrong.example/nested/project/assets/preview.png', 
         });
     });
 }
+
+for (const [name, pattern, diagnostic] of [
+    ['canonical', /<link rel="canonical"[^>]*>/g, 'canonical'],
+    ['all language alternates', /<link rel="alternate"[^>]*>/g, 'hreflang'],
+    ['x-default alternate', /<link rel="alternate" hreflang="x-default"[^>]*>/g, 'hreflang x-default'],
+]) {
+    test(`${name} in the body cannot satisfy head metadata`, async () => {
+        await withArtifacts(async output => {
+            const source = markup();
+            const moved = source.match(pattern).join('');
+            const html = `<html><head>${source.replace(pattern, '')}</head><body>${moved}</body></html>`;
+            const errors = await verify(html, output);
+            assert.ok(errors.some(error => error.includes(diagnostic) && error.includes('document head')), errors.join('\n'));
+        });
+    });
+}
+
+test('one real head canonical and each language alternate are required', async () => {
+    await withArtifacts(async output => {
+        const source = markup();
+        assert.deepEqual(await verify(`<html><head>${source}</head><body></body></html>`, output), []);
+        const canonical = source.match(/<link rel="canonical"[^>]*>/)[0];
+        assert.ok((await verify(`<html><head>${source}${canonical}</head><body></body></html>`, output)).some(error => error.includes('canonical')));
+        assert.ok((await verify('<html><head></head><body></body></html>', output)).some(error => error.includes('canonical')));
+    });
+});

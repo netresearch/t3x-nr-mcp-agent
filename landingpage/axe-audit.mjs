@@ -31,6 +31,8 @@ const require = createRequire(import.meta.url);
 const axePath = require.resolve('axe-core/axe.min.js');
 
 const DIST = process.argv[2] ?? '.Build/site';
+const ALPHA_NOTES = Object.fromEntries(['en', 'de'].map(locale => [locale,
+  JSON.parse(readFileSync(new URL(`./content/${locale}.json`, import.meta.url), 'utf8')).hero.alphaNote]));
 
 // Product controls and manual controls differ, but every route is gated for
 // accessibility, asset availability, page initialization and viewport reflow.
@@ -252,6 +254,47 @@ async function chooseTheme(page, preference) {
   await picker.locator(`input[value="${preference}"]`).check();
 }
 
+async function auditAlphaWarning(page, route) {
+  const expected = ALPHA_NOTES[route === '/de/' ? 'de' : 'en'];
+  const state = await page.evaluate((expectedNote) => {
+    const banner = document.querySelector('[data-nr-hero] p.alpha-banner');
+    const action = document.querySelector('[data-nr-hero] [data-cta="business"][data-cta-position="hero"]');
+    if (!banner || !action) return null;
+    const note = [...banner.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('').trim();
+    return {warningBottom: banner.getBoundingClientRect().bottom, actionTop: action.getBoundingClientRect().top,
+      visible: banner.checkVisibility({visibilityProperty: true, opacityProperty: true}),
+      note: typeof expectedNote === 'string' && expectedNote.trim().length > 0 && note === expectedNote.trim(),
+      precedes: Boolean(banner.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING)};
+  }, expected);
+  if (state?.visible && state.note && state.precedes && state.warningBottom <= state.actionTop) return [];
+  return [{id: 'alpha-warning-order', impact: 'serious', help: 'The full alpha warning must precede the evaluation action',
+    nodes: [{target: ['.alpha-banner'], failureSummary: JSON.stringify(state)}]}];
+}
+
+async function auditPrintedGuidance(page) {
+  await page.emulateMedia({media: 'print'});
+  const contrasts = await page.evaluate(() => [...document.querySelectorAll('[data-nr-hero] .alpha-banner, [data-nr-hero] .status-pill, .answers dt, .answers dd')].map(element => {
+    const selector = element.closest('.answers') ? `.answers ${element.localName}` : `.${element.classList[0]}`;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const context = canvas.getContext('2d');
+    if (!context) return {selector, contrast: 0};
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, 1, 1);
+    context.fillStyle = getComputedStyle(element).color;
+    context.fillRect(0, 0, 1, 1);
+    const [r, g, b] = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map(value => {
+      const channel = value / 255;
+      return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+    });
+    return {selector, contrast: 1.05 / (.2126 * r + .7152 * g + .0722 * b + .05)};
+  }));
+  await page.emulateMedia({media: 'screen'});
+  const failures = contrasts.filter(value => value.contrast < 7);
+  return failures.length ? [{id: 'guidance-print-contrast', impact: 'serious', help: 'Alpha warnings, maturity badges and product answers need enhanced text contrast on white printed paper',
+    nodes: failures.map(value => ({target: [value.selector], failureSummary: `Contrast on white paper: ${value.contrast.toFixed(2)}:1`}))}] : [];
+}
+
 async function auditPage(browser, port, route, scheme, width) {
   const context = await browser.newContext({
     colorScheme: scheme,
@@ -281,6 +324,7 @@ async function auditPage(browser, port, route, scheme, width) {
     id: 'page-reflow', impact: 'serious', help: 'The document must fit the viewport',
     nodes: [{target: ['html'], failureSummary: `Document overflows the ${width}px viewport`}],
   });
+  if (route === '/' || route === '/de/') results.violations.push(...await auditAlphaWarning(page, route), ...await auditPrintedGuidance(page));
   if (width === 320 && !isDocumentation(route)) {
     results.violations.push(
       ...(await auditTextAdaptation(page, scheme)),

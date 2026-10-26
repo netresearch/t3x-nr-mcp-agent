@@ -242,25 +242,26 @@ ${renderSiteHeader({lang, assetBase: `${base}assets/site-shell`,
 ${renderPageNavigation({lang, title: 'MCP Agent', titleHref: canonical,
     links: [...c.nav.items, {href: docsUrl, label: c.nav.docs}, {href: manifest.repository, label: c.nav.repo}]})}
 
-<main id="main">
+<main id="main" class="nr-hero-page">
 
-  <section class="hero">
-    <div class="wrap">
-      <p class="eyebrow">${e(c.hero.eyebrow)}</p>
-      <h1>${e(c.hero.title)}</h1>
-
+  <section class="nr-hero" data-nr-hero data-nr-hero-layout="split">
+    <div class="nr-hero-inner">
+      <div class="nr-hero-content">
+      <p class="nr-hero-eyebrow">${e(c.hero.eyebrow)}</p>
+      <h1 class="nr-hero-title">${e(c.hero.title)}</h1>
+      <p class="nr-hero-lead">${e(c.hero.lead)}</p>
       <p class="alpha-banner" role="note">
         <span class="status-pill status-pill--${e(manifest.stage)}">${e(stage)}</span>
         ${e(c.hero.alphaNote)}
       </p>
-
-      <p class="hero__lead">${e(c.hero.lead)}</p>
-      <p class="hero__cta">
+      <p class="nr-hero-actions">
         <a class="btn btn--primary" href="${e(contactUrl('hero', lang))}" data-cta="business" data-cta-position="hero">${e(c.hero.ctaBusiness)}</a>
         <a class="btn btn--secondary" href="${e(docsUrl)}">${e(c.hero.ctaTechnical)}</a>
       </p>
-
-      <dl class="status-facts" aria-label="${e(c.status.heading)}">
+      </div>
+      <aside class="nr-hero-aside" aria-labelledby="product-status-heading">
+      <h2 id="product-status-heading">${e(c.status.heading)}</h2>
+      <dl class="status-facts nr-hero-facts" aria-label="${e(c.status.heading)}">
         <div><dt>${e(c.status.stageLabel)}</dt><dd><span class="status-pill status-pill--${e(manifest.stage)}">${e(stage)}</span></dd></div>
         ${manifest.latest_release ? `<div><dt>${e(c.status.releaseLabel)}</dt><dd><a href="${e(manifest.repository)}/releases/tag/${e(manifest.latest_release)}">${e(manifest.latest_release)}</a></dd></div>` : ''}
         <div><dt>${e(c.status.mainLabel)}</dt><dd>${e(manifest.main_version)}</dd></div>
@@ -268,13 +269,16 @@ ${renderPageNavigation({lang, title: 'MCP Agent', titleHref: canonical,
         <div><dt>${e(c.status.requirementsLabel)}</dt><dd>TYPO3 ${e(manifest.typo3_versions.join(' / '))} · PHP ${e(manifest.php_versions.join(' / '))}+ · nr-llm</dd></div>
       </dl>
       <p class="status-facts__note">${e(c.status.note)}</p>
-
-      <h2 class="sr-only">${e(c.answers.heading)}</h2>
-      <dl class="answers">
-        ${c.answers.items.map((item) => `<div><dt>${e(item.q)}</dt><dd>${e(item.a)}</dd></div>`).join('\n        ')}
-      </dl>
+      </aside>
     </div>
   </section>
+
+  <div class="wrap">
+    <h2 class="sr-only">${e(c.answers.heading)}</h2>
+    <dl class="answers">
+      ${c.answers.items.map((item) => `<div><dt>${e(item.q)}</dt><dd>${e(item.a)}</dd></div>`).join('\n      ')}
+    </dl>
+  </div>
 
   <section id="works" class="section">
     <div class="wrap">

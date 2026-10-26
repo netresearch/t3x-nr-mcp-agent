@@ -42,6 +42,9 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install locked build dependencies
+        run: npm ci --ignore-scripts
+
       # The site root is the product page; the technical documentation moves to
       # /docs/. The documentation is the right material for someone implementing
       # the extension and the wrong first screen for someone deciding whether to
@@ -103,7 +106,6 @@ jobs:
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: |
-          npm ci --ignore-scripts
           npm run test:landingpage
           ./node_modules/.bin/playwright install chromium
           node landingpage/axe-audit.mjs

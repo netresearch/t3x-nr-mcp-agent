@@ -16,7 +16,7 @@ import {fileURLToPath} from 'node:url';
 
 import {checkAccessibility} from './check-accessibility.mjs';
 import {verifyProductUrls} from './verify-product-urls.mjs';
-import {verifyBusinessContacts, verifyNotFoundPage, verifySiteShell} from './verify-site-shell.mjs';
+import {hasStatusFacts, verifyBusinessContacts, verifyNotFoundPage, verifySiteShell} from './verify-site-shell.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, '.Build/site');
@@ -161,7 +161,7 @@ for (const {name, html, redirect, problems} of renderedPages) {
     for (const problem of checkAccessibility(html)) fail(`${name}: ${problem}`);
 
     // The three things this page must never lose.
-    if (!html.includes('class="status-facts"')) fail(`${name}: no status block`);
+    if (!hasStatusFacts(html)) fail(`${name}: no status block`);
     if (!html.includes('capability-card__limits')) fail(`${name}: the capability card renders no known limitations`);
     if (!html.includes('bullets--no')) fail(`${name}: no "what is not promised" list`);
 

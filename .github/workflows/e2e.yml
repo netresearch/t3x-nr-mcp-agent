@@ -29,6 +29,8 @@ jobs:
     with:
       # Same range as the ci.yml matrix (8.2-8.4); composer's platform is 8.2.
       php-version: '8.3'
+      # Installing Ubuntu/font packages can exceed the shared five-minute bound.
+      playwright-install-timeout-minutes: 10
       # composer.json allows ^13.4 || ^14.3; each version is pinned, because
       # an unconstrained install would resolve 14 only. The specs feature-
       # detect the 13.4 and 14.3 backend shell (fixtures/backend.ts).
