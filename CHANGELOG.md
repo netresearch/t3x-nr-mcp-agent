@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-10-26
+
+### Fixed
+
+- **The image card of "Optimieren" no longer says "Das Bild konnte nicht analysiert werden" for every image (#269).** In a backend request the core defers image processing until the processed file's URL is requested, so the model's scaled copy did not exist when the card was written. The copy is now processed at once, as the core's own image processing service does it, and the preview stays deferred.
+- **The conversation title follows the image (#269).** After another row's "Optimieren" or "Nächsten Treffer optimieren" the conversation is renamed to "Alt-Text: <new file>" in the panel header and the tab, unless the editor renamed it.
+
 ## [0.22.0] - 2026-10-25
 
 ### Upgrading
