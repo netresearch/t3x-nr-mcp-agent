@@ -348,6 +348,8 @@ results and system notices are left out. The file is built in the browser
 from the conversation already on screen; nothing is sent to the server for
 it.
 
+.. _usage-attaching-files:
+
 Attaching files
 ===============
 
@@ -390,6 +392,12 @@ When the provider natively supports a document format (e.g. Claude
 natively handles PDFs), the file is sent as-is instead of being
 extracted. The file picker automatically restricts to the formats
 supported by the active provider.
+
+With the privacy setting :confval:`imageAnalysis` on *Context only*, no
+image goes to the provider: the file picker offers no image format, an image
+upload is refused, and an image attached earlier is not sent; the assistant
+says that it cannot see it. An image in a folder listed in
+:confval:`imageAnalysisExcludedFolders` is not sent either.
 
 **Limits:**
 
@@ -698,9 +706,14 @@ on, and unfolds the module menu it folded.
 The assistant changes nothing but the alt text of this one use of the
 image, and only after you confirm it; a proposal for another image cannot
 be confirmed in this chat. It sees the image where the AI
-provider supports images, as a scaled copy; otherwise, and where the image
-cannot be read, the card says that the proposal rests on the page, the
-element and the file name only.
+provider supports images and the privacy setting lets it go
+(:ref:`configuration-image-analysis`), as a scaled copy. Otherwise the card
+says that the proposal rests on the page, the element and the file name
+only, and why: image analysis is switched off in the settings, the image
+lies in a folder whose images are never sent (the card names the folder),
+the provider cannot see images, or the image cannot be read. The preview of
+the image in the chat and in the list stays; it is shown in the backend
+only.
 
 **Optimise** works in the live workspace, when an administrator has enabled
 the tools ``set_file_reference_alternative_text`` and

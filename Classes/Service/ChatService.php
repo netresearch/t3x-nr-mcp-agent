@@ -69,6 +69,8 @@ use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextFlowPrompt;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextImageRefusal;
+use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
 use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
@@ -241,6 +243,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?OpenPointTrackerInterface $openPoints = null,
         private readonly ?ToolCallPolicyInterface $toolPolicy = null,
         private readonly ?AltTextConversation $altText = null,
+        private readonly ?ImageAnalysisPolicy $imagePolicy = null,
     ) {}
 
     /**
@@ -258,12 +261,20 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     ? $provider->getSupportedDocumentFormats()
                     : [];
 
+                // With the privacy setting "Bildanalyse" on "Nur Kontext
+                // verwenden" no image goes to the provider (ADR-026), so the
+                // picker offers none and the upload endpoint, which checks
+                // against this list, refuses one.
+                $imageFormats = $this->imagePolicy instanceof ImageAnalysisPolicy && !$this->imagePolicy->analysesImages()
+                    ? []
+                    : $provider->getSupportedImageFormats();
+
                 // Only advertise provider formats the upload endpoint can also
                 // validate — it matches on the MIME type finfo detects, so an
                 // extension UploadMimeTypeMap cannot translate would reach the
                 // file picker and then be rejected with 422 (Gemini's heic/heif).
                 $providerFormats = $this->uploadMimeTypeMap->knownExtensions([
-                    ...$provider->getSupportedImageFormats(),
+                    ...$imageFormats,
                     ...$documentFormats,
                 ]);
 
@@ -1793,10 +1804,17 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $fileUid = is_numeric($msg['fileUid']) ? (int) $msg['fileUid'] : 0;
                 }
 
-                $file      = $this->resourceFactory->getFileObject($fileUid);
-                $localPath = $file->getForLocalProcessing(false);
-                $base64    = base64_encode((string) file_get_contents($localPath));
-                $mimeType  = $file->getMimeType();
+                $file     = $this->resourceFactory->getFileObject($fileUid);
+                $mimeType = $file->getMimeType();
+                $refusal  = str_starts_with($mimeType, 'image/') && $this->imagePolicy instanceof ImageAnalysisPolicy
+                    ? $this->imagePolicy->refusalForFile($file)
+                    : null;
+                if ($refusal instanceof AltTextImageRefusal) {
+                    $block = ['type' => 'text', 'text' => $this->withheldImage($refusal)];
+                } else {
+                    $localPath = $file->getForLocalProcessing(false);
+                    $block     = $this->buildFileContentBlock($mimeType, base64_encode((string) file_get_contents($localPath)), $localPath, $provider);
+                }
 
                 $result[] = [
                     'role'    => is_string($msg['role']) ? $msg['role'] : '',
@@ -1806,7 +1824,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                             'text' => (is_string($msg['content'] ?? null) ? $msg['content'] : '')
                                 . "\n\n" . $this->describeAttachment($file),
                         ],
-                        $this->buildFileContentBlock($mimeType, $base64, $localPath, $provider),
+                        $block,
                     ],
                 ];
             } catch (Throwable) {
@@ -1824,6 +1842,20 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return $result;
+    }
+
+    /**
+     * In place of an attached image the privacy setting "Bildanalyse" keeps
+     * back (ADR-026): the model learns that there is an image it does not
+     * see, and why, so it neither describes it nor claims nothing was
+     * attached. Built per turn like the image itself, so an image attached
+     * before the setting changed follows the setting of the turn.
+     */
+    private function withheldImage(AltTextImageRefusal $refusal): string
+    {
+        return $refusal->note === ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER
+            ? '[The attached image is not sent to you: images from its folder are never sent to the AI provider (privacy setting of this installation). Do not guess what it shows; say that you cannot see it.]'
+            : '[The attached image is not sent to you: image analysis is switched off in the privacy settings of this installation. Do not guess what it shows; say that you cannot see it.]';
     }
 
     /**

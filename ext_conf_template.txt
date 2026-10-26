@@ -40,5 +40,11 @@ altTextExcludedTables =
 # cat=basic/altText; type=string; label=Missing alt texts, excluded fields: comma-separated table.field image fields the check leaves out because the frontend does not output their images with an alt text. The default names the page's social-media images, the navigation icon, the backend user's avatar and the backend layout's icon; a value set here replaces the default, so keep the entries you still want.
 altTextExcludedFields = pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar,backend_layout.icon
 
+# cat=basic/privacy; type=options[Analyse images (default)=analyse,Context only (no images sent)=contextOnly]; label=Image analysis: whether images are sent to the AI provider. "Analyse images" sends a scaled copy, so proposals consider the image and its context; it requires a data processing agreement that covers the provider. "Context only" sends no image: alt text proposals rest on the page or record, the content element and the file name, and the chat accepts no image attachments. Whether an image shows people cannot be told beforehand, so the setting applies to all images and to every feature of the assistant that uses images.
+imageAnalysis = analyse
+
+# cat=basic/privacy; type=string; label=Image analysis, excluded folders: comma-separated folders whose images are never sent, subfolders included, e.g. portraits. Write a folder as fileadmin/team/ (the storage's base path and the folder) or as 1:/team/ (the storage uid and the folder). Applies while images are analysed.
+imageAnalysisExcludedFolders =
+
 # cat=basic/dashboard; type=string; label=Entries of the "Frequent tasks" dashboard widget: comma-separated skills (slug or catalogue identifier, as for the guided tours), each followed by |page when the task works on one page, e.g. neue-seite,3:meta-beschreibungen|page; a skill that declares page in its frontmatter decides this itself. Empty by default: the guided tours are not repeated here. The label is task.<key>, else skill.<key>.title, in locallang_dashboard.xlf (or an override of it); an entry without a label, or one the chat cannot start for the user, is not shown.
 dashboardQuickTasks =

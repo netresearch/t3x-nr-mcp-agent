@@ -1954,6 +1954,53 @@ class ChatApiControllerTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
     }
 
+    /**
+     * With the privacy setting "Bildanalyse" on "Nur Kontext verwenden" the
+     * capabilities list no image format (ChatService), so an image upload is
+     * refused before it is stored, while the provider could see it.
+     */
+    #[Test]
+    public function fileUploadRefusesAnImageWhenTheCapabilitiesListNoImageFormat(): void
+    {
+        $stream = $this->createMock(StreamInterface::class);
+        $stream->method('getMetadata')->with('uri')->willReturn(__DIR__ . '/../../Functional/Fixtures/Frontend/pattern.png');
+
+        $uploadedFile = $this->createMock(UploadedFileInterface::class);
+        $uploadedFile->method('getError')->willReturn(UPLOAD_ERR_OK);
+        $uploadedFile->method('getSize')->willReturn(73);
+        $uploadedFile->method('getStream')->willReturn($stream);
+        $uploadedFile->method('getClientFilename')->willReturn('portrait.png');
+
+        $chatService = $this->createMock(ChatCapabilitiesInterface::class);
+        $chatService->method('getProviderCapabilities')->willReturn([
+            'visionSupported'  => true,
+            'maxFileSize'      => 0,
+            'supportedFormats' => ['pdf'],
+        ]);
+        $this->storageRepository->expects(self::never())->method('getDefaultStorage');
+
+        $subject = new ChatApiController(
+            $this->repository,
+            $this->processor,
+            $this->config,
+            $chatService,
+            $this->chatApproval,
+            $this->resourceFactory,
+            $this->storageRepository,
+            new DocumentExtractorRegistry([]),
+            new UploadMimeTypeMap(),
+            $this->uriBuilder,
+        );
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getUploadedFiles')->willReturn(['file' => $uploadedFile]);
+
+        $response = $subject->fileUpload($request);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertStringContainsString('not supported', (string) $response->getBody());
+    }
+
     #[Test]
     public function fileUploadReturns422ForUnsupportedMimeType(): void
     {

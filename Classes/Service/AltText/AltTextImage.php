@@ -22,8 +22,9 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
  * The image of one reference as the chat uses it (ADR-026), always with the
  * reference's crop: a small preview for the backend, and a scaled copy for
  * the model, never the original file. The copy goes to the model only where
- * the provider can see images and the image policy lets it go; otherwise the
- * card says why the image itself was not looked at.
+ * the provider can see images and the image policy (the privacy setting
+ * "Bildanalyse") lets it go; otherwise the card says why the image itself was
+ * not looked at.
  */
 class AltTextImage
 {
@@ -62,14 +63,21 @@ class AltTextImage
     }
 
     /**
-     * Why the model will not see the image, as a note code; empty when it
-     * will. Asked when the card is written, from what the provider reports,
-     * and decided as modelBlock() decides it: the note is empty exactly when
-     * a raster copy can be sent.
+     * Why the model will not see the image, as the card keeps it: a note
+     * code, empty when it will, and the folder it names where the image lies
+     * in a folder whose images are never sent. Asked when the card is
+     * written, from what the provider reports, and decided as modelBlock()
+     * decides it: the note is empty exactly when a raster copy can be sent.
+     *
+     * @return array{imageNote: string, imageNoteFolder?: string}
      */
-    public function note(int $referenceUid, bool $vision): string
+    public function cardNote(int $referenceUid, bool $vision): array
     {
-        return $this->prepared($referenceUid, $vision)['note'];
+        $prepared = $this->prepared($referenceUid, $vision);
+
+        return $prepared['folder'] === ''
+            ? ['imageNote' => $prepared['note']]
+            : ['imageNote' => $prepared['note'], 'imageNoteFolder' => $prepared['folder']];
     }
 
     /**
@@ -88,41 +96,45 @@ class AltTextImage
      * raster image (PNG) of at most MODEL_SIZE pixels: a provider reads no
      * SVG, and an SVG the image processor cannot convert is not sent.
      *
-     * @return array{note: string, block: array{type: string, image_url: array{url: string}}|null}
+     * The privacy setting is asked first: an image the settings keep back
+     * is named as such also where the provider could not see it anyway, as
+     * the settings are the reason that holds whatever the provider.
+     *
+     * @return array{note: string, folder: string, block: array{type: string, image_url: array{url: string}}|null}
      */
     private function prepared(int $referenceUid, bool $vision): array
     {
-        if (!$vision) {
-            return ['note' => self::NOTE_NO_VISION, 'block' => null];
-        }
-
         $reference = $this->reference($referenceUid);
-        if (!$reference instanceof FileReference) {
-            return ['note' => self::NOTE_UNREADABLE, 'block' => null];
+        $refusal   = $reference instanceof FileReference ? $this->policy->refusal($reference) : null;
+        if ($refusal instanceof AltTextImageRefusal) {
+            return ['note' => $refusal->note, 'folder' => $refusal->folder, 'block' => null];
         }
 
-        $refusal = $this->policy->refusal($reference);
-        if ($refusal !== null) {
-            return ['note' => $refusal, 'block' => null];
+        if (!$vision) {
+            return ['note' => self::NOTE_NO_VISION, 'folder' => '', 'block' => null];
+        }
+
+        if (!$reference instanceof FileReference) {
+            return ['note' => self::NOTE_UNREADABLE, 'folder' => '', 'block' => null];
         }
 
         $processed = $this->processedNow(fn (): ?ProcessedFile => $this->scaled($referenceUid, self::MODEL_SIZE, self::MODEL_SIZE, self::MODEL_FORMAT));
         if (!$processed instanceof ProcessedFile) {
-            return ['note' => self::NOTE_UNREADABLE, 'block' => null];
+            return ['note' => self::NOTE_UNREADABLE, 'folder' => '', 'block' => null];
         }
 
         try {
             $contents = $processed->getContents();
             $mimeType = $processed->getMimeType();
         } catch (Throwable) {
-            return ['note' => self::NOTE_UNREADABLE, 'block' => null];
+            return ['note' => self::NOTE_UNREADABLE, 'folder' => '', 'block' => null];
         }
 
         if ($contents === '' || !in_array($mimeType, self::RASTER_TYPES, true)) {
-            return ['note' => self::NOTE_UNREADABLE, 'block' => null];
+            return ['note' => self::NOTE_UNREADABLE, 'folder' => '', 'block' => null];
         }
 
-        return ['note' => '', 'block' => ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . base64_encode($contents)]]];
+        return ['note' => '', 'folder' => '', 'block' => ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $mimeType . ';base64,' . base64_encode($contents)]]];
     }
 
     /**

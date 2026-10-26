@@ -294,6 +294,41 @@ class ExtensionConfiguration
     }
 
     /**
+     * The privacy setting "Bildanalyse" (ADR-026, slice 3): whether images go
+     * to the AI provider at all. `analyse`, the specification's default, sends
+     * a scaled copy; `contextOnly` sends none. An empty value is the default;
+     * any other value sends none, so a setting written by hand that is not one
+     * of the two never sends an image by mistake.
+     */
+    public function isImageAnalysisEnabled(): bool
+    {
+        $value = trim($this->getString('imageAnalysis', 'analyse'));
+
+        return $value === '' || $value === 'analyse';
+    }
+
+    /**
+     * The folders whose images are never sent while image analysis is on, as
+     * written: `fileadmin/team/` (a storage's base path and the folder) or
+     * `1:/team/` (the storage uid and the folder). Empty entries and
+     * duplicates are dropped; the policy resolves the rest.
+     *
+     * @return list<string>
+     */
+    public function getImageAnalysisExcludedFolders(): array
+    {
+        $folders = [];
+        foreach (explode(',', $this->getString('imageAnalysisExcludedFolders', '')) as $entry) {
+            $entry = trim($entry);
+            if ($entry !== '' && !in_array($entry, $folders, true)) {
+                $folders[] = $entry;
+            }
+        }
+
+        return $folders;
+    }
+
+    /**
      * @return list<string>
      */
     private function identifierList(string $key, string $default, string $pattern): array

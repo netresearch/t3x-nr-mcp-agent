@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorInterface;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
+use Netresearch\NrMcpAgent\Document\Extractor\PlainTextExtractor;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -36,6 +37,8 @@ use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextImageRefusal;
+use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
@@ -96,6 +99,7 @@ class ChatServiceTest extends TestCase
         ?OpenPointTrackerInterface $openPoints = null,
         ?SkillCatalogueInterface $skills = null,
         ?AltTextConversation $altText = null,
+        ?ImageAnalysisPolicy $imagePolicy = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
         if (!$config instanceof ExtensionConfiguration) {
@@ -137,7 +141,7 @@ class ChatServiceTest extends TestCase
         $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->method('createAdapterFromModel')->willReturn($provider);
 
-        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState, skills: $skills, openPoints: $openPoints, altText: $altText);
+        return new ChatService($repository, $config, $agentRuntime, $this->createMock(PendingApprovalReaderInterface::class), $this->createMock(AgentRunRepositoryInterface::class), $taskRepository, $adapterRegistry, $resourceFactory, $siteFinder, $registry, new UploadMimeTypeMap(), $userContextPrompt ?? $this->createMock(UserContextPrompt::class), $activityRecorder ?? $this->createMock(RunActivityRecorder::class), guidedState: $guidedState, skills: $skills, openPoints: $openPoints, altText: $altText, imagePolicy: $imagePolicy);
     }
 
     /**
@@ -1396,6 +1400,89 @@ class ChatServiceTest extends TestCase
     }
 
     /**
+     * @return iterable<string, array{AltTextImageRefusal, string}>
+     */
+    public static function withheldImages(): iterable
+    {
+        yield 'image analysis off' => [new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_ANALYSIS_OFF), 'image analysis is switched off'];
+        yield 'an excluded folder' => [new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, 'fileadmin/team/'), 'images from its folder are never sent'];
+    }
+
+    /**
+     * The privacy setting "Bildanalyse" (ADR-026) holds for an image attached
+     * in the chat too: it is not read or sent, and the model is told why.
+     */
+    #[Test]
+    #[DataProvider('withheldImages')]
+    public function anAttachedImageThePrivacySettingKeepsBackIsNotSent(AltTextImageRefusal $refusal, string $reason): void
+    {
+        $mockFile = $this->createMock(File::class);
+        $mockFile->expects(self::never())->method('getForLocalProcessing');
+        $mockFile->method('getMimeType')->willReturn('image/jpeg');
+
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->method('getFileObject')->with(42)->willReturn($mockFile);
+        $policy = $this->createMock(ImageAnalysisPolicy::class);
+        $policy->method('refusalForFile')->with($mockFile)->willReturn($refusal);
+
+        $conversation = Conversation::fromRow([
+            'uid'      => 1,
+            'be_user'  => 1,
+            'status'   => 'idle',
+            'messages' => json_encode([[
+                'role'         => 'user',
+                'content'      => 'What is in this image?',
+                'fileUid'      => 42,
+                'fileName'     => 'photo.jpg',
+                'fileMimeType' => 'image/jpeg',
+            ]]),
+            'message_count' => 1,
+        ]);
+
+        $this->createChatService(resourceFactory: $resourceFactory, imagePolicy: $policy)->processConversation($conversation);
+
+        $userMsg = $this->capturedUserMessage();
+        self::assertIsArray($userMsg['content']);
+        self::assertSame('text', $userMsg['content'][1]['type']);
+        self::assertStringContainsString($reason, $userMsg['content'][1]['text']);
+        self::assertStringNotContainsString('base64', (string) json_encode($userMsg));
+    }
+
+    /** An attachment that is not an image is not the setting's business: a PDF is still read. */
+    #[Test]
+    public function anAttachedDocumentIsNotAskedAbout(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'chat_test_');
+        file_put_contents($tempFile, 'Hello TXT');
+
+        $mockFile = $this->createMock(File::class);
+        $mockFile->method('getForLocalProcessing')->willReturn($tempFile);
+        $mockFile->method('getMimeType')->willReturn('text/plain');
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->method('getFileObject')->willReturn($mockFile);
+        $policy = $this->createMock(ImageAnalysisPolicy::class);
+        $policy->expects(self::never())->method('refusalForFile');
+
+        $conversation = Conversation::fromRow([
+            'uid'           => 1,
+            'be_user'       => 1,
+            'status'        => 'idle',
+            'messages'      => json_encode([['role' => 'user', 'content' => 'Read this', 'fileUid' => 42, 'fileName' => 'a.txt', 'fileMimeType' => 'text/plain']]),
+            'message_count' => 1,
+        ]);
+
+        try {
+            $this->createChatService(resourceFactory: $resourceFactory, registry: new DocumentExtractorRegistry([new PlainTextExtractor()]), imagePolicy: $policy)->processConversation($conversation);
+        } finally {
+            unlink($tempFile);
+        }
+
+        $userMsg = $this->capturedUserMessage();
+        self::assertIsArray($userMsg['content']);
+        self::assertStringContainsString('Hello TXT', $userMsg['content'][1]['text']);
+    }
+
+    /**
      * The upload endpoint stores an attachment in the storage and indexes it
      * before the model ever sees it, so the file is in fileadmin from the first
      * turn. The model cannot tell: it sees pixels, or extracted text. Asked to
@@ -1588,6 +1675,44 @@ class ChatServiceTest extends TestCase
         self::assertTrue($caps['visionSupported']);
         self::assertContains('png', $caps['supportedFormats']);
         self::assertNotContains('pdf', $caps['supportedFormats']);
+    }
+
+    /**
+     * With "Nur Kontext verwenden" the picker offers no image format, and the
+     * upload endpoint, which checks against the same list, refuses one; the
+     * documents stay.
+     */
+    #[Test]
+    public function getProviderCapabilitiesOffersNoImageFormatWithImageAnalysisOff(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class, DocumentCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getSupportedImageFormats')->willReturn(['png', 'jpeg', 'webp']);
+        $provider->method('getMaxImageSize')->willReturn(20 * 1024 * 1024);
+        $provider->method('supportsDocuments')->willReturn(true);
+        $provider->method('getSupportedDocumentFormats')->willReturn(['pdf']);
+        $policy = $this->createStub(ImageAnalysisPolicy::class);
+        $policy->method('analysesImages')->willReturn(false);
+
+        $caps = $this->createChatService(provider: $provider, imagePolicy: $policy)->getProviderCapabilities();
+
+        self::assertTrue($caps['visionSupported']);
+        self::assertSame(['pdf'], $caps['supportedFormats']);
+    }
+
+    #[Test]
+    public function getProviderCapabilitiesOffersTheImageFormatsWithImageAnalysisOn(): void
+    {
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, VisionCapableInterface::class]);
+        $provider->method('supportsVision')->willReturn(true);
+        $provider->method('getSupportedImageFormats')->willReturn(['png', 'jpeg']);
+        $policy = $this->createStub(ImageAnalysisPolicy::class);
+        $policy->method('analysesImages')->willReturn(true);
+
+        $caps = $this->createChatService(provider: $provider, imagePolicy: $policy)->getProviderCapabilities();
+
+        self::assertContains('png', $caps['supportedFormats']);
+        self::assertContains('jpeg', $caps['supportedFormats']);
     }
 
     #[Test]

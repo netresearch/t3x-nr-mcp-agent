@@ -72,7 +72,7 @@ final class AltTextImageBackendRequestTest extends FunctionalTestCase
         $this->inBackendRequest();
         $image = $this->get(AltTextImage::class);
 
-        self::assertSame('', $image->note(1, true));
+        self::assertSame('', $image->cardNote(1, true)['imageNote']);
         $block = $image->modelBlock(1, true);
         self::assertNotNull($block);
         self::assertStringStartsWith('data:image/png;base64,', $block['image_url']['url']);
@@ -94,7 +94,7 @@ final class AltTextImageBackendRequestTest extends FunctionalTestCase
     {
         $image = $this->get(AltTextImage::class);
 
-        self::assertSame('', $image->note(1, true));
+        self::assertSame('', $image->cardNote(1, true)['imageNote']);
         self::assertNotNull($image->modelBlock(1, true));
     }
 }

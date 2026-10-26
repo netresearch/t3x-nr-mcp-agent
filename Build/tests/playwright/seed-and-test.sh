@@ -88,10 +88,14 @@ case "${E2E_VARIANT:-}" in
     echo "Enabling the alt text tools and seeding a conversation that waits on a proposed alt text (${DB_CLIENT})..."
     "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/alt-text-optimise-seed.sql"
 
-    echo "Pointing llmTaskUid at the seeded Task..."
+    # The seeded images lie in fileadmin/e2e/, which the privacy setting
+    # "Bildanalyse" excludes, so their card names the folder
+    # (alt-text-optimise.spec.ts); no other spec sends an image from there.
+    echo "Pointing llmTaskUid at the seeded Task and excluding the seeded images' folder from image analysis..."
     cat >> config/system/additional.php << 'PHPEOF'
 
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['llmTaskUid'] = 1;
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['imageAnalysisExcludedFolders'] = 'fileadmin/e2e/';
 PHPEOF
     .Build/bin/typo3 cache:flush
 

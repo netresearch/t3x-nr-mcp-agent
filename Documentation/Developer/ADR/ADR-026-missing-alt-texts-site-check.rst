@@ -377,8 +377,83 @@ the reference's crop; an image that does not come out as a raster image
 is decided with the copy: wherever no copy goes to the model — no vision, a
 file that cannot be read or converted — the card says that the proposal
 rests on the page, the element and the file name.
-Whether an image may be sent at all is ``AltTextImagePolicyInterface``
-(``SendEveryImage`` for now), where slice 3's setting plugs in.
+Whether an image may be sent at all is ``AltTextImagePolicyInterface``,
+where slice 3's setting plugs in (below).
+
+Slice 3
+=======
+
+**The setting is extension configuration.** The specification places
+*Bildanalyse* in "AI Assistant / Wissen & Einstellungen, Bereich
+Datenschutz", changeable by administrators only. The module has no such
+area, and the extension keeps every administrator setting in its extension
+configuration; a second store for one setting is not added. So it is
+:confval:`imageAnalysis` (``analyse``, *Bilder analysieren*, or
+``contextOnly``, *Nur Kontext verwenden*) and
+:confval:`imageAnalysisExcludedFolders`, in the category *privacy*. The
+extension configuration is changed by administrators with system
+maintainer rights, fewer than the specification's administrators. The
+labels follow the extension configuration's convention, English, and carry
+the specification's explanation (data processing agreement, people on
+images) in short form; the specification's status line in the navigation
+("Bilder werden analysiert" / "Nur Kontext, keine Bilder") has no place
+without the area and is not built. Both come with the area, if it is built.
+
+**Default: images are analysed.** The specification marks *Bilder
+analysieren* as the default, which is also how slices 1 and 2 behave. A
+value other than the two (only possible when written by hand) sends no
+image: a typo must not send images by mistake.
+
+**One policy decides, for every image this extension sends.**
+``ImageAnalysisPolicy`` replaces ``SendEveryImage`` behind
+``AltTextImagePolicyInterface``. The specification says the setting applies
+"für alle Bilder und für alle Funktionen des AI Assistant, die Bilder
+verarbeiten", so the same policy also decides an image attached in the
+chat: with *Nur Kontext* the chat offers no image format and the upload
+endpoint, which checks against the same list, refuses an image; an image
+attached before, or one in an excluded folder, is replaced in the model's
+turn by a line saying that the image is not sent and why. The refusal
+carries the note code and the folder it names
+(``AltTextImageRefusal``); the interface's return type changed from a bare
+code for that. nr-llm's own image features (its vision service and
+modules) are not this extension's and are not covered; none of nr-llm's
+tools the chat calls sends an image.
+
+**The setting comes before the provider.** ``AltTextImage`` asks the
+policy before it asks whether the provider can see images: where the
+settings keep an image back, the card says so also on a provider without
+vision, because that reason holds whatever the provider. The card's note
+and what the model gets are still decided in one call (``prepared()``):
+a refused image is not even processed.
+
+**Excluded folders are bound to their storage.** An entry is
+``fileadmin/team/`` (the base path of a local storage in the web root and
+the folder) or ``1:/team/`` (the storage uid and the folder); the second
+form reaches storages outside the web root. A folder includes its
+subfolders and is compared with a slash at either end, so ``/team/``
+does not take in ``/teamwork/``, and ``/team/`` in another storage is not
+excluded. Comparison follows the storage's case sensitivity. Folders are
+compared by their identifiers without asking the storage, so a folder that
+does not exist yet costs nothing and an entry that names no storage is
+ignored. The first configured folder that holds the image is the one the
+card names, written as an editor knows it (``fileadmin/team/``, or
+``2:/team/`` for a storage outside the web root).
+
+**The card's lines are the specification's.** *Nur Kontext*: "Die
+Bildanalyse ist in den Einstellungen abgeschaltet." An excluded folder:
+"Bilder aus dem Ordner {Ordner} werden nicht an die KI übertragen." Both go
+on, like the other notes: "Der Vorschlag beruht nur auf Seite,
+Content-Element und Dateiname. Prüfe, ob er zum Bild passt." The folder is
+kept on the card as data (``imageNoteFolder``) and filled into a
+positional placeholder. The preview in the chat and the list stays; it is
+a backend image and never goes to the provider.
+
+**The card binds the model's turn.** A worker (``processingStrategy =
+worker``) reads the configuration once, when it starts, while the card is
+written in a backend request that reads it anew. Where the card says the
+setting keeps the image back, the turn does not send it, whatever the
+worker reads; for a card written before a change the worker follows the
+setting it started with until it is restarted.
 
 Consequences
 ============
@@ -398,6 +473,9 @@ Consequences
 -   The tests need ``typo3/cms-fluid-styled-content`` and
     ``typo3/cms-workspaces`` as development dependencies, to prove the
     frontend output and the workspace overlay.
+-   Slice 3 sends images as before until an administrator changes
+    :confval:`imageAnalysis`; with *Context only* the chat no longer
+    accepts image attachments.
 -   Slice 2 needs nr-llm 0.41.7 (``set_file_reference_alternative_text``)
     and adds the column ``tx_nrmcpagent_conversation.alt_text_hit``: run the
     database analyzer after upgrading. An administrator enables both

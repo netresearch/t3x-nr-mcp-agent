@@ -1023,6 +1023,14 @@
                 <source>The image could not be analysed. The proposal is based on the page, the content element and the file name only. Check that it fits the image.</source>
                 <target>Das Bild konnte nicht analysiert werden. Der Vorschlag beruht nur auf Seite, Content-Element und Dateiname. Prüfe, ob er zum Bild passt.</target>
             </trans-unit>
+            <trans-unit id="altText.note.analysisOff" resname="altText.note.analysisOff">
+                <source>Image analysis is switched off in the settings. The proposal is based on the page, the content element and the file name only. Check that it fits the image.</source>
+                <target>Die Bildanalyse ist in den Einstellungen abgeschaltet. Der Vorschlag beruht nur auf Seite, Content-Element und Dateiname. Prüfe, ob er zum Bild passt.</target>
+            </trans-unit>
+            <trans-unit id="altText.note.excludedFolder" resname="altText.note.excludedFolder">
+                <source>Images from the folder %1$s are not sent to the AI. The proposal is based on the page, the content element and the file name only. Check that it fits the image.</source>
+                <target>Bilder aus dem Ordner %1$s werden nicht an die KI übertragen. Der Vorschlag beruht nur auf Seite, Content-Element und Dateiname. Prüfe, ob er zum Bild passt.</target>
+            </trans-unit>
             <trans-unit id="altText.proposal" resname="altText.proposal">
                 <source>Proposal:</source>
                 <target>Vorschlag:</target>
