@@ -14,6 +14,7 @@ use Netresearch\NrMcpAgent\Service\AltText\AltTextImagePolicyInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\FileReference;
 use TYPO3\CMS\Core\Resource\ProcessedFile;
@@ -50,7 +51,7 @@ final class AltTextImageTest extends TestCase
         $policy = $this->createMock(AltTextImagePolicyInterface::class);
         $policy->method('refusal')->willReturn(null);
 
-        return new AltTextImage($factory, $policy);
+        return new AltTextImage($factory, $policy, new Context());
     }
 
     #[Test]

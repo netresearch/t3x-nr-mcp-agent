@@ -100,6 +100,12 @@ class AltTextConversation
     public function takeUp(Conversation $conversation, MissingAltText $hit, bool $vision): void
     {
         $card = $this->list->describe($hit);
+        // The title follows the image while it is the one this flow gave
+        // the conversation; a title the editor chose stays.
+        $title         = $conversation->getTitle();
+        $previousImage = $this->latestCardFileName($conversation);
+        $followsImage  = $title === '' || ($previousImage !== null && $title === mb_substr($this->title($previousImage), 0, 255));
+
         if (self::isAbout($conversation)) {
             $conversation->appendMessage(
                 MessageRole::Assistant,
@@ -117,11 +123,32 @@ class AltTextConversation
             [...$card, 'reference' => $hit->referenceUid, 'imageNote' => $this->image->note($hit->referenceUid, $vision)],
         );
         $conversation->setAltTextHit($hit->referenceUid, $this->list->position($hit));
-        if ($conversation->getTitle() === '') {
-            $language = $GLOBALS['LANG'] ?? null;
-            $title    = $language instanceof LanguageService ? $language->sL('LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:altText.title') : '';
-            $conversation->setTitle(sprintf($title !== '' ? $title : 'Alt text: %s', $hit->fileName));
+        if ($followsImage) {
+            $conversation->setTitle($this->title($hit->fileName));
         }
+    }
+
+    /** The conversation's title for an image, "Alt-Text: <file name>". */
+    private function title(string $fileName): string
+    {
+        $language = $GLOBALS['LANG'] ?? null;
+        $title    = $language instanceof LanguageService ? $language->sL('LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:altText.title') : '';
+
+        return sprintf($title !== '' ? $title : 'Alt text: %s', $fileName);
+    }
+
+    /** The file name on the conversation's latest image card, null before the first. */
+    private function latestCardFileName(Conversation $conversation): ?string
+    {
+        $fileName = null;
+        foreach ($conversation->getDecodedMessages() as $message) {
+            $data = $message['data'] ?? null;
+            if (($message['notice'] ?? null) === self::NOTICE_HIT && is_array($data) && is_string($data['fileName'] ?? null)) {
+                $fileName = $data['fileName'];
+            }
+        }
+
+        return $fileName;
     }
 
     /**

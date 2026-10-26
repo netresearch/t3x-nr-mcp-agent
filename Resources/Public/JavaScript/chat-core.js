@@ -1152,6 +1152,10 @@ export class ChatCoreController {
         this.host.requestUpdate();
         try {
             const data = reference === null ? await this._api.nextAltText(uid) : await this._api.switchAltText(uid, reference);
+            // The title follows the new image: the header and the tab show it now.
+            if (typeof data?.title === 'string' && data.title !== '') {
+                this.conversations = this.conversations.map(c => (c.uid === uid ? {...c, title: data.title} : c));
+            }
             if (uid === this.activeUid) {
                 this.errorMessage = '';
                 this.pendingApproval = null;
