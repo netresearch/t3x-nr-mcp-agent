@@ -187,6 +187,9 @@ final class Conversation
      */
     private string $altTextHit = '';
 
+    /** The privacy setting "Bildanalyse" the latest turn was dispatched with, as JSON (ImageAnalysisTurnSettings). */
+    private string $imageAnalysis = '';
+
     private int $tstamp = 0;
 
     /** @phpstan-ignore-next-line property.onlyWritten */
@@ -227,6 +230,7 @@ final class Conversation
         $conversation->approvalDenyReason = (string) self::val($row, 'approval_deny_reason', '');
         $conversation->lastRunUuid        = (string) self::val($row, 'last_run_uuid', '');
         $conversation->altTextHit         = (string) self::val($row, 'alt_text_hit', '');
+        $conversation->imageAnalysis      = (string) self::val($row, 'image_analysis', '');
         $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate             = (int) self::val($row, 'crdate', 0);
 
@@ -278,6 +282,7 @@ final class Conversation
             'pending_input'        => $this->pendingInput,
             'approval_deny_reason' => $this->approvalDenyReason,
             'alt_text_hit'         => $this->altTextHit,
+            'image_analysis'       => $this->imageAnalysis,
         ];
     }
 
@@ -567,6 +572,17 @@ final class Conversation
         $this->altTextHit = $referenceUid > 0
             ? json_encode(array_filter(['reference' => $referenceUid, 'position' => $position], static fn (mixed $value): bool => $value !== null), JSON_THROW_ON_ERROR)
             : '';
+    }
+
+    /** The privacy setting the latest turn was dispatched with; empty for one dispatched before it was kept. */
+    public function getImageAnalysisSnapshot(): string
+    {
+        return $this->imageAnalysis;
+    }
+
+    public function setImageAnalysisSnapshot(string $snapshot): void
+    {
+        $this->imageAnalysis = $snapshot;
     }
 
     public function getSkillUid(): int

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Configuration;
 
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration as Typo3ExtensionConfiguration;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -27,11 +28,13 @@ class ExtensionConfiguration
     /** @var array<string, mixed> */
     private array $config;
 
+    private readonly Typo3ExtensionConfiguration $core;
+
     public function __construct()
     {
+        $this->core = GeneralUtility::makeInstance(Typo3ExtensionConfiguration::class);
         /** @var array<string, mixed> $config */
-        $config = (array) GeneralUtility::makeInstance(Typo3ExtensionConfiguration::class)
-            ->get('nr_mcp_agent');
+        $config       = (array) $this->core->get('nr_mcp_agent');
         $this->config = $config;
     }
 
@@ -302,9 +305,37 @@ class ExtensionConfiguration
      */
     public function isImageAnalysisEnabled(): bool
     {
-        $value = trim($this->getString('imageAnalysis', 'analyse'));
+        $value = trim($this->getImageAnalysisValues()['imageAnalysis']);
 
         return $value === '' || $value === 'analyse';
+    }
+
+    /**
+     * The two values of the privacy setting as configured now, read on every
+     * call rather than from what the constructor read: a decision about an
+     * image follows the configuration of the turn it is made in, which a
+     * worker overlays per turn with the values the turn was dispatched with
+     * (ImageAnalysisTurnSettings). The read is an array lookup in the loaded
+     * configuration.
+     *
+     * @return array{imageAnalysis: string, imageAnalysisExcludedFolders: string}
+     */
+    public function getImageAnalysisValues(): array
+    {
+        try {
+            $current = $this->core->get('nr_mcp_agent');
+        } catch (Throwable) {
+            $current = [];
+        }
+
+        $current  = is_array($current) ? $current : [];
+        $analysis = $current['imageAnalysis'] ?? 'analyse';
+        $folders  = $current['imageAnalysisExcludedFolders'] ?? '';
+
+        return [
+            'imageAnalysis'                => is_scalar($analysis) ? (string) $analysis : 'contextOnly',
+            'imageAnalysisExcludedFolders' => is_scalar($folders) ? (string) $folders : '',
+        ];
     }
 
     /**
@@ -318,7 +349,7 @@ class ExtensionConfiguration
     public function getImageAnalysisExcludedFolders(): array
     {
         $folders = [];
-        foreach (explode(',', $this->getString('imageAnalysisExcludedFolders', '')) as $entry) {
+        foreach (explode(',', $this->getImageAnalysisValues()['imageAnalysisExcludedFolders']) as $entry) {
             $entry = trim($entry);
             if ($entry !== '' && !in_array($entry, $folders, true)) {
                 $folders[] = $entry;

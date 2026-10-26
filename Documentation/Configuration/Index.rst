@@ -431,10 +431,16 @@ Whether images are sent to the AI provider (see :ref:`adr-026`, slice 3).
 Whether an image shows people cannot be told before it is analysed, so the
 setting applies to every image and to every feature of the assistant that
 sends one: the scaled copy for an alt text proposal
-(:ref:`usage-optimise-alt-text`) and an image attached in the chat
-(:ref:`usage-attaching-files`). Sending images needs a data processing
-agreement with the operator that covers the AI provider's processing,
-images of people included.
+(:ref:`usage-optimise-alt-text`) and a file attached in the chat
+(:ref:`usage-attaching-files`), where a document the provider would read as
+a whole (a PDF carries its photos along) goes as its extracted text instead.
+Sending images needs a data processing agreement with the operator that
+covers the AI provider's processing, images of people included.
+
+A change applies from the next turn of a conversation, also with
+:confval:`processingStrategy` ``worker``: each turn runs with the setting of
+the backend request that started it, which the request stores with the
+conversation.
 
 It is part of the extension configuration (category *privacy*), which
 only administrators with system maintainer rights can change, as every
@@ -450,31 +456,30 @@ setting on this page.
     ``contextOnly`` (*Context only*): no image is sent. An alt text
     proposal rests on the page or record, the content element or field and
     the file name, and the image card in the chat says that image analysis
-    is switched off. The chat offers no image format for attachments and
-    refuses an image upload; an image attached before is not sent either.
+    is switched off. The chat offers no image format for attachments, nor a
+    document format only the provider reads, and refuses such an upload; an
+    image attached before is not sent, and a document attached before (a
+    PDF) goes as its extracted text.
 
     Any other value sends no image, so a value written by hand that is not
     one of the two never sends images by mistake.
-
-    With :confval:`processingStrategy` ``worker``, restart the worker after
-    changing this setting or :confval:`imageAnalysisExcludedFolders`: it
-    reads the configuration once, when it starts. Until then an image card
-    written after the change already says the image is not sent, and the
-    worker does not send that image; for a card written before the change
-    the worker follows the old setting.
 
 ..  confval:: imageAnalysisExcludedFolders
     :type: string
     :default: (empty)
 
     Folders whose images are never sent, comma-separated, for example
-    portraits. A folder includes its subfolders. Write a folder as
-    ``fileadmin/team/`` (the base path of a local storage in the web root
-    and the folder) or as ``1:/team/`` (the storage uid and the folder);
-    use the second form for a storage outside the web root. A folder
-    belongs to its storage: ``fileadmin/team/`` does not exclude ``/team/``
-    in another storage, nor ``fileadmin/teamwork/``. An entry that names no
-    storage is ignored. Applies while :confval:`imageAnalysis` is
+    ``fileadmin/portraits/``. A folder includes its subfolders. Write a
+    folder as ``fileadmin/portraits/`` (the base path of a local storage in
+    the web root, in any case, and the folder) or as ``1:/portraits/`` (the
+    storage uid and the folder); use the second form for a storage outside
+    the web root. ``.`` and ``..`` are resolved within the storage. A
+    folder belongs to its storage: ``fileadmin/team/`` does not exclude
+    ``/team/`` in another storage, nor ``fileadmin/teamwork/``. An entry
+    that names no folder of a storage, such as ``portraits`` or one that
+    climbs above the storage's root, excludes nothing; it is logged as a
+    warning. A document attached in the chat from such a folder goes as its
+    extracted text only. Applies while :confval:`imageAnalysis` is
     ``analyse``; the image card names the folder.
 
 Worker mode production setup

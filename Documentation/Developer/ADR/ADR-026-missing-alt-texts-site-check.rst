@@ -404,18 +404,24 @@ analysieren* as the default, which is also how slices 1 and 2 behave. A
 value other than the two (only possible when written by hand) sends no
 image: a typo must not send images by mistake.
 
-**One policy decides, for every image this extension sends.**
+**One policy decides, for every file this extension sends.**
 ``ImageAnalysisPolicy`` replaces ``SendEveryImage`` behind
-``AltTextImagePolicyInterface``. The specification says the setting applies
-"für alle Bilder und für alle Funktionen des AI Assistant, die Bilder
-verarbeiten", so the same policy also decides an image attached in the
-chat: with *Nur Kontext* the chat offers no image format and the upload
-endpoint, which checks against the same list, refuses an image; an image
-attached before, or one in an excluded folder, is replaced in the model's
-turn by a line saying that the image is not sent and why. The refusal
-carries the note code and the folder it names
-(``AltTextImageRefusal``); the interface's return type changed from a bare
-code for that. nr-llm's own image features (its vision service and
+``AltTextImagePolicyInterface``, and the chat depends on the interface too,
+so rebinding it changes every path. The specification says the setting
+applies "für alle Bilder und für alle Funktionen des AI Assistant, die
+Bilder verarbeiten", so the same policy also decides a file attached in the
+chat. With *Nur Kontext* the chat offers no image format and no format the
+provider reads natively as a document, and the upload endpoint, which
+checks against the same list, refuses them; what text extraction reads
+stays. An attachment is asked about whatever its type, because a document
+the provider reads natively (a PDF for Claude and Gemini in nr-llm 0.41.7)
+carries its photos along: a refused image is replaced in the model's turn
+by a line saying that it is not sent and why, and a refused document goes
+as its extracted text only (the extractors return text), or as that line
+where no extractor reads it. The refusal carries the note code and the
+folder it names (``AltTextImageRefusal``); the interface's return type
+changed from a bare code for that, and it gained ``refusalForFile()`` and
+``analysesImages()``. nr-llm's own image features (its vision service and
 modules) are not this extension's and are not covered; none of nr-llm's
 tools the chat calls sends an image.
 
@@ -432,12 +438,19 @@ the folder) or ``1:/team/`` (the storage uid and the folder); the second
 form reaches storages outside the web root. A folder includes its
 subfolders and is compared with a slash at either end, so ``/team/``
 does not take in ``/teamwork/``, and ``/team/`` in another storage is not
-excluded. Comparison follows the storage's case sensitivity. Folders are
-compared by their identifiers without asking the storage, so a folder that
-does not exist yet costs nothing and an entry that names no storage is
-ignored. The first configured folder that holds the image is the one the
-card names, written as an editor knows it (``fileadmin/team/``, or
-``2:/team/`` for a storage outside the web root).
+excluded. Comparison follows the storage's case sensitivity. An entry is
+resolved storage first: its uid, or its base path at the start of the
+entry in any case (``Fileadmin/team/`` is ``fileadmin/``'s ``/team/``); then
+the rest as a folder of that storage, with ``.`` and ``..`` resolved. Taken
+the other way round, ``fileadmin/../user_upload/x/`` would name another
+storage's folder; it climbs above the storage's root and is refused.
+Folders are compared by their identifiers without asking the storage, so a
+folder that does not exist yet costs nothing. An entry that names no
+folder of a storage (``portraits``, ``user_upload/team/`` without such a
+storage, one that climbs above the root) excludes nothing and is logged as
+a warning, once per configured value. The first configured folder that
+holds the image is the one the card names, written as an editor knows it
+(``fileadmin/team/``, or ``2:/team/`` for a storage outside the web root).
 
 **The card's lines are the specification's.** *Nur Kontext*: "Die
 Bildanalyse ist in den Einstellungen abgeschaltet." An excluded folder:
@@ -448,12 +461,29 @@ kept on the card as data (``imageNoteFolder``) and filled into a
 positional placeholder. The preview in the chat and the list stays; it is
 a backend image and never goes to the provider.
 
-**The card binds the model's turn.** A worker (``processingStrategy =
-worker``) reads the configuration once, when it starts, while the card is
-written in a backend request that reads it anew. Where the card says the
-setting keeps the image back, the turn does not send it, whatever the
-worker reads; for a card written before a change the worker follows the
-setting it started with until it is restarted.
+**A turn runs with the setting of the request that started it.** TYPO3
+loads its configuration into ``$GLOBALS['TYPO3_CONF_VARS']`` once per
+process (``Bootstrap::populateLocalConfiguration()``), and the core's
+``ExtensionConfiguration::get()`` reads it from there. A worker
+(``processingStrategy = worker``) is one long process, so reading the
+setting anew inside it still yields the value it started with. Reloading
+the configuration there is no way out: ``exportConfiguration()`` resets what
+every ``ext_localconf.php`` added to ``TYPO3_CONF_VARS``, and reading
+``settings.php`` alone drops the values ``additional.php`` sets (the E2E
+setup sets ``imageAnalysisExcludedFolders`` there). Every turn, however,
+starts in a backend request that reads the configuration anew and hands the
+turn over by writing the status *processing*. That same write stamps the
+two values on the conversation (``image_analysis``,
+``ImageAnalysisTurnSettings``), so a worker cannot take the turn before
+its stamp is there; the turn overlays them on the process's configuration
+and puts the process's own back afterwards. Values, not a decision, are
+stamped, per turn rather than per message or attachment: attachments are
+read again on every turn, so a stamp from the time a file was attached
+would go on sending it after a switch to *Nur Kontext*. The policy reads
+the setting on every decision, and resolves the folders once per value. A
+turn queued before the stamp existed runs with the process's values. The
+card also binds the turn: where it says the setting keeps the image back,
+the image is not sent.
 
 Consequences
 ============
@@ -475,7 +505,9 @@ Consequences
     frontend output and the workspace overlay.
 -   Slice 3 sends images as before until an administrator changes
     :confval:`imageAnalysis`; with *Context only* the chat no longer
-    accepts image attachments.
+    accepts image attachments, and a PDF goes as its extracted text. It
+    adds the column ``tx_nrmcpagent_conversation.image_analysis``: run the
+    database analyzer after upgrading.
 -   Slice 2 needs nr-llm 0.41.7 (``set_file_reference_alternative_text``)
     and adds the column ``tx_nrmcpagent_conversation.alt_text_hit``: run the
     database analyzer after upgrading. An administrator enables both

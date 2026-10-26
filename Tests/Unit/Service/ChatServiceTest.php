@@ -1405,7 +1405,7 @@ class ChatServiceTest extends TestCase
     public static function withheldImages(): iterable
     {
         yield 'image analysis off' => [new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_ANALYSIS_OFF), 'image analysis is switched off'];
-        yield 'an excluded folder' => [new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, 'fileadmin/team/'), 'images from its folder are never sent'];
+        yield 'an excluded folder' => [new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, 'fileadmin/team/'), 'files from its folder are never sent'];
     }
 
     /**
@@ -1448,9 +1448,9 @@ class ChatServiceTest extends TestCase
         self::assertStringNotContainsString('base64', (string) json_encode($userMsg));
     }
 
-    /** An attachment that is not an image is not the setting's business: a PDF is still read. */
+    /** A document the setting lets go is read as before. */
     #[Test]
-    public function anAttachedDocumentIsNotAskedAbout(): void
+    public function anAttachedDocumentThePolicyLetsGoIsReadAsBefore(): void
     {
         $tempFile = tempnam(sys_get_temp_dir(), 'chat_test_');
         file_put_contents($tempFile, 'Hello TXT');
@@ -1461,7 +1461,7 @@ class ChatServiceTest extends TestCase
         $resourceFactory = $this->createMock(ResourceFactory::class);
         $resourceFactory->method('getFileObject')->willReturn($mockFile);
         $policy = $this->createMock(ImageAnalysisPolicy::class);
-        $policy->expects(self::never())->method('refusalForFile');
+        $policy->expects(self::once())->method('refusalForFile')->with($mockFile)->willReturn(null);
 
         $conversation = Conversation::fromRow([
             'uid'           => 1,
@@ -1678,9 +1678,50 @@ class ChatServiceTest extends TestCase
     }
 
     /**
+     * A refused document no extractor reads is not sent at all, and the model
+     * is told so, not that the file is gone.
+     */
+    #[Test]
+    public function aRefusedDocumentNoExtractorReadsIsWithheldNotLost(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'chat_test_');
+        file_put_contents($tempFile, '%PDF-1.4');
+        $mockFile = $this->createMock(File::class);
+        $mockFile->method('getForLocalProcessing')->willReturn($tempFile);
+        $mockFile->method('getMimeType')->willReturn('application/pdf');
+        $resourceFactory = $this->createMock(ResourceFactory::class);
+        $resourceFactory->method('getFileObject')->willReturn($mockFile);
+        $policy = $this->createStub(ImageAnalysisPolicy::class);
+        $policy->method('refusalForFile')->willReturn(new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_ANALYSIS_OFF));
+        $provider = $this->createMockForIntersectionOfInterfaces([ProviderInterface::class, DocumentCapableInterface::class]);
+        $provider->method('supportsDocuments')->willReturn(true);
+
+        $conversation = Conversation::fromRow([
+            'uid'           => 1,
+            'be_user'       => 1,
+            'status'        => 'idle',
+            'messages'      => json_encode([['role' => 'user', 'content' => 'Read this', 'fileUid' => 42, 'fileName' => 'a.pdf', 'fileMimeType' => 'application/pdf']]),
+            'message_count' => 1,
+        ]);
+
+        try {
+            $this->createChatService(provider: $provider, resourceFactory: $resourceFactory, imagePolicy: $policy)->processConversation($conversation);
+        } finally {
+            unlink($tempFile);
+        }
+
+        $userMsg = $this->capturedUserMessage();
+        self::assertIsArray($userMsg['content']);
+        self::assertSame('text', $userMsg['content'][1]['type']);
+        self::assertStringContainsString('The attached file is not sent to you', $userMsg['content'][1]['text']);
+        self::assertStringNotContainsString(base64_encode('%PDF-1.4'), (string) json_encode($userMsg));
+    }
+
+    /**
      * With "Nur Kontext verwenden" the picker offers no image format, and the
-     * upload endpoint, which checks against the same list, refuses one; the
-     * documents stay.
+     * upload endpoint, which checks against the same list, refuses one. The
+     * provider's native document formats go too: a native PDF carries its
+     * images along. What extraction reads stays (none is registered here).
      */
     #[Test]
     public function getProviderCapabilitiesOffersNoImageFormatWithImageAnalysisOff(): void
@@ -1697,7 +1738,7 @@ class ChatServiceTest extends TestCase
         $caps = $this->createChatService(provider: $provider, imagePolicy: $policy)->getProviderCapabilities();
 
         self::assertTrue($caps['visionSupported']);
-        self::assertSame(['pdf'], $caps['supportedFormats']);
+        self::assertSame([], $caps['supportedFormats']);
     }
 
     #[Test]

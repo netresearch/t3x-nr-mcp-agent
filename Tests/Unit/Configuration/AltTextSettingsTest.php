@@ -98,6 +98,27 @@ final class AltTextSettingsTest extends TestCase
         self::assertSame($analyse, $this->configured(['imageAnalysis' => $value])->isImageAnalysisEnabled());
     }
 
+    /**
+     * The two image values are read on every call, not once in the
+     * constructor: a turn that changes them (a worker running a turn with
+     * the values it was dispatched with) is seen at once.
+     */
+    #[Test]
+    public function theImageValuesAreReadOnEveryCall(): void
+    {
+        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
+        $mock->method('get')->with('nr_mcp_agent')->willReturnOnConsecutiveCalls(
+            [],
+            ['imageAnalysis' => 'contextOnly', 'imageAnalysisExcludedFolders' => 'fileadmin/a/'],
+            ['imageAnalysis' => 'analyse', 'imageAnalysisExcludedFolders' => 'fileadmin/b/'],
+        );
+        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
+        $config = new ExtensionConfiguration();
+
+        self::assertSame(['imageAnalysis' => 'contextOnly', 'imageAnalysisExcludedFolders' => 'fileadmin/a/'], $config->getImageAnalysisValues());
+        self::assertSame(['imageAnalysis' => 'analyse', 'imageAnalysisExcludedFolders' => 'fileadmin/b/'], $config->getImageAnalysisValues());
+    }
+
     #[Test]
     public function theExcludedFoldersAreKeptAsWrittenWithoutEmptyEntriesAndDuplicates(): void
     {

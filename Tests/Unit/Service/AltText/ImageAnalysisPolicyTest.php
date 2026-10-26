@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\FileReference;
@@ -37,12 +38,17 @@ final class ImageAnalysisPolicyTest extends TestCase
      *
      * @param list<string> $folders
      */
-    private function policy(bool $analyse, array $folders = []): ImageAnalysisPolicy
+    private function policy(bool $analyse, array $folders = [], ?LoggerInterface $logger = null): ImageAnalysisPolicy
     {
         $configuration = $this->createStub(ExtensionConfiguration::class);
         $configuration->method('isImageAnalysisEnabled')->willReturn($analyse);
         $configuration->method('getImageAnalysisExcludedFolders')->willReturn($folders);
 
+        return new ImageAnalysisPolicy($configuration, $this->storageRepository(), $logger);
+    }
+
+    private function storageRepository(): StorageRepository
+    {
         $storages = $this->createStub(StorageRepository::class);
         $storages->method('findAll')->willReturn([
             $this->storage(1, 'Local', ['basePath' => 'fileadmin/', 'pathType' => 'relative']),
@@ -51,7 +57,7 @@ final class ImageAnalysisPolicyTest extends TestCase
             $this->storage(4, 'Local', ['basePath' => 'media/', 'pathType' => 'relative'], false),
         ]);
 
-        return new ImageAnalysisPolicy($configuration, $storages);
+        return $storages;
     }
 
     /**
@@ -192,5 +198,102 @@ final class ImageAnalysisPolicyTest extends TestCase
         $reference->method('getOriginalFile')->willThrowException(new RuntimeException('gone'));
 
         self::assertNull($this->policy(true, ['fileadmin/'])->refusal($reference));
+    }
+
+    /**
+     * Entries the setting's own wording invites, resolved or refused: a bare
+     * folder name and a path in no storage exclude nothing and are logged; a
+     * base path in another case and `..` inside the storage are resolved.
+     *
+     * @return iterable<string, array{string, int, string, string|null}>
+     */
+    public static function writtenEntries(): iterable
+    {
+        yield 'a bare folder name' => ['portraits', 1, '/portraits/anna.jpg', null];
+        yield 'a path in no storage' => ['user_upload/team/', 1, '/team/anna.jpg', null];
+        yield 'the base path in another case' => ['Fileadmin/team/', 1, '/team/anna.jpg', 'fileadmin/team/'];
+        yield 'a step up inside the storage' => ['fileadmin/team/../x/', 1, '/x/anna.jpg', 'fileadmin/x/'];
+        yield 'a step down and the current folder' => ['1:/./team/./board/', 1, '/team/board/anna.jpg', 'fileadmin/team/board/'];
+        yield 'a step above the storage root' => ['fileadmin/../storage2/team/', 2, '/team/anna.jpg', null];
+        yield 'a step above the root in the uid form' => ['1:/../team/', 1, '/team/anna.jpg', null];
+    }
+
+    #[Test]
+    #[DataProvider('writtenEntries')]
+    public function aWrittenEntryIsResolvedInItsStorageOrExcludesNothing(string $folder, int $storageUid, string $identifier, ?string $label): void
+    {
+        $refusal = $this->policy(true, [$folder])->refusalForFile($this->file($storageUid, $identifier));
+
+        self::assertEquals($label === null ? null : new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, $label), $refusal);
+    }
+
+    /** `fileadmin/team/../x/` is the folder x, not team. */
+    #[Test]
+    public function aStepUpLeavesTheFolderItNamedFirst(): void
+    {
+        self::assertNull($this->policy(true, ['fileadmin/team/../x/'])->refusalForFile($this->file(1, '/team/anna.jpg')));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function unresolvableEntries(): iterable
+    {
+        yield 'a bare folder name' => ['portraits'];
+        yield 'a path in no storage' => ['user_upload/team/'];
+        yield 'a step above the storage root' => ['fileadmin/../storage2/team/'];
+        yield 'a storage uid that does not exist' => ['9:/team/'];
+    }
+
+    /** An entry that excludes nothing is logged once, naming it, however many images are asked about. */
+    #[Test]
+    #[DataProvider('unresolvableEntries')]
+    public function anEntryThatExcludesNothingIsLoggedOnce(string $entry): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning')->with(self::stringContains('excludes nothing'), ['entry' => $entry]);
+        $policy = $this->policy(true, ['fileadmin/team/', $entry], $logger);
+
+        $policy->refusalForFile($this->file(1, '/team/anna.jpg'));
+        $policy->refusalForFile($this->file(1, '/news/press.jpg'));
+    }
+
+    #[Test]
+    public function anEntryThatResolvesIsNotLogged(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::never())->method('warning');
+
+        $this->policy(true, ['fileadmin/team/', '2:/team/', 'Fileadmin/x/'], $logger)->refusalForFile($this->file(1, '/team/anna.jpg'));
+    }
+
+    /**
+     * The setting is read on every decision: a process that keeps the policy
+     * follows a changed setting at once, in both directions, and resolves
+     * changed folders anew.
+     */
+    #[Test]
+    public function aChangedSettingIsFollowedByTheSamePolicy(): void
+    {
+        $analyse       = true;
+        $folders       = ['fileadmin/team/'];
+        $configuration = $this->createStub(ExtensionConfiguration::class);
+        $configuration->method('isImageAnalysisEnabled')->willReturnCallback(static function () use (&$analyse): bool {
+            return $analyse;
+        });
+        $configuration->method('getImageAnalysisExcludedFolders')->willReturnCallback(static function () use (&$folders): array {
+            return $folders;
+        });
+        $policy = new ImageAnalysisPolicy($configuration, $this->storageRepository());
+        $news   = $this->file(1, '/news/press.jpg');
+
+        self::assertNull($policy->refusalForFile($news));
+        $analyse = false;
+        self::assertEquals(new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_ANALYSIS_OFF), $policy->refusalForFile($news));
+        self::assertFalse($policy->analysesImages());
+        $analyse = true;
+        self::assertNull($policy->refusalForFile($news));
+        $folders = ['fileadmin/news/'];
+        self::assertEquals(new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, 'fileadmin/news/'), $policy->refusalForFile($news));
     }
 }

@@ -396,8 +396,10 @@ supported by the active provider.
 With the privacy setting :confval:`imageAnalysis` on *Context only*, no
 image goes to the provider: the file picker offers no image format, an image
 upload is refused, and an image attached earlier is not sent; the assistant
-says that it cannot see it. An image in a folder listed in
-:confval:`imageAnalysisExcludedFolders` is not sent either.
+says that it cannot see it. A PDF then goes as its extracted text, not as
+the file, because a provider that reads PDFs would see the photos in it. An
+image in a folder listed in :confval:`imageAnalysisExcludedFolders` is not
+sent either, and a document from such a folder goes as its text.
 
 **Limits:**
 

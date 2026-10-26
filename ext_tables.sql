@@ -31,6 +31,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     approval_deny_reason varchar(16) DEFAULT '' NOT NULL,
     last_run_uuid varchar(64) DEFAULT '' NOT NULL,
     alt_text_hit text,
+    image_analysis text,
     tstamp int(11) unsigned DEFAULT 0 NOT NULL,
     crdate int(11) unsigned DEFAULT 0 NOT NULL,
 

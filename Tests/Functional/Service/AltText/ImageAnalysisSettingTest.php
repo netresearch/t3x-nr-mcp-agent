@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Functional\Service\AltText;
 
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Configuration\ImageAnalysisTurnSettings;
+use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImage;
 use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
 use Netresearch\NrMcpAgent\Service\ChatService;
@@ -92,11 +94,13 @@ final class ImageAnalysisSettingTest extends FunctionalTestCase
      * injection would send attached images without any error.
      */
     #[Test]
-    public function theChatGetsThePolicyFromTheContainer(): void
+    public function theChatGetsThePolicyAndTheTurnSettingsFromTheContainer(): void
     {
-        $property = new ReflectionProperty(ChatService::class, 'imagePolicy');
+        $chat = $this->get(ChatService::class);
 
-        self::assertInstanceOf(ImageAnalysisPolicy::class, $property->getValue($this->get(ChatService::class)));
+        self::assertInstanceOf(ImageAnalysisPolicy::class, (new ReflectionProperty(ChatService::class, 'imagePolicy'))->getValue($chat));
+        self::assertInstanceOf(ImageAnalysisTurnSettings::class, (new ReflectionProperty(ChatService::class, 'turnSettings'))->getValue($chat));
+        self::assertInstanceOf(ImageAnalysisTurnSettings::class, (new ReflectionProperty(ConversationRepository::class, 'imageAnalysis'))->getValue($this->get(ConversationRepository::class)));
     }
 
     #[Test]

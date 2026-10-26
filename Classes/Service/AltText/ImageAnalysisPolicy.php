@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service\AltText;
 
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\FileReference;
@@ -17,17 +18,24 @@ use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
 /**
- * The privacy setting "Bildanalyse" (ADR-026, slice 3): whether an image may
- * go to the AI provider. With "Nur Kontext verwenden" no image goes; with
- * "Bilder analysieren" every image goes except those in an excluded folder,
- * subfolders included. It applies to every image the assistant would send:
- * the scaled copy for an alt text proposal and an image attached in the chat.
+ * The privacy setting "Bildanalyse" (ADR-026, slice 3): whether a file may
+ * go to the AI provider as it is. With "Nur Kontext verwenden" no image goes;
+ * with "Bilder analysieren" every image goes except those in an excluded
+ * folder, subfolders included. It applies to every file this extension
+ * sends: the scaled copy for an alt text proposal and a file attached in the
+ * chat, where a refused document goes as its extracted text only.
+ *
+ * The setting is read on every decision, so a decision follows the
+ * configuration of the turn it is made in (ImageAnalysisTurnSettings); the
+ * folders are resolved once per configured value.
  *
  * A folder is bound to its storage: `fileadmin/team/` names the folder
- * `/team/` of the storage whose base path is `fileadmin/`, `2:/team/` the
- * folder `/team/` of storage 2, and neither excludes `/team/` of another
- * storage. Folders are compared by their identifiers, without asking the
- * storage, so a folder that does not exist (yet) costs nothing.
+ * `/team/` of the storage whose base path is `fileadmin/` (in any case),
+ * `2:/team/` the folder `/team/` of storage 2, and neither excludes `/team/`
+ * of another storage. Folders are compared by their identifiers, without
+ * asking the storage, so a folder that does not exist (yet) costs nothing.
+ * An entry that names no storage, or climbs above a storage's root, excludes
+ * nothing and is logged.
  */
 class ImageAnalysisPolicy implements AltTextImagePolicyInterface
 {
@@ -37,12 +45,19 @@ class ImageAnalysisPolicy implements AltTextImagePolicyInterface
     /** The image was not sent: it lies in a folder whose images are never sent. */
     public const NOTE_EXCLUDED_FOLDER = 'excludedFolder';
 
-    /** @var list<array{storage: int, identifier: string, caseSensitive: bool, label: string}>|null */
-    private ?array $excluded = null;
+    /**
+     * The folders as resolved, keyed by the configured entries they were
+     * resolved from, so a changed value is resolved anew and an unchanged one
+     * is logged once.
+     *
+     * @var array<string, list<array{storage: int, identifier: string, caseSensitive: bool, label: string}>>
+     */
+    private array $resolved = [];
 
     public function __construct(
         private readonly ExtensionConfiguration $configuration,
         private readonly StorageRepository $storages,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     /**
@@ -58,7 +73,6 @@ class ImageAnalysisPolicy implements AltTextImagePolicyInterface
         }
     }
 
-    /** As refusal(), for a file: an image attached in the chat. */
     public function refusalForFile(File $file): ?AltTextImageRefusal
     {
         if (!$this->configuration->isImageAnalysisEnabled()) {
@@ -70,7 +84,6 @@ class ImageAnalysisPolicy implements AltTextImagePolicyInterface
         return $folder === null ? null : new AltTextImageRefusal(self::NOTE_EXCLUDED_FOLDER, $folder);
     }
 
-    /** Whether images go to the provider at all ("Bilder analysieren"). */
     public function analysesImages(): bool
     {
         return $this->configuration->isImageAnalysisEnabled();
@@ -98,19 +111,20 @@ class ImageAnalysisPolicy implements AltTextImagePolicyInterface
     /**
      * The configured folders, each resolved to a storage and a folder
      * identifier with a slash at either end, so `/team/` does not take in
-     * `/teamwork/`. An entry that names no storage is dropped.
+     * `/teamwork/`.
      *
      * @return list<array{storage: int, identifier: string, caseSensitive: bool, label: string}>
      */
     private function excluded(): array
     {
-        if ($this->excluded !== null) {
-            return $this->excluded;
+        $entries = $this->configuration->getImageAnalysisExcludedFolders();
+        $key     = implode(',', $entries);
+        if (isset($this->resolved[$key])) {
+            return $this->resolved[$key];
         }
 
-        $entries = $this->configuration->getImageAnalysisExcludedFolders();
         if ($entries === []) {
-            return $this->excluded = [];
+            return $this->resolved[$key] = [];
         }
 
         $storages = [];
@@ -120,25 +134,51 @@ class ImageAnalysisPolicy implements AltTextImagePolicyInterface
 
         $excluded = [];
         foreach ($entries as $entry) {
-            if (preg_match('/^(\d+):(.*)$/', $entry, $parts) === 1) {
-                $storage = $storages[(int) $parts[1]] ?? null;
-                if ($storage instanceof ResourceStorage) {
-                    $excluded[] = $this->folder($storage, $this->identifier($parts[2]));
-                }
+            $folders = $this->resolve($entry, $storages);
+            if ($folders === []) {
+                $this->logger?->warning('The folder "{entry}" excluded from image analysis names no folder of a file storage; it excludes nothing. Write it as fileadmin/folder/ or as 1:/folder/.', ['entry' => $entry]);
+            }
 
+            array_push($excluded, ...$folders);
+        }
+
+        return $this->resolved[$key] = $excluded;
+    }
+
+    /**
+     * One entry as folders: the storage first, by its uid or by its base
+     * path at the start of the entry (in any case), then the rest of the
+     * entry as a folder of that storage. Resolving in this order keeps
+     * `fileadmin/../user_upload/x/` from naming another storage's folder.
+     *
+     * @param array<int, ResourceStorage> $storages
+     *
+     * @return list<array{storage: int, identifier: string, caseSensitive: bool, label: string}>
+     */
+    private function resolve(string $entry, array $storages): array
+    {
+        if (preg_match('/^(\d+):(.*)$/', $entry, $parts) === 1) {
+            $storage    = $storages[(int) $parts[1]] ?? null;
+            $identifier = $this->identifier($parts[2]);
+
+            return $storage instanceof ResourceStorage && $identifier !== null ? [$this->folder($storage, $identifier)] : [];
+        }
+
+        $path    = trim($entry, '/') . '/';
+        $folders = [];
+        foreach ($storages as $storage) {
+            $basePath = $this->publicBasePath($storage);
+            if ($basePath === '' || !str_starts_with(mb_strtolower($path), mb_strtolower($basePath))) {
                 continue;
             }
 
-            $path = trim($entry, '/') . '/';
-            foreach ($storages as $storage) {
-                $basePath = $this->publicBasePath($storage);
-                if ($basePath !== '' && str_starts_with($path, $basePath)) {
-                    $excluded[] = $this->folder($storage, $this->identifier(substr($path, strlen($basePath))));
-                }
+            $identifier = $this->identifier(substr($path, strlen($basePath)));
+            if ($identifier !== null) {
+                $folders[] = $this->folder($storage, $identifier);
             }
         }
 
-        return $this->excluded = $excluded;
+        return $folders;
     }
 
     /**
@@ -158,12 +198,32 @@ class ImageAnalysisPolicy implements AltTextImagePolicyInterface
         ];
     }
 
-    /** A folder identifier with a slash at either end: `/team/`, `/` for the root. */
-    private function identifier(string $path): string
+    /**
+     * A folder identifier with a slash at either end (`/team/`, `/` for the
+     * root), with `.` and `..` resolved; null for a path that climbs above
+     * the storage's root.
+     */
+    private function identifier(string $path): ?string
     {
-        $path = trim($path, '/');
+        $segments = [];
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
 
-        return $path === '' ? '/' : '/' . $path . '/';
+            if ($segment === '..') {
+                if ($segments === []) {
+                    return null;
+                }
+
+                array_pop($segments);
+                continue;
+            }
+
+            $segments[] = $segment;
+        }
+
+        return $segments === [] ? '/' : '/' . implode('/', $segments) . '/';
     }
 
     /**

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Domain\Repository;
 
 use Doctrine\DBAL\Exception\DeadlockException;
+use Netresearch\NrMcpAgent\Configuration\ImageAnalysisTurnSettings;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Throwable;
@@ -45,6 +46,7 @@ readonly class ConversationRepository
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private ?ImageAnalysisTurnSettings $imageAnalysis = null,
     ) {}
 
     public function findByUid(int $uid): ?Conversation
@@ -735,6 +737,15 @@ readonly class ConversationRepository
      */
     private function rowData(Conversation $conversation): array
     {
+        // A turn is handed to the worker by writing Processing, and only a
+        // backend request writes it. The privacy setting "Bildanalyse" goes
+        // with that write, read now, so the turn runs with the setting of
+        // the request that started it, not with the one a long-running
+        // worker loaded when it started (ImageAnalysisTurnSettings).
+        if ($this->imageAnalysis instanceof ImageAnalysisTurnSettings && $conversation->getStatus() === ConversationStatus::Processing) {
+            $conversation->setImageAnalysisSnapshot($this->imageAnalysis->snapshot());
+        }
+
         $data = $conversation->toRow();
         // The transcript goes to the message table; the legacy column is
         // cleared by clearLegacyColumn(), which leaves a marked value alone.
