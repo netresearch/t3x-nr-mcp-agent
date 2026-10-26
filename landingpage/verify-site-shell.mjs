@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 import {createHash} from 'node:crypto';
-import {parse} from 'parse5';
+import {documentElements, isInDocumentHead} from './document-markup.mjs';
 import {checkAccessibility} from './check-accessibility.mjs';
 
 // Unmodified symbol-only asset from Netresearch branding 3.1.0.
@@ -73,23 +73,6 @@ function isProjectAsset(asset, siteRoot) {
     }
 }
 
-/** Real, explicit elements in document order, without executing or loading HTML.
- * Template contents are separate fragments, not document child nodes. Source
- * locations exclude implied elements and retain original opening-tag offsets.
- */
-function documentElements(html) {
-    const pending = [parse(html, {sourceCodeLocationInfo: true})];
-    const elements = [];
-    while (pending.length) {
-        const node = pending.pop();
-        const opening = node.sourceCodeLocation?.startTag;
-        if (opening) elements.push({node, name: node.tagName, start: opening.startOffset,
-            attributes: Object.fromEntries(node.attrs.map(({name, value}) => [name, value]))});
-        pending.push(...(node.childNodes ?? []).toReversed());
-    }
-    return elements;
-}
-
 /** Require a real document definition list carrying the HTML class token. */
 export function hasStatusFacts(html) {
     return documentElements(html).some(element => element.name === 'dl'
@@ -120,7 +103,7 @@ export function verifyNotFoundPage(html, symbol, siteRoot) {
     const robots = metadata.filter(element => element.attributes.name?.toLowerCase() === 'robots');
     if (robots.length !== 1 || robots[0].attributes.content !== 'noindex,follow') errors.push('404 recovery must be noindex');
     const viewport = metadata.filter(element => element.attributes.name?.toLowerCase() === 'viewport');
-    if (viewport.length !== 1 || !hasResponsiveViewport(viewport[0])) {
+    if (viewport.length !== 1 || !isInDocumentHead(viewport[0]) || !hasResponsiveViewport(viewport[0])) {
         errors.push('404 recovery requires a responsive viewport');
     }
     const counterparts = elements.filter(element => element.name === 'link'

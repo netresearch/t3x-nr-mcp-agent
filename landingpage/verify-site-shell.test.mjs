@@ -230,3 +230,15 @@ for (const [lang, expected] of Object.entries({
         assert.notDeepEqual(verifyBusinessContacts(`<!--${valid}-->`, lang), []);
     });
 }
+
+test('the unique recovery viewport must be in the head and body robots remain effective', () => {
+    const viewport = '<meta name="viewport" content="width=device-width, initial-scale=1">';
+    const robots = '<meta name="robots" content="noindex,follow">';
+    const source = recoveryFixture();
+    const bodyViewport = source.replace(viewport, '').replace('</body>', viewport + '</body>');
+    assert.ok(verifyNotFoundPage(bodyViewport, symbol, recoveryRoot).includes('404 recovery requires a responsive viewport'));
+    const duplicateViewport = source.replace('</body>', viewport + '</body>');
+    assert.ok(verifyNotFoundPage(duplicateViewport, symbol, recoveryRoot).includes('404 recovery requires a responsive viewport'));
+    const bodyRobots = source.replace(robots, '').replace('</body>', robots + '</body>');
+    assert.deepEqual(verifyNotFoundPage(bodyRobots, symbol, recoveryRoot), []);
+});
