@@ -96,6 +96,7 @@ describe('the page module receives a highlight', () => {
         ['a uid of 0', {uid: 0}, {}],
         ['a selector instead of a uid', {uid: undefined, selector: '#element-tt_content-100'}, {}],
         ['a scroll flag that is no boolean', {scroll: 'no'}, {}],
+        ['a page property (NEXT-221), even with the uid of a shown element', {table: 'pages', uid: 100, field: 'description'}, {}],
     ])('%s is ignored', (_label, data, event) => {
         const win = frame();
 
@@ -140,6 +141,28 @@ describe('the chat panel sends the highlight', () => {
 
         expect(sendHighlight(chat, win)).toBe(false);
         expect(win.frames.list_frame.postMessage).not.toHaveBeenCalled();
+    });
+
+    test('a page property (NEXT-221) is neither posted nor announced', () => {
+        chat.guided = {progress: null, highlight: {table: 'pages', uid: 20, field: 'description', title: 'Meta Description'}};
+
+        expect(sendHighlight(chat, win)).toBe(false);
+        expect(win.frames.list_frame.postMessage).not.toHaveBeenCalled();
+        expect(chat.highlightAnnounced ?? '').toBe('');
+    });
+
+    test('a step about a page property after one about an element removes that element\'s mark', () => {
+        sendHighlight(chat, win);
+        chat.guided = {progress: null, highlight: {table: 'pages', uid: 20, field: 'description'}};
+
+        expect(sendHighlight(chat, win)).toBe(true);
+        expect(win.frames.list_frame.postMessage).toHaveBeenLastCalledWith({type: HIGHLIGHT_MESSAGE, version: 1, clear: true}, ORIGIN);
+        expect(chat.highlightAnnounced).toBe('');
+
+        // Back to the element: marked again.
+        chat.guided = {progress: null, highlight: {table: 'tt_content', uid: 100}};
+        expect(sendHighlight(chat, win)).toBe(true);
+        expect(win.frames.list_frame.postMessage).toHaveBeenLastCalledWith(VALID, ORIGIN);
     });
 
     test('nothing where no module frame is beside the panel, and it is tried again later', () => {

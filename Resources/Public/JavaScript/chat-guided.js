@@ -157,6 +157,12 @@ export function renderEndTour(chat) {
  */
 export function sendHighlight(chat, win = globalThis) {
     const highlight = chat.guided?.highlight;
+    // A page property (NEXT-221) has no element in the page module: nothing
+    // is marked or announced, and the mark of an element an earlier step was
+    // about goes, so the page module does not point at the wrong thing.
+    if (highlight && highlight.table !== 'tt_content') {
+        return clearSentHighlight(chat, win);
+    }
     const key = highlight ? `${chat.activeUid}:${highlight.table}:${highlight.uid}` : '';
     if (!highlight || key === chat._sentHighlight) {
         return false;

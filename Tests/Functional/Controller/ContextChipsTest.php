@@ -180,6 +180,61 @@ final class ContextChipsTest extends FunctionalTestCase
         self::assertSame('Unser Team', (new HighlightTitle())->of($this->conversation(21), ['table' => 'tt_content', 'uid' => 105], $this->asUser(3)));
     }
 
+    /** The TCA label of `pages.description` in the reader's language, as the page properties form shows it. */
+    private function descriptionLabel(): string
+    {
+        $label = $GLOBALS['TCA']['pages']['columns']['description']['label'] ?? null;
+        self::assertIsString($label);
+        $text = $GLOBALS['LANG']->sL($label);
+        self::assertIsString($text);
+        self::assertNotSame('', $text);
+        self::assertStringNotContainsString(':', $text, 'a resolved label, not its key');
+
+        return $text;
+    }
+
+    /** A page property (NEXT-221) is named by its label, never by its column. */
+    #[Test]
+    public function theMessagesNameThePagePropertyOfTheStep(): void
+    {
+        $this->asUser(3);
+
+        $guided = $this->json($this->get(ChatApiController::class), 'getMessages', ['conversationUid' => '13'])['guided'] ?? null;
+
+        self::assertSame(['progress' => null, 'highlight' => ['table' => 'pages', 'uid' => 20, 'field' => 'description', 'title' => $this->descriptionLabel()]], $guided);
+    }
+
+    /**
+     * @return iterable<string, array{int, int, int, string}>
+     */
+    public static function pagePropertiesNotNamed(): iterable
+    {
+        yield 'of another page than the conversation' => [3, 20, 21, 'description'];
+        yield 'of a page the reader may not show' => [3, 30, 30, 'description'];
+        yield 'an excluded field the reader may not edit' => [4, 20, 20, 'description'];
+        yield 'a column pages does not have' => [3, 20, 20, 'header'];
+        yield 'no field' => [3, 20, 20, ''];
+    }
+
+    #[Test]
+    #[DataProvider('pagePropertiesNotNamed')]
+    public function aPagePropertyTheReaderMayNotSeeHereIsNotNamed(int $user, int $conversationPage, int $page, string $field): void
+    {
+        $reader = $this->asUser($user);
+
+        self::assertSame('', (new HighlightTitle())->of($this->conversation($conversationPage), ['table' => 'pages', 'uid' => $page, 'field' => $field], $reader));
+    }
+
+    #[Test]
+    public function aPagePropertyThatIsNotExcludedIsNamedForAnyReaderOfThePage(): void
+    {
+        $reader = $this->asUser(4);
+        $label  = $GLOBALS['LANG']->sL($GLOBALS['TCA']['pages']['columns']['title']['label']);
+
+        self::assertNotSame('', $label);
+        self::assertSame($label, (new HighlightTitle())->of($this->conversation(20), ['table' => 'pages', 'uid' => 20, 'field' => 'title'], $reader));
+    }
+
     /** The subpage the reader may show is named; 31 beside it is not (noTitleForAnyOtherPage). */
     #[Test]
     public function aSubpageTheReaderMayShowIsNamed(): void

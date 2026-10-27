@@ -65,18 +65,33 @@ readonly class GuidedStateLinker
     }
 
     /**
+     * A content element keeps its uid; a page property (NEXT-221) gets the
+     * conversation's page, which the tool cannot know — the property is
+     * always one of the page the conversation is about.
+     *
      * @param array<string, mixed> $highlight
      *
-     * @return array{table: string, uid: int}|null
+     * @return array{table: string, uid: int, field?: string}|null
      */
     private function highlight(array $highlight, Conversation $conversation): ?array
     {
-        $uid   = $highlight['uid'] ?? null;
-        $pid   = $highlight['pid'] ?? null;
-        $table = $highlight['table'] ?? null;
+        $policy = $this->highlightPolicy ?? new ConversationPageHighlightPolicy();
+        $table  = $highlight['table'] ?? null;
+
+        if ($table === 'pages') {
+            $page  = $conversation->getViewContext()['pageId'];
+            $field = $highlight['field'] ?? null;
+
+            return is_string($field) && $field !== '' && $page > 0 && $policy->allows($conversation, 'pages', $page, $page)
+                ? ['table' => 'pages', 'uid' => $page, 'field' => $field]
+                : null;
+        }
+
+        $uid = $highlight['uid'] ?? null;
+        $pid = $highlight['pid'] ?? null;
 
         return $table === 'tt_content' && is_int($uid) && is_int($pid)
-            && ($this->highlightPolicy ?? new ConversationPageHighlightPolicy())->allows($conversation, $table, $uid, $pid)
+            && $policy->allows($conversation, $table, $uid, $pid)
             ? ['table' => 'tt_content', 'uid' => $uid]
             : null;
     }

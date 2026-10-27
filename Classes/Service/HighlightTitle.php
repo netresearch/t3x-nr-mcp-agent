@@ -13,15 +13,17 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Throwable;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
- * The name of the content element a guided process step is about, for the
- * element chip above the chat input (NEXT-221): its header, else the label of
- * its type.
+ * The name of what a guided process step is about, for the element chip
+ * above the chat input (NEXT-221): a content element's header, else the label
+ * of its type; for a property of the conversation's page, the property's TCA
+ * label in the reader's language.
  *
  * Read when the chat asks, never stored: the guided state keeps only table
- * and uid (ADR-020). The element is named only while the highlight still
+ * and uid, and a page property's column (ADR-020). The element is named only while the highlight still
  * passes the policy with the element's current page, and only to a reader who
  * may read content elements and show that page; otherwise the name is ''.
  */
@@ -32,10 +34,14 @@ readonly class HighlightTitle
     ) {}
 
     /**
-     * @param array{table: string, uid: int}|null $highlight
+     * @param array{table: string, uid: int, field?: string}|null $highlight
      */
     public function of(Conversation $conversation, ?array $highlight, BackendUserAuthentication $user): string
     {
+        if ($highlight !== null && $highlight['table'] === 'pages') {
+            return $this->pageProperty($conversation, $highlight['uid'], $highlight['field'] ?? '', $user);
+        }
+
         if ($highlight === null || $highlight['table'] !== 'tt_content' || $highlight['uid'] <= 0) {
             return '';
         }
@@ -61,6 +67,25 @@ readonly class HighlightTitle
         }
 
         return $this->typeLabel($row['CType'] ?? null);
+    }
+
+    /**
+     * The label of a page property, only while the page is the conversation's
+     * (the policy), the reader may show it and may edit the property.
+     */
+    private function pageProperty(Conversation $conversation, int $pageUid, string $field, BackendUserAuthentication $user): string
+    {
+        if ($field === ''
+            || !($this->highlightPolicy ?? new ConversationPageHighlightPolicy())->allows($conversation, 'pages', $pageUid, $pageUid)
+            || !$this->mayShowPage($pageUid, $user)
+            || !PageProperty::mayEdit($field, $user)
+        ) {
+            return '';
+        }
+
+        $language = $GLOBALS['LANG'] ?? null;
+
+        return PageProperty::label($field, $language instanceof LanguageService ? $language : null);
     }
 
     private function mayShowPage(int $pageUid, BackendUserAuthentication $user): bool

@@ -44,6 +44,19 @@ final class ConversationGuidedStateTest extends TestCase
         );
     }
 
+    /** A property of the conversation's page (NEXT-221) keeps its field. */
+    #[Test]
+    public function aPagePropertySurvivesTheDatabaseRow(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setGuidedState(null, ['table' => 'pages', 'uid' => 20, 'field' => 'description']);
+
+        self::assertSame(
+            ['progress' => null, 'highlight' => ['table' => 'pages', 'uid' => 20, 'field' => 'description']],
+            Conversation::fromRow($conversation->toRow())->getGuidedState(),
+        );
+    }
+
     #[Test]
     public function clearingBothLeavesAnEmptyColumn(): void
     {
@@ -63,6 +76,10 @@ final class ConversationGuidedStateTest extends TestCase
         yield 'another table' => ['{"progress":null,"highlight":{"table":"be_users","uid":1}}'];
         yield 'a uid as text' => ['{"progress":null,"highlight":{"table":"tt_content","uid":"1 or 1=1"}}'];
         yield 'progress without a total' => ['{"progress":{"label":"x","current":1},"highlight":null}'];
+        yield 'a page property without a field' => ['{"progress":null,"highlight":{"table":"pages","uid":20}}'];
+        yield 'a page property with an empty field' => ['{"progress":null,"highlight":{"table":"pages","uid":20,"field":""}}'];
+        yield 'a page property of page 0' => ['{"progress":null,"highlight":{"table":"pages","uid":0,"field":"description"}}'];
+        yield 'a page property with a field that is no text' => ['{"progress":null,"highlight":{"table":"pages","uid":20,"field":["description"]}}'];
     }
 
     #[Test]

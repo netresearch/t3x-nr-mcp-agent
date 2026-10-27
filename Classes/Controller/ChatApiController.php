@@ -730,10 +730,11 @@ final readonly class ChatApiController
 
     /**
      * Progress and highlight of the guided process (ADR-020), the highlight
-     * with the element's name for the chip above the input (NEXT-221). The
+     * with the name of the element or page property for the chip above the
+     * input (NEXT-221). The
      * name is read now, never stored; '' where HighlightTitle names none.
      *
-     * @return array{progress: array{label: string, current: int, total: int, completed: bool}|null, highlight: array{table: string, uid: int, title?: string}|null}
+     * @return array{progress: array{label: string, current: int, total: int, completed: bool}|null, highlight: array{table: string, uid: int, field?: string, title?: string}|null}
      */
     private function presentGuided(Conversation $conversation): array
     {

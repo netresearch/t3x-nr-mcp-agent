@@ -48,7 +48,9 @@ Tool                        Effect
 =========================== ==================================================
 ``chat_set_progress``       Label, current point, total and a completion flag,
                             for the header.
-``chat_highlight_element``  One ``tt_content`` uid, for the page module.
+``chat_highlight_element``  One ``tt_content`` uid, for the page module, or
+                            one column of the conversation's page (see the
+                            amendment below).
 =========================== ==================================================
 
 **A completion report ends the tour.** ``chat_set_progress`` with
@@ -101,6 +103,33 @@ when the chat asks and never stored: the element's header, else its type
 label, only while the highlight passes the policy with the element's
 current page, ``tables_select`` allows ``tt_content`` and the page passes
 ``readPageAccess`` with ``PAGE_SHOW``.
+
+*Amendment of 2026-10-27 (NEXT-221, page properties):* a step can be about a
+property of the conversation's page rather than a content element, for
+example its meta description. ``chat_highlight_element`` takes exactly one of
+``contentUid`` and ``pageField``; both or neither are refused. ``pageField``
+is a column name of ``pages``: it must exist in
+``$GLOBALS['TCA']['pages']['columns']``, and an excluded column needs an
+administrator or the column in the user's ``non_exclude_fields``. Every
+refusal of a column has the same text. The tool does not know the
+conversation and therefore names no page: the run state holds
+``{table: 'pages', field}``, and the linker stores
+``{table: 'pages', uid: <the conversation's page>, field}`` after the policy
+has allowed ``pages`` with that uid as uid and pid (a page is on itself). The
+model cannot name another page. Because the tool cannot check ``PAGE_SHOW``
+on a page it does not know, that check happens when the chip's name is read:
+``guided.highlight.title`` is the column's TCA label in the reader's language,
+only while the policy allows the page, the page passes ``readPageAccess``
+with ``PAGE_SHOW`` and the reader may edit the column; otherwise ``''``.
+Neither the model nor the browser supplies a label. Content element
+highlights are unchanged.
+
+The page module has no element for a page property. The panel posts no
+highlight for it and announces none; where an earlier step marked a content
+element, it posts ``{type: 'nr-mcp-agent:highlight', version: 1, clear: true}``
+so the page module does not keep pointing at that element.
+``page-highlight.js`` is unchanged and ignores any message with
+``table: 'pages'``. The chip of a page property is text, never a button.
 
 **Group, data class, effect.** Group ``nr_mcp_agent`` (an administrator or a
 configuration's tool groups can switch both off together), data class

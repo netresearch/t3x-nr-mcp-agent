@@ -44,7 +44,8 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  * The fixture has an editor whose group mounts two pages and reads
  * tt_content in the default language only: page 20 she may show, page 30
  * she may not (no "everybody" permission), and element 102 is in a language
- * her group does not allow.
+ * her group does not allow. Of the excluded page properties her group allows
+ * `description` only.
  */
 final class GuidedToolsTest extends FunctionalTestCase
 {
@@ -219,6 +220,99 @@ final class GuidedToolsTest extends FunctionalTestCase
         self::assertTrue($result->isError);
         self::assertSame('Error: no content element with this uid that you may see.', $result->content);
         self::assertSame(0, $this->rows('tx_nrmcpagent_run_state'));
+    }
+
+    /**
+     * A page property (NEXT-221): the run state names the column, not the
+     * page; the chat fills in the conversation's page when it takes it over.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function pagePropertiesTheEditorMayEdit(): iterable
+    {
+        yield 'an excluded field her group allows' => ['description'];
+        yield 'a field that is not excluded' => ['title'];
+    }
+
+    #[Test]
+    #[DataProvider('pagePropertiesTheEditorMayEdit')]
+    public function aPagePropertyTheEditorMayEditIsNamed(string $field): void
+    {
+        self::assertFalse($this->call(HighlightElementTool::class, ['pageField' => $field])->isError);
+
+        self::assertSame(
+            ['table' => 'pages', 'field' => $field],
+            $this->get(RunStateRepository::class)->find(self::RUN, self::EDITOR)['highlight'] ?? null,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function pagePropertiesTheEditorMayNotEdit(): iterable
+    {
+        yield 'an excluded field her group does not allow' => ['nav_title'];
+        yield 'a column pages does not have' => ['header'];
+        yield 'not a column name' => ['description; DROP'];
+        yield 'empty' => [''];
+        yield 'not text' => [12];
+    }
+
+    /** One answer for all, and nothing is written. */
+    #[Test]
+    #[DataProvider('pagePropertiesTheEditorMayNotEdit')]
+    public function aPagePropertyTheEditorMayNotEditIsRefused(mixed $field): void
+    {
+        $result = $this->call(HighlightElementTool::class, ['pageField' => $field]);
+
+        self::assertTrue($result->isError);
+        self::assertSame('Error: no page property with this name that you may edit.', $result->content);
+        self::assertSame(0, $this->rows('tx_nrmcpagent_run_state'));
+    }
+
+    /** An administrator may name an excluded field no group grants. */
+    #[Test]
+    public function anAdministratorMayNameAnyPageProperty(): void
+    {
+        $admin   = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $context = new ToolExecutionContext($admin->actor, $admin->backendUser, new AgentRunReference(1, self::RUN));
+
+        self::assertFalse($this->call(HighlightElementTool::class, ['pageField' => 'nav_title'], $context)->isError);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function notExactlyOneTarget(): iterable
+    {
+        yield 'both' => [['contentUid' => 100, 'pageField' => 'description']];
+        yield 'neither' => [[]];
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    #[Test]
+    #[DataProvider('notExactlyOneTarget')]
+    public function exactlyOneOfElementAndPagePropertyIsNamed(array $arguments): void
+    {
+        $result = $this->call(HighlightElementTool::class, $arguments);
+
+        self::assertTrue($result->isError);
+        self::assertSame('Error: give exactly one of contentUid and pageField.', $result->content);
+        self::assertSame(0, $this->rows('tx_nrmcpagent_run_state'));
+    }
+
+    /** The chat takes a page property over with the conversation's page. */
+    #[Test]
+    public function theChatTakesAPagePropertyOverForItsPage(): void
+    {
+        $this->call(HighlightElementTool::class, ['pageField' => 'description']);
+
+        $conversation = $this->conversation(self::EDITOR, 20);
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
+
+        self::assertSame(['table' => 'pages', 'uid' => 20, 'field' => 'description'], $conversation->getGuidedState()['highlight']);
     }
 
     private function conversation(int $beUser, int $pageId): Conversation

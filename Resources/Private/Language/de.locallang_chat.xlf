@@ -1131,6 +1131,10 @@
                 <source>Element</source>
                 <target>Element</target>
             </trans-unit>
+            <trans-unit id="context.pageField" resname="context.pageField">
+                <source>Page property</source>
+                <target>Seiteneigenschaft</target>
+            </trans-unit>
             <trans-unit id="context.showElement" resname="context.showElement">
                 <source>Hover or focus marks the element in the page module, a click scrolls to it.</source>
                 <target>Mit der Maus darauf zeigen oder fokussieren markiert das Element im Seitenmodul, ein Klick scrollt dorthin.</target>
@@ -1142,6 +1146,10 @@
             <trans-unit id="context.info.element" resname="context.info.element">
                 <source>The assistant changes only the element “%1$s” on the page “%2$s”. Other content stays untouched.</source>
                 <target>Der Assistant ändert nur das Element „%1$s“ auf der Seite „%2$s“. Andere Inhalte bleiben unberührt.</target>
+            </trans-unit>
+            <trans-unit id="context.info.pageField" resname="context.info.pageField">
+                <source>The assistant changes only the page property “%1$s” of the page “%2$s”.</source>
+                <target>Der Assistant ändert nur die Seiteneigenschaft „%1$s“ der Seite „%2$s“.</target>
             </trans-unit>
             <trans-unit id="context.info.page" resname="context.info.page">
                 <source>Scope: the whole page “%1$s”. Changes are made only after your confirmation.</source>
