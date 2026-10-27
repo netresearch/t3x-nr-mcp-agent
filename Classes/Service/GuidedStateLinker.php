@@ -82,7 +82,7 @@ readonly class GuidedStateLinker
             $page  = $conversation->getViewContext()['pageId'];
             $field = $highlight['field'] ?? null;
 
-            return is_string($field) && $field !== '' && $page > 0 && $policy->allows($conversation, 'pages', $page, $page)
+            return is_string($field) && $policy->allows($conversation, 'pages', $page, $page)
                 ? ['table' => 'pages', 'uid' => $page, 'field' => $field]
                 : null;
         }
