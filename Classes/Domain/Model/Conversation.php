@@ -746,7 +746,7 @@ final class Conversation
      */
     public function recordApprovalDecision(bool $approve, string $turnDigest, ?DenyReason $reason = null): void
     {
-        $this->approvalDenyReason = $approve || $reason === null ? '' : $reason->value;
+        $this->approvalDenyReason = $approve || !$reason instanceof DenyReason ? '' : $reason->value;
         $this->approvalDecision   = $approve ? 'approve' : 'deny';
         $this->approvalTurnDigest = $turnDigest;
     }

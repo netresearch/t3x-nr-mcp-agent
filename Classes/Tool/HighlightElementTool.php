@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tool;
 
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Point the editor at the content element a guided point is about: the page
@@ -54,7 +56,7 @@ final class HighlightElementTool extends GuidedTool
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $user = $context->actingBackendUser();
-        if ($user === null || $context->run === null) {
+        if (!$user instanceof BackendUserAuthentication || !$context->run instanceof AgentRunReference) {
             return ToolResult::error(self::NOT_PERMITTED);
         }
 

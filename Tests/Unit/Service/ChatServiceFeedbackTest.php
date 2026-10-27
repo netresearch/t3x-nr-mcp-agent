@@ -94,7 +94,7 @@ final class ChatServiceFeedbackTest extends TestCase
             $agentRuntime->method('events')->willReturn($events);
         }
 
-        if ($taskRepository === null) {
+        if (!$taskRepository instanceof TaskRepository) {
             $configuration = $this->createMock(LlmConfiguration::class);
             $configuration->method('getSystemPrompt')->willReturn('');
             $configuration->method('getLlmModel')->willReturn($this->createMock(LlmModel::class));

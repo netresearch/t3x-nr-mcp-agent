@@ -38,6 +38,7 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\InputPause;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
@@ -172,7 +173,7 @@ final readonly class ChatApiController
     public function getStatus(): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -200,7 +201,7 @@ final readonly class ChatApiController
     public function listConversations(): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -234,7 +235,7 @@ final readonly class ChatApiController
     public function createConversation(?ServerRequestInterface $request = null): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -247,12 +248,12 @@ final readonly class ChatApiController
         // amendment): its first turn is the page choice's own "Diese Seite
         // prüfen", sent for the editor, and its run carries the invocation.
         // The start is a turn, so the limit on running conversations applies.
-        $startsTour = $refusal === null && $this->startsTour($conversation);
+        $startsTour = !$refusal instanceof ResponseInterface && $this->startsTour($conversation);
         // A conversation about a missing alt text starts with the image card
         // and the run that proposes the text (ADR-026).
-        $startsAltText = $refusal === null && AltTextConversation::isAbout($conversation) && $this->altTextConversation instanceof AltTextConversation;
+        $startsAltText = !$refusal instanceof ResponseInterface && AltTextConversation::isAbout($conversation) && $this->altTextConversation instanceof AltTextConversation;
         $refusal ??= $startsTour || $startsAltText ? $this->refuseNewTurn($conversation->getStatus()) : null;
-        if ($refusal !== null) {
+        if ($refusal instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -294,7 +295,7 @@ final readonly class ChatApiController
 
         $refusal = $pageUid > 0 ? $this->refusePage($pageUid, $languageUid) : null;
         $refusal ??= $skill !== '' ? $this->refuseSkill($skill) : null;
-        if ($refusal !== null) {
+        if ($refusal instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -559,7 +560,7 @@ final readonly class ChatApiController
     public function listSkills(): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -579,7 +580,7 @@ final readonly class ChatApiController
     public function updateSkill(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -594,7 +595,7 @@ final readonly class ChatApiController
         $refusal ??= $this->isBusy($conversation->getStatus())
             ? new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409)
             : null;
-        if ($refusal !== null) {
+        if ($refusal instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -602,7 +603,7 @@ final readonly class ChatApiController
         // would leave its waiting run behind. Ending it (endTour()) withdraws
         // the run; a skill can be picked after that.
         $readOnly = $this->refuseReadOnly($conversation);
-        if ($readOnly !== null) {
+        if ($readOnly instanceof ResponseInterface) {
             return $readOnly;
         }
 
@@ -647,7 +648,7 @@ final readonly class ChatApiController
     public function endTour(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -725,7 +726,7 @@ final readonly class ChatApiController
     public function getMessages(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -979,7 +980,7 @@ final readonly class ChatApiController
     public function sendMessage(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -990,7 +991,7 @@ final readonly class ChatApiController
         }
 
         $readOnly = $this->refuseReadOnly($conversation);
-        if ($readOnly !== null) {
+        if ($readOnly instanceof ResponseInterface) {
             return $readOnly;
         }
 
@@ -1039,13 +1040,13 @@ final readonly class ChatApiController
         // awaiting approval is not busy, so this comes before refuseNewTurn().
         if ($currentStatus === ConversationStatus::AwaitingApproval && $fileUid === null && ContinueIntent::matches($content)) {
             $continued = $this->continuePendingRun($conversation, $content);
-            if ($continued !== null) {
+            if ($continued instanceof ResponseInterface) {
                 return $continued;
             }
         }
 
         $refusal = $this->refuseNewTurn($currentStatus);
-        if ($refusal !== null) {
+        if ($refusal instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -1085,7 +1086,7 @@ final readonly class ChatApiController
     public function editMessage(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -1096,7 +1097,7 @@ final readonly class ChatApiController
         }
 
         $readOnly = $this->refuseReadOnly($conversation);
-        if ($readOnly !== null) {
+        if ($readOnly instanceof ResponseInterface) {
             return $readOnly;
         }
 
@@ -1135,7 +1136,7 @@ final readonly class ChatApiController
         $before        = clone $conversation;
         $currentStatus = $conversation->getStatus();
         $refusal       = $this->refuseNewTurn($currentStatus);
-        if ($refusal !== null) {
+        if ($refusal instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -1165,7 +1166,7 @@ final readonly class ChatApiController
     public function updateSystemPrompt(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -1304,7 +1305,7 @@ final readonly class ChatApiController
     public function fileUpload(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -1350,7 +1351,7 @@ final readonly class ChatApiController
         }
 
         $storage = $this->storageRepository->getDefaultStorage();
-        if ($storage === null) {
+        if (!$storage instanceof ResourceStorage) {
             return new JsonResponse(['error' => 'No default storage configured'], 500);
         }
 
@@ -1380,7 +1381,7 @@ final readonly class ChatApiController
     public function fileInfo(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -1513,7 +1514,7 @@ final readonly class ChatApiController
 
     private function everyCallPreviewed(?WaitingRunView $view): bool
     {
-        if ($view === null || $view->mode !== WaitingRunView::MODE_APPROVAL || $view->pendingCalls === []) {
+        if (!$view instanceof WaitingRunView || $view->mode !== WaitingRunView::MODE_APPROVAL || $view->pendingCalls === []) {
             return false;
         }
 
@@ -1691,7 +1692,7 @@ final readonly class ChatApiController
         }
 
         $view = $this->chatApproval->pendingApproval($conversation);
-        if ($view === null) {
+        if (!$view instanceof WaitingRunView) {
             return null;
         }
 
@@ -1790,7 +1791,7 @@ final readonly class ChatApiController
     private function buildPendingInput(Conversation $conversation): ?array
     {
         $pause = $this->chatApproval->pendingInput($conversation);
-        if ($pause === null) {
+        if (!$pause instanceof InputPause) {
             return null;
         }
 
@@ -1815,7 +1816,7 @@ final readonly class ChatApiController
     public function submitInput(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -1836,7 +1837,7 @@ final readonly class ChatApiController
         }
 
         $readOnly = $this->refuseReadOnly($conversation);
-        if ($readOnly !== null) {
+        if ($readOnly instanceof ResponseInterface) {
             return $readOnly;
         }
 
@@ -1871,7 +1872,7 @@ final readonly class ChatApiController
         $pause = $conversation->getStatus() === ConversationStatus::AwaitingInput
             ? $this->chatApproval->pendingInput($conversation)
             : null;
-        if ($pause === null) {
+        if (!$pause instanceof InputPause) {
             return new JsonResponse(['error' => $this->translate('error.notAwaitingInput')], 409);
         }
 
@@ -1993,7 +1994,7 @@ final readonly class ChatApiController
         $before        = clone $conversation;
         $currentStatus = $conversation->getStatus();
         $refusal       = $this->refuseNewTurn($currentStatus);
-        if ($refusal !== null) {
+        if ($refusal instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -2032,7 +2033,7 @@ final readonly class ChatApiController
         $before        = clone $conversation;
         $currentStatus = $conversation->getStatus();
         $refusal       = $this->refuseNewTurn($currentStatus);
-        if ($refusal !== null) {
+        if ($refusal instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -2054,7 +2055,7 @@ final readonly class ChatApiController
     private function altTextConversationOf(ServerRequestInterface $request, array $body): Conversation|ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -2082,7 +2083,7 @@ final readonly class ChatApiController
         $before        = clone $conversation;
         $currentStatus = $conversation->getStatus();
         $refusal       = $this->refuseNewTurn($currentStatus);
-        if ($refusal !== null || !$this->altTextConversation instanceof AltTextConversation) {
+        if ($refusal instanceof ResponseInterface || !$this->altTextConversation instanceof AltTextConversation) {
             return $refusal ?? new JsonResponse(['error' => $this->translate('error.altTextToolsUnavailable')], 409);
         }
 
@@ -2159,7 +2160,7 @@ final readonly class ChatApiController
     public function decideApproval(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -2169,7 +2170,7 @@ final readonly class ChatApiController
         }
 
         $readOnly = $this->refuseReadOnly($conversation);
-        if ($readOnly !== null) {
+        if ($readOnly instanceof ResponseInterface) {
             return $readOnly;
         }
 
@@ -2177,7 +2178,7 @@ final readonly class ChatApiController
         $approve = (bool) ($body['approve'] ?? false);
 
         $refusal = $this->refuseDecision($conversation, $approve);
-        if ($refusal !== null) {
+        if ($refusal instanceof ResponseInterface) {
             return $refusal;
         }
 
@@ -2190,7 +2191,7 @@ final readonly class ChatApiController
         $reasonValue = $body['reason'] ?? '';
         $reason      = is_string($reasonValue) && !$approve ? DenyReason::tryFrom($reasonValue) : null;
         $view        = $this->chatApproval->pendingApproval($conversation);
-        $processCard = $view !== null && $this->chatApproval->offersProcessAnswers($conversation, $view);
+        $processCard = $view instanceof WaitingRunView && $this->chatApproval->offersProcessAnswers($conversation, $view);
         // A card of a conversation about a missing alt text takes "Andere
         // Variante" (ADR-026); "Überspringen" and "Als dekorativ markieren"
         // are the chat's own actions there, not denials.
@@ -2249,7 +2250,7 @@ final readonly class ChatApiController
      */
     private function cardSnapshot(?WaitingRunView $view): ?array
     {
-        if ($view === null || count($view->pendingCalls) !== 1) {
+        if (!$view instanceof WaitingRunView || count($view->pendingCalls) !== 1) {
             return null;
         }
 
@@ -2270,7 +2271,7 @@ final readonly class ChatApiController
     public function resumeConversation(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -2280,7 +2281,7 @@ final readonly class ChatApiController
         }
 
         $readOnly = $this->refuseReadOnly($conversation);
-        if ($readOnly !== null) {
+        if ($readOnly instanceof ResponseInterface) {
             return $readOnly;
         }
 
@@ -2335,7 +2336,7 @@ final readonly class ChatApiController
     public function archiveConversation(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -2355,7 +2356,7 @@ final readonly class ChatApiController
     public function togglePin(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -2376,7 +2377,7 @@ final readonly class ChatApiController
     public function renameConversation(ServerRequestInterface $request): ResponseInterface
     {
         $accessDenied = $this->checkAccess();
-        if ($accessDenied !== null) {
+        if ($accessDenied instanceof ResponseInterface) {
             return $accessDenied;
         }
 
@@ -2410,7 +2411,7 @@ final readonly class ChatApiController
 
         $conversation = $this->repository->findOneByUidAndBeUser($uid, $this->getBeUserUid());
 
-        if ($conversation === null) {
+        if (!$conversation instanceof Conversation) {
             return new JsonResponse(['error' => $this->translate('error.conversationNotFound')], 404);
         }
 

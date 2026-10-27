@@ -54,7 +54,7 @@ final readonly class DocumentExtractorRegistry
 
     public function canExtract(string $mimeType): bool
     {
-        return $this->findExtractor($mimeType) !== null;
+        return $this->findExtractor($mimeType) instanceof DocumentExtractorInterface;
     }
 
     public function validate(string $path, string $mimeType): void
@@ -81,7 +81,7 @@ final readonly class DocumentExtractorRegistry
     private function requireExtractor(string $mimeType): DocumentExtractorInterface
     {
         $extractor = $this->findExtractor($mimeType);
-        if ($extractor === null) {
+        if (!$extractor instanceof DocumentExtractorInterface) {
             throw new DocumentExtractionException('No extractor available for MIME type: ' . $mimeType, 1743000020);
         }
 

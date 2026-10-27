@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointVisibility;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * List the open points of a page (nr-llm ADR-214, item 9; ADR-022): the
@@ -53,7 +54,7 @@ final class ListOpenPointsTool extends GuidedTool
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $user = $context->actingBackendUser();
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return ToolResult::error(self::NOT_PERMITTED);
         }
 

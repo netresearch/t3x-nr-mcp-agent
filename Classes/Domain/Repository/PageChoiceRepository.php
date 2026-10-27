@@ -92,7 +92,7 @@ readonly class PageChoiceRepository
     public function findRecentlyChanged(int $limit): array
     {
         $user = $this->backendUser();
-        if ($user === null || $limit < 1) {
+        if (!$user instanceof BackendUserAuthentication || $limit < 1) {
             return [];
         }
 
@@ -127,7 +127,7 @@ readonly class PageChoiceRepository
     public function findWithSeoDefects(int $limit): array
     {
         $user = $this->backendUser();
-        if ($user === null || $limit < 1) {
+        if (!$user instanceof BackendUserAuthentication || $limit < 1) {
             return [];
         }
 
@@ -305,7 +305,7 @@ readonly class PageChoiceRepository
     {
         $user = $this->backendUser();
         $row  = $this->readableRow($uid);
-        if ($user === null || $row === null || !$user->doesUserHaveAccess($row, Permission::CONTENT_EDIT)) {
+        if (!$user instanceof BackendUserAuthentication || $row === null || !$user->doesUserHaveAccess($row, Permission::CONTENT_EDIT)) {
             return null;
         }
 
@@ -324,7 +324,7 @@ readonly class PageChoiceRepository
     public function mayStartIn(int $pageUid, int $languageUid): bool
     {
         $user = $this->backendUser();
-        if ($user === null || $languageUid < 0 || !$user->checkLanguageAccess($languageUid)) {
+        if (!$user instanceof BackendUserAuthentication || $languageUid < 0 || !$user->checkLanguageAccess($languageUid)) {
             return false;
         }
 
@@ -352,7 +352,7 @@ readonly class PageChoiceRepository
     private function readableRow(int $uid): ?array
     {
         $user = $this->backendUser();
-        if ($user === null || $uid < 1) {
+        if (!$user instanceof BackendUserAuthentication || $uid < 1) {
             return null;
         }
 

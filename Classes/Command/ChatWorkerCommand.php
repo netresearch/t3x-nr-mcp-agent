@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Command;
 
+use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
@@ -53,7 +54,7 @@ final class ChatWorkerCommand extends Command
             try {
                 $conversation = $this->repository->dequeueForWorker($workerId);
 
-                if ($conversation !== null) {
+                if ($conversation instanceof Conversation) {
                     $output->writeln(sprintf(
                         '<info>Processing conversation %d for user %d</info>',
                         $conversation->getUid(),
@@ -76,7 +77,7 @@ final class ChatWorkerCommand extends Command
                 // the raw one.
                 $message = ErrorMessageSanitizer::sanitize($e->getMessage());
                 $output->writeln(sprintf('<error>Error: %s</error>', OutputFormatter::escape($message)));
-                if ($conversation !== null) {
+                if ($conversation instanceof Conversation) {
                     $conversation->setStatus(ConversationStatus::Failed);
                     $conversation->setErrorMessage($message);
                     $this->repository->update($conversation);

@@ -98,7 +98,7 @@ class ChatServiceTest extends TestCase
         ?AltTextConversation $altText = null,
     ): ChatService {
         $repository ??= $this->createMock(ConversationRepository::class);
-        if ($config === null) {
+        if (!$config instanceof ExtensionConfiguration) {
             $config = $this->createStub(ExtensionConfiguration::class);
             $config->method('getLlmTaskUid')->willReturn(1);
         }
@@ -118,7 +118,7 @@ class ChatServiceTest extends TestCase
             },
         );
 
-        if ($taskRepository === null) {
+        if (!$taskRepository instanceof TaskRepository) {
             $model               = $this->createMock(LlmModel::class);
             $this->configuration = $this->createMock(LlmConfiguration::class);
             // The chat checks the Configuration is active before it runs it.

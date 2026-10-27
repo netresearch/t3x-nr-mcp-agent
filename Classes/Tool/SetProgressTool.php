@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tool;
 
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Where a guided process stands, for the chat header: a label and "point 2
@@ -52,7 +54,7 @@ final class SetProgressTool extends GuidedTool
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $user = $context->actingBackendUser();
-        if ($user === null || $context->run === null) {
+        if (!$user instanceof BackendUserAuthentication || !$context->run instanceof AgentRunReference) {
             return ToolResult::error(self::NOT_PERMITTED);
         }
 

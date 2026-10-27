@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service\AltText;
 
 use Netresearch\NrMcpAgent\Enum\HiddenReason;
+use Psr\Http\Message\UriInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Routing\PreviewUriBuilder;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
@@ -323,7 +324,7 @@ class MissingAltTextList
             'fileName'     => $hit->fileName,
             'image'        => $this->thumbnail($hit->referenceUid),
             'label'        => $isPages ? $this->elementLabel($hit) : $this->fieldLabel($hit->table, $hit->field),
-            'hidden'       => $hit->hiddenReason === null ? '' : sprintf($this->text('hidden.hint'), $this->reason($hit->hiddenReason, $hit->hiddenDate)),
+            'hidden'       => $hit->hiddenReason instanceof HiddenReason ? sprintf($this->text('hidden.hint'), $this->reason($hit->hiddenReason, $hit->hiddenDate)) : '',
             'language'     => $this->languageCode($hit->pageUid, $hit->languageUid),
             'action'       => $action === null ? null : [
                 'uri'   => $action,
@@ -487,7 +488,7 @@ class MissingAltTextList
             return null;
         }
 
-        return $uri === null ? null : (string) $uri;
+        return $uri instanceof UriInterface ? (string) $uri : null;
     }
 
     /**
@@ -504,7 +505,7 @@ class MissingAltTextList
             return null;
         }
 
-        return $uri === null ? null : (string) $uri;
+        return $uri instanceof UriInterface ? (string) $uri : null;
     }
 
     private function text(string $key): string
