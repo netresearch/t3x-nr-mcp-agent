@@ -229,7 +229,7 @@ final class ChatApiControllerStartTest extends TestCase
         $response = $this->subject($this->catalogue())->updateSkill($this->request('{"conversationUid": 7, "skill": "seo-page-tour"}'));
 
         // tourStart: null, as nr-llm cannot start a run with an invocation here.
-        self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => null], 'tourStart' => null], $this->json($response));
+        self::assertSame(['skill' => ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => null, 'bindsPage' => true], 'tourStart' => null], $this->json($response));
     }
 
     /**
@@ -320,7 +320,7 @@ final class ChatApiControllerStartTest extends TestCase
 
         $data = $this->json($this->subject($this->catalogue())->getMessages($request));
 
-        self::assertSame(['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => null], $data['skill'], 'a skill without a title has none');
+        self::assertSame(['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => null, 'bindsPage' => true], $data['skill'], 'a skill without a title has none');
     }
 
     /** The chip reads "Current task: <title>": the editor-facing title travels with the name. */
@@ -338,7 +338,7 @@ final class ChatApiControllerStartTest extends TestCase
 
         $data = $this->json($this->subject($this->catalogue(), $this->skillLabels(['skill.seo-page-tour.title' => 'SEO optimieren']))->getMessages($request));
 
-        self::assertSame(['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => 'SEO optimieren'], $data['skill']);
+        self::assertSame(['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'title' => 'SEO optimieren', 'bindsPage' => true], $data['skill']);
     }
 
     /**

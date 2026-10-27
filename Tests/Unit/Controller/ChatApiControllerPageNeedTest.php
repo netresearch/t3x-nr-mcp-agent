@@ -266,6 +266,32 @@ final class ChatApiControllerPageNeedTest extends TestCase
         self::assertSame(['pageId' => 0, 'module' => 'web_layout', 'languageId' => -1], $conversation->getViewContext());
     }
 
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function bindsPage(): iterable
+    {
+        yield 'no process, page none' => ['no-page', false];
+        yield 'process, page none' => ['no-page-tour', false];
+        yield 'no process, page required' => ['page-needed', true];
+        yield 'process, page optional' => ['optional-tour', true];
+        yield 'process, nothing declared' => ['old-tour', true];
+        yield 'no process, nothing declared' => ['tone-check', true];
+    }
+
+    /**
+     * The chat learns whether the skill works on a page at all: one that does
+     * not gets no page chip above the input (NEXT-221).
+     */
+    #[Test]
+    #[DataProvider('bindsPage')]
+    public function theSkillSaysWhetherItWorksOnAPage(string $skill, bool $bindsPage): void
+    {
+        $this->conversation($skill, 0);
+
+        self::assertSame($bindsPage, $this->poll($this->subject())['skill']['bindsPage'] ?? 'missing');
+    }
+
     /** Picking any other skill leaves the page where it is. */
     #[Test]
     public function pickingASkillThatNeedsAPageKeepsThePage(): void

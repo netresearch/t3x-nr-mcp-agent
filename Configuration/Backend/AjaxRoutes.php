@@ -45,6 +45,11 @@ return [
         'target'  => ChatApiController::class . '::updateSystemPrompt',
         'methods' => ['POST'],
     ],
+    'ai_chat_page_title' => [
+        'path'    => '/ai-chat/page-title',
+        'target'  => ChatApiController::class . '::getPageTitle',
+        'methods' => ['GET'],
+    ],
     'ai_chat_skills' => [
         'path'    => '/ai-chat/skills',
         'target'  => ChatApiController::class . '::listSkills',

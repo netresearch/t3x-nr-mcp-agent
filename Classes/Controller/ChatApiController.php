@@ -38,6 +38,7 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\HighlightTitle;
 use Netresearch\NrMcpAgent\Service\InputPause;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
@@ -50,6 +51,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
+use Throwable;
 use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
@@ -123,6 +125,9 @@ final readonly class ChatApiController
         private ?AltTextGate $altTextGate = null,
         private ?AltTextConversation $altTextConversation = null,
         private ?AltTextImage $altTextImage = null,
+        // Names the element a guided step is about, for the chip above the
+        // input (NEXT-221); without it the chip shows the page only.
+        private ?HighlightTitle $highlightTitle = null,
     ) {}
 
     /**
@@ -717,7 +722,72 @@ final readonly class ChatApiController
             'name'       => $entry['name'] ?? $identifier,
             // What an editor reads (SkillLabels), null for a skill without a title.
             'title' => $this->skillLabels?->title($identifier),
+            // Whether the skill works on a page at all (ADR-025): one that
+            // does not gets no page chip above the input (NEXT-221).
+            'bindsPage' => !$this->bindsNoPage($identifier),
         ];
+    }
+
+    /**
+     * Progress and highlight of the guided process (ADR-020), the highlight
+     * with the element's name for the chip above the input (NEXT-221). The
+     * name is read now, never stored; '' where HighlightTitle names none.
+     *
+     * @return array{progress: array{label: string, current: int, total: int, completed: bool}|null, highlight: array{table: string, uid: int, title?: string}|null}
+     */
+    private function presentGuided(Conversation $conversation): array
+    {
+        $guided = $conversation->getGuidedState();
+        $user   = $GLOBALS['BE_USER'] ?? null;
+        if ($guided['highlight'] === null || !$this->highlightTitle instanceof HighlightTitle || !$user instanceof BackendUserAuthentication) {
+            return $guided;
+        }
+
+        $guided['highlight']['title'] = $this->highlightTitle->of($conversation, $guided['highlight'], $user);
+
+        return $guided;
+    }
+
+    /**
+     * GET /ai-chat/page-title?pageId={uid} – The title of the page the page
+     * module beside the chat shows, for the page chip above the input
+     * (NEXT-221). Only a page the user may show is named, checked as the
+     * prompt checks it (UserContextPrompt); any other page, and one that does
+     * not exist, answers with a null title.
+     */
+    public function getPageTitle(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied instanceof ResponseInterface) {
+            return $accessDenied;
+        }
+
+        $id     = $request->getQueryParams()['pageId'] ?? null;
+        $pageId = is_string($id) && preg_match('/^\d{1,10}$/', $id) === 1 ? (int) $id : 0;
+
+        return new JsonResponse(['pageId' => $pageId, 'title' => $pageId > 0 ? $this->readablePageTitle($pageId) : null]);
+    }
+
+    /** The page's title for the current user, or null when they may not show it. */
+    private function readablePageTitle(int $pageUid): ?string
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication) {
+            return null;
+        }
+
+        try {
+            $row = BackendUtility::readPageAccess($pageUid, $backendUser->getPagePermsClause(Permission::PAGE_SHOW));
+        } catch (Throwable) {
+            return null;
+        }
+
+        $uid = is_array($row) ? ($row['uid'] ?? null) : null;
+        if (!is_array($row) || !is_numeric($uid) || (int) $uid !== $pageUid) {
+            return null;
+        }
+
+        return is_string($row['title'] ?? null) ? $row['title'] : '';
     }
 
     /**
@@ -813,7 +883,7 @@ final readonly class ChatApiController
             'errorPointsToRun' => ApprovalHandBackReason::tryFrom($conversation->getErrorCode())?->pointsToRun() ?? false,
             'systemPrompt'     => $conversation->getSystemPrompt(),
             // Progress for the header and the element to highlight (ADR-020).
-            'guided' => $conversation->getGuidedState(),
+            'guided' => $this->presentGuided($conversation),
             // What became of each proposal of the guided process, for the
             // chat's own status lines and summary (ADR-023).
             'cardOutcomes' => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->presentOutcomes(
