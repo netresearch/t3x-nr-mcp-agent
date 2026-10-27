@@ -975,9 +975,13 @@ final readonly class ChatApiController
     }
 
     /**
-     * POST /ai-chat/conversations/send.
+     * The guards sendMessage() and editMessage() share: access, a conversation
+     * of the user that is not read-only, and a message that is neither empty
+     * nor longer than the configured maximum.
+     *
+     * @return array{Conversation, array<string, string|int>, string}|ResponseInterface
      */
-    public function sendMessage(ServerRequestInterface $request): ResponseInterface
+    private function turnInput(ServerRequestInterface $request): array|ResponseInterface
     {
         $accessDenied = $this->checkAccess();
         if ($accessDenied instanceof ResponseInterface) {
@@ -996,7 +1000,6 @@ final readonly class ChatApiController
         }
 
         $content = trim((string) ($body['content'] ?? ''));
-
         if ($content === '') {
             return new JsonResponse(['error' => 'Empty message'], 400);
         }
@@ -1005,6 +1008,21 @@ final readonly class ChatApiController
         if ($maxLength > 0 && mb_strlen($content) > $maxLength) {
             return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
         }
+
+        return [$conversation, $body, $content];
+    }
+
+    /**
+     * POST /ai-chat/conversations/send.
+     */
+    public function sendMessage(ServerRequestInterface $request): ResponseInterface
+    {
+        $input = $this->turnInput($request);
+        if ($input instanceof ResponseInterface) {
+            return $input;
+        }
+
+        [$conversation, $body, $content] = $input;
 
         $fileUid      = isset($body['fileUid']) ? (int) $body['fileUid'] : null;
         $fileName     = null;
@@ -1085,31 +1103,12 @@ final readonly class ChatApiController
      */
     public function editMessage(ServerRequestInterface $request): ResponseInterface
     {
-        $accessDenied = $this->checkAccess();
-        if ($accessDenied instanceof ResponseInterface) {
-            return $accessDenied;
+        $input = $this->turnInput($request);
+        if ($input instanceof ResponseInterface) {
+            return $input;
         }
 
-        $body         = $this->parseBody($request);
-        $conversation = $this->findConversationOrFail($request, $body);
-        if ($conversation instanceof ResponseInterface) {
-            return $conversation;
-        }
-
-        $readOnly = $this->refuseReadOnly($conversation);
-        if ($readOnly instanceof ResponseInterface) {
-            return $readOnly;
-        }
-
-        $content = trim((string) ($body['content'] ?? ''));
-        if ($content === '') {
-            return new JsonResponse(['error' => 'Empty message'], 400);
-        }
-
-        $maxLength = $this->config->getMaxMessageLength();
-        if ($maxLength > 0 && mb_strlen($content) > $maxLength) {
-            return new JsonResponse(['error' => sprintf(self::ERROR_MESSAGE_TOO_LONG, $maxLength)], 400);
-        }
+        [$conversation, $body, $content] = $input;
 
         $rawIndex = $body['index'] ?? null;
         $index    = is_int($rawIndex) ? $rawIndex : -1;
