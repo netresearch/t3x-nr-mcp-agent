@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-27
+
+### Added
+
+- **Page-property chips in guided tours (#278).** `chat_highlight_element` takes `pageField`, a column of `pages` such as `description`, as an alternative to `contentUid`. The chat then shows a chip with the field's label from TYPO3 in the reader's language, and the (i) says that the assistant changes only that page property of the page. The page is always the conversation's page; the column must exist and must not be an excluded field the user lacks. The page module marks nothing for a page property.
+
+### Changed
+
+- **A point about no element shows only the page chip (#278).** When a run reports a new point and no highlight, the highlight of the point before is dropped, and the page module no longer marks its element.
+
+### Upgrading
+
+- **Tour skills can name page properties.** A guided tour that discusses a page property calls `chat_highlight_element` with `pageField` instead of naming no element.
+
 ## [0.24.0] - 2026-10-27
 
 ### Added
