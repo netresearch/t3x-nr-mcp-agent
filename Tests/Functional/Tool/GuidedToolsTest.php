@@ -364,6 +364,106 @@ final class GuidedToolsTest extends FunctionalTestCase
         );
     }
 
+    /**
+     * The conversation is at point 2 of 5 about element 100.
+     */
+    private function atPointTwoAboutTheElement(): Conversation
+    {
+        $conversation = $this->conversation(self::EDITOR, 20);
+        $conversation->setGuidedState(['label' => self::LABEL, 'current' => 2, 'total' => 5, 'completed' => false], ['table' => 'tt_content', 'uid' => 100]);
+
+        return $conversation;
+    }
+
+    /**
+     * A run that moves to the next point and names nothing ends the element
+     * chip of the point before (NEXT-221): that point is about no element.
+     */
+    #[Test]
+    public function aNewPointWithoutAHighlightDropsTheHighlightOfThePointBefore(): void
+    {
+        $this->call(SetProgressTool::class, ['label' => self::LABEL, 'current' => 3, 'total' => 5]);
+
+        $conversation = $this->atPointTwoAboutTheElement();
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
+
+        self::assertSame(
+            ['progress' => ['label' => self::LABEL, 'current' => 3, 'total' => 5, 'completed' => false], 'highlight' => null],
+            $conversation->getGuidedState(),
+        );
+    }
+
+    /**
+     * A run on the same point that names nothing — another variant of the
+     * proposal, a question in between — keeps the point's element.
+     *
+     * @return iterable<string, array{array<string, mixed>|null}>
+     */
+    public static function runsThatStayOnThePoint(): iterable
+    {
+        yield 'the same point reported again' => [['label' => self::LABEL, 'current' => 2, 'total' => 5]];
+        yield 'no progress reported' => [null];
+    }
+
+    /**
+     * @param array<string, mixed>|null $progress
+     */
+    #[Test]
+    #[DataProvider('runsThatStayOnThePoint')]
+    public function aRunOnTheSamePointWithoutAHighlightKeepsIt(?array $progress): void
+    {
+        if ($progress !== null) {
+            $this->call(SetProgressTool::class, $progress);
+        } else {
+            // Something must be in the run's state for the linker to read it.
+            $this->get(RunStateRepository::class)->store(self::RUN, self::EDITOR, 'progress', ['label' => '']);
+        }
+
+        $conversation = $this->atPointTwoAboutTheElement();
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
+
+        self::assertSame(['table' => 'tt_content', 'uid' => 100], $conversation->getGuidedState()['highlight']);
+        self::assertSame(2, $conversation->getGuidedState()['progress']['current'] ?? null);
+    }
+
+    /**
+     * A new point that names something gets it, in either order of the two
+     * calls: an element or a page property.
+     *
+     * @return iterable<string, array{bool, array<string, int|string>, array<string, int|string>}>
+     */
+    public static function newPointsWithAHighlight(): iterable
+    {
+        yield 'progress first, then a page property' => [true, ['pageField' => 'description'], ['table' => 'pages', 'uid' => 20, 'field' => 'description']];
+        yield 'the highlight first, then progress' => [false, ['pageField' => 'description'], ['table' => 'pages', 'uid' => 20, 'field' => 'description']];
+        yield 'progress first, then the same element again' => [true, ['contentUid' => 100], ['table' => 'tt_content', 'uid' => 100]];
+    }
+
+    /**
+     * @param array<string, int|string> $arguments
+     * @param array<string, int|string> $expected
+     */
+    #[Test]
+    #[DataProvider('newPointsWithAHighlight')]
+    public function aNewPointWithAHighlightSetsIt(bool $progressFirst, array $arguments, array $expected): void
+    {
+        $progress = ['label' => self::LABEL, 'current' => 3, 'total' => 5];
+        if ($progressFirst) {
+            $this->call(SetProgressTool::class, $progress);
+        }
+
+        self::assertFalse($this->call(HighlightElementTool::class, $arguments)->isError);
+        if (!$progressFirst) {
+            $this->call(SetProgressTool::class, $progress);
+        }
+
+        $conversation = $this->atPointTwoAboutTheElement();
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
+
+        self::assertSame($expected, $conversation->getGuidedState()['highlight']);
+        self::assertSame(3, $conversation->getGuidedState()['progress']['current'] ?? null);
+    }
+
     /** An element of another page is not highlighted beside this one. */
     #[Test]
     public function aHighlightOnAnotherPageIsNotTakenOver(): void

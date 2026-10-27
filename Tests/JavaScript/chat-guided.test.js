@@ -165,6 +165,17 @@ describe('the chat panel sends the highlight', () => {
         expect(win.frames.list_frame.postMessage).toHaveBeenLastCalledWith(VALID, ORIGIN);
     });
 
+    test('a point about no element after one about an element removes that element\'s mark', () => {
+        sendHighlight(chat, win);
+        chat.guided = {progress: null, highlight: null};
+
+        expect(sendHighlight(chat, win)).toBe(true);
+        expect(win.frames.list_frame.postMessage).toHaveBeenLastCalledWith({type: HIGHLIGHT_MESSAGE, version: 1, clear: true}, ORIGIN);
+        // Once: the next pass has nothing left to remove.
+        expect(sendHighlight(chat, win)).toBe(false);
+        expect(win.frames.list_frame.postMessage).toHaveBeenCalledTimes(2);
+    });
+
     test('nothing where no module frame is beside the panel, and it is tried again later', () => {
         delete win.frames.list_frame;
 

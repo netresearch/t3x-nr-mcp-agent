@@ -131,6 +131,18 @@ so the page module does not keep pointing at that element.
 ``page-highlight.js`` is unchanged and ignores any message with
 ``table: 'pages'``. The chip of a page property is text, never a button.
 
+**A point about no element drops the highlight.** Until this amendment a
+highlight stayed until the completion report, so a point about no element
+kept the element of the point before. When a run's state reports progress
+whose ``current`` differs from the conversation's and reports no highlight,
+the linker now drops the highlight; a run that reports a highlight sets it
+as before, and a run that stays on the point or reports no progress keeps
+it. Both values come from the same run's state, so the order of
+``chat_set_progress`` and ``chat_highlight_element`` within a point does not
+matter. The panel then sends the ``clear`` message, as for a page property.
+The rule relies on a skill reporting the point with ``chat_set_progress``
+whenever it moves to another one, as the tool's description asks.
+
 **Group, data class, effect.** Group ``nr_mcp_agent`` (an administrator or a
 configuration's tool groups can switch both off together), data class
 ``EDITOR_CONTENT`` and enabled by default. Without a declared data class

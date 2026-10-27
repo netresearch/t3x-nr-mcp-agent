@@ -164,7 +164,8 @@ When the chat is about one page, a row of chips above the input says which:
     on. Only a page you may see is named.
 *   **The element chip** (white, with a black circle and a yellow dot)
     appears in a guided process when the current point is about a content
-    element, and changes with the point. Beside the page module, pointing at
+    element, and changes with the point; a point about no element shows the
+    page chip only. Beside the page module, pointing at
     it or focusing it with the keyboard marks the element in the page
     layout, and a click scrolls it into view. In the full-page chat module,
     in the popped-out panel and while the page module shows another page,
