@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-27
+
+### Added
+
+- **Context chips above the chat input (#276).** While the chat refers to one page, a row above the input shows what the assistant works on: in the page module with a selected page and in page-based guided tours. A page chip names the page; in a tour an element chip names the content element of the current step and changes with the step. An (i) at the right states in its tooltip what the assistant may change. Hovering or focusing the element chip marks the element in the page module, a click scrolls it into view. The row is reachable by keyboard, labelled for screen readers and follows the backend's dark mode. The alt text row of "Optimieren" uses the same chips.
+- **Route `GET /ai-chat/page-title`** (`ai_chat_page_title`). It returns the title of a page only when the user may show the page.
+
+### Changed
+
+- **The page module highlight message takes an optional `scroll` field** (ADR-020). Hovering an element chip marks the element without scrolling; a message without the field scrolls as before.
+
+### Known limit
+
+- Renaming a page inline in the page tree dispatches no event, so the page chip keeps the old title until the next module load, as the page module header does.
+
 ## [0.23.0] - 2026-10-27
 
 ### Upgrading
