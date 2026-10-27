@@ -844,6 +844,27 @@
             <trans-unit id="altText.context.infoField" resname="altText.context.infoField">
                 <source>The assistant changes only the alt text of this use of the image in the field %1$s of %2$s. Nothing is saved before “Apply”.</source>
             </trans-unit>
+            <trans-unit id="context.label" resname="context.label">
+                <source>What the assistant works on</source>
+            </trans-unit>
+            <trans-unit id="context.page" resname="context.page">
+                <source>Page</source>
+            </trans-unit>
+            <trans-unit id="context.element" resname="context.element">
+                <source>Element</source>
+            </trans-unit>
+            <trans-unit id="context.showElement" resname="context.showElement">
+                <source>Hover or focus marks the element in the page module, a click scrolls to it.</source>
+            </trans-unit>
+            <trans-unit id="context.info" resname="context.info">
+                <source>What the assistant may change</source>
+            </trans-unit>
+            <trans-unit id="context.info.element" resname="context.info.element">
+                <source>The assistant changes only the element “%1$s” on the page “%2$s”. Other content stays untouched.</source>
+            </trans-unit>
+            <trans-unit id="context.info.page" resname="context.info.page">
+                <source>Scope: the whole page “%1$s”. Changes are made only after your confirmation.</source>
+            </trans-unit>
             <trans-unit id="error.altTextNoNext" resname="error.altTextNoNext">
                 <source>No other hit is open.</source>
             </trans-unit>

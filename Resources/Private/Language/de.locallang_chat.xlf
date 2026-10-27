@@ -1119,6 +1119,34 @@
                 <source>The assistant changes only the alt text of this use of the image in the field %1$s of %2$s. Nothing is saved before “Apply”.</source>
                 <target>Der Assistant ändert nur den Alt-Text dieser Bildverwendung im Feld %1$s von %2$s. Gespeichert wird erst nach „Übernehmen“.</target>
             </trans-unit>
+            <trans-unit id="context.label" resname="context.label">
+                <source>What the assistant works on</source>
+                <target>Woran der Assistant arbeitet</target>
+            </trans-unit>
+            <trans-unit id="context.page" resname="context.page">
+                <source>Page</source>
+                <target>Seite</target>
+            </trans-unit>
+            <trans-unit id="context.element" resname="context.element">
+                <source>Element</source>
+                <target>Element</target>
+            </trans-unit>
+            <trans-unit id="context.showElement" resname="context.showElement">
+                <source>Hover or focus marks the element in the page module, a click scrolls to it.</source>
+                <target>Mit der Maus darauf zeigen oder fokussieren markiert das Element im Seitenmodul, ein Klick scrollt dorthin.</target>
+            </trans-unit>
+            <trans-unit id="context.info" resname="context.info">
+                <source>What the assistant may change</source>
+                <target>Was der Assistant ändern darf</target>
+            </trans-unit>
+            <trans-unit id="context.info.element" resname="context.info.element">
+                <source>The assistant changes only the element “%1$s” on the page “%2$s”. Other content stays untouched.</source>
+                <target>Der Assistant ändert nur das Element „%1$s“ auf der Seite „%2$s“. Andere Inhalte bleiben unberührt.</target>
+            </trans-unit>
+            <trans-unit id="context.info.page" resname="context.info.page">
+                <source>Scope: the whole page “%1$s”. Changes are made only after your confirmation.</source>
+                <target>Bereich: ganze Seite „%1$s“. Geändert wird nur nach deiner Bestätigung.</target>
+            </trans-unit>
             <trans-unit id="error.altTextNoNext" resname="error.altTextNoNext">
                 <source>No other hit is open.</source>
                 <target>Es ist kein weiterer Treffer offen.</target>

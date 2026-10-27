@@ -55,6 +55,19 @@ describe('the page module receives a highlight', () => {
         expect(win.document.getElementById('nr-mcp-agent-highlight-style')).not.toBeNull();
     });
 
+    test('with scroll false the element is marked and not scrolled to (the element chip on hover, NEXT-221)', () => {
+        const win = frame();
+        const element = win.document.getElementById('element-tt_content-100');
+        element.scrollIntoView = jest.fn();
+
+        expect(handleHighlightMessage(message(win, {...VALID, scroll: false}), win)).toBe(true);
+        expect(element.classList.contains('nr-mcp-agent-highlight')).toBe(true);
+        expect(element.scrollIntoView).not.toHaveBeenCalled();
+
+        expect(handleHighlightMessage(message(win, {...VALID, scroll: true}), win)).toBe(true);
+        expect(element.scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+
     test('a second highlight moves the mark', () => {
         const doc = pageModuleDocument();
 
@@ -82,6 +95,7 @@ describe('the page module receives a highlight', () => {
         ['a uid as text', {uid: '100'}, {}],
         ['a uid of 0', {uid: 0}, {}],
         ['a selector instead of a uid', {uid: undefined, selector: '#element-tt_content-100'}, {}],
+        ['a scroll flag that is no boolean', {scroll: 'no'}, {}],
     ])('%s is ignored', (_label, data, event) => {
         const win = frame();
 

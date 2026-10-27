@@ -15,7 +15,8 @@ import {chatActivityStyles, renderActivity} from '@netresearch/nr-mcp-agent/chat
 import {chatGuidedStyles, renderEndTour, renderReadOnlyNotice, renderHighlightAnnouncement, renderPageChange, renderPageChoice, renderProgress, renderRoundLimit, renderTourEnd, sendHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {chatReplyOptionsStyles, decisionLabel, renderDenyButtons, renderReplyOptions, replyPlaceholder} from '@netresearch/nr-mcp-agent/chat-reply-options.js';
 import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mcp-agent/chat-proposal.js';
-import {approveBlockedLabel, chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextContext, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
+import {approveBlockedLabel, chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
+import {contextChipsStyles, renderContextChips} from '@netresearch/nr-mcp-agent/chat-context-chips.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
@@ -40,7 +41,12 @@ const PAGE_CONTEXT_EVENTS = [
     'typo3:module-state-storage:update:web',
     'typo3:module-state-storage:update-with-tree-identifier:web',
     'typo3-module-loaded',
+    'typo3:pagetree:refresh',
 ];
+// After these the page may carry a new title: saving the page properties
+// reloads the page module, and renaming the page in the page module's header
+// saves by AJAX and only refreshes the page tree.
+const PAGE_TITLE_EVENTS = new Set(['typo3-module-loaded', 'typo3:pagetree:refresh']);
 // The column's width is written to the user's settings this long after the
 // last key press on the splitter: one request per adjustment, not per step.
 const COLUMN_PERSIST_DELAY = 400;
@@ -83,7 +89,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, contextChipsStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -1119,8 +1125,14 @@ export class AiChatPanel extends LitElement {
         // panel is in its own window.
         const refreshPage = () => this.chat.refreshBackendPage();
         for (const type of PAGE_CONTEXT_EVENTS) {
-            document.addEventListener(type, refreshPage, {signal});
+            const listener = PAGE_TITLE_EVENTS.has(type)
+                ? () => this.chat.refreshBackendPage(undefined, {reloadTitle: true})
+                : refreshPage;
+            document.addEventListener(type, listener, {signal});
         }
+        // Which module and page are beside the panel now, for the row above
+        // the input (NEXT-221); the events above keep it current.
+        refreshPage();
         this._syncColumnMount();
         this.setAttribute('role', 'complementary');
         this.setAttribute('aria-label', lll('panel.title') || 'AI Chat');
@@ -1163,6 +1175,15 @@ export class AiChatPanel extends LitElement {
         // Which page the page module beside the panel shows, while the guided
         // process asks for one or runs on one (ADR-023).
         this.chat.syncPageWatch();
+        // The page title for the row above the input is read only while the
+        // input shows (NEXT-221), and once when it comes into view.
+        const wanted = this.state !== STATES.HIDDEN && this.state !== STATES.COLLAPSED;
+        if (wanted !== this.chat.pageTitleWanted) {
+            this.chat.pageTitleWanted = wanted;
+            if (wanted) {
+                void this.chat.loadPageTitle();
+            }
+        }
         // The page module beside the panel shows the element the guided
         // process is about (ADR-020).
         if (sendHighlight(this.chat, this.ownerDocument?.defaultView ?? globalThis)) {
@@ -3598,7 +3619,7 @@ export class AiChatPanel extends LitElement {
             ${renderRoundLimit(this.chat)}
             ${renderTourEnd(this.chat)}
             ${renderActiveSkill(this.chat)}
-            ${renderAltTextContext(this.chat)}
+            ${renderContextChips(this.chat, {win: this.ownerDocument?.defaultView ?? globalThis})}
             ${renderSlashList(this.chat)}
             ${this._renderFileBadge()}
             <div class="panel-input">

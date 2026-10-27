@@ -90,6 +90,18 @@ TYPO3's own id ``element-tt_content-<uid>``. Anything else is ignored. The
 full-page chat module and the popped-out panel have no page module beside
 them and send nothing; the progress shows on every surface.
 
+*Amendment of 2026-10-27 (NEXT-221):* the message may carry
+``scroll: <boolean>``. ``scroll: false`` marks the element without scrolling
+to it; without the field the element is scrolled to, as before, and any
+other value is ignored. The element chip above the chat input sends
+``scroll: false`` on hover and keyboard focus and ``scroll: true`` on click,
+only from the panel while the page module shows the process's page. The
+chip's name comes from ``getMessages`` (``guided.highlight.title``), read
+when the chat asks and never stored: the element's header, else its type
+label, only while the highlight passes the policy with the element's
+current page, ``tables_select`` allows ``tt_content`` and the page passes
+``readPageAccess`` with ``PAGE_SHOW``.
+
 **Group, data class, effect.** Group ``nr_mcp_agent`` (an administrator or a
 configuration's tool groups can switch both off together), data class
 ``EDITOR_CONTENT`` and enabled by default. Without a declared data class

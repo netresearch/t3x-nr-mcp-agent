@@ -125,6 +125,17 @@ export class ApiClient {
     }
 
     /**
+     * The title of a page the user may show, for the page chip above the
+     * input (NEXT-221); `title` is null for any other page.
+     *
+     * @param {number} pageId
+     * @returns {Promise<{pageId: number, title: string|null}>}
+     */
+    async getPageTitle(pageId) {
+        return this._get('ai_chat_page_title', {pageId});
+    }
+
+    /**
      * @param {number} fileUid
      * @returns {Promise<{fileUid: number, name: string, mimeType: string, size: number}>}
      */
