@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-27
+
+### Upgrading
+
+- **Update the database schema.** `tx_nrmcpagent_conversation` gains the column `image_analysis` (ADR-026); run the database analyzer. Every conversation write names the column, so until it exists no chat can be started or continued.
+- **`AltTextImagePolicyInterface` changed.** `refusal()` returns `?AltTextImageRefusal` (a code and a folder) instead of `?string`, and the interface gains `refusalForFile()` and `analysesImages()`. `AltTextImage::note()` is replaced by `cardNote()`. An own implementation of the interface needs the new methods.
+
+### Added
+
+- **The setting "Image analysis" (#271, ADR-026).** Two extension configuration keys in the new category *privacy*: `imageAnalysis` (`analyse`, the default, or `contextOnly`) and `imageAnalysisExcludedFolders`, a comma-separated list of folders such as `fileadmin/portraits/` or `1:/portraits/`. With "Context only" no image is sent to the AI provider: alt text proposals rest on the page or record, the content element and the file name, the chat offers no image attachments, and an attached document such as a PDF goes as its extracted text only. Images in an excluded folder or its subfolders are never sent. The image card of "Optimieren" says why an image was not analysed. A folder written without a storage is a folder of the default storage; an entry that names no folder is logged as a warning.
+- **Every turn follows the setting of the request that started it (#271).** The backend request that hands a turn to the worker stamps the setting on the conversation, so a long-running worker (`processingStrategy = worker`) does not keep the value it started with.
+
+### Changed
+
+- **CI resolves Rector 2.8.1 (#274).** Its type-check rules are applied across the code base; behaviour is unchanged.
+
 ## [0.22.1] - 2026-10-26
 
 ### Fixed
