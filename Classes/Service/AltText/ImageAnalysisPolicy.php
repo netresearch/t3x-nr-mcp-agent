@@ -32,10 +32,13 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  * A folder is bound to its storage: `fileadmin/team/` names the folder
  * `/team/` of the storage whose base path is `fileadmin/` (in any case),
  * `2:/team/` the folder `/team/` of storage 2, and neither excludes `/team/`
- * of another storage. Folders are compared by their identifiers, without
- * asking the storage, so a folder that does not exist (yet) costs nothing.
- * An entry that names no storage, or climbs above a storage's root, excludes
- * nothing and is logged.
+ * of another storage. An entry that names no storage, such as
+ * `user_upload/team/`, is a folder of the default storage, as the file list
+ * shows it. Folders are compared by their identifiers, so a folder that
+ * does not exist (yet) costs nothing when an image is asked about. An entry
+ * that climbs above a storage's root excludes nothing; it and an entry
+ * naming a folder that does not exist are logged, once per configured value
+ * and process.
  */
 class ImageAnalysisPolicy implements AltTextImagePolicyInterface
 {
@@ -136,7 +139,13 @@ class ImageAnalysisPolicy implements AltTextImagePolicyInterface
         foreach ($entries as $entry) {
             $folders = $this->resolve($entry, $storages);
             if ($folders === []) {
-                $this->logger?->warning('The folder "{entry}" excluded from image analysis names no folder of a file storage; it excludes nothing. Write it as fileadmin/folder/ or as 1:/folder/.', ['entry' => $entry]);
+                $this->logger?->warning('The folder "{entry}" excluded from image analysis names no folder of a file storage; it excludes nothing. Write it as fileadmin/folder/, as 1:/folder/, or as folder/ in the default storage. Logged once per process.', ['entry' => $entry]);
+            }
+
+            foreach ($folders as $folder) {
+                if ($this->missing($storages[$folder['storage']], $folder['identifier'])) {
+                    $this->logger?->warning('The folder "{entry}" excluded from image analysis ({folder}) does not exist; its images are excluded once it does. Logged once per process.', ['entry' => $entry, 'folder' => $folder['label']]);
+                }
             }
 
             array_push($excluded, ...$folders);
@@ -164,21 +173,53 @@ class ImageAnalysisPolicy implements AltTextImagePolicyInterface
             return $storage instanceof ResourceStorage && $identifier !== null ? [$this->folder($storage, $identifier)] : [];
         }
 
-        $path    = trim($entry, '/') . '/';
-        $folders = [];
+        $path         = trim($entry, '/') . '/';
+        $folders      = [];
+        $namesStorage = false;
         foreach ($storages as $storage) {
             $basePath = $this->publicBasePath($storage);
             if ($basePath === '' || !str_starts_with(mb_strtolower($path), mb_strtolower($basePath))) {
                 continue;
             }
 
-            $identifier = $this->identifier(substr($path, strlen($basePath)));
+            $namesStorage = true;
+            $identifier   = $this->identifier(substr($path, strlen($basePath)));
             if ($identifier !== null) {
                 $folders[] = $this->folder($storage, $identifier);
             }
         }
 
-        return $folders;
+        if ($namesStorage) {
+            return $folders;
+        }
+
+        // No storage named: a folder of the default storage, as the file list
+        // shows `user_upload/team/` under fileadmin. An entry that starts with
+        // a storage's base path never gets here, so a step above that
+        // storage's root stays refused.
+        foreach ($storages as $storage) {
+            if ($storage->isDefault()) {
+                $identifier = $this->identifier($path);
+
+                return $identifier === null ? [] : [$this->folder($storage, $identifier)];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Whether the folder is known not to exist, for the log only: the folder
+     * is excluded either way. Unknown (no right to read the storage, a
+     * storage offline) counts as not missing.
+     */
+    private function missing(ResourceStorage $storage, string $identifier): bool
+    {
+        try {
+            return !$storage->hasFolder($identifier);
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**

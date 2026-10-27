@@ -31,27 +31,30 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 #[CoversClass(ImageAnalysisPolicy::class)]
 final class ImageAnalysisPolicyTest extends TestCase
 {
+    /** Folders of storage 1 that do not exist. */
+    private const MISSING_FOLDERS = ['/archive/'];
+
     /**
-     * Storage 1 is fileadmin/, storage 2 a second local storage under
-     * storage2/, storage 3 one outside the web root, storage 4 a storage
-     * with case-insensitive identifiers under media/.
+     * Storage 1 is fileadmin/ and the default storage, storage 2 a second
+     * local storage under storage2/, storage 3 one outside the web root,
+     * storage 4 a storage with case-insensitive identifiers under media/.
      *
      * @param list<string> $folders
      */
-    private function policy(bool $analyse, array $folders = [], ?LoggerInterface $logger = null): ImageAnalysisPolicy
+    private function policy(bool $analyse, array $folders = [], ?LoggerInterface $logger = null, bool $withDefaultStorage = true): ImageAnalysisPolicy
     {
         $configuration = $this->createStub(ExtensionConfiguration::class);
         $configuration->method('isImageAnalysisEnabled')->willReturn($analyse);
         $configuration->method('getImageAnalysisExcludedFolders')->willReturn($folders);
 
-        return new ImageAnalysisPolicy($configuration, $this->storageRepository(), $logger);
+        return new ImageAnalysisPolicy($configuration, $this->storageRepository($withDefaultStorage), $logger);
     }
 
-    private function storageRepository(): StorageRepository
+    private function storageRepository(bool $withDefaultStorage = true): StorageRepository
     {
         $storages = $this->createStub(StorageRepository::class);
         $storages->method('findAll')->willReturn([
-            $this->storage(1, 'Local', ['basePath' => 'fileadmin/', 'pathType' => 'relative']),
+            $this->storage(1, 'Local', ['basePath' => 'fileadmin/', 'pathType' => 'relative'], true, $withDefaultStorage),
             $this->storage(2, 'Local', ['basePath' => '/storage2', 'pathType' => 'relative']),
             $this->storage(3, 'Local', ['basePath' => '/var/data/', 'pathType' => 'absolute']),
             $this->storage(4, 'Local', ['basePath' => 'media/', 'pathType' => 'relative'], false),
@@ -63,13 +66,15 @@ final class ImageAnalysisPolicyTest extends TestCase
     /**
      * @param array<string, string> $configuration
      */
-    private function storage(int $uid, string $driver, array $configuration, bool $caseSensitive = true): ResourceStorage
+    private function storage(int $uid, string $driver, array $configuration, bool $caseSensitive = true, bool $default = false): ResourceStorage
     {
         $storage = $this->createStub(ResourceStorage::class);
         $storage->method('getUid')->willReturn($uid);
         $storage->method('getDriverType')->willReturn($driver);
         $storage->method('getConfiguration')->willReturn($configuration);
         $storage->method('usesCaseSensitiveIdentifiers')->willReturn($caseSensitive);
+        $storage->method('isDefault')->willReturn($default);
+        $storage->method('hasFolder')->willReturnCallback(static fn (string $identifier): bool => $uid !== 1 || !in_array($identifier, self::MISSING_FOLDERS, true));
 
         return $storage;
     }
@@ -146,6 +151,7 @@ final class ImageAnalysisPolicyTest extends TestCase
         yield 'a storage uid that does not exist' => ['9:/team/', 1, '/team/anna.jpg'];
         yield 'a storage outside the web root, named by its path' => ['var/data/team/', 3, '/team/anna.jpg'];
         yield 'another case on a case-sensitive storage' => ['fileadmin/Team/', 1, '/team/anna.jpg'];
+        yield 'a default-storage path is not the root folder of its last segment' => ['user_upload/team/', 1, '/team/anna.jpg'];
     }
 
     #[Test]
@@ -202,15 +208,16 @@ final class ImageAnalysisPolicyTest extends TestCase
 
     /**
      * Entries the setting's own wording invites, resolved or refused: a bare
-     * folder name and a path in no storage exclude nothing and are logged; a
-     * base path in another case and `..` inside the storage are resolved.
+     * folder name and a path that names no storage are folders of the default
+     * storage, as the file list shows them; a base path in another case and
+     * `..` inside the storage are resolved; a step above the root is refused.
      *
      * @return iterable<string, array{string, int, string, string|null}>
      */
     public static function writtenEntries(): iterable
     {
-        yield 'a bare folder name' => ['portraits', 1, '/portraits/anna.jpg', null];
-        yield 'a path in no storage' => ['user_upload/team/', 1, '/team/anna.jpg', null];
+        yield 'a bare folder name' => ['portraits', 1, '/portraits/anna.jpg', 'fileadmin/portraits/'];
+        yield 'a path that names no storage' => ['user_upload/team/', 1, '/user_upload/team/anna.jpg', 'fileadmin/user_upload/team/'];
         yield 'the base path in another case' => ['Fileadmin/team/', 1, '/team/anna.jpg', 'fileadmin/team/'];
         yield 'a step up inside the storage' => ['fileadmin/team/../x/', 1, '/x/anna.jpg', 'fileadmin/x/'];
         yield 'a step down and the current folder' => ['1:/./team/./board/', 1, '/team/board/anna.jpg', 'fileadmin/team/board/'];
@@ -239,10 +246,34 @@ final class ImageAnalysisPolicyTest extends TestCase
      */
     public static function unresolvableEntries(): iterable
     {
-        yield 'a bare folder name' => ['portraits'];
-        yield 'a path in no storage' => ['user_upload/team/'];
         yield 'a step above the storage root' => ['fileadmin/../storage2/team/'];
         yield 'a storage uid that does not exist' => ['9:/team/'];
+    }
+
+    /** Without a default storage, a path that names no storage excludes nothing and is logged. */
+    #[Test]
+    public function withoutADefaultStorageAPathThatNamesNoStorageExcludesNothing(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning')->with(self::stringContains('excludes nothing'), ['entry' => 'portraits']);
+
+        self::assertNull($this->policy(true, ['portraits'], $logger, false)->refusalForFile($this->file(1, '/portraits/anna.jpg')));
+    }
+
+    /**
+     * A folder that does not exist (yet) is excluded all the same, so an
+     * image uploaded into it later is not sent; the entry is logged once,
+     * as it may be a typing error.
+     */
+    #[Test]
+    public function aFolderThatDoesNotExistIsExcludedAndLoggedOnce(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning')->with(self::stringContains('does not exist'), ['entry' => 'archive/', 'folder' => 'fileadmin/archive/']);
+        $policy = $this->policy(true, ['archive/'], $logger);
+
+        self::assertEquals(new AltTextImageRefusal(ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, 'fileadmin/archive/'), $policy->refusalForFile($this->file(1, '/archive/anna.jpg')));
+        self::assertNull($policy->refusalForFile($this->file(1, '/news/press.jpg')));
     }
 
     /** An entry that excludes nothing is logged once, naming it, however many images are asked about. */

@@ -443,7 +443,10 @@ the backend request that started it, which the request stores with the
 conversation. One exception keeps the image card and the model in
 agreement: where the card of an alt text conversation already says the
 image is not sent, the image stays unsent after analysis is switched back
-on, until the chat moves on to another image.
+on, until the chat moves on to another image. A turn that continues after
+an approval or an answer resumes the stored run of the AI provider, so an
+image that run already sent goes to the same provider again; the next turn
+follows the setting.
 
 It is part of the extension configuration (category *privacy*), which
 only administrators with system maintainer rights can change, as every
@@ -476,12 +479,16 @@ setting on this page.
     folder as ``fileadmin/portraits/`` (the base path of a local storage in
     the web root, in any case, and the folder) or as ``1:/portraits/`` (the
     storage uid and the folder); use the second form for a storage outside
-    the web root. ``.`` and ``..`` are resolved within the storage. A
-    folder belongs to its storage: ``fileadmin/team/`` does not exclude
-    ``/team/`` in another storage, nor ``fileadmin/teamwork/``. An entry
-    that names no folder of a storage, such as ``portraits`` or one that
-    climbs above the storage's root, excludes nothing; it is logged as a
-    warning. A document attached in the chat from such a folder goes as its
+    the web root. A folder written without a storage, such as
+    ``user_upload/team/`` or ``portraits``, is a folder of the default
+    storage, as the file list shows it. ``.`` and ``..`` are resolved within
+    the storage. A folder belongs to its storage: ``fileadmin/team/`` does
+    not exclude ``/team/`` in another storage, nor ``fileadmin/teamwork/``.
+    An entry that names no folder of a storage, such as one that climbs
+    above the storage's root, or a bare folder on an installation without a
+    default storage, excludes nothing. It is logged as a warning, once per
+    process and configured value; so is a folder that does not exist (yet),
+    which is excluded all the same. A document attached in the chat from such a folder goes as its
     extracted text only. Applies while :confval:`imageAnalysis` is
     ``analyse``; the image card names the folder.
 

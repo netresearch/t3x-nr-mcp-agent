@@ -444,11 +444,17 @@ entry in any case (``Fileadmin/team/`` is ``fileadmin/``'s ``/team/``); then
 the rest as a folder of that storage, with ``.`` and ``..`` resolved. Taken
 the other way round, ``fileadmin/../user_upload/x/`` would name another
 storage's folder; it climbs above the storage's root and is refused.
-Folders are compared by their identifiers without asking the storage, so a
-folder that does not exist yet costs nothing. An entry that names no
-folder of a storage (``portraits``, ``user_upload/team/`` without such a
-storage, one that climbs above the root) excludes nothing and is logged as
-a warning, once per configured value. The first configured folder that
+An entry that names no storage at all (``portraits``, ``user_upload/team/``)
+is a folder of the default storage (``is_default``), as the file list
+shows it under fileadmin; an entry that starts with a storage's base path
+never falls back, so a step above that storage's root stays refused.
+Folders are compared by their identifiers, so a folder that does not exist
+yet is excluded all the same and costs nothing when an image is asked
+about. An entry that names no folder of a storage (one that climbs above
+the root, a bare folder without a default storage) excludes nothing; it
+and a folder that does not exist are logged as a warning, once per
+configured value and process: a typing error otherwise shows only as
+images that are sent. The first configured folder that
 holds the image is the one the card names, written as an editor knows it
 (``fileadmin/team/``, or ``2:/team/`` for a storage outside the web root).
 
@@ -488,6 +494,17 @@ chat moves to another image. That is the one direction a change does not
 reach at the next turn, chosen so that the card and the model never
 disagree and the error, if any, is an image not sent.
 
+**Known limit: a continued run resends what it already sent.** A turn that
+continues after an approval or an answer (``performRecordedDecision()``,
+``performRecordedInput()``) resumes nr-llm's stored run, and nr-llm keeps
+that run's messages as they were, image and document blocks included
+(``ToolLoopService``). After a switch to *Nur Kontext*, approving a card
+that was already open therefore sends that run's image again. It is the
+same data, sent in the same run to the same provider before the switch, so
+nothing new leaves the installation; the next turn follows the setting.
+Rebuilding the stored run would mean rewriting nr-llm's state from outside
+for a case that needs a card open at the moment of the switch.
+
 Consequences
 ============
 
@@ -510,7 +527,9 @@ Consequences
     :confval:`imageAnalysis`; with *Context only* the chat no longer
     accepts image attachments, and a PDF goes as its extracted text. It
     adds the column ``tx_nrmcpagent_conversation.image_analysis``: run the
-    database analyzer after upgrading.
+    database analyzer after upgrading. Every write of a conversation names
+    the column, so until the analyzer has run no chat can be started or
+    continued.
 -   Slice 2 needs nr-llm 0.41.7 (``set_file_reference_alternative_text``)
     and adds the column ``tx_nrmcpagent_conversation.alt_text_hit``: run the
     database analyzer after upgrading. An administrator enables both
