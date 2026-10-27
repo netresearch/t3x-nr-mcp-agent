@@ -182,6 +182,21 @@ describe('the tooltip and the panel\'s Escape', () => {
         expect(el.state).not.toBe('OPEN');
     });
 
+    test('while the pointer shows it in the panel, Escape hides the tooltip and leaves the panel open', async () => {
+        const el = await render('../../Resources/Public/JavaScript/ai-chat-panel.js', 'ai-chat-panel', true, PAGE_MODULE);
+        const wrap = row(el).querySelector('.context-info-wrap');
+        const input = el.shadowRoot?.querySelector('textarea') ?? el.querySelector('textarea');
+        input.focus();
+
+        wrap.dispatchEvent(new MouseEvent('mouseenter'));
+        input.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, composed: true}));
+        await el.updateComplete;
+
+        expect(wrap.hasAttribute('data-dismissed')).toBe(true);
+        expect(el.state).toBe('OPEN');
+        wrap.dispatchEvent(new MouseEvent('mouseleave'));
+    });
+
     test('while the pointer shows it, Escape hides it wherever the focus is, and only then', async () => {
         const el = await render('../../Resources/Public/JavaScript/chat-app.js', 'nr-chat-app', false, PAGE_MODULE);
         const wrap = row(el).querySelector('.context-info-wrap');
@@ -284,6 +299,40 @@ describe('the chat core reads the page title', () => {
         chat.refreshBackendPage(() => ({pageId: 20, module: 'web_layout'}));
 
         expect(chat._api.getPageTitle).toHaveBeenCalledTimes(1);
+    });
+
+    test('a module loaded anew reads the title again and keeps the old one until the new one arrives', async () => {
+        const chat = await core();
+        let answer;
+        chat._api.getPageTitle
+            .mockResolvedValueOnce({pageId: 20, title: 'AI Chat Agent'})
+            .mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+
+        chat.refreshBackendPage(() => ({pageId: 20, module: 'web_layout'}));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        chat.refreshBackendPage(() => ({pageId: 20, module: 'web_layout'}), {reloadTitle: true});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(chat.pageTitle).toEqual({pageId: 20, title: 'AI Chat Agent'});
+
+        answer({pageId: 20, title: 'KI Chat Agent'});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(chat._api.getPageTitle).toHaveBeenCalledTimes(2);
+        expect(chat.pageTitle).toEqual({pageId: 20, title: 'KI Chat Agent'});
+    });
+
+    test('the panel reads the title again when a module is loaded, not when the tree selection changes', async () => {
+        await import('../../Resources/Public/JavaScript/ai-chat-panel.js');
+        const el = document.createElement('ai-chat-panel');
+        const refresh = jest.spyOn(el.chat, 'refreshBackendPage').mockImplementation(() => {});
+        document.body.append(el);
+        refresh.mockClear();
+
+        document.dispatchEvent(new CustomEvent('typo3:module-state-storage:update:web'));
+        document.dispatchEvent(new CustomEvent('typo3-module-loaded'));
+
+        expect(refresh.mock.calls).toEqual([[], [undefined, {reloadTitle: true}]]);
+        el.remove();
     });
 
     test('an answer that arrives after the page module moved on is dropped', async () => {

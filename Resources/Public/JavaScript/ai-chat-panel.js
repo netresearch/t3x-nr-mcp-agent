@@ -1120,7 +1120,12 @@ export class AiChatPanel extends LitElement {
         // panel is in its own window.
         const refreshPage = () => this.chat.refreshBackendPage();
         for (const type of PAGE_CONTEXT_EVENTS) {
-            document.addEventListener(type, refreshPage, {signal});
+            // A module loaded anew may show a renamed page: saving the page
+            // properties reloads the page module.
+            const listener = type === 'typo3-module-loaded'
+                ? () => this.chat.refreshBackendPage(undefined, {reloadTitle: true})
+                : refreshPage;
+            document.addEventListener(type, listener, {signal});
         }
         // Which module and page are beside the panel now, for the row above
         // the input (NEXT-221); the events above keep it current.

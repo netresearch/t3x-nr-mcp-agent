@@ -1405,8 +1405,13 @@ export class ChatCoreController {
         }
     }
 
-    /** @param {() => {pageId: number, module?: string, languageId?: number}} [read] */
-    refreshBackendPage(read = currentBackendContext) {
+    /**
+     * @param {() => {pageId: number, module?: string, languageId?: number}} [read]
+     * @param {{reloadTitle?: boolean}} [options] reloadTitle: read the title
+     *     again although it is known, because the module was loaded anew and
+     *     the page may have been renamed (saving its properties reloads it).
+     */
+    refreshBackendPage(read = currentBackendContext, {reloadTitle = false} = {}) {
         const context = read();
         const pageId = context.pageId || 0;
         const languageId = context.languageId;
@@ -1419,18 +1424,22 @@ export class ChatCoreController {
             this.backendModule = module;
             this.host.requestUpdate();
         }
-        void this.loadPageTitle();
+        void this.loadPageTitle({force: reloadTitle});
     }
 
     /**
      * Read the title of the page the page module shows, for the page chip
      * (NEXT-221). The server names only a page the user may show. A title
-     * that arrives after the page module has moved on is dropped.
+     * that arrives after the page module has moved on is dropped. A known
+     * title is read once per page unless `force` asks again; the old title
+     * stays shown until the new one arrives.
+     *
+     * @param {{force?: boolean}} [options]
      */
-    async loadPageTitle() {
+    async loadPageTitle({force = false} = {}) {
         const pageId = this.backendPage.pageId;
         if (!this.pageTitleWanted || this.backendModule !== PAGE_MODULE || pageId <= 0
-            || this.pageTitle?.pageId === pageId || this._pageTitleLoading === pageId) {
+            || (!force && this.pageTitle?.pageId === pageId) || this._pageTitleLoading === pageId) {
             return;
         }
 

@@ -157,6 +157,16 @@ export const contextChipsStyles = css`
         line-height: 1.4;
         white-space: normal;
     }
+    /* Bridges the gap between the (i) and the tooltip, so the pointer can move
+       onto the tooltip without leaving the wrap (WCAG 1.4.13, hoverable). */
+    .context-tooltip::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        height: 5px;
+    }
     .context-info-wrap:hover .context-tooltip,
     .context-info-wrap:focus-within .context-tooltip {
         display: block;
