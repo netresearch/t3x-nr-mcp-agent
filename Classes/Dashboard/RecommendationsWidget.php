@@ -110,7 +110,7 @@ final class RecommendationsWidget extends AbstractAssistantWidget
     private function altTextTile(): ?array
     {
         $summary = $this->altTexts?->summary();
-        if ($this->altTexts === null || $summary === null || $summary['count'] === 0) {
+        if (!$this->altTexts instanceof MissingAltTextList || $summary === null || $summary['count'] === 0) {
             return null;
         }
 

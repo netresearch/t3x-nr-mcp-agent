@@ -11,6 +11,7 @@ namespace Netresearch\NrMcpAgent\Service;
 
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Throwable;
+use TYPO3\CMS\Backend\Module\ModuleInterface;
 use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -169,7 +170,7 @@ readonly class UserContextPrompt
 
         try {
             $module = $this->moduleProvider->getModule($identifier, $user);
-            if ($module === null) {
+            if (!$module instanceof ModuleInterface) {
                 return null;
             }
 

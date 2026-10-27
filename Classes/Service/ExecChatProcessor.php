@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
+use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Exception\Typo3CliBinaryNotFoundException;
@@ -81,7 +82,7 @@ final readonly class ExecChatProcessor implements ChatProcessorInterface
     private function markFailed(int $conversationUid): void
     {
         $conversation = $this->repository->findByUid($conversationUid);
-        if ($conversation === null || $conversation->getStatus() !== ConversationStatus::Processing) {
+        if (!$conversation instanceof Conversation || $conversation->getStatus() !== ConversationStatus::Processing) {
             return;
         }
 

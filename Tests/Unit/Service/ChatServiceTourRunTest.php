@@ -65,7 +65,7 @@ final class ChatServiceTourRunTest extends TestCase
         $this->runtime = $this->createMock(AgentRuntimeInterface::class);
 
         $runs = $this->createMock(AgentRunRepositoryInterface::class);
-        $runs->method('findByUuid')->willReturn($status !== null ? $this->agentRun($status) : null);
+        $runs->method('findByUuid')->willReturn($status instanceof AgentRunStatus ? $this->agentRun($status) : null);
 
         $this->repository = $this->createMock(ConversationRepository::class);
 

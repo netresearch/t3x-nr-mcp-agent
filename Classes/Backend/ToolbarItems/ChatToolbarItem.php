@@ -40,7 +40,7 @@ final readonly class ChatToolbarItem implements ToolbarItemInterface, RequestAwa
         }
 
         $beUser = $this->getBackendUser();
-        if ($beUser === null) {
+        if (!$beUser instanceof BackendUserAuthentication) {
             return false;
         }
 

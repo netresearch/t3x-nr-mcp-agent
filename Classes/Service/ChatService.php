@@ -16,12 +16,16 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation as LlmSkillInvocation;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
@@ -445,7 +449,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // exists, whatever its outcome: a refused start is not tried again on
         // every turn. A run that could not be recorded leaves the marker, so
         // the next turn starts the process instead of continuing nothing.
-        if ($request->invocation !== null && $result->runUuid !== '' && $conversation->isSkillStartPending()) {
+        if ($request->invocation instanceof LlmSkillInvocation && $result->runUuid !== '' && $conversation->isSkillStartPending()) {
             $conversation->setSkillStartPending(false);
             $this->repository->clearSkillStartPending($conversation->getUid());
         }
@@ -889,7 +893,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $view    = $runUuid !== '' && $conversation->getStatus() === ConversationStatus::AwaitingInput
             ? $this->pendingApprovalReader->read($actor, $runUuid)
             : null;
-        if ($view === null || $view->mode === WaitingRunView::MODE_APPROVAL) {
+        if (!$view instanceof WaitingRunView || $view->mode === WaitingRunView::MODE_APPROVAL) {
             return null;
         }
 
@@ -1359,7 +1363,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         $this->noteDroppedProcess($conversation, $result);
 
-        if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult !== null) {
+        if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult instanceof ToolLoopResult) {
             $this->appendTextBesideToolCalls($conversation, $result);
             $answer = $result->loopResult->finalContent;
             // A run nr-llm stopped at its round cap ends with a plain
@@ -1455,7 +1459,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // above the reply buttons, and later turns see what the answer was to.
         if ($result->outcome === AgentRunOutcome::AWAITING_INPUT && $result->runUuid !== '') {
             $this->appendTextBesideToolCalls($conversation, $result);
-            $question = $result->suspendedState !== null
+            $question = $result->suspendedState instanceof SuspendedRunState
                 ? InputPauseForm::fromSchema($result->suspendedState->inputSchema)->question
                 : '';
             if ($question !== '') {
@@ -1473,7 +1477,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $conversation->setStatus(ConversationStatus::Failed);
         $conversation->setErrorMessage(
             $this->describeFailure($result),
-            $result->error !== null ? $this->failureCode($result->error) : '',
+            $result->error instanceof Throwable ? $this->failureCode($result->error) : '',
         );
         $this->persist($conversation);
 
@@ -1629,7 +1633,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function failureCode(Throwable $e): string
     {
-        for ($current = $e; $current !== null; $current = $current->getPrevious()) {
+        for ($current = $e; $current instanceof Throwable; $current = $current->getPrevious()) {
             if ($current instanceof ProviderConfigurationException || $current instanceof ProviderAuthenticationException) {
                 return ConversationErrorCode::ProviderNotConfigured->value;
             }
@@ -1650,7 +1654,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function describeFailure(AgentRunResult $result): string
     {
-        if ($result->error !== null) {
+        if ($result->error instanceof Throwable) {
             return ErrorMessageSanitizer::sanitize($result->error->getMessage());
         }
 
@@ -1722,7 +1726,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private function resolveProvider(LlmConfiguration $configuration): ProviderInterface
     {
         $model = $configuration->getLlmModel();
-        if ($model === null) {
+        if (!$model instanceof Model) {
             throw new ChatNotConfiguredException('The nr-llm configuration has no fixed model to resolve a provider adapter from.');
         }
 

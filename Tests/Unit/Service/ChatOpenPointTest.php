@@ -85,7 +85,7 @@ final class ChatOpenPointTest extends TestCase
             return $answer;
         });
 
-        if ($reader === null) {
+        if (!$reader instanceof PendingApprovalReaderInterface) {
             $reader = $this->createMock(PendingApprovalReaderInterface::class);
             $reader->method('read')->willReturnCallback(function (): WaitingRunView {
                 $this->order[] = 'read';

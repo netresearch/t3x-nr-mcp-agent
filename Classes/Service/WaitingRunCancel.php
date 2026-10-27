@@ -32,6 +32,6 @@ final readonly class WaitingRunCancel
      */
     public function releasesConversation(): bool
     {
-        return $this->cancelled || $this->status === null || $this->status->isTerminal();
+        return $this->cancelled || !$this->status instanceof AgentRunStatus || $this->status->isTerminal();
     }
 }

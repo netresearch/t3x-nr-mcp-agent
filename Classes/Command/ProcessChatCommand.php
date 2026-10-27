@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Command;
 
+use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
@@ -50,8 +51,8 @@ final class ProcessChatCommand extends Command
         $claimId      = 'process_' . getmypid() . '_' . bin2hex(random_bytes(4));
         $conversation = $this->repository->claimForProcess($uid, $claimId);
 
-        if ($conversation === null) {
-            if ($this->repository->findByUid($uid) === null) {
+        if (!$conversation instanceof Conversation) {
+            if (!$this->repository->findByUid($uid) instanceof Conversation) {
                 $output->writeln('<error>Conversation not found</error>');
 
                 return Command::FAILURE;
