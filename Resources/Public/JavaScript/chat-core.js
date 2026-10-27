@@ -329,6 +329,8 @@ export class ChatCoreController {
     pageTitle = null;
     /** The page whose title is being read, 0 when none. */
     _pageTitleLoading = 0;
+    /** The page whose title is to be read again once its running read is done, 0 when none. */
+    _pageTitleReloadFor = 0;
     /**
      * Whether the row above the input can show now: the panel sets it while
      * it is open, so a page-tree click with the chat closed reads nothing
@@ -1432,14 +1434,22 @@ export class ChatCoreController {
      * (NEXT-221). The server names only a page the user may show. A title
      * that arrives after the page module has moved on is dropped. A known
      * title is read once per page unless `force` asks again; the old title
-     * stays shown until the new one arrives.
+     * stays shown until the new one arrives. A forced read asked for while
+     * the same page is read already runs once that read is done: the running
+     * one may have started before the page was renamed.
      *
      * @param {{force?: boolean}} [options]
      */
     async loadPageTitle({force = false} = {}) {
         const pageId = this.backendPage.pageId;
         if (!this.pageTitleWanted || this.backendModule !== PAGE_MODULE || pageId <= 0
-            || (!force && this.pageTitle?.pageId === pageId) || this._pageTitleLoading === pageId) {
+            || (!force && this.pageTitle?.pageId === pageId)) {
+            return;
+        }
+        if (this._pageTitleLoading === pageId) {
+            if (force) {
+                this._pageTitleReloadFor = pageId;
+            }
             return;
         }
 
@@ -1456,6 +1466,12 @@ export class ChatCoreController {
         } finally {
             if (this._pageTitleLoading === pageId) {
                 this._pageTitleLoading = 0;
+            }
+            if (this._pageTitleReloadFor === pageId) {
+                this._pageTitleReloadFor = 0;
+                if (pageId === this.backendPage.pageId) {
+                    void this.loadPageTitle({force: true});
+                }
             }
         }
     }

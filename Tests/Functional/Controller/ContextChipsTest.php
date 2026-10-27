@@ -165,6 +165,14 @@ final class ContextChipsTest extends FunctionalTestCase
     }
 
     #[Test]
+    public function aHighlightOfAnotherTableIsNotNamedAsTheContentElementWithItsUid(): void
+    {
+        // Content element 100 exists on the conversation's page and is named
+        // as tt_content (below); a page with the same uid must not borrow it.
+        self::assertSame('', (new HighlightTitle())->of($this->conversation(20), ['table' => 'pages', 'uid' => 100], $this->asUser(3)));
+    }
+
+    #[Test]
     public function aReaderWhoMaySeeItGetsTheHeader(): void
     {
         self::assertSame('Wer wir sind', (new HighlightTitle())->of($this->conversation(20), ['table' => 'tt_content', 'uid' => 100], $this->asUser(3)));

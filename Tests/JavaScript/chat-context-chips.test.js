@@ -321,6 +321,45 @@ describe('the chat core reads the page title', () => {
         expect(chat.pageTitle).toEqual({pageId: 20, title: 'KI Chat Agent'});
     });
 
+    test('a forced read asked for while the same page is read runs once that read is done', async () => {
+        const chat = await core();
+        let first;
+        chat._api.getPageTitle
+            .mockImplementationOnce(() => new Promise((resolve) => { first = resolve; }))
+            .mockResolvedValueOnce({pageId: 20, title: 'KI Chat Agent'});
+
+        chat.refreshBackendPage(() => ({pageId: 20, module: 'web_layout'}));
+        chat.refreshBackendPage(() => ({pageId: 20, module: 'web_layout'}), {reloadTitle: true});
+        expect(chat._api.getPageTitle).toHaveBeenCalledTimes(1);
+
+        // The running read started before the rename and answers the old title.
+        first({pageId: 20, title: 'AI Chat Agent'});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(chat._api.getPageTitle).toHaveBeenCalledTimes(2);
+        expect(chat.pageTitle).toEqual({pageId: 20, title: 'KI Chat Agent'});
+    });
+
+    test('a forced read for a page the module has left is not run', async () => {
+        const chat = await core();
+        let first;
+        chat._api.getPageTitle
+            .mockImplementationOnce(() => new Promise((resolve) => { first = resolve; }))
+            .mockResolvedValue({pageId: 30, title: 'Kontakt'});
+
+        chat.refreshBackendPage(() => ({pageId: 20, module: 'web_layout'}));
+        chat.refreshBackendPage(() => ({pageId: 20, module: 'web_layout'}), {reloadTitle: true});
+        chat.refreshBackendPage(() => ({pageId: 30, module: 'web_layout'}));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        first({pageId: 20, title: 'AI Chat Agent'});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(chat._api.getPageTitle.mock.calls).toEqual([[20], [30]]);
+        expect(chat.pageTitle).toEqual({pageId: 30, title: 'Kontakt'});
+    });
+
     test('the panel reads the title again when a module is loaded or the page is renamed in its header, not when the tree selection changes', async () => {
         await import('../../Resources/Public/JavaScript/ai-chat-panel.js');
         const el = document.createElement('ai-chat-panel');
