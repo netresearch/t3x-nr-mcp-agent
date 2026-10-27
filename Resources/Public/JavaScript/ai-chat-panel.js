@@ -41,7 +41,12 @@ const PAGE_CONTEXT_EVENTS = [
     'typo3:module-state-storage:update:web',
     'typo3:module-state-storage:update-with-tree-identifier:web',
     'typo3-module-loaded',
+    'typo3:pagetree:refresh',
 ];
+// After these the page may carry a new title: saving the page properties
+// reloads the page module, and renaming the page in the page module's header
+// saves by AJAX and only refreshes the page tree.
+const PAGE_TITLE_EVENTS = new Set(['typo3-module-loaded', 'typo3:pagetree:refresh']);
 // The column's width is written to the user's settings this long after the
 // last key press on the splitter: one request per adjustment, not per step.
 const COLUMN_PERSIST_DELAY = 400;
@@ -1120,9 +1125,7 @@ export class AiChatPanel extends LitElement {
         // panel is in its own window.
         const refreshPage = () => this.chat.refreshBackendPage();
         for (const type of PAGE_CONTEXT_EVENTS) {
-            // A module loaded anew may show a renamed page: saving the page
-            // properties reloads the page module.
-            const listener = type === 'typo3-module-loaded'
+            const listener = PAGE_TITLE_EVENTS.has(type)
                 ? () => this.chat.refreshBackendPage(undefined, {reloadTitle: true})
                 : refreshPage;
             document.addEventListener(type, listener, {signal});

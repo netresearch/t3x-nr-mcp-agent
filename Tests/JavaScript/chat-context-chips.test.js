@@ -321,7 +321,7 @@ describe('the chat core reads the page title', () => {
         expect(chat.pageTitle).toEqual({pageId: 20, title: 'KI Chat Agent'});
     });
 
-    test('the panel reads the title again when a module is loaded, not when the tree selection changes', async () => {
+    test('the panel reads the title again when a module is loaded or the page is renamed in its header, not when the tree selection changes', async () => {
         await import('../../Resources/Public/JavaScript/ai-chat-panel.js');
         const el = document.createElement('ai-chat-panel');
         const refresh = jest.spyOn(el.chat, 'refreshBackendPage').mockImplementation(() => {});
@@ -330,8 +330,10 @@ describe('the chat core reads the page title', () => {
 
         document.dispatchEvent(new CustomEvent('typo3:module-state-storage:update:web'));
         document.dispatchEvent(new CustomEvent('typo3-module-loaded'));
+        // The page module's editable title saves by AJAX and only refreshes the tree.
+        document.dispatchEvent(new CustomEvent('typo3:pagetree:refresh'));
 
-        expect(refresh.mock.calls).toEqual([[], [undefined, {reloadTitle: true}]]);
+        expect(refresh.mock.calls).toEqual([[], [undefined, {reloadTitle: true}], [undefined, {reloadTitle: true}]]);
         el.remove();
     });
 
