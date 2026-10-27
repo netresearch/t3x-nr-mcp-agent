@@ -32,6 +32,8 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  */
 final class ImageAnalysisSettingTest extends FunctionalTestCase
 {
+    private const EXCLUDED_FOLDER = 'fileadmin/team/';
+
     protected array $coreExtensionsToLoad = ['filelist'];
 
     protected array $testExtensionsToLoad = [
@@ -117,9 +119,9 @@ final class ImageAnalysisSettingTest extends FunctionalTestCase
     #[Test]
     public function anImageInASubfolderOfAnExcludedFolderIsNotSentAndTheCardNamesTheFolder(): void
     {
-        $image = $this->image(['imageAnalysis' => 'analyse', 'imageAnalysisExcludedFolders' => 'fileadmin/team/']);
+        $image = $this->image(['imageAnalysis' => 'analyse', 'imageAnalysisExcludedFolders' => self::EXCLUDED_FOLDER]);
 
-        self::assertSame(['imageNote' => ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, 'imageNoteFolder' => 'fileadmin/team/'], $image->cardNote(1, true));
+        self::assertSame(['imageNote' => ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, 'imageNoteFolder' => self::EXCLUDED_FOLDER], $image->cardNote(1, true));
         self::assertNull($image->modelBlock(1, true));
     }
 
@@ -127,7 +129,7 @@ final class ImageAnalysisSettingTest extends FunctionalTestCase
     #[Test]
     public function imagesBesideTheExcludedFolderAreSent(): void
     {
-        $image = $this->image(['imageAnalysisExcludedFolders' => 'fileadmin/team/']);
+        $image = $this->image(['imageAnalysisExcludedFolders' => self::EXCLUDED_FOLDER]);
 
         self::assertSame(['imageNote' => ''], $image->cardNote(2, true));
         self::assertNotNull($image->modelBlock(2, true));

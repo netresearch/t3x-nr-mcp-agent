@@ -53,6 +53,8 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  */
 final class ChatAttachmentImageAnalysisTest extends FunctionalTestCase
 {
+    private const EXCLUDED_FOLDER = 'fileadmin/team/';
+
     protected array $coreExtensionsToLoad = ['filelist'];
 
     protected array $testExtensionsToLoad = [
@@ -188,7 +190,7 @@ final class ChatAttachmentImageAnalysisTest extends FunctionalTestCase
     #[Test]
     public function aPdfInAnExcludedFolderGoesAsItsExtractedTextOnlyAndOneBesideItNatively(): void
     {
-        $this->configure('analyse', 'fileadmin/team/');
+        $this->configure('analyse', self::EXCLUDED_FOLDER);
         $chat = $this->chat();
 
         self::assertSame('extracted', $this->attachmentBlock($chat, $this->conversation(1)));
@@ -206,7 +208,7 @@ final class ChatAttachmentImageAnalysisTest extends FunctionalTestCase
         self::assertSame('extracted', $this->attachmentBlock($chat, $this->conversation(1)));
         $this->configure('analyse', '');
         self::assertSame('document', $this->attachmentBlock($chat, $this->conversation(1)));
-        $this->configure('analyse', 'fileadmin/team/');
+        $this->configure('analyse', self::EXCLUDED_FOLDER);
         self::assertSame('extracted', $this->attachmentBlock($chat, $this->conversation(1)));
     }
 
@@ -249,11 +251,11 @@ final class ChatAttachmentImageAnalysisTest extends FunctionalTestCase
         self::assertNotNull($conversation);
         self::assertSame('', $conversation->getImageAnalysisSnapshot());
 
-        $this->configure('contextOnly', 'fileadmin/team/');
+        $this->configure('contextOnly', self::EXCLUDED_FOLDER);
         $conversation->setStatus(ConversationStatus::Processing);
         $repository->update($conversation);
         $stamped = $repository->findByUid($uid)?->getImageAnalysisSnapshot();
-        self::assertSame(['imageAnalysis' => 'contextOnly', 'imageAnalysisExcludedFolders' => 'fileadmin/team/'], json_decode((string) $stamped, true));
+        self::assertSame(['imageAnalysis' => 'contextOnly', 'imageAnalysisExcludedFolders' => self::EXCLUDED_FOLDER], json_decode((string) $stamped, true));
 
         $this->configure('analyse', '');
         $conversation->setStatus(ConversationStatus::Idle);
