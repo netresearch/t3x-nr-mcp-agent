@@ -150,6 +150,36 @@ What the assistant knows about you
     another one. Ask for a different language in the message ("answer in
     English") and it uses that instead.
 
+.. _usage-context-chips:
+
+What the chat is about: the chips above the input
+-------------------------------------------------
+
+When the chat is about one page, a row of chips above the input says which:
+
+*   **The page chip** (grey, with a page icon) shows the title of the page.
+    Beside the page module (*Layout*) it is the page selected in the page
+    tree, and it changes as soon as you select another one. In a guided
+    process it is the process's page, which stays when the page tree moves
+    on. Only a page you may see is named.
+*   **The element chip** (white, with a black circle and a yellow dot)
+    appears in a guided process when the current point is about a content
+    element, and changes with the point. Beside the page module, pointing at
+    it or focusing it with the keyboard marks the element in the page
+    layout, and a click scrolls it into view. In the full-page chat module,
+    in the popped-out panel and while the page module shows another page,
+    the chip is only a label.
+*   **The (i)** at the end of the row says what the assistant may change,
+    for example "Bereich: ganze Seite „AI Chat Agent“. Geändert wird nur
+    nach deiner Bestätigung." It opens on pointing at it and on keyboard
+    focus; Escape closes it.
+
+A long title is shortened in the chip; the full title is in the chip's
+tooltip and in the text of the (i). There is no row for a skill that works
+on no page (:ref:`usage-skill-page`), for a chat without a page, or while no
+page is selected. A conversation about a missing alt text shows its image
+and the sentence on what may change in the same row.
+
 What the assistant is doing
 ---------------------------
 

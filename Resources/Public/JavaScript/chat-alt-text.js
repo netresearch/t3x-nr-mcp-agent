@@ -132,28 +132,6 @@ export const chatAltTextStyles = css`
     .alt-text-next {
         padding: 8px 12px 0;
     }
-    .alt-text-context {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 4px 6px;
-        padding: 6px 12px 0;
-        font-size: 12px;
-    }
-    .alt-text-chip {
-        border: 1px solid var(--nr-chat-border, #d0d0d0);
-        border-radius: 12px;
-        padding: 1px 8px;
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .alt-text-context-info {
-        margin: 0;
-        flex-basis: 100%;
-        color: var(--nr-chat-text-variant);
-    }
 `;
 
 /**
@@ -385,21 +363,23 @@ export function renderAltTextNext(chat) {
 }
 
 /**
- * Above the input: the image the conversation is about, as chips, and what
- * the assistant may change ("Der Assistant ändert nur den Alt-Text dieser
- * Bildverwendung …").
+ * Above the input: the image the conversation is about, as the texts of its
+ * chips, and what the assistant may change ("Der Assistant ändert nur den
+ * Alt-Text dieser Bildverwendung …"), or null. The row itself is
+ * chat-context-chips.js, the one row above the input.
  *
  * @param {object} chat the ChatCoreController
+ * @returns {{chips: string[], info: string}|null}
  */
-export function renderAltTextContext(chat) {
+export function contextOfAltText(chat) {
     const reference = chat.altText?.reference;
     if (!reference) {
-        return nothing;
+        return null;
     }
 
-    const card = [...chat.messages].reverse().find((msg) => msg.notice === NOTICE.HIT && msg.data?.reference === reference)?.data;
+    const card = [...(chat.messages ?? [])].reverse().find((msg) => msg.notice === NOTICE.HIT && msg.data?.reference === reference)?.data;
     if (!card) {
-        return nothing;
+        return null;
     }
 
     const subject = card.subjectType ? `${card.subjectType}: ${card.subject}` : card.subject;
@@ -407,11 +387,5 @@ export function renderAltTextContext(chat) {
         ? format(lll('altText.context.infoField'), card.part ?? '', subject ?? '')
         : format(lll('altText.context.infoElement'), card.part ?? '', subject ?? '');
 
-    return html`
-        <div class="alt-text-context" role="group" aria-label="${lll('altText.context.label')}">
-            <span class="alt-text-chip" title="${subject}">${subject}</span>
-            <span class="alt-text-chip" title="${card.fileName} · ${card.part}">${card.fileName} · ${card.part}</span>
-            <p class="alt-text-context-info">${info}</p>
-        </div>
-    `;
+    return {chips: [subject, `${card.fileName} · ${card.part}`], info};
 }

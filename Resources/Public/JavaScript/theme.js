@@ -40,6 +40,26 @@ export const themeStyles = css`
         --nr-chat-on-accent: var(--typo3-surface-primary-text, #fff);
         --nr-chat-accent-hover: var(--typo3-state-primary-hover-bg, color-mix(in srgb, var(--nr-chat-accent) 85%, black));
         --nr-chat-focus-ring: var(--typo3-text-color-primary, var(--typo3-primary, #0078d4));
+        --nr-chat-focus: var(--nr-chat-focus-ring);
+        --nr-chat-surface-variant: var(--typo3-surface-container-low, #f4f4f4);
+
+        /*
+         * Context chips above the input (NEXT-221): the specification's light
+         * values are the fallbacks; the backend tokens follow the colour
+         * scheme, so the chips do too.
+         */
+        --nr-chat-chip-page-bg: var(--typo3-surface-container-base, #f2f2f4);
+        --nr-chat-chip-page-text: var(--typo3-text-color-base, #3a3a40);
+        --nr-chat-chip-element-bg: var(--typo3-surface-container-lowest, #fff);
+        --nr-chat-chip-element-ink: var(--typo3-text-color-base, #000);
+        /*
+         * The element marker: a black circle with a dot in the accent, the
+         * same in both schemes, as the accent only ever sits on black. The
+         * primitive token does not follow the scheme; the accent has no
+         * backend token and can be set like the prompt widget's.
+         */
+        --nr-chat-chip-marker: var(--token-color-neutral-100, #000);
+        --nr-chat-chip-accent: var(--nr-mcp-agent-context-accent, #dfff00);
 
         /* Status chips (scheme-aware background/text pairs) */
         --nr-chat-success-bg: var(--typo3-surface-container-success, #e8f5e9);

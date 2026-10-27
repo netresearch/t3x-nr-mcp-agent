@@ -7,10 +7,13 @@
  *
  * The contract, and nothing else is accepted:
  *
- *   {type: 'nr-mcp-agent:highlight', version: 1, table: 'tt_content', uid: <positive integer>}
+ *   {type: 'nr-mcp-agent:highlight', version: 1, table: 'tt_content', uid: <positive integer>[, scroll: <boolean>]}
  *   {type: 'nr-mcp-agent:highlight', version: 1, clear: true}
  *
  * The second removes the mark, when the guided process has ended (ADR-023).
+ * `scroll: false` marks the element without scrolling to it: the element chip
+ * above the chat input sends it on hover and focus, and scrolls on click
+ * (NEXT-221). Without `scroll` the element is scrolled to, as before.
  * from the same origin, posted by the window that holds this frame — the
  * backend window with the chat panel. The element is found by the id TYPO3
  * gives every content element in the page module (`element-tt_content-<uid>`
@@ -42,11 +45,12 @@ export function handleHighlightMessage(event, win = globalThis) {
         return true;
     }
     if (data?.type !== HIGHLIGHT_MESSAGE || data.version !== 1 || data.table !== 'tt_content'
-        || !Number.isInteger(data.uid) || data.uid <= 0) {
+        || !Number.isInteger(data.uid) || data.uid <= 0
+        || (data.scroll !== undefined && typeof data.scroll !== 'boolean')) {
         return false;
     }
 
-    return highlightContentElement(win.document, data.uid);
+    return highlightContentElement(win.document, data.uid, data.scroll !== false);
 }
 
 /**
@@ -63,13 +67,14 @@ export function highlightLabel(doc) {
 
 /**
  * Mark one content element with a frame and a fixed badge, and scroll it into
- * view; the mark and badge of the one before are removed. Returns false when
- * the page module does not show it.
+ * view unless told not to; the mark and badge of the one before are removed.
+ * Returns false when the page module does not show it.
  *
  * @param {Document} doc
  * @param {number} uid
+ * @param {boolean} [scroll]
  */
-export function highlightContentElement(doc, uid) {
+export function highlightContentElement(doc, uid, scroll = true) {
     clearHighlight(doc);
     const element = doc.getElementById(`element-tt_content-${uid}`);
     if (!element) {
@@ -82,7 +87,9 @@ export function highlightContentElement(doc, uid) {
     badge.className = LABEL_CLASS;
     badge.textContent = highlightLabel(doc);
     element.prepend(badge);
-    element.scrollIntoView?.({block: 'center', behavior: 'smooth'});
+    if (scroll) {
+        element.scrollIntoView?.({block: 'center', behavior: 'smooth'});
+    }
     return true;
 }
 

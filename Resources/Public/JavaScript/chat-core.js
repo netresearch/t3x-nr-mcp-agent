@@ -7,6 +7,7 @@ import {altTextNoticeText} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {ModuleStateStorage} from '@typo3/backend/storage/module-state-storage.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
 import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
+import {PAGE_MODULE} from '@netresearch/nr-mcp-agent/chat-context-chips.js';
 
 /** How often the page module's page is read while it matters (ADR-023). */
 const PAGE_WATCH_MS = 1000;
@@ -318,6 +319,22 @@ export class ChatCoreController {
     dashboardUrl = '';
     /** The page the page module beside the panel shows (ADR-023). */
     backendPage = {pageId: 0};
+    /** The backend module beside the panel, '' where none is read (NEXT-221). */
+    backendModule = '';
+    /**
+     * The title of the page the page module shows, for the page chip above
+     * the input (NEXT-221), from the server; null until it has answered.
+     * @type {{pageId: number, title: string}|null}
+     */
+    pageTitle = null;
+    /** The page whose title is being read, 0 when none. */
+    _pageTitleLoading = 0;
+    /**
+     * Whether the row above the input can show now: the panel sets it while
+     * it is open, so a page-tree click with the chat closed reads nothing
+     * from the server.
+     */
+    pageTitleWanted = false;
     /** A page the user chose not to switch the tour to. */
     pageKept = 0;
     /**
@@ -1388,14 +1405,49 @@ export class ChatCoreController {
         }
     }
 
-    /** @param {() => {pageId: number, languageId?: number}} [read] */
+    /** @param {() => {pageId: number, module?: string, languageId?: number}} [read] */
     refreshBackendPage(read = currentBackendContext) {
         const context = read();
         const pageId = context.pageId || 0;
         const languageId = context.languageId;
+        const module = typeof context.module === 'string' ? context.module : '';
         if (pageId !== this.backendPage.pageId || languageId !== this.backendPage.languageId) {
             this.backendPage = languageId === undefined ? {pageId} : {pageId, languageId};
             this.host.requestUpdate();
+        }
+        if (module !== this.backendModule) {
+            this.backendModule = module;
+            this.host.requestUpdate();
+        }
+        void this.loadPageTitle();
+    }
+
+    /**
+     * Read the title of the page the page module shows, for the page chip
+     * (NEXT-221). The server names only a page the user may show. A title
+     * that arrives after the page module has moved on is dropped.
+     */
+    async loadPageTitle() {
+        const pageId = this.backendPage.pageId;
+        if (!this.pageTitleWanted || this.backendModule !== PAGE_MODULE || pageId <= 0
+            || this.pageTitle?.pageId === pageId || this._pageTitleLoading === pageId) {
+            return;
+        }
+
+        this._pageTitleLoading = pageId;
+        try {
+            const data = await this._api.getPageTitle(pageId);
+            if (pageId !== this.backendPage.pageId || data?.pageId !== pageId) {
+                return;
+            }
+            this.pageTitle = {pageId, title: typeof data.title === 'string' ? data.title : ''};
+            this.host.requestUpdate();
+        } catch {
+            // No title, no chip: the row is a hint, never a reason to fail.
+        } finally {
+            if (this._pageTitleLoading === pageId) {
+                this._pageTitleLoading = 0;
+            }
         }
     }
 
