@@ -22,6 +22,7 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextGate;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImage;
+use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltText;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextList;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextScan;
@@ -258,6 +259,35 @@ final class AltTextFlowTest extends FunctionalTestCase
         self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
         self::assertSame(1, $this->dispatched);
         self::assertSame('Alt text: team.jpg', $conversation->getTitle());
+    }
+
+    /**
+     * The privacy setting "Bildanalyse" (ADR-026, slice 3) is named on the
+     * card, also where the provider could not see the image anyway: the
+     * setting is the reason that holds whatever the provider.
+     */
+    #[Test]
+    public function withImageAnalysisOffTheCardSaysSo(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['imageAnalysis'] = 'contextOnly';
+
+        $data = $this->start(1)->getDecodedMessages()[0]['data'] ?? [];
+
+        self::assertIsArray($data);
+        self::assertSame(ImageAnalysisPolicy::NOTE_ANALYSIS_OFF, $data['imageNote'] ?? null);
+        self::assertArrayNotHasKey('imageNoteFolder', $data);
+    }
+
+    #[Test]
+    public function anImageInAnExcludedFolderGetsACardThatNamesTheFolder(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_mcp_agent']['imageAnalysisExcludedFolders'] = 'fileadmin/';
+
+        $data = $this->start(1)->getDecodedMessages()[0]['data'] ?? [];
+
+        self::assertIsArray($data);
+        self::assertSame(ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER, $data['imageNote'] ?? null);
+        self::assertSame('fileadmin/', $data['imageNoteFolder'] ?? null);
     }
 
     /** A record's image: its type and title, and the image field. */
@@ -762,6 +792,31 @@ final class AltTextFlowTest extends FunctionalTestCase
         self::assertStringContainsString('Content after it: "Unser Team"', $context);
         self::assertStringContainsString('The image itself is NOT attached', $context);
         self::assertStringNotContainsString('Skipped', json_encode($transcript, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * A worker reads the settings once, when it starts. Where the card,
+     * written in a later request, says the privacy setting keeps the image
+     * back, the model does not get it, whatever the worker still reads.
+     */
+    #[Test]
+    public function anImageTheCardSaysIsKeptBackIsNotSentByAWorkerThatStillAnalyses(): void
+    {
+        $conversation = $this->start(1);
+        $messages     = $conversation->getDecodedMessages();
+        $altText      = $this->get(AltTextConversation::class);
+
+        // The control: with the card as written here, the model gets the image.
+        self::assertIsArray($altText->transcript($conversation, $messages, true)[0]['content']);
+
+        foreach ([ImageAnalysisPolicy::NOTE_ANALYSIS_OFF, ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER] as $note) {
+            $withheld                         = $messages;
+            $withheld[0]['data']['imageNote'] = $note;
+
+            $context = $altText->transcript($conversation, $withheld, true)[0]['content'];
+            self::assertIsString($context);
+            self::assertStringContainsString('The image itself is NOT attached', $context);
+        }
     }
 
     /**

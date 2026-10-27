@@ -52,6 +52,7 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Configuration\ImageAnalysisTurnSettings;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
@@ -69,6 +70,9 @@ use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextFlowPrompt;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextImagePolicyInterface;
+use Netresearch\NrMcpAgent\Service\AltText\AltTextImageRefusal;
+use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
 use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
@@ -241,6 +245,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?OpenPointTrackerInterface $openPoints = null,
         private readonly ?ToolCallPolicyInterface $toolPolicy = null,
         private readonly ?AltTextConversation $altText = null,
+        private readonly ?AltTextImagePolicyInterface $imagePolicy = null,
+        private readonly ?ImageAnalysisTurnSettings $turnSettings = null,
     ) {}
 
     /**
@@ -258,12 +264,25 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     ? $provider->getSupportedDocumentFormats()
                     : [];
 
+                // With the privacy setting "Bildanalyse" on "Nur Kontext
+                // verwenden" no image goes to the provider (ADR-026), so the
+                // picker offers none and the upload endpoint, which checks
+                // against this list, refuses one.
+                // A document format the provider reads natively goes with it:
+                // a PDF carries its photos along. What only text extraction
+                // covers stays below, from $extractionFormats.
+                $analyses     = !$this->imagePolicy instanceof AltTextImagePolicyInterface || $this->imagePolicy->analysesImages();
+                $imageFormats = $analyses ? $provider->getSupportedImageFormats() : [];
+                if (!$analyses) {
+                    $documentFormats = [];
+                }
+
                 // Only advertise provider formats the upload endpoint can also
                 // validate — it matches on the MIME type finfo detects, so an
                 // extension UploadMimeTypeMap cannot translate would reach the
                 // file picker and then be rejected with 422 (Gemini's heic/heif).
                 $providerFormats = $this->uploadMimeTypeMap->knownExtensions([
-                    ...$provider->getSupportedImageFormats(),
+                    ...$imageFormats,
                     ...$documentFormats,
                 ]);
 
@@ -347,6 +366,20 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      *                              this turn only
      */
     private function processTurn(Conversation $conversation, string $operation, bool $afterApproval = false): void
+    {
+        // The turn runs with the privacy setting "Bildanalyse" it was
+        // dispatched with: a worker loaded the configuration when it started
+        // and would otherwise go on with that (ImageAnalysisTurnSettings).
+        if ($this->turnSettings instanceof ImageAnalysisTurnSettings) {
+            $this->turnSettings->during($conversation->getImageAnalysisSnapshot(), fn () => $this->runTurn($conversation, $operation, $afterApproval));
+
+            return;
+        }
+
+        $this->runTurn($conversation, $operation, $afterApproval);
+    }
+
+    private function runTurn(Conversation $conversation, string $operation, bool $afterApproval): void
     {
         $this->resolvedPrompts = null;
 
@@ -1793,10 +1826,19 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $fileUid = is_numeric($msg['fileUid']) ? (int) $msg['fileUid'] : 0;
                 }
 
-                $file      = $this->resourceFactory->getFileObject($fileUid);
-                $localPath = $file->getForLocalProcessing(false);
-                $base64    = base64_encode((string) file_get_contents($localPath));
-                $mimeType  = $file->getMimeType();
+                $file     = $this->resourceFactory->getFileObject($fileUid);
+                $mimeType = $file->getMimeType();
+                // Every attachment is asked about, not only images: a document
+                // the provider reads natively carries its images along.
+                $refusal = $this->imagePolicy instanceof AltTextImagePolicyInterface ? $this->imagePolicy->refusalForFile($file) : null;
+                if ($refusal instanceof AltTextImageRefusal && str_starts_with($mimeType, 'image/')) {
+                    $block = ['type' => 'text', 'text' => $this->withheldFile($refusal, true)];
+                } elseif ($refusal instanceof AltTextImageRefusal) {
+                    $block = $this->extractedOrWithheld($mimeType, $file->getForLocalProcessing(false), $refusal, $provider);
+                } else {
+                    $localPath = $file->getForLocalProcessing(false);
+                    $block     = $this->buildFileContentBlock($mimeType, base64_encode((string) file_get_contents($localPath)), $localPath, $provider);
+                }
 
                 $result[] = [
                     'role'    => is_string($msg['role']) ? $msg['role'] : '',
@@ -1806,7 +1848,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                             'text' => (is_string($msg['content'] ?? null) ? $msg['content'] : '')
                                 . "\n\n" . $this->describeAttachment($file),
                         ],
-                        $this->buildFileContentBlock($mimeType, $base64, $localPath, $provider),
+                        $block,
                     ],
                 ];
             } catch (Throwable) {
@@ -1824,6 +1866,38 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return $result;
+    }
+
+    /**
+     * In place of an attachment the privacy setting "Bildanalyse" keeps back
+     * (ADR-026): the model learns that there is a file it does not see, and
+     * why, so it neither describes it nor claims nothing was attached. Built
+     * per turn like the attachment itself, so one attached before the
+     * setting changed follows the setting of the turn.
+     */
+    private function withheldFile(AltTextImageRefusal $refusal, bool $image): string
+    {
+        $what = $image ? 'image' : 'file';
+
+        return $refusal->note === ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER
+            ? '[The attached ' . $what . ' is not sent to you: files from its folder are never sent to the AI provider as they are (privacy setting of this installation). Do not guess what it shows; say that you cannot see it.]'
+            : '[The attached ' . $what . ' is not sent to you: image analysis is switched off in the privacy settings of this installation. Do not guess what it shows; say that you cannot see it.]';
+    }
+
+    /**
+     * A document the privacy setting keeps back as a file: never sent as the
+     * provider's native document, which would carry its images along, but as
+     * its extracted text, as for a provider that reads no documents. The
+     * extractors return text only. Where none reads the type, the model is
+     * told the file is kept back.
+     *
+     * @return array<string, mixed>
+     */
+    private function extractedOrWithheld(string $mimeType, string $localPath, AltTextImageRefusal $refusal, ProviderInterface $provider): array
+    {
+        return $this->documentExtractorRegistry->canExtract($mimeType)
+            ? $this->buildFileContentBlock($mimeType, '', $localPath, $provider, nativeDocument: false)
+            : ['type' => 'text', 'text' => $this->withheldFile($refusal, false)];
     }
 
     /**
@@ -1866,6 +1940,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         string $base64,
         string $localPath,
         ProviderInterface $provider,
+        bool $nativeDocument = true,
     ): array {
         if (str_starts_with($mimeType, 'image/')) {
             return [
@@ -1874,7 +1949,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             ];
         }
 
-        if ($provider instanceof DocumentCapableInterface && $provider->supportsDocuments()) {
+        if ($nativeDocument && $provider instanceof DocumentCapableInterface && $provider->supportsDocuments()) {
             return [
                 'type'   => 'document',
                 'source' => ['type' => 'base64', 'media_type' => $mimeType, 'data' => $base64],

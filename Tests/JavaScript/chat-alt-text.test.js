@@ -410,6 +410,23 @@ describe('"Optimieren" in the chat panel', () => {
         expect(root.textContent).not.toMatch(/%\d*\$?[sd]/);
     });
 
+    test.each([
+        ['analysisOff', '', 'Die Bildanalyse ist in den Einstellungen abgeschaltet. Der Vorschlag beruht nur auf Seite, Content-Element und Dateiname. Prüfe, ob er zum Bild passt.'],
+        ['excludedFolder', 'fileadmin/team/', 'Bilder aus dem Ordner fileadmin/team/ werden nicht an die KI übertragen. Der Vorschlag beruht nur auf Seite, Content-Element und Dateiname. Prüfe, ob er zum Bild passt.'],
+    ])('in German the card says why the privacy setting kept the image back (%s)', async (imageNote, imageNoteFolder, text) => {
+        globalThis.TYPO3.lang = germanLabels();
+        messages = [];
+        await panel.optimiseAltText(1);
+        messages = [{...CARD, data: {...CARD.data, imageNote, ...(imageNoteFolder ? {imageNoteFolder} : {})}}];
+        status = 'idle';
+        await panel.chat.loadMessages();
+        await panel.updateComplete;
+
+        const note = panel.shadowRoot.querySelector('.alt-text-card .alt-text-note');
+        expect(note.textContent).toBe(text);
+        expect(note.textContent).not.toMatch(/%\d*\$?[sd]/);
+    });
+
     test('a row chosen while the proposing turn runs is taken up when the turn ends', async () => {
         await panel.optimiseAltText(1);
         status = 'processing';

@@ -120,7 +120,7 @@ class AltTextConversation
             sprintf('[Image card: reference %d, file "%s".]', $hit->referenceUid, $hit->fileName),
             self::NOTICE_HIT,
             [],
-            [...$card, 'reference' => $hit->referenceUid, 'imageNote' => $this->image->note($hit->referenceUid, $vision)],
+            [...$card, 'reference' => $hit->referenceUid, ...$this->image->cardNote($hit->referenceUid, $vision)],
         );
         $conversation->setAltTextHit($hit->referenceUid, $this->list->position($hit));
         if ($followsImage) {
@@ -232,8 +232,12 @@ class AltTextConversation
 
             $data     = is_array($message['data'] ?? null) ? $message['data'] : [];
             $fileName = is_string($data['fileName'] ?? null) ? $data['fileName'] : '';
+            // An image the card says the privacy setting keeps back is never
+            // sent, also by a worker that started before the setting changed
+            // and still reads the old one.
+            $withheld = in_array($data['imageNote'] ?? null, [ImageAnalysisPolicy::NOTE_ANALYSIS_OFF, ImageAnalysisPolicy::NOTE_EXCLUDED_FOLDER], true);
             $result[] = $index === $latest
-                ? ['role' => MessageRole::User->value, 'content' => $this->context($reference, $vision)]
+                ? ['role' => MessageRole::User->value, 'content' => $this->context($reference, $vision && !$withheld)]
                 : ['role' => MessageRole::User->value, 'content' => sprintf('[An earlier image of this conversation, "%s". The editor has moved on to another image; do not work on it any more.]', $fileName)];
         }
 

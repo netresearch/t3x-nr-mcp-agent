@@ -14,7 +14,8 @@ import { test, expect, waitForBackend, dashboardWidgetsLoaded } from '../fixture
  * alt-text-optimise-seed.sql enables the two tools of the flow and holds two
  * conversations of that user waiting on a proposed alt text for the image of
  * "E2E Hidden". Nothing here writes an image, so missing-alt-texts.spec.ts
- * still finds three.
+ * still finds three. The images' folder, fileadmin/e2e/, is excluded from
+ * image analysis.
  *
  * The E2E provider is never reachable (nr-llm-task-seed.sql): the run that
  * proposes the text fails within seconds, and the conversation waits for the
@@ -92,6 +93,9 @@ test.describe('"Optimieren" in the list of missing alt texts', () => {
         await expect(panel.locator('.alt-text-context .alt-text-chip').first()).toHaveText('E2E Alt texts');
         // The values are filled in, also where the label orders them by number.
         await expect(panel.locator('.alt-text-context-info')).toHaveText(/in the element Text & Images – “E2E Team” on the page E2E Alt texts\./);
+        // The seeded images lie in an excluded folder (seed-and-test.sh): the
+        // card says that the image is not sent, and names the folder.
+        await expect(card.locator('.alt-text-note')).toHaveText('Images from the folder fileadmin/e2e/ are not sent to the AI. The proposal is based on the page, the content element and the file name only. Check that it fits the image.');
         await runEnded(panel);
 
         // "Optimise the next hit": the divider naming the new image, its card,

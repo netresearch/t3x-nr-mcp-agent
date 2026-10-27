@@ -42,6 +42,8 @@ function userLine(text) {
 const IMAGE_NOTES = new Map([
     ['noVision', 'altText.note.noVision'],
     ['unreadable', 'altText.note.unreadable'],
+    ['analysisOff', 'altText.note.analysisOff'],
+    ['excludedFolder', 'altText.note.excludedFolder'],
 ]);
 
 export const chatAltTextStyles = css`
@@ -295,7 +297,7 @@ function renderCard(data, idx, current) {
                 ${cardLines(data).map(([label, value]) => html`<dt>${label}:</dt><dd>${value}</dd>`)}
             </dl>
             <p>${lll('altText.missing')}</p>
-            ${note ? html`<p class="alt-text-note">${lll(note)}</p>` : nothing}
+            ${note ? html`<p class="alt-text-note">${format(lll(note), data.imageNoteFolder ?? '')}</p>` : nothing}
         </section>
     `;
 }
