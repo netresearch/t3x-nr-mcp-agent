@@ -52,7 +52,9 @@ readonly class GuidedStateLinker
             // A new point without a highlight is about no element: the
             // element of the point before is no longer what it is about
             // (NEXT-221). Both come from this run's state, so the order of
-            // the two tool calls within the point does not matter.
+            // the two tool calls within one run does not matter; a highlight
+            // set before an approval pause and progress reported only after
+            // the resume would drop it (the tours report progress first).
             $highlight = null;
         }
 

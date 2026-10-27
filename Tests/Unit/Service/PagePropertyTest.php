@@ -56,16 +56,16 @@ final class PagePropertyTest extends TestCase
     #[Test]
     public function aColumnThatIsNotExcludedMayBeEditedByAnyone(): void
     {
-        self::assertTrue(PageProperty::mayEdit('title', $this->user(false, '')));
+        self::assertTrue(PageProperty::isAllowedField('title', $this->user(false, '')));
     }
 
     #[Test]
     public function anExcludedColumnNeedsTheFieldOrAnAdministrator(): void
     {
-        self::assertFalse(PageProperty::mayEdit('description', $this->user(false, '')));
-        self::assertFalse(PageProperty::mayEdit('description', $this->user(false, 'tt_content:description')), 'the field of another table');
-        self::assertTrue(PageProperty::mayEdit('description', $this->user(false, 'pages:description')));
-        self::assertTrue(PageProperty::mayEdit('description', $this->user(true, '')));
+        self::assertFalse(PageProperty::isAllowedField('description', $this->user(false, '')));
+        self::assertFalse(PageProperty::isAllowedField('description', $this->user(false, 'tt_content:description')), 'the field of another table');
+        self::assertTrue(PageProperty::isAllowedField('description', $this->user(false, 'pages:description')));
+        self::assertTrue(PageProperty::isAllowedField('description', $this->user(true, '')));
     }
 
     #[Test]
@@ -73,9 +73,9 @@ final class PagePropertyTest extends TestCase
     {
         $admin = $this->user(true, '');
 
-        self::assertFalse(PageProperty::mayEdit('header', $admin), 'not a column of pages');
-        self::assertFalse(PageProperty::mayEdit('', $admin));
-        self::assertFalse(PageProperty::mayEdit('title,description', $admin), 'not a column name');
+        self::assertFalse(PageProperty::isAllowedField('header', $admin), 'not a column of pages');
+        self::assertFalse(PageProperty::isAllowedField('', $admin));
+        self::assertFalse(PageProperty::isAllowedField('title,description', $admin), 'not a column name');
     }
 
     #[Test]

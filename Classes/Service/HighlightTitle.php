@@ -78,7 +78,7 @@ readonly class HighlightTitle
         if ($field === ''
             || !($this->highlightPolicy ?? new ConversationPageHighlightPolicy())->allows($conversation, 'pages', $pageUid, $pageUid)
             || !$this->mayShowPage($pageUid, $user)
-            || !PageProperty::mayEdit($field, $user)
+            || !PageProperty::isAllowedField($field, $user)
         ) {
             return '';
         }

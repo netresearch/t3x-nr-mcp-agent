@@ -29,8 +29,10 @@ final class PageProperty
      * Whether the column exists in the TCA of `pages` and is not an excluded
      * field the user lacks: an excluded field needs an administrator or the
      * field in the user's `non_exclude_fields`, as in the page properties form.
+     * Not a permission to edit the page: the tool that writes the property
+     * checks that when it is called.
      */
-    public static function mayEdit(string $field, BackendUserAuthentication $user): bool
+    public static function isAllowedField(string $field, BackendUserAuthentication $user): bool
     {
         $column = self::column($field);
         if ($column === null) {

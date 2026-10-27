@@ -119,7 +119,7 @@ final class HighlightElementTool extends GuidedTool
     private function highlightPageField(array $arguments, AgentRunReference $run, int $owner, BackendUserAuthentication $user): ToolResult
     {
         $field = $arguments['pageField'];
-        if (!is_string($field) || !PageProperty::mayEdit($field, $user)) {
+        if (!is_string($field) || !PageProperty::isAllowedField($field, $user)) {
             // One answer for "no such column" and "excluded for you".
             return ToolResult::error(self::PAGE_FIELD_REFUSED);
         }
