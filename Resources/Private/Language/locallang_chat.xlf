@@ -853,6 +853,9 @@
             <trans-unit id="context.element" resname="context.element">
                 <source>Element</source>
             </trans-unit>
+            <trans-unit id="context.pageField" resname="context.pageField">
+                <source>Page property</source>
+            </trans-unit>
             <trans-unit id="context.showElement" resname="context.showElement">
                 <source>Hover or focus marks the element in the page module, a click scrolls to it.</source>
             </trans-unit>
@@ -861,6 +864,9 @@
             </trans-unit>
             <trans-unit id="context.info.element" resname="context.info.element">
                 <source>The assistant changes only the element “%1$s” on the page “%2$s”. Other content stays untouched.</source>
+            </trans-unit>
+            <trans-unit id="context.info.pageField" resname="context.info.pageField">
+                <source>The assistant changes only the page property “%1$s” of the page “%2$s”.</source>
             </trans-unit>
             <trans-unit id="context.info.page" resname="context.info.page">
                 <source>Scope: the whole page “%1$s”. Changes are made only after your confirmation.</source>

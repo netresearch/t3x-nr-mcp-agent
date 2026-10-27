@@ -11,14 +11,16 @@ import {contextOfAltText} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 /**
  * The row of chips above the chat input that says what the chat is about
  * (NEXT-221): the page, in a guided process also the element its current
- * step is about, and an (i) whose tooltip says what the assistant may
- * change. A conversation about a missing alt text (ADR-026) shows its image
+ * step is about (a content element or a property of the page), and an (i)
+ * whose tooltip says what the assistant may change. A conversation about a missing alt text (ADR-026) shows its image
  * in the same row.
  *
  * Shared by the full-page module and the panel, like chat-alt-text.js, so
  * the two cannot drift. Only the panel passes the window it lives in: there
  * the page module is beside the chat, and hovering, focusing or clicking the
- * element chip marks the element there. In the module the chip is text.
+ * element chip marks the element there. In the module the chip is text, and
+ * so is a page property's chip everywhere: the page module has no element
+ * for it.
  */
 
 /** The page module (Layout), the one module whose page the row names. */
@@ -215,7 +217,7 @@ export function aboutPageModulePage(chat) {
  * current step; the page the page module beside the chat shows.
  *
  * @param {object} chat the ChatCoreController
- * @returns {{label: string, chips: Array<{kind: string, text: string, highlight?: {table: string, uid: number}}>, info: string, note: string, altText: boolean}|null}
+ * @returns {{label: string, chips: Array<{kind: string, text: string, property?: boolean, highlight?: {table: string, uid: number}}>, info: string, note: string, altText: boolean}|null}
  */
 export function contextChips(chat) {
     const altText = contextOfAltText(chat);
@@ -236,18 +238,29 @@ export function contextChips(chat) {
             return null;
         }
         const highlight = chat.guided?.highlight;
-        const element = highlight?.table === 'tt_content' && typeof highlight.title === 'string' ? highlight.title : '';
+        const named = (highlight?.table === 'tt_content' || highlight?.table === 'pages') && typeof highlight.title === 'string';
+        const element = named ? highlight.title : '';
+        // A property of the page (NEXT-221): named by its label, with nothing
+        // to mark in the page module.
+        const property = element !== '' && highlight.table === 'pages';
         const chips = [{kind: 'page', text: page}];
-        if (element !== '') {
+        if (property) {
+            chips.push({kind: 'element', text: element, property: true});
+        } else if (element !== '') {
             chips.push({kind: 'element', text: element, highlight: {table: 'tt_content', uid: highlight.uid}});
+        }
+
+        let info = format(lll('context.info.page'), page);
+        if (property) {
+            info = format(lll('context.info.pageField'), element, page);
+        } else if (element !== '') {
+            info = format(lll('context.info.element'), element, page);
         }
 
         return {
             label: lll('context.label'),
             chips,
-            info: element !== ''
-                ? format(lll('context.info.element'), element, page)
-                : format(lll('context.info.page'), page),
+            info,
             note: '',
             altText: false,
         };
@@ -359,8 +372,8 @@ function renderChip(chip, legacyClass, win, frame) {
         return html`<span class="context-chip page" title="${chip.text}">${ICON_PAGE(12)}<span class="visually-hidden">${lll('context.page')}: </span><span class="context-chip-text">${chip.text}</span></span>`;
     }
 
-    const content = html`<span class="context-marker" aria-hidden="true"></span><span class="visually-hidden">${lll('context.element')}: </span><span class="context-chip-text">${chip.text}</span>`;
-    if (!frame) {
+    const content = html`<span class="context-marker" aria-hidden="true"></span><span class="visually-hidden">${lll(chip.property ? 'context.pageField' : 'context.element')}: </span><span class="context-chip-text">${chip.text}</span>`;
+    if (!frame || !chip.highlight) {
         return html`<span class="context-chip element" title="${chip.text}">${content}</span>`;
     }
 

@@ -30,6 +30,7 @@ const SURFACES = [
 
 const TOUR = {pageUid: 20, languageUid: 0, pageTitle: 'AI Chat Agent', languageName: 'Deutsch'};
 const HERO = {table: 'tt_content', uid: 100, title: 'Hero'};
+const META = {table: 'pages', uid: 20, field: 'description', title: 'Meta Description'};
 const SKILL = {identifier: '3:seo/page-tour', name: 'SEO einer Seite', title: null, bindsPage: true};
 
 /** The page module beside the chat shows page 20, whose title the server named. */
@@ -126,6 +127,22 @@ describe.each(SURFACES)('$name: when the row appears', ({module: modulePath, tag
         el.chat.guided = {progress: null, highlight: {table: 'tt_content', uid: 100, title: ''}};
         el.requestUpdate();
         await el.updateComplete;
+        expect(chipTexts(el)).toEqual(['AI Chat Agent']);
+        expect(tooltip(el).textContent).toBe('Bereich: ganze Seite „AI Chat Agent“. Geändert wird nur nach deiner Bestätigung.');
+    });
+
+    test('a step about a page property names the property, and the (i) says only that property changes (NEXT-221)', async () => {
+        const el = await render(modulePath, tag, open, {skill: SKILL, tour: TOUR, guided: {progress: null, highlight: META}});
+
+        expect(chipTexts(el)).toEqual(['AI Chat Agent', 'Meta Description']);
+        expect(row(el).querySelector('.context-chip.element').textContent).toBe('Seiteneigenschaft: Meta Description');
+        expect(row(el).querySelector('.context-chip.element .context-marker')).not.toBeNull();
+        expect(tooltip(el).textContent).toBe('Der Assistant ändert nur die Seiteneigenschaft „Meta Description“ der Seite „AI Chat Agent“.');
+    });
+
+    test('a page property the server did not name shows the page only', async () => {
+        const el = await render(modulePath, tag, open, {skill: SKILL, tour: TOUR, guided: {progress: null, highlight: {...META, title: ''}}});
+
         expect(chipTexts(el)).toEqual(['AI Chat Agent']);
         expect(tooltip(el).textContent).toBe('Bereich: ganze Seite „AI Chat Agent“. Geändert wird nur nach deiner Bestätigung.');
     });
@@ -244,6 +261,19 @@ describe.each(SURFACES)('$name: the element chip and the page module', ({module:
             [{...sent, scroll: false}, window.location.origin],
             [{...sent, scroll: true}, window.location.origin],
         ]);
+    });
+
+    test('a page property has nothing to mark in the page module: its chip is text, and nothing is posted', async () => {
+        const postMessage = jest.fn();
+        window.list_frame = {postMessage};
+        const el = await render(modulePath, tag, open, {...besidePageModule, guided: {progress: null, highlight: META}});
+        const chip = row(el).querySelector('.context-chip.element');
+
+        expect(chip.tagName).toBe('SPAN');
+        expect(row(el).querySelector('[data-action="show-element"]')).toBeNull();
+        chip.dispatchEvent(new MouseEvent('mouseenter'));
+        chip.click();
+        expect(postMessage.mock.calls.filter(([data]) => data.table !== undefined)).toEqual([]);
     });
 
     test.each([

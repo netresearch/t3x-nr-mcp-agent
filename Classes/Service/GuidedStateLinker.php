@@ -24,7 +24,9 @@ use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
  * subject targets (HighlightTargetPolicyInterface): the tool checked that the
  * user may see the element, this checks that it belongs to what the
  * conversation is about. A completion
- * report ends the tour, so it also drops the highlight.
+ * report ends the tour, so it also drops the highlight. A run that moves to
+ * another point and names no element drops the highlight of the point
+ * before; a run that stays on the point and names none keeps it.
  */
 readonly class GuidedStateLinker
 {
@@ -41,8 +43,21 @@ readonly class GuidedStateLinker
         }
 
         $current   = $conversation->getGuidedState();
-        $progress  = $this->progress($state['progress']) ?? $current['progress'];
-        $highlight = $state['highlight'] !== null ? $this->highlight($state['highlight'], $conversation) : $current['highlight'];
+        $reported  = $this->progress($state['progress']);
+        $progress  = $reported ?? $current['progress'];
+        $highlight = $current['highlight'];
+        if ($state['highlight'] !== null) {
+            $highlight = $this->highlight($state['highlight'], $conversation);
+        } elseif ($reported !== null && $reported['current'] !== ($current['progress']['current'] ?? null)) {
+            // A new point without a highlight is about no element: the
+            // element of the point before is no longer what it is about
+            // (NEXT-221). Both come from this run's state, so the order of
+            // the two tool calls within one run does not matter; a highlight
+            // set before an approval pause and progress reported only after
+            // the resume would drop it (the tours report progress first).
+            $highlight = null;
+        }
+
         $conversation->setGuidedState($progress, ($progress['completed'] ?? false) ? null : $highlight);
         // Taken over: the conversation holds it now, and the table stays small.
         $this->runState->delete($runUuid, $conversation->getBeUser());
@@ -65,18 +80,33 @@ readonly class GuidedStateLinker
     }
 
     /**
+     * A content element keeps its uid; a page property (NEXT-221) gets the
+     * conversation's page, which the tool cannot know — the property is
+     * always one of the page the conversation is about.
+     *
      * @param array<string, mixed> $highlight
      *
-     * @return array{table: string, uid: int}|null
+     * @return array{table: string, uid: int, field?: string}|null
      */
     private function highlight(array $highlight, Conversation $conversation): ?array
     {
-        $uid   = $highlight['uid'] ?? null;
-        $pid   = $highlight['pid'] ?? null;
-        $table = $highlight['table'] ?? null;
+        $policy = $this->highlightPolicy ?? new ConversationPageHighlightPolicy();
+        $table  = $highlight['table'] ?? null;
+
+        if ($table === 'pages') {
+            $page  = $conversation->getViewContext()['pageId'];
+            $field = $highlight['field'] ?? null;
+
+            return is_string($field) && $policy->allows($conversation, 'pages', $page, $page)
+                ? ['table' => 'pages', 'uid' => $page, 'field' => $field]
+                : null;
+        }
+
+        $uid = $highlight['uid'] ?? null;
+        $pid = $highlight['pid'] ?? null;
 
         return $table === 'tt_content' && is_int($uid) && is_int($pid)
-            && ($this->highlightPolicy ?? new ConversationPageHighlightPolicy())->allows($conversation, $table, $uid, $pid)
+            && $policy->allows($conversation, $table, $uid, $pid)
             ? ['table' => 'tt_content', 'uid' => $uid]
             : null;
     }

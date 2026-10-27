@@ -664,7 +664,11 @@ final class Conversation
     }
 
     /**
-     * @return array{progress: array{label: string, current: int, total: int, completed: bool}|null, highlight: array{table: string, uid: int}|null}
+     * The highlight is a content element `{table: 'tt_content', uid}` or a
+     * property of the conversation's page `{table: 'pages', uid, field}`
+     * (NEXT-221); any other shape reads as none.
+     *
+     * @return array{progress: array{label: string, current: int, total: int, completed: bool}|null, highlight: array{table: string, uid: int, field?: string}|null}
      */
     public function getGuidedState(): array
     {
@@ -676,15 +680,38 @@ final class Conversation
             'progress' => is_array($progress) && is_string($progress['label'] ?? null) && is_int($progress['current'] ?? null) && is_int($progress['total'] ?? null)
                 ? ['label' => $progress['label'], 'current' => $progress['current'], 'total' => $progress['total'], 'completed' => ($progress['completed'] ?? false) === true]
                 : null,
-            'highlight' => is_array($highlight) && ($highlight['table'] ?? null) === 'tt_content' && is_int($highlight['uid'] ?? null)
-                ? ['table' => 'tt_content', 'uid' => $highlight['uid']]
-                : null,
+            'highlight' => is_array($highlight) ? $this->guidedHighlight($highlight) : null,
         ];
     }
 
     /**
+     * @param array<array-key, mixed> $highlight
+     *
+     * @return array{table: string, uid: int, field?: string}|null
+     */
+    private function guidedHighlight(array $highlight): ?array
+    {
+        $table = $highlight['table'] ?? null;
+        $uid   = $highlight['uid'] ?? null;
+        if (!is_int($uid)) {
+            return null;
+        }
+
+        if ($table === 'tt_content') {
+            return ['table' => 'tt_content', 'uid' => $uid];
+        }
+
+        $field = $highlight['field'] ?? null;
+        if ($table === 'pages' && $uid > 0 && is_string($field) && $field !== '') {
+            return ['table' => 'pages', 'uid' => $uid, 'field' => $field];
+        }
+
+        return null;
+    }
+
+    /**
      * @param array{label: string, current: int, total: int, completed: bool}|null $progress
-     * @param array{table: string, uid: int}|null                                  $highlight
+     * @param array{table: string, uid: int, field?: string}|null                  $highlight
      */
     public function setGuidedState(?array $progress, ?array $highlight): void
     {

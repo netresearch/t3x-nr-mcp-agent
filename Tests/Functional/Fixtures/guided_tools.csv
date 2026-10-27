@@ -1,6 +1,6 @@
 "be_groups"
-,"uid","pid","title","tables_select","db_mountpoints","allowed_languages","tstamp","crdate"
-,1,0,"Redaktion","tt_content","20,30","0",1710000000,1710000000
+,"uid","pid","title","tables_select","db_mountpoints","allowed_languages","non_exclude_fields","tstamp","crdate"
+,1,0,"Redaktion","tt_content","20,30","0","pages:description",1710000000,1710000000
 "be_users"
 ,"uid","pid","username","password","admin","usergroup","tstamp","crdate"
 ,1,0,"admin","$2y$12$xxx",1,"",1710000000,1710000000

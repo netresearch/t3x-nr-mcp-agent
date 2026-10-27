@@ -47,7 +47,19 @@ final class HighlightTargetPolicyTest extends TestCase
         self::assertTrue($policy->allows($this->onPage(20), 'tt_content', 100, 20));
         self::assertFalse($policy->allows($this->onPage(20), 'tt_content', 100, 30), 'another page');
         self::assertFalse($policy->allows($this->onPage(0), 'tt_content', 100, 0), 'no page');
-        self::assertFalse($policy->allows($this->onPage(20), 'pages', 20, 20), 'not a content element');
+        self::assertFalse($policy->allows($this->onPage(20), 'be_users', 20, 20), 'neither a content element nor the page');
+    }
+
+    /** A property of the page counts for the conversation's own page only (NEXT-221). */
+    #[Test]
+    public function thePageItselfIsAllowedForItsProperties(): void
+    {
+        $policy = new ConversationPageHighlightPolicy();
+
+        self::assertTrue($policy->allows($this->onPage(20), 'pages', 20, 20));
+        self::assertFalse($policy->allows($this->onPage(20), 'pages', 30, 30), 'another page');
+        self::assertFalse($policy->allows($this->onPage(20), 'pages', 30, 20), "a page below the conversation's page");
+        self::assertFalse($policy->allows($this->onPage(0), 'pages', 0, 0), 'no page');
     }
 
     private function linkedHighlight(?HighlightTargetPolicyInterface $policy, int $pid): ?array
@@ -76,6 +88,39 @@ final class HighlightTargetPolicyTest extends TestCase
         $denies->expects(self::once())->method('allows')->with(self::isInstanceOf(Conversation::class), 'tt_content', 100, 20)->willReturn(false);
 
         self::assertNull($this->linkedHighlight($denies, 20));
+    }
+
+    /**
+     * The tool names a page property without a page: the linker gives it the
+     * conversation's page, and keeps nothing for a conversation without one.
+     */
+    #[Test]
+    public function aPagePropertyGetsTheConversationsPage(): void
+    {
+        $runState = $this->createMock(RunStateRepository::class);
+        $runState->method('find')->willReturn(['progress' => null, 'highlight' => ['table' => 'pages', 'field' => 'description', 'uid' => 99]]);
+
+        $conversation = $this->onPage(20);
+        (new GuidedStateLinker($runState))->absorb($conversation, 'run-1');
+        self::assertSame(['table' => 'pages', 'uid' => 20, 'field' => 'description'], $conversation->getGuidedState()['highlight']);
+
+        $withoutPage = $this->onPage(0);
+        (new GuidedStateLinker($runState))->absorb($withoutPage, 'run-1');
+        self::assertNull($withoutPage->getGuidedState()['highlight']);
+    }
+
+    #[Test]
+    public function aPolicyDecidesWhichPagePropertyIsKept(): void
+    {
+        $runState = $this->createMock(RunStateRepository::class);
+        $runState->method('find')->willReturn(['progress' => null, 'highlight' => ['table' => 'pages', 'field' => 'description']]);
+        $denies = $this->createMock(HighlightTargetPolicyInterface::class);
+        $denies->expects(self::once())->method('allows')->with(self::isInstanceOf(Conversation::class), 'pages', 20, 20)->willReturn(false);
+
+        $conversation = $this->onPage(20);
+        (new GuidedStateLinker($runState, $denies))->absorb($conversation, 'run-1');
+
+        self::assertNull($conversation->getGuidedState()['highlight']);
     }
 
     #[Test]

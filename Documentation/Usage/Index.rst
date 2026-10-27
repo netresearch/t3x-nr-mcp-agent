@@ -164,15 +164,22 @@ When the chat is about one page, a row of chips above the input says which:
     on. Only a page you may see is named.
 *   **The element chip** (white, with a black circle and a yellow dot)
     appears in a guided process when the current point is about a content
-    element, and changes with the point. Beside the page module, pointing at
+    element, and changes with the point; a point about no element shows the
+    page chip only. Beside the page module, pointing at
     it or focusing it with the keyboard marks the element in the page
     layout, and a click scrolls it into view. In the full-page chat module,
     in the popped-out panel and while the page module shows another page,
     the chip is only a label.
+*   **A page property** such as the meta description gets the same chip
+    when the current point is about it, named by the field's label as in
+    the page properties. The page module has no element for it, so this
+    chip is always only a label, and an element marked in an earlier point
+    is no longer marked.
 *   **The (i)** at the end of the row says what the assistant may change,
     for example "Bereich: ganze Seite „AI Chat Agent“. Geändert wird nur
-    nach deiner Bestätigung." It opens on pointing at it and on keyboard
-    focus; Escape closes it.
+    nach deiner Bestätigung." or, for a page property, "Der Assistant
+    ändert nur die Seiteneigenschaft „…“ der Seite „AI Chat Agent“." It opens
+    on pointing at it and on keyboard focus; Escape closes it.
 
 A long title is shortened in the chip; the full title is in the chip's
 tooltip and in the text of the (i). There is no row for a skill that works
@@ -273,7 +280,8 @@ A skill can walk you through a page one point at a time. While it does:
     frame and the label "Betrifft den aktuellen Vorschlag", and is scrolled
     into view; a screen reader hears which element is marked. The full-page
     chat module and the popped-out panel have no page module beside them and
-    only show the progress.
+    only show the progress. A point about a page property, such as the meta description,
+    marks nothing in the page module; the chip above the input names it.
 *   **Each proposal shows its outcome.** A proposal is shown as a block with
     what is affected and, where nr-llm provides it, the current and the
     proposed value with its length. After you answer "Übernehmen", the chat

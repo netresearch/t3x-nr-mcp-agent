@@ -76,7 +76,7 @@ fixed label from the page module's own language file, never from the
 message, and the floating panel announces the marked element in a status
 region. Which highlight a conversation keeps goes through
 ``HighlightTargetPolicyInterface``; today an element on the conversation's
-page.
+page, or a property of that page itself (ADR-020, amendment of 2026-10-27).
 
 **The process can be ended.** A × beside the progress ends it through
 ``POST /ai-chat/conversations/end-tour``: a run waiting on a proposal or a
