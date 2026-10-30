@@ -43,7 +43,8 @@ final readonly class DashboardCountInvalidation
     private function flush(): void
     {
         try {
-            $this->cacheManager->getCache(DescriptionTour::CACHE)->flushByTag(DescriptionTour::CACHE_TAG);
+            // Every entry is a count; dropping them all is the cheapest flush.
+            $this->cacheManager->getCache(DescriptionTour::CACHE)->flush();
         } catch (NoSuchCacheException) {
             // Not configured (an override removed it): nothing is cached.
         }
