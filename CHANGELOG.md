@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-30
+
+### Changed
+
+- **Every list of conversations shows the same row (#281, ADR-027).** The chat module, the panel's tabs and "more" list, the maximized sidebar, the minimized bar and the dashboard widget "Recent chats" show a title, a context line, the time of the last message and the status in words. The lists show pinned conversations first, then by last message. Empty conversations are left out, except the open one.
+- **Guided tours have titles that tell them apart (#281).** A new tour is titled `<skill> · <page>` instead of its start message "Diese Seite prüfen", and the title follows a page rename. A title the user gave by renaming is never replaced, also not by a turn still running. Other titles are shortened to the first sentence or 60 characters, with the full text as tooltip. Two conversations a list would show alike get their start time after the title.
+- **The context line names what the title does not (#281):** "Guided Tour · Punkt 2 von 5", and skill and page for renamed tours and other skill chats. A page is named only when the user may see it in the page tree, in the conversation's language where the user may edit it.
+- **Time and status are written out (#281).** The time of the last message reads "Heute, 10:42", "Gestern, …" or the date, in the reader's time zone, with the exact time as tooltip. The status is a word: "Bereit" neutral, "Wartet auf deine Antwort/Freigabe" in warning colour with an icon, a running turn as info, a failed one as danger. Panel tabs show the status icon and the title; context, status and time are in the tooltip and are the tab's description for screen readers. The search of the "more" list also matches the context.
+- **The dashboard widget "Recent chats" spans the full width and lists ten conversations (#281).** Widget positions users have already stored keep their old, narrow size until those positions are reset.
+
+### Upgrading
+
+- **Update the database schema.** `tx_nrmcpagent_conversation` gains the columns `title_source` and `last_message_at`; run the database analyzer. The conversation lists read both columns and every message save writes `last_message_at`, so the chat needs them.
+- **Run the upgrade wizard `nrMcpAgent_lastMessageTime`.** It fills `last_message_at` for conversations saved before the column existed. Until it has run, the lists read the time of older conversations from their last message.
+
 ## [0.25.0] - 2026-10-27
 
 ### Added
