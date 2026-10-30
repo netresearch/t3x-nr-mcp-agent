@@ -125,6 +125,40 @@ final class ConversationTitleTest extends TestCase
         self::assertSame($title, ConversationTitle::shorten($title));
     }
 
+    /**
+     * The cut ends in a character whose last byte is also a byte of "–" or
+     * "—" (0x80, 0x93): it stays whole, and the title stays valid UTF-8.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function lastCharacters(): iterable
+    {
+        yield 'Cyrillic er' => ['р'];
+        yield 'CJK one' => ['一'];
+        yield 'emoji' => ['😀'];
+        yield 'O with acute' => ['Ó'];
+    }
+
+    #[Test]
+    #[DataProvider('lastCharacters')]
+    public function aCutKeepsItsLastCharacterWhole(string $last): void
+    {
+        $shortened = ConversationTitle::shorten(str_repeat('a', 59) . $last . str_repeat('b', 20));
+
+        self::assertTrue(mb_check_encoding($shortened, 'UTF-8'));
+        self::assertSame(str_repeat('a', 59) . $last . '…', $shortened);
+    }
+
+    /** Punctuation and dashes before the "…" still go. */
+    #[Test]
+    public function aCutDropsTrailingPunctuationAndDashes(): void
+    {
+        self::assertSame(
+            str_repeat('a', 50) . '…',
+            ConversationTitle::shorten(str_repeat('a', 50) . ' –, — ;: ' . str_repeat('b', 30)),
+        );
+    }
+
     #[Test]
     public function aTourTitleNamesTheSkillAndThePage(): void
     {

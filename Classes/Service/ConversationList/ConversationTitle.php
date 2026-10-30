@@ -83,7 +83,10 @@ final class ConversationTitle
             $cut = mb_substr($cut, 0, $space);
         }
 
-        return rtrim($cut, " \t,;:-–—") . '…';
+        // Character-wise: rtrim() reads its mask as bytes, and the bytes of
+        // "–" and "—" end other characters ("р", "一", "😀", "Ó") as well, so
+        // it cut those in half and left invalid UTF-8.
+        return (preg_replace('/[\s,;:\-–—]+$/u', '', $cut) ?? $cut) . '…';
     }
 
     /**

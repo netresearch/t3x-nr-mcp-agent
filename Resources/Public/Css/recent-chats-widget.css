@@ -16,6 +16,11 @@
 }
 
 .nr-recent-chats {
+    /* The container the narrow layout below asks for. Nothing between the
+     * list and the frame's root is one (.dashboard-item sets only `contain:
+     * inline-size`), so without it the query measured the whole module, not
+     * the widget. */
+    container-type: inline-size;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -106,7 +111,8 @@
 }
 
 /* Below the width of a small widget the status and the time take too much
- * room beside the title; they move under it. */
+ * room beside the title; they move under it. Measured on the list
+ * (.nr-recent-chats), the entries' container. */
 @container (max-width: 30rem) {
     .nr-recent-chats-entry {
         flex-wrap: wrap;
