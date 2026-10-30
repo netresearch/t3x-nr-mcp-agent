@@ -62,6 +62,21 @@ describe('describeTime', () => {
         expect(pastMidnight.label).toBe('Heute, 23:59');
     });
 
+    /**
+     * Further ahead than any clock difference (a time written by a host with a
+     * wrong clock, or a test fixture dated ahead): the date it names, as the
+     * server words it, not "today".
+     */
+    test('a time far in the future is its date', () => {
+        const later = describeTime(at(2026, 10, 24, 13, 1), {locale: 'de', now, ...words});
+        expect(later.kind).toBe('today');
+        expect(later.label).toBe('Heute, 13:01');
+
+        const far = describeTime('2099-01-01T10:00:00+00:00', {locale: 'en-US', now});
+        expect(far.kind).toBe('date');
+        expect(far.label).toBe('Jan 1');
+    });
+
     test('nothing for a missing or broken time, and the browser locale for an unknown one', () => {
         expect(describeTime('', {now})).toBeNull();
         expect(describeTime(undefined, {now})).toBeNull();

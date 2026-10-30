@@ -12,6 +12,14 @@
  * "Gestern" at its next render instead of keeping the server's "Heute".
  */
 
+/**
+ * How far ahead of the reader's clock a time may be and still count as now:
+ * clocks that keep time differ by seconds, a badly set one by minutes. A time
+ * further ahead is no clock difference; it is shown as the date it names, as
+ * the server words it too.
+ */
+const CLOCK_SKEW_MS = 60 * 60 * 1000;
+
 function sameDay(a, b) {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -41,7 +49,7 @@ export function describeTime(iso, options = {}) {
     const now = options.now ?? new Date();
     // A time slightly ahead of the reader's clock — the server's runs a
     // little fast — is now, not a date in the future.
-    const at = written > now ? now : written;
+    const at = written > now && written - now <= CLOCK_SKEW_MS ? now : written;
     // The calendar day before, not 24 hours before: a day with a clock change is 23 or 25 hours long.
     const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
     const time = new Intl.DateTimeFormat(locale, {timeStyle: 'short'}).format(at);
