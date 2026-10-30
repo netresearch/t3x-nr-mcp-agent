@@ -267,6 +267,20 @@ export class AiChatPanel extends LitElement {
             display: flex;
             gap: 2px;
         }
+        /*
+         * The selected row's five actions go under its summary. Beside it they
+         * left the title a third of the 260px row, and the start time that
+         * tells two alike titles apart was cut off (ADR-027).
+         */
+        .sidebar-item.active {
+            flex-wrap: wrap;
+        }
+        .sidebar-item.active .conv-summary {
+            flex-basis: 100%;
+        }
+        .sidebar-item.active .sidebar-item-actions {
+            margin-inline-start: auto;
+        }
 
         /* Content area */
         .panel-content {
