@@ -165,59 +165,6 @@ final class LastMessageTimeUpdateWizardTest extends FunctionalTestCase
         self::assertSame(strtotime('2026-10-01T08:00:00+00:00'), $this->lastMessageAt(102));
     }
 
-    /**
-     * A rename while a turn runs: the worker claimed the conversation before
-     * it, and its final save carries the title it loaded. The rename stays.
-     */
-    #[Test]
-    public function aRenameDuringATurnSurvivesTheWorkersSave(): void
-    {
-        $conversation = new Conversation();
-        $conversation->setBeUser(1);
-        $conversation->setTitle('SEO optimieren · Über uns');
-        $conversation->setTitleSource(Conversation::TITLE_TOUR);
-        $conversation->appendMessage(MessageRole::User, 'Diese Seite prüfen');
-        $conversation->setStatus(ConversationStatus::Processing);
-
-        $uid = $this->repository->add($conversation);
-
-        $claimed = $this->repository->claimForProcess($uid, 'claim-1');
-        self::assertNotNull($claimed);
-
-        $this->repository->updateTitle($uid, 'Meine Prüfung', 1);
-
-        $claimed->appendMessage(MessageRole::Assistant, 'Punkt 1');
-        $claimed->setStatus(ConversationStatus::Idle);
-
-        $this->repository->update($claimed);
-
-        $row = $this->connection()->select(['title', 'title_source', 'message_count'], self::CONVERSATIONS, ['uid' => $uid])->fetchAssociative();
-        self::assertSame(['title' => 'Meine Prüfung', 'title_source' => 'manual'], ['title' => $row['title'] ?? null, 'title_source' => $row['title_source'] ?? null]);
-        // The save itself went through.
-        self::assertSame(2, (int) ($row['message_count'] ?? 0));
-    }
-
-    /** The same through the conditional save that hands a turn over (updateIf). */
-    #[Test]
-    public function aRenameSurvivesAConditionalSave(): void
-    {
-        $conversation = new Conversation();
-        $conversation->setBeUser(1);
-        $conversation->appendMessage(MessageRole::User, 'Erste Frage');
-
-        $uid    = $this->repository->add($conversation);
-        $loaded = $this->repository->findByUid($uid);
-        self::assertNotNull($loaded);
-
-        $this->repository->updateTitle($uid, 'Meins', 1);
-
-        $loaded->appendMessage(MessageRole::User, 'Zweite Frage');
-        $loaded->setStatus(ConversationStatus::Processing);
-        self::assertTrue($this->repository->updateIf($loaded, ConversationStatus::Idle));
-
-        self::assertSame('Meins', $this->connection()->select(['title'], self::CONVERSATIONS, ['uid' => $uid])->fetchOne());
-    }
-
     /** The first message reaches the worker through the conditional save, and titles the conversation there too. */
     #[Test]
     public function aConditionalSaveWritesTheTitleTheExtensionGives(): void

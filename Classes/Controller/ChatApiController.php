@@ -40,6 +40,7 @@ use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\ConversationList\ConversationListItem;
 use Netresearch\NrMcpAgent\Service\ConversationList\ConversationListPresenter;
+use Netresearch\NrMcpAgent\Service\ConversationList\ConversationTitle;
 use Netresearch\NrMcpAgent\Service\HighlightTitle;
 use Netresearch\NrMcpAgent\Service\InputPause;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
@@ -2528,7 +2529,9 @@ final readonly class ChatApiController
             return $conversation;
         }
 
-        $title = trim((string) ($body['title'] ?? ''));
+        // Cut to what the column holds, whole grapheme clusters only: a pasted
+        // longer title would otherwise fail the write on a strict database.
+        $title = ConversationTitle::fit(trim((string) ($body['title'] ?? '')));
         if ($title === '') {
             return new JsonResponse(['error' => 'Title must not be empty'], 400);
         }

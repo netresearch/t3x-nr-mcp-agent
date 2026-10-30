@@ -133,4 +133,33 @@ final class ConversationTitleTest extends TestCase
         self::assertSame('SEO optimieren', ConversationTitle::tourTitle('SEO optimieren', null));
         self::assertSame('SEO optimieren', ConversationTitle::tourTitle('SEO optimieren', '  '));
     }
+
+    /**
+     * The column counts code points; a cluster that would not fit whole is
+     * left out, and a title that fits is kept as it is.
+     *
+     * @return iterable<string, array{string, int, string}>
+     */
+    public static function fittedTitles(): iterable
+    {
+        yield 'fits exactly' => ['abcde', 5, 'abcde'];
+        yield 'cut at the limit' => ['abcdef', 5, 'abcde'];
+        yield 'emoji with skin tone across the limit' => ["abcd\u{1F44D}\u{1F3FD}", 5, 'abcd'];
+        yield 'emoji with skin tone inside the limit' => ["abc\u{1F44D}\u{1F3FD}x", 5, "abc\u{1F44D}\u{1F3FD}"];
+        yield 'combining accent across the limit' => ["abcde\u{0301}", 5, 'abcd'];
+        yield 'no trailing space' => ['abc  def', 5, 'abc'];
+    }
+
+    #[Test]
+    #[DataProvider('fittedTitles')]
+    public function aTitleIsFittedToTheColumnWithoutSplittingACharacter(string $title, int $max, string $expected): void
+    {
+        self::assertSame($expected, ConversationTitle::fit($title, $max));
+    }
+
+    #[Test]
+    public function theColumnHolds255Characters(): void
+    {
+        self::assertSame(str_repeat('ä', 255), ConversationTitle::fit(str_repeat('ä', 300)));
+    }
 }

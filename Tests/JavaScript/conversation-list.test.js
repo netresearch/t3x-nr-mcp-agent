@@ -161,6 +161,18 @@ describe('the panel', () => {
         expect(row(items[1])).toEqual(TOUR_ROW);
     });
 
+    /** The title column holds 255 characters; the field takes no more. */
+    test('the rename field takes no more than the title column holds', async () => {
+        const el = await render('../../Resources/Public/JavaScript/ai-chat-panel.js', 'ai-chat-panel', 'expanded');
+        el._renamingUid = 7;
+        await el.updateComplete;
+
+        const input = el.shadowRoot.querySelector('.tab-rename-input');
+
+        expect(input).not.toBeNull();
+        expect(input.getAttribute('maxlength')).toBe('255');
+    });
+
     test('a tab shows the status icon and the title, the rest in its tooltip', async () => {
         const el = await render('../../Resources/Public/JavaScript/ai-chat-panel.js', 'ai-chat-panel', 'expanded');
         const tabs = [...el.shadowRoot.querySelectorAll('.conv-tablist [role="tab"]')];

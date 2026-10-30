@@ -24,6 +24,9 @@ import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instruct
 import {registerPanel, unregisterPanel} from '@netresearch/nr-mcp-agent/chat-panel-registry.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
+// What a conversation's title holds (tx_nrmcpagent_conversation.title,
+// varchar(255)); the server cuts a longer one as well.
+const TITLE_MAX_LENGTH = 255;
 const DEFAULT_HEIGHT = 350;
 const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 320;
@@ -2996,6 +2999,7 @@ export class AiChatPanel extends LitElement {
                 ${renderStatusIcon(c.status)}
                 ${isRenaming ? html`
                     <input class="tab-rename-input"
+                           maxlength="${TITLE_MAX_LENGTH}"
                            .value=${c.fullTitle || title}
                            @click=${(e) => e.stopPropagation()}
                            @keydown=${(e) => {

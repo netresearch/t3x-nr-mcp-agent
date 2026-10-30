@@ -76,7 +76,9 @@ Neither is part of the full-row write (``Conversation::toRow()``), as the
 instructions are not: the worker's final save carries the title it loaded,
 and a rename during a running turn would be lost. ``add()`` writes them with
 a new row; a save writes the title it carries only ``WHERE title_source <>
-'manual'``.
+'manual'``. A rename is cut to the 255 characters of the ``title`` column
+(``ConversationTitle::fit()``), never inside a character made of several
+code points; the rename field takes no more (``maxlength``).
 
 -   **A title the editor gave** (``manual``) is never replaced.
 -   **A guided tour whose title is automatic** is shown as

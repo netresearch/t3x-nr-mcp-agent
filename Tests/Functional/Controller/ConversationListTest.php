@@ -202,14 +202,38 @@ final class ConversationListTest extends FunctionalTestCase
         self::assertSame('own', $this->listed()[21]['titleKind']);
     }
 
-    private function rename(int $uid, string $title): void
+    /**
+     * The title column holds 255 characters. A longer pasted title is cut to
+     * that, and a character made of several code points ("👍🏽") that would
+     * not fit whole is left out rather than split.
+     */
+    #[Test]
+    public function aRenameIsCutToWhatTheColumnHoldsWithoutSplittingACharacter(): void
+    {
+        $answered = $this->rename(21, str_repeat('a', 254) . "\u{1F44D}\u{1F3FD}" . ' mehr');
+
+        $stored = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->select(['title'], 'tx_nrmcpagent_conversation', ['uid' => 21])->fetchOne();
+        self::assertSame(str_repeat('a', 254), $stored);
+        self::assertSame($stored, $answered);
+    }
+
+    /** @return string the title the endpoint answers with */
+    private function rename(int $uid, string $title): string
     {
         $body = new Stream('php://temp', 'rw');
         $body->write(json_encode(['conversationUid' => $uid, 'title' => $title], JSON_THROW_ON_ERROR));
         $body->rewind();
 
-        $request = (new ServerRequest('/', 'POST'))->withBody($body);
-        self::assertSame(200, $this->get(ChatApiController::class)->renameConversation($request)->getStatusCode());
+        $request  = (new ServerRequest('/', 'POST'))->withBody($body);
+        $response = $this->get(ChatApiController::class)->renameConversation($request);
+        self::assertSame(200, $response->getStatusCode());
+
+        $answer = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($answer);
+        self::assertIsString($answer['title']);
+
+        return $answer['title'];
     }
 
     /** The list reads the time kept on the conversation, not its messages. */

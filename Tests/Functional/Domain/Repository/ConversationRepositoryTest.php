@@ -12,7 +12,9 @@ namespace Netresearch\NrMcpAgent\Tests\Functional\Domain\Repository;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
@@ -553,5 +555,63 @@ class ConversationRepositoryTest extends FunctionalTestCase
 
         $this->subject->updateSkillIdentifier(1, '', 1, 0, true);
         self::assertFalse($this->subject->findByUid(1)?->isSkillStartPending(), 'no marker without a skill');
+    }
+
+    /**
+     * A rename while a turn runs: the worker claimed the conversation before
+     * it, and its final save carries the title it loaded. The rename stays.
+     */
+    #[Test]
+    public function aRenameDuringATurnSurvivesTheWorkersSave(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setTitle('SEO optimieren · Über uns');
+        $conversation->setTitleSource(Conversation::TITLE_TOUR);
+        $conversation->appendMessage(MessageRole::User, 'Diese Seite prüfen');
+        $conversation->setStatus(ConversationStatus::Processing);
+
+        $uid = $this->subject->add($conversation);
+
+        $claimed = $this->subject->claimForProcess($uid, 'claim-1');
+        self::assertNotNull($claimed);
+
+        $this->subject->updateTitle($uid, 'Meine Prüfung', 1);
+
+        $claimed->appendMessage(MessageRole::Assistant, 'Punkt 1');
+        $claimed->setStatus(ConversationStatus::Idle);
+
+        $this->subject->update($claimed);
+
+        $row = $this->conversations()->select(['title', 'title_source', 'message_count'], 'tx_nrmcpagent_conversation', ['uid' => $uid])->fetchAssociative();
+        self::assertSame(['title' => 'Meine Prüfung', 'title_source' => 'manual'], ['title' => $row['title'] ?? null, 'title_source' => $row['title_source'] ?? null]);
+        // The save itself went through.
+        self::assertSame(2, (int) ($row['message_count'] ?? 0));
+    }
+
+    /** The same through the conditional save that hands a turn over (updateIf). */
+    #[Test]
+    public function aRenameSurvivesAConditionalSave(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Erste Frage');
+
+        $uid    = $this->subject->add($conversation);
+        $loaded = $this->subject->findByUid($uid);
+        self::assertNotNull($loaded);
+
+        $this->subject->updateTitle($uid, 'Meins', 1);
+
+        $loaded->appendMessage(MessageRole::User, 'Zweite Frage');
+        $loaded->setStatus(ConversationStatus::Processing);
+        self::assertTrue($this->subject->updateIf($loaded, ConversationStatus::Idle));
+
+        self::assertSame('Meins', $this->conversations()->select(['title'], 'tx_nrmcpagent_conversation', ['uid' => $uid])->fetchOne());
+    }
+
+    private function conversations(): Connection
+    {
+        return $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation');
     }
 }

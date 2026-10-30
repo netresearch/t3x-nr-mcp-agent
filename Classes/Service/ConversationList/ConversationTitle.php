@@ -42,6 +42,9 @@ final class ConversationTitle
     /** Where a list cuts a title. */
     public const MAX_LENGTH = 60;
 
+    /** What `tx_nrmcpagent_conversation.title` holds: varchar(255), characters. */
+    public const COLUMN_LENGTH = 255;
+
     /**
      * A first sentence shorter than this ("Hi.") says too little to stand for
      * the conversation; the cut at the word boundary is used instead.
@@ -81,6 +84,33 @@ final class ConversationTitle
         }
 
         return rtrim($cut, " \t,;:-–—") . '…';
+    }
+
+    /**
+     * The title cut to what the column holds, at most $max characters (code
+     * points, as a varchar counts them), and never inside a grapheme cluster:
+     * a cluster that would not fit whole is left out.
+     */
+    public static function fit(string $title, int $max = self::COLUMN_LENGTH): string
+    {
+        if (mb_strlen($title) <= $max) {
+            return $title;
+        }
+
+        $fitted   = '';
+        $length   = 0;
+        $clusters = preg_split('/(\X)/u', $title, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        foreach ($clusters === false ? [] : $clusters as $cluster) {
+            $clusterLength = mb_strlen($cluster);
+            if ($length + $clusterLength > $max) {
+                break;
+            }
+
+            $fitted .= $cluster;
+            $length += $clusterLength;
+        }
+
+        return rtrim($fitted);
     }
 
     /**
