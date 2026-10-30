@@ -194,3 +194,65 @@ describe('the panel', () => {
         expect(bar.querySelector('.status-dot')).not.toBeNull();
     });
 });
+
+describe('keeping the lists in step', () => {
+    async function controller(conversations) {
+        const {ChatCoreController} = await import('../../Resources/Public/JavaScript/chat-core.js');
+        const host = {requestUpdate: jest.fn(), addController: jest.fn(), onResetInput: jest.fn(), onScrollToBottom: jest.fn()};
+        const chat = new ChatCoreController(host);
+        Object.assign(chat, {conversations, activeUid: conversations[0].uid, messages: [], status: 'idle', available: true});
+        chat.startPollingIfNeeded = jest.fn();
+        chat._api = {
+            renameConversation: jest.fn().mockResolvedValue({}),
+            sendMessage: jest.fn().mockResolvedValue({status: 'processing'}),
+            listConversations: jest.fn().mockResolvedValue({conversations}),
+        };
+        return chat;
+    }
+
+    /**
+     * The rename field starts with the title the list shows. Leaving it as it
+     * was must not store a tour's derived "<skill> · <page>" as the editor's
+     * own title, nor a shortened title with its "…".
+     */
+    test.each([
+        ['the display title', 'SEO optimieren · Über uns'],
+        ['the stored title', 'Diese Seite prüfen'],
+    ])('leaving %s unchanged renames nothing', async (_, value) => {
+        const chat = await controller([{...TOUR}]);
+
+        await chat.handleRename(7, `  ${value} `);
+
+        expect(chat._api.renameConversation).not.toHaveBeenCalled();
+    });
+
+    test('a rename shows the new title at once and reloads the list for its display title', async () => {
+        const chat = await controller([{...TOUR}]);
+        chat._api.listConversations = jest.fn().mockResolvedValue({conversations: [{...TOUR, title: 'Meine Prüfung', displayTitle: 'Meine Prüfung'}]});
+
+        const pending = chat.handleRename(7, 'Meine Prüfung');
+        await pending;
+
+        expect(chat._api.renameConversation).toHaveBeenCalledWith(7, 'Meine Prüfung');
+        expect(chat._api.listConversations).toHaveBeenCalledTimes(1);
+        expect(chat.conversations[0].displayTitle).toBe('Meine Prüfung');
+    });
+
+    /** Until its first message a chat is not listed, and it has no title; afterwards it has both. */
+    test('the first message of a chat reloads the list; a later one does not', async () => {
+        const chat = await controller([{...EMPTY}]);
+        const titled = {...EMPTY, title: 'Wie viele Seiten hat die Website?', displayTitle: 'Wie viele Seiten hat die Website?', messageCount: 1};
+        chat._api.listConversations = jest.fn().mockResolvedValue({conversations: [titled]});
+
+        await chat.handleSend('Wie viele Seiten hat die Website?');
+        expect(chat._api.listConversations).toHaveBeenCalledTimes(1);
+        await Promise.resolve();
+        expect(chat.conversations[0].displayTitle).toBe('Wie viele Seiten hat die Website?');
+
+        chat.status = 'idle';
+        chat._api.listConversations.mockClear();
+        chat.conversations = [{...EMPTY, messageCount: 2}];
+        await chat.handleSend('Und wie viele davon sind versteckt?');
+        expect(chat._api.listConversations).not.toHaveBeenCalled();
+    });
+});
