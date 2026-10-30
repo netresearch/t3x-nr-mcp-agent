@@ -105,3 +105,49 @@ test.describe('AI Chat Panel conversation row', () => {
         expect(picked).toBe(`conv-more-option-${active}`);
     });
 });
+
+/**
+ * The selected row of the maximized panel's sidebar carries five actions. Beside
+ * the summary they left the title a third of the 260px row, and the start
+ * time that tells two alike titles apart was cut off (ADR-027).
+ */
+test.describe('AI Chat Panel sidebar', () => {
+    test.beforeEach(async ({ page }) => {
+        await login(page);
+    });
+
+    test('the selected row keeps the start time that tells two alike chats apart', async ({ page }) => {
+        const rows = await page.evaluate(async () => {
+            const panel = document.querySelector('ai-chat-panel') as any;
+            const twin = (uid: number, suffix: string) => ({
+                uid,
+                title: 'SEO optimieren',
+                displayTitle: `SEO optimieren · RTE CKEditor Image · ${suffix}`,
+                fullTitle: 'SEO optimieren · RTE CKEditor Image',
+                titleSuffix: suffix,
+                contextLabel: 'Guided Tour',
+                status: 'idle',
+                messageCount: 1,
+                pinned: false,
+                lastActivityAt: new Date().toISOString(),
+            });
+            panel.chat.conversations = [twin(9101, '29. Okt., 11:27:01'), twin(9102, '29. Okt., 11:27:44')];
+            panel.chat.activeUid = 9102;
+            panel.state = 'maximized';
+            panel.requestUpdate();
+            await panel.updateComplete;
+            return [...panel.shadowRoot.querySelectorAll('.sidebar-item')].map((row: Element) => {
+                const title = row.querySelector('.conv-summary-title')!.getBoundingClientRect();
+                const suffix = row.querySelector('.conv-summary-title-suffix')!.getBoundingClientRect();
+                return {
+                    active: row.classList.contains('active'),
+                    suffixInside: suffix.width > 0 && suffix.left >= title.left - 0.5 && suffix.right <= title.right + 0.5,
+                };
+            });
+        });
+
+        expect(rows).toHaveLength(2);
+        expect(rows).toContainEqual({ active: true, suffixInside: true });
+        expect(rows).toContainEqual({ active: false, suffixInside: true });
+    });
+});

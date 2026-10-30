@@ -267,6 +267,20 @@ export class AiChatPanel extends LitElement {
             display: flex;
             gap: 2px;
         }
+        /*
+         * The selected row's five actions go under its summary. Beside it they
+         * left the title a third of the 260px row, and the start time that
+         * tells two alike titles apart was cut off (ADR-027).
+         */
+        .sidebar-item.active {
+            flex-wrap: wrap;
+        }
+        .sidebar-item.active .conv-summary {
+            flex-basis: 100%;
+        }
+        .sidebar-item.active .sidebar-item-actions {
+            margin-inline-start: auto;
+        }
 
         /* Content area */
         .panel-content {
@@ -853,9 +867,9 @@ export class AiChatPanel extends LitElement {
          * The tones of every list (ADR-027): ready is neutral, never green;
          * waiting for the editor is a warning; running is information.
          */
-        .status-neutral { background: var(--nr-chat-surface-variant); color: var(--nr-chat-text-variant); }
+        .status-neutral { background: var(--nr-chat-neutral-bg); color: var(--nr-chat-neutral-text); }
         .status-info { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
-        .status-warning { background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text); box-shadow: inset 0 0 0 1px var(--nr-chat-warning-border); }
+        .status-warning { background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text); box-shadow: inset 0 0 0 1px var(--nr-chat-warning-edge); }
         .status-danger { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
         .status-badge .conv-status-icon { color: inherit; }
 

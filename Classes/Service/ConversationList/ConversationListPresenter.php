@@ -190,23 +190,23 @@ final class ConversationListPresenter
 
         // The start to the minute; to the second for those the minute does
         // not tell apart (two tours started within one minute on the demo).
-        $labels = [];
+        $suffixes = [];
         foreach ($started as $index => $time) {
-            $labels[$index] = $items[$index]->displayTitle . ConversationTitle::SEPARATOR . $this->formatStart($time, 'MMMdjm', $locale, $now);
+            $suffixes[$index] = $this->formatStart($time, 'MMMdjm', $locale, $now);
         }
 
-        $colliding = array_count_values($labels);
+        $colliding = array_count_values(array_map(static fn (int $index): string => self::label($items[$index], $suffixes[$index]), array_keys($suffixes)));
         foreach ($started as $index => $time) {
-            if ($colliding[$labels[$index]] > 1) {
-                $labels[$index] = $items[$index]->displayTitle . ConversationTitle::SEPARATOR . $this->formatStart($time, 'MMMdjms', $locale, $now);
+            if ($colliding[self::label($items[$index], $suffixes[$index])] > 1) {
+                $suffixes[$index] = $this->formatStart($time, 'MMMdjms', $locale, $now);
             }
         }
 
         // Started within the same second: numbered in the order they were
         // started, then by uid, so the numbers stay the same on every load.
         $groups = [];
-        foreach ($labels as $index => $label) {
-            $groups[$label][] = $index;
+        foreach (array_keys($suffixes) as $index) {
+            $groups[self::label($items[$index], $suffixes[$index])][] = $index;
         }
 
         foreach ($groups as $indexes) {
@@ -216,15 +216,21 @@ final class ConversationListPresenter
 
             usort($indexes, static fn (int $a, int $b): int => [$started[$a], $items[$a]->uid] <=> [$started[$b], $items[$b]->uid]);
             foreach ($indexes as $position => $index) {
-                $labels[$index] .= ' (' . ($position + 1) . ')';
+                $suffixes[$index] .= ' (' . ($position + 1) . ')';
             }
         }
 
         return array_map(
-            static fn (int $index, ConversationListItem $item): ConversationListItem => isset($labels[$index]) ? $item->withDisplayTitle($labels[$index]) : $item,
+            static fn (int $index, ConversationListItem $item): ConversationListItem => isset($suffixes[$index]) ? $item->withTitleSuffix($suffixes[$index]) : $item,
             array_keys($items),
             $items,
         );
+    }
+
+    /** The title as a list shows it with the suffix that tells it apart. */
+    private static function label(ConversationListItem $item, string $suffix): string
+    {
+        return $item->displayTitle . ConversationTitle::SEPARATOR . $suffix;
     }
 
     private function formatStart(DateTimeImmutable $time, string $skeleton, string $locale, DateTimeImmutable $now): string

@@ -101,7 +101,10 @@ code points; the rename field takes no more (``maxlength``).
     08:00"), so a tab tells them apart without its tooltip. Started in the
     same minute, they get the second ("11:27:01", "11:27:44"); started in the
     same second, a number in the order they were started, then by uid
-    ("11:27:44 (1)", "11:27:44 (2)"), the same on every load.
+    ("11:27:44 (1)", "11:27:44 (2)"), the same on every load. The endpoint
+    sends that suffix as ``titleSuffix`` as well, and every list that has to
+    shorten a title shortens the part before it: the time is what tells the
+    rows apart.
 
 The context names what the title does not
 ------------------------------------------
@@ -128,14 +131,25 @@ Lists
     ``hidden`` element, so browse mode does not read it twice) for keyboard,
     touch and screen readers. The "more" list searches the title, the full title and
     the context.
--   The dashboard widget is full width and lists ten conversations.
+-   The dashboard widget is full width and lists ten conversations. The
+    dashboard keeps the size of a widget it has placed, so the wizard
+    ``nrMcpAgent_recentChatsWidgetSize`` removes the widget's stored position
+    where it is smaller, on dashboards arranged before 0.26. The dashboard
+    then places it full width in the first rows free across the whole width,
+    so it usually moves below the widgets that shared its rows; the other
+    widgets keep their positions. In a narrow
+    widget the status and the time move under the title; the arrow stays
+    beside it.
 
 Status
 ------
 
 Ready is neutral, waiting for the editor's answer or approval is a warning
 with an icon, running is information, failed is an error. Every list says the
-status in words; the colour only repeats it.
+status in words; the colour only repeats it. Each tone sets a background and a
+text colour that do not depend on the row around it, so a badge reads the same
+in the selected row; neutral is core's default badge pair, not the variant
+text colour, which TYPO3 14.3 mixes from ``currentColor``.
 
 Consequences
 ============

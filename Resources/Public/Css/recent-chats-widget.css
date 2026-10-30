@@ -72,6 +72,25 @@
     font-size: 13px;
 }
 
+/* The start time that tells two alike titles apart stays whole; the title
+ * before it is cut short instead (ADR-027). */
+.nr-recent-chats-title--split {
+    display: flex;
+    min-width: 0;
+}
+
+.nr-recent-chats-title-base {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 1.5em;
+}
+
+.nr-recent-chats-title-suffix {
+    flex: 0 0 auto;
+    white-space: pre;
+}
+
 .nr-recent-chats-context {
     font-size: 11.5px;
     color: var(--typo3-text-color-variant, #55556a);
@@ -111,7 +130,8 @@
 }
 
 /* Below the width of a small widget the status and the time take too much
- * room beside the title; they move under it. Measured on the list
+ * room beside the title; they move under it. The arrow stays beside the title
+ * instead of taking a line of its own. Measured on the list
  * (.nr-recent-chats), the entries' container. */
 @container (max-width: 30rem) {
     .nr-recent-chats-entry {
@@ -119,7 +139,22 @@
     }
 
     .nr-recent-chats-text {
-        flex-basis: 100%;
+        flex: 1 1 calc(100% - 1rem - .5rem);
+    }
+
+    .nr-recent-chats-arrow {
+        order: 1;
+    }
+
+    .nr-recent-chats-chip,
+    .nr-recent-chats-status,
+    .nr-recent-chats-time {
+        order: 2;
+    }
+
+    .nr-recent-chats-time {
+        min-width: 0;
+        margin-inline-start: auto;
     }
 }
 

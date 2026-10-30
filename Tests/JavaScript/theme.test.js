@@ -445,6 +445,9 @@ describe('shared theme contract', () => {
         '--nr-chat-warning-text',
         '--nr-chat-danger-bg',
         '--nr-chat-danger-text',
+        '--nr-chat-neutral-bg',
+        '--nr-chat-neutral-text',
+        '--nr-chat-warning-edge',
         '--nr-chat-status-info',
         '--nr-chat-status-success',
         '--nr-chat-status-warning',
@@ -491,12 +494,12 @@ describe('shared theme contract', () => {
 
     /**
      * The status icon of a tab takes the plain status colour of its tone
-     * (ADR-027): ready is the variant grey, never the success green; waiting
-     * for the editor is the warning colour. The tones themselves are pinned in
-     * chat-status-display.test.js.
+     * (ADR-027): ready is the neutral badge colour, never the success green;
+     * waiting for the editor is the warning colour. The tones themselves are
+     * pinned in chat-status-display.test.js.
      */
     test.each([
-        ['neutral', 'color: var(--nr-chat-text-variant);'],
+        ['neutral', 'color: var(--nr-chat-neutral-text);'],
         ['info', 'color: var(--nr-chat-status-info);'],
         ['warning', 'color: var(--nr-chat-status-warning);'],
         ['danger', 'color: var(--nr-chat-status-danger);'],
@@ -566,15 +569,21 @@ describe('shared theme contract', () => {
      * No rule for a status left its badge at 1.17-1.98:1. Every tone pairs a
      * background with the text colour made for it; a status that waits for
      * the editor is a warning and carries an edge as well (ADR-027).
+     *
+     * Neutral is core's default badge pair, not the variant text colour: in
+     * TYPO3 14.3 --typo3-text-color-variant is a mix of currentColor, so the
+     * badge took the selected row's white (1.04:1) and, in the other rows,
+     * the already muted colour of the line around it (2.66:1). The warning
+     * edge is the warning text colour; the 30% mix measured 1.87:1.
      */
     test.each([
-        ['conversation-list.js', '.conv-status--neutral', ['background: var(--nr-chat-surface-variant);', 'color: var(--nr-chat-text-variant);']],
+        ['conversation-list.js', '.conv-status--neutral', ['background: var(--nr-chat-neutral-bg);', 'color: var(--nr-chat-neutral-text);']],
         ['conversation-list.js', '.conv-status--info', ['background: var(--nr-chat-info-bg);', 'color: var(--nr-chat-info-text);']],
-        ['conversation-list.js', '.conv-status--warning', ['background: var(--nr-chat-warning-bg);', 'color: var(--nr-chat-warning-text);', 'box-shadow: inset 0 0 0 1px var(--nr-chat-warning-border);']],
+        ['conversation-list.js', '.conv-status--warning', ['background: var(--nr-chat-warning-bg);', 'color: var(--nr-chat-warning-text);', 'box-shadow: inset 0 0 0 1px var(--nr-chat-warning-edge);']],
         ['conversation-list.js', '.conv-status--danger', ['background: var(--nr-chat-danger-bg);', 'color: var(--nr-chat-danger-text);']],
-        ['ai-chat-panel.js', '.status-neutral', ['background: var(--nr-chat-surface-variant);', 'color: var(--nr-chat-text-variant);']],
+        ['ai-chat-panel.js', '.status-neutral', ['background: var(--nr-chat-neutral-bg);', 'color: var(--nr-chat-neutral-text);']],
         ['ai-chat-panel.js', '.status-info', ['background: var(--nr-chat-info-bg);', 'color: var(--nr-chat-info-text);']],
-        ['ai-chat-panel.js', '.status-warning', ['background: var(--nr-chat-warning-bg);', 'color: var(--nr-chat-warning-text);', 'box-shadow: inset 0 0 0 1px var(--nr-chat-warning-border);']],
+        ['ai-chat-panel.js', '.status-warning', ['background: var(--nr-chat-warning-bg);', 'color: var(--nr-chat-warning-text);', 'box-shadow: inset 0 0 0 1px var(--nr-chat-warning-edge);']],
         ['ai-chat-panel.js', '.status-danger', ['background: var(--nr-chat-danger-bg);', 'color: var(--nr-chat-danger-text);']],
     ])('%s pairs the colours of %s', (file, selector, declarations) => {
         const body = ruleBody(file, selector);
@@ -584,6 +593,9 @@ describe('shared theme contract', () => {
         expect(body).not.toContain('success');
         expect(theme).toContain('--nr-chat-warning-bg: var(--typo3-surface-container-warning,');
         expect(theme).toContain('--nr-chat-warning-text: var(--typo3-surface-container-warning-text,');
+        expect(theme).toContain('--nr-chat-neutral-bg: var(--typo3-badge-default-bg,');
+        expect(theme).toContain('--nr-chat-neutral-text: var(--typo3-badge-default-color,');
+        expect(theme).toContain('--nr-chat-warning-edge: var(--nr-chat-status-warning);');
     });
 
     test('no list shows a status in the success colour', () => {

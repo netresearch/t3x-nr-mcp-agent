@@ -49,6 +49,24 @@ export const conversationListStyles = css`
     .conv-summary-title {
         font-size: 13px;
     }
+    /*
+     * Where a start time tells two alike titles apart, the title is cut
+     * short before it, never the time itself (ADR-027).
+     */
+    .conv-summary-title--split {
+        display: flex;
+        min-width: 0;
+    }
+    .conv-summary-title-base {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 1.5em;
+    }
+    .conv-summary-title-suffix {
+        flex: 0 0 auto;
+        white-space: pre;
+    }
     .conv-summary-context {
         font-size: 11px;
         color: var(--nr-chat-text-variant);
@@ -80,9 +98,14 @@ export const conversationListStyles = css`
     .conv-status svg {
         flex: 0 0 auto;
     }
+    /*
+     * Every tone sets a background and a text colour that do not depend on
+     * the row: the same badge sits in the selected row's active colour and in
+     * the plain rows.
+     */
     .conv-status--neutral {
-        background: var(--nr-chat-surface-variant);
-        color: var(--nr-chat-text-variant);
+        background: var(--nr-chat-neutral-bg);
+        color: var(--nr-chat-neutral-text);
         font-weight: 400;
     }
     .conv-status--info {
@@ -92,7 +115,7 @@ export const conversationListStyles = css`
     .conv-status--warning {
         background: var(--nr-chat-warning-bg);
         color: var(--nr-chat-warning-text);
-        box-shadow: inset 0 0 0 1px var(--nr-chat-warning-border);
+        box-shadow: inset 0 0 0 1px var(--nr-chat-warning-edge);
     }
     .conv-status--danger {
         background: var(--nr-chat-danger-bg);
@@ -104,7 +127,7 @@ export const conversationListStyles = css`
         flex: 0 0 auto;
         align-items: center;
     }
-    .conv-status-icon--neutral { color: var(--nr-chat-text-variant); }
+    .conv-status-icon--neutral { color: var(--nr-chat-neutral-text); }
     .conv-status-icon--info { color: var(--nr-chat-status-info); }
     .conv-status-icon--warning { color: var(--nr-chat-status-warning); }
     .conv-status-icon--danger { color: var(--nr-chat-status-danger); }
@@ -172,6 +195,26 @@ export function renderTime(conversation, locale) {
     return html`<time class="conv-time" datetime="${time.datetime}" title="${time.absolute}">${time.label}</time>`;
 }
 
+/** Between the title and what tells it apart (ConversationTitle::SEPARATOR). */
+const TITLE_SEPARATOR = ' \u00B7 ';
+
+/**
+ * The title and its disambiguating suffix (the start time the server adds to
+ * two alike titles), or the title alone. A title renamed since has no suffix
+ * at its end any more and stays whole.
+ *
+ * @param {string} title
+ * @param {string} [suffix]
+ * @returns {[string, string]}
+ */
+export function splitTitle(title, suffix) {
+    const end = TITLE_SEPARATOR + (suffix ?? '');
+    if (!suffix || !title.endsWith(end) || title.length === end.length) {
+        return [title, ''];
+    }
+    return [title.slice(0, -end.length), suffix];
+}
+
 /**
  * Title, context line, status and time of one conversation.
  *
@@ -181,9 +224,13 @@ export function renderTime(conversation, locale) {
 export function renderConversationSummary(conversation, options = {}) {
     const title = conversationTitle(conversation, lll('conversations.newConversation'));
     const status = options.status ?? conversation.status;
+    const pin = conversation.pinned ? '\u{1F4CC} ' : '';
+    const [base, suffix] = splitTitle(title, conversation.titleSuffix);
     return html`
         <span class="conv-summary">
-            <span class="conv-summary-title" title="${conversation.fullTitle || title}">${conversation.pinned ? '\u{1F4CC} ' : ''}${title}</span>
+            <span class="conv-summary-title ${suffix ? 'conv-summary-title--split' : ''}" title="${conversation.fullTitle || title}">${suffix
+                ? html`<span class="conv-summary-title-base">${pin}${base}</span><span class="conv-summary-title-suffix">${TITLE_SEPARATOR}${suffix}</span>`
+                : html`${pin}${title}`}</span>
             ${conversation.contextLabel ? html`<span class="conv-summary-context">${conversation.contextLabel}</span>` : nothing}
             <span class="conv-summary-meta">${status ? renderStatus(status) : nothing}${renderTime(conversation, options.locale)}</span>
         </span>
