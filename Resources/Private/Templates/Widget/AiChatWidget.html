@@ -23,7 +23,7 @@
             <p class="nr-recent-chats-hint">{f:translate(key: '{ll}widget.hint')}</p>
             <f:if condition="{conversations}">
                 <f:then>
-                    <div class="nr-recent-chats-region" role="region" tabindex="0" aria-label="{f:translate(key: '{ll}widget.title')}">
+                    <section class="nr-recent-chats-region" tabindex="0" aria-label="{f:translate(key: '{ll}widget.title')}">
                         <ul class="nr-recent-chats" data-nr-chat-locale="{locale}" data-nr-chat-today="{f:translate(key: '{ll}widget.time.today')}" data-nr-chat-yesterday="{f:translate(key: '{ll}widget.time.yesterday')}">
                             <f:for each="{conversations}" as="conversation">
                                 <li>
@@ -61,7 +61,7 @@
                                 </li>
                             </f:for>
                         </ul>
-                    </div>
+                    </section>
                 </f:then>
                 <f:else>
                     <p class="nr-recent-chats-empty">{f:translate(key: '{ll}widget.empty')}</p>

@@ -218,7 +218,7 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
         // Ten rows are taller than the widget: they scroll in a region of
         // their own, named after the widget and a tab stop for the keyboard
         // (recent-chats-widget.spec.ts measures it in a browser).
-        self::assertMatchesRegularExpression('/<div class="nr-recent-chats-region" role="region" tabindex="0" aria-label="Recent chats">\s*<ul class="nr-recent-chats"/', $html);
+        self::assertMatchesRegularExpression('/<section class="nr-recent-chats-region" tabindex="0" aria-label="Recent chats">\s*<ul class="nr-recent-chats"/', $html);
     }
 
     #[Test]

@@ -134,7 +134,7 @@ Lists
 -   The dashboard widget is full width and lists ten conversations. Ten rows
     with a context line are taller than ``large``, the tallest height a
     widget can have, so the list scrolls in a region of its own
-    (``role="region"``, named after the widget, focusable so it scrolls by
+    (a ``<section>`` named after the widget, so a region, focusable so it scrolls by
     keyboard); the hint above it and "New chat" and "Show all chats" below it
     stay in place. Before, the dashboard's content area scrolled hint and
     list together and cut the last row off against "New chat". The
