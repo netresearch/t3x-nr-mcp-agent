@@ -14,7 +14,9 @@
                         <f:comment>The tour asks for the page; the page tree beside the chat is where the editor chooses it.</f:comment>
                         <ul class="nr-mcp-agent-rows" role="list">
                             <f:for each="{rows}" as="row">
-                                <f:render partial="Widget/ActionRow" arguments="{uri: row.uri, label: row.label, start: 1, skill: row.skill, pageModule: 1}" />
+                                <li class="nr-mcp-agent-rows-item">
+                                    <f:render partial="Widget/ActionRow" arguments="{uri: row.uri, label: row.label, start: 1, skill: row.skill, pageModule: 1}" />
+                                </li>
                             </f:for>
                         </ul>
                     </f:then>

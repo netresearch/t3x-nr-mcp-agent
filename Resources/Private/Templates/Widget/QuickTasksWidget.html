@@ -13,15 +13,17 @@
                         <p class="nr-mcp-agent-intro">{f:translate(key: '{ll}tasks.intro')}</p>
                         <ul class="nr-mcp-agent-rows" role="list">
                             <f:for each="{rows}" as="row">
-                                <f:if condition="{row.needsPage}">
-                                    <f:then>
-                                        <f:comment>On one page: the page module opens, the chat asks for the page.</f:comment>
-                                        <f:render partial="Widget/ActionRow" arguments="{uri: row.uri, label: row.label, start: 1, skill: row.skill, pageModule: 1}" />
-                                    </f:then>
-                                    <f:else>
-                                        <f:render partial="Widget/ActionRow" arguments="{uri: row.uri, label: row.label}" />
-                                    </f:else>
-                                </f:if>
+                                <li class="nr-mcp-agent-rows-item">
+                                    <f:if condition="{row.needsPage}">
+                                        <f:then>
+                                            <f:comment>On one page: the page module opens, the chat asks for the page.</f:comment>
+                                            <f:render partial="Widget/ActionRow" arguments="{uri: row.uri, label: row.label, start: 1, skill: row.skill, pageModule: 1}" />
+                                        </f:then>
+                                        <f:else>
+                                            <f:render partial="Widget/ActionRow" arguments="{uri: row.uri, label: row.label}" />
+                                        </f:else>
+                                    </f:if>
+                                </li>
                             </f:for>
                         </ul>
                     </f:then>

@@ -12,14 +12,16 @@
                 <ul class="nr-mcp-agent-rows" role="list">
                     <f:for each="{checks}" as="check">
                         <f:variable name="checkLabel" value="{f:translate(key: '{ll}{check.label}')}" />
-                        <f:if condition="{check.start}">
-                            <f:then>
-                                <f:render partial="Widget/ActionRow" arguments="{uri: check.uri, label: checkLabel, start: 1, skill: check.start.skill, page: check.start.page, language: check.start.language}" />
-                            </f:then>
-                            <f:else>
-                                <f:render partial="Widget/ActionRow" arguments="{uri: check.uri, label: checkLabel}" />
-                            </f:else>
-                        </f:if>
+                        <li class="nr-mcp-agent-rows-item">
+                            <f:if condition="{check.start}">
+                                <f:then>
+                                    <f:render partial="Widget/ActionRow" arguments="{uri: check.uri, label: checkLabel, start: 1, skill: check.start.skill, page: check.start.page, language: check.start.language}" />
+                                </f:then>
+                                <f:else>
+                                    <f:render partial="Widget/ActionRow" arguments="{uri: check.uri, label: checkLabel}" />
+                                </f:else>
+                            </f:if>
+                        </li>
                     </f:for>
                 </ul>
             </f:then>

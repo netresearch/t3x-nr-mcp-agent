@@ -41,7 +41,9 @@
                     <h2 class="nr-mcp-agent-subheading">{f:translate(key: '{ll}recommendations.points')}</h2>
                     <ul class="nr-mcp-agent-rows" role="list">
                         <f:for each="{points}" as="point">
-                            <f:render partial="Widget/ActionRow" arguments="{uri: point.uri, label: point.summary, secondary: point.start, start: 1, skill: point.skill, page: point.page, language: point.language}" />
+                            <li class="nr-mcp-agent-rows-item">
+                                <f:render partial="Widget/ActionRow" arguments="{uri: point.uri, label: point.summary, secondary: point.start, start: 1, skill: point.skill, page: point.page, language: point.language}" />
+                            </li>
                         </f:for>
                     </ul>
                 </f:if>

@@ -130,7 +130,7 @@ final readonly class DescriptionTour
             return null;
         }
 
-        return 'descriptions_' . sha1((string) json_encode([
+        return 'descriptions_' . hash('xxh128', (string) json_encode([
             $user->user['uid'] ?? 0,
             $user->workspace,
             $user->isAdmin(),

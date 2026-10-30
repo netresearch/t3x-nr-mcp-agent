@@ -2,21 +2,20 @@
     SPDX-License-Identifier: GPL-2.0-or-later
     SPDX-FileCopyrightText: Netresearch DTT GmbH
 
-    One row of an assistant widget's list: the whole row is one link, its
+    The link of one row in an assistant widget's list; the caller wraps it
+    in a list item of the class `nr-mcp-agent-rows-item`. The whole row is one link, its
     text (label, then the optional second line) is its accessible name, the
     chevron is decoration. With `start`, a plain click starts the chat in the
     panel (chat-start.js): with `skill`, `page`, `language`, and `pageModule`
     to open the page module without a page. `uri` is where every other click
     goes, and where any click goes without the panel.
 </f:comment>
-<li class="nr-mcp-agent-rows-item">
-    <f:if condition="{start}">
-        <f:then>
-            <a class="nr-mcp-agent-row" href="{uri}" data-nr-chat-start="1" data-nr-chat-skill="{skill}" data-nr-chat-page="{page}" data-nr-chat-language="{language}" data-nr-chat-page-module="{f:if(condition: pageModule, then: '1', else: '0')}"><f:render section="content" arguments="{label: label, secondary: secondary}" /></a>
-        </f:then>
-        <f:else>
-            <a class="nr-mcp-agent-row" href="{uri}"><f:render section="content" arguments="{label: label, secondary: secondary}" /></a>
-        </f:else>
-    </f:if>
-</li>
+<f:if condition="{start}">
+    <f:then>
+        <a class="nr-mcp-agent-row" href="{uri}" data-nr-chat-start="1" data-nr-chat-skill="{skill}" data-nr-chat-page="{page}" data-nr-chat-language="{language}" data-nr-chat-page-module="{f:if(condition: pageModule, then: '1', else: '0')}"><f:render section="content" arguments="{label: label, secondary: secondary}" /></a>
+    </f:then>
+    <f:else>
+        <a class="nr-mcp-agent-row" href="{uri}"><f:render section="content" arguments="{label: label, secondary: secondary}" /></a>
+    </f:else>
+</f:if>
 <f:section name="content"><span class="nr-mcp-agent-row-text"><span class="nr-mcp-agent-row-label">{label}</span><f:if condition="{secondary}"><span class="nr-mcp-agent-row-secondary">{secondary}</span></f:if></span><svg class="nr-mcp-agent-row-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="6 3.5 10.5 8 6 12.5"/></svg></f:section>
