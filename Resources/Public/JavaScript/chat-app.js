@@ -4,7 +4,9 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
-import {ChatCoreController, displayStatus, downloadTextFile, statusLabel} from '@netresearch/nr-mcp-agent/chat-core.js';
+import {ChatCoreController, downloadTextFile} from '@netresearch/nr-mcp-agent/chat-core.js';
+import {conversationTitle, listedConversations} from '@netresearch/nr-mcp-agent/conversation-tabs.js';
+import {conversationListStyles, renderConversationSummary} from '@netresearch/nr-mcp-agent/conversation-list.js';
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
@@ -31,7 +33,7 @@ export class ChatApp extends LitElement {
         _attachMenuOpen: {type: Boolean, state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, contextChipsStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, contextChipsStyles, conversationListStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -118,17 +120,6 @@ export class ChatApp extends LitElement {
             outline-offset: -4px;
             box-shadow: inset 0 0 0 2px var(--nr-chat-focus-ring);
             border-bottom-color: var(--nr-chat-focus-ring);
-        }
-        .conversation-item .title {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-size: 13px;
-        }
-        .conversation-item .meta {
-            font-size: 11px;
-            color: var(--nr-chat-text-variant);
         }
 
         /* Main area */
@@ -435,22 +426,6 @@ export class ChatApp extends LitElement {
             background: transparent;
         }
 
-        /* Status indicators */
-        .status-badge {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .status-idle { background: var(--nr-chat-success-bg); color: var(--nr-chat-success-text); }
-        .status-processing, .status-tool_loop {
-            background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text);
-        }
-        .status-badge.status-awaiting_approval, .status-badge.status-awaiting_input { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
-        .status-failed { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
-
         .empty-state {
             flex: 1;
             display: flex;
@@ -692,9 +667,9 @@ export class ChatApp extends LitElement {
                 </button>
             </div>
             <div class="conversation-list" role="listbox" aria-label="${lll('conversations.title')}">
-                ${this.chat.conversations.length === 0
+                ${listedConversations(this.chat.conversations, this.chat.activeUid).length === 0
                     ? html`<div class="empty-state" style="font-size:12px;">${lll('conversations.empty')}</div>`
-                    : this.chat.conversations.map(c => this._renderConversationItem(c))
+                    : listedConversations(this.chat.conversations, this.chat.activeUid).map(c => this._renderConversationItem(c))
                 }
             </div>
         `;
@@ -709,12 +684,7 @@ export class ChatApp extends LitElement {
                  aria-selected="${isActive}"
                  @click=${() => this.chat.selectConversation(c.uid)}
                  @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.chat.selectConversation(c.uid); } }}>
-                <div class="title">
-                    ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
-                </div>
-                <div class="meta">
-                    <span class="status-badge status-${displayStatus(c.status)}">${statusLabel(c.status)}</span>
-                </div>
+                ${renderConversationSummary(c)}
             </div>
         `;
     }
@@ -778,7 +748,7 @@ export class ChatApp extends LitElement {
             <div class="main-header">
                 ${this._renderToggleButton()}
                 <h1 class="main-title">
-                    ${conv?.title || lll('conversations.newConversation')}
+                    ${conv ? conversationTitle(conv, lll('conversations.newConversation')) : lll('conversations.newConversation')}
                 </h1>
                 ${renderProgress(this.chat)}
                 ${renderEndTour(this.chat)}

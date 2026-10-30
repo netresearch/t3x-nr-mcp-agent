@@ -32,6 +32,7 @@ const STYLE_SOURCES = [
     'chat-context-chips.js',
     'chat-core.js',
     'chat-editing.js',
+    'conversation-list.js',
     'conversation-tabs.js',
     'dashboard-widget.js',
     'icons.js',
@@ -489,18 +490,19 @@ describe('shared theme contract', () => {
     });
 
     /**
-     * The approval rules were once inserted in the middle of this selector list,
-     * so "processing" and "tool_loop" tab icons lost their status colour and took
-     * `.approval-card`'s margin-top instead.
+     * The status icon of a tab takes the plain status colour of its tone
+     * (ADR-027): ready is the variant grey, never the success green; waiting
+     * for the editor is the warning colour. The tones themselves are pinned in
+     * chat-status-display.test.js.
      */
-    test.each(['processing', 'tool_loop', 'awaiting_approval'])(
-        'the %s tab icon takes the status info colour',
-        (status) => {
-            const rule = [...read('ai-chat-panel.js').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-                .find(([, selector]) => selector.includes(`.conv-tab .tab-icon.status-${status}`));
-            expect(rule?.[2].trim()).toBe('color: var(--nr-chat-status-info);');
-        },
-    );
+    test.each([
+        ['neutral', 'color: var(--nr-chat-text-variant);'],
+        ['info', 'color: var(--nr-chat-status-info);'],
+        ['warning', 'color: var(--nr-chat-status-warning);'],
+        ['danger', 'color: var(--nr-chat-status-danger);'],
+    ])('the %s status icon takes its status colour', (tone, body) => {
+        expect(ruleBody('conversation-list.js', `.conv-status-icon--${tone}`)).toBe(body);
+    });
 
     const ruleBody = (file, selector) => [...read(file).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
         .find(([, sel]) => sel.split(',').map((s) => s.trim()).includes(selector))?.[2].trim();
@@ -560,12 +562,34 @@ describe('shared theme contract', () => {
             .toBe('outline: 2px solid var(--nr-chat-focus-ring); outline-offset: 2px;');
     });
 
-    /** No rule for this status left the badge at 1.17-1.98:1. */
-    test.each(['chat-app.js', 'ai-chat-panel.js'])('%s pairs the awaiting-approval badge colours', (file) => {
-        expect(ruleBody(file, '.status-badge.status-awaiting_approval'))
-            .toBe('background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text);');
-        expect(theme).toContain('--nr-chat-info-bg: var(--typo3-surface-container-info,');
-        expect(theme).toContain('--nr-chat-info-text: var(--typo3-surface-container-info-text,');
+    /**
+     * No rule for a status left its badge at 1.17-1.98:1. Every tone pairs a
+     * background with the text colour made for it; a status that waits for
+     * the editor is a warning and carries an edge as well (ADR-027).
+     */
+    test.each([
+        ['conversation-list.js', '.conv-status--neutral', ['background: var(--nr-chat-surface-variant);', 'color: var(--nr-chat-text-variant);']],
+        ['conversation-list.js', '.conv-status--info', ['background: var(--nr-chat-info-bg);', 'color: var(--nr-chat-info-text);']],
+        ['conversation-list.js', '.conv-status--warning', ['background: var(--nr-chat-warning-bg);', 'color: var(--nr-chat-warning-text);', 'box-shadow: inset 0 0 0 1px var(--nr-chat-warning-border);']],
+        ['conversation-list.js', '.conv-status--danger', ['background: var(--nr-chat-danger-bg);', 'color: var(--nr-chat-danger-text);']],
+        ['ai-chat-panel.js', '.status-neutral', ['background: var(--nr-chat-surface-variant);', 'color: var(--nr-chat-text-variant);']],
+        ['ai-chat-panel.js', '.status-info', ['background: var(--nr-chat-info-bg);', 'color: var(--nr-chat-info-text);']],
+        ['ai-chat-panel.js', '.status-warning', ['background: var(--nr-chat-warning-bg);', 'color: var(--nr-chat-warning-text);', 'box-shadow: inset 0 0 0 1px var(--nr-chat-warning-border);']],
+        ['ai-chat-panel.js', '.status-danger', ['background: var(--nr-chat-danger-bg);', 'color: var(--nr-chat-danger-text);']],
+    ])('%s pairs the colours of %s', (file, selector, declarations) => {
+        const body = ruleBody(file, selector);
+        for (const declaration of declarations) {
+            expect(body).toContain(declaration);
+        }
+        expect(body).not.toContain('success');
+        expect(theme).toContain('--nr-chat-warning-bg: var(--typo3-surface-container-warning,');
+        expect(theme).toContain('--nr-chat-warning-text: var(--typo3-surface-container-warning-text,');
+    });
+
+    test('no list shows a status in the success colour', () => {
+        for (const file of ['chat-app.js', 'ai-chat-panel.js', 'conversation-list.js']) {
+            expect(read(file)).not.toMatch(/\.status-idle\b|conv-status[a-z-]*--neutral[^}]*success/);
+        }
     });
 
     test('status warnings map to the scheme-aware TYPO3 warning text token', () => {
