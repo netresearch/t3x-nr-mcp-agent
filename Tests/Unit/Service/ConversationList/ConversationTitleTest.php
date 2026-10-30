@@ -62,28 +62,67 @@ final class ConversationTitleTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{string, string|null, bool}>
+     * @return iterable<string, array{string, bool}>
      */
     public static function tourTitles(): iterable
     {
-        yield 'empty' => ['', 'SEO optimieren', true];
-        yield 'the German start message' => ['Diese Seite prüfen', 'SEO optimieren', true];
-        yield 'the English start message' => ['Check this page', 'SEO optimieren', true];
-        yield 'a start message with stray whitespace' => [" Diese Seite\nprüfen", 'SEO optimieren', true];
-        yield 'the skill alone' => ['SEO optimieren', 'SEO optimieren', true];
-        yield 'skill and page, as a new tour stores it' => ['SEO optimieren · Über uns', 'SEO optimieren', true];
-        yield 'a renamed tour' => ['Meine SEO-Runde', 'SEO optimieren', false];
-        yield 'a rename that only begins with the skill' => ['SEO optimieren für Kontakt', 'SEO optimieren', false];
-        yield 'another skill' => ['Barrierefreiheit · Über uns', 'SEO optimieren', false];
-        yield 'no tour name' => ['SEO optimieren · Über uns', null, false];
-        yield 'an empty tour name never matches' => [' · Über uns', '', false];
+        yield 'empty' => ['', true];
+        yield 'the German start message' => ['Diese Seite prüfen', true];
+        yield 'the English start message' => ['Check this page', true];
+        yield 'a start message with stray whitespace' => [" Diese Seite\nprüfen", true];
+        yield 'the skill alone' => ['SEO optimieren', true];
+        yield 'skill and page' => ['SEO optimieren · Über uns', true];
+        yield 'skill and page with stray whitespace' => ['SEO optimieren  · Über  uns ', true];
+        // Exactly, never a prefix: the rename field starts with the derived
+        // title, and what the editor adds to it is theirs.
+        yield 'skill and page with an addition' => ['SEO optimieren · Über uns (Kunde X)', false];
+        yield 'skill and another page' => ['SEO optimieren · Alter Titel', false];
+        yield 'a rename that only begins with the skill' => ['SEO optimieren für Kontakt', false];
+        yield 'a start message with an addition' => ['Diese Seite prüfen, bitte', false];
+        yield 'a renamed tour' => ['Meine SEO-Runde', false];
     }
 
     #[Test]
     #[DataProvider('tourTitles')]
-    public function automaticTourTitlesAreRecognised(string $title, ?string $tourName, bool $automatic): void
+    public function automaticTourTitlesAreRecognisedExactly(string $title, bool $automatic): void
     {
-        self::assertSame($automatic, ConversationTitle::isAutomaticTourTitle($title, self::STARTS, $tourName));
+        self::assertSame($automatic, ConversationTitle::isAutomaticTourTitle($title, self::STARTS, ['SEO optimieren', 'SEO optimieren · Über uns']));
+    }
+
+    /**
+     * A reader counts grapheme clusters, not code points: a cut never splits
+     * an emoji with its skin tone, a flag, or a letter from its combining
+     * accent.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function clusters(): iterable
+    {
+        yield 'emoji with skin tone' => ['👍🏽'];
+        yield 'flag' => ['🇩🇪'];
+        yield 'combining accent' => ["e\u{0301}"];
+        yield 'family' => ['👩‍👩‍👧'];
+    }
+
+    #[Test]
+    #[DataProvider('clusters')]
+    public function aCutNeverSplitsAGraphemeCluster(string $cluster): void
+    {
+        // 59 letters, then the cluster, then more: the cut at 60 falls on it.
+        $title = str_repeat('a', 59) . $cluster . 'bbbb';
+
+        $short = ConversationTitle::shorten($title);
+
+        self::assertSame(str_repeat('a', 59) . $cluster . '…', $short);
+    }
+
+    /** A title of 60 clusters is not cut, however many code points it has. */
+    #[Test]
+    public function aTitleIsMeasuredInGraphemeClusters(): void
+    {
+        $title = str_repeat('👍🏽', 60);
+
+        self::assertSame($title, ConversationTitle::shorten($title));
     }
 
     #[Test]

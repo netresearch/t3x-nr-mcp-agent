@@ -258,6 +258,8 @@ final class ChatConversationStartTest extends FunctionalTestCase
         // Titled by the tour and its page, not by the start message every
         // tour shares (ADR-027).
         self::assertSame('Optimise SEO · Startseite', $stored->getTitle());
+        // Marked as the tour's, so the lists keep deriving it after a page rename.
+        self::assertSame(Conversation::TITLE_TOUR, $stored->getTitleSource());
     }
 
     /**

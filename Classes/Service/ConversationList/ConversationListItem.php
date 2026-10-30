@@ -54,34 +54,59 @@ final readonly class ConversationListItem implements JsonSerializable
         public bool $pinned,
     ) {}
 
+    /** The same item with another title, as the presenter tells two alike apart. */
+    public function withDisplayTitle(string $displayTitle): self
+    {
+        return new self(
+            uid: $this->uid,
+            title: $this->title,
+            displayTitle: $displayTitle,
+            fullTitle: $this->fullTitle,
+            titleKind: $this->titleKind,
+            context: $this->context,
+            contextLabel: $this->contextLabel,
+            page: $this->page,
+            pageGone: $this->pageGone,
+            skillTitle: $this->skillTitle,
+            guided: $this->guided,
+            progress: $this->progress,
+            createdAt: $this->createdAt,
+            lastActivityTimestamp: $this->lastActivityTimestamp,
+            lastActivity: $this->lastActivity,
+            status: $this->status,
+            statusTone: $this->statusTone,
+            statusLabel: $this->statusLabel,
+            messageCount: $this->messageCount,
+            pinned: $this->pinned,
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function jsonSerialize(): array
     {
         return [
-            'uid'            => $this->uid,
-            'title'          => $this->title,
-            'displayTitle'   => $this->displayTitle,
-            'fullTitle'      => $this->fullTitle,
-            'titleKind'      => $this->titleKind,
-            'contextLabel'   => $this->contextLabel,
-            'pageUid'        => $this->page['uid'] ?? 0,
-            'pageGone'       => $this->pageGone,
-            'skillTitle'     => $this->skillTitle,
-            'guided'         => $this->guided,
-            'progress'       => $this->progress,
-            'createdAt'      => $this->createdAt,
+            'uid'          => $this->uid,
+            'title'        => $this->title,
+            'displayTitle' => $this->displayTitle,
+            'fullTitle'    => $this->fullTitle,
+            'titleKind'    => $this->titleKind,
+            'contextLabel' => $this->contextLabel,
+            'pageUid'      => $this->page['uid'] ?? 0,
+            'pageGone'     => $this->pageGone,
+            'skillTitle'   => $this->skillTitle,
+            'guided'       => $this->guided,
+            'progress'     => $this->progress,
+            'createdAt'    => $this->createdAt,
+            // The client words the time ("Heute, 10:42") in the reader's
+            // time zone and anew on every render (conversation-list.js).
             'lastActivityAt' => $this->lastActivity['datetime'],
-            'lastActivity'   => [
-                'label'    => $this->lastActivity['label'],
-                'absolute' => $this->lastActivity['absolute'],
-            ],
-            'status'       => $this->status,
-            'statusTone'   => $this->statusTone,
-            'statusLabel'  => $this->statusLabel,
-            'messageCount' => $this->messageCount,
-            'pinned'       => $this->pinned,
+            'status'         => $this->status,
+            'statusTone'     => $this->statusTone,
+            'statusLabel'    => $this->statusLabel,
+            'messageCount'   => $this->messageCount,
+            'pinned'         => $this->pinned,
         ];
     }
 }

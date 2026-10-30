@@ -45,30 +45,48 @@ One display model, built on the server
 the chat module and the panel render its fields with one shared row
 (``conversation-list.js``). Per conversation: the title, the full title for
 the tooltip, the context, the page (only one the user may see in the page
-tree), the skill's title, the point of a tour, when it was created, when its
-last message was written (``createdAt`` of the last message, the row's
-``tstamp`` when there is none), and the status with its tone and label.
+tree, titled in the conversation's language where it has a translation the
+user may edit), the skill's title, the point of a tour, when it was created,
+when its last message was written, and the status with its tone and label.
+
+When the last message was written is kept on the conversation
+(``last_message_at``): the repository writes it with every save of the
+messages, in the same transaction, from the last message's ``createdAt``. A
+list therefore never reads a transcript. A row saved before the column
+existed is read from its last message row until the upgrade wizard
+``nrMcpAgent_lastMessageTime`` has filled it; a wizard rather than a lazy
+backfill, because a list request should not write, and a conversation nobody
+opens again would otherwise never be filled. The server sends the time as
+ISO 8601; the client words it ("Heute, 10:42") in the reader's time zone and
+anew at every render, so a list left open past midnight says "Gestern".
 
 The title is decided at display time
 ------------------------------------
 
-Stored rows keep their titles; no migration rewrites them.
+Stored rows keep their titles; no migration rewrites them. Where a title
+comes from is kept in ``title_source``: ``manual`` once the editor renamed the
+conversation (``renameConversation()``), ``tour`` for the title a new guided
+tour is stored with, empty otherwise and for every row from before the column.
 
+-   **A title the editor gave** (``manual``) is never replaced.
 -   **A guided tour whose title is automatic** is shown as
     "<skill> · <page>" with the page's current title (``ConversationTitle``).
-    Automatic means: empty, the start message in any shipped language, or
-    "<skill> · …" as a new tour now stores it. The page is left out when the
-    user may not see it or it is deleted.
+    Automatic means: marked ``tour``, or, for a row without a mark, exactly
+    one of the titles the extension gives — empty, the tour's start message in
+    the user's language, a shipped one or an installed backend language, the
+    skill's title, or "<skill> · <page>" with the page's current title. Never
+    a prefix: the rename field starts with the derived title, and
+    "<skill> · <page> (Kunde X)" is the editor's. The page is left out when
+    the user may not see it or it is deleted.
 -   **Any other title** is shown with its whitespace collapsed and, when it is
     longer than 60 characters, shortened to its first sentence (from 20
     characters on) or cut at a word boundary with "…". The full text is the
-    tooltip. This covers a chat's first message, "Alt-Text: <file>" and a
-    title the editor gave.
--   **A rename sets no marker.** ``renameConversation()`` writes the title
-    only. The rule above therefore treats every title the extension did not
-    give as the editor's, which keeps a renamed tour's title. A new tour is
-    stored as "<skill> · <page>", so its title is meaningful in the database
-    too and is still recognised as automatic.
+    tooltip. Lengths are counted in grapheme clusters, so a cut never splits
+    an emoji or an accented letter. This covers a chat's first message,
+    "Alt-Text: <file>" and a title the editor gave.
+-   **Two alike** — the same tour twice on the same page — get the time they
+    were started after the title ("SEO optimieren · Über uns · 20. Okt.,
+    08:00"), so a tab tells them apart without its tooltip.
 
 The context names what the title does not
 ------------------------------------------
@@ -90,8 +108,10 @@ Lists
     endpoint still sends it, because the chat opens a conversation it has just
     created from that list.
 -   The panel's tabs show the status icon and the title; the context, the
-    status in words and the time are in the tooltip. The "more" list searches
-    the title, the full title and the context.
+    status in words and the time are in the tooltip, and the context and the
+    time are each tab's description (``aria-describedby``) for keyboard, touch
+    and screen readers. The "more" list searches the title, the full title and
+    the context.
 -   The dashboard widget is full width and lists ten conversations.
 
 Status
@@ -109,13 +129,16 @@ Consequences
 -   A page the user may not see is no longer a reason for the widget to leave
     a tour out: the chat module listed it anyway. It is listed without the
     page.
--   A new tour stored in one backend language and listed in another keeps
-    its stored title when the skill's title differs between the languages; the
-    title is still "<skill> · <page>", only not re-derived.
--   Renaming a chat to exactly "<skill> · …" of its own tour makes the title
-    automatic again. That is the one rename the rule cannot tell from the
-    extension's own title.
--   The presenter reads each page, skill and label once per list. The list
-    endpoint reads the context columns of ``tx_nrmcpagent_conversation``
-    (``view_context``, ``skill_uid``, ``guided_state``, ``alt_text_hit``) and
-    one row of ``tx_nrmcpagent_message`` per conversation for the time.
+-   The table gains ``title_source`` and ``last_message_at``; run the
+    database analyzer, then the wizard ``nrMcpAgent_lastMessageTime``.
+-   A tour renamed before ``title_source`` existed to exactly a title the
+    extension gives is treated as automatic. Every rename since is marked.
+-   The pages of a list are read with one query per language of the
+    conversations and one for their translations, with the same checks as
+    ``BackendUtility::readPageAccess()`` — the "show page" clause, the web
+    mounts, the workspace overlay — but without the record path no list shows.
+    The mount check stays per page; core caches the rootlines it reads.
+-   The list endpoint reads the context columns of
+    ``tx_nrmcpagent_conversation`` (``view_context``, ``skill_uid``,
+    ``guided_state``, ``alt_text_hit``, ``title_source``, ``last_message_at``)
+    and no message rows, except for rows the wizard has not filled yet.

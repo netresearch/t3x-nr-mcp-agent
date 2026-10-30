@@ -57,6 +57,13 @@ final class ConversationListPresenterTest extends TestCase
             self::LL . 'status.unknown'                       => 'Status unbekannt',
             SkillLabels::FILE . ':skill.seo-optimieren.title' => 'SEO optimieren',
         ],
+        'fr' => [
+            self::LL . 'guided.checkPage' => 'Vérifier cette page',
+        ],
+        'it' => [
+            self::LL . 'guided.checkPage'                     => 'Controlla questa pagina',
+            SkillLabels::FILE . ':skill.seo-optimieren.title' => 'Ottimizzare SEO',
+        ],
         'default' => [
             self::LL . 'guided.checkPage'                     => 'Check this page',
             self::LL . 'widget.context.page'                  => 'Page “%s”',
@@ -96,6 +103,7 @@ final class ConversationListPresenterTest extends TestCase
      * @param array<int, array{uid: int, title: string}> $accessiblePages
      * @param list<int>                                  $gonePages
      * @param array<int, int>                            $lastMessageTimes
+     * @param array<string, string>                      $translatedTitles "<uid>:<language>" => title
      */
     private function presenter(
         array $accessiblePages = [],
@@ -105,13 +113,26 @@ final class ConversationListPresenterTest extends TestCase
         string $userLanguage = 'de',
         ?SkillCatalogueInterface $skills = null,
         ?PageChoiceRepository $pages = null,
+        ?ConversationRepository $repository = null,
+        array $translatedTitles = [],
     ): ConversationListPresenter {
-        $repository = $this->createStub(ConversationRepository::class);
-        $repository->method('findLastMessageTimes')->willReturn($lastMessageTimes);
+        if (!$repository instanceof ConversationRepository) {
+            $repository = $this->createStub(ConversationRepository::class);
+            $repository->method('findLastMessageTimes')->willReturn($lastMessageTimes);
+        }
 
         if (!$pages instanceof PageChoiceRepository) {
             $pages = $this->createStub(PageChoiceRepository::class);
-            $pages->method('findAccessible')->willReturnCallback(static fn (int $uid): ?array => $accessiblePages[$uid] ?? null);
+            $pages->method('findAccessibleTitles')->willReturnCallback(static function (array $languages) use ($accessiblePages, $translatedTitles): array {
+                $found = [];
+                foreach ($languages as $uid => $language) {
+                    if (isset($accessiblePages[$uid])) {
+                        $found[$uid] = ['uid' => $uid, 'title' => $translatedTitles[$uid . ':' . $language] ?? $accessiblePages[$uid]['title']];
+                    }
+                }
+
+                return $found;
+            });
             $pages->method('isGone')->willReturnCallback(static fn (int $uid): bool => in_array($uid, $gonePages, true));
         }
 
@@ -226,16 +247,162 @@ final class ConversationListPresenterTest extends TestCase
         self::assertEqualsCanonicalizing(['SEO optimieren · Über uns', 'SEO optimieren · Kontakt'], array_map(static fn (ConversationListItem $i): string => $i->displayTitle, $items));
     }
 
-    /** A new tour stores "<skill> · <page>"; the page's current title is shown. */
+    /** A new tour stores "<skill> · <page>", marked as the tour's; the page's current title is shown. */
     #[Test]
     public function aTourWithTheStoredTourTitleFollowsAPageRename(): void
     {
-        $item = $this->one($this->tour(1, 'SEO optimieren · Alter Titel'), [12 => ['uid' => 12, 'title' => 'Neuer Titel']]);
+        $conversation = $this->tour(1, 'SEO optimieren · Alter Titel');
+        $conversation->setTitleSource(Conversation::TITLE_TOUR);
+
+        $item = $this->one($conversation, [12 => ['uid' => 12, 'title' => 'Neuer Titel']]);
 
         self::assertSame('SEO optimieren · Neuer Titel', $item->displayTitle);
+        self::assertSame('tour', $item->titleKind);
     }
 
-    /** A rename sets no marker: a title the extension did not give is the editor's, and it wins. */
+    /**
+     * The rename field starts with the derived title. What the editor adds to
+     * it is theirs: marked as renamed, it is never derived again (the review
+     * of #281 reverted exactly this by a prefix match).
+     */
+    #[Test]
+    public function aRenamedTourThatBeginsWithTheDerivedTitleKeepsTheAddition(): void
+    {
+        $conversation = $this->tour(1, 'SEO optimieren · Über uns (Kunde X)');
+        $conversation->setTitleSource(Conversation::TITLE_MANUAL);
+
+        $item = $this->one($conversation, [12 => ['uid' => 12, 'title' => 'Über uns']]);
+
+        self::assertSame('SEO optimieren · Über uns (Kunde X)', $item->displayTitle);
+        self::assertSame('own', $item->titleKind);
+    }
+
+    /** A renamed title stays the editor's even when it is exactly the derived one. */
+    #[Test]
+    public function aRenamedTourEqualToTheDerivedTitleStaysTheEditors(): void
+    {
+        $conversation = $this->tour(1, 'SEO optimieren · Über uns');
+        $conversation->setTitleSource(Conversation::TITLE_MANUAL);
+
+        $item = $this->one($conversation, [12 => ['uid' => 12, 'title' => 'Über uns']]);
+
+        self::assertSame('SEO optimieren · Über uns', $item->displayTitle);
+        self::assertSame('own', $item->titleKind);
+    }
+
+    /**
+     * A row from before the mark: automatic only when exactly a title the
+     * extension gives, never by its beginning.
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function unmarkedTitles(): iterable
+    {
+        yield 'the derived title' => ['SEO optimieren · Über uns', 'tour'];
+        yield 'the skill alone' => ['SEO optimieren', 'tour'];
+        yield 'the derived title with an addition' => ['SEO optimieren · Über uns (Kunde X)', 'own'];
+        yield 'the derived title of an old page title' => ['SEO optimieren · Alter Titel', 'own'];
+    }
+
+    #[Test]
+    #[DataProvider('unmarkedTitles')]
+    public function anUnmarkedTourTitleIsAutomaticOnlyWhenExact(string $title, string $kind): void
+    {
+        self::assertSame($kind, $this->one($this->tour(1, $title), [12 => ['uid' => 12, 'title' => 'Über uns']])->titleKind);
+    }
+
+    /** A title another tour in another language would start with is recognised too: installed packs, the user's own. */
+    #[Test]
+    public function aTourStartedInAnInstalledLanguageIsRecognised(): void
+    {
+        $previous                                                            = $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['lang']['availableLanguages'] ?? null;
+        $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['lang']['availableLanguages'] = ['fr'];
+
+        try {
+            $item = $this->one($this->tour(1, 'Vérifier cette page'), [12 => ['uid' => 12, 'title' => 'Über uns']]);
+        } finally {
+            if ($previous === null) {
+                unset($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['lang']['availableLanguages']);
+            } else {
+                $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['lang']['availableLanguages'] = $previous;
+            }
+        }
+
+        self::assertSame('tour', $item->titleKind);
+    }
+
+    #[Test]
+    public function aTourStartedInTheUsersLanguageIsRecognised(): void
+    {
+        $item = $this->presenter([12 => ['uid' => 12, 'title' => 'Über uns']], userLanguage: 'it')->present([$this->tour(1, 'Controlla questa pagina')], $this->user('it'))[0];
+
+        self::assertSame('tour', $item->titleKind);
+        self::assertSame('Ottimizzare SEO · Über uns', $item->displayTitle);
+    }
+
+    /** The page is named in the conversation's language, where it has a translation the user may read. */
+    #[Test]
+    public function thePageIsNamedInTheConversationsLanguage(): void
+    {
+        $item = $this->presenter([12 => ['uid' => 12, 'title' => 'Über uns']], translatedTitles: ['12:1' => 'About us'])->present([$this->tour(1)], $this->user())[0];
+
+        self::assertSame('SEO optimieren · About us', $item->displayTitle);
+    }
+
+    /** The same tour twice on the same page: the tab titles tell them apart by when each was started. */
+    #[Test]
+    public function twoConversationsWithTheSameTitleAreToldApartByTheirStart(): void
+    {
+        $first  = Conversation::fromRow(['uid' => 1, 'be_user' => 3, 'title' => 'Diese Seite prüfen', 'message_count' => 2, 'crdate' => strtotime('2026-10-20T08:00:00+00:00')]);
+        $second = Conversation::fromRow(['uid' => 2, 'be_user' => 3, 'title' => 'Diese Seite prüfen', 'message_count' => 2, 'crdate' => strtotime('2026-10-22T14:30:00+00:00')]);
+        $other  = $this->conversation(3, ['crdate' => strtotime('2026-10-21T09:00:00+00:00')]);
+        foreach ([$first, $second] as $tour) {
+            $tour->setViewContext(12, 'web_layout', 1);
+            $tour->setSkillIdentifier('seo-optimieren', 4);
+        }
+
+        $titles = [];
+        foreach ($this->presenter([12 => ['uid' => 12, 'title' => 'Über uns']])->present([$first, $second, $other], $this->user()) as $item) {
+            $titles[$item->uid] = $item->displayTitle;
+        }
+
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 20\. Okt\.?,? 08:00$/', $titles[1]);
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 22\. Okt\.?,? 14:30$/', $titles[2]);
+        self::assertSame('Chat 3', $titles[3]);
+    }
+
+    /** The time is kept on the conversation; only a row without it is read from its last message. */
+    #[Test]
+    public function theLastMessageTimeIsReadFromTheMessagesOnlyForARowWithoutIt(): void
+    {
+        $kept    = $this->conversation(1, ['last_message_at' => strtotime('2026-10-23T10:00:00+00:00')]);
+        $missing = $this->conversation(2);
+        $empty   = $this->conversation(3, ['message_count' => 0]);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->expects(self::once())->method('findLastMessageTimes')->with([2])->willReturn([2 => strtotime('2026-10-22T10:00:00+00:00')]);
+
+        $items = $this->presenter(repository: $repository)->present([$kept, $missing, $empty], $this->user());
+        $times = [];
+        foreach ($items as $item) {
+            $times[$item->uid] = $item->lastActivity['datetime'];
+        }
+
+        self::assertSame('2026-10-23T10:00:00+00:00', $times[1]);
+        self::assertSame('2026-10-22T10:00:00+00:00', $times[2]);
+        self::assertSame((new DateTimeImmutable('@' . (strtotime(self::NOW) - 60)))->format(DATE_ATOM), $times[3]);
+    }
+
+    #[Test]
+    public function aListWhoseRowsKeepTheTimeReadsNoMessage(): void
+    {
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->expects(self::never())->method('findLastMessageTimes');
+
+        $this->presenter(repository: $repository)->present([$this->conversation(1, ['last_message_at' => 1])], $this->user());
+    }
+
+    /** A tour the editor renamed keeps their title and names page and skill in its context. */
     #[Test]
     public function aRenamedTourKeepsItsTitleAndNamesPageAndSkillInItsContext(): void
     {
@@ -478,7 +645,7 @@ final class ConversationListPresenterTest extends TestCase
     public function aPageIsReadOncePerList(): void
     {
         $pages = $this->createMock(PageChoiceRepository::class);
-        $pages->expects(self::once())->method('findAccessible')->with(12)->willReturn(['uid' => 12, 'title' => 'Über uns']);
+        $pages->expects(self::once())->method('findAccessibleTitles')->with([12 => 1])->willReturn([12 => ['uid' => 12, 'title' => 'Über uns']]);
 
         $items = $this->presenter(pages: $pages)->present([$this->tour(1), $this->tour(2), $this->tour(3)], $this->user());
 
@@ -615,7 +782,7 @@ final class ConversationListPresenterTest extends TestCase
     public function theStoredTitleOfANewTourIsRecognisedAsAutomatic(): void
     {
         $presenter = $this->presenter([12 => ['uid' => 12, 'title' => 'Über uns']]);
-        $stored    = $presenter->tourStartTitle('seo-optimieren', 12, $this->user());
+        $stored    = $presenter->tourStartTitle('seo-optimieren', 12, $this->user(), 1);
 
         self::assertSame('tour', $this->one($this->tour(1, $stored), [12 => ['uid' => 12, 'title' => 'Über uns']])->titleKind);
     }

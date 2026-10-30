@@ -19,14 +19,18 @@ namespace Netresearch\NrMcpAgent\Service\ConversationList;
  * new tours store "<skill> · <page>" instead.
  *
  * The rules, decided at display time so that stored rows need no migration:
- * - a guided tour whose title is still automatic — empty, a start message of
- *   a tour in any shipped language, or "<skill> · …" as a new tour stores it —
- *   is shown as "<skill> · <page>", with the page's current title;
+ * - a title the editor gave is marked so (Conversation::TITLE_MANUAL) and is
+ *   never replaced;
+ * - a guided tour whose title is automatic is shown as "<skill> · <page>",
+ *   with the page's current title. Automatic is a title marked as the tour's
+ *   own (Conversation::TITLE_TOUR), and, for a row without a mark, a title
+ *   that is exactly one the extension gives: empty, the start message of a
+ *   tour in any language the presenter knows, or the derived title itself.
+ *   Never a prefix: "<skill> · <page> (Kunde X)" is the editor's;
  * - any other title is shown as the editor reads it best in a list: the
  *   whitespace collapsed, and a long one shortened to its first sentence or
- *   cut at a word boundary with "…". The full text stays available as the
- *   tooltip. A renamed title is short and passes unchanged; a rename sets no
- *   marker, so "renamed" is everything that is not automatic.
+ *   cut at a word boundary with "…", counted in grapheme clusters. The full
+ *   text stays available as the tooltip.
  *
  * Pure functions; ConversationListPresenter supplies the labels.
  */
@@ -58,19 +62,19 @@ final class ConversationTitle
     public static function shorten(string $title, int $max = self::MAX_LENGTH): string
     {
         $title = self::collapse($title);
-        if (mb_strlen($title) <= $max) {
+        if (self::length($title) <= $max) {
             return $title;
         }
 
         if (preg_match('/^(.+?[.!?])\s/u', $title, $match) === 1) {
             $sentence = $match[1];
-            $length   = mb_strlen($sentence);
+            $length   = self::length($sentence);
             if ($length >= self::MIN_SENTENCE_LENGTH && $length <= $max) {
                 return $sentence;
             }
         }
 
-        $cut   = mb_substr($title, 0, $max);
+        $cut   = self::head($title, $max);
         $space = mb_strrpos($cut, ' ');
         if ($space !== false && $space > 0) {
             $cut = mb_substr($cut, 0, $space);
@@ -80,21 +84,40 @@ final class ConversationTitle
     }
 
     /**
-     * Whether the stored title of a guided tour is one the extension gave it,
-     * so the derived title may replace it.
-     *
-     * @param list<string> $startMessages the tour's start message in every shipped language
-     * @param string|null  $tourName      the skill's title, or the name a new tour stored with the page
+     * The length in grapheme clusters — what a reader counts as characters:
+     * "👍🏽" or an "e" with a combining accent is one. Code points where
+     * ext-intl is missing.
      */
-    public static function isAutomaticTourTitle(string $title, array $startMessages, ?string $tourName): bool
+    private static function length(string $text): int
+    {
+        $length = function_exists('grapheme_strlen') ? grapheme_strlen($text) : false;
+
+        return is_int($length) ? $length : mb_strlen($text);
+    }
+
+    /** The first $length grapheme clusters, never half of one. */
+    private static function head(string $text, int $length): string
+    {
+        $head = function_exists('grapheme_substr') ? grapheme_substr($text, 0, $length) : false;
+
+        return is_string($head) ? $head : mb_substr($text, 0, $length);
+    }
+
+    /**
+     * Whether the stored title of a guided tour without a mark is exactly one
+     * the extension gives, so the derived title may replace it. Compared
+     * whole, whitespace collapsed; a title that merely begins like one is the
+     * editor's.
+     *
+     * @param list<string> $startMessages the tour's start message in every language the presenter knows
+     * @param list<string> $derived       the titles the tour would get: "<skill> · <page>", the skill alone
+     */
+    public static function isAutomaticTourTitle(string $title, array $startMessages, array $derived): bool
     {
         $title = self::collapse($title);
-        if ($title === '' || in_array($title, array_map(self::collapse(...), $startMessages), true)) {
-            return true;
-        }
 
-        return $tourName !== null && $tourName !== ''
-            && ($title === $tourName || str_starts_with($title, $tourName . self::SEPARATOR));
+        return $title === ''
+            || in_array($title, array_map(self::collapse(...), [...$startMessages, ...$derived]), true);
     }
 
     /**

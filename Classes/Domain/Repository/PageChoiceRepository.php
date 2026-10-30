@@ -271,6 +271,113 @@ readonly class PageChoiceRepository
     }
 
     /**
+     * The pages of $languages the user may see in the page tree, keyed by uid,
+     * each titled in the language given for it ($languages: page uid =>
+     * sys_language_uid) where the user may edit that language and the page has
+     * a translation in it, else in the default language.
+     *
+     * The same checks as findAccessible() (BackendUtility::readPageAccess()):
+     * the "show page" permission clause, the web mounts and the workspace
+     * overlay; only the record path, which no list shows, is left out. The
+     * rows are read with one query, the translations with one more; the mount
+     * is checked per page, from the rootline core caches per request.
+     *
+     * @param array<int, int> $languages
+     *
+     * @return array<int, array{uid: int, title: string}>
+     */
+    public function findAccessibleTitles(array $languages): array
+    {
+        $user      = $this->backendUser();
+        $languages = array_filter($languages, static fn (int $language, int $uid): bool => $uid > 0, ARRAY_FILTER_USE_BOTH);
+        if (!$user instanceof BackendUserAuthentication || $languages === []) {
+            return [];
+        }
+
+        $perms = $user->getPagePermsClause(Permission::PAGE_SHOW);
+        $qb    = $this->connectionPool->getQueryBuilderForTable('pages');
+        $qb->getRestrictions()->removeAll()->add(new DeletedRestriction());
+        $rows = $qb->select('*')
+            ->from('pages')
+            ->where(
+                $qb->expr()->in('uid', $qb->createNamedParameter(array_keys($languages), Connection::PARAM_INT_ARRAY)),
+                QueryHelper::stripLogicalOperatorPrefix($perms),
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $pages = [];
+        foreach ($rows as $row) {
+            if ($user->isInWebMount($row, $perms) === null) {
+                continue;
+            }
+
+            BackendUtility::workspaceOL('pages', $row);
+            $uid = is_array($row) && is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+            if ($uid > 0) {
+                $pages[$uid] = $this->choice($uid, $row);
+            }
+        }
+
+        foreach ($this->translatedTitles($pages, $languages, $user) as $uid => $title) {
+            if (isset($pages[$uid])) {
+                $pages[$uid] = ['uid' => $uid, 'title' => $title];
+            }
+        }
+
+        return $pages;
+    }
+
+    /**
+     * The titles of the translations the user may read: of the pages in
+     * $pages, in the language $languages names for each, where the user may
+     * edit that language.
+     *
+     * @param array<int, array{uid: int, title: string}> $pages
+     * @param array<int, int>                            $languages
+     *
+     * @return array<int, string>
+     */
+    private function translatedTitles(array $pages, array $languages, BackendUserAuthentication $user): array
+    {
+        $wanted = [];
+        foreach (array_keys($pages) as $uid) {
+            $language = $languages[$uid] ?? 0;
+            if ($language > 0 && $user->checkLanguageAccess($language)) {
+                $wanted[$uid] = $language;
+            }
+        }
+
+        if ($wanted === []) {
+            return [];
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable('pages');
+        $qb->getRestrictions()->removeAll()->add(new DeletedRestriction());
+        $rows = $qb->select('*')
+            ->from('pages')
+            ->where(
+                $qb->expr()->in('l10n_parent', $qb->createNamedParameter(array_keys($wanted), Connection::PARAM_INT_ARRAY)),
+                $qb->expr()->in('sys_language_uid', $qb->createNamedParameter(array_values(array_unique($wanted)), Connection::PARAM_INT_ARRAY)),
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $titles = [];
+        foreach ($rows as $row) {
+            BackendUtility::workspaceOL('pages', $row);
+            $parent   = is_array($row) && is_numeric($row['l10n_parent'] ?? null) ? (int) $row['l10n_parent'] : 0;
+            $language = is_array($row) && is_numeric($row['sys_language_uid'] ?? null) ? (int) $row['sys_language_uid'] : 0;
+            $title    = is_array($row) ? ($row['title'] ?? '') : '';
+            if ($parent > 0 && ($wanted[$parent] ?? null) === $language && is_string($title) && trim($title) !== '') {
+                $titles[$parent] = $title;
+            }
+        }
+
+        return $titles;
+    }
+
+    /**
      * Whether the page no longer exists: never there, removed from the
      * database, or deleted (in the recycler). readPageAccess() answers null
      * for such a page and for one the user may not see alike; this tells the

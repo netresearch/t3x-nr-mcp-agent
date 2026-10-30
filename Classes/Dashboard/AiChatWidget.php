@@ -17,6 +17,7 @@ use Netresearch\NrMcpAgent\Service\ConversationList\ConversationListPresenter;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Localization\Locales;
 use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
 use TYPO3\CMS\Dashboard\Widgets\AdditionalCssInterface;
 use TYPO3\CMS\Dashboard\Widgets\JavaScriptInterface;
@@ -72,6 +73,7 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
         private readonly ConversationRepository $repository,
         private readonly ChatToolbarItem $chatAccess,
         private readonly ConversationListPresenter $presenter,
+        private readonly Locales $locales,
         private readonly array $options = [],
     ) {}
 
@@ -96,15 +98,19 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
      * What the template shows: whether the chat is available to this user,
      * and their most recent conversations if it is.
      *
-     * @return array{available: bool, conversations: list<ConversationListItem>}
+     * @return array{available: bool, conversations: list<ConversationListItem>, locale: string}
      */
     public function templateVariables(): array
     {
         $available = $this->chatAccess->checkAccess();
+        $user      = $GLOBALS['BE_USER'] ?? null;
 
         return [
             'available'     => $available,
             'conversations' => $available ? $this->recentConversations() : [],
+            // The locale dashboard-widget.js words the times in, in the
+            // reader's time zone.
+            'locale' => str_replace('_', '-', (string) $this->locales->createLocaleFromUserPreferences($user instanceof BackendUserAuthentication ? $user : null)),
         ];
     }
 

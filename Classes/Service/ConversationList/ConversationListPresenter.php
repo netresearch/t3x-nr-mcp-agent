@@ -63,8 +63,9 @@ final class ConversationListPresenter
 
     /**
      * The languages locallang_chat.xlf ships ("default" is the English source).
-     * A tour started in any of them is recognised by its start message, also
-     * when the editor has switched the backend language since.
+     * A tour started in any of them — or in the user's language, or in a
+     * backend language installed here — is recognised by its start message,
+     * also when the editor has switched the backend language since.
      */
     public const SHIPPED_LANGUAGES = ['default', 'de'];
 
@@ -83,7 +84,12 @@ final class ConversationListPresenter
         'failed'            => ['danger', 'status.failed'],
     ];
 
-    /** @var array<int, array{uid: int, title: string}|null> */
+    /**
+     * The pages of the list, by "<uid>:<language>", null for one the user may
+     * not see (readPages()).
+     *
+     * @var array<string, array{uid: int, title: string}|null>
+     */
     private array $accessiblePages = [];
 
     /** @var array<int, bool> */
@@ -131,31 +137,91 @@ final class ConversationListPresenter
         $this->pageSkills      = [];
         $this->skillTitles     = [];
 
-        $times    = $this->repository->findLastMessageTimes(array_map(static fn (Conversation $c): int => $c->getUid(), $conversations));
         $language = $this->languageService($user);
         $locale   = (string) $this->locales->createLocaleFromUserPreferences($user);
         $now      = $this->now();
-        $starts   = $this->tourStartMessages();
+        $starts   = $this->tourStartMessages($language);
+        $this->readPages($conversations);
+
+        // The time is kept on the conversation (`last_message_at`); a row
+        // saved before the column existed, and not yet backfilled by
+        // LastMessageTimeUpdateWizard, is read from its last message row.
+        $missing = array_values(array_map(
+            static fn (Conversation $c): int => $c->getUid(),
+            array_filter($conversations, static fn (Conversation $c): bool => $c->getLastMessageAt() === 0 && $c->getMessageCount() > 0),
+        ));
+        $times = $missing === [] ? [] : $this->repository->findLastMessageTimes($missing);
 
         $items = [];
         foreach ($conversations as $conversation) {
-            $lastActivity = $times[$conversation->getUid()] ?? $conversation->getTstamp();
+            $lastActivity = $conversation->getLastMessageAt() > 0 ? $conversation->getLastMessageAt() : ($times[$conversation->getUid()] ?? $conversation->getTstamp());
             $items[]      = $this->item($conversation, $lastActivity, $language, $locale, $now, $starts);
         }
 
         usort($items, static fn (ConversationListItem $a, ConversationListItem $b): int => [$b->lastActivityTimestamp, $b->uid] <=> [$a->lastActivityTimestamp, $a->uid]);
 
-        return $items;
+        return $this->disambiguate($items, $locale, $now);
+    }
+
+    /**
+     * Two conversations a list would show with the same title — the same tour
+     * on the same page, twice — get the time they were started after it, so a
+     * tab tells them apart without its tooltip.
+     *
+     * @param list<ConversationListItem> $items
+     *
+     * @return list<ConversationListItem>
+     */
+    private function disambiguate(array $items, string $locale, DateTimeImmutable $now): array
+    {
+        $counts  = array_count_values(array_map(static fn (ConversationListItem $i): string => $i->displayTitle, $items));
+        $pattern = (new IntlDatePatternGenerator($locale))->getBestPattern('MMMdjm');
+        $format  = new IntlDateFormatter($locale, IntlDateFormatter::NONE, IntlDateFormatter::NONE, $now->getTimezone()->getName(), null, $pattern === false ? null : $pattern);
+
+        return array_map(static function (ConversationListItem $item) use ($counts, $format): ConversationListItem {
+            if ($item->displayTitle === '' || ($counts[$item->displayTitle] ?? 0) < 2 || $item->createdAt === '') {
+                return $item;
+            }
+
+            $started = (string) $format->format(new DateTimeImmutable($item->createdAt));
+
+            return $item->withDisplayTitle($item->displayTitle . ConversationTitle::SEPARATOR . $started);
+        }, $items);
+    }
+
+    /**
+     * Read the pages the conversations are about, with the user's rights and
+     * in each conversation's language, one batch per language.
+     *
+     * @param list<Conversation> $conversations
+     */
+    private function readPages(array $conversations): void
+    {
+        $byLanguage = [];
+        foreach ($conversations as $conversation) {
+            $skill   = $conversation->getSkillIdentifier();
+            $context = $conversation->getViewContext();
+            if ($context['pageId'] > 0 && $this->bindsPage($skill, $skill !== '' && $this->isProcess($conversation))) {
+                $byLanguage[max(0, $context['languageId'])][$context['pageId']] = max(0, $context['languageId']);
+            }
+        }
+
+        foreach ($byLanguage as $languageUid => $pages) {
+            $titles = $this->pages->findAccessibleTitles($pages);
+            foreach (array_keys($pages) as $pageUid) {
+                $this->accessiblePages[$pageUid . ':' . $languageUid] = $titles[$pageUid] ?? null;
+            }
+        }
     }
 
     /**
      * The title a new guided tour is stored with: "<skill> · <page>" in the
      * user's language, the page only when the user may see it.
      */
-    public function tourStartTitle(string $skillIdentifier, int $pageUid, ?BackendUserAuthentication $user): string
+    public function tourStartTitle(string $skillIdentifier, int $pageUid, ?BackendUserAuthentication $user, int $languageUid = 0): string
     {
         $language = $this->languageService($user);
-        $page     = $pageUid > 0 ? $this->pages->findAccessible($pageUid) : null;
+        $page     = $pageUid > 0 ? ($this->pages->findAccessibleTitles([$pageUid => max(0, $languageUid)])[$pageUid] ?? null) : null;
 
         return mb_substr(ConversationTitle::tourTitle($this->tourName($skillIdentifier, $language), $page['title'] ?? null), 0, 255);
     }
@@ -172,7 +238,7 @@ final class ConversationListPresenter
 
         $viewContext = $conversation->getViewContext();
         $pageUid     = $this->bindsPage($skill, $guided) ? $viewContext['pageId'] : 0;
-        $page        = $pageUid > 0 ? $this->accessiblePage($pageUid) : null;
+        $page        = $pageUid > 0 ? ($this->accessiblePages[$pageUid . ':' . max(0, $viewContext['languageId'])] ?? null) : null;
         // A skill that is no process gives up a deleted page and asks for a
         // new one; only a guided tour is shown, read-only, on it.
         $pageGone = $guided && $pageUid > 0 && $page === null && $this->isGone($pageUid);
@@ -181,7 +247,15 @@ final class ConversationListPresenter
         $collapsed = ConversationTitle::collapse($stored);
         $tourName  = $this->tourName($skill, $language);
         $isTour    = !$altText && ($guided || in_array($collapsed, array_map(ConversationTitle::collapse(...), $startMessages), true));
-        $derived   = $isTour && ConversationTitle::isAutomaticTourTitle($stored, $startMessages, $tourName) && ($guided || $page !== null);
+        // A title the editor gave stays; one the extension marked as the
+        // tour's is derived again; an unmarked one only when it is exactly a
+        // title the extension gives (ConversationTitle).
+        $automatic = match ($conversation->getTitleSource()) {
+            Conversation::TITLE_MANUAL => false,
+            Conversation::TITLE_TOUR   => true,
+            default                    => ConversationTitle::isAutomaticTourTitle($stored, $startMessages, [$tourName, ConversationTitle::tourTitle($tourName, $page['title'] ?? null)]),
+        };
+        $derived = $isTour && $automatic && ($guided || $page !== null);
 
         if ($derived) {
             $displayTitle = ConversationTitle::tourTitle($tourName, $page['title'] ?? null);
@@ -250,18 +324,29 @@ final class ConversationListPresenter
         return ($skill !== '' ? $this->skillTitle($skill) : null) ?? $language->sL(self::LL . self::TOUR_START_KEY);
     }
 
-    /** @return list<string> */
-    private function tourStartMessages(): array
+    /**
+     * The tour's start message in every language the presenter can resolve:
+     * the user's, the ones the extension ships, and the backend languages
+     * installed on this system (language packs may translate it).
+     *
+     * @return list<string>
+     */
+    private function tourStartMessages(LanguageService $userLanguage): array
     {
-        $messages = [];
-        foreach (self::SHIPPED_LANGUAGES as $languageKey) {
+        $confVars  = $GLOBALS['TYPO3_CONF_VARS'] ?? null;
+        $extConf   = is_array($confVars) && is_array($confVars['EXTCONF'] ?? null) ? $confVars['EXTCONF'] : [];
+        $lang      = is_array($extConf['lang'] ?? null) ? $extConf['lang'] : [];
+        $installed = $lang['availableLanguages'] ?? [];
+        $languages = array_unique([...self::SHIPPED_LANGUAGES, ...array_filter(is_array($installed) ? $installed : [], is_string(...))]);
+        $messages  = [$userLanguage->sL(self::LL . self::TOUR_START_KEY)];
+        foreach ($languages as $languageKey) {
             $message = $this->languageServiceFactory->create($languageKey)->sL(self::LL . self::TOUR_START_KEY);
             if ($message !== '') {
                 $messages[] = $message;
             }
         }
 
-        return array_values(array_unique($messages));
+        return array_values(array_unique(array_filter($messages, static fn (string $message): bool => $message !== '')));
     }
 
     private function languageService(?BackendUserAuthentication $user): LanguageService
@@ -300,16 +385,6 @@ final class ConversationListPresenter
         }
 
         return $this->pageSkills[$skill] ??= SkillPageNeed::of($this->skills->find($skill)) === SkillPageNeed::Required;
-    }
-
-    /** @return array{uid: int, title: string}|null */
-    private function accessiblePage(int $uid): ?array
-    {
-        if (!array_key_exists($uid, $this->accessiblePages)) {
-            $this->accessiblePages[$uid] = $this->pages->findAccessible($uid);
-        }
-
-        return $this->accessiblePages[$uid];
     }
 
     private function isGone(int $uid): bool

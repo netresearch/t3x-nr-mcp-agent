@@ -1,3 +1,7 @@
+"pages"
+,"uid","pid","title","doktype","perms_userid","perms_groupid","perms_user","perms_group","perms_everybody","deleted","hidden","sys_language_uid","l10n_parent"
+,40,0,"Fremd",1,1,0,31,0,1,0,0,0,0
+,120,0,"About us",1,1,0,31,0,1,0,0,1,20
 "tx_nrmcpagent_conversation"
 ,"uid","pid","be_user","title","messages","message_count","status","current_request_id","archived","pinned","deleted","tstamp","crdate","view_context","skill_identifier","guided_state"
 ,21,0,3,"Diese Seite prüfen","[]",2,"awaiting_input","",0,0,0,1761300000,1760950000,"{""pageId"":20,""module"":""web_layout"",""languageId"":0}","seo-optimieren","{""progress"":{""label"":""SEO"",""current"":2,""total"":5,""completed"":false},""highlight"":null}"
@@ -7,6 +11,9 @@
 ,25,0,3,"Angeheftet","[]",2,"failed","",0,1,0,1761300000,1700000000,"","",""
 ,26,0,1,"Nicht ihre","[]",2,"idle","",0,0,0,1761300000,1761300000,"","",""
 ,27,0,3,"Archiviert","[]",2,"idle","",1,0,0,1761300000,1761300000,"","",""
+,28,0,1,"Diese Seite prüfen","[]",2,"idle","",0,0,0,1761300000,1761300000,"{""pageId"":20,""module"":""web_layout"",""languageId"":1}","seo-optimieren",""
+,29,0,3,"Diese Seite prüfen","[]",2,"idle","",0,0,0,1700000001,1700000001,"{""pageId"":40,""module"":""web_layout"",""languageId"":0}","inhalt-verbessern",""
+,30,0,3,"Diese Seite prüfen","[]",2,"idle","",0,0,0,1700000002,1700000002,"{""pageId"":20,""module"":""web_layout"",""languageId"":1}","inhalt-verbessern",""
 "tx_nrmcpagent_message"
 ,"uid","pid","conversation","sorting","role","payload","crdate"
 ,201,0,21,0,"user","{""role"":""user"",""content"":""Diese Seite prüfen"",""createdAt"":""2026-10-20T09:00:00+00:00""}",1761300000

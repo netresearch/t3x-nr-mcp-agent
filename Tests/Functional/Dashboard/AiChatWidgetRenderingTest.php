@@ -183,6 +183,10 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
         self::assertMatchesRegularExpression('/<time class="nr-recent-chats-time" datetime="[^"]+" title="[^"]+">Today, /', $html);
         self::assertStringContainsString('data-nr-chat-page="10"', $html);
         self::assertStringContainsString('data-nr-chat-language="0"', $html);
+        // What dashboard-widget.js words the times with, in the reader's time zone.
+        self::assertStringContainsString('data-nr-chat-locale="en"', $html);
+        self::assertStringContainsString('data-nr-chat-today="Today, %s"', $html);
+        self::assertStringContainsString('data-nr-chat-yesterday="Yesterday, %s"', $html);
     }
 
     /** Ready is neutral: a core default badge, not a green one. */

@@ -68,6 +68,7 @@ readonly class ConversationRepository
         'uid', 'be_user', 'title', 'status', 'message_count',
         'pinned', 'archived', 'error_message', 'error_code', 'approval_run_uuid',
         'approval_decision', 'approval_turn_digest', 'skill_identifier', 'tstamp', 'crdate',
+        'title_source', 'last_message_at',
     ];
 
     /**
@@ -308,12 +309,17 @@ readonly class ConversationRepository
     /**
      * Lightweight title update — avoids reading/writing the full messages blob.
      */
+    /**
+     * The title the editor gave. It is marked as theirs, so no list replaces
+     * it with a derived one (ADR-027).
+     */
     public function updateTitle(int $uid, string $title, int $beUserUid): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
-            'title'  => $title,
-            'tstamp' => time(),
+            'title'        => $title,
+            'title_source' => Conversation::TITLE_MANUAL,
+            'tstamp'       => time(),
         ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 
@@ -639,6 +645,81 @@ readonly class ConversationRepository
                 'crdate'       => $now,
             ]);
         }
+
+        // What the lists order by, kept beside the rows so that a list never
+        // reads a transcript (ADR-027). Same transaction as the rows.
+        $conn->update(self::TABLE, ['last_message_at' => $this->lastMessageTime($messages, $now)], ['uid' => $conversationUid]);
+    }
+
+    /**
+     * When the last of $messages was written: its `createdAt`, or $fallback
+     * for a message without one; 0 without messages.
+     *
+     * @param list<array<string, mixed>> $messages
+     */
+    private function lastMessageTime(array $messages, int $fallback): int
+    {
+        if ($messages === []) {
+            return 0;
+        }
+
+        $createdAt = $messages[array_key_last($messages)]['createdAt'] ?? null;
+        $time      = is_string($createdAt) ? strtotime($createdAt) : false;
+
+        return $time !== false && $time > 0 ? $time : $fallback;
+    }
+
+    /**
+     * How many conversations with messages have no last message time yet:
+     * rows saved before the column existed (LastMessageTimeUpdateWizard).
+     */
+    public function countWithoutLastMessageTime(): int
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->getRestrictions()->removeAll();
+        $count = $qb->count('uid')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('last_message_at', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($count) ? (int) $count : 0;
+    }
+
+    /**
+     * Fill the last message time of up to $limit such rows from their last
+     * message row (findLastMessageTimes()); a row whose last message carries
+     * no time, or that has no message rows yet, gets its changed-at time, so
+     * every row leaves the backlog. Returns the number of rows written.
+     */
+    public function backfillLastMessageTimes(int $limit): int
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->getRestrictions()->removeAll();
+        $rows = $qb->select('uid', 'tstamp')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('last_message_at', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->orderBy('uid')
+            ->setMaxResults(max(1, $limit))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $uids  = array_map(static fn (array $row): int => is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0, $rows);
+        $times = $this->findLastMessageTimes($uids);
+        $conn  = $this->connectionPool->getConnectionForTable(self::TABLE);
+        foreach ($rows as $index => $row) {
+            $uid    = $uids[$index];
+            $tstamp = is_numeric($row['tstamp'] ?? null) ? (int) $row['tstamp'] : 0;
+            $conn->update(self::TABLE, ['last_message_at' => max(1, $times[$uid] ?? $tstamp)], ['uid' => $uid, 'last_message_at' => 0]);
+        }
+
+        return count($rows);
     }
 
     /**

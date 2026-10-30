@@ -18,7 +18,7 @@
             <p class="nr-recent-chats-hint">{f:translate(key: '{ll}widget.hint')}</p>
             <f:if condition="{conversations}">
                 <f:then>
-                    <ul class="nr-recent-chats">
+                    <ul class="nr-recent-chats" data-nr-chat-locale="{locale}" data-nr-chat-today="{f:translate(key: '{ll}widget.time.today')}" data-nr-chat-yesterday="{f:translate(key: '{ll}widget.time.yesterday')}">
                         <f:for each="{conversations}" as="conversation">
                             <li>
                                 <a href="{f:be.uri(route: 'nr_mcp_agent_chat', parameters: {conversation: conversation.uid})}"

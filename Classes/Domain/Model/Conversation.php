@@ -194,6 +194,27 @@ final class Conversation
 
     private int $crdate = 0;
 
+    /** A title the extension gave and keeps deriving: a guided tour's "<skill> · <page>". */
+    public const TITLE_TOUR = 'tour';
+
+    /** A title the editor gave; it is never replaced (ADR-027). */
+    public const TITLE_MANUAL = 'manual';
+
+    /**
+     * Where the title comes from (ADR-027): '' when the conversation does not
+     * say — a first message, an image's "Alt-Text: <file>", or a title from
+     * before the column existed —, TITLE_TOUR for the "<skill> · <page>" a
+     * guided tour is stored with, TITLE_MANUAL once the editor renamed it.
+     */
+    private string $titleSource = '';
+
+    /**
+     * When the last message was written, as a Unix timestamp, kept by the
+     * repository with every save of the messages; 0 for a row saved before
+     * the column existed and not yet backfilled. Read-only here.
+     */
+    private int $lastMessageAt = 0;
+
     /**
      * Factory method: hydrate from a database row array.
      *
@@ -232,6 +253,8 @@ final class Conversation
         $conversation->imageAnalysis      = (string) self::val($row, 'image_analysis', '');
         $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate             = (int) self::val($row, 'crdate', 0);
+        $conversation->titleSource        = (string) self::val($row, 'title_source', '');
+        $conversation->lastMessageAt      = (int) self::val($row, 'last_message_at', 0);
 
         return $conversation;
     }
@@ -262,6 +285,7 @@ final class Conversation
         return [
             'be_user'              => $this->beUser,
             'title'                => $this->title,
+            'title_source'         => $this->titleSource,
             'messages'             => $this->messages,
             'message_count'        => $this->messageCount,
             'status'               => $this->status,
@@ -308,6 +332,29 @@ final class Conversation
     public function setTitle(string $title): void
     {
         $this->title = mb_substr($title, 0, 255);
+    }
+
+    public function getTitleSource(): string
+    {
+        return $this->titleSource;
+    }
+
+    /**
+     * @param ''|self::TITLE_TOUR|self::TITLE_MANUAL $source
+     */
+    public function setTitleSource(string $source): void
+    {
+        $this->titleSource = $source;
+    }
+
+    public function isTitleManual(): bool
+    {
+        return $this->titleSource === self::TITLE_MANUAL;
+    }
+
+    public function getLastMessageAt(): int
+    {
+        return $this->lastMessageAt;
     }
 
     public function getMessages(): string

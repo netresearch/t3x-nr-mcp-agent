@@ -93,6 +93,7 @@ final class AiChatWidgetTest extends TestCase
             $repository,
             new ChatToolbarItem($config, $this->createMock(PageRenderer::class)),
             $presenter,
+            new Locales(),
         );
         $widget->setRequest($this->createMock(ServerRequestInterface::class));
 
@@ -130,6 +131,8 @@ final class AiChatWidgetTest extends TestCase
         $variables = $this->widget(1, $repository, $times)->templateVariables();
 
         self::assertTrue($variables['available']);
+        // The locale the widget's script words the times in.
+        self::assertSame('en', $variables['locale']);
         self::assertSame(10, AiChatWidget::LIMIT);
         self::assertSame([12, 11, 10, 9, 8, 7, 6, 5, 4, 3], array_map(static fn (ConversationListItem $item): int => $item->uid, $variables['conversations']));
     }

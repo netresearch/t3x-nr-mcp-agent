@@ -61,6 +61,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Localization\Locales;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderAccessPermissionsException;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
@@ -252,7 +253,22 @@ final readonly class ChatApiController
         $pinned = static fn (array $item): bool => $item['pinned'] === true;
         usort($items, static fn (array $a, array $b): int => $pinned($b) <=> $pinned($a));
 
-        return new JsonResponse(['conversations' => $items]);
+        return new JsonResponse([
+            'conversations' => $items,
+            // The locale the client words the times in (conversation-list.js).
+            'locale' => $this->listLocale(),
+        ]);
+    }
+
+    /** The backend user's locale as BCP 47 ("de-DE"), '' without a user. */
+    private function listLocale(): string
+    {
+        $user = $GLOBALS['BE_USER'] ?? null;
+        if (!$user instanceof BackendUserAuthentication) {
+            return '';
+        }
+
+        return str_replace('_', '-', (string) GeneralUtility::makeInstance(Locales::class)->createLocaleFromUserPreferences($user));
     }
 
     /**
@@ -294,7 +310,12 @@ final readonly class ChatApiController
             // The title names the tour and its page (ADR-027); the first
             // message stays the start message the editor sees. Set first:
             // appendMessage() titles only an untitled conversation.
-            $conversation->setTitle($this->tourTitle($conversation));
+            $tourTitle = $this->tourTitle($conversation);
+            if ($tourTitle !== '') {
+                $conversation->setTitle($tourTitle);
+                $conversation->setTitleSource(Conversation::TITLE_TOUR);
+            }
+
             $conversation->appendMessage(MessageRole::User, $this->translate('guided.checkPage'));
             $conversation->setStatus(ConversationStatus::Processing);
         }
@@ -325,6 +346,7 @@ final readonly class ChatApiController
             $conversation->getSkillIdentifier(),
             $conversation->getViewContext()['pageId'],
             $user instanceof BackendUserAuthentication ? $user : null,
+            $conversation->getViewContext()['languageId'],
         ) ?? '';
     }
 

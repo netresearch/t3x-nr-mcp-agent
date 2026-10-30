@@ -352,7 +352,10 @@ each one:
     other chat is named by its first message, shortened to its first
     sentence or about 60 characters; the full text is in the tooltip. A
     chat about a missing alt text keeps *Alt-Text: <file>*. A title you gave
-    a chat yourself is always kept.
+    a chat yourself is always kept, also when it begins like the tour's. The
+    page is named in the chat's language where it has a translation. Two
+    chats that would read alike, such as the same tour twice on one page,
+    show when each was started after the title.
 -   **Context** -- what the title does not say already: the page a skill
     that needs one works on, the skill, *Guided tour* and the point a tour is
     at (*Point 2 of 5*). A page is named only if you may see it in the page
@@ -360,8 +363,8 @@ each one:
     no page: it only remembers the page you had open when you last wrote,
     which is not what the chat is about.
 -   **Time** -- when the last message was written: *Today, 10:42*,
-    *Yesterday, 16:05*, then the date. The full date and time are in the
-    tooltip.
+    *Yesterday, 16:05*, then the date, in your browser's time zone. The full
+    date and time are in the tooltip.
 -   **Status** -- in words, with a colour that only repeats them: *Ready* is
     neutral, *Waiting for your answer* and *Waiting for your approval* stand
     out in the warning colour with an icon, *Working* is shown as
