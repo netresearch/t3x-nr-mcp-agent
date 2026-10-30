@@ -131,9 +131,12 @@ Lists
     ``hidden`` element, so browse mode does not read it twice) for keyboard,
     touch and screen readers. The "more" list searches the title, the full title and
     the context.
--   The dashboard widget is full width and lists ten conversations. In a
-    narrow widget the status and the time move under the title; the arrow
-    stays beside it.
+-   The dashboard widget is full width and lists ten conversations. The
+    dashboard keeps the size of a widget it has placed, so the wizard
+    ``nrMcpAgent_recentChatsWidgetSize`` removes the widget's stored position
+    where it is smaller, on dashboards arranged before 0.26. In a narrow
+    widget the status and the time move under the title; the arrow stays
+    beside it.
 
 Status
 ------
