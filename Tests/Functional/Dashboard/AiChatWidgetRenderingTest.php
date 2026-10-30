@@ -155,7 +155,9 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
 
     /**
      * The whole entry is one link whose text is its accessible name: title,
-     * context, progress and time, with the page for the page module.
+     * context, progress, status and time, with the page for the page module.
+     * A tour that started as "Check this page" is named by its skill and
+     * page (ADR-027); the context names what the title does not.
      */
     #[Test]
     public function aGuidedProcessOnAPageShowsThePageTheTourItsPointAndTheTime(): void
@@ -163,6 +165,8 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
         $this->addPage(10, 'Startseite');
         $this->addMessage(1);
         $this->updateConversation(1, [
+            'title'            => 'Check this page',
+            'status'           => 'awaiting_input',
             'view_context'     => '{"pageId":10,"module":"web_layout","languageId":0}',
             'skill_identifier' => 'seo-optimieren',
             'guided_state'     => '{"progress":{"label":"SEO","current":3,"total":5,"completed":false},"highlight":null}',
@@ -170,12 +174,47 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
 
         $html = $this->render();
 
-        self::assertStringContainsString('<span class="nr-recent-chats-title">Optimise SEO</span>', $html);
-        self::assertStringContainsString('Page “Startseite” · Guided tour', $html);
+        self::assertStringContainsString('<span class="nr-recent-chats-title" title="Optimise SEO · Startseite">Optimise SEO · Startseite</span>', $html);
+        self::assertStringNotContainsString('Check this page', $html);
+        self::assertMatchesRegularExpression('/<span class="nr-recent-chats-context">\s*Guided tour\s*<\/span>/', $html);
         self::assertStringContainsString('Point 3 of 5', $html);
-        self::assertMatchesRegularExpression('/<time class="nr-recent-chats-time" datetime="[^"]+">Today, /', $html);
+        // The status in words, as a warning: it waits for the editor.
+        self::assertMatchesRegularExpression('/<span class="nr-recent-chats-status badge badge-warning" data-tone="warning">.*Waiting for your answer<\/span>/s', $html);
+        self::assertMatchesRegularExpression('/<time class="nr-recent-chats-time" datetime="[^"]+" title="[^"]+">Today, /', $html);
         self::assertStringContainsString('data-nr-chat-page="10"', $html);
         self::assertStringContainsString('data-nr-chat-language="0"', $html);
+        // What dashboard-widget.js words the times with, in the reader's time zone.
+        self::assertStringContainsString('data-nr-chat-locale="en"', $html);
+        self::assertStringContainsString('data-nr-chat-today="Today, %s"', $html);
+        self::assertStringContainsString('data-nr-chat-yesterday="Yesterday, %s"', $html);
+    }
+
+    /** Ready is neutral: a core default badge, not a green one. */
+    #[Test]
+    public function aReadyConversationHasANeutralStatus(): void
+    {
+        $this->addMessage(1);
+
+        $html = $this->render();
+
+        self::assertStringContainsString('<span class="nr-recent-chats-status badge badge-default" data-tone="neutral">Ready</span>', $html);
+        self::assertStringNotContainsString('badge-success', $html);
+    }
+
+    /** Ten rows, the most recent last message first. */
+    #[Test]
+    public function itListsTheTenMostRecentConversations(): void
+    {
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation');
+        for ($i = 0; $i < 12; ++$i) {
+            $connection->insert('tx_nrmcpagent_conversation', ['uid' => 100 + $i, 'be_user' => 1, 'title' => 'Chat ' . $i, 'status' => 'idle', 'tstamp' => time(), 'crdate' => time()]);
+            $this->addMessage(100 + $i, sprintf('-%d minutes', 12 - $i));
+        }
+
+        $html = $this->render();
+        preg_match_all('/data-nr-chat-conversation="(\d+)"/', $html, $matches);
+
+        self::assertSame(['111', '110', '109', '108', '107', '106', '105', '104', '103', '102'], $matches[1]);
     }
 
     #[Test]
@@ -189,9 +228,11 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
             'guided_state'     => '{"progress":{"label":"SEO","current":2,"total":4,"completed":false},"highlight":null}',
         ]);
 
+        $this->updateConversation(1, ['title' => 'Check this page']);
+
         $html = $this->render();
 
-        self::assertStringContainsString('Optimise SEO', $html);
+        self::assertStringContainsString('>Optimise SEO<', $html);
         self::assertStringContainsString('Deleted page · Guided tour', $html);
         self::assertStringNotContainsString('Point 2 of 4', $html);
         self::assertStringNotContainsString('Weg', $html);
@@ -222,13 +263,17 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
         self::assertStringNotContainsString('data-nr-chat-page="1', $html);
     }
 
+    /**
+     * A page the user may not see is not named, the tour is theirs and stays
+     * (ADR-027; before, the widget left it out, while the chat module listed it).
+     */
     #[Test]
-    public function aGuidedProcessOnAPageTheUserMayNotSeeIsLeftOut(): void
+    public function aGuidedProcessOnAPageTheUserMayNotSeeStaysWithoutThePage(): void
     {
         // Page 12 grants nothing to anyone but its owner, the admin.
         $this->addPage(12, 'Intern');
         $this->addMessage(3);
-        $this->updateConversation(3, ['view_context' => '{"pageId":12,"module":"web_layout"}', 'skill_identifier' => 'seo-optimieren']);
+        $this->updateConversation(3, ['title' => 'Check this page', 'view_context' => '{"pageId":12,"module":"web_layout"}', 'skill_identifier' => 'seo-optimieren']);
         $this->actingAs(2);
         // The editor's groups would allow the widget (core's per-group widget
         // permission); which group does not matter here.
@@ -236,8 +281,10 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
 
         $html = $this->render();
 
-        self::assertStringNotContainsString('Conv 3', $html);
-        self::assertStringContainsString('No chats yet.', $html);
+        self::assertStringContainsString('data-nr-chat-conversation="3"', $html);
+        self::assertStringContainsString('>Optimise SEO<', $html);
+        self::assertStringNotContainsString('Intern', $html);
+        self::assertStringContainsString('data-nr-chat-page=""', $html);
     }
 
     /**

@@ -7,6 +7,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     deleted smallint(5) unsigned DEFAULT 0 NOT NULL,
     be_user int(11) unsigned DEFAULT 0 NOT NULL,
     title varchar(255) DEFAULT '' NOT NULL,
+    title_source varchar(8) DEFAULT '' NOT NULL,
     messages mediumtext,
     message_count int(11) unsigned DEFAULT 0 NOT NULL,
     status varchar(20) DEFAULT 'idle' NOT NULL,
@@ -32,6 +33,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     last_run_uuid varchar(64) DEFAULT '' NOT NULL,
     alt_text_hit text,
     image_analysis text,
+    last_message_at int(11) unsigned DEFAULT 0 NOT NULL,
     tstamp int(11) unsigned DEFAULT 0 NOT NULL,
     crdate int(11) unsigned DEFAULT 0 NOT NULL,
 

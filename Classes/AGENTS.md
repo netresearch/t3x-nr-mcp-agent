@@ -50,5 +50,5 @@ PHP source of the extension, namespace `Netresearch\NrMcpAgent\` (PSR-4 from `Cl
 ## When stuck
 
 - Component map and dependency rules: `../docs/ARCHITECTURE.md`
-- Design rationale: `../Documentation/Developer/ADR/` (ADR-001…026)
+- Design rationale: `../Documentation/Developer/ADR/` (ADR-001…027)
 - Agent loop details: `../Documentation/Developer/AgentLoop.rst`

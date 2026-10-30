@@ -12,7 +12,7 @@
  */
 
 import {describe, test, expect, beforeEach} from '@jest/globals';
-import {PROCESSING_STATUSES, displayStatus, statusLabel, ChatCoreController} from '../../Resources/Public/JavaScript/chat-core.js';
+import {PROCESSING_STATUSES, displayStatus, statusLabel, statusTone, ChatCoreController} from '../../Resources/Public/JavaScript/chat-core.js';
 
 describe('displayStatus', () => {
     test('shows a locked conversation as processing', () => {
@@ -46,6 +46,26 @@ describe('statusLabel', () => {
     });
 });
 
+/**
+ * The tone a status is shown in (ADR-027): ready is neutral — it was green,
+ * which read as "done" —, a conversation that waits for the editor is a
+ * warning — it was blue, like a running one —, running is information.
+ */
+describe('statusTone', () => {
+    test.each([
+        ['idle', 'neutral'],
+        ['processing', 'info'],
+        ['locked', 'info'],
+        ['tool_loop', 'info'],
+        ['awaiting_approval', 'warning'],
+        ['awaiting_input', 'warning'],
+        ['failed', 'danger'],
+        ['archived_later', 'neutral'],
+    ])('shows %s as %s', (status, tone) => {
+        expect(statusTone(status)).toBe(tone);
+    });
+});
+
 describe('a locked conversation is busy', () => {
     test('locked is one of the processing statuses', () => {
         expect(PROCESSING_STATUSES.has('locked')).toBe(true);
@@ -60,7 +80,7 @@ describe('a locked conversation is busy', () => {
     });
 });
 
-const LOCKED = {uid: 7, title: 'Running', status: 'locked', pinned: false, tstamp: 1};
+const LOCKED = {uid: 7, title: 'Running', status: 'locked', pinned: false, tstamp: 1, messageCount: 2};
 
 async function render(modulePath, tag, state) {
     await import(modulePath);
@@ -91,43 +111,57 @@ describe('rendering a locked conversation', () => {
 
     test('chat-app lists it as processing', async () => {
         const el = await render('../../Resources/Public/JavaScript/chat-app.js', 'nr-chat-app');
-        const badge = el.shadowRoot.querySelector('.conversation-item .status-badge');
+        const badge = el.shadowRoot.querySelector('.conversation-item .conv-status');
 
         expect(badge.textContent.trim()).toBe('status.processing');
-        expect(badge.classList.contains('status-processing')).toBe(true);
-        expect(badge.classList.contains('status-locked')).toBe(false);
+        expect(badge.classList.contains('conv-status--info')).toBe(true);
+        expect(el.shadowRoot.querySelector('[class*="locked"]')).toBeNull();
     });
 
-    test('the panel header and tab show the processing icon', async () => {
+    test('the panel header and tab show the processing icon with its label', async () => {
         const el = await render('../../Resources/Public/JavaScript/ai-chat-panel.js', 'ai-chat-panel', 'expanded');
         const header = el.shadowRoot.querySelector('.panel-header .status-badge');
-        const tab = el.shadowRoot.querySelector('.conv-tab .tab-icon');
+        const tab = el.shadowRoot.querySelector('.conv-tab .conv-status-icon');
 
-        expect(header.textContent.trim()).toBe('⟳');
         expect(header.getAttribute('title')).toBe('status.processing');
-        expect(tab.textContent.trim()).toBe('⟳');
-        expect(tab.classList.contains('status-processing')).toBe(true);
-        expect(tab.closest('.conv-tab').getAttribute('title')).toBe('Running (status.processing)');
+        expect(header.classList.contains('status-info')).toBe(true);
+        expect(header.textContent.trim()).toBe('status.processing');
+        // The icon is decoration; the label is there for screen readers.
+        expect(tab.querySelector('svg').getAttribute('aria-hidden')).toBe('true');
+        expect(tab.querySelector('.conv-list-visually-hidden').textContent).toBe('status.processing');
+        expect(tab.dataset.tone).toBe('info');
+        expect(tab.closest('.conv-tab').getAttribute('title')).toBe('Running\nstatus.processing');
     });
 
-    test('the maximized panel sidebar shows the processing icon', async () => {
+    test('the maximized panel sidebar shows the processing status in words', async () => {
         const el = await render('../../Resources/Public/JavaScript/ai-chat-panel.js', 'ai-chat-panel', 'maximized');
-        const badge = el.shadowRoot.querySelector('.sidebar-item .status-badge');
+        const badge = el.shadowRoot.querySelector('.sidebar-item .conv-status');
 
-        expect(el.shadowRoot.querySelector('.status-locked')).toBeNull();
         expect(badge).not.toBeNull();
-        expect(badge.textContent.trim()).toBe('⟳');
-        expect(badge.getAttribute('title')).toBe('status.processing');
+        expect(badge.textContent.trim()).toBe('status.processing');
+        expect(badge.dataset.tone).toBe('info');
     });
 
-    test('chat-app lists a conversation waiting for an answer with its label', async () => {
+    test('chat-app lists a conversation waiting for an answer as a warning, with its label', async () => {
         const el = await render('../../Resources/Public/JavaScript/chat-app.js', 'nr-chat-app');
         el.chat.conversations = [{...LOCKED, status: 'awaiting_input'}];
         el.requestUpdate();
         await el.updateComplete;
-        const badge = el.shadowRoot.querySelector('.conversation-item .status-badge');
+        const badge = el.shadowRoot.querySelector('.conversation-item .conv-status');
 
         expect(badge.textContent.trim()).toBe('status.awaitingInput');
-        expect(badge.classList.contains('status-awaiting_input')).toBe(true);
+        expect(badge.classList.contains('conv-status--warning')).toBe(true);
+        expect(badge.querySelector('svg')).not.toBeNull();
+    });
+
+    test('a ready conversation is listed neutrally, not as a success', async () => {
+        const el = await render('../../Resources/Public/JavaScript/chat-app.js', 'nr-chat-app');
+        el.chat.conversations = [{...LOCKED, status: 'idle'}];
+        el.requestUpdate();
+        await el.updateComplete;
+        const badge = el.shadowRoot.querySelector('.conversation-item .conv-status');
+
+        expect(badge.textContent.trim()).toBe('status.idle');
+        expect(badge.dataset.tone).toBe('neutral');
     });
 });

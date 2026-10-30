@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 /**
  * DBAL-based repository — no Extbase, direct QueryBuilder access.
@@ -68,19 +69,34 @@ readonly class ConversationRepository
         'uid', 'be_user', 'title', 'status', 'message_count',
         'pinned', 'archived', 'error_message', 'error_code', 'approval_run_uuid',
         'approval_decision', 'approval_turn_digest', 'skill_identifier', 'tstamp', 'crdate',
+        'title_source', 'last_message_at',
     ];
 
-    /** @return list<Conversation> */
+    /**
+     * What a list of conversations needs to show where each one stands: the
+     * page and skill it is about, the guided state and the image of an alt
+     * text conversation (ConversationListPresenter). Small columns; the
+     * transcript is not among them.
+     */
+    private const CONTEXT_COLUMNS = ['view_context', 'skill_uid', 'guided_state', 'alt_text_hit'];
+
+    /**
+     * The user's conversations with what a list shows about them
+     * (CONTEXT_COLUMNS), most recently changed first. No transcript.
+     *
+     * @return list<Conversation>
+     */
     public function findByBeUser(int $beUserUid, bool $includeArchived = false): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->select(...self::LIST_COLUMNS)
+            ->addSelect(...self::CONTEXT_COLUMNS)
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
                 $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-            )
-            ->orderBy('tstamp', 'DESC');
+            );
+        $this->orderByLastActivity($qb);
 
         if (!$includeArchived) {
             $qb->andWhere($qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)));
@@ -94,8 +110,7 @@ readonly class ConversationRepository
     /**
      * The user's conversations that hold at least one message and are not
      * archived, most recently changed first, at most $limit — with what a list
-     * about them needs beyond findByBeUser(): the page they are about, the
-     * skill and the guided state. No transcript.
+     * shows about them (CONTEXT_COLUMNS). No transcript.
      *
      * @return list<Conversation>
      */
@@ -103,7 +118,7 @@ readonly class ConversationRepository
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->select(...self::LIST_COLUMNS)
-            ->addSelect('view_context', 'skill_uid', 'guided_state')
+            ->addSelect(...self::CONTEXT_COLUMNS)
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
@@ -111,11 +126,28 @@ readonly class ConversationRepository
                 $qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)),
                 $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
             )
-            ->orderBy('tstamp', 'DESC')
-            ->addOrderBy('uid', 'DESC')
             ->setMaxResults(max(1, $limit));
+        $this->orderByLastActivity($qb);
 
         return array_map(Conversation::fromRow(...), $qb->executeQuery()->fetchAllAssociative());
+    }
+
+    /**
+     * Most recent last message first, as the lists show it (ADR-027): the
+     * kept `last_message_at`, or the row's changed-at time for a row saved
+     * before that column existed. Ordered by an alias of a CASE expression,
+     * which SQLite, MySQL/MariaDB and PostgreSQL all accept.
+     */
+    private function orderByLastActivity(QueryBuilder $qb): void
+    {
+        $qb->addSelectLiteral(sprintf(
+            'CASE WHEN %1$s > 0 THEN %1$s ELSE %2$s END AS %3$s',
+            $qb->quoteIdentifier('last_message_at'),
+            $qb->quoteIdentifier('tstamp'),
+            $qb->quoteIdentifier('last_activity'),
+        ))
+            ->orderBy('last_activity', 'DESC')
+            ->addOrderBy('uid', 'DESC');
     }
 
     /**
@@ -221,6 +253,8 @@ readonly class ConversationRepository
         $data['system_prompt']    = $conversation->getSystemPrompt();
         $data['skill_identifier'] = $conversation->getSkillIdentifier();
         $data['skill_uid']        = $conversation->getSkillUid();
+        $data['title']            = $conversation->getTitle();
+        $data['title_source']     = $conversation->getTitleSource();
 
         return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
             $conn->insert(self::TABLE, $data);
@@ -238,8 +272,27 @@ readonly class ConversationRepository
         $this->transactional($conn, function () use ($conn, $conversation): void {
             $conn->update(self::TABLE, $this->rowData($conversation), ['uid' => $conversation->getUid()]);
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
+            $this->writeAutomaticTitle($conn, $conversation);
             $this->clearLegacyColumn($conn, $conversation->getUid());
         });
+    }
+
+    /**
+     * The title a save carries — from the first message, an edit of it, an
+     * image of the list of missing alt texts — unless the editor has renamed
+     * the conversation since it was loaded: a rename during a running turn
+     * survives the worker's final save (ADR-027).
+     */
+    private function writeAutomaticTitle(Connection $conn, Conversation $conversation): void
+    {
+        if ($conversation->isTitleManual()) {
+            return;
+        }
+
+        $conn->executeStatement(
+            'UPDATE ' . self::TABLE . ' SET title = ?, title_source = ? WHERE uid = ? AND title_source <> ?',
+            [$conversation->getTitle(), $conversation->getTitleSource(), $conversation->getUid(), Conversation::TITLE_MANUAL],
+        );
     }
 
     /**
@@ -295,12 +348,17 @@ readonly class ConversationRepository
     /**
      * Lightweight title update — avoids reading/writing the full messages blob.
      */
+    /**
+     * The title the editor gave. It is marked as theirs, so no list replaces
+     * it with a derived one (ADR-027).
+     */
     public function updateTitle(int $uid, string $title, int $beUserUid): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $conn->update(self::TABLE, [
-            'title'  => $title,
-            'tstamp' => time(),
+            'title'        => $title,
+            'title_source' => Conversation::TITLE_MANUAL,
+            'tstamp'       => time(),
         ], ['uid' => $uid, 'be_user' => $beUserUid]);
     }
 
@@ -444,6 +502,7 @@ readonly class ConversationRepository
             }
 
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
+            $this->writeAutomaticTitle($conn, $conversation);
             $this->clearLegacyColumn($conn, $conversation->getUid());
 
             return true;
@@ -626,6 +685,84 @@ readonly class ConversationRepository
                 'crdate'       => $now,
             ]);
         }
+
+        // What the lists order by, kept beside the rows so that a list never
+        // reads a transcript (ADR-027). Same transaction as the rows.
+        $conn->update(self::TABLE, ['last_message_at' => $this->lastMessageTime($messages, $now)], ['uid' => $conversationUid]);
+    }
+
+    /**
+     * When the last of $messages was written: its `createdAt`, or $fallback
+     * for a message without one; 0 without messages.
+     *
+     * @param list<array<string, mixed>> $messages
+     */
+    private function lastMessageTime(array $messages, int $fallback): int
+    {
+        if ($messages === []) {
+            return 0;
+        }
+
+        $createdAt = $messages[array_key_last($messages)]['createdAt'] ?? null;
+        $time      = is_string($createdAt) ? strtotime($createdAt) : false;
+
+        return $time !== false && $time > 0 ? $time : $fallback;
+    }
+
+    /**
+     * How many conversations with messages have no last message time yet:
+     * rows saved before the column existed (LastMessageTimeUpdateWizard).
+     */
+    public function countWithoutLastMessageTime(): int
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->getRestrictions()->removeAll();
+        $count = $qb->count('uid')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('last_message_at', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($count) ? (int) $count : 0;
+    }
+
+    /**
+     * Fill the last message time of up to $limit such rows with a uid above
+     * $afterUid from their last message row (findLastMessageTimes()); a row
+     * whose last message carries no time, or that has no message rows yet,
+     * gets its changed-at time. Returns the highest uid of the batch, the
+     * cursor for the next one, or 0 when there was none: a run walks the
+     * table once instead of scanning it from the start for every batch.
+     */
+    public function backfillLastMessageTimes(int $limit, int $afterUid = 0): int
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->getRestrictions()->removeAll();
+        $rows = $qb->select('uid', 'tstamp')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('last_message_at', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->gt('uid', $qb->createNamedParameter($afterUid, Connection::PARAM_INT)),
+            )
+            ->orderBy('uid')
+            ->setMaxResults(max(1, $limit))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $uids  = array_map(static fn (array $row): int => is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0, $rows);
+        $times = $this->findLastMessageTimes($uids);
+        $conn  = $this->connectionPool->getConnectionForTable(self::TABLE);
+        foreach ($rows as $index => $row) {
+            $uid    = $uids[$index];
+            $tstamp = is_numeric($row['tstamp'] ?? null) ? (int) $row['tstamp'] : 0;
+            $conn->update(self::TABLE, ['last_message_at' => max(1, $times[$uid] ?? $tstamp)], ['uid' => $uid, 'last_message_at' => 0]);
+        }
+
+        return $uids === [] ? 0 : max($uids);
     }
 
     /**

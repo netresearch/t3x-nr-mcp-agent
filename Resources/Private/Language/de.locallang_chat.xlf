@@ -776,8 +776,8 @@
                 <target>Letzte Chats</target>
             </trans-unit>
             <trans-unit id="widget.description" resname="widget.description">
-                <source>Your last five AI chats: read them again or continue where you left off.</source>
-                <target>Deine letzten fünf KI-Chats: nachlesen oder dort weitermachen, wo du aufgehört hast.</target>
+                <source>Your last ten AI chats with their page, status and time: read them again or continue where you left off.</source>
+                <target>Deine letzten zehn KI-Chats mit Seite, Status und Zeit: nachlesen oder dort weitermachen, wo du aufgehört hast.</target>
             </trans-unit>
             <trans-unit id="widget.hint" resname="widget.hint">
                 <source>Look at earlier conversations or continue where you left off.</source>

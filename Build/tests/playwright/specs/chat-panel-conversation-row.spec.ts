@@ -52,7 +52,10 @@ async function measure(page: Page, count: number) {
     return page.evaluate(async (count) => {
         const panel = document.querySelector('ai-chat-panel') as any;
         await panel.chat.loadConversations();
-        panel.chat.conversations = panel.chat.conversations.slice(0, count);
+        // The conversations are created empty, and the lists leave out a chat
+        // without a message (ADR-027); this measures the row, so they count
+        // as written to.
+        panel.chat.conversations = panel.chat.conversations.slice(0, count).map((c: any) => ({...c, messageCount: Math.max(1, c.messageCount ?? 0)}));
         panel.chat.activeUid = panel.chat.conversations[0].uid;
         panel._width = 480;
         panel._height = 500;

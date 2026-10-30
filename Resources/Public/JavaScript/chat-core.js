@@ -72,6 +72,29 @@ export function statusLabel(status) {
 }
 
 /**
+ * The tone a status is shown in, as the server's list presenter has it
+ * (ADR-027): a ready conversation is neutral, never green; one that waits for
+ * the editor stands out as a warning; a running one is information; a failed
+ * one an error. The colour only repeats what the label says.
+ */
+const STATUS_TONES = new Map([
+    ['idle', 'neutral'],
+    ['processing', 'info'],
+    ['tool_loop', 'info'],
+    ['awaiting_approval', 'warning'],
+    ['awaiting_input', 'warning'],
+    ['failed', 'danger'],
+]);
+
+/**
+ * @param {string} status
+ * @returns {'neutral'|'info'|'warning'|'danger'}
+ */
+export function statusTone(status) {
+    return STATUS_TONES.get(displayStatus(status)) ?? 'neutral';
+}
+
+/**
  * Where the user is in the backend: the open module and the page the module
  * shows (NEXT-172).
  *
@@ -504,6 +527,8 @@ export class ChatCoreController {
     async loadConversations() {
         const data = await this._api.listConversations();
         this.conversations = data.conversations || [];
+        // The backend user's locale, which the lists word the times in.
+        this.listLocale = typeof data.locale === 'string' ? data.locale : '';
         this.host.requestUpdate();
     }
 
@@ -948,13 +973,19 @@ export class ChatCoreController {
             this.activity = [];
             this.status = 'processing';
             this._knownMessageCount++;
+            const firstMessage = (this.getActiveConversation()?.messageCount ?? 1) === 0;
             this.conversations = this.conversations.map(c =>
-                c.uid === this.activeUid ? {...c, status: 'processing'} : c
+                c.uid === this.activeUid ? {...c, status: 'processing', messageCount: Math.max(c.messageCount ?? 0, this.messages.length)} : c
             );
             this.errorMessage = '';
             this.host.requestUpdate();
             this.host.onScrollToBottom(true);
             this.startPollingIfNeeded();
+            if (firstMessage) {
+                // The first message titles the conversation on the server, and
+                // only now is it listed beside the others (ADR-027).
+                void this.loadConversations().catch(() => {});
+            }
             return true;
         } catch (e) {
             this.errorMessage = e.message;
@@ -1173,7 +1204,7 @@ export class ChatCoreController {
             const data = reference === null ? await this._api.nextAltText(uid) : await this._api.switchAltText(uid, reference);
             // The title follows the new image: the header and the tab show it now.
             if (typeof data?.title === 'string' && data.title !== '') {
-                this.conversations = this.conversations.map(c => (c.uid === uid ? {...c, title: data.title} : c));
+                this.conversations = this.conversations.map(c => (c.uid === uid ? {...c, title: data.title, displayTitle: data.title, fullTitle: data.title} : c));
             }
             if (uid === this.activeUid) {
                 this.errorMessage = '';
@@ -1609,12 +1640,19 @@ export class ChatCoreController {
     async handleRename(uid, title) {
         const trimmed = title.trim();
         if (!trimmed) return;
+        // The field starts with the title the list shows; leaving it as it
+        // was is no rename. Saving it would turn a title the extension gave
+        // (a tour's "<skill> · <page>", ADR-027) into the editor's own.
+        const current = this.conversations.find(c => c.uid === uid);
+        if (current && [current.fullTitle, current.displayTitle, current.title].includes(trimmed)) return;
         try {
             await this._api.renameConversation(uid, trimmed);
             this.conversations = this.conversations.map(c =>
-                c.uid === uid ? {...c, title: trimmed} : c,
+                c.uid === uid ? {...c, title: trimmed, displayTitle: trimmed, fullTitle: trimmed} : c,
             );
             this.host.requestUpdate();
+            // The list's own title for it: shortened where it is long.
+            await this.loadConversations();
         } catch (e) {
             this.errorMessage = e.message;
             this.host.requestUpdate();

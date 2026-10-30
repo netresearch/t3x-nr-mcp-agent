@@ -12,7 +12,7 @@ import { test, expect, waitForBackend } from '../fixtures/backend';
  * puts the widget on the admin's dashboard and seeds an interrupted guided
  * process on page 3 ("E2E Recent chat page", point 2 of 4) and a guided
  * process on page 4, which has been deleted. Their last message is dated 1 January 2099,
- * so they stay among the five newest. No model is called.
+ * so they stay among the ten newest. No model is called.
  */
 
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
@@ -49,19 +49,21 @@ test.describe('The "Recent chats" dashboard widget', () => {
         await login(page);
     });
 
-    test('names each chat by title, context, progress and time', async ({ page }) => {
+    test('names each chat by title, context, progress, status and time', async ({ page }) => {
         const frame = await openDashboard(page);
 
         await expect(frame.getByText('Look at earlier conversations or continue where you left off.')).toBeVisible();
         await expect(frame.getByRole('link', { name: 'Show all chats' })).toBeVisible();
-        expect(await frame.locator('.nr-recent-chats > li').count()).toBeLessThanOrEqual(5);
+        expect(await frame.locator('.nr-recent-chats > li').count()).toBeLessThanOrEqual(10);
 
         // One link per chat, its visible text its accessible name: title,
-        // context, progress and time, in that order.
+        // context, progress, status and time, in that order (ADR-027). The
+        // seeded titles are not a tour's start message, so they are kept, and
+        // the context names the page.
         await expect(frame.getByRole('link', { name: /^E2E recent tour/ }))
-            .toHaveAccessibleName(/^E2E recent tour\s*,\s*Page “E2E Recent chat page” · Guided tour\s*,\s*Point 2 of 4\s*,\s*Jan 1$/);
+            .toHaveAccessibleName(/^E2E recent tour\s*,\s*Page “E2E Recent chat page” · Guided tour\s*,\s*Point 2 of 4\s*,\s*Ready\s*,\s*Jan 1$/);
         await expect(frame.getByRole('link', { name: /^E2E recent deleted page/ }))
-            .toHaveAccessibleName(/^E2E recent deleted page\s*,\s*Deleted page · Guided tour\s*,\s*Jan 1$/);
+            .toHaveAccessibleName(/^E2E recent deleted page\s*,\s*Deleted page · Guided tour\s*,\s*Ready\s*,\s*Jan 1$/);
     });
 
     test('a chat about a page opens in the chat and shows its page in the page module', async ({ page }) => {

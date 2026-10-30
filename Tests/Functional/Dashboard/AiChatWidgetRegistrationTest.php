@@ -35,4 +35,14 @@ final class AiChatWidgetRegistrationTest extends FunctionalTestCase
 
         self::assertArrayHasKey('nrMcpAgentAiChat', $widgets);
     }
+
+    /** The recent chats take the dashboard's full width, so each row has room for its context (ADR-027). */
+    #[Test]
+    public function theRecentChatsTakeTheFullWidth(): void
+    {
+        $widget = $this->get(WidgetRegistry::class)->getAllWidgets()['nrMcpAgentAiChat'];
+
+        self::assertSame('large', $widget->getWidth());
+        self::assertSame('large', $widget->getHeight());
+    }
 }

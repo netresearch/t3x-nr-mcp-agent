@@ -38,6 +38,9 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\ConversationList\ConversationListItem;
+use Netresearch\NrMcpAgent\Service\ConversationList\ConversationListPresenter;
+use Netresearch\NrMcpAgent\Service\ConversationList\ConversationTitle;
 use Netresearch\NrMcpAgent\Service\HighlightTitle;
 use Netresearch\NrMcpAgent\Service\InputPause;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
@@ -59,6 +62,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Localization\Locales;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderAccessPermissionsException;
 use TYPO3\CMS\Core\Resource\Exception\InsufficientFolderWritePermissionsException;
@@ -128,6 +132,9 @@ final readonly class ChatApiController
         // Names the element a guided step is about, for the chip above the
         // input (NEXT-221); without it the chip shows the page only.
         private ?HighlightTitle $highlightTitle = null,
+        // What every list shows about a conversation (ADR-027); without it
+        // the list carries the stored titles and no context.
+        private ?ConversationListPresenter $listPresenter = null,
     ) {}
 
     /**
@@ -202,6 +209,11 @@ final readonly class ChatApiController
 
     /**
      * GET /ai-chat/conversations – List conversations for current user.
+     *
+     * Every conversation, those without a message included: the chat opens
+     * one it has just created from this list. The lists hide those without a
+     * message, except the open one (conversation-tabs.js). Pinned first, then
+     * the most recent last message first (ADR-027).
      */
     public function listConversations(): ResponseInterface
     {
@@ -211,20 +223,53 @@ final readonly class ChatApiController
         }
 
         $conversations = $this->repository->findByBeUser($this->getBeUserUid());
-        $items         = array_map(fn (Conversation $c): array => [
-            'uid'             => $c->getUid(),
-            'title'           => $c->getTitle(),
-            'status'          => $c->getStatus()->value,
-            'messageCount'    => $c->getMessageCount(),
-            'pinned'          => $c->isPinned(),
-            'resumable'       => $c->isResumable(),
-            'skillIdentifier' => $c->getSkillIdentifier(),
-            ...$this->presentError($c->getErrorMessage(), $c->getErrorCode()),
-            'approvalUrl' => $this->buildApprovalUrl($c->getApprovalRunUuid()),
-            'tstamp'      => $c->getTstamp(),
-        ], $conversations);
+        $byUid         = [];
+        foreach ($conversations as $conversation) {
+            $byUid[$conversation->getUid()] = $conversation;
+        }
 
-        return new JsonResponse(['conversations' => $items]);
+        $user        = $GLOBALS['BE_USER'] ?? null;
+        $presented   = $this->listPresenter?->present($conversations, $user instanceof BackendUserAuthentication ? $user : null);
+        $listedItems = $presented ?? $conversations;
+        $items       = [];
+        foreach ($listedItems as $listed) {
+            $c       = $listed instanceof ConversationListItem ? $byUid[$listed->uid] : $listed;
+            $items[] = [
+                'uid'             => $c->getUid(),
+                'title'           => $c->getTitle(),
+                'displayTitle'    => $c->getTitle(),
+                'status'          => $c->getStatus()->value,
+                'messageCount'    => $c->getMessageCount(),
+                'pinned'          => $c->isPinned(),
+                'resumable'       => $c->isResumable(),
+                'skillIdentifier' => $c->getSkillIdentifier(),
+                ...$this->presentError($c->getErrorMessage(), $c->getErrorCode()),
+                'approvalUrl' => $this->buildApprovalUrl($c->getApprovalRunUuid()),
+                'tstamp'      => $c->getTstamp(),
+                ...($listed instanceof ConversationListItem ? $listed->jsonSerialize() : []),
+            ];
+        }
+
+        // Pinned first; usort is stable, so the presenter's order holds within.
+        $pinned = static fn (array $item): bool => $item['pinned'] === true;
+        usort($items, static fn (array $a, array $b): int => $pinned($b) <=> $pinned($a));
+
+        return new JsonResponse([
+            'conversations' => $items,
+            // The locale the client words the times in (conversation-list.js).
+            'locale' => $this->listLocale(),
+        ]);
+    }
+
+    /** The backend user's locale as BCP 47 ("de-DE"), '' without a user. */
+    private function listLocale(): string
+    {
+        $user = $GLOBALS['BE_USER'] ?? null;
+        if (!$user instanceof BackendUserAuthentication) {
+            return '';
+        }
+
+        return str_replace('_', '-', (string) GeneralUtility::makeInstance(Locales::class)->createLocaleFromUserPreferences($user));
     }
 
     /**
@@ -263,6 +308,15 @@ final readonly class ChatApiController
         }
 
         if ($startsTour) {
+            // The title names the tour and its page (ADR-027); the first
+            // message stays the start message the editor sees. Set first:
+            // appendMessage() titles only an untitled conversation.
+            $tourTitle = $this->tourTitle($conversation);
+            if ($tourTitle !== '') {
+                $conversation->setTitle($tourTitle);
+                $conversation->setTitleSource(Conversation::TITLE_TOUR);
+            }
+
             $conversation->appendMessage(MessageRole::User, $this->translate('guided.checkPage'));
             $conversation->setStatus(ConversationStatus::Processing);
         }
@@ -279,6 +333,22 @@ final readonly class ChatApiController
         return new JsonResponse([
             'uid' => $uid,
         ], 201);
+    }
+
+    /**
+     * "<skill> · <page>" for a new guided tour, or '' without the presenter,
+     * which leaves the start message as the title, as before ADR-027.
+     */
+    private function tourTitle(Conversation $conversation): string
+    {
+        $user = $GLOBALS['BE_USER'] ?? null;
+
+        return $this->listPresenter?->tourStartTitle(
+            $conversation->getSkillIdentifier(),
+            $conversation->getViewContext()['pageId'],
+            $user instanceof BackendUserAuthentication ? $user : null,
+            $conversation->getViewContext()['languageId'],
+        ) ?? '';
     }
 
     /**
@@ -2459,7 +2529,9 @@ final readonly class ChatApiController
             return $conversation;
         }
 
-        $title = trim((string) ($body['title'] ?? ''));
+        // Cut to what the column holds, whole grapheme clusters only: a pasted
+        // longer title would otherwise fail the write on a strict database.
+        $title = ConversationTitle::fit(trim((string) ($body['title'] ?? '')));
         if ($title === '') {
             return new JsonResponse(['error' => 'Title must not be empty'], 400);
         }

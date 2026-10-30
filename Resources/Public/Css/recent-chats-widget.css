@@ -16,6 +16,11 @@
 }
 
 .nr-recent-chats {
+    /* The container the narrow layout below asks for. Nothing between the
+     * list and the frame's root is one (.dashboard-item sets only `contain:
+     * inline-size`), so without it the query measured the whole module, not
+     * the widget. */
+    container-type: inline-size;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -92,6 +97,30 @@
     text-align: right;
     white-space: nowrap;
     color: var(--typo3-text-color-variant, #55556a);
+}
+
+/* The status, said in words, as a core badge (ADR-027): ready is neutral, a
+ * conversation that waits for the editor stands out in the warning colour
+ * with an icon, a running one is information, a failed one an error. */
+.nr-recent-chats-status {
+    flex: 0 0 auto;
+}
+
+.nr-recent-chats-status-icon {
+    display: inline-flex;
+}
+
+/* Below the width of a small widget the status and the time take too much
+ * room beside the title; they move under it. Measured on the list
+ * (.nr-recent-chats), the entries' container. */
+@container (max-width: 30rem) {
+    .nr-recent-chats-entry {
+        flex-wrap: wrap;
+    }
+
+    .nr-recent-chats-text {
+        flex-basis: 100%;
+    }
 }
 
 .nr-recent-chats-arrow {

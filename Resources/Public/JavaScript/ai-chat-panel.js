@@ -5,8 +5,9 @@ import {LitElement, html, css, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {ref} from 'lit/directives/ref.js';
 import {lll} from '@typo3/core/lit-helper.js';
-import {ChatCoreController, displayStatus, downloadTextFile, statusLabel} from '@netresearch/nr-mcp-agent/chat-core.js';
-import {splitConversationTabs, filterConversations} from '@netresearch/nr-mcp-agent/conversation-tabs.js';
+import {ChatCoreController, downloadTextFile, statusLabel, statusTone} from '@netresearch/nr-mcp-agent/chat-core.js';
+import {conversationTitle, conversationTooltip, filterConversations, listedConversations, splitConversationTabs} from '@netresearch/nr-mcp-agent/conversation-tabs.js';
+import {conversationListStyles, conversationTime, renderConversationSummary, renderStatusIcon} from '@netresearch/nr-mcp-agent/conversation-list.js';
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_COLUMN, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
@@ -23,9 +24,9 @@ import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instruct
 import {registerPanel, unregisterPanel} from '@netresearch/nr-mcp-agent/chat-panel-registry.js';
 
 const STATES = {HIDDEN: 'hidden', COLLAPSED: 'collapsed', EXPANDED: 'expanded', MAXIMIZED: 'maximized'};
-// Keyed by displayStatus(): `locked` is shown as `processing`, so it has no
-// icon of its own.
-const STATUS_ICONS = {idle: '✓', processing: '⟳', tool_loop: '⚙', awaiting_approval: '⏸', awaiting_input: '⏸', failed: '✕'};
+// What a conversation's title holds (tx_nrmcpagent_conversation.title,
+// varchar(255)); the server cuts a longer one as well.
+const TITLE_MAX_LENGTH = 255;
 const DEFAULT_HEIGHT = 350;
 const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 320;
@@ -89,7 +90,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, contextChipsStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, contextChipsStyles, conversationListStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -262,12 +263,6 @@ export class AiChatPanel extends LitElement {
             outline: 2px solid var(--nr-chat-on-active);
             outline-offset: -2px;
         }
-        .sidebar-item .item-title {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
         .sidebar-item-actions {
             display: flex;
             gap: 2px;
@@ -391,10 +386,6 @@ export class AiChatPanel extends LitElement {
             text-overflow: ellipsis;
             min-width: 20px;
         }
-        .conv-tab .tab-icon {
-            flex-shrink: 0;
-            font-size: 11px;
-        }
         /* The approval frame: a system step, not a message (ADR-023). */
         .approval-frame {
             /* A flex item of the scrolling message column: without this it
@@ -437,11 +428,6 @@ export class AiChatPanel extends LitElement {
         .approval-run-link { display: inline-block; margin-top: 6px; font-size: 12px; }
         .approval-stale { margin: 4px 0; }
         .approval-card pre { margin: 4px 0 0; max-height: 12em; overflow: auto; }
-        .conv-tab .tab-icon.status-processing,
-        .conv-tab .tab-icon.status-tool_loop,
-        .conv-tab .tab-icon.status-awaiting_approval, .conv-tab .tab-icon.status-awaiting_input { color: var(--nr-chat-status-info); }
-        .conv-tab .tab-icon.status-failed  { color: var(--nr-chat-status-danger); }
-        .conv-tab .tab-icon.status-idle    { color: var(--nr-chat-status-success); }
         .conv-tab .tab-close {
             flex-shrink: 0;
             display: none;
@@ -538,13 +524,6 @@ export class AiChatPanel extends LitElement {
             font-size: 12px;
             cursor: pointer;
             color: var(--nr-chat-text);
-        }
-        .conv-more-option .option-title {
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
         .conv-more-option.highlighted {
             background: var(--nr-chat-hover);
@@ -870,12 +849,15 @@ export class AiChatPanel extends LitElement {
             font-size: 12px;
             line-height: 1.4;
         }
-        .status-idle { background: var(--nr-chat-success-bg); color: var(--nr-chat-success-text); }
-        .status-processing, .status-tool_loop {
-            background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text);
-        }
-        .status-badge.status-awaiting_approval, .status-badge.status-awaiting_input { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
-        .status-failed { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
+        /*
+         * The tones of every list (ADR-027): ready is neutral, never green;
+         * waiting for the editor is a warning; running is information.
+         */
+        .status-neutral { background: var(--nr-chat-surface-variant); color: var(--nr-chat-text-variant); }
+        .status-info { background: var(--nr-chat-info-bg); color: var(--nr-chat-info-text); }
+        .status-warning { background: var(--nr-chat-warning-bg); color: var(--nr-chat-warning-text); box-shadow: inset 0 0 0 1px var(--nr-chat-warning-border); }
+        .status-danger { background: var(--nr-chat-danger-bg); color: var(--nr-chat-danger-text); }
+        .status-badge .conv-status-icon { color: inherit; }
 
         .empty-state {
             flex: 1;
@@ -1068,7 +1050,7 @@ export class AiChatPanel extends LitElement {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: var(--nr-chat-status-info);
+            background: var(--nr-chat-status-warning);
         }
     `];
 
@@ -2597,7 +2579,7 @@ export class AiChatPanel extends LitElement {
 
     _renderHeader() {
         const conv = this.chat.getActiveConversation();
-        const title = conv?.title || lll('panel.title');
+        const title = conv ? conversationTitle(conv, lll('panel.title')) : lll('panel.title');
 
         return html`
             <div class="panel-header"
@@ -2609,7 +2591,7 @@ export class AiChatPanel extends LitElement {
                 ${renderEndTour(this.chat)}
                 ${renderHighlightAnnouncement(this.chat)}
                 ${this.chat.status ? html`
-                    <span class="status-badge status-${displayStatus(this.chat.status)}" title="${statusLabel(this.chat.status)}">${STATUS_ICONS[displayStatus(this.chat.status)] ?? statusLabel(this.chat.status)}</span>
+                    <span class="status-badge status-${statusTone(this.chat.status)}" title="${statusLabel(this.chat.status)}">${renderStatusIcon(this.chat.status)}</span>
                 ` : nothing}
                 <button class="btn-icon" data-action="minimize" @click=${() => this.collapse()}
                         title="${lll('panel.collapse')}" aria-label="${lll('panel.collapse')}">${ICON_MINIMIZE(14)}</button>
@@ -2639,7 +2621,7 @@ export class AiChatPanel extends LitElement {
      */
     _renderColumnHeader() {
         const conv = this.chat.getActiveConversation();
-        const title = conv?.title || lll('panel.title');
+        const title = conv ? conversationTitle(conv, lll('panel.title')) : lll('panel.title');
 
         return html`
             <div class="panel-header">
@@ -2691,13 +2673,13 @@ export class AiChatPanel extends LitElement {
      */
     _renderMinimizedBar() {
         const conv = this.chat.getActiveConversation();
-        const title = conv?.title || lll('panel.title');
-        const waiting = this.chat.status === 'awaiting_approval' || this.chat.status === 'awaiting_input';
+        const title = conv ? conversationTitle(conv, lll('panel.title')) : lll('panel.title');
+        const waiting = statusTone(this.chat.status) === 'warning';
 
         return html`
             <div class="minimized-bar">
                 <span class="column-badge" aria-hidden="true">${lll('panel.badge')}</span>
-                <div class="minimized-text">
+                <div class="minimized-text" title="${conv ? conversationTooltip(conv, statusLabel(this.chat.status), lll('panel.title'), conversationTime(conv, this.chat.listLocale)?.absolute ?? '') : nothing}">
                     <span class="minimized-title">${title}</span>
                     <span class="minimized-status">${this._renderStatusLine(true)}</span>
                 </div>
@@ -2754,6 +2736,11 @@ export class AiChatPanel extends LitElement {
         `;
     }
 
+    /** The conversations the lists show: with a message, or open (ADR-027). */
+    _listed() {
+        return listedConversations(this.chat.conversations, this.chat.activeUid);
+    }
+
     _renderSidebar() {
         return html`
             <div class="panel-sidebar">
@@ -2766,9 +2753,9 @@ export class AiChatPanel extends LitElement {
                             aria-label="${lll('conversations.new')}">${ICON_COMPOSE(14)}</button>
                 </div>
                 <div class="sidebar-list" role="listbox" aria-label="${lll('conversations.title')}">
-                    ${this.chat.conversations.length === 0
+                    ${this._listed().length === 0
                         ? html`<div class="empty-state" style="font-size:12px;">${lll('conversations.empty')}</div>`
-                        : this.chat.conversations.map(c => this._renderSidebarItem(c))
+                        : this._listed().map(c => this._renderSidebarItem(c))
                     }
                 </div>
             </div>
@@ -2789,10 +2776,7 @@ export class AiChatPanel extends LitElement {
                          this.chat.selectConversation(c.uid);
                      }
                  }}>
-                <span class="item-title">
-                    ${c.pinned ? '\u{1F4CC} ' : ''}${c.title || lll('conversations.newConversation')}
-                </span>
-                <span class="status-badge status-${displayStatus(c.status)}" title="${statusLabel(c.status)}">${STATUS_ICONS[displayStatus(c.status)] ?? statusLabel(c.status)}</span>
+                ${renderConversationSummary(c, {locale: this.chat.listLocale})}
                 ${isActive ? html`
                     <span class="sidebar-item-actions">
                         <button class="btn-icon btn-sm" @click=${(e) => { e.stopPropagation(); this.chat.handleTogglePin(); }}
@@ -2833,6 +2817,7 @@ export class AiChatPanel extends LitElement {
                     <div class="conv-tablist" role="tablist" aria-label="${lll('conversations.title')}">
                         ${visible.map(c => this._renderConvTab(c))}
                     </div>
+                    ${this._renderConvTabDescriptions(visible)}
                     ${overflow.length > 0 ? html`
                         <button class="conv-tab conv-tab-more"
                                 aria-haspopup="listbox"
@@ -2915,8 +2900,7 @@ export class AiChatPanel extends LitElement {
                                 aria-selected="${i === index}"
                                 @mousemove=${() => { if (this._moreIndex !== i) this._moreIndex = i; }}
                                 @click=${() => this._pickMore(c.uid)}>
-                                <span class="tab-icon status-${displayStatus(c.status)}" aria-hidden="true">${STATUS_ICONS[displayStatus(c.status)] ?? ''}</span>
-                                <span class="option-title">${c.pinned ? '\u{1F4CC} ' : ''}${c.title || untitled}</span>
+                                ${renderConversationSummary(c, {locale: this.chat.listLocale})}
                             </li>
                         `)}
                 </ul>
@@ -2979,22 +2963,44 @@ export class AiChatPanel extends LitElement {
         downloadTextFile(doc, this.chat.exportFileName(), this.chat.buildMarkdownExport());
     }
 
+    /**
+     * What a tab's tooltip says beyond the title, as text the tabs point to
+     * with aria-describedby: outside the tab list, which may own tabs only.
+     * `hidden`, not visually hidden: aria-describedby still resolves it, and
+     * a screen reader's browse mode does not read it a second time.
+     */
+    _renderConvTabDescriptions(tabs) {
+        return html`
+            <div class="conv-tab-descriptions" hidden>
+                ${tabs.map((c) => {
+                    const time = conversationTime(c, this.chat.listLocale);
+                    return html`<span id="conv-tab-desc-${c.uid}">${[c.contextLabel, time?.label].filter(Boolean).join(', ')}</span>`;
+                })}
+            </div>
+        `;
+    }
+
     _renderConvTab(c) {
         const isActive = c.uid === this.chat.activeUid;
         const isRenaming = this._renamingUid === c.uid;
-        const status = displayStatus(c.status);
-        const icon = STATUS_ICONS[status] ?? '';
-        const title = c.title || lll('conversations.newConversation');
+        const untitled = lll('conversations.newConversation');
+        const title = conversationTitle(c, untitled);
+        const time = conversationTime(c, this.chat.listLocale);
+        // Narrow: the status icon and the title; the context, the status in
+        // words and the time are in the tooltip for the mouse, and in the
+        // tab's description for keyboard, touch and screen readers (ADR-027).
         return html`
             <button class="conv-tab ${isActive ? 'active' : ''}"
                     role="tab"
                     aria-selected="${isActive}"
-                    title="${title} (${statusLabel(c.status)})"
+                    aria-describedby="conv-tab-desc-${c.uid}"
+                    title="${conversationTooltip(c, statusLabel(c.status), untitled, time?.absolute ?? '')}"
                     @click=${() => this.chat.selectConversation(c.uid)}>
-                <span class="tab-icon status-${status}">${icon}</span>
+                ${renderStatusIcon(c.status)}
                 ${isRenaming ? html`
                     <input class="tab-rename-input"
-                           .value=${title}
+                           maxlength="${TITLE_MAX_LENGTH}"
+                           .value=${c.fullTitle || title}
                            @click=${(e) => e.stopPropagation()}
                            @keydown=${(e) => {
                                e.stopPropagation();

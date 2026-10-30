@@ -18,6 +18,10 @@
 import {describe, test, expect, beforeEach, jest} from '@jest/globals';
 import {
     VISIBLE_TAB_COUNT,
+    conversationTitle,
+    conversationTooltip,
+    lastActivity,
+    listedConversations,
     orderConversations,
     splitConversationTabs,
     filterConversations,
@@ -31,6 +35,7 @@ function conversations(n) {
         status: 'idle',
         pinned: false,
         tstamp: 1000 + i,
+        messageCount: 2,
     }));
 }
 
@@ -46,6 +51,71 @@ describe('orderConversations', () => {
         const list = conversations(3);
         orderConversations(list);
         expect(list.map(c => c.uid)).toEqual([1, 2, 3]);
+    });
+
+    /** A pin or a rename moves `tstamp`; the last message is what counts (ADR-027). */
+    test('orders by the last message, not by the last change', () => {
+        const list = [
+            {uid: 1, tstamp: 3000, lastActivityAt: '2026-10-20T10:00:00+00:00'},
+            {uid: 2, tstamp: 1000, lastActivityAt: '2026-10-24T10:00:00+00:00'},
+            {uid: 3, tstamp: 2000, lastActivityAt: '2026-10-22T10:00:00+00:00'},
+        ];
+        expect(orderConversations(list).map(c => c.uid)).toEqual([2, 3, 1]);
+    });
+
+    test('falls back to the last change without a last message time', () => {
+        expect(lastActivity({tstamp: 1700000000})).toBe(1700000000000);
+        expect(lastActivity({tstamp: 1700000000, lastActivityAt: 'not a date'})).toBe(1700000000000);
+        expect(lastActivity({lastActivityAt: '2026-10-24T10:00:00+00:00', tstamp: 1})).toBe(Date.parse('2026-10-24T10:00:00Z'));
+        expect(lastActivity({})).toBe(0);
+    });
+});
+
+/** A "New chat" without a message says nothing; it is listed only while open (ADR-027). */
+describe('listedConversations', () => {
+    test('leaves out conversations without a message', () => {
+        const list = conversations(3);
+        list[1].messageCount = 0;
+        expect(listedConversations(list, null).map(c => c.uid)).toEqual([3, 1]);
+    });
+
+    test('keeps the open one, even without a message', () => {
+        const list = conversations(3);
+        list[1].messageCount = 0;
+        expect(listedConversations(list, 2).map(c => c.uid)).toEqual([3, 2, 1]);
+    });
+
+    test('a list without message counts lists everything', () => {
+        const list = conversations(2).map(({messageCount, ...c}) => c);
+        expect(listedConversations(list, null)).toHaveLength(2);
+    });
+
+    test('the tab row and its "more" count leave them out too', () => {
+        const list = conversations(10);
+        list.slice(0, 4).forEach((c) => { c.messageCount = 0; });
+        const {visible, overflow} = splitConversationTabs(list, 10);
+        expect([...visible, ...overflow].map(c => c.uid)).toEqual([10, 9, 8, 7, 6, 5]);
+        expect(overflow).toHaveLength(2);
+    });
+});
+
+describe('conversationTitle and conversationTooltip', () => {
+    test('the display title wins over the stored one, the label stands in for none', () => {
+        expect(conversationTitle({displayTitle: 'SEO optimieren · Über uns', title: 'Diese Seite prüfen'}, 'New chat')).toBe('SEO optimieren · Über uns');
+        expect(conversationTitle({title: 'Diese Seite prüfen'}, 'New chat')).toBe('Diese Seite prüfen');
+        expect(conversationTitle({title: ''}, 'New chat')).toBe('New chat');
+    });
+
+    test('the tooltip carries the full title, the context, the status and the time, one per line', () => {
+        const conversation = {
+            displayTitle: 'Bitte prüfe alle Seiten…',
+            fullTitle: 'Bitte prüfe alle Seiten unter Produkte',
+            contextLabel: 'Seite „Produkte“ · SEO optimieren',
+        };
+        expect(conversationTooltip(conversation, 'Bereit', 'New chat', '24. Oktober 2026 um 10:42')).toBe(
+            'Bitte prüfe alle Seiten unter Produkte\nSeite „Produkte“ · SEO optimieren\nBereit\n24. Oktober 2026 um 10:42',
+        );
+        expect(conversationTooltip({title: ''}, 'Bereit', 'New chat')).toBe('New chat\nBereit');
     });
 });
 
@@ -101,6 +171,23 @@ describe('filterConversations', () => {
     test('an untitled conversation matches by its placeholder label', () => {
         const list = [{uid: 1, title: ''}];
         expect(filterConversations(list, 'new', 'New chat')).toHaveLength(1);
+    });
+
+    /** Twenty conversations once had the same title; the page and the skill tell them apart (ADR-027). */
+    test('matches the context: the page and the skill', () => {
+        const list = [
+            {uid: 1, title: 'Diese Seite prüfen', displayTitle: 'SEO optimieren · Über uns', contextLabel: 'Guided Tour'},
+            {uid: 2, title: 'Frage', displayTitle: 'Frage', contextLabel: 'Seite „Kontakt“ · Barrierefreiheit'},
+            {uid: 3, title: 'Log lesen', displayTitle: 'Log lesen', contextLabel: ''},
+        ];
+        expect(filterConversations(list, 'kontakt').map(c => c.uid)).toEqual([2]);
+        expect(filterConversations(list, 'über uns').map(c => c.uid)).toEqual([1]);
+        expect(filterConversations(list, 'guided').map(c => c.uid)).toEqual([1]);
+    });
+
+    test('matches the full title behind a shortened one', () => {
+        const list = [{uid: 1, displayTitle: 'Bitte prüfe alle Seiten…', fullTitle: 'Bitte prüfe alle Seiten unter Produkte'}];
+        expect(filterConversations(list, 'produkte').map(c => c.uid)).toEqual([1]);
     });
 });
 
@@ -210,7 +297,7 @@ describe('ai-chat-panel conversation row', () => {
         input.dispatchEvent(new Event('input'));
         await el.updateComplete;
 
-        const titles = [...root.querySelectorAll('#conv-more-list [role="option"] .option-title')].map(n => n.textContent.trim());
+        const titles = [...root.querySelectorAll('#conv-more-list [role="option"] .conv-summary-title')].map(n => n.textContent.trim());
         expect(titles.length).toBeGreaterThan(0);
         expect(titles.every(t => t.startsWith('Chat 1'))).toBe(true);
     });

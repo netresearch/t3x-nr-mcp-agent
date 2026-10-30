@@ -1,0 +1,29 @@
+"pages"
+,"uid","pid","title","doktype","perms_userid","perms_groupid","perms_user","perms_group","perms_everybody","deleted","hidden","sys_language_uid","l10n_parent","t3ver_wsid","t3ver_oid","t3ver_state"
+,40,0,"Fremd",1,1,0,31,0,1,0,0,0,0,0,0,0
+,120,0,"About us",1,1,0,31,0,1,0,0,1,20,0,0,0
+,121,0,"Draft of workspace 7",1,1,0,31,0,1,0,0,1,20,7,120,0
+,122,0,"New in workspace 7",1,1,0,31,0,1,0,0,2,20,7,0,1
+,123,0,"About us, second translation",1,1,0,31,0,1,0,0,1,20,0,0,0
+"tx_nrmcpagent_conversation"
+,"uid","pid","be_user","title","messages","message_count","status","current_request_id","archived","pinned","deleted","tstamp","crdate","view_context","skill_identifier","guided_state"
+,21,0,3,"Diese Seite prüfen","[]",2,"awaiting_input","",0,0,0,1761300000,1760950000,"{""pageId"":20,""module"":""web_layout"",""languageId"":0}","seo-optimieren","{""progress"":{""label"":""SEO"",""current"":2,""total"":5,""completed"":false},""highlight"":null}"
+,22,0,3,"Diese Seite prüfen","[]",2,"idle","",0,0,0,1761300000,1760850000,"{""pageId"":30,""module"":""web_layout"",""languageId"":0}","seo-optimieren",""
+,23,0,3,"Welche Seiten haben keine Meta-Beschreibung und wie viele sind es insgesamt?","[]",2,"idle","",0,0,0,1761300000,1761120000,"{""pageId"":20,""module"":""web_layout"",""languageId"":0}","",""
+,24,0,3,"","[]",0,"idle","",0,0,0,1710000000,1710000000,"","",""
+,25,0,3,"Angeheftet","[]",2,"failed","",0,1,0,1761300000,1700000000,"","",""
+,26,0,1,"Nicht ihre","[]",2,"idle","",0,0,0,1761300000,1761300000,"","",""
+,27,0,3,"Archiviert","[]",2,"idle","",1,0,0,1761300000,1761300000,"","",""
+,28,0,1,"Diese Seite prüfen","[]",2,"idle","",0,0,0,1761300000,1761300000,"{""pageId"":20,""module"":""web_layout"",""languageId"":1}","seo-optimieren",""
+,29,0,3,"Diese Seite prüfen","[]",2,"idle","",0,0,0,1700000001,1700000001,"{""pageId"":40,""module"":""web_layout"",""languageId"":0}","inhalt-verbessern",""
+,31,0,1,"Diese Seite prüfen","[]",2,"idle","",0,0,0,1761300000,1761300000,"{""pageId"":20,""module"":""web_layout"",""languageId"":2}","inhalt-verbessern",""
+,30,0,3,"Diese Seite prüfen","[]",2,"idle","",0,0,0,1700000002,1700000002,"{""pageId"":20,""module"":""web_layout"",""languageId"":1}","inhalt-verbessern",""
+"tx_nrmcpagent_message"
+,"uid","pid","conversation","sorting","role","payload","crdate"
+,201,0,21,0,"user","{""role"":""user"",""content"":""Diese Seite prüfen"",""createdAt"":""2026-10-20T09:00:00+00:00""}",1761300000
+,202,0,21,1,"assistant","{""role"":""assistant"",""content"":""Punkt 2"",""createdAt"":""2026-10-20T10:00:00+00:00""}",1761300000
+,203,0,22,0,"user","{""role"":""user"",""content"":""Diese Seite prüfen"",""createdAt"":""2026-10-19T09:00:00+00:00""}",1761300000
+,204,0,22,1,"assistant","{""role"":""assistant"",""content"":""Fertig"",""createdAt"":""2026-10-19T10:00:00+00:00""}",1761300000
+,205,0,23,0,"user","{""role"":""user"",""content"":""Welche Seiten…"",""createdAt"":""2026-10-22T09:00:00+00:00""}",1761300000
+,206,0,23,1,"assistant","{""role"":""assistant"",""content"":""Drei."",""createdAt"":""2026-10-22T10:00:00+00:00""}",1761300000
+,207,0,25,0,"user","{""role"":""user"",""content"":""Angeheftet"",""createdAt"":""2023-11-14T09:00:00+00:00""}",1761300000

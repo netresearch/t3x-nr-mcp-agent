@@ -24,7 +24,9 @@ Backend users manage content through natural language.
   registry: its builtin read and write tools, and any MCP server configured in
   nr-llm's *MCP Servers* module.
 - **Conversation history** -- Persistent conversations with resume, rename,
-  pin, and auto-archive support.
+  pin, and auto-archive support. Every list names a chat by its context —
+  a guided tour by its skill and page — with the time of its last message
+  and its status in words.
 - **Background processing** -- Messages are processed via CLI commands (`exec` or
   `worker` mode), keeping the web server responsive.
 - **Floating chat panel** -- A toolbar-triggered bottom panel that stays visible

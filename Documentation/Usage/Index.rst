@@ -337,12 +337,42 @@ invocation of the process; until it can, they stay hidden.
 None of this changes a record. An administrator can switch the tools behind
 it off as the tool group ``nr_mcp_agent``.
 
+..  _usage-conversation-management:
+
 Conversation management
 =======================
 
-The sidebar shows your conversation history. Each
-conversation has a title that is auto-generated from
-the first message.
+The sidebar shows your conversation history. Every list of conversations
+-- the chat module's sidebar, the panel's tabs, its **More** list and its
+sidebar, and the **Recent chats** dashboard widget -- shows the same about
+each one:
+
+-   **Title** -- a guided tour is named by its tour and its page, for
+    example *SEO optimieren · Über uns*, with the page's current title. Any
+    other chat is named by its first message, shortened to its first
+    sentence or about 60 characters; the full text is in the tooltip. A
+    chat about a missing alt text keeps *Alt-Text: <file>*. A title you gave
+    a chat yourself is always kept, also when it begins like the tour's. The
+    page is named in the chat's language where it has a translation. Two
+    chats that would read alike, such as the same tour twice on one page,
+    show when each was started after the title.
+-   **Context** -- what the title does not say already: the page a skill
+    that needs one works on, the skill, *Guided tour* and the point a tour is
+    at (*Point 2 of 5*). A page is named only if you may see it in the page
+    tree; a deleted page is shown as *Deleted page*. An ordinary chat names
+    no page: it only remembers the page you had open when you last wrote,
+    which is not what the chat is about.
+-   **Time** -- when the last message was written: *Today, 10:42*,
+    *Yesterday, 16:05*, then the date, in your browser's time zone. The full
+    date and time are in the tooltip.
+-   **Status** -- in words, with a colour that only repeats them: *Ready* is
+    neutral, *Waiting for your answer* and *Waiting for your approval* stand
+    out in the warning colour with an icon, *Working* is shown as
+    information, *Failed* as an error.
+
+The lists are ordered by the last message, newest first, with pinned chats
+on top. A chat without any message is not listed, except while it is the
+one that is open.
 
 Starting a new conversation
 ---------------------------
@@ -363,7 +393,7 @@ Pinning conversations
 
 Pin important conversations to prevent them from being
 auto-archived. Pinned conversations appear at the top
-of the sidebar list.
+of the lists.
 
 Archiving conversations
 -----------------------
@@ -497,13 +527,17 @@ The panel has four states:
     Drag the top edge to resize.
 
 In the expanded state the conversations sit in one row of tabs above the
-chat. The row holds four of them: pinned conversations first, then the most
-recently active ones, and always the one that is open. The others are
-behind **More (n)** at the end of the row, which opens a list with a search
-field: type to filter by title, move with the arrow keys, open one with
-:kbd:`Enter`, close the list with :kbd:`Escape`. However many conversations
-you keep, the row stays one line high and the chat keeps its space.
-Maximized, the panel lists every conversation in the sidebar instead.
+chat. The row holds four of them: pinned conversations first, then the ones
+with the most recent message, and always the one that is open. A tab shows
+the status icon and the title; its tooltip adds the context, the status in
+words and the time. The others are behind **More (n)** at the end of the
+row, which opens a list with a search field and the same lines as the
+module's list: type to filter by title, page or skill, move with the arrow
+keys, open one with :kbd:`Enter`, close the list with :kbd:`Escape`. However
+many conversations you keep, the row stays one line high and the chat keeps
+its space. Maximized, the panel lists every conversation in the sidebar
+instead. The collapsed bar shows the open conversation's title, with its
+context and time in the tooltip.
 
 Panel height and state are stored in ``localStorage`` per user.
 
@@ -546,22 +580,23 @@ Dashboard widget
 ================
 
 With the TYPO3 dashboard installed, a **Recent chats** widget can be added
-to a dashboard (*Add widget > General*). It lists your five chats with the
-newest last message, newest first; a chat without any message yet is not
-listed. Each entry shows:
+to a dashboard (*Add widget > General*). It takes the dashboard's full width
+and lists your ten chats with the newest last message, newest first; a chat
+without any message yet is not listed. Each entry shows what every list
+shows (see :ref:`Conversation management <usage-conversation-management>`):
 
--   the title: the name of the guided tour for a guided process, otherwise
-    the chat's own title;
--   below it, in grey, for a guided process: the page it works on
-    (*Page “<title>”*) and *Guided tour*. Any other chat has no such line:
-    it only remembers the page you had open when you last wrote, which is
-    not what the chat is about;
+-   the title, for example *SEO optimieren · Über uns* for a guided tour;
+-   below it, in grey, the context the title does not name, for example
+    *Guided tour*, or *Page “Über uns” · SEO optimieren* for a chat you
+    renamed;
 -   for a guided process that is at a point, has not finished and still
     has its page, that point (*Point 3 of 5*), as the chat's header shows
     it;
+-   the status in words, as a badge: neutral for *Ready*, in the warning
+    colour with an icon while the chat waits for your answer or approval;
 -   when the last message was written: *Today, 10:42*, *Yesterday, 16:05*,
     then the date (*Oct 3*), with the year once it is more than a year ago,
-    in your backend language.
+    in your backend language; the full date and time in the tooltip.
 
 A click opens the chat in the chat panel next to the dashboard, floating or
 as a column, as you last used it; a guided process also opens its page in
@@ -569,9 +604,9 @@ the page module, in its language. A guided process continues where it stopped: a
 proposal waiting for your answer is shown again. **New chat** starts a chat
 there, and **Show all chats** goes to the chat module. Each entry is one
 link, reachable with :kbd:`Tab`; a screen reader reads its title, context,
-progress and time.
+progress, status and time.
 
-A guided process on a page you may not see is not listed. A guided process
+A guided process on a page you may not see is listed without the page. A guided process
 whose page has been deleted since is listed as *Deleted page*; it opens
 read-only, with a notice where the input was: it can be read, but no message
 can be sent or edited, and no question answered, proposal decided or run

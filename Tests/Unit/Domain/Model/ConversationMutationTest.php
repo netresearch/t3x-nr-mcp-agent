@@ -88,7 +88,9 @@ class ConversationMutationTest extends TestCase
         $row = $c->toRow();
 
         self::assertArrayHasKey('be_user', $row);
-        self::assertArrayHasKey('title', $row);
+        // Written with a new row or only where not renamed (ADR-027).
+        self::assertArrayNotHasKey('title', $row);
+        self::assertArrayNotHasKey('title_source', $row);
         self::assertArrayHasKey('messages', $row);
         self::assertArrayHasKey('message_count', $row);
         self::assertArrayHasKey('status', $row);
@@ -109,7 +111,7 @@ class ConversationMutationTest extends TestCase
         $row = $c->toRow();
 
         self::assertSame(3, $row['be_user']);
-        self::assertSame('My Title', $row['title']);
+        self::assertSame('My Title', $c->getTitle());
         self::assertSame('idle', $row['status']);
     }
 
