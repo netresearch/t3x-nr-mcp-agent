@@ -5,37 +5,50 @@
 <f:layout name="Widget/Widget" />
 <f:section name="main">
     <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
-    <f:if condition="{available}">
-        <f:then>
-            <f:if condition="{altTexts}">
-                <div class="nr-mcp-agent-alt-text-tile card mb-3">
-                    <div class="card-body">
-                        <p class="mb-1"><span class="fs-3 fw-bold me-1">{altTexts.count}</span> {f:translate(key: '{ll}altTexts.label')}</p>
-                        <p class="text-variant small mb-2">{altTexts.found}</p>
-                        <a class="btn btn-default btn-sm" href="{altTexts.uri}" aria-label="{f:translate(key: '{ll}altTexts.viewName')}">{f:translate(key: '{ll}altTexts.view')}</a>
-                    </div>
-                </div>
-            </f:if>
-            <f:if condition="{points}">
-                <f:then>
-                    <ul class="list-unstyled nr-mcp-agent-recommendations">
-                        <f:for each="{points}" as="point">
-                            <li class="mb-3">
-                                <p class="mb-1">{point.summary}</p>
-                                <a href="{point.uri}">{f:translate(key: '{ll}recommendations.start', arguments: {0: point.skillTitle, 1: point.pageTitle})}</a>
-                            </li>
+    <div class="nr-mcp-agent-widget nr-mcp-agent-recommendations">
+        <f:if condition="{available}">
+            <f:then>
+                <p class="nr-mcp-agent-intro">{intro}</p>
+                <f:if condition="{tiles}">
+                    <ul class="nr-mcp-agent-tiles" role="list">
+                        <f:for each="{tiles}" as="tile">
+                            <f:if condition="{tile.action}">
+                                <f:then>
+                                    <li class="nr-mcp-agent-tile nr-mcp-agent-tile-{tile.key}">
+                                        <p class="nr-mcp-agent-tile-figure"><span class="nr-mcp-agent-tile-count">{tile.count}</span> <span class="nr-mcp-agent-tile-label">{tile.label}</span></p>
+                                        <f:if condition="{tile.detail}"><p class="nr-mcp-agent-tile-detail">{tile.detail}</p></f:if>
+                                        <f:if condition="{tile.action.start}">
+                                            <f:then>
+                                                <a class="btn btn-primary nr-mcp-agent-tile-action" href="{tile.action.uri}" aria-label="{tile.action.name}" data-nr-chat-start="1" data-nr-chat-skill="{tile.action.start.skill}" data-nr-chat-page="{tile.action.start.page}" data-nr-chat-language="{tile.action.start.language}">{tile.action.text}</a>
+                                            </f:then>
+                                            <f:else>
+                                                <a class="btn btn-primary nr-mcp-agent-tile-action" href="{tile.action.uri}" aria-label="{tile.action.name}">{tile.action.text}</a>
+                                            </f:else>
+                                        </f:if>
+                                    </li>
+                                </f:then>
+                                <f:else>
+                                    <li class="nr-mcp-agent-tile nr-mcp-agent-tile-{tile.key} nr-mcp-agent-tile-done">
+                                        <svg class="nr-mcp-agent-tile-check" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="5 12.5 10 17.5 19 7"/></svg>
+                                        <p class="nr-mcp-agent-tile-done-text">{tile.done}</p>
+                                    </li>
+                                </f:else>
+                            </f:if>
                         </f:for>
                     </ul>
-                </f:then>
-                <f:else>
-                    <f:if condition="{altTexts}">
-                        <f:else><p>{f:translate(key: '{ll}recommendations.empty')}</p></f:else>
-                    </f:if>
-                </f:else>
-            </f:if>
-        </f:then>
-        <f:else>
-            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
-        </f:else>
-    </f:if>
+                </f:if>
+                <f:if condition="{points}">
+                    <h2 class="nr-mcp-agent-subheading">{f:translate(key: '{ll}recommendations.points')}</h2>
+                    <ul class="nr-mcp-agent-rows" role="list">
+                        <f:for each="{points}" as="point">
+                            <f:render partial="Widget/ActionRow" arguments="{uri: point.uri, label: point.summary, secondary: point.start, start: 1, skill: point.skill, page: point.page, language: point.language}" />
+                        </f:for>
+                    </ul>
+                </f:if>
+            </f:then>
+            <f:else>
+                <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+            </f:else>
+        </f:if>
+    </div>
 </f:section>

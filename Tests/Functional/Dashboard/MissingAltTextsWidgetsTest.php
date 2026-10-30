@@ -108,7 +108,7 @@ final class MissingAltTextsWidgetsTest extends FunctionalTestCase
 
     private function websiteCheck(string $llmTaskUid = '1'): string
     {
-        $widget = new WebsiteCheckWidget(...$this->common($llmTaskUid), ...[$this->list()]);
+        $widget = new WebsiteCheckWidget(...$this->common($llmTaskUid), ...[$this->list(), new ChatStartUriBuilder($this->get(UriBuilder::class))]);
         $widget->setRequest($this->request());
 
         return $widget->renderWidgetContent();
@@ -134,7 +134,9 @@ final class MissingAltTextsWidgetsTest extends FunctionalTestCase
 
         $html = $this->websiteCheck();
 
-        self::assertMatchesRegularExpression('#<a href="[^"]*/module/nr/mcp/agent/chat/missing-alt-texts[^"]*">Missing alt texts</a>#', $html);
+        // Site-wide: a plain link to the list, not a start in the chat.
+        self::assertMatchesRegularExpression('#<a class="nr-mcp-agent-row" href="[^"]*/module/nr/mcp/agent/chat/missing-alt-texts[^"]*"><span class="nr-mcp-agent-row-text"><span class="nr-mcp-agent-row-label">Missing alt texts</span></span>#', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-intro">I check all pages at once and show you where something is missing.</p>', $html);
     }
 
     /** The entry stays when nothing is open: the list then says every image is done. */
@@ -143,7 +145,7 @@ final class MissingAltTextsWidgetsTest extends FunctionalTestCase
     {
         $this->login(4);
 
-        self::assertStringContainsString('>Missing alt texts</a>', $this->websiteCheck());
+        self::assertStringContainsString('<span class="nr-mcp-agent-row-label">Missing alt texts</span>', $this->websiteCheck());
     }
 
     #[Test]
@@ -165,22 +167,25 @@ final class MissingAltTextsWidgetsTest extends FunctionalTestCase
 
         $html = (string) preg_replace('/\s+/', ' ', $this->recommendations());
 
-        self::assertStringContainsString('<span class="fs-3 fw-bold me-1">26</span> Images without alt text', $html);
-        self::assertStringContainsString('Found on 11 pages and in 2 records', $html);
-        self::assertMatchesRegularExpression('#<a class="btn btn-default btn-sm" href="[^"]*/missing-alt-texts[^"]*" aria-label="View: images without alt text">View</a>#', $html);
+        self::assertStringContainsString('<span class="nr-mcp-agent-tile-count">26</span> <span class="nr-mcp-agent-tile-label">Images without alt text</span>', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-tile-detail">Found on 11 pages and in 2 records</p>', $html);
+        // The name starts with the visible "View" (label in name) and says the number and what it counts.
+        self::assertMatchesRegularExpression('#<a class="btn btn-primary nr-mcp-agent-tile-action" href="[^"]*/missing-alt-texts[^"]*" aria-label="View: 26 Images without alt text">View</a>#', $html);
         // With the tile there, "no open recommendations" would contradict it.
         self::assertStringNotContainsString('No open recommendations', $html);
     }
 
+    /** No image lacks an alt text: the tile says so, without an action, and nothing is open. */
     #[Test]
-    public function theTileIsLeftOutWhileNoImageLacksAnAltText(): void
+    public function theTileIsASuccessWhileNoImageLacksAnAltText(): void
     {
         $this->login(4);
 
         $html = $this->recommendations();
 
-        self::assertStringNotContainsString('Images without alt text', $html);
-        self::assertStringContainsString('No open recommendations', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-tile-done-text">No missing alt texts – great!</p>', $html);
+        self::assertStringNotContainsString('nr-mcp-agent-tile-action', $html);
+        self::assertStringContainsString('I’ve checked: nothing is open right now. Well done!', $html);
     }
 
     /** Only the parts that apply: no "in 0 records", one page in the singular. */
@@ -194,7 +199,7 @@ final class MissingAltTextsWidgetsTest extends FunctionalTestCase
         $html = (string) preg_replace('/\s+/', ' ', $this->recommendations());
 
         // Left: the carousel item and the "assets" image, both on "Startseite".
-        self::assertStringContainsString('<span class="fs-3 fw-bold me-1">2</span>', $html);
+        self::assertStringContainsString('<span class="nr-mcp-agent-tile-count">2</span>', $html);
         self::assertStringContainsString('Found on 1 page<', $html);
         self::assertStringNotContainsString('record', $html);
     }

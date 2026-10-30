@@ -28,6 +28,10 @@
 #                 are seeded on a page of their own (missing-alt-texts.spec.ts);
 #                 the tools of "Optimieren" are enabled, and one conversation
 #                 waits on a proposed alt text (alt-text-optimise.spec.ts).
+#                 A third administrator's dashboard holds the widgets of the
+#                 "AI Assistant" preset, with a guided tour under the slug
+#                 seo-optimieren, the page tool enabled and a page without a
+#                 meta description (assistant-widgets.spec.ts).
 #
 # DB coordinates are the fixed defaults the reusable workflow's default mode
 # provisions (see its "Setup TYPO3" step): host 127.0.0.1, root/root, db typo3.
@@ -91,6 +95,9 @@ case "${E2E_VARIANT:-}" in
     # The seeded images lie in fileadmin/e2e/, which the privacy setting
     # "Bildanalyse" excludes, so their card names the folder
     # (alt-text-optimise.spec.ts); no other spec sends an image from there.
+    echo "Seeding the AI Assistant dashboard: a user, a guided tour, a page without a meta description (${DB_CLIENT})..."
+    "${DB_CLIENT}" -h 127.0.0.1 -u root -proot typo3 < "${PLAYWRIGHT_DIR}/fixtures/assistant-widgets-seed.sql"
+
     echo "Pointing llmTaskUid at the seeded Task and excluding the seeded images' folder from image analysis..."
     cat >> config/system/additional.php << 'PHPEOF'
 

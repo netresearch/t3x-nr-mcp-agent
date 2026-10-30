@@ -5,55 +5,34 @@
 <f:layout name="Widget/Widget" />
 <f:section name="main">
     <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
-    <f:if condition="{available}">
-        <f:then>
-            <f:if condition="{tasks}">
-                <f:then>
-                    <f:if condition="{pages}">
-                        <p id="{idPrefix}-page-hint" class="form-text mt-0">{f:translate(key: '{ll}tasks.pageHint')}</p>
-                    </f:if>
-                    <ul class="list-unstyled nr-mcp-agent-tasks">
-                        <f:for each="{tasks}" as="task" iteration="i">
-                            <li class="mb-3">
-                                <f:if condition="{task.needsPage}">
+    <div class="nr-mcp-agent-widget nr-mcp-agent-tasks">
+        <f:if condition="{available}">
+            <f:then>
+                <f:if condition="{rows}">
+                    <f:then>
+                        <p class="nr-mcp-agent-intro">{f:translate(key: '{ll}tasks.intro')}</p>
+                        <ul class="nr-mcp-agent-rows" role="list">
+                            <f:for each="{rows}" as="row">
+                                <f:if condition="{row.needsPage}">
                                     <f:then>
-                                        <f:if condition="{pages}">
-                                            <f:then>
-                                                <form action="{form.action}" method="get" class="d-flex flex-wrap gap-2 align-items-end">
-                                                    <f:for each="{form.hidden}" as="value" key="name">
-                                                        <input type="hidden" name="{name}" value="{value}" />
-                                                    </f:for>
-                                                    <f:comment>The pages offered are default-language versions.</f:comment>
-                                                    <input type="hidden" name="{form.languageField}" value="0" />
-                                                    <input type="hidden" name="{form.skillField}" value="{task.skill}" />
-                                                    <div class="flex-grow-1">
-                                                        <f:variable name="pageLabel" value="{f:translate(key: '{ll}tasks.pageFor', arguments: {0: task.label})}" />
-                                                        <f:render partial="Widget/PageSelect" arguments="{id: '{idPrefix}-page-{i.index}', name: form.pageField, label: pageLabel, labelHidden: 1, describedBy: '{idPrefix}-page-hint', pages: pages}" />
-                                                    </div>
-                                                    <button type="submit" class="btn btn-default">{task.label}</button>
-                                                </form>
-                                            </f:then>
-                                            <f:else>
-                                                <strong>{task.label}</strong>
-                                                <p class="text-variant small mb-0">{f:translate(key: '{ll}page.none')}</p>
-                                            </f:else>
-                                        </f:if>
+                                        <f:comment>On one page: the page module opens, the chat asks for the page.</f:comment>
+                                        <f:render partial="Widget/ActionRow" arguments="{uri: row.uri, label: row.label, start: 1, skill: row.skill, pageModule: 1}" />
                                     </f:then>
                                     <f:else>
-                                        <a class="btn btn-default" href="{task.uri}">{task.label}</a>
+                                        <f:render partial="Widget/ActionRow" arguments="{uri: row.uri, label: row.label}" />
                                     </f:else>
                                 </f:if>
-                            </li>
-                        </f:for>
-                    </ul>
-                </f:then>
-                <f:else>
-                    <p>{f:translate(key: '{ll}tasks.empty')}</p>
-                </f:else>
-            </f:if>
-        </f:then>
-        <f:else>
-            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
-        </f:else>
-    </f:if>
+                            </f:for>
+                        </ul>
+                    </f:then>
+                    <f:else>
+                        <p class="nr-mcp-agent-intro">{f:translate(key: '{ll}tasks.empty')}</p>
+                    </f:else>
+                </f:if>
+            </f:then>
+            <f:else>
+                <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+            </f:else>
+        </f:if>
+    </div>
 </f:section>

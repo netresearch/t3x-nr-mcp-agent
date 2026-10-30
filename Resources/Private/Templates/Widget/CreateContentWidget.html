@@ -1,0 +1,33 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<f:layout name="Widget/Widget" />
+<f:section name="main">
+    <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
+    <div class="nr-mcp-agent-widget nr-mcp-agent-create">
+        <f:if condition="{available}">
+            <f:then>
+                <f:if condition="{types}">
+                    <f:then>
+                        <p class="nr-mcp-agent-intro">{f:translate(key: '{ll}create.intro')}</p>
+                        <f:comment>Each button opens a new chat with the request in its input; nothing is sent until the editor sends it.</f:comment>
+                        <ul class="nr-mcp-agent-grid" role="list">
+                            <f:for each="{types}" as="type">
+                                <li>
+                                    <a class="btn btn-primary nr-mcp-agent-grid-button" href="{uri}" data-nr-chat-start="1" data-nr-chat-prefill="{f:translate(key: '{ll}create.{type}.prefill')}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><line x1="8" y1="2.5" x2="8" y2="13.5"/><line x1="2.5" y1="8" x2="13.5" y2="8"/></svg><span>{f:translate(key: '{ll}create.{type}')}</span></a>
+                                </li>
+                            </f:for>
+                        </ul>
+                    </f:then>
+                    <f:else>
+                        <p class="nr-mcp-agent-intro">{f:translate(key: '{ll}create.none')}</p>
+                    </f:else>
+                </f:if>
+            </f:then>
+            <f:else>
+                <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+            </f:else>
+        </f:if>
+    </div>
+</f:section>

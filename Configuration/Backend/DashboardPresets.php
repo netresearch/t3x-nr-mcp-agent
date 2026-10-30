@@ -22,16 +22,20 @@ return [
         'title'          => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:preset.title',
         'description'    => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:preset.description',
         'iconIdentifier' => 'module-nr-mcp-agent',
-        // In the order of the design: the free question on top, then the
-        // ways into a page ("Improve a page", "Frequent tasks"), the recent
-        // chats, the recommendations, and the site-wide checks ("Website
-        // prüfen", ADR-026) last.
+        // In the order of the design: the free question on top, the ways
+        // into a page ("Edit a page") and into new content ("Create content"),
+        // the recent chats, the recommendations, then the guided tours for one
+        // page ("Improve a page") and the site-wide checks ("Website prüfen",
+        // ADR-026). "Frequent tasks" stays available to place, but is not
+        // part of the design; "Website bearbeiten" of the design has no flow
+        // behind it yet and does not exist.
         'defaultWidgets' => [
             'nrMcpAgentPrompt',
-            'nrMcpAgentImprovePage',
-            'nrMcpAgentQuickTasks',
+            'nrMcpAgentEditPage',
+            'nrMcpAgentCreateContent',
             'nrMcpAgentAiChat',
             'nrMcpAgentRecommendations',
+            'nrMcpAgentImprovePage',
             'nrMcpAgentWebsiteCheck',
         ],
         'showInWizard' => true,
