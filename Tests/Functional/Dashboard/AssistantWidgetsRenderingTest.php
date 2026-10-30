@@ -39,6 +39,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
+use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -131,7 +132,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
             new ChatToolbarItem($config, $this->get(PageRenderer::class)),
         ];
         $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
-        $tour  = $descriptions ? new DescriptionTour(new MissingDescriptionRepository($this->get(ConnectionPool::class), $pages), $labels, $resolver) : null;
+        $tour  = $descriptions ? new DescriptionTour(new MissingDescriptionRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class)), $labels, $resolver, $this->get(CacheManager::class)->getCache(DescriptionTour::CACHE)) : null;
 
         $widget = match ($class) {
             ImprovePageWidget::class     => new ImprovePageWidget(...$common, ...[new ConfiguredGuidedSkillProvider($config, $labels, $resolver), $this->chatStart()]),
@@ -408,7 +409,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         $html = $this->render(RecommendationsWidget::class, null, ['seo-optimieren'], true);
 
         self::assertStringContainsString('<p class="nr-mcp-agent-intro">I’ve checked: nothing is open right now. Well done!</p>', $html);
-        self::assertMatchesRegularExpression('#<li class="nr-mcp-agent-tile nr-mcp-agent-tile-descriptions nr-mcp-agent-tile-done">\s*<svg class="nr-mcp-agent-tile-check"[^>]*aria-hidden="true"[^>]*>.*</svg>\s*<p class="nr-mcp-agent-tile-done-text">Every page has a meta description – great!</p>#s', $html);
+        self::assertMatchesRegularExpression('#<li class="nr-mcp-agent-tile nr-mcp-agent-tile-descriptions nr-mcp-agent-tile-done">\s*<svg class="nr-mcp-agent-tile-check"[^>]*aria-hidden="true"[^>]*>.*</svg>\s*<p class="nr-mcp-agent-tile-done-text">Every page you may edit has a meta description – great!</p>#s', $html);
         self::assertStringNotContainsString('nr-mcp-agent-tile-action', $html);
     }
 
