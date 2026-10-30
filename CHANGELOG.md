@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-10-30
+
+### Fixed
+
+- **Dashboard widgets keep their old size on dashboards arranged before a size change (#289).** The dashboard stores the size of every widget it has placed and offers no way to resize it, so after 0.27.0 "Website prüfen" stayed one row high and cut off its second row. The upgrade wizard `nrMcpAgent_dashboardWidgetSizes` removes the stored position of every widget of this extension where it is smaller than its registered size; the dashboard then places it again in its registered size, usually below the widgets it shared its rows with.
+
+### Upgrading
+
+- Run the upgrade wizards (`vendor/bin/typo3 upgrade:run nrMcpAgent_dashboardWidgetSizes`, or the Install Tool). It covers the case of `nrMcpAgent_recentChatsWidgetSize` too.
+
 ## [0.27.0] - 2026-10-30
 
 ### Changed
