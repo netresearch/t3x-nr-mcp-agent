@@ -10,6 +10,9 @@
     shortens the title before it, not the time. The arrow is decoration.
     data-nr-chat-page and data-nr-chat-language are empty for a conversation
     without a page the user may see (dashboard-widget.js).
+    The list scrolls in a region of its own when it is taller than the
+    widget, named after the widget and focusable, so it scrolls by keyboard
+    too; the hint above it and the footer below it stay in place.
 </f:comment>
 {namespace core=TYPO3\CMS\Core\ViewHelpers}
 <f:layout name="Widget/Widget" />
@@ -20,43 +23,45 @@
             <p class="nr-recent-chats-hint">{f:translate(key: '{ll}widget.hint')}</p>
             <f:if condition="{conversations}">
                 <f:then>
-                    <ul class="nr-recent-chats" data-nr-chat-locale="{locale}" data-nr-chat-today="{f:translate(key: '{ll}widget.time.today')}" data-nr-chat-yesterday="{f:translate(key: '{ll}widget.time.yesterday')}">
-                        <f:for each="{conversations}" as="conversation">
-                            <li>
-                                <a href="{f:be.uri(route: 'nr_mcp_agent_chat', parameters: {conversation: conversation.uid})}"
-                                   class="nr-recent-chats-entry"
-                                   data-nr-chat-conversation="{conversation.uid}"
-                                   data-nr-chat-page="{conversation.page.uid}"
-                                   data-nr-chat-language="{conversation.page.languageUid}">
-                                    <span class="nr-recent-chats-text">
-                                        <f:if condition="{conversation.titleSuffix}">
-                                            <f:then><span class="nr-recent-chats-title nr-recent-chats-title--split" title="{conversation.fullTitle}"><span class="nr-recent-chats-title-base">{conversation.titleBase}</span><span class="nr-recent-chats-title-suffix"> · {conversation.titleSuffix}</span></span></f:then>
-                                            <f:else><span class="nr-recent-chats-title" title="{conversation.fullTitle}">{f:if(condition: conversation.displayTitle, then: conversation.displayTitle, else: '{f:translate(key: \'{ll}conversations.newConversation\')}')}</span></f:else>
-                                        </f:if>
-                                        <f:if condition="{conversation.context}">
+                    <section class="nr-recent-chats-region" tabindex="0" aria-label="{f:translate(key: '{ll}widget.title')}">
+                        <ul class="nr-recent-chats" data-nr-chat-locale="{locale}" data-nr-chat-today="{f:translate(key: '{ll}widget.time.today')}" data-nr-chat-yesterday="{f:translate(key: '{ll}widget.time.yesterday')}">
+                            <f:for each="{conversations}" as="conversation">
+                                <li>
+                                    <a href="{f:be.uri(route: 'nr_mcp_agent_chat', parameters: {conversation: conversation.uid})}"
+                                       class="nr-recent-chats-entry"
+                                       data-nr-chat-conversation="{conversation.uid}"
+                                       data-nr-chat-page="{conversation.page.uid}"
+                                       data-nr-chat-language="{conversation.page.languageUid}">
+                                        <span class="nr-recent-chats-text">
+                                            <f:if condition="{conversation.titleSuffix}">
+                                                <f:then><span class="nr-recent-chats-title nr-recent-chats-title--split" title="{conversation.fullTitle}"><span class="nr-recent-chats-title-base">{conversation.titleBase}</span><span class="nr-recent-chats-title-suffix"> · {conversation.titleSuffix}</span></span></f:then>
+                                                <f:else><span class="nr-recent-chats-title" title="{conversation.fullTitle}">{f:if(condition: conversation.displayTitle, then: conversation.displayTitle, else: '{f:translate(key: \'{ll}conversations.newConversation\')}')}</span></f:else>
+                                            </f:if>
+                                            <f:if condition="{conversation.context}">
+                                                <span class="visually-hidden">, </span>
+                                                <span class="nr-recent-chats-context"><f:for each="{conversation.context}" as="part" iteration="i"><f:if condition="{i.isFirst}"><f:else> · </f:else></f:if>{part}</f:for></span>
+                                            </f:if>
+                                        </span>
+                                        <f:if condition="{conversation.progress}">
                                             <span class="visually-hidden">, </span>
-                                            <span class="nr-recent-chats-context"><f:for each="{conversation.context}" as="part" iteration="i"><f:if condition="{i.isFirst}"><f:else> · </f:else></f:if>{part}</f:for></span>
+                                            <span class="nr-recent-chats-chip">{conversation.progress.label}</span>
                                         </f:if>
-                                    </span>
-                                    <f:if condition="{conversation.progress}">
                                         <span class="visually-hidden">, </span>
-                                        <span class="nr-recent-chats-chip">{conversation.progress.label}</span>
-                                    </f:if>
-                                    <span class="visually-hidden">, </span>
-                                    <f:switch expression="{conversation.statusTone}">
-                                        <f:case value="warning"><f:variable name="badge" value="badge-warning" /></f:case>
-                                        <f:case value="info"><f:variable name="badge" value="badge-info" /></f:case>
-                                        <f:case value="danger"><f:variable name="badge" value="badge-danger" /></f:case>
-                                        <f:defaultCase><f:variable name="badge" value="badge-default" /></f:defaultCase>
-                                    </f:switch>
-                                    <span class="nr-recent-chats-status badge {badge}" data-tone="{conversation.statusTone}"><f:if condition="{conversation.statusTone} == 'warning'"><span class="nr-recent-chats-status-icon" aria-hidden="true"><core:icon identifier="actions-exclamation-circle" size="small" /></span></f:if>{conversation.statusLabel}</span>
-                                    <span class="visually-hidden">, </span>
-                                    <time class="nr-recent-chats-time" datetime="{conversation.lastActivity.datetime}" title="{conversation.lastActivity.absolute}">{conversation.lastActivity.label}</time>
-                                    <span class="nr-recent-chats-arrow" aria-hidden="true"><core:icon identifier="actions-chevron-end" size="small" /></span>
-                                </a>
-                            </li>
-                        </f:for>
-                    </ul>
+                                        <f:switch expression="{conversation.statusTone}">
+                                            <f:case value="warning"><f:variable name="badge" value="badge-warning" /></f:case>
+                                            <f:case value="info"><f:variable name="badge" value="badge-info" /></f:case>
+                                            <f:case value="danger"><f:variable name="badge" value="badge-danger" /></f:case>
+                                            <f:defaultCase><f:variable name="badge" value="badge-default" /></f:defaultCase>
+                                        </f:switch>
+                                        <span class="nr-recent-chats-status badge {badge}" data-tone="{conversation.statusTone}"><f:if condition="{conversation.statusTone} == 'warning'"><span class="nr-recent-chats-status-icon" aria-hidden="true"><core:icon identifier="actions-exclamation-circle" size="small" /></span></f:if>{conversation.statusLabel}</span>
+                                        <span class="visually-hidden">, </span>
+                                        <time class="nr-recent-chats-time" datetime="{conversation.lastActivity.datetime}" title="{conversation.lastActivity.absolute}">{conversation.lastActivity.label}</time>
+                                        <span class="nr-recent-chats-arrow" aria-hidden="true"><core:icon identifier="actions-chevron-end" size="small" /></span>
+                                    </a>
+                                </li>
+                            </f:for>
+                        </ul>
+                    </section>
                 </f:then>
                 <f:else>
                     <p class="nr-recent-chats-empty">{f:translate(key: '{ll}widget.empty')}</p>

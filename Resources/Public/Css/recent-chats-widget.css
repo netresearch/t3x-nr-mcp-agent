@@ -11,8 +11,33 @@
  * design's light values, for a backend that does not define the variables. */
 
 .nr-recent-chats-hint {
+    flex: 0 0 auto;
     margin-bottom: .75rem;
     color: var(--typo3-text-color-variant, #55556a);
+}
+
+/* Ten rows are taller than the widget once most of them have a context line.
+ * The dashboard's content area (.widget-content-main, overflow-y: auto)
+ * scrolled them together with the hint and cut the last row off flush
+ * against the footer's "New chat". The content area is a column here, so the
+ * list's region shrinks to the height left below the hint and scrolls on its
+ * own, and the footer stays below it. Only this widget's content area holds
+ * the region; the empty and the unavailable widget keep core's layout. */
+.widget-content-main:has(> .nr-recent-chats-region) {
+    display: flex;
+    flex-direction: column;
+}
+
+.nr-recent-chats-region {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    border-radius: var(--typo3-component-border-radius, 4px);
+}
+
+.nr-recent-chats-region:focus-visible {
+    outline: 2px solid var(--typo3-component-focus-color, currentColor);
+    outline-offset: 2px;
 }
 
 .nr-recent-chats {

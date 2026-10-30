@@ -583,7 +583,8 @@ Dashboard widget
 With the TYPO3 dashboard installed, a **Recent chats** widget can be added
 to a dashboard (*Add widget > General*). It takes the dashboard's full width
 and lists your ten chats with the newest last message, newest first; a chat
-without any message yet is not listed. Each entry shows what every list
+without any message yet is not listed. When they do not fit, the list
+scrolls within the widget. Each entry shows what every list
 shows (see :ref:`Conversation management <usage-conversation-management>`):
 
 -   the title, for example *SEO optimieren · Über uns* for a guided tour;
@@ -605,7 +606,9 @@ the page module, in its language. A guided process continues where it stopped: a
 proposal waiting for your answer is shown again. **New chat** starts a chat
 there, and **Show all chats** goes to the chat module. Each entry is one
 link, reachable with :kbd:`Tab`; a screen reader reads its title, context,
-progress, status and time.
+progress, status and time. The list itself is a tab stop too, before its
+first entry, and scrolls with the arrow keys, :kbd:`Page Down` and
+:kbd:`End`.
 
 A guided process on a page you may not see is listed without the page. A guided process
 whose page has been deleted since is listed as *Deleted page*; it opens
