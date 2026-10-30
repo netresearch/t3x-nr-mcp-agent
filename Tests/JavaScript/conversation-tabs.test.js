@@ -111,9 +111,8 @@ describe('conversationTitle and conversationTooltip', () => {
             displayTitle: 'Bitte prüfe alle Seiten…',
             fullTitle: 'Bitte prüfe alle Seiten unter Produkte',
             contextLabel: 'Seite „Produkte“ · SEO optimieren',
-            lastActivity: {label: 'Heute, 10:42', absolute: '24. Oktober 2026 um 10:42'},
         };
-        expect(conversationTooltip(conversation, 'Bereit', 'New chat')).toBe(
+        expect(conversationTooltip(conversation, 'Bereit', 'New chat', '24. Oktober 2026 um 10:42')).toBe(
             'Bitte prüfe alle Seiten unter Produkte\nSeite „Produkte“ · SEO optimieren\nBereit\n24. Oktober 2026 um 10:42',
         );
         expect(conversationTooltip({title: ''}, 'Bereit', 'New chat')).toBe('New chat\nBereit');

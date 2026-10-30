@@ -19,6 +19,7 @@ import {html, css, nothing} from 'lit';
 import {lll} from '@typo3/core/lit-helper.js';
 import {statusLabel, statusTone} from '@netresearch/nr-mcp-agent/chat-core.js';
 import {conversationTitle} from '@netresearch/nr-mcp-agent/conversation-tabs.js';
+import {describeTime} from '@netresearch/nr-mcp-agent/relative-time.js';
 
 /**
  * One icon per tone, in the colour of the tone. Ready gets a hollow circle,
@@ -142,24 +143,40 @@ export function renderStatusIcon(status) {
 }
 
 /**
+ * When the last message was written, worded now, in the reader's time zone
+ * (relative-time.js), or null for a conversation without the time.
+ *
+ * @param {{lastActivityAt?: string}} conversation
+ * @param {string} [locale] the backend user's locale, as the list endpoint sends it
+ */
+export function conversationTime(conversation, locale) {
+    return describeTime(conversation.lastActivityAt, {
+        locale,
+        today: (time) => lll('widget.time.today', time),
+        yesterday: (time) => lll('widget.time.yesterday', time),
+    });
+}
+
+/**
  * When the last message was written: the list's label, the full date and
  * time as the tooltip, the machine-readable time in `datetime`.
  *
- * @param {{lastActivityAt?: string, lastActivity?: {label?: string, absolute?: string}}} conversation
+ * @param {{lastActivityAt?: string}} conversation
+ * @param {string} [locale]
  */
-export function renderTime(conversation) {
-    const label = conversation.lastActivity?.label;
-    if (!label) {
+export function renderTime(conversation, locale) {
+    const time = conversationTime(conversation, locale);
+    if (!time) {
         return nothing;
     }
-    return html`<time class="conv-time" datetime="${conversation.lastActivityAt ?? nothing}" title="${conversation.lastActivity.absolute || nothing}">${label}</time>`;
+    return html`<time class="conv-time" datetime="${time.datetime}" title="${time.absolute}">${time.label}</time>`;
 }
 
 /**
  * Title, context line, status and time of one conversation.
  *
  * @param {object} conversation an entry of the list endpoint
- * @param {{status?: string}} [options] `status` overrides the listed one
+ * @param {{status?: string, locale?: string}} [options] `status` overrides the listed one
  */
 export function renderConversationSummary(conversation, options = {}) {
     const title = conversationTitle(conversation, lll('conversations.newConversation'));
@@ -168,7 +185,7 @@ export function renderConversationSummary(conversation, options = {}) {
         <span class="conv-summary">
             <span class="conv-summary-title" title="${conversation.fullTitle || title}">${conversation.pinned ? '\u{1F4CC} ' : ''}${title}</span>
             ${conversation.contextLabel ? html`<span class="conv-summary-context">${conversation.contextLabel}</span>` : nothing}
-            <span class="conv-summary-meta">${status ? renderStatus(status) : nothing}${renderTime(conversation)}</span>
+            <span class="conv-summary-meta">${status ? renderStatus(status) : nothing}${renderTime(conversation, options.locale)}</span>
         </span>
     `;
 }

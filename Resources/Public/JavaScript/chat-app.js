@@ -684,7 +684,7 @@ export class ChatApp extends LitElement {
                  aria-selected="${isActive}"
                  @click=${() => this.chat.selectConversation(c.uid)}
                  @keydown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.chat.selectConversation(c.uid); } }}>
-                ${renderConversationSummary(c)}
+                ${renderConversationSummary(c, {locale: this.chat.listLocale})}
             </div>
         `;
     }

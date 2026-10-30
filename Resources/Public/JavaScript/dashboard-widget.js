@@ -17,6 +17,7 @@
  */
 
 import {findPanel} from '@netresearch/nr-mcp-agent/chat-panel-registry.js';
+import {describeTime} from '@netresearch/nr-mcp-agent/relative-time.js';
 
 function backendTop() {
     try {
@@ -95,3 +96,39 @@ document.addEventListener('click', (event) => {
         showPage(pageUid, dataInt(link.dataset.nrChatLanguage));
     }
 });
+
+/**
+ * The times of the list, worded in the reader's time zone (ADR-027). The
+ * server renders them in its own, which is what the list shows without
+ * JavaScript; here each `<time>` is worded again from its `datetime`, with
+ * the labels and the locale the list carries. The dashboard renders a
+ * widget's content after this module has loaded, and again when the widget
+ * is refreshed, so new lists are picked up as they appear.
+ *
+ * @param {ParentNode} root
+ * @param {Date} [now]
+ */
+export function relabelTimes(root, now = new Date()) {
+    for (const list of root.querySelectorAll('.nr-recent-chats[data-nr-chat-locale]')) {
+        const {nrChatLocale: locale, nrChatToday: today = '%s', nrChatYesterday: yesterday = '%s'} = list.dataset;
+        for (const element of list.querySelectorAll('time[datetime]')) {
+            const time = describeTime(element.getAttribute('datetime'), {
+                locale,
+                now,
+                today: (text) => today.replace('%s', text),
+                yesterday: (text) => yesterday.replace('%s', text),
+            });
+            if (time) {
+                element.textContent = time.label;
+                element.title = time.absolute;
+            }
+        }
+    }
+}
+
+relabelTimes(document);
+new MutationObserver((records) => {
+    if (records.some((record) => [...record.addedNodes].some((node) => node instanceof Element && (node.matches('.nr-recent-chats') || node.querySelector('.nr-recent-chats'))))) {
+        relabelTimes(document);
+    }
+}).observe(document.documentElement, {childList: true, subtree: true});

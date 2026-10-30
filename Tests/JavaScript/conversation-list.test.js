@@ -12,7 +12,28 @@
  * every list showed nothing but that title and the status.
  */
 
-import {describe, test, expect, beforeEach, jest} from '@jest/globals';
+import {describe, test, expect, beforeEach, afterEach, jest} from '@jest/globals';
+
+/**
+ * "Now" for the times the lists word (relative-time.js), in the test's own
+ * time zone: Saturday 24 October 2026, noon. Only Date is faked; Lit's
+ * microtasks and the timers stay real.
+ */
+const NOW = new Date(2026, 9, 24, 12, 0);
+const local = (day, hour, minute) => new Date(2026, 9, day, hour, minute).toISOString();
+
+beforeEach(() => {
+    jest.useFakeTimers({
+        now: NOW,
+        doNotFake: ['hrtime', 'nextTick', 'performance', 'queueMicrotask', 'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback', 'cancelIdleCallback', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
+    });
+    globalThis.TYPO3 = {...globalThis.TYPO3, lang: {'widget.time.today': 'Heute, %s', 'widget.time.yesterday': 'Gestern, %s'}};
+});
+
+afterEach(() => {
+    jest.useRealTimers();
+    delete globalThis.TYPO3.lang;
+});
 
 const TOUR = {
     uid: 7,
@@ -24,8 +45,7 @@ const TOUR = {
     messageCount: 4,
     pinned: false,
     tstamp: 1,
-    lastActivityAt: '2026-10-24T10:42:00+02:00',
-    lastActivity: {label: 'Heute, 10:42', absolute: '24. Oktober 2026 um 10:42'},
+    lastActivityAt: local(24, 10, 42),
 };
 
 const OWN = {
@@ -38,8 +58,7 @@ const OWN = {
     messageCount: 2,
     pinned: true,
     tstamp: 2,
-    lastActivityAt: '2026-10-23T09:00:00+02:00',
-    lastActivity: {label: 'Gestern, 09:00', absolute: '23. Oktober 2026 um 09:00'},
+    lastActivityAt: local(23, 9, 0),
 };
 
 /** A conversation just created: no message, no title. */
@@ -60,6 +79,7 @@ async function render(modulePath, tag, state, chatState = {}) {
         loading: false,
         issues: [],
         conversations: [TOUR, OWN, EMPTY],
+        listLocale: 'de',
         status: 'awaiting_input',
         messages: [],
         ...chatState,
@@ -95,8 +115,8 @@ const TOUR_ROW = {
     status: 'status.awaitingInput',
     tone: 'warning',
     time: 'Heute, 10:42',
-    datetime: '2026-10-24T10:42:00+02:00',
-    absolute: '24. Oktober 2026 um 10:42',
+    datetime: TOUR.lastActivityAt,
+    absolute: expect.stringMatching(/^24\. Oktober 2026.*10:42$/),
 };
 
 describe('the chat module list', () => {
@@ -149,12 +169,17 @@ describe('the panel', () => {
         expect(tabs).toHaveLength(2);
         expect(tour.querySelector('.tab-title').textContent.trim()).toBe('SEO optimieren · Über uns');
         expect(tour.querySelector('.conv-status-icon').dataset.tone).toBe('warning');
-        expect(tour.getAttribute('title')).toBe('SEO optimieren · Über uns\nGuided Tour · Punkt 2 von 5\nstatus.awaitingInput\n24. Oktober 2026 um 10:42');
+        expect(tour.getAttribute('title')).toMatch(/^SEO optimieren · Über uns\nGuided Tour · Punkt 2 von 5\nstatus\.awaitingInput\n24\. Oktober 2026.*10:42$/);
+        // Keyboard, touch and screen readers get the context and the time too.
+        const description = el.shadowRoot.getElementById(tour.getAttribute('aria-describedby'));
+        expect(description.textContent).toBe('Guided Tour · Punkt 2 von 5, Heute, 10:42');
+        expect(description.closest('.conv-list-visually-hidden')).not.toBeNull();
+        expect(description.closest('[role="tablist"]')).toBeNull();
     });
 
     test('the "more" list shows the same rows and searches the context', async () => {
         // Newer than the tour, so the tour is one of the three in the list.
-        const many = Array.from({length: 6}, (_, i) => ({...OWN, uid: 20 + i, pinned: false, lastActivityAt: `2026-10-25T0${i}:00:00+02:00`, displayTitle: `Frage ${i}`, fullTitle: `Frage ${i}`, contextLabel: `Seite „Seite ${i}“`}));
+        const many = Array.from({length: 6}, (_, i) => ({...OWN, uid: 20 + i, pinned: false, lastActivityAt: local(24, 11, i), displayTitle: `Frage ${i}`, fullTitle: `Frage ${i}`, contextLabel: `Seite „Seite ${i}“`}));
         const el = await render('../../Resources/Public/JavaScript/ai-chat-panel.js', 'ai-chat-panel', 'expanded', {
             conversations: [...many, TOUR, EMPTY],
             activeUid: 20,
@@ -236,6 +261,16 @@ describe('keeping the lists in step', () => {
         expect(chat._api.renameConversation).toHaveBeenCalledWith(7, 'Meine Prüfung');
         expect(chat._api.listConversations).toHaveBeenCalledTimes(1);
         expect(chat.conversations[0].displayTitle).toBe('Meine Prüfung');
+    });
+
+    /** The lists word the times in the backend user's locale, which the list endpoint names. */
+    test('loading the list keeps the locale the times are worded in', async () => {
+        const chat = await controller([{...TOUR}]);
+        chat._api.listConversations = jest.fn().mockResolvedValue({conversations: [{...TOUR}], locale: 'de'});
+
+        await chat.loadConversations();
+
+        expect(chat.listLocale).toBe('de');
     });
 
     /** Until its first message a chat is not listed, and it has no title; afterwards it has both. */

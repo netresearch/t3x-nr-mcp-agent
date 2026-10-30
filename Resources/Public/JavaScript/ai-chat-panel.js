@@ -7,7 +7,7 @@ import {ref} from 'lit/directives/ref.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {ChatCoreController, downloadTextFile, statusLabel, statusTone} from '@netresearch/nr-mcp-agent/chat-core.js';
 import {conversationTitle, conversationTooltip, filterConversations, listedConversations, splitConversationTabs} from '@netresearch/nr-mcp-agent/conversation-tabs.js';
-import {conversationListStyles, renderConversationSummary, renderStatusIcon} from '@netresearch/nr-mcp-agent/conversation-list.js';
+import {conversationListStyles, conversationTime, renderConversationSummary, renderStatusIcon} from '@netresearch/nr-mcp-agent/conversation-list.js';
 import {markdownStyles} from '@netresearch/nr-mcp-agent/markdown-styles.js';
 import {themeStyles} from '@netresearch/nr-mcp-agent/theme.js';
 import {AVATAR_ASSISTANT, AVATAR_USER, ICON_PAPERCLIP, ICON_SEND, ICON_COMPOSE, ICON_MINIMIZE, ICON_MAXIMIZE, ICON_RESTORE, ICON_CLOSE, ICON_COLUMN, ICON_POPOUT, ICON_CHEVRON_DOWN, ICON_UPLOAD, ICON_DOWNLOAD, ICON_INSTRUCTIONS, ICON_ACTIVITY, ICON_APPROVAL} from '@netresearch/nr-mcp-agent/icons.js';
@@ -2676,7 +2676,7 @@ export class AiChatPanel extends LitElement {
         return html`
             <div class="minimized-bar">
                 <span class="column-badge" aria-hidden="true">${lll('panel.badge')}</span>
-                <div class="minimized-text" title="${conv ? conversationTooltip(conv, statusLabel(this.chat.status), lll('panel.title')) : nothing}">
+                <div class="minimized-text" title="${conv ? conversationTooltip(conv, statusLabel(this.chat.status), lll('panel.title'), conversationTime(conv, this.chat.listLocale)?.absolute ?? '') : nothing}">
                     <span class="minimized-title">${title}</span>
                     <span class="minimized-status">${this._renderStatusLine(true)}</span>
                 </div>
@@ -2773,7 +2773,7 @@ export class AiChatPanel extends LitElement {
                          this.chat.selectConversation(c.uid);
                      }
                  }}>
-                ${renderConversationSummary(c)}
+                ${renderConversationSummary(c, {locale: this.chat.listLocale})}
                 ${isActive ? html`
                     <span class="sidebar-item-actions">
                         <button class="btn-icon btn-sm" @click=${(e) => { e.stopPropagation(); this.chat.handleTogglePin(); }}
@@ -2814,6 +2814,7 @@ export class AiChatPanel extends LitElement {
                     <div class="conv-tablist" role="tablist" aria-label="${lll('conversations.title')}">
                         ${visible.map(c => this._renderConvTab(c))}
                     </div>
+                    ${this._renderConvTabDescriptions(visible)}
                     ${overflow.length > 0 ? html`
                         <button class="conv-tab conv-tab-more"
                                 aria-haspopup="listbox"
@@ -2896,7 +2897,7 @@ export class AiChatPanel extends LitElement {
                                 aria-selected="${i === index}"
                                 @mousemove=${() => { if (this._moreIndex !== i) this._moreIndex = i; }}
                                 @click=${() => this._pickMore(c.uid)}>
-                                ${renderConversationSummary(c)}
+                                ${renderConversationSummary(c, {locale: this.chat.listLocale})}
                             </li>
                         `)}
                 </ul>
@@ -2959,18 +2960,37 @@ export class AiChatPanel extends LitElement {
         downloadTextFile(doc, this.chat.exportFileName(), this.chat.buildMarkdownExport());
     }
 
+    /**
+     * What a tab's tooltip says beyond the title, as text the tabs point to
+     * with aria-describedby: outside the tab list, which may own tabs only,
+     * and hidden from view.
+     */
+    _renderConvTabDescriptions(tabs) {
+        return html`
+            <div class="conv-list-visually-hidden">
+                ${tabs.map((c) => {
+                    const time = conversationTime(c, this.chat.listLocale);
+                    return html`<span id="conv-tab-desc-${c.uid}">${[c.contextLabel, time?.label].filter(Boolean).join(', ')}</span>`;
+                })}
+            </div>
+        `;
+    }
+
     _renderConvTab(c) {
         const isActive = c.uid === this.chat.activeUid;
         const isRenaming = this._renamingUid === c.uid;
         const untitled = lll('conversations.newConversation');
         const title = conversationTitle(c, untitled);
+        const time = conversationTime(c, this.chat.listLocale);
         // Narrow: the status icon and the title; the context, the status in
-        // words and the time are in the tooltip (ADR-027).
+        // words and the time are in the tooltip for the mouse, and in the
+        // tab's description for keyboard, touch and screen readers (ADR-027).
         return html`
             <button class="conv-tab ${isActive ? 'active' : ''}"
                     role="tab"
                     aria-selected="${isActive}"
-                    title="${conversationTooltip(c, statusLabel(c.status), untitled)}"
+                    aria-describedby="conv-tab-desc-${c.uid}"
+                    title="${conversationTooltip(c, statusLabel(c.status), untitled, time?.absolute ?? '')}"
                     @click=${() => this.chat.selectConversation(c.uid)}>
                 ${renderStatusIcon(c.status)}
                 ${isRenaming ? html`

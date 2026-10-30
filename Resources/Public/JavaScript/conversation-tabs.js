@@ -81,17 +81,18 @@ export function conversationTitle(conversation, untitled = '') {
  * (the panel's tabs): the full title, the context, the status and the time,
  * one per line.
  *
- * @param {{fullTitle?: string, displayTitle?: string, title?: string, contextLabel?: string, lastActivity?: {absolute?: string}}} conversation
+ * @param {{fullTitle?: string, displayTitle?: string, title?: string, contextLabel?: string}} conversation
  * @param {string} status the status label
  * @param {string} untitled
+ * @param {string} [time] when the last message was written, worded
  * @returns {string}
  */
-export function conversationTooltip(conversation, status, untitled = '') {
+export function conversationTooltip(conversation, status, untitled = '', time = '') {
     return [
         conversation.fullTitle || conversationTitle(conversation, untitled),
         conversation.contextLabel || '',
         status,
-        conversation.lastActivity?.absolute || '',
+        time,
     ].filter((line) => line !== '').join('\n');
 }
 

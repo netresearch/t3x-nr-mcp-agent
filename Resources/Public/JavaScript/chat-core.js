@@ -527,6 +527,8 @@ export class ChatCoreController {
     async loadConversations() {
         const data = await this._api.listConversations();
         this.conversations = data.conversations || [];
+        // The backend user's locale, which the lists word the times in.
+        this.listLocale = typeof data.locale === 'string' ? data.locale : '';
         this.host.requestUpdate();
     }
 

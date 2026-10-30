@@ -177,3 +177,60 @@ describe('dashboard widget', () => {
         });
     });
 });
+
+/**
+ * The widget's times are rendered in the server's time zone; the script words
+ * them again in the reader's, from `datetime`, with the labels and the locale
+ * the list carries (ADR-027).
+ */
+describe('the times of the recent chats', () => {
+    const local = (day, hour, minute) => new Date(2026, 9, day, hour, minute).toISOString();
+
+    function list(times) {
+        const ul = document.createElement('ul');
+        ul.className = 'nr-recent-chats';
+        Object.assign(ul.dataset, {nrChatLocale: 'de', nrChatToday: 'Heute, %s', nrChatYesterday: 'Gestern, %s'});
+        for (const iso of times) {
+            const time = document.createElement('time');
+            time.className = 'nr-recent-chats-time';
+            time.setAttribute('datetime', iso);
+            time.textContent = 'server';
+            const li = document.createElement('li');
+            li.append(time);
+            ul.append(li);
+        }
+        return ul;
+    }
+
+    beforeEach(() => document.body.replaceChildren());
+
+    test('are worded in the reader\'s calendar day', async () => {
+        const {relabelTimes} = await import('../../Resources/Public/JavaScript/dashboard-widget.js');
+        document.body.append(list([local(24, 10, 42), local(23, 9, 0), local(3, 9, 0)]));
+
+        relabelTimes(document, new Date(2026, 9, 24, 12, 0));
+
+        const times = [...document.querySelectorAll('time')];
+        expect(times.map((t) => t.textContent)).toEqual(['Heute, 10:42', 'Gestern, 09:00', '3. Okt.']);
+        expect(times[0].title).toMatch(/^24\. Oktober 2026.*10:42$/);
+    });
+
+    test('a list the dashboard renders later is worded as it appears', async () => {
+        await import('../../Resources/Public/JavaScript/dashboard-widget.js');
+        document.body.append(list(['2020-01-01T08:00:00Z']));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(document.querySelector('time').textContent).not.toBe('server');
+    });
+
+    test('a list without a locale is left as the server rendered it', async () => {
+        const {relabelTimes} = await import('../../Resources/Public/JavaScript/dashboard-widget.js');
+        const ul = list([local(24, 10, 42)]);
+        delete ul.dataset.nrChatLocale;
+        document.body.append(ul);
+
+        relabelTimes(document);
+
+        expect(document.querySelector('time').textContent).toBe('server');
+    });
+});
