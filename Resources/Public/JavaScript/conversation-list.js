@@ -80,9 +80,14 @@ export const conversationListStyles = css`
     .conv-status svg {
         flex: 0 0 auto;
     }
+    /*
+     * Every tone sets a background and a text colour that do not depend on
+     * the row: the same badge sits in the selected row's active colour and in
+     * the plain rows.
+     */
     .conv-status--neutral {
-        background: var(--nr-chat-surface-variant);
-        color: var(--nr-chat-text-variant);
+        background: var(--nr-chat-neutral-bg);
+        color: var(--nr-chat-neutral-text);
         font-weight: 400;
     }
     .conv-status--info {
@@ -92,7 +97,7 @@ export const conversationListStyles = css`
     .conv-status--warning {
         background: var(--nr-chat-warning-bg);
         color: var(--nr-chat-warning-text);
-        box-shadow: inset 0 0 0 1px var(--nr-chat-warning-border);
+        box-shadow: inset 0 0 0 1px var(--nr-chat-warning-edge);
     }
     .conv-status--danger {
         background: var(--nr-chat-danger-bg);
@@ -104,7 +109,7 @@ export const conversationListStyles = css`
         flex: 0 0 auto;
         align-items: center;
     }
-    .conv-status-icon--neutral { color: var(--nr-chat-text-variant); }
+    .conv-status-icon--neutral { color: var(--nr-chat-neutral-text); }
     .conv-status-icon--info { color: var(--nr-chat-status-info); }
     .conv-status-icon--warning { color: var(--nr-chat-status-warning); }
     .conv-status-icon--danger { color: var(--nr-chat-status-danger); }

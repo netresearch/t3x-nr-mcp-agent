@@ -71,6 +71,16 @@ export const themeStyles = css`
         --nr-chat-info-text: var(--typo3-surface-container-info-text, #0d47a1);
         --nr-chat-danger-bg: var(--typo3-surface-container-danger, #ffebee);
         --nr-chat-danger-text: var(--typo3-surface-container-danger-text, #c62828);
+        /*
+         * The neutral status: core's default badge pair. Not the variant text
+         * colour: TYPO3 14.3 defines --typo3-text-color-variant as a mix of
+         * currentColor, so on a badge of its own background it took the
+         * colour of the row around it, white in the selected row (1.04:1).
+         */
+        --nr-chat-neutral-bg: var(--typo3-badge-default-bg, #f7f7f8);
+        --nr-chat-neutral-text: var(--typo3-badge-default-color, #1a1a1a);
+        /* The edge of a waiting status: the warning text colour, 3:1 or more against the rows. */
+        --nr-chat-warning-edge: var(--nr-chat-status-warning);
 
         /* Plain status text on default surfaces */
         --nr-chat-status-info: var(--typo3-text-color-info, #1565c0);
