@@ -47,3 +47,28 @@ SELECT 0, c.uid, t.n, IF(t.n = 0, 'user', 'assistant'),
 FROM tx_nrmcpagent_conversation c
 JOIN (SELECT 0 AS n UNION ALL SELECT 1) t
 WHERE c.title LIKE 'E2E recent %' AND c.be_user = @admin_uid;
+
+-- Six more guided processes on page 3, so the widget lists ten chats, eight
+-- of them with a context line: more than its height holds (the list scrolls
+-- in a region of its own, recent-chats-widget.spec.ts). Their last messages
+-- were written at 09:51 to 09:56, before those of the four above, so those
+-- stay at the top.
+INSERT INTO tx_nrmcpagent_conversation
+    (pid, be_user, title, messages, message_count, status, system_prompt, view_context, skill_identifier, activity, guided_state, approval_card, card_outcomes, error_message, approval_run_uuid, pending_input, tstamp, crdate)
+VALUES
+    (0, @admin_uid, 'E2E stacked tour 1', '', 2, 'idle', '', '{"pageId":3,"module":"web_layout","languageId":0}', 'e2e-process', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
+    (0, @admin_uid, 'E2E stacked tour 2', '', 2, 'idle', '', '{"pageId":3,"module":"web_layout","languageId":0}', 'e2e-process', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
+    (0, @admin_uid, 'E2E stacked tour 3', '', 2, 'idle', '', '{"pageId":3,"module":"web_layout","languageId":0}', 'e2e-process', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
+    (0, @admin_uid, 'E2E stacked tour 4', '', 2, 'idle', '', '{"pageId":3,"module":"web_layout","languageId":0}', 'e2e-process', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
+    (0, @admin_uid, 'E2E stacked tour 5', '', 2, 'idle', '', '{"pageId":3,"module":"web_layout","languageId":0}', 'e2e-process', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
+    (0, @admin_uid, 'E2E stacked tour 6', '', 2, 'idle', '', '{"pageId":3,"module":"web_layout","languageId":0}', 'e2e-process', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
+
+INSERT INTO tx_nrmcpagent_message (pid, conversation, sorting, role, payload, crdate)
+SELECT 0, c.uid, t.n, IF(t.n = 0, 'user', 'assistant'),
+       JSON_OBJECT('role', IF(t.n = 0, 'user', 'assistant'),
+                   'content', IF(t.n = 0, 'Please look at this page.', 'Here is what I found.'),
+                   'createdAt', CONCAT('2099-01-01T09:5', RIGHT(c.title, 1), ':00+00:00')),
+       UNIX_TIMESTAMP()
+FROM tx_nrmcpagent_conversation c
+JOIN (SELECT 0 AS n UNION ALL SELECT 1) t
+WHERE c.title LIKE 'E2E stacked tour %' AND c.be_user = @admin_uid;

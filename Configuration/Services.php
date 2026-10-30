@@ -43,8 +43,10 @@ return static function (ContainerConfigurator $configurator): void {
             'title'          => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.title',
             'description'    => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.description',
             'iconIdentifier' => 'module-nr-mcp-agent',
-            // Full width and tall enough for ten rows, each with title,
-            // context, status and time (ADR-027).
+            // Full width, for title, context, status and time in one row
+            // (ADR-027). Ten rows with a context line are taller than
+            // `large`, the tallest height there is; the list scrolls in a
+            // region of its own.
             'height' => 'large',
             'width'  => 'large',
         ]);

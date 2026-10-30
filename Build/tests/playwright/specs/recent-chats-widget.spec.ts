@@ -11,8 +11,9 @@ import { test, expect, waitForBackend } from '../fixtures/backend';
  * Fixtures (seed-and-test.sh, `configured` variant): recent-chats-seed.sql
  * puts the widget on the admin's dashboard and seeds an interrupted guided
  * process on page 3 ("E2E Recent chat page", point 2 of 4) and a guided
- * process on page 4, which has been deleted. Their last message is dated 1 January 2099,
- * so they stay among the ten newest. No model is called.
+ * process on page 4, which has been deleted, two chats with the same title
+ * and six more guided processes on page 3. Their last messages are dated
+ * 1 January 2099, so they are the ten newest. No model is called.
  */
 
 const TYPO3_USER = process.env.TYPO3_ADMIN_USER || 'admin';
@@ -36,7 +37,16 @@ async function routerModule(page: Page): Promise<string> {
 
 /** The dashboard, with the widget's list rendered. */
 async function openDashboard(page: Page): Promise<FrameLocator> {
+    // The click loads the dashboard into the content frame anew, also when
+    // the login already showed it. Waiting for the list alone could find it
+    // in the document being replaced, and a key pressed there went nowhere;
+    // a click while that document still fetched the widget cut the fetch off
+    // ("Failed to fetch"). So the first dashboard finishes, then the second
+    // one loads.
+    await expect(page.frameLocator('iframe[name="list_frame"]').locator('.nr-recent-chats')).toBeVisible({ timeout: 15000 });
+    const loaded = page.waitForEvent('framenavigated', (frame) => frame.name() === 'list_frame');
     await page.locator('[data-modulemenu-identifier="dashboard"]').first().click();
+    await loaded;
     await expect.poll(() => routerModule(page)).toMatch(/^dashboard$/);
     const frame = page.frameLocator('iframe[name="list_frame"]');
     await expect(frame.locator('.nr-recent-chats')).toBeVisible({ timeout: 15000 });
@@ -54,7 +64,7 @@ test.describe('The "Recent chats" dashboard widget', () => {
 
         await expect(frame.getByText('Look at earlier conversations or continue where you left off.')).toBeVisible();
         await expect(frame.getByRole('link', { name: 'Show all chats' })).toBeVisible();
-        expect(await frame.locator('.nr-recent-chats > li').count()).toBeLessThanOrEqual(10);
+        await expect(frame.locator('.nr-recent-chats > li')).toHaveCount(10);
 
         // One link per chat, its visible text its accessible name: title,
         // context, progress, status and time, in that order (ADR-027). The
@@ -64,6 +74,56 @@ test.describe('The "Recent chats" dashboard widget', () => {
             .toHaveAccessibleName(/^E2E recent tour\s*,\s*Page “E2E Recent chat page” · Guided tour\s*,\s*Point 2 of 4\s*,\s*Ready\s*,\s*Jan 1$/);
         await expect(frame.getByRole('link', { name: /^E2E recent deleted page/ }))
             .toHaveAccessibleName(/^E2E recent deleted page\s*,\s*Deleted page · Guided tour\s*,\s*Ready\s*,\s*Jan 1$/);
+    });
+
+    test.describe('at the width the defect was seen at', () => {
+        // Set before the dashboard loads: a resize makes it lay its widgets
+        // out again, and TYPO3 13.4 then renders the widget anew.
+        test.use({ viewport: { width: 1600, height: 2200 } });
+
+        /**
+         * Ten chats, eight of them with a context line, are more than the
+         * widget's height holds. The dashboard's content area scrolled them
+         * together with the hint and cut the last row off flush against "New
+         * chat", so its context line lay under the button. The list scrolls in a
+         * region of its own now, named and reachable by keyboard, and the footer
+         * stays below it. Measured at the 1600px width the defect was seen at.
+         */
+        test('ten chats scroll in a region of their own, above the footer', async ({ page }) => {
+            const frame = await openDashboard(page);
+            await expect(frame.locator('.nr-recent-chats-entry')).toHaveCount(10);
+            await expect(frame.locator('.nr-recent-chats-context')).toHaveCount(8);
+
+            const region = frame.getByRole('region', { name: 'Recent chats' });
+            await expect(region).toHaveAttribute('tabindex', '0');
+            await expect(region.locator('.nr-recent-chats')).toBeVisible();
+            await expect(region.locator('.nr-recent-chats-hint')).toHaveCount(0);
+
+            const layout = () => region.evaluate((element: HTMLElement) => {
+                const footer = element.closest('.widget-content')!.querySelector('.widget-content-footer')!;
+                const box = element.getBoundingClientRect();
+                const last = [...element.querySelectorAll('.nr-recent-chats-entry')].pop()!.getBoundingClientRect();
+                const hit = document.elementFromPoint(last.left + 20, last.bottom - 4);
+                return {
+                    scrolls: getComputedStyle(element).overflowY === 'auto' && element.scrollHeight > element.clientHeight,
+                    footerBelow: footer.getBoundingClientRect().top >= box.bottom,
+                    lastRowInside: last.top >= box.top - 0.5 && last.bottom <= box.bottom + 0.5,
+                    lastRowOnTop: hit !== null && hit.closest('li') === element.querySelector('li:last-child'),
+                    scrollTop: element.scrollTop,
+                };
+            });
+
+            expect(await layout()).toMatchObject({ scrolls: true, footerBelow: true, lastRowInside: false, scrollTop: 0 });
+
+            // By keyboard: the region is the tab stop before its first chat,
+            // and End scrolls it to the last one.
+            await frame.locator('.nr-recent-chats-entry').first().focus();
+            await page.keyboard.press('Shift+Tab');
+            await expect(region).toBeFocused();
+            await page.keyboard.press('End');
+            await expect.poll(async () => (await layout()).lastRowInside).toBe(true);
+            expect(await layout()).toMatchObject({ footerBelow: true, lastRowOnTop: true });
+        });
     });
 
     /**

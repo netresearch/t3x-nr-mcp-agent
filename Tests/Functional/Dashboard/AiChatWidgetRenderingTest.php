@@ -215,6 +215,10 @@ final class AiChatWidgetRenderingTest extends FunctionalTestCase
         preg_match_all('/data-nr-chat-conversation="(\d+)"/', $html, $matches);
 
         self::assertSame(['111', '110', '109', '108', '107', '106', '105', '104', '103', '102'], $matches[1]);
+        // Ten rows are taller than the widget: they scroll in a region of
+        // their own, named after the widget and a tab stop for the keyboard
+        // (recent-chats-widget.spec.ts measures it in a browser).
+        self::assertMatchesRegularExpression('/<div class="nr-recent-chats-region" role="region" tabindex="0" aria-label="Recent chats">\s*<ul class="nr-recent-chats"/', $html);
     }
 
     #[Test]

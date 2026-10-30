@@ -131,7 +131,13 @@ Lists
     ``hidden`` element, so browse mode does not read it twice) for keyboard,
     touch and screen readers. The "more" list searches the title, the full title and
     the context.
--   The dashboard widget is full width and lists ten conversations. The
+-   The dashboard widget is full width and lists ten conversations. Ten rows
+    with a context line are taller than ``large``, the tallest height a
+    widget can have, so the list scrolls in a region of its own
+    (``role="region"``, named after the widget, focusable so it scrolls by
+    keyboard); the hint above it and "New chat" and "Show all chats" below it
+    stay in place. Before, the dashboard's content area scrolled hint and
+    list together and cut the last row off against "New chat". The
     dashboard keeps the size of a widget it has placed, so the wizard
     ``nrMcpAgent_recentChatsWidgetSize`` removes the widget's stored position
     where it is smaller, on dashboards arranged before 0.26. The dashboard
