@@ -98,7 +98,10 @@ code points; the rename field takes no more (``maxlength``).
     "Alt-Text: <file>" and a title the editor gave.
 -   **Two alike** — the same tour twice on the same page — get the time they
     were started after the title ("SEO optimieren · Über uns · 20. Okt.,
-    08:00"), so a tab tells them apart without its tooltip.
+    08:00"), so a tab tells them apart without its tooltip. Started in the
+    same minute, they get the second ("11:27:01", "11:27:44"); started in the
+    same second, a number in the order they were started, then by uid
+    ("11:27:44 (1)", "11:27:44 (2)"), the same on every load.
 
 The context names what the title does not
 ------------------------------------------

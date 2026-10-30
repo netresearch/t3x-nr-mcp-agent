@@ -371,6 +371,74 @@ final class ConversationListPresenterTest extends TestCase
         self::assertSame('Chat 3', $titles[3]);
     }
 
+    /**
+     * @param array<int, string> $started uid => creation time
+     *
+     * @return array<int, string> uid => display title
+     */
+    private function sameTourStartedAt(array $started): array
+    {
+        $tours = [];
+        foreach ($started as $uid => $time) {
+            $tour = Conversation::fromRow(['uid' => $uid, 'be_user' => 3, 'title' => 'Diese Seite prüfen', 'message_count' => 2, 'crdate' => strtotime($time)]);
+            $tour->setViewContext(12, 'web_layout', 1);
+            $tour->setSkillIdentifier('seo-optimieren', 4);
+            $tours[] = $tour;
+        }
+
+        $titles = [];
+        foreach ($this->presenter([12 => ['uid' => 12, 'title' => 'Über uns']])->present($tours, $this->user()) as $item) {
+            $titles[$item->uid] = $item->displayTitle;
+        }
+
+        return $titles;
+    }
+
+    /**
+     * Started within one minute (on the demo 11:27:01 and 11:27:44): the
+     * minute does not tell them apart, the second does — for those alone.
+     */
+    #[Test]
+    public function toursStartedWithinOneMinuteAreToldApartByTheSecond(): void
+    {
+        $titles = $this->sameTourStartedAt([
+            190 => '2026-10-29T11:27:01+00:00',
+            191 => '2026-10-29T11:27:44+00:00',
+            192 => '2026-10-29T11:27:59+00:00',
+            193 => '2026-10-28T09:15:30+00:00',
+        ]);
+
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 29\. Okt\.?,? 11:27:01$/', $titles[190]);
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 29\. Okt\.?,? 11:27:44$/', $titles[191]);
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 29\. Okt\.?,? 11:27:59$/', $titles[192]);
+        // Its minute is its own: no seconds.
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 28\. Okt\.?,? 09:15$/', $titles[193]);
+    }
+
+    /**
+     * Started within the same second: numbered in the order they were
+     * started, by uid where the time is the same, whatever order the list
+     * arrives in, so the numbers are the same on every load.
+     */
+    #[Test]
+    public function toursStartedInTheSameSecondAreNumbered(): void
+    {
+        $started = [
+            7 => '2026-10-29T11:27:44+00:00',
+            5 => '2026-10-29T11:27:44+00:00',
+            6 => '2026-10-29T11:27:44+00:00',
+            4 => '2026-10-29T11:27:01+00:00',
+        ];
+        $titles = $this->sameTourStartedAt($started);
+
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 29\. Okt\.?,? 11:27:01$/', $titles[4]);
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 29\. Okt\.?,? 11:27:44 \(1\)$/', $titles[5]);
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 29\. Okt\.?,? 11:27:44 \(2\)$/', $titles[6]);
+        self::assertMatchesRegularExpression('/^SEO optimieren · Über uns · 29\. Okt\.?,? 11:27:44 \(3\)$/', $titles[7]);
+        self::assertSame($titles, $this->sameTourStartedAt(array_reverse($started, true)));
+        self::assertCount(4, array_unique($titles));
+    }
+
     /** The time is kept on the conversation; only a row without it is read from its last message. */
     #[Test]
     public function theLastMessageTimeIsReadFromTheMessagesOnlyForARowWithoutIt(): void

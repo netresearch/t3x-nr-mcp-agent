@@ -166,7 +166,9 @@ final class ConversationListPresenter
     /**
      * Two conversations a list would show with the same title — the same tour
      * on the same page, twice — get the time they were started after it, so a
-     * tab tells them apart without its tooltip.
+     * tab tells them apart without its tooltip: to the minute, to the second
+     * where the minute is the same, and numbered in the order they were
+     * started where even the second is.
      *
      * @param list<ConversationListItem> $items
      *
@@ -175,18 +177,61 @@ final class ConversationListPresenter
     private function disambiguate(array $items, string $locale, DateTimeImmutable $now): array
     {
         $counts  = array_count_values(array_map(static fn (ConversationListItem $i): string => $i->displayTitle, $items));
-        $pattern = (new IntlDatePatternGenerator($locale))->getBestPattern('MMMdjm');
-        $format  = new IntlDateFormatter($locale, IntlDateFormatter::NONE, IntlDateFormatter::NONE, $now->getTimezone()->getName(), null, $pattern === false ? null : $pattern);
+        $started = [];
+        foreach ($items as $index => $item) {
+            if ($item->displayTitle !== '' && ($counts[$item->displayTitle] ?? 0) >= 2 && $item->createdAt !== '') {
+                $started[$index] = new DateTimeImmutable($item->createdAt);
+            }
+        }
 
-        return array_map(static function (ConversationListItem $item) use ($counts, $format): ConversationListItem {
-            if ($item->displayTitle === '' || ($counts[$item->displayTitle] ?? 0) < 2 || $item->createdAt === '') {
-                return $item;
+        if ($started === []) {
+            return $items;
+        }
+
+        // The start to the minute; to the second for those the minute does
+        // not tell apart (two tours started within one minute on the demo).
+        $labels = [];
+        foreach ($started as $index => $time) {
+            $labels[$index] = $items[$index]->displayTitle . ConversationTitle::SEPARATOR . $this->formatStart($time, 'MMMdjm', $locale, $now);
+        }
+
+        $colliding = array_count_values($labels);
+        foreach ($started as $index => $time) {
+            if ($colliding[$labels[$index]] > 1) {
+                $labels[$index] = $items[$index]->displayTitle . ConversationTitle::SEPARATOR . $this->formatStart($time, 'MMMdjms', $locale, $now);
+            }
+        }
+
+        // Started within the same second: numbered in the order they were
+        // started, then by uid, so the numbers stay the same on every load.
+        $groups = [];
+        foreach ($labels as $index => $label) {
+            $groups[$label][] = $index;
+        }
+
+        foreach ($groups as $indexes) {
+            if (count($indexes) < 2) {
+                continue;
             }
 
-            $started = (string) $format->format(new DateTimeImmutable($item->createdAt));
+            usort($indexes, static fn (int $a, int $b): int => [$started[$a], $items[$a]->uid] <=> [$started[$b], $items[$b]->uid]);
+            foreach ($indexes as $position => $index) {
+                $labels[$index] .= ' (' . ($position + 1) . ')';
+            }
+        }
 
-            return $item->withDisplayTitle($item->displayTitle . ConversationTitle::SEPARATOR . $started);
-        }, $items);
+        return array_map(
+            static fn (int $index, ConversationListItem $item): ConversationListItem => isset($labels[$index]) ? $item->withDisplayTitle($labels[$index]) : $item,
+            array_keys($items),
+            $items,
+        );
+    }
+
+    private function formatStart(DateTimeImmutable $time, string $skeleton, string $locale, DateTimeImmutable $now): string
+    {
+        $pattern = (new IntlDatePatternGenerator($locale))->getBestPattern($skeleton);
+
+        return (string) (new IntlDateFormatter($locale, IntlDateFormatter::NONE, IntlDateFormatter::NONE, $now->getTimezone()->getName(), null, $pattern === false ? null : $pattern))->format($time);
     }
 
     /**

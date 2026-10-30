@@ -355,7 +355,8 @@ each one:
     a chat yourself is always kept, also when it begins like the tour's. The
     page is named in the chat's language where it has a translation. Two
     chats that would read alike, such as the same tour twice on one page,
-    show when each was started after the title.
+    show when each was started after the title, to the second where the
+    minute is the same.
 -   **Context** -- what the title does not say already: the page a skill
     that needs one works on, the skill, *Guided tour* and the point a tour is
     at (*Point 2 of 5*). A page is named only if you may see it in the page
