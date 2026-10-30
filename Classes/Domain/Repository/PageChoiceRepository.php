@@ -352,14 +352,21 @@ readonly class PageChoiceRepository
             return [];
         }
 
+        // As core finds a record's translation (BackendUtility::
+        // getRecordLocalization(), 13.4 and 14.3): live rows and new ones of
+        // the user's workspace, no version rows and nothing of another
+        // workspace, then the user's version laid over each.
         $qb = $this->connectionPool->getQueryBuilderForTable('pages');
-        $qb->getRestrictions()->removeAll()->add(new DeletedRestriction());
+        $qb->getRestrictions()->removeAll()
+            ->add(new DeletedRestriction())
+            ->add(new WorkspaceRestriction($user->workspace));
         $rows = $qb->select('*')
             ->from('pages')
             ->where(
                 $qb->expr()->in('l10n_parent', $qb->createNamedParameter(array_keys($wanted), Connection::PARAM_INT_ARRAY)),
                 $qb->expr()->in('sys_language_uid', $qb->createNamedParameter(array_values(array_unique($wanted)), Connection::PARAM_INT_ARRAY)),
             )
+            ->orderBy('uid')
             ->executeQuery()
             ->fetchAllAssociative();
 
@@ -369,7 +376,8 @@ readonly class PageChoiceRepository
             $parent   = is_array($row) && is_numeric($row['l10n_parent'] ?? null) ? (int) $row['l10n_parent'] : 0;
             $language = is_array($row) && is_numeric($row['sys_language_uid'] ?? null) ? (int) $row['sys_language_uid'] : 0;
             $title    = is_array($row) ? ($row['title'] ?? '') : '';
-            if ($parent > 0 && ($wanted[$parent] ?? null) === $language && is_string($title) && trim($title) !== '') {
+            // The first, oldest translation, should a page have two.
+            if ($parent > 0 && !isset($titles[$parent]) && ($wanted[$parent] ?? null) === $language && is_string($title) && trim($title) !== '') {
                 $titles[$parent] = $title;
             }
         }

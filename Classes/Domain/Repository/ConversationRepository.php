@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 /**
  * DBAL-based repository — no Extbase, direct QueryBuilder access.
@@ -94,8 +95,8 @@ readonly class ConversationRepository
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
                 $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-            )
-            ->orderBy('tstamp', 'DESC');
+            );
+        $this->orderByLastActivity($qb);
 
         if (!$includeArchived) {
             $qb->andWhere($qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)));
@@ -125,11 +126,28 @@ readonly class ConversationRepository
                 $qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)),
                 $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
             )
-            ->orderBy('tstamp', 'DESC')
-            ->addOrderBy('uid', 'DESC')
             ->setMaxResults(max(1, $limit));
+        $this->orderByLastActivity($qb);
 
         return array_map(Conversation::fromRow(...), $qb->executeQuery()->fetchAllAssociative());
+    }
+
+    /**
+     * Most recent last message first, as the lists show it (ADR-027): the
+     * kept `last_message_at`, or the row's changed-at time for a row saved
+     * before that column existed. Ordered by an alias of a CASE expression,
+     * which SQLite, MySQL/MariaDB and PostgreSQL all accept.
+     */
+    private function orderByLastActivity(QueryBuilder $qb): void
+    {
+        $qb->addSelectLiteral(sprintf(
+            'CASE WHEN %1$s > 0 THEN %1$s ELSE %2$s END AS %3$s',
+            $qb->quoteIdentifier('last_message_at'),
+            $qb->quoteIdentifier('tstamp'),
+            $qb->quoteIdentifier('last_activity'),
+        ))
+            ->orderBy('last_activity', 'DESC')
+            ->addOrderBy('uid', 'DESC');
     }
 
     /**
@@ -235,6 +253,8 @@ readonly class ConversationRepository
         $data['system_prompt']    = $conversation->getSystemPrompt();
         $data['skill_identifier'] = $conversation->getSkillIdentifier();
         $data['skill_uid']        = $conversation->getSkillUid();
+        $data['title']            = $conversation->getTitle();
+        $data['title_source']     = $conversation->getTitleSource();
 
         return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
             $conn->insert(self::TABLE, $data);
@@ -252,8 +272,27 @@ readonly class ConversationRepository
         $this->transactional($conn, function () use ($conn, $conversation): void {
             $conn->update(self::TABLE, $this->rowData($conversation), ['uid' => $conversation->getUid()]);
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
+            $this->writeAutomaticTitle($conn, $conversation);
             $this->clearLegacyColumn($conn, $conversation->getUid());
         });
+    }
+
+    /**
+     * The title a save carries — from the first message, an edit of it, an
+     * image of the list of missing alt texts — unless the editor has renamed
+     * the conversation since it was loaded: a rename during a running turn
+     * survives the worker's final save (ADR-027).
+     */
+    private function writeAutomaticTitle(Connection $conn, Conversation $conversation): void
+    {
+        if ($conversation->isTitleManual()) {
+            return;
+        }
+
+        $conn->executeStatement(
+            'UPDATE ' . self::TABLE . ' SET title = ?, title_source = ? WHERE uid = ? AND title_source <> ?',
+            [$conversation->getTitle(), $conversation->getTitleSource(), $conversation->getUid(), Conversation::TITLE_MANUAL],
+        );
     }
 
     /**
@@ -463,6 +502,7 @@ readonly class ConversationRepository
             }
 
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
+            $this->writeAutomaticTitle($conn, $conversation);
             $this->clearLegacyColumn($conn, $conversation->getUid());
 
             return true;
@@ -690,12 +730,14 @@ readonly class ConversationRepository
     }
 
     /**
-     * Fill the last message time of up to $limit such rows from their last
-     * message row (findLastMessageTimes()); a row whose last message carries
-     * no time, or that has no message rows yet, gets its changed-at time, so
-     * every row leaves the backlog. Returns the number of rows written.
+     * Fill the last message time of up to $limit such rows with a uid above
+     * $afterUid from their last message row (findLastMessageTimes()); a row
+     * whose last message carries no time, or that has no message rows yet,
+     * gets its changed-at time. Returns the highest uid of the batch, the
+     * cursor for the next one, or 0 when there was none: a run walks the
+     * table once instead of scanning it from the start for every batch.
      */
-    public function backfillLastMessageTimes(int $limit): int
+    public function backfillLastMessageTimes(int $limit, int $afterUid = 0): int
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->getRestrictions()->removeAll();
@@ -704,6 +746,7 @@ readonly class ConversationRepository
             ->where(
                 $qb->expr()->eq('last_message_at', $qb->createNamedParameter(0, Connection::PARAM_INT)),
                 $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->gt('uid', $qb->createNamedParameter($afterUid, Connection::PARAM_INT)),
             )
             ->orderBy('uid')
             ->setMaxResults(max(1, $limit))
@@ -719,7 +762,7 @@ readonly class ConversationRepository
             $conn->update(self::TABLE, ['last_message_at' => max(1, $times[$uid] ?? $tstamp)], ['uid' => $uid, 'last_message_at' => 0]);
         }
 
-        return count($rows);
+        return $uids === [] ? 0 : max($uids);
     }
 
     /**

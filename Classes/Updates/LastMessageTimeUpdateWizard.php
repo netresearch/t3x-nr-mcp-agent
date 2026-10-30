@@ -57,9 +57,10 @@ final readonly class LastMessageTimeUpdateWizard implements UpgradeWizardInterfa
 
     public function executeUpdate(): bool
     {
-        while ($this->repository->backfillLastMessageTimes(self::BATCH_SIZE) > 0) {
-            // Every row of a batch leaves the backlog (it gets the time of its
-            // last message or its changed-at time), so the loop ends.
+        $cursor = 0;
+        while (($cursor = $this->repository->backfillLastMessageTimes(self::BATCH_SIZE, $cursor)) > 0) {
+            // The cursor only grows, so the loop ends; each batch starts
+            // after the last row of the one before.
         }
 
         return true;

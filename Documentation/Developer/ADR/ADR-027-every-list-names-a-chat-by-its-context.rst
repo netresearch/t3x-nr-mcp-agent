@@ -58,7 +58,12 @@ existed is read from its last message row until the upgrade wizard
 backfill, because a list request should not write, and a conversation nobody
 opens again would otherwise never be filled. The server sends the time as
 ISO 8601; the client words it ("Heute, 10:42") in the reader's time zone and
-anew at every render, so a list left open past midnight says "Gestern".
+anew at every render, so a list left open past midnight says "Gestern"; a
+time slightly ahead of the reader's clock counts as now. The queries of the
+lists already order by it (``CASE WHEN last_message_at > 0 THEN
+last_message_at ELSE tstamp END``, portable across SQLite, MySQL/MariaDB and
+PostgreSQL); the wizard walks the table once, batch after batch from the last
+uid of the one before.
 
 The title is decided at display time
 ------------------------------------
@@ -67,6 +72,11 @@ Stored rows keep their titles; no migration rewrites them. Where a title
 comes from is kept in ``title_source``: ``manual`` once the editor renamed the
 conversation (``renameConversation()``), ``tour`` for the title a new guided
 tour is stored with, empty otherwise and for every row from before the column.
+Neither is part of the full-row write (``Conversation::toRow()``), as the
+instructions are not: the worker's final save carries the title it loaded,
+and a rename during a running turn would be lost. ``add()`` writes them with
+a new row; a save writes the title it carries only ``WHERE title_source <>
+'manual'``.
 
 -   **A title the editor gave** (``manual``) is never replaced.
 -   **A guided tour whose title is automatic** is shown as
@@ -109,8 +119,9 @@ Lists
     created from that list.
 -   The panel's tabs show the status icon and the title; the context, the
     status in words and the time are in the tooltip, and the context and the
-    time are each tab's description (``aria-describedby``) for keyboard, touch
-    and screen readers. The "more" list searches the title, the full title and
+    time are each tab's description (``aria-describedby``, pointing to a
+    ``hidden`` element, so browse mode does not read it twice) for keyboard,
+    touch and screen readers. The "more" list searches the title, the full title and
     the context.
 -   The dashboard widget is full width and lists ten conversations.
 
@@ -137,6 +148,9 @@ Consequences
     conversations and one for their translations, with the same checks as
     ``BackendUtility::readPageAccess()`` — the "show page" clause, the web
     mounts, the workspace overlay — but without the record path no list shows.
+    Translations are read as ``BackendUtility::getRecordLocalization()`` reads
+    them: live rows and new ones of the user's workspace, no version rows,
+    nothing of another workspace, then overlaid.
     The mount check stays per page; core caches the rootlines it reads.
 -   The list endpoint reads the context columns of
     ``tx_nrmcpagent_conversation`` (``view_context``, ``skill_uid``,

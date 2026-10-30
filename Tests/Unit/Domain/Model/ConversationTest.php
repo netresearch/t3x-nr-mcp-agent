@@ -216,7 +216,11 @@ class ConversationTest extends TestCase
         $row = $conversation->toRow();
 
         self::assertSame(5, $row['be_user']);
-        self::assertSame('Test', $row['title']);
+        // The title goes with a new row or conditionally (ADR-027), never
+        // with a full-row write that could undo a rename during a turn.
+        self::assertArrayNotHasKey('title', $row);
+        self::assertArrayNotHasKey('title_source', $row);
+        self::assertSame('Test', $conversation->getTitle());
         self::assertSame(1, $row['archived']);
         self::assertSame(1, $row['pinned']);
         self::assertSame('err', $row['error_message']);
@@ -384,7 +388,9 @@ class ConversationTest extends TestCase
         $hydrated = Conversation::fromRow($row);
 
         self::assertSame($original->getBeUser(), $hydrated->getBeUser());
-        self::assertSame($original->getTitle(), $hydrated->getTitle());
+        // Neither does the title (ADR-027): the repository writes it with a
+        // new row, and later only where the editor has not renamed it.
+        self::assertSame('', $hydrated->getTitle());
         // The instructions do not travel through toRow() (NEXT-172): a
         // full-row write must not carry an older value back.
         self::assertSame('', $hydrated->getSystemPrompt());

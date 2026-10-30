@@ -55,9 +55,10 @@ final class AiChatWidget implements WidgetInterface, RequestAwareWidgetInterface
     public const LIMIT = 10;
 
     /**
-     * How many conversations are read to fill the list: it is ordered by the
-     * last message, which the changed-at order the candidates are read in only
-     * approximates (pinning or renaming moves it too).
+     * How many conversations are read to fill the list. They are read by
+     * their last message already; the window covers rows from before
+     * `last_message_at`, which are read by their changed-at time until the
+     * upgrade wizard has filled them.
      */
     public const WINDOW = 50;
 

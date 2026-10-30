@@ -256,6 +256,26 @@ final class ConversationListTest extends FunctionalTestCase
         self::assertSame('SEO optimieren · About us', $this->listed()[28]['displayTitle']);
     }
 
+    /**
+     * Workspace 7 holds a draft of the English title and a new German page
+     * translation. In the live workspace neither is named: not the draft over
+     * the live translation, not the new translation in place of the default
+     * title.
+     */
+    #[Test]
+    public function aTranslationOfAnotherWorkspaceIsNotNamed(): void
+    {
+        $admin               = $this->setUpBackendUser(1);
+        $admin->user['lang'] = 'de';
+        $GLOBALS['BE_USER']  = $admin;
+
+        $listed = $this->listed();
+
+        self::assertSame('SEO optimieren · About us', $listed[28]['displayTitle']);
+        self::assertSame('Inhalt verbessern · Über uns', $listed[31]['displayTitle']);
+        self::assertStringNotContainsString('workspace 7', json_encode($listed, JSON_THROW_ON_ERROR));
+    }
+
     /** The same tour twice on the same page reads differently in a tab: by when each was started. */
     #[Test]
     public function theSameTourTwiceOnOnePageIsToldApartByItsStart(): void
@@ -277,5 +297,6 @@ final class ConversationListTest extends FunctionalTestCase
         self::assertArrayNotHasKey(26, $listed);
         self::assertArrayNotHasKey(27, $listed);
         self::assertArrayNotHasKey(28, $listed);
+        self::assertArrayNotHasKey(31, $listed);
     }
 }

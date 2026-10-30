@@ -278,14 +278,18 @@ final class Conversation
      * loaded. Written from here, a save that races the user's edit would put
      * the old instructions back without anyone noticing (NEXT-172).
      *
+     * `title` and `title_source` are not part of it for the same reason: the
+     * editor renames a conversation on their own, also while a turn runs, and
+     * the worker's final save carries the title it loaded. The repository
+     * writes them with a new row, and a title the extension gives only where
+     * the editor has not renamed the conversation (ADR-027).
+     *
      * @return array<string, int|string>
      */
     public function toRow(): array
     {
         return [
             'be_user'              => $this->beUser,
-            'title'                => $this->title,
-            'title_source'         => $this->titleSource,
             'messages'             => $this->messages,
             'message_count'        => $this->messageCount,
             'status'               => $this->status,
