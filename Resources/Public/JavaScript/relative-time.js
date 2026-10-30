@@ -32,13 +32,16 @@ function safeLocale(locale) {
  * @returns {{kind: 'today'|'yesterday'|'date', label: string, absolute: string, datetime: string}|null}
  */
 export function describeTime(iso, options = {}) {
-    const at = new Date(iso ?? '');
-    if (Number.isNaN(at.getTime())) {
+    const written = new Date(iso ?? '');
+    if (Number.isNaN(written.getTime())) {
         return null;
     }
 
     const locale = safeLocale(options.locale);
     const now = options.now ?? new Date();
+    // A time slightly ahead of the reader's clock — the server's runs a
+    // little fast — is now, not a date in the future.
+    const at = written > now ? now : written;
     // The calendar day before, not 24 hours before: a day with a clock change is 23 or 25 hours long.
     const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
     const time = new Intl.DateTimeFormat(locale, {timeStyle: 'short'}).format(at);

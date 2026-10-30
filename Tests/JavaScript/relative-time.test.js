@@ -50,6 +50,18 @@ describe('describeTime', () => {
         expect(describeTime(iso, {locale: 'de', now: new Date(2026, 9, 25, 0, 1), ...words}).label).toBe('Gestern, 22:00');
     });
 
+    /** The server's clock a little ahead of the reader's: still today, never a date. */
+    test('a time slightly in the future is now', () => {
+        const ahead = describeTime(at(2026, 10, 24, 12, 2), {locale: 'de', now, ...words});
+
+        expect(ahead.kind).toBe('today');
+        expect(ahead.label).toBe('Heute, 12:00');
+        expect(ahead.datetime).toBe(at(2026, 10, 24, 12, 2));
+
+        const pastMidnight = describeTime(at(2026, 10, 25, 0, 1), {locale: 'de', now: new Date(2026, 9, 24, 23, 59), ...words});
+        expect(pastMidnight.label).toBe('Heute, 23:59');
+    });
+
     test('nothing for a missing or broken time, and the browser locale for an unknown one', () => {
         expect(describeTime('', {now})).toBeNull();
         expect(describeTime(undefined, {now})).toBeNull();

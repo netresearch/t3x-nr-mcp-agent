@@ -2962,12 +2962,13 @@ export class AiChatPanel extends LitElement {
 
     /**
      * What a tab's tooltip says beyond the title, as text the tabs point to
-     * with aria-describedby: outside the tab list, which may own tabs only,
-     * and hidden from view.
+     * with aria-describedby: outside the tab list, which may own tabs only.
+     * `hidden`, not visually hidden: aria-describedby still resolves it, and
+     * a screen reader's browse mode does not read it a second time.
      */
     _renderConvTabDescriptions(tabs) {
         return html`
-            <div class="conv-list-visually-hidden">
+            <div class="conv-tab-descriptions" hidden>
                 ${tabs.map((c) => {
                     const time = conversationTime(c, this.chat.listLocale);
                     return html`<span id="conv-tab-desc-${c.uid}">${[c.contextLabel, time?.label].filter(Boolean).join(', ')}</span>`;

@@ -173,7 +173,8 @@ describe('the panel', () => {
         // Keyboard, touch and screen readers get the context and the time too.
         const description = el.shadowRoot.getElementById(tour.getAttribute('aria-describedby'));
         expect(description.textContent).toBe('Guided Tour · Punkt 2 von 5, Heute, 10:42');
-        expect(description.closest('.conv-list-visually-hidden')).not.toBeNull();
+        // Hidden, so browse mode does not read it twice; aria-describedby still resolves it.
+        expect(description.closest('[hidden]')).not.toBeNull();
         expect(description.closest('[role="tablist"]')).toBeNull();
     });
 
