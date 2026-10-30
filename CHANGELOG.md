@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-30
+
+### Changed
+
+- **The "KI-Assistent" dashboard widgets follow the designer's mockup (#286).** Each widget opens with one inviting sentence and offers one kind of action — a primary button, a "+" button grid, number tiles or rows with an arrow — instead of forms and page selects.
+- **Page actions open the page module with the chat beside it (#286).** "SEO optimieren", "Inhalt verbessern" and every other action that concerns a page open the page module and the chat as a column next to it, as "Letzte Chats" already did, instead of the chat module. A tour without a page asks for it in the page tree.
+- **"Für deine Website empfohlen" shows real numbers (#286).** Tiles count images without an alt text and pages without a meta description, each with one action; a count of 0 shows a short success state. Only what the extension can count exactly is shown. The description count respects the editor's mounts, page and field permissions, languages and workspace, runs in a fixed number of queries and is kept for five minutes per user; a page write or page command drops it.
+
+### Added
+
+- **Widgets "Seite bearbeiten" and "Inhalte erstellen" (#286).** "Inhalte erstellen" offers a type only where a chat tool can create it (a new page; News where EXT:news is installed) and puts an open sentence into the chat input, which the editor completes and sends.
+- **"Website prüfen" as rows** for missing alt texts and pages without a meta description (#286).
+
+### Upgrading
+
+- The widget preset "KI-Assistent" now places the widgets in the mockup's order and no longer contains "Häufige Aufgaben". Existing dashboards keep their widgets; the new widgets can be added from the widget group.
+- A new cache `nrmcpagent_dashboard` (database backend) is used; `extension:setup` or the database analyzer creates its tables. Without them the widgets count directly and log a warning.
+
 ## [0.26.2] - 2026-10-30
 
 ### Fixed
