@@ -665,9 +665,11 @@ chat module.
     One button per kind of content the assistant can create for you: **New
     page**, and **News** where EXT:news is installed. A kind is offered only
     where you may create its records and the tool that creates them is
-    enabled for your chat. A button opens a new chat with the request in its
-    input (*I would like to create a new page.*); nothing is sent until you
-    send it, so you can add what the page is about first. Without any kind,
+    enabled for your chat, and that the tool would not refuse for you (the
+    default language, and for news its table settings and nr-llm's
+    deny-list). A button opens a new chat with the start of the request in
+    its input (*I would like to create a new page, namely …*); nothing is sent
+    until you complete and send it, as the widget says below the buttons. Without any kind,
     the widget says that your administrator can enable the tools.
 
 **Improve a page**
@@ -692,12 +694,16 @@ chat module.
     -   **Pages without a meta description**: page versions you may edit
         whose meta description is empty, in every language you may edit and
         in your workspace; hidden pages, folders, links, shortcuts, mount
-        points and spacers are not counted. **Start now** starts the SEO tour
+        points and spacers are not counted. Each translation counts on its
+        own, and the label says so (*Pages and translations without a meta
+        description*). The number is kept for five minutes and recounted as
+        soon as a page is saved. **Start now** starts the SEO tour
         on the most recently changed of them, beside the page module. The
         tile is left out where you may not edit the meta description or the
         SEO tour is not available to you.
 
-    A count of 0 is shown as done (*No missing alt texts – great!*).
+    A count of 0 is shown as done (*No missing alt texts – great!*, *Every
+    page you may edit has a meta description – great!*).
     Broken links and outdated content are not counted: the extension has no
     exact source for them.
 

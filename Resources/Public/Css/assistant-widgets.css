@@ -97,7 +97,7 @@
 /* Number tiles: the number first and large, what it counts, one action. */
 .nr-mcp-agent-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
     gap: 0.75rem;
     margin: 0;
     padding: 0;
@@ -148,6 +148,13 @@
 
 .nr-mcp-agent-tile-done-text {
     margin: 0;
+}
+
+/* A short note below an action. */
+.nr-mcp-agent-hint {
+    margin: 0;
+    color: var(--typo3-text-color-variant);
+    font-size: 0.875em;
 }
 
 /* The grid of "create" buttons. */

@@ -125,7 +125,8 @@ test.describe('The "AI Assistant" dashboard', () => {
 
         await frame.locator('.nr-mcp-agent-create').getByRole('link', { name: 'New page' }).click();
 
-        await expect(panel.locator('textarea').first()).toHaveValue('I would like to create a new page.');
+        await expect(panel.locator('textarea').first()).toHaveValue('I would like to create a new page, namely …');
+        await expect(frame.locator('.nr-mcp-agent-create .nr-mcp-agent-hint')).toHaveText('Your request waits in the chat until you complete and send it.');
         expect(await panel.evaluate((el: any) => el.chat.messages.length)).toBe(0);
         expect(await routerModule(page)).toBe('dashboard');
     });
