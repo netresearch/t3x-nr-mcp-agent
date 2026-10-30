@@ -96,6 +96,25 @@ class RecentChatsWidgetSizeUpdateWizardTest extends FunctionalTestCase
         self::assertSame('{"b2":{"identifier":"nrMcpAgentAiChat","positions":{"1":{"x":0,"y":0,"width":1,"height":3}}}}', $this->widgets($uid));
     }
 
+    /** The widget twice on one dashboard: each instance is judged by its own size. */
+    #[Test]
+    public function judgesEveryInstanceOfTheWidgetOnItsOwn(): void
+    {
+        $uid = $this->insertDashboard(
+            '{"b2":{"identifier":"nrMcpAgentAiChat","positions":{"4":{"x":0,"y":0,"width":4,"height":3}}},'
+            . '"c3":{"identifier":"nrMcpAgentAiChat","positions":{"4":{"x":0,"y":3,"width":1,"height":2}}}}',
+        );
+
+        self::assertTrue($this->subject->updateNecessary());
+        $this->subject->executeUpdate();
+
+        self::assertSame(
+            '{"b2":{"identifier":"nrMcpAgentAiChat","positions":{"4":{"x":0,"y":0,"width":4,"height":3}}},'
+            . '"c3":{"identifier":"nrMcpAgentAiChat","positions":{}}}',
+            $this->widgets($uid),
+        );
+    }
+
     #[Test]
     public function leavesDashboardsWithoutTheWidgetOrWithoutPositionsAlone(): void
     {

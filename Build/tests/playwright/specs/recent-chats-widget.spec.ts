@@ -77,7 +77,9 @@ test.describe('The "Recent chats" dashboard widget', () => {
         const frame = await openDashboard(page);
         const twins = frame.getByRole('link', { name: /^E2E recent twin/ });
         await expect(twins).toHaveCount(2);
-        await expect(twins.first()).toHaveAccessibleName(/^E2E recent twin with a title long enough to be cut short · .*11:27:44/);
+        // The seed stores fixed epochs; the hour is worded in the server's
+        // time zone, the minute and the second are not.
+        await expect(twins.first()).toHaveAccessibleName(/^E2E recent twin with a title long enough to be cut short · .*:27:44/);
 
         await frame.locator('.nr-recent-chats').evaluate((list: HTMLElement) => { list.style.width = '280px'; });
         const rows = await twins.evaluateAll((links) => links.map((link) => {

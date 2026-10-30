@@ -91,9 +91,12 @@ final readonly class ConversationListItem implements JsonSerializable
     /** The shown title without the suffix that tells it apart; the whole title when there is none. */
     public function getTitleBase(): string
     {
-        return $this->titleSuffix === ''
-            ? $this->displayTitle
-            : substr($this->displayTitle, 0, -strlen(ConversationTitle::SEPARATOR . $this->titleSuffix));
+        $end = ConversationTitle::SEPARATOR . $this->titleSuffix;
+        if ($this->titleSuffix === '' || !str_ends_with($this->displayTitle, $end) || $this->displayTitle === $end) {
+            return $this->displayTitle;
+        }
+
+        return substr($this->displayTitle, 0, -strlen($end));
     }
 
     /**

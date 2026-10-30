@@ -31,8 +31,13 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * The wizard removes the stored position of this widget for every column
  * count in which it is narrower or lower than the registration allows. The
  * dashboard then places it as it places a newly added widget, in the
- * registered size. Other widgets, the widget's settings and its positions
- * that already have the size are left as they are. It decodes to objects, so
+ * registered size: the other widgets keep their positions, and this one goes
+ * to the first rows that are free across the full width
+ * (initializeCurrentDashboard() and widgetPositionsArrange() in dashboard.js),
+ * so it usually moves below the widgets it shared its rows with. A place of
+ * its own choosing would need a stored position, which is what the dashboard
+ * keeps the old size in. Other widgets, the widget's settings and its
+ * positions that already have the size are left as they are. It decodes to objects, so
  * an empty `{}` elsewhere in the field stays one.
  *
  * Necessity and update share one predicate, so the wizard reports done
@@ -65,7 +70,8 @@ final readonly class RecentChatsWidgetSizeUpdateWizard implements UpgradeWizardI
         return 'Dashboards arranged before nr_mcp_agent 0.26 keep the "Recent chats" widget one column wide, '
             . 'because the dashboard stores the size of every widget it has placed and offers no way to resize it. '
             . 'This wizard removes the stored position of that widget where it is smaller than its registered size, '
-            . 'so the dashboard places it again, full width. Other widgets are not changed.';
+            . 'so the dashboard places it again, full width, in the first rows that are free across the whole width: '
+            . 'it usually moves below the widgets that shared its rows. Other widgets keep their size and position.';
     }
 
     public function updateNecessary(): bool

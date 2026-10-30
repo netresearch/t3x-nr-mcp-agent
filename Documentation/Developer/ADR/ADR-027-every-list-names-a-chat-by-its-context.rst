@@ -134,7 +134,10 @@ Lists
 -   The dashboard widget is full width and lists ten conversations. The
     dashboard keeps the size of a widget it has placed, so the wizard
     ``nrMcpAgent_recentChatsWidgetSize`` removes the widget's stored position
-    where it is smaller, on dashboards arranged before 0.26. In a narrow
+    where it is smaller, on dashboards arranged before 0.26. The dashboard
+    then places it full width in the first rows free across the whole width,
+    so it usually moves below the widgets that shared its rows; the other
+    widgets keep their positions. In a narrow
     widget the status and the time move under the title; the arrow stays
     beside it.
 
