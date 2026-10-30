@@ -196,7 +196,7 @@ final class RecommendationsWidget extends AssistantListWidget
         }
 
         $count = $summary['count'];
-        $label = $this->label($count === 1 ? 'descriptions.labelOne' : 'descriptions.label');
+        $label = $this->label($this->descriptionLabel($count, $summary['translations']));
         $first = $summary['start'];
         if ($count === 0 || $first === null) {
             return $this->doneTile('descriptions', $label, $this->label('descriptions.done'));
@@ -217,6 +217,19 @@ final class RecommendationsWidget extends AssistantListWidget
                 'start' => ['skill' => $first['skill'], 'page' => $first['pageUid'], 'language' => $first['languageUid']],
             ],
         ];
+    }
+
+    /**
+     * What the number counts: pages, translations or both; every language
+     * version of a page counts on its own.
+     */
+    private function descriptionLabel(int $count, int $translations): string
+    {
+        return match (true) {
+            $translations === 0      => $count === 1 ? 'descriptions.labelOne' : 'descriptions.label',
+            $translations === $count => $count === 1 ? 'descriptions.translationOne' : 'descriptions.translations',
+            default                  => 'descriptions.labelMixed',
+        };
     }
 
     /**

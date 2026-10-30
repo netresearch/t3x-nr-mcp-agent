@@ -161,13 +161,13 @@
                 <source>New page</source>
             </trans-unit>
             <trans-unit id="create.page.prefill" resname="create.page.prefill">
-                <source>I would like to create a new page.</source>
+                <source>I would like to create a new page, namely …</source>
             </trans-unit>
             <trans-unit id="create.news" resname="create.news">
                 <source>News</source>
             </trans-unit>
             <trans-unit id="create.news.prefill" resname="create.news.prefill">
-                <source>I would like to create a news article.</source>
+                <source>I would like to create a news article, namely …</source>
             </trans-unit>
             <trans-unit id="recommendations.intro" resname="recommendations.intro">
                 <source>I’ve found a few things on your website that need work. Let’s tackle them together.</source>
@@ -194,7 +194,7 @@
                 <source>Page without a meta description</source>
             </trans-unit>
             <trans-unit id="descriptions.done" resname="descriptions.done">
-                <source>Every page has a meta description – great!</source>
+                <source>Every page you may edit has a meta description – great!</source>
             </trans-unit>
             <trans-unit id="descriptions.firstPage" resname="descriptions.firstPage">
                 <source>We’ll start with “%s”.</source>
@@ -204,6 +204,18 @@
             </trans-unit>
             <trans-unit id="descriptions.startName" resname="descriptions.startName">
                 <source>%1$s: %2$d %3$s, with the SEO tour, starting with “%4$s”</source>
+            </trans-unit>
+            <trans-unit id="descriptions.translationOne" resname="descriptions.translationOne">
+                <source>Translation without a meta description</source>
+            </trans-unit>
+            <trans-unit id="descriptions.translations" resname="descriptions.translations">
+                <source>Translations without a meta description</source>
+            </trans-unit>
+            <trans-unit id="descriptions.labelMixed" resname="descriptions.labelMixed">
+                <source>Pages and translations without a meta description</source>
+            </trans-unit>
+            <trans-unit id="create.hint" resname="create.hint">
+                <source>Your request waits in the chat until you complete and send it.</source>
             </trans-unit>
         </body>
     </file>

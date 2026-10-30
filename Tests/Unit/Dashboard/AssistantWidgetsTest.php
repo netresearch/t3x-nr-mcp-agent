@@ -39,6 +39,7 @@ use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Http\Uri;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Dashboard\Widgets\WidgetConfigurationInterface;
@@ -109,14 +110,14 @@ final class AssistantWidgetsTest extends TestCase
     }
 
     /**
-     * @param array{count: int, first: array{pageUid: int, languageUid: int, title: string}|null}|null $summary
+     * @param array{count: int, translations: int, first: array{pageUid: int, languageUid: int, title: string}|null}|null $summary
      */
     private function descriptionTour(?array $summary, string ...$missingSkills): DescriptionTour
     {
         $repository = $this->createMock(MissingDescriptionRepository::class);
         $repository->method('summary')->willReturn($summary);
 
-        return new DescriptionTour($repository, $this->skillLabels(self::LABELS), $this->resolverWithout(...$missingSkills));
+        return new DescriptionTour($repository, $this->skillLabels(self::LABELS), $this->resolverWithout(...$missingSkills), $this->createMock(FrontendInterface::class));
     }
 
     /**
@@ -168,7 +169,7 @@ final class AssistantWidgetsTest extends TestCase
         $types->expects(self::never())->method('available');
         $repository = $this->createMock(MissingDescriptionRepository::class);
         $repository->expects(self::never())->method('summary');
-        $descriptions = new DescriptionTour($repository, $this->skillLabels(self::LABELS), $this->resolverWithout());
+        $descriptions = new DescriptionTour($repository, $this->skillLabels(self::LABELS), $this->resolverWithout(), $this->createMock(FrontendInterface::class));
 
         self::assertSame(['available' => false, 'rows' => []], $this->improve(false, $skills)->templateVariables());
         self::assertSame(['available' => false, 'rows' => []], $this->tasks(false, $tasks)->templateVariables());
@@ -354,7 +355,7 @@ final class AssistantWidgetsTest extends TestCase
             $this->noPoints(),
             $this->createMock(PageChoiceRepository::class),
             ['count' => 23, 'pages' => 11, 'records' => 5],
-            $this->descriptionTour(['count' => 8, 'first' => ['pageUid' => 21, 'languageUid' => 1, 'title' => 'Startseite']]),
+            $this->descriptionTour(['count' => 8, 'translations' => 0, 'first' => ['pageUid' => 21, 'languageUid' => 1, 'title' => 'Startseite']]),
         )->templateVariables()['tiles'];
 
         self::assertSame([
@@ -391,11 +392,30 @@ final class AssistantWidgetsTest extends TestCase
             $this->noPoints(),
             $this->createMock(PageChoiceRepository::class),
             ['count' => 1, 'pages' => 1, 'records' => 0],
-            $this->descriptionTour(['count' => 1, 'first' => ['pageUid' => 21, 'languageUid' => 0, 'title' => '']]),
+            $this->descriptionTour(['count' => 1, 'translations' => 0, 'first' => ['pageUid' => 21, 'languageUid' => 0, 'title' => '']]),
         )->templateVariables()['tiles'];
 
         self::assertSame(['altTexts.labelOne', 'descriptions.labelOne'], array_column($tiles, 'label'));
         self::assertSame('altTexts.foundOne', $tiles[0]['detail']);
+    }
+
+    /** The label says what is counted: pages, translations, or both. */
+    #[Test]
+    public function theLabelSaysWhetherTranslationsAreCounted(): void
+    {
+        $label = fn (int $count, int $translations): string => $this->recommendations(
+            true,
+            $this->noPoints(),
+            $this->createMock(PageChoiceRepository::class),
+            null,
+            $this->descriptionTour(['count' => $count, 'translations' => $translations, 'first' => ['pageUid' => 21, 'languageUid' => 0, 'title' => 'A']]),
+        )->templateVariables()['tiles'][0]['label'];
+
+        self::assertSame('descriptions.label', $label(3, 0));
+        self::assertSame('descriptions.labelOne', $label(1, 0));
+        self::assertSame('descriptions.translations', $label(3, 3));
+        self::assertSame('descriptions.translationOne', $label(1, 1));
+        self::assertSame('descriptions.labelMixed', $label(3, 1));
     }
 
     /** A count of 0 is a short success state without an action; the opening sentence says nothing is open. */
@@ -407,7 +427,7 @@ final class AssistantWidgetsTest extends TestCase
             $this->noPoints(),
             $this->createMock(PageChoiceRepository::class),
             ['count' => 0, 'pages' => 0, 'records' => 0],
-            $this->descriptionTour(['count' => 0, 'first' => null]),
+            $this->descriptionTour(['count' => 0, 'translations' => 0, 'first' => null]),
         )->templateVariables();
 
         self::assertSame('recommendations.allDone', $variables['intro']);
@@ -426,7 +446,7 @@ final class AssistantWidgetsTest extends TestCase
     public function noTileWhereNothingCanBeCountedOrStarted(): void
     {
         $pages = $this->createMock(PageChoiceRepository::class);
-        $first = ['count' => 4, 'first' => ['pageUid' => 21, 'languageUid' => 0, 'title' => 'A']];
+        $first = ['count' => 4, 'translations' => 0, 'first' => ['pageUid' => 21, 'languageUid' => 0, 'title' => 'A']];
 
         $withoutAccess = $this->recommendations(true, $this->noPoints(), $pages, null, $this->descriptionTour(null))->templateVariables();
         self::assertSame([], $withoutAccess['tiles']);
@@ -452,9 +472,9 @@ final class AssistantWidgetsTest extends TestCase
                 ['label' => 'websiteCheck.altTexts', 'uri' => '/alt-texts', 'start' => null],
                 ['label' => 'websiteCheck.descriptions', 'uri' => '/nr_mcp_agent_chat?token=t&skill=3%3Aseo-optimieren&pageUid=9&languageUid=0', 'start' => ['skill' => '3:seo-optimieren', 'page' => 9, 'language' => 0]],
             ]],
-            $widget($this->descriptionTour(['count' => 2, 'first' => ['pageUid' => 9, 'languageUid' => 0, 'title' => 'Neun']]))->templateVariables(),
+            $widget($this->descriptionTour(['count' => 2, 'translations' => 0, 'first' => ['pageUid' => 9, 'languageUid' => 0, 'title' => 'Neun']]))->templateVariables(),
         );
-        self::assertSame(['websiteCheck.altTexts'], array_column($widget($this->descriptionTour(['count' => 0, 'first' => null]))->templateVariables()['checks'], 'label'));
+        self::assertSame(['websiteCheck.altTexts'], array_column($widget($this->descriptionTour(['count' => 0, 'translations' => 0, 'first' => null]))->templateVariables()['checks'], 'label'));
         self::assertSame(['websiteCheck.altTexts'], array_column($widget(null)->templateVariables()['checks'], 'label'));
     }
 }
