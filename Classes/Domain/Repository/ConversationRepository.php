@@ -70,11 +70,25 @@ readonly class ConversationRepository
         'approval_decision', 'approval_turn_digest', 'skill_identifier', 'tstamp', 'crdate',
     ];
 
-    /** @return list<Conversation> */
+    /**
+     * What a list of conversations needs to show where each one stands: the
+     * page and skill it is about, the guided state and the image of an alt
+     * text conversation (ConversationListPresenter). Small columns; the
+     * transcript is not among them.
+     */
+    private const CONTEXT_COLUMNS = ['view_context', 'skill_uid', 'guided_state', 'alt_text_hit'];
+
+    /**
+     * The user's conversations with what a list shows about them
+     * (CONTEXT_COLUMNS), most recently changed first. No transcript.
+     *
+     * @return list<Conversation>
+     */
     public function findByBeUser(int $beUserUid, bool $includeArchived = false): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->select(...self::LIST_COLUMNS)
+            ->addSelect(...self::CONTEXT_COLUMNS)
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
@@ -94,8 +108,7 @@ readonly class ConversationRepository
     /**
      * The user's conversations that hold at least one message and are not
      * archived, most recently changed first, at most $limit — with what a list
-     * about them needs beyond findByBeUser(): the page they are about, the
-     * skill and the guided state. No transcript.
+     * shows about them (CONTEXT_COLUMNS). No transcript.
      *
      * @return list<Conversation>
      */
@@ -103,7 +116,7 @@ readonly class ConversationRepository
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->select(...self::LIST_COLUMNS)
-            ->addSelect('view_context', 'skill_uid', 'guided_state')
+            ->addSelect(...self::CONTEXT_COLUMNS)
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),

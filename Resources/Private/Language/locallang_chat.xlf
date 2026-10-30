@@ -587,7 +587,7 @@
                 <source>Recent chats</source>
             </trans-unit>
             <trans-unit id="widget.description" resname="widget.description">
-                <source>Your last five AI chats: read them again or continue where you left off.</source>
+                <source>Your last ten AI chats with their page, status and time: read them again or continue where you left off.</source>
             </trans-unit>
             <trans-unit id="widget.hint" resname="widget.hint">
                 <source>Look at earlier conversations or continue where you left off.</source>

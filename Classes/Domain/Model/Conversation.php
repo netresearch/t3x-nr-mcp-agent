@@ -192,7 +192,6 @@ final class Conversation
 
     private int $tstamp = 0;
 
-    /** @phpstan-ignore-next-line property.onlyWritten */
     private int $crdate = 0;
 
     /**
@@ -988,6 +987,12 @@ final class Conversation
     public function getTstamp(): int
     {
         return $this->tstamp;
+    }
+
+    /** When the conversation was created, as a Unix timestamp; 0 before it is stored. */
+    public function getCrdate(): int
+    {
+        return $this->crdate;
     }
 
     public function hasPendingToolCalls(): bool

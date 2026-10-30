@@ -20,6 +20,7 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use Netresearch\NrMcpAgent\Service\ConversationList\ConversationListPresenter;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
@@ -200,6 +201,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
             siteFinder: $this->get(SiteFinder::class),
             skills: $skills,
             skillInvocation: $this->createMock(SkillInvocationInterface::class),
+            listPresenter: $this->get(ConversationListPresenter::class),
         );
     }
 
@@ -253,6 +255,9 @@ final class ChatConversationStartTest extends FunctionalTestCase
         self::assertSame(MessageRole::User->value, $messages[0]['role']);
         self::assertSame('Check this page', $messages[0]['content']);
         self::assertSame(['pageId' => 10, 'module' => '', 'languageId' => 0], $stored->getViewContext());
+        // Titled by the tour and its page, not by the start message every
+        // tour shares (ADR-027).
+        self::assertSame('Optimise SEO · Startseite', $stored->getTitle());
     }
 
     /**

@@ -41,8 +41,10 @@ return static function (ContainerConfigurator $configurator): void {
             'title'          => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.title',
             'description'    => 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.description',
             'iconIdentifier' => 'module-nr-mcp-agent',
-            'height'         => 'medium',
-            'width'          => 'small',
+            // Full width and tall enough for ten rows, each with title,
+            // context, status and time (ADR-027).
+            'height' => 'large',
+            'width'  => 'large',
         ]);
 
     // The AI assistant widgets (group and preset "AI Assistant",
