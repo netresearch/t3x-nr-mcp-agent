@@ -13,55 +13,13 @@
  * core's module menu, so the chat and the page sit side by side. Where the
  * panel is not available — a user without the toolbar item, or a frame that
  * is not the backend's — the link is followed and the chat module opens
- * instead.
+ * instead. Opening the panel and showing the page are shared with the
+ * assistant widgets' start links (chat-start.js).
  */
 
 import {findPanel} from '@netresearch/nr-mcp-agent/chat-panel-registry.js';
+import {dataInt, isPlainClick, openPanel, showPage} from '@netresearch/nr-mcp-agent/chat-start.js';
 import {describeTime} from '@netresearch/nr-mcp-agent/relative-time.js';
-
-function backendTop() {
-    try {
-        return globalThis.top ?? globalThis;
-    } catch {
-        return null;
-    }
-}
-
-function openPanel(panel) {
-    if (panel.state === 'hidden' || panel.state === 'collapsed') {
-        panel.toggle();
-    }
-}
-
-/**
- * Show the page in the page module, in the language the conversation was
- * about when it is known. Nothing happens where core's module menu is not
- * reachable: the chat opens all the same.
- */
-function showPage(pageUid, languageUid) {
-    let moduleMenu = null;
-    try {
-        moduleMenu = backendTop()?.TYPO3?.ModuleMenu?.App ?? null;
-    } catch {
-        return;
-    }
-    if (typeof moduleMenu?.showModule !== 'function') {
-        return;
-    }
-    const params = new URLSearchParams({id: String(pageUid)});
-    if (languageUid >= 0) {
-        // The page module reads `language` in TYPO3 13 and `languages[]` in
-        // 14; each ignores the other's.
-        params.set('language', String(languageUid));
-        params.set('languages[0]', String(languageUid));
-    }
-    moduleMenu.showModule('web_layout', params.toString());
-}
-
-/** A non-negative integer from a data attribute, or -1 when it holds none. */
-function dataInt(value) {
-    return /^\d+$/.test(value ?? '') ? Number.parseInt(value, 10) : -1;
-}
 
 document.addEventListener('click', (event) => {
     const link = event.composedPath().find(
@@ -72,7 +30,7 @@ document.addEventListener('click', (event) => {
     }
     // Ctrl, Cmd, Shift and Alt clicks and the middle button open the module
     // link the way the browser does; only a plain click opens the panel.
-    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+    if (!isPlainClick(event)) {
         return;
     }
 
