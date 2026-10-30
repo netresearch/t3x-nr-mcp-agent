@@ -694,7 +694,8 @@ chat module.
     -   **Pages without a meta description**: page versions you may edit
         whose meta description is empty, in every language you may edit and
         in your workspace; hidden pages, folders, links, shortcuts, mount
-        points and spacers are not counted. Each translation counts on its
+        points and spacers are not counted, nor are pages below a page you
+        may not see in the page tree. Each translation counts on its
         own, and the label says so (*Pages and translations without a meta
         description*). The number is kept for five minutes and recounted as
         soon as a page is saved. **Start now** starts the SEO tour

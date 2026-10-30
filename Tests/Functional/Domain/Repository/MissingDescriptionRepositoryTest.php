@@ -100,6 +100,22 @@ final class MissingDescriptionRepositoryTest extends FunctionalTestCase
         self::assertSame(['count' => 4, 'translations' => 0, 'first' => ['pageUid' => 17, 'languageUid' => 0, 'title' => 'Neu']], $this->summary(6));
     }
 
+    /**
+     * Page 28 grants everybody "edit page", but lies under page 27, which the
+     * editor may not show (missing_descriptions_unreadable.csv). The page tree
+     * hides it and DataHandler refuses to save it, so it is neither counted
+     * nor offered, though it is the newest page without a description. The
+     * admin counts it and starts on it.
+     */
+    #[Test]
+    public function aPageUnderOneTheEditorMayNotShowIsNotTheirs(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/missing_descriptions_unreadable.csv');
+
+        self::assertSame(['count' => 6, 'translations' => 2, 'first' => ['pageUid' => 17, 'languageUid' => 0, 'title' => 'Neu']], $this->summary(2));
+        self::assertSame(['count' => 10, 'translations' => 2, 'first' => ['pageUid' => 28, 'languageUid' => 0, 'title' => 'Unter Intern']], $this->summary(1));
+    }
+
     /** Without the field or the table there is nothing the user could write: nothing is counted. */
     #[Test]
     public function aUserWhoMayNotWriteTheDescriptionGetsNoCount(): void

@@ -32,7 +32,9 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * - its type renders a page of its own: not a link, shortcut, mount point,
  *   backend user section, spacer, folder or recycler (EXCLUDED_DOKTYPES);
  * - the user may edit it: its default-language page lies in their web
- *   mounts, grants them "show page" and "edit page", and is not locked for
+ *   mounts, reached through pages that grant them "show page" (the rootline
+ *   BackendUserAuthentication::isInWebMount() reads stops at the first that
+ *   does not), grants them "show page" and "edit page", and is not locked for
  *   editing (`editlock`, binding everyone but admins); the table `pages` and
  *   its field `description` (where the TCA excludes it) are granted;
  * - the chat would start on it in its language: the user may edit the
@@ -47,8 +49,9 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * the tree are the live ones.
  *
  * The count is exact and costs a fixed number of queries: the languages in
- * use, the page tree (uid and parent of every default-language page), the
- * pages the user may edit (the permission clause in SQL), the workspace's
+ * use, the page tree (uid and parent of every default-language page), for
+ * an editor the pages they may show, the pages they may edit (the permission
+ * clauses in SQL), the workspace's
  * versions in a draft workspace, and the translations of those pages in the
  * languages the user may edit, 1000 pages per query. Mounts and sites are
  * resolved from the tree in memory.
@@ -107,6 +110,7 @@ readonly class MissingDescriptionRepository
         $versions = $user->workspace === 0 ? [] : $this->versions($user->workspace);
         $tree     = $this->tree($user->workspace);
         $mounts   = $user->isAdmin() ? null : array_fill_keys(array_map(intval(...), $user->getWebmounts()), true);
+        $readable = $user->isAdmin() ? null : $this->readablePages($user);
         $sites    = $this->sitesByRoot();
         $places   = [];
 
@@ -119,7 +123,7 @@ readonly class MissingDescriptionRepository
                 continue;
             }
 
-            $place = $places[$uid] ??= $this->place($uid, $tree, $mounts, $sites);
+            $place = $places[$uid] ??= $this->place($uid, $tree, $mounts, $readable, $sites);
             if ($place['inMount']) {
                 $pages[$uid] = ['row' => $row, 'site' => $place['site']];
             }
@@ -202,20 +206,28 @@ readonly class MissingDescriptionRepository
      * and the site whose root it lies under, from the nearest ancestor that
      * is a site root, walking the tree in memory.
      *
-     * @param array<int, int>       $tree   page uid => parent uid
-     * @param array<int, true>|null $mounts mount uids, null for an admin
-     * @param array<int, Site>      $sites  root page uid => site
+     * As in BackendUserAuthentication::isInWebMount(), a mount counts only
+     * below the first page the user may not show: a page under one they
+     * cannot see is not in their mounts, as the page tree hides it and
+     * DataHandler refuses to save it.
+     *
+     * @param array<int, int>       $tree     page uid => parent uid
+     * @param array<int, true>|null $mounts   mount uids, null for an admin
+     * @param array<int, true>|null $readable pages the user may show, null for an admin
+     * @param array<int, Site>      $sites    root page uid => site
      *
      * @return array{inMount: bool, site: Site|null}
      */
-    private function place(int $uid, array $tree, ?array $mounts, array $sites): array
+    private function place(int $uid, array $tree, ?array $mounts, ?array $readable, array $sites): array
     {
-        $inMount = $mounts === null;
-        $site    = null;
-        $seen    = [];
+        $inMount  = $mounts === null;
+        $reaching = true;
+        $site     = null;
+        $seen     = [];
         for ($current = $uid; $current > 0 && !isset($seen[$current]); $current = $tree[$current] ?? 0) {
             $seen[$current] = true;
-            $inMount        = $inMount || isset($mounts[$current]);
+            $reaching       = $reaching && ($readable === null || isset($readable[$current]));
+            $inMount        = $inMount || ($reaching && isset($mounts[$current]));
             $site ??= $sites[$current] ?? null;
         }
 
@@ -308,6 +320,31 @@ readonly class MissingDescriptionRepository
         }
 
         return $tree;
+    }
+
+    /**
+     * The default-language pages that grant the user "show page", live and
+     * new in their workspace, keyed by uid.
+     *
+     * @return array<int, true>
+     */
+    private function readablePages(BackendUserAuthentication $user): array
+    {
+        $qb = $this->queryBuilder($user->workspace);
+        $qb->select('uid')
+            ->from('pages')
+            ->andWhere($qb->expr()->eq('sys_language_uid', $qb->createNamedParameter(0, Connection::PARAM_INT)));
+        $clause = QueryHelper::stripLogicalOperatorPrefix($user->getPagePermsClause(Permission::PAGE_SHOW));
+        if ($clause !== '') {
+            $qb->andWhere($clause);
+        }
+
+        $readable = [];
+        foreach ($qb->executeQuery()->iterateAssociative() as $row) {
+            $readable[$this->int($row['uid'] ?? 0)] = true;
+        }
+
+        return $readable;
     }
 
     /**
