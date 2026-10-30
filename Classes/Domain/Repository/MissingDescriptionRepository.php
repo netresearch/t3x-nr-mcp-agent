@@ -9,13 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Domain\Repository;
 
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Database\Query\QueryHelper;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
+use TYPO3\CMS\Core\Site\Entity\Site;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
@@ -23,26 +26,32 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * one to: the number the dashboard shows, and the page the SEO tour starts on.
  *
  * A page version counts when, as the user sees it in their workspace:
- * - its `description` is empty or holds only spaces (as SQL's TRIM()
- *   reads it, so the live query and a workspace overlay agree);
+ * - its `description` is empty or holds only spaces;
  * - it is not hidden, and for a translation, its default-language page is not
  *   hidden either, as the frontend then shows neither;
  * - its type renders a page of its own: not a link, shortcut, mount point,
  *   backend user section, spacer, folder or recycler (EXCLUDED_DOKTYPES);
- * - the user may edit it: "show page" in their web mounts and "edit page"
- *   on its default-language page, which is not locked for editing
- *   (`editlock`, binding everyone but admins), the table `pages` and its
- *   field `description` (where the TCA excludes it) granted, the language
- *   granted, and the page's site has the language
- *   (PageChoiceRepository::mayStartIn(), the rule the chat starts by).
+ * - the user may edit it: its default-language page lies in their web
+ *   mounts, grants them "show page" and "edit page", and is not locked for
+ *   editing (`editlock`, binding everyone but admins); the table `pages` and
+ *   its field `description` (where the TCA excludes it) are granted;
+ * - the chat would start on it in its language: the user may edit the
+ *   language and the page's site has it, a page outside every site only its
+ *   default language (the rule of PageChoiceRepository::mayStartIn()).
  * Every language version counts on its own: each needs its own description.
  *
- * In a workspace each row is overlaid with its workspace version, so a
- * description written there counts as written and one emptied there as
- * empty; a page new in the workspace counts, one deleted there does not.
+ * In a workspace each row is overlaid with its workspace version (title,
+ * description, hidden, editlock, type, change time), so a description written
+ * there counts as written and one emptied there as empty; a page new in the
+ * workspace counts, one deleted there does not. Permissions and the place in
+ * the tree are the live ones.
  *
- * The count is exact: every candidate row is read. Rows are read without the
- * description condition in a workspace, where the overlay decides it.
+ * The count is exact and costs a fixed number of queries: the languages in
+ * use, the page tree (uid and parent of every default-language page), the
+ * pages the user may edit (the permission clause in SQL), the workspace's
+ * versions in a draft workspace, and the translations of those pages in the
+ * languages the user may edit, 1000 pages per query. Mounts and sites are
+ * resolved from the tree in memory.
  */
 readonly class MissingDescriptionRepository
 {
@@ -61,23 +70,26 @@ readonly class MissingDescriptionRepository
         255,
     ];
 
-    /** sys_language_uid values above this are languages; -1 ("all") is none a page can have. */
-    private const DEFAULT_LANGUAGE = 0;
-
     /** pages.t3ver_state of a page deleted in a workspace. */
     private const DELETE_PLACEHOLDER = 2;
 
+    /** Page uids per query for the translations. */
+    private const CHUNK = 1000;
+
+    /** The columns read, and overlaid from a workspace version. */
+    private const COLUMNS = ['uid', 'pid', 'title', 'description', 'hidden', 'editlock', 'doktype', 'sys_language_uid', 'l10n_parent', 'tstamp'];
+
     public function __construct(
         private ConnectionPool $connectionPool,
-        private PageChoiceRepository $pages,
+        private SiteFinder $siteFinder,
     ) {}
 
     /**
-     * How many page versions lack a meta description, and the most recently
-     * changed of them; null when the user may not write a meta description
-     * at all, so there is nothing to count for them.
+     * How many page versions lack a meta description, how many of them are
+     * translations, and the most recently changed of them; null when the user
+     * may not write a meta description at all, so there is nothing to count.
      *
-     * @return array{count: int, first: array{pageUid: int, languageUid: int, title: string}|null}|null
+     * @return array{count: int, translations: int, first: array{pageUid: int, languageUid: int, title: string}|null}|null
      */
     public function summary(): ?array
     {
@@ -87,35 +99,67 @@ readonly class MissingDescriptionRepository
             return null;
         }
 
-        $count   = 0;
-        $first   = null;
-        $access  = [];
-        $overlay = $user->workspace !== 0;
-        foreach ($this->candidates($user->workspace) as $row) {
-            if ($overlay) {
-                BackendUtility::workspaceOL('pages', $row);
-                if (!is_array($row) || $this->int($row['t3ver_state'] ?? 0) === self::DELETE_PLACEHOLDER) {
-                    continue;
-                }
-            }
+        $languages = array_values(array_filter($this->languagesInUse($user->workspace), $user->checkLanguageAccess(...)));
+        if ($languages === []) {
+            return ['count' => 0, 'translations' => 0, 'first' => null];
+        }
 
-            if (!$this->lacksDescription($row)) {
+        $versions = $user->workspace === 0 ? [] : $this->versions($user->workspace);
+        $tree     = $this->tree($user->workspace);
+        $mounts   = $user->isAdmin() ? null : array_fill_keys(array_map(intval(...), $user->getWebmounts()), true);
+        $sites    = $this->sitesByRoot();
+        $places   = [];
+
+        // The default-language pages the user may edit, keyed by uid.
+        $pages = [];
+        foreach ($this->editablePages($user) as $row) {
+            $row = $this->overlay($row, $versions);
+            $uid = $row === null ? 0 : $this->int($row['uid'] ?? 0);
+            if ($row === null || $uid < 1 || (!$user->isAdmin() && (bool) ($row['editlock'] ?? false))) {
                 continue;
             }
 
+            $place = $places[$uid] ??= $this->place($uid, $tree, $mounts, $sites);
+            if ($place['inMount']) {
+                $pages[$uid] = ['row' => $row, 'site' => $place['site']];
+            }
+        }
+
+        $count        = 0;
+        $translations = 0;
+        $first        = null;
+        $firstKey     = null;
+        $languageSet  = array_fill_keys($languages, true);
+        $rows         = isset($languageSet[0]) ? array_column($pages, 'row') : [];
+        foreach ($this->translations(array_keys($pages), array_values(array_filter($languages, static fn (int $language): bool => $language > 0)), $user->workspace) as $row) {
+            $row = $this->overlay($row, $versions);
+            if ($row !== null) {
+                $rows[] = $row;
+            }
+        }
+
+        foreach ($rows as $row) {
             $language = $this->int($row['sys_language_uid'] ?? 0);
-            $pageUid  = $language > self::DEFAULT_LANGUAGE ? $this->int($row['l10n_parent'] ?? 0) : $this->int($row['uid'] ?? 0);
-            $page     = $access[$pageUid] ??= $this->editablePage($user, $pageUid);
-            // mayStartIn() checks the language grant and that the site has the language.
-            if ($page === false || !$this->pages->mayStartIn($pageUid, $language)) {
+            $pageUid  = $language > 0 ? $this->int($row['l10n_parent'] ?? 0) : $this->int($row['uid'] ?? 0);
+            $page     = $pages[$pageUid] ?? null;
+            if ($page === null || !$this->lacksDescription($row) || (bool) ($page['row']['hidden'] ?? false) || !$this->siteHas($page['site'], $language)) {
                 continue;
             }
 
             ++$count;
-            $first ??= ['pageUid' => $pageUid, 'languageUid' => $language, 'title' => $this->string($row['title'] ?? '')];
+            if ($language > 0) {
+                ++$translations;
+            }
+
+            // The most recently changed, as the user sees it; the higher uid on a tie.
+            $key = [$this->int($row['tstamp'] ?? 0), $this->int($row['uid'] ?? 0)];
+            if ($firstKey === null || $key > $firstKey) {
+                $firstKey = $key;
+                $first    = ['pageUid' => $pageUid, 'languageUid' => $language, 'title' => $this->string($row['title'] ?? '')];
+            }
         }
 
-        return ['count' => $count, 'first' => $first];
+        return ['count' => $count, 'translations' => $translations, 'first' => $first];
     }
 
     /**
@@ -144,81 +188,217 @@ readonly class MissingDescriptionRepository
     }
 
     /**
-     * The default-language page if the user may edit its properties, else
-     * false. Hidden counts here too: a translation of a hidden page is not
-     * shown either.
-     *
-     * @return array<mixed>|false
+     * @param array<string, mixed> $row
      */
-    private function editablePage(BackendUserAuthentication $user, int $uid): array|false
+    private function lacksDescription(array $row): bool
     {
-        if ($uid < 1) {
-            return false;
+        return trim($this->string($row['description'] ?? ''), " \t\n\r\0\x0B") === ''
+            && !(bool) ($row['hidden'] ?? false)
+            && !in_array($this->int($row['doktype'] ?? 0), self::EXCLUDED_DOKTYPES, true);
+    }
+
+    /**
+     * Where a page lies: in the user's mounts or not (always for an admin),
+     * and the site whose root it lies under, from the nearest ancestor that
+     * is a site root, walking the tree in memory.
+     *
+     * @param array<int, int>       $tree   page uid => parent uid
+     * @param array<int, true>|null $mounts mount uids, null for an admin
+     * @param array<int, Site>      $sites  root page uid => site
+     *
+     * @return array{inMount: bool, site: Site|null}
+     */
+    private function place(int $uid, array $tree, ?array $mounts, array $sites): array
+    {
+        $inMount = $mounts === null;
+        $site    = null;
+        $seen    = [];
+        for ($current = $uid; $current > 0 && !isset($seen[$current]); $current = $tree[$current] ?? 0) {
+            $seen[$current] = true;
+            $inMount        = $inMount || isset($mounts[$current]);
+            $site ??= $sites[$current] ?? null;
         }
 
-        $row = BackendUtility::readPageAccess($uid, $user->getPagePermsClause(Permission::PAGE_SHOW));
-        if (!is_array($row) || !$user->doesUserHaveAccess($row, Permission::PAGE_EDIT)) {
-            return false;
+        return ['inMount' => $inMount, 'site' => $site];
+    }
+
+    /** The chat starts on a page in a language its site has; outside every site only in the default language. */
+    private function siteHas(?Site $site, int $language): bool
+    {
+        if (!$site instanceof Site) {
+            return $language === 0;
         }
 
-        if ((!$user->isAdmin() && (bool) ($row['editlock'] ?? false)) || (bool) ($row['hidden'] ?? false)) {
-            return false;
+        return array_key_exists($language, $site->getAllLanguages());
+    }
+
+    /**
+     * @return array<int, Site> root page uid => site
+     */
+    private function sitesByRoot(): array
+    {
+        $sites = [];
+        foreach ($this->siteFinder->getAllSites() as $site) {
+            $sites[$site->getRootPageId()] = $site;
+        }
+
+        return $sites;
+    }
+
+    /**
+     * The row as the workspace shows it, or null when it is deleted there.
+     *
+     * @param array<string, mixed>             $row
+     * @param array<int, array<string, mixed>> $versions live uid => version row
+     *
+     * @return array<string, mixed>|null
+     */
+    private function overlay(array $row, array $versions): ?array
+    {
+        $version = $versions[$this->int($row['uid'] ?? 0)] ?? null;
+        if ($version === null) {
+            return $row;
+        }
+
+        if ($this->int($version['t3ver_state'] ?? 0) === self::DELETE_PLACEHOLDER) {
+            return null;
+        }
+
+        foreach (['title', 'description', 'hidden', 'editlock', 'doktype', 'tstamp'] as $column) {
+            $row[$column] = $version[$column] ?? null;
         }
 
         return $row;
     }
 
     /**
-     * @param array<mixed> $row
+     * The sys_language_uid values of the pages, the default language always.
+     *
+     * @return list<int>
      */
-    private function lacksDescription(array $row): bool
+    private function languagesInUse(int $workspace): array
     {
-        return trim($this->string($row['description'] ?? ''), ' ') === ''
-            && !(bool) ($row['hidden'] ?? false)
-            && !in_array($this->int($row['doktype'] ?? 0), self::EXCLUDED_DOKTYPES, true)
-            && $this->int($row['sys_language_uid'] ?? 0) >= self::DEFAULT_LANGUAGE;
+        $qb        = $this->queryBuilder($workspace);
+        $languages = $qb->select('sys_language_uid')
+            ->from('pages')
+            ->andWhere($qb->expr()->gt('sys_language_uid', $qb->createNamedParameter(0, Connection::PARAM_INT)))
+            ->groupBy('sys_language_uid')
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        return [0, ...array_map($this->int(...), $languages)];
     }
 
     /**
-     * Live rows and the rows new in the workspace, newest change first. In
-     * the live workspace the database decides the description and hidden
-     * conditions; in a draft workspace the overlay does.
+     * Every default-language page's parent, the tree the mounts and sites
+     * are resolved on.
      *
-     * The rows are read in one go, not streamed: checking access reads the
-     * rootline, which may write to a database cache, and on SQLite a write
-     * on the connection ends the result being read.
+     * @return array<int, int>
+     */
+    private function tree(int $workspace): array
+    {
+        $qb   = $this->queryBuilder($workspace);
+        $tree = [];
+        foreach ($qb->select('uid', 'pid')
+            ->from('pages')
+            ->andWhere($qb->expr()->eq('sys_language_uid', $qb->createNamedParameter(0, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->iterateAssociative() as $row) {
+            $tree[$this->int($row['uid'] ?? 0)] = $this->int($row['pid'] ?? 0);
+        }
+
+        return $tree;
+    }
+
+    /**
+     * The default-language pages that grant the user "show page" and "edit
+     * page", live and new in their workspace.
      *
      * @return list<array<string, mixed>>
      */
-    private function candidates(int $workspace): array
+    private function editablePages(BackendUserAuthentication $user): array
+    {
+        $qb = $this->queryBuilder($user->workspace);
+        $qb->select(...self::COLUMNS)
+            ->from('pages')
+            ->andWhere($qb->expr()->eq('sys_language_uid', $qb->createNamedParameter(0, Connection::PARAM_INT)));
+
+        foreach ([Permission::PAGE_SHOW, Permission::PAGE_EDIT] as $permission) {
+            $clause = QueryHelper::stripLogicalOperatorPrefix($user->getPagePermsClause($permission));
+            if ($clause !== '') {
+                $qb->andWhere($clause);
+            }
+        }
+
+        return $qb->executeQuery()->fetchAllAssociative();
+    }
+
+    /**
+     * The translations of the pages into the languages, live and new in the
+     * workspace.
+     *
+     * @param list<int> $pageUids
+     * @param list<int> $languages
+     *
+     * @return iterable<array<string, mixed>>
+     */
+    private function translations(array $pageUids, array $languages, int $workspace): iterable
+    {
+        if ($languages === []) {
+            return;
+        }
+
+        foreach (array_chunk($pageUids, self::CHUNK) as $chunk) {
+            $qb = $this->queryBuilder($workspace);
+            yield from $qb->select(...self::COLUMNS)
+                ->from('pages')
+                ->andWhere(
+                    $qb->expr()->in('sys_language_uid', $qb->createNamedParameter($languages, Connection::PARAM_INT_ARRAY)),
+                    $qb->expr()->in('l10n_parent', $qb->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)),
+                )
+                ->executeQuery()
+                ->fetchAllAssociative();
+        }
+    }
+
+    /**
+     * The versions of pages in the workspace, keyed by the live uid.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function versions(int $workspace): array
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable('pages');
+        $qb->getRestrictions()->removeAll()->add(new DeletedRestriction());
+        $versions = [];
+        foreach ($qb->select('t3ver_oid', 't3ver_state', 'title', 'description', 'hidden', 'editlock', 'doktype', 'tstamp')
+            ->from('pages')
+            ->where(
+                $qb->expr()->eq('t3ver_wsid', $qb->createNamedParameter($workspace, Connection::PARAM_INT)),
+                $qb->expr()->gt('t3ver_oid', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->iterateAssociative() as $row) {
+            $versions[$this->int($row['t3ver_oid'] ?? 0)] = $row;
+        }
+
+        return $versions;
+    }
+
+    /**
+     * Live rows and the rows new in the workspace; no version rows, which the
+     * overlay reads.
+     */
+    private function queryBuilder(int $workspace): QueryBuilder
     {
         $qb = $this->connectionPool->getQueryBuilderForTable('pages');
         $qb->getRestrictions()
             ->removeAll()
             ->add(new DeletedRestriction())
             ->add(new WorkspaceRestriction($workspace));
+        $qb->andWhere($qb->expr()->eq('t3ver_oid', $qb->createNamedParameter(0, Connection::PARAM_INT)));
 
-        // The workspace overlay reads the version's values of exactly these.
-        $qb->select('uid', 'pid', 'title', 'description', 'hidden', 'doktype', 'sys_language_uid', 'l10n_parent', 't3ver_wsid', 't3ver_oid', 't3ver_state', 'tstamp')
-            ->from('pages')
-            ->where(
-                $qb->expr()->gte('sys_language_uid', $qb->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT)),
-                $qb->expr()->notIn('doktype', $qb->createNamedParameter(self::EXCLUDED_DOKTYPES, Connection::PARAM_INT_ARRAY)),
-            )
-            ->orderBy('tstamp', 'DESC')
-            ->addOrderBy('uid', 'DESC');
-
-        if ($workspace === 0) {
-            $qb->andWhere(
-                $qb->expr()->eq('hidden', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-                $qb->expr()->or(
-                    $qb->expr()->isNull('description'),
-                    $qb->expr()->comparison($qb->expr()->trim('description'), '=', $qb->createNamedParameter('')),
-                ),
-            );
-        }
-
-        return $qb->executeQuery()->fetchAllAssociative();
+        return $qb;
     }
 
     private function int(mixed $value): int

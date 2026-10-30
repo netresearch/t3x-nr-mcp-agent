@@ -10,11 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Functional\Domain\Repository;
 
 use Netresearch\NrMcpAgent\Domain\Repository\MissingDescriptionRepository;
-use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
@@ -68,29 +66,38 @@ final class MissingDescriptionRepositoryTest extends FunctionalTestCase
             self::assertSame($workspace, $backendUser->workspace);
         }
 
-        $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
-
-        return (new MissingDescriptionRepository($this->get(ConnectionPool::class), $pages))->summary();
+        return (new MissingDescriptionRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class)))->summary();
     }
 
     #[Test]
     public function theAdminCountsEveryPageVersionWithoutADescription(): void
     {
-        self::assertSame(['count' => 9, 'first' => ['pageUid' => 17, 'languageUid' => 0, 'title' => 'Neu']], $this->summary(1));
+        self::assertSame(['count' => 9, 'translations' => 2, 'first' => ['pageUid' => 17, 'languageUid' => 0, 'title' => 'Neu']], $this->summary(1));
     }
 
     /** Pages outside the mount, view-only and locked pages are not the editor's to fix. */
     #[Test]
     public function anEditorCountsOnlyThePagesTheyMayEdit(): void
     {
-        self::assertSame(['count' => 6, 'first' => ['pageUid' => 17, 'languageUid' => 0, 'title' => 'Neu']], $this->summary(2));
+        self::assertSame(['count' => 6, 'translations' => 2, 'first' => ['pageUid' => 17, 'languageUid' => 0, 'title' => 'Neu']], $this->summary(2));
     }
 
     /** An editor of English only counts the English versions, and starts on the newest of them. */
     #[Test]
     public function anEditorCountsOnlyTheLanguagesTheyMayEdit(): void
     {
-        self::assertSame(['count' => 2, 'first' => ['pageUid' => 2, 'languageUid' => 1, 'title' => 'With description (EN)']], $this->summary(4));
+        self::assertSame(['count' => 2, 'translations' => 2, 'first' => ['pageUid' => 2, 'languageUid' => 1, 'title' => 'With description (EN)']], $this->summary(4));
+    }
+
+    /**
+     * An editor of the default language only counts no translation and is
+     * not offered one: the English versions 10 and 11 are left out, though
+     * they lack a description.
+     */
+    #[Test]
+    public function anEditorWithoutALanguageNeitherCountsNorIsOfferedIt(): void
+    {
+        self::assertSame(['count' => 4, 'translations' => 0, 'first' => ['pageUid' => 17, 'languageUid' => 0, 'title' => 'Neu']], $this->summary(6));
     }
 
     /** Without the field or the table there is nothing the user could write: nothing is counted. */
@@ -104,12 +111,13 @@ final class MissingDescriptionRepositoryTest extends FunctionalTestCase
     /**
      * In the workspace its versions decide: 1 and 3 got a description there,
      * 2 lost its one, 17 is deleted there, 22 is new there, and 25 became a
-     * folder there.
+     * folder there. The tour starts on 2: its workspace version is the latest
+     * change, though the live page is older than 22.
      */
     #[Test]
     public function inAWorkspaceItsVersionsDecide(): void
     {
-        self::assertSame(['count' => 7, 'first' => ['pageUid' => 22, 'languageUid' => 0, 'title' => 'Neu im Entwurf']], $this->summary(1, 1));
+        self::assertSame(['count' => 7, 'translations' => 2, 'first' => ['pageUid' => 2, 'languageUid' => 0, 'title' => 'Mit Beschreibung']], $this->summary(1, 1));
     }
 
     /** A user without access to any workspace (workspace -99) may write nothing. */
@@ -126,8 +134,7 @@ final class MissingDescriptionRepositoryTest extends FunctionalTestCase
     public function withoutABackendUserThereIsNothingToCount(): void
     {
         unset($GLOBALS['BE_USER']);
-        $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
 
-        self::assertNull((new MissingDescriptionRepository($this->get(ConnectionPool::class), $pages))->summary());
+        self::assertNull((new MissingDescriptionRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class)))->summary());
     }
 }

@@ -4,6 +4,7 @@
 ,2,0,"Ohne Beschreibungsfeld","pages","","",1,1710000000,1710000000
 ,3,0,"Nur Englisch","pages","pages:description","1",1,1710000000,1710000000
 ,4,0,"Ohne Seiten","","pages:description","",1,1710000000,1710000000
+,5,0,"Nur Deutsch","pages","pages:description","0",1,1710000000,1710000000
 "be_users"
 ,"uid","pid","username","password","admin","db_mountpoints","options","usergroup","workspace_id","workspace_perms","tstamp","crdate"
 ,1,0,"admin","$2y$12$xxx",1,"",0,"",0,1,1710000000,1710000000
@@ -11,6 +12,7 @@
 ,3,0,"no-field","$2y$12$xxx",0,"1",3,"2",0,1,1710000000,1710000000
 ,4,0,"english","$2y$12$xxx",0,"1",3,"3",0,1,1710000000,1710000000
 ,5,0,"no-pages","$2y$12$xxx",0,"1",3,"4",0,1,1710000000,1710000000
+,6,0,"german","$2y$12$xxx",0,"1",3,"5",0,1,1710000000,1710000000
 "sys_workspace"
 ,"uid","pid","title"
 ,1,0,"Entwurf"
@@ -35,7 +37,7 @@
 ,17,1,"Neu",1,0,0,\NULL,0,0,0,1,31,31,0,0,0,900
 ,18,1,"Benutzerbereich",6,0,0,"",0,0,0,1,31,31,0,0,0,910
 ,19,1,"Mountpoint",7,0,0,"",0,0,0,1,31,31,0,0,0,920
-,20,1,"Mit Beschreibung",1,0,0,"",0,0,0,1,31,31,1,2,0,200
+,20,1,"Mit Beschreibung",1,0,0,"",0,0,0,1,31,31,1,2,0,990
 ,21,1,"Nur Leerzeichen",1,0,0,"Neu im Entwurf.",0,0,0,1,31,31,1,3,0,300
 ,22,1,"Neu im Entwurf",1,0,0,"",0,0,0,1,31,31,1,0,1,950
 ,23,1,"Neu",1,0,0,\NULL,0,0,0,1,31,31,1,17,2,900
