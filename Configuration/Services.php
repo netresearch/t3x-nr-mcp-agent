@@ -8,6 +8,8 @@
 declare(strict_types=1);
 
 use Netresearch\NrMcpAgent\Dashboard\AiChatWidget;
+use Netresearch\NrMcpAgent\Dashboard\CreateContentWidget;
+use Netresearch\NrMcpAgent\Dashboard\EditPageWidget;
 use Netresearch\NrMcpAgent\Dashboard\ImprovePageWidget;
 use Netresearch\NrMcpAgent\Dashboard\PromptWidget;
 use Netresearch\NrMcpAgent\Dashboard\QuickTasksWidget;
@@ -49,13 +51,19 @@ return static function (ContainerConfigurator $configurator): void {
 
     // The AI assistant widgets (group and preset "AI Assistant",
     // Configuration/Backend/DashboardWidgetGroups.php and DashboardPresets.php).
-    $ll               = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:';
+    $ll = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:';
+    // Height and width as the design lays them out on the dashboard's four
+    // columns: the question across the whole width, "Edit a page" and
+    // "Create content" side by side, the recommendations across the whole
+    // width, then "Improve a page" and "Check website" side by side.
     $assistantWidgets = [
-        'nrMcpAgentPrompt'          => [PromptWidget::class, 'prompt', 'small', 'medium'],
-        'nrMcpAgentImprovePage'     => [ImprovePageWidget::class, 'improve', 'medium', 'small'],
+        'nrMcpAgentPrompt'          => [PromptWidget::class, 'prompt', 'small', 'large'],
+        'nrMcpAgentEditPage'        => [EditPageWidget::class, 'editPage', 'small', 'medium'],
+        'nrMcpAgentCreateContent'   => [CreateContentWidget::class, 'create', 'small', 'medium'],
+        'nrMcpAgentImprovePage'     => [ImprovePageWidget::class, 'improve', 'medium', 'medium'],
         'nrMcpAgentQuickTasks'      => [QuickTasksWidget::class, 'tasks', 'medium', 'small'],
-        'nrMcpAgentRecommendations' => [RecommendationsWidget::class, 'recommendations', 'medium', 'medium'],
-        'nrMcpAgentWebsiteCheck'    => [WebsiteCheckWidget::class, 'websiteCheck', 'small', 'small'],
+        'nrMcpAgentRecommendations' => [RecommendationsWidget::class, 'recommendations', 'medium', 'large'],
+        'nrMcpAgentWebsiteCheck'    => [WebsiteCheckWidget::class, 'websiteCheck', 'medium', 'medium'],
     ];
     foreach ($assistantWidgets as $identifier => [$class, $labelPrefix, $height, $width]) {
         $configurator->services()

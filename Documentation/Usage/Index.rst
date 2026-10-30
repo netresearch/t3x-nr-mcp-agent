@@ -626,9 +626,18 @@ AI assistant dashboard
 Editors can put together a dashboard for working with the assistant from
 the widgets in the *AI Assistant* group (*Add widget > AI Assistant*), or
 start from the **AI Assistant** preset when creating a dashboard, which
-holds all of them and the **Recent chats** widget, in this order:
-**AI Assistant**, **Improve a page**, **Frequent tasks**, **Recent chats**,
-**Recommended for your website**, **Check website**.
+holds them in this order: **AI Assistant**, **Edit a page**, **Create
+content**, **Recent chats**, **Recommended for your website**, **Improve a
+page**, **Check website**. **Frequent tasks** is in the group, not in the
+preset.
+
+Every widget opens with one sentence and offers one kind of action: a
+button, a grid of buttons, number tiles or a list whose rows are links. An
+action that concerns a page opens the page module with the chat as a
+column beside it (floating where the window is too narrow, see
+:ref:`usage-chat-column`; a chat popped out into its own window stays
+there). Where the chat panel is not available, the same action opens the
+chat module.
 
 **AI Assistant**
     A question of your own, without choosing a tour or a page first: type it
@@ -647,44 +656,70 @@ holds all of them and the **Recent chats** widget, in this order:
     says why. A question about a page while no page is selected makes the
     assistant ask which page you mean.
 
+**Edit a page**
+    **Choose a page to edit** opens the page module with a new chat beside
+    it. Choose the page in the page tree; the chat follows it, and whatever
+    you then ask is about that page.
+
+**Create content**
+    One button per kind of content the assistant can create for you: **New
+    page**, and **News** where EXT:news is installed. A kind is offered only
+    where you may create its records and the tool that creates them is
+    enabled for your chat, and that the tool would not refuse for you (the
+    default language, and for news its table settings and nr-llm's
+    deny-list). A button opens a new chat with the start of the request in
+    its input (*I would like to create a new page, namely …*); nothing is sent
+    until you complete and send it, as the widget says below the buttons. Without any kind,
+    the widget says that your administrator can enable the tools.
+
 **Improve a page**
-    Choose a page, then press the button of a guided tour (by default
-    *Optimise SEO* and *Improve content*): the chat module opens and the
-    assistant starts that tour on that page, in its default language. The
-    page choice lists *Recommended* pages first, each with its reason, then
-    the most recently changed pages. Recommended are, for every tour, the
-    pages with open points of that tour, and for the SEO tour also the
-    pages without a meta description, with a title shorter than 30
-    characters, or without a social-media image (the SEO title and the
-    social-media image are checked only with EXT:seo installed) — at most
-    five, worked out from the stored pages, not by the assistant. Every page
-    offered is one whose content the editor may edit: in their web mounts,
-    with the *edit content* permission, not locked for editing, and in a
-    language the editor may edit. Folders, links, shortcuts, spacers and
-    translations are left out.
+    One row per guided tour (by default *Optimise SEO* and *Improve
+    content*). A row opens the page module and starts the tour in the chat
+    beside it; the tour asks for the page, which you choose in the page tree
+    and confirm with **Check this page**.
 
 **Frequent tasks**
     Shortcuts into the chat, set by :confval:`dashboardQuickTasks` (none by
-    default). A task that works on one page asks for the page first, from
-    the same pages as *Improve a page*; any other task is a link.
+    default), one row each. A task that works on one page opens the page
+    module and asks for the page there; any other task opens the chat
+    module.
 
 **Recommended for your website**
-    Open points: changes a guided tour proposed that an editor skipped,
-    until a change to the same record and field is applied. Each comes with
-    a link that starts the matching tour on its page, in the language the
-    point is about. A point is shown only when the editor may access its
-    page, read the changed record and field, and edit that language; a
-    point whose skill no longer exists is not shown. Until open points are
-    recorded, the widget says how they come about.
+    Number tiles for what the extension can count exactly, each with one
+    action:
 
-    Above the points, a tile counts the **images without alt text** you may
-    fix, says on how many pages and in how many records they are, and leads
-    to the list with **View** (see :ref:`usage-missing-alt-texts`). It is
-    not shown while no image lacks one.
+    -   **Images without alt text** you may fix, on how many pages and in how
+        many records; **View** opens the list (see
+        :ref:`usage-missing-alt-texts`).
+    -   **Pages without a meta description**: page versions you may edit
+        whose meta description is empty, in every language you may edit and
+        in your workspace; hidden pages, folders, links, shortcuts, mount
+        points and spacers are not counted, nor are pages below a page you
+        may not see in the page tree. Each translation counts on its
+        own, and the label says so (*Pages and translations without a meta
+        description*). The number is kept for five minutes and recounted as
+        soon as a page is saved. **Start now** starts the SEO tour
+        on the most recently changed of them, beside the page module. The
+        tile is left out where you may not edit the meta description or the
+        SEO tour is not available to you.
+
+    A count of 0 is shown as done (*No missing alt texts – great!*, *Every
+    page you may edit has a meta description – great!*).
+    Broken links and outdated content are not counted: the extension has no
+    exact source for them.
+
+    Below the tiles, the points guided tours left open: changes a tour
+    proposed that an editor skipped, until a change to the same record and
+    field is applied. Each row starts the matching tour on its page, in the
+    language the point is about. A point is shown only when the editor may
+    access its page, read the changed record and field, and edit that
+    language; a point whose skill no longer exists is not shown.
 
 **Check website**
-    Site-wide checks. **Missing alt texts** is always listed and opens the
-    list, also when nothing is open.
+    Site-wide checks, one row each. **Missing alt texts** is always listed
+    and opens the list, also when nothing is open. **Pages without a meta
+    description** is listed while one is open and starts the SEO tour as
+    the tile does.
 
 Only tours and tasks the chat can actually start are offered: a configured
 skill that does not exist (yet), is not attached to the chat, or cannot run

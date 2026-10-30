@@ -384,9 +384,9 @@ link the chat would refuse.
     :default: (empty)
 
     The entries of the *Frequent tasks* widget, comma-separated. Append
-    ``|page`` to a task that works on one page: the widget then asks for
-    the page first. Without it the entry is a link that starts the task in
-    the chat. Empty by default, so the preset does not repeat the guided
+    ``|page`` to a task that works on one page: its row then opens the page
+    module and the chat asks for the page there. Without it the row starts
+    the task in the chat module. Empty by default, so the preset does not repeat the guided
     tours; the widget then says that no task is set up yet.
 
     A skill that declares ``page`` in its frontmatter (see

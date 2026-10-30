@@ -9,8 +9,8 @@
                 <target>KI-Assistent</target>
             </trans-unit>
             <trans-unit id="preset.description" resname="preset.description">
-                <source>Improve your website with the AI assistant: ask a question, start guided tours, frequent tasks and open recommendations, and return to your recent chats.</source>
-                <target>Verbessere deine Website mit dem KI-Assistenten: eine eigene Frage, geführte Rundgänge, häufige Aufgaben, offene Empfehlungen und deine letzten Chats.</target>
+                <source>Improve your website with the AI assistant: ask a question, edit a page, create content, return to your recent chats, see what is open, and go through a page or the whole website.</source>
+                <target>Verbessere deine Website mit dem KI-Assistenten: eine eigene Frage, Seiten bearbeiten, Inhalte erstellen, deine letzten Chats, offene Baustellen und Prüfungen für eine Seite oder die ganze Website.</target>
             </trans-unit>
             <trans-unit id="group.title" resname="group.title">
                 <source>AI Assistant</source>
@@ -21,36 +21,16 @@
                 <target>Eine Seite verbessern</target>
             </trans-unit>
             <trans-unit id="improve.description" resname="improve.description">
-                <source>Choose a page and a guided tour; the AI assistant goes through it with you step by step.</source>
-                <target>Wähle eine Seite und einen geführten Rundgang – der KI-Assistent geht ihn Schritt für Schritt mit dir durch.</target>
-            </trans-unit>
-            <trans-unit id="improve.legend" resname="improve.legend">
-                <source>What would you like to improve?</source>
-                <target>Was möchtest du verbessern?</target>
-            </trans-unit>
-            <trans-unit id="improve.page" resname="improve.page">
-                <source>Page</source>
-                <target>Seite</target>
+                <source>Choose a guided tour; the AI assistant asks for the page and goes through it with you step by step.</source>
+                <target>Wähle einen geführten Rundgang – der KI-Assistent fragt nach der Seite und geht sie Schritt für Schritt mit dir durch.</target>
             </trans-unit>
             <trans-unit id="improve.noSkills" resname="improve.noSkills">
                 <source>No guided tours are set up yet. Your administrator can set them up.</source>
                 <target>Es sind noch keine geführten Rundgänge eingerichtet. Deine Administration kann sie einrichten.</target>
             </trans-unit>
-            <trans-unit id="page.hint" resname="page.hint">
-                <source>The most recently changed pages you may edit.</source>
-                <target>Die zuletzt geänderten Seiten, die du bearbeiten darfst.</target>
-            </trans-unit>
-            <trans-unit id="page.hintSuggested" resname="page.hintSuggested">
-                <source>Recommended: pages with open points or missing details for search engines. Below them, the most recently changed pages you may edit.</source>
-                <target>Empfohlen: Seiten mit offenen Punkten oder fehlenden Angaben für Suchmaschinen. Darunter die zuletzt geänderten Seiten, die du bearbeiten darfst.</target>
-            </trans-unit>
             <trans-unit id="page.suggested" resname="page.suggested">
                 <source>Recommended</source>
                 <target>Empfohlen</target>
-            </trans-unit>
-            <trans-unit id="page.recent" resname="page.recent">
-                <source>Recently changed</source>
-                <target>Zuletzt geändert</target>
             </trans-unit>
             <trans-unit id="suggestion.reason.openPoint" resname="suggestion.reason.openPoint">
                 <source>Open point from a guided tour</source>
@@ -68,10 +48,6 @@
                 <source>Social media image missing</source>
                 <target>Social-Media-Bild fehlt</target>
             </trans-unit>
-            <trans-unit id="page.none" resname="page.none">
-                <source>No page found that you may edit.</source>
-                <target>Keine Seite gefunden, die du bearbeiten darfst.</target>
-            </trans-unit>
             <trans-unit id="page.untitled" resname="page.untitled">
                 <source>Page without a title</source>
                 <target>Seite ohne Titel</target>
@@ -84,14 +60,6 @@
                 <source>Start the tasks you do most often directly in the AI chat.</source>
                 <target>Starte deine häufigsten Aufgaben direkt im KI-Chat.</target>
             </trans-unit>
-            <trans-unit id="tasks.pageHint" resname="tasks.pageHint">
-                <source>For tasks on one page, choose the page first. Offered are the most recently changed pages you may edit.</source>
-                <target>Bei Aufgaben für eine Seite wählst du zuerst die Seite. Angeboten werden die zuletzt geänderten Seiten, die du bearbeiten darfst.</target>
-            </trans-unit>
-            <trans-unit id="tasks.pageFor" resname="tasks.pageFor">
-                <source>Page for “%s”</source>
-                <target>Seite für „%s“</target>
-            </trans-unit>
             <trans-unit id="tasks.empty" resname="tasks.empty">
                 <source>No frequent tasks are set up yet. Your administrator can set them up.</source>
                 <target>Es sind noch keine häufigen Aufgaben eingerichtet. Deine Administration kann sie einrichten.</target>
@@ -101,8 +69,8 @@
                 <target>Für deine Website empfohlen</target>
             </trans-unit>
             <trans-unit id="recommendations.description" resname="recommendations.description">
-                <source>Improvements the AI assistant found during guided tours and that are still open.</source>
-                <target>Verbesserungen, die der KI-Assistent bei geführten Rundgängen gefunden hat und die noch offen sind.</target>
+                <source>What the AI assistant can count on your website, such as images without an alt text and pages without a meta description, and the points guided tours left open.</source>
+                <target>Was der KI-Assistent auf deiner Website zählen kann, etwa Bilder ohne Alt-Text und Seiten ohne Meta Description, und was aus geführten Rundgängen noch offen ist.</target>
             </trans-unit>
             <trans-unit id="recommendations.empty" resname="recommendations.empty">
                 <source>No open recommendations. When the AI assistant finds something to improve during a guided tour, it appears here.</source>
@@ -153,8 +121,8 @@
                 <target>Website prüfen</target>
             </trans-unit>
             <trans-unit id="websiteCheck.description" resname="websiteCheck.description">
-                <source>Site-wide checks of your website, such as images without an alt text.</source>
-                <target>Websiteweite Prüfungen, zum Beispiel Bilder ohne Alt-Text.</target>
+                <source>Site-wide checks of your website, such as images without an alt text and pages without a meta description.</source>
+                <target>Websiteweite Prüfungen, zum Beispiel Bilder ohne Alt-Text und Seiten ohne Meta Description.</target>
             </trans-unit>
             <trans-unit id="websiteCheck.altTexts" resname="websiteCheck.altTexts">
                 <source>Missing alt texts</source>
@@ -192,9 +160,133 @@
                 <source>View</source>
                 <target>Ansehen</target>
             </trans-unit>
-            <trans-unit id="altTexts.viewName" resname="altTexts.viewName">
-                <source>View: images without alt text</source>
-                <target>Ansehen: Bilder ohne Alt-Text</target>
+            <trans-unit id="improve.intro" resname="improve.intro">
+                <source>Choose a page, and we’ll go through it together step by step.</source>
+                <target>Wähle eine Seite, und wir gehen sie Schritt für Schritt gemeinsam durch.</target>
+            </trans-unit>
+            <trans-unit id="tasks.intro" resname="tasks.intro">
+                <source>Start the tasks you do most often in one click.</source>
+                <target>Starte deine häufigsten Aufgaben mit einem Klick.</target>
+            </trans-unit>
+            <trans-unit id="websiteCheck.intro" resname="websiteCheck.intro">
+                <source>I check all pages at once and show you where something is missing.</source>
+                <target>Ich prüfe alle Seiten auf einmal und zeige dir, wo es hakt.</target>
+            </trans-unit>
+            <trans-unit id="websiteCheck.descriptions" resname="websiteCheck.descriptions">
+                <source>Pages without a meta description</source>
+                <target>Seiten ohne Meta Description</target>
+            </trans-unit>
+            <trans-unit id="editPage.title" resname="editPage.title">
+                <source>Edit a page</source>
+                <target>Seite bearbeiten</target>
+            </trans-unit>
+            <trans-unit id="editPage.description" resname="editPage.description">
+                <source>Choose a page in the page tree and change its content together with the AI assistant.</source>
+                <target>Wähle eine Seite im Seitenbaum und ändere ihre Inhalte gemeinsam mit dem KI-Assistenten.</target>
+            </trans-unit>
+            <trans-unit id="editPage.intro" resname="editPage.intro">
+                <source>Choose a page, and we’ll change its content together.</source>
+                <target>Wähle eine Seite, und wir ändern ihre Inhalte gemeinsam.</target>
+            </trans-unit>
+            <trans-unit id="editPage.action" resname="editPage.action">
+                <source>Choose a page to edit</source>
+                <target>Seite zum Bearbeiten auswählen</target>
+            </trans-unit>
+            <trans-unit id="create.title" resname="create.title">
+                <source>Create content</source>
+                <target>Inhalte erstellen</target>
+            </trans-unit>
+            <trans-unit id="create.description" resname="create.description">
+                <source>Create new pages and news together with the AI assistant.</source>
+                <target>Lege neue Seiten und News gemeinsam mit dem KI-Assistenten an.</target>
+            </trans-unit>
+            <trans-unit id="create.intro" resname="create.intro">
+                <source>Tell me what you need, and we’ll create it together.</source>
+                <target>Sag mir, was du brauchst, und wir legen es gemeinsam an.</target>
+            </trans-unit>
+            <trans-unit id="create.none" resname="create.none">
+                <source>I can’t create new content for you here yet. Your administrator can enable the tools for it.</source>
+                <target>Neue Inhalte kann ich hier noch nicht für dich anlegen. Deine Administration kann die passenden Werkzeuge freischalten.</target>
+            </trans-unit>
+            <trans-unit id="create.page" resname="create.page">
+                <source>New page</source>
+                <target>Neue Seite</target>
+            </trans-unit>
+            <trans-unit id="create.page.prefill" resname="create.page.prefill">
+                <source>I would like to create a new page, namely …</source>
+                <target>Ich möchte eine neue Seite anlegen, und zwar …</target>
+            </trans-unit>
+            <trans-unit id="create.news" resname="create.news">
+                <source>News</source>
+                <target>News</target>
+            </trans-unit>
+            <trans-unit id="create.news.prefill" resname="create.news.prefill">
+                <source>I would like to create a news article, namely …</source>
+                <target>Ich möchte eine News anlegen, und zwar …</target>
+            </trans-unit>
+            <trans-unit id="recommendations.intro" resname="recommendations.intro">
+                <source>I’ve found a few things on your website that need work. Let’s tackle them together.</source>
+                <target>Ich habe auf deiner Website ein paar Baustellen entdeckt. Lass sie uns gemeinsam angehen.</target>
+            </trans-unit>
+            <trans-unit id="recommendations.allDone" resname="recommendations.allDone">
+                <source>I’ve checked: nothing is open right now. Well done!</source>
+                <target>Ich habe nachgesehen: Gerade ist nichts offen. Gut gemacht!</target>
+            </trans-unit>
+            <trans-unit id="recommendations.points" resname="recommendations.points">
+                <source>Still open from your guided tours</source>
+                <target>Offen aus deinen Rundgängen</target>
+            </trans-unit>
+            <trans-unit id="altTexts.labelOne" resname="altTexts.labelOne">
+                <source>Image without alt text</source>
+                <target>Bild ohne Alt-Text</target>
+            </trans-unit>
+            <trans-unit id="altTexts.done" resname="altTexts.done">
+                <source>No missing alt texts – great!</source>
+                <target>Keine fehlenden Alt-Texte – super!</target>
+            </trans-unit>
+            <trans-unit id="tile.actionName" resname="tile.actionName">
+                <source>%1$s: %2$d %3$s</source>
+                <target>%1$s: %2$d %3$s</target>
+            </trans-unit>
+            <trans-unit id="descriptions.label" resname="descriptions.label">
+                <source>Pages without a meta description</source>
+                <target>Seiten ohne Meta Description</target>
+            </trans-unit>
+            <trans-unit id="descriptions.labelOne" resname="descriptions.labelOne">
+                <source>Page without a meta description</source>
+                <target>Seite ohne Meta Description</target>
+            </trans-unit>
+            <trans-unit id="descriptions.done" resname="descriptions.done">
+                <source>Every page you may edit has a meta description – great!</source>
+                <target>Alle Seiten, die du bearbeiten darfst, haben eine Meta Description – super!</target>
+            </trans-unit>
+            <trans-unit id="descriptions.firstPage" resname="descriptions.firstPage">
+                <source>We’ll start with “%s”.</source>
+                <target>Wir fangen mit „%s“ an.</target>
+            </trans-unit>
+            <trans-unit id="descriptions.start" resname="descriptions.start">
+                <source>Start now</source>
+                <target>Jetzt angehen</target>
+            </trans-unit>
+            <trans-unit id="descriptions.startName" resname="descriptions.startName">
+                <source>%1$s: %2$d %3$s, with the SEO tour, starting with “%4$s”</source>
+                <target>%1$s: %2$d %3$s, mit der SEO-Tour, beginnend mit „%4$s“</target>
+            </trans-unit>
+            <trans-unit id="descriptions.translationOne" resname="descriptions.translationOne">
+                <source>Translation without a meta description</source>
+                <target>Übersetzung ohne Meta Description</target>
+            </trans-unit>
+            <trans-unit id="descriptions.translations" resname="descriptions.translations">
+                <source>Translations without a meta description</source>
+                <target>Übersetzungen ohne Meta Description</target>
+            </trans-unit>
+            <trans-unit id="descriptions.labelMixed" resname="descriptions.labelMixed">
+                <source>Pages and translations without a meta description</source>
+                <target>Seiten und Übersetzungen ohne Meta Description</target>
+            </trans-unit>
+            <trans-unit id="create.hint" resname="create.hint">
+                <source>Your request waits in the chat until you complete and send it.</source>
+                <target>Deine Anfrage wartet im Chat, bis du sie ergänzt und abschickst.</target>
             </trans-unit>
         </body>
     </file>

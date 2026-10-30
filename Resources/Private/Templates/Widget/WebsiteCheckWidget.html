@@ -5,16 +5,29 @@
 <f:layout name="Widget/Widget" />
 <f:section name="main">
     <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
-    <f:if condition="{available}">
-        <f:then>
-            <ul class="list-unstyled nr-mcp-agent-website-check">
-                <f:for each="{checks}" as="check">
-                    <li class="mb-2"><a href="{check.uri}">{f:translate(key: '{ll}{check.label}')}</a></li>
-                </f:for>
-            </ul>
-        </f:then>
-        <f:else>
-            <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
-        </f:else>
-    </f:if>
+    <div class="nr-mcp-agent-widget nr-mcp-agent-website-check">
+        <f:if condition="{available}">
+            <f:then>
+                <p class="nr-mcp-agent-intro">{f:translate(key: '{ll}websiteCheck.intro')}</p>
+                <ul class="nr-mcp-agent-rows" role="list">
+                    <f:for each="{checks}" as="check">
+                        <f:variable name="checkLabel" value="{f:translate(key: '{ll}{check.label}')}" />
+                        <li class="nr-mcp-agent-rows-item">
+                            <f:if condition="{check.start}">
+                                <f:then>
+                                    <f:render partial="Widget/ActionRow" arguments="{uri: check.uri, label: checkLabel, start: 1, skill: check.start.skill, page: check.start.page, language: check.start.language}" />
+                                </f:then>
+                                <f:else>
+                                    <f:render partial="Widget/ActionRow" arguments="{uri: check.uri, label: checkLabel}" />
+                                </f:else>
+                            </f:if>
+                        </li>
+                    </f:for>
+                </ul>
+            </f:then>
+            <f:else>
+                <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+            </f:else>
+        </f:if>
+    </div>
 </f:section>

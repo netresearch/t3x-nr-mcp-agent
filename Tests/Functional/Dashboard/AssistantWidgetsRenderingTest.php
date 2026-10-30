@@ -13,15 +13,18 @@ use DOMDocument;
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Dashboard\AbstractAssistantWidget;
+use Netresearch\NrMcpAgent\Dashboard\EditPageWidget;
 use Netresearch\NrMcpAgent\Dashboard\ImprovePageWidget;
 use Netresearch\NrMcpAgent\Dashboard\QuickTasksWidget;
 use Netresearch\NrMcpAgent\Dashboard\RecommendationsWidget;
+use Netresearch\NrMcpAgent\Domain\Repository\MissingDescriptionRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\SkillTrustRepository;
 use Netresearch\NrMcpAgent\Service\Assistant\CatalogueSkillResolver;
 use Netresearch\NrMcpAgent\Service\Assistant\ChatStartUriBuilder;
 use Netresearch\NrMcpAgent\Service\Assistant\ConfiguredGuidedSkillProvider;
 use Netresearch\NrMcpAgent\Service\Assistant\ConfiguredQuickTaskProvider;
+use Netresearch\NrMcpAgent\Service\Assistant\DescriptionTour;
 use Netresearch\NrMcpAgent\Service\Assistant\DeterministicPageSuggestionProvider;
 use Netresearch\NrMcpAgent\Service\Assistant\NullOpenPointReader;
 use Netresearch\NrMcpAgent\Service\Assistant\OpenPoint;
@@ -36,6 +39,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\View\BackendViewFactory;
+use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -116,7 +120,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
      * @param class-string<AbstractAssistantWidget> $class
      * @param list<string>                          $skills
      */
-    private function render(string $class, ?OpenPointReaderInterface $reader = null, array $skills = ['seo-optimieren', 'inhalt-verbessern']): string
+    private function render(string $class, ?OpenPointReaderInterface $reader = null, array $skills = ['seo-optimieren', 'inhalt-verbessern'], bool $descriptions = false): string
     {
         $catalogue = new SkillCatalogueStub(array_map(static fn (string $skill): array => ['identifier' => '3:' . $skill, 'uid' => 0], $skills));
         $resolver  = new CatalogueSkillResolver($this->get(SkillTrustRepository::class), $catalogue);
@@ -127,13 +131,13 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
             $this->get(BackendViewFactory::class),
             new ChatToolbarItem($config, $this->get(PageRenderer::class)),
         ];
-        $pages       = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
-        $suggestions = new DeterministicPageSuggestionProvider($reader ?? new NullOpenPointReader(), $pages, $this->get(LanguageServiceFactory::class));
+        $pages = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
+        $tour  = $descriptions ? new DescriptionTour(new MissingDescriptionRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class)), $labels, $resolver, $this->get(CacheManager::class)->getCache(DescriptionTour::CACHE)) : null;
 
         $widget = match ($class) {
-            ImprovePageWidget::class     => new ImprovePageWidget(...$common, ...[new ConfiguredGuidedSkillProvider($config, $labels, $resolver), $pages, $suggestions, $this->chatStart()]),
-            QuickTasksWidget::class      => new QuickTasksWidget(...$common, ...[new ConfiguredQuickTaskProvider($config, $labels, $resolver), $pages, $this->chatStart()]),
-            RecommendationsWidget::class => new RecommendationsWidget(...$common, ...[$reader ?? new NullOpenPointReader(), $pages, $labels, $resolver, $this->chatStart()]),
+            ImprovePageWidget::class     => new ImprovePageWidget(...$common, ...[new ConfiguredGuidedSkillProvider($config, $labels, $resolver), $this->chatStart()]),
+            QuickTasksWidget::class      => new QuickTasksWidget(...$common, ...[new ConfiguredQuickTaskProvider($config, $labels, $resolver), $this->chatStart()]),
+            RecommendationsWidget::class => new RecommendationsWidget(...$common, ...[$reader ?? new NullOpenPointReader(), $pages, $labels, $resolver, $this->chatStart(), null, $tour]),
         };
         $widget->setRequest($this->request());
 
@@ -149,7 +153,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     public function theWidgetsAreRegisteredInTheirGroupAndPreset(): void
     {
         $widgets = $this->get(WidgetRegistry::class)->getAllWidgets();
-        foreach (['nrMcpAgentPrompt', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentRecommendations', 'nrMcpAgentWebsiteCheck', 'nrMcpAgentAiChat'] as $identifier) {
+        foreach (['nrMcpAgentPrompt', 'nrMcpAgentEditPage', 'nrMcpAgentCreateContent', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentRecommendations', 'nrMcpAgentWebsiteCheck', 'nrMcpAgentAiChat'] as $identifier) {
             self::assertArrayHasKey($identifier, $widgets);
         }
 
@@ -163,7 +167,7 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
             $presets['nrMcpAgent']->getDefaultWidgets(),
         );
         self::assertSame(
-            ['nrMcpAgentPrompt', 'nrMcpAgentImprovePage', 'nrMcpAgentQuickTasks', 'nrMcpAgentAiChat', 'nrMcpAgentRecommendations', 'nrMcpAgentWebsiteCheck'],
+            ['nrMcpAgentPrompt', 'nrMcpAgentEditPage', 'nrMcpAgentCreateContent', 'nrMcpAgentAiChat', 'nrMcpAgentRecommendations', 'nrMcpAgentImprovePage', 'nrMcpAgentWebsiteCheck'],
             $defaultWidgets,
         );
         self::assertTrue($presets['nrMcpAgent']->isShowInWizard());
@@ -221,125 +225,66 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
     }
 
     /**
-     * One submit button per tour next to the shared page choice; the page
-     * choice lists the suggested pages first ("Recommended", with the
-     * reason), then the other recently changed pages. A GET form: keyboard
-     * and no JavaScript suffice.
-     *
-     * Every page of this fixture lacks a meta description, so the five newest
-     * pages the admin may edit are suggested for the SEO tour.
+     * One row per tour, the whole row a link: to the chat module that starts
+     * the tour, where the chat panel is not available, and with what the
+     * panel needs to start it beside the page module, where the tour asks for
+     * the page (chat-start.js). No form, no page choice in the widget.
      */
     #[Test]
-    public function improveAPageRendersAKeyboardUsableForm(): void
+    public function improveAPageRendersOneRowPerTour(): void
     {
-        $html   = $this->render(ImprovePageWidget::class);
-        $target = $this->chatStart()->formTarget();
+        $html = $this->render(ImprovePageWidget::class);
 
-        self::assertStringContainsString('<form action="' . htmlspecialchars($target['action']) . '" method="get"', $html);
-        self::assertStringContainsString('<input type="hidden" name="token" value="' . htmlspecialchars($target['hidden']['token']) . '"', $html);
-        // Decision 4: the pages offered are default-language versions.
-        self::assertStringContainsString('<input type="hidden" name="languageUid" value="0" />', $html);
-        self::assertMatchesRegularExpression('/<label for="(nr-mcp-agent-improve-[0-9a-f]{8}-page)" class="form-label">Page<\/label>\s*<select id="\1" name="pageUid" class="form-select" required="required" aria-describedby="\1-hint">/', $html);
-
-        // The page choice: suggestions first, then the rest, no page twice.
-        $groups = $this->optionGroups($html);
-        self::assertSame(['Recommended', 'Recently changed'], array_keys($groups));
-        self::assertSame([29, 28, 30, 22, 21], array_keys($groups['Recommended']));
-        self::assertSame('Inhalt A – Meta description missing, Page title too short', $groups['Recommended'][21]);
-        self::assertSame([26, 27, 20], array_keys($groups['Recently changed']));
-
-        // One button per tour, in the configured order, each submitting its tour.
-        self::assertSame(1, preg_match_all('/<button type="submit" class="btn btn-primary" name="skill" value="3:seo-optimieren" aria-describedby="(nr-mcp-agent-improve-[0-9a-f]{8})-skill-0-description">Optimise SEO<\/button>\s*<span id="\1-skill-0-description"/', $html));
-        self::assertSame(1, preg_match_all('/<button type="submit" class="btn btn-primary" name="skill" value="3:inhalt-verbessern" aria-describedby="nr-mcp-agent-improve-[0-9a-f]{8}-skill-1-description">Improve content<\/button>/', $html));
-        self::assertSame(2, substr_count($html, '<button type="submit"'));
-        self::assertStringNotContainsString('type="radio"', $html);
-    }
-
-    /**
-     * The options of the select, per option group, as text by value.
-     *
-     * @return array<string, array<int, string>>
-     */
-    private function optionGroups(string $html): array
-    {
-        $document = new DOMDocument();
-        @$document->loadHTML('<?xml encoding="utf-8"?>' . $html);
-        $groups = [];
-        foreach ($document->getElementsByTagName('optgroup') as $group) {
-            foreach ($group->getElementsByTagName('option') as $option) {
-                $groups[$group->getAttribute('label')][(int) $option->getAttribute('value')] = trim((string) preg_replace('/\s+/', ' ', $option->textContent));
-            }
+        self::assertStringNotContainsString('<form', $html);
+        self::assertStringNotContainsString('<select', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-intro">Choose a page, and we’ll go through it together step by step.</p>', $html);
+        self::assertStringContainsString('<ul class="nr-mcp-agent-rows" role="list">', $html);
+        foreach (['3:seo-optimieren' => 'Optimise SEO', '3:inhalt-verbessern' => 'Improve content'] as $skill => $title) {
+            self::assertMatchesRegularExpression(
+                '#<a class="nr-mcp-agent-row" href="' . preg_quote(htmlspecialchars($this->chatStart()->build($skill)), '#') . '" data-nr-chat-start="1" data-nr-chat-skill="' . preg_quote($skill, '#') . '" data-nr-chat-page="" data-nr-chat-language="" data-nr-chat-page-module="1"><span class="nr-mcp-agent-row-text"><span class="nr-mcp-agent-row-label">' . $title . '</span></span><svg class="nr-mcp-agent-row-chevron"[^>]*aria-hidden="true" focusable="false">#',
+                $html,
+            );
         }
 
-        return $groups;
+        self::assertSame(2, substr_count($html, 'class="nr-mcp-agent-row"'));
     }
 
     /**
-     * Union over the tours: an open point of the SEO tour comes first with
-     * its reason; a page both tours suggest appears once, with the reasons of
-     * both; the group stays at five.
+     * A task on one page opens the page module and asks for the page there;
+     * a task without a page opens the chat module on it, as it always did.
      */
     #[Test]
-    public function suggestionsAreTheUnionOverTheToursOnePerPage(): void
-    {
-        $reader = new class implements OpenPointReaderInterface {
-            public function findOpen(int $limit): array
-            {
-                return [
-                    new OpenPoint(20, 0, '3:seo-optimieren', 'Der Seitentitel wiederholt die Überschrift.'),
-                    new OpenPoint(29, 0, 'inhalt-verbessern', 'Ein Absatz ist sehr lang.'),
-                ];
-            }
-        };
-
-        $groups = $this->optionGroups($this->render(ImprovePageWidget::class, $reader));
-
-        self::assertSame([20, 29, 28, 30, 22], array_keys($groups['Recommended']));
-        self::assertSame('Bereich A – Open point from a guided tour', $groups['Recommended'][20]);
-        self::assertSame('Gesperrt fuer Bearbeitung – Meta description missing, Page title too short, Open point from a guided tour', $groups['Recommended'][29]);
-        self::assertSame([21, 26, 27], array_keys($groups['Recently changed']));
-    }
-
-    #[Test]
-    public function aPageTitleIsEscapedInTheImproveWidget(): void
-    {
-        $html = $this->render(ImprovePageWidget::class);
-
-        self::assertStringNotContainsString(self::XSS_TITLE, $html);
-        self::assertStringContainsString('<option value="26">' . self::XSS_ESCAPED . '</option>', $html);
-    }
-
-    /** A suggested page's title is escaped as well. */
-    #[Test]
-    public function aSuggestedPageTitleIsEscaped(): void
-    {
-        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
-        $connection->update('pages', ['tstamp' => 99999], ['uid' => 26]);
-
-        $html = $this->render(ImprovePageWidget::class);
-
-        self::assertStringNotContainsString(self::XSS_TITLE, $html);
-        self::assertStringContainsString('<option value="26">' . self::XSS_ESCAPED . ' – Meta description missing', $html);
-    }
-
-    #[Test]
-    public function aPageTitleIsEscapedInTheTasksWidget(): void
+    public function aTaskOnAPageStartsBesideThePageModule(): void
     {
         $html = $this->render(QuickTasksWidget::class);
 
-        self::assertStringNotContainsString(self::XSS_TITLE, $html);
-        self::assertStringContainsString('<option value="26">' . self::XSS_ESCAPED . '</option>', $html);
+        self::assertStringNotContainsString('<select', $html);
+        self::assertStringContainsString('<a class="nr-mcp-agent-row" href="' . htmlspecialchars($this->chatStart()->build('3:seo-optimieren')) . '" data-nr-chat-start="1" data-nr-chat-skill="3:seo-optimieren" data-nr-chat-page="" data-nr-chat-language="" data-nr-chat-page-module="1">', $html);
     }
 
+    /** "Edit a page": one primary action, to the page module, that the panel opens with a new chat beside it. */
     #[Test]
-    public function aTaskOnAPageAsksForThePageUnderAHiddenLabel(): void
+    public function editAPageRendersOnePrimaryAction(): void
     {
-        $html = $this->render(QuickTasksWidget::class);
+        $html = $this->renderFromRegistry('nrMcpAgentEditPage');
+        $uri  = (string) $this->get(UriBuilder::class)->buildUriFromRoute(EditPageWidget::PAGE_MODULE);
 
-        self::assertMatchesRegularExpression('/<label for="(nr-mcp-agent-tasks-[0-9a-f]{8}-page-0)" class="visually-hidden">Page for “Optimise SEO”<\/label>\s*<select id="\1" name="pageUid"/', $html);
-        self::assertStringContainsString('<input type="hidden" name="skill" value="3:seo-optimieren" />', $html);
-        self::assertStringContainsString('<input type="hidden" name="languageUid" value="0" />', $html);
-        self::assertStringContainsString('<button type="submit" class="btn btn-default">Optimise SEO</button>', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-intro">Choose a page, and we’ll change its content together.</p>', $html);
+        self::assertStringContainsString('<a class="btn btn-primary nr-mcp-agent-primary" href="' . htmlspecialchars($uri) . '" data-nr-chat-start="1" data-nr-chat-page-module="1">Choose a page to edit</a>', $html);
+        self::assertSame(1, substr_count($html, '<a '));
+    }
+
+    /**
+     * No tool to create pages or news is enabled on this installation, so
+     * "Create content" offers no button and says who can change that.
+     */
+    #[Test]
+    public function withoutTheToolsCreateContentOffersNoButtonAndExplainsWhy(): void
+    {
+        $html = $this->renderFromRegistry('nrMcpAgentCreateContent');
+
+        self::assertStringNotContainsString('<a ', $html);
+        self::assertStringContainsString('I can’t create new content for you here yet. Your administrator can enable the tools for it.', $html);
     }
 
     /**
@@ -386,12 +331,19 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         self::assertStringContainsString('No open recommendations.', $html);
     }
 
+    /**
+     * As the dashboard renders it here: no image lacks an alt text, so that
+     * tile is a success; the SEO tour does not exist here, so there is no
+     * meta-description tile, which could start nothing.
+     */
     #[Test]
-    public function withoutAStoreTheRecommendationsSayHowPointsComeAbout(): void
+    public function withNothingOpenTheRecommendationsSayItIsDone(): void
     {
         $html = $this->renderFromRegistry('nrMcpAgentRecommendations');
 
-        self::assertStringContainsString('No open recommendations. When the AI assistant finds something to improve during a guided tour, it appears here.', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-intro">I’ve checked: nothing is open right now. Well done!</p>', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-tile-done-text">No missing alt texts – great!</p>', $html);
+        self::assertStringNotContainsString('meta description', $html);
     }
 
     /**
@@ -412,7 +364,53 @@ final class AssistantWidgetsRenderingTest extends FunctionalTestCase
         self::assertStringNotContainsString('<script>alert(2)</script>', $html);
         self::assertStringContainsString('&lt;script&gt;alert(2)&lt;/script&gt; Meta Description fehlt.', $html);
         self::assertStringNotContainsString(self::XSS_TITLE, $html);
-        self::assertStringContainsString('<a href="' . htmlspecialchars($this->chatStart()->build('3:seo-optimieren', 26, 0)) . '">Optimise SEO on “' . self::XSS_ESCAPED . '”</a>', $html);
+        self::assertStringContainsString(
+            '<a class="nr-mcp-agent-row" href="' . htmlspecialchars($this->chatStart()->build('3:seo-optimieren', 26, 0)) . '" data-nr-chat-start="1" data-nr-chat-skill="3:seo-optimieren" data-nr-chat-page="26" data-nr-chat-language="0" data-nr-chat-page-module="0">'
+            . '<span class="nr-mcp-agent-row-text"><span class="nr-mcp-agent-row-label">&lt;script&gt;alert(2)&lt;/script&gt; Meta Description fehlt.</span>'
+            . '<span class="nr-mcp-agent-row-secondary">Optimise SEO on “' . self::XSS_ESCAPED . '”</span></span>',
+            $html,
+        );
+        self::assertStringContainsString('<h2 class="nr-mcp-agent-subheading">Still open from your guided tours</h2>', $html);
+    }
+
+    /**
+     * The meta-description tile: the number, what it counts, and one action
+     * that starts the SEO tour on the newest page without one; its name says
+     * the number, what it counts and the page. Every page of this fixture the
+     * admin may improve lacks a description (20, 21, 22, 26, 28, 29, 30); the
+     * English translation 25 is in a language its page's site (none) lacks.
+     * Page 26 is changed last, and its title is editor input.
+     */
+    #[Test]
+    public function theMetaDescriptionTileCountsAndStartsTheSeoTourOnTheNewestPage(): void
+    {
+        $this->get(ConnectionPool::class)->getConnectionForTable('pages')->update('pages', ['tstamp' => 99999], ['uid' => 26]);
+
+        $html = $this->render(RecommendationsWidget::class, null, ['seo-optimieren'], true);
+
+        self::assertStringNotContainsString(self::XSS_TITLE, $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-intro">I’ve found a few things on your website that need work. Let’s tackle them together.</p>', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-tile-figure"><span class="nr-mcp-agent-tile-count">7</span> <span class="nr-mcp-agent-tile-label">Pages without a meta description</span></p>', $html);
+        self::assertStringContainsString('<p class="nr-mcp-agent-tile-detail">We’ll start with “' . self::XSS_ESCAPED . '”.</p>', $html);
+        self::assertStringContainsString(
+            '<a class="btn btn-primary nr-mcp-agent-tile-action" href="' . htmlspecialchars($this->chatStart()->build('3:seo-optimieren', 26, 0)) . '"'
+            . ' aria-label="Start now: 7 Pages without a meta description, with the SEO tour, starting with “' . self::XSS_ESCAPED . '”"'
+            . ' data-nr-chat-start="1" data-nr-chat-skill="3:seo-optimieren" data-nr-chat-page="26" data-nr-chat-language="0">Start now</a>',
+            $html,
+        );
+    }
+
+    /** Once every page has a description, the tile says so and offers no action. */
+    #[Test]
+    public function aMetaDescriptionCountOfZeroIsASuccess(): void
+    {
+        $this->get(ConnectionPool::class)->getConnectionForTable('pages')->update('pages', ['description' => 'Steht da.'], ['deleted' => 0]);
+
+        $html = $this->render(RecommendationsWidget::class, null, ['seo-optimieren'], true);
+
+        self::assertStringContainsString('<p class="nr-mcp-agent-intro">I’ve checked: nothing is open right now. Well done!</p>', $html);
+        self::assertMatchesRegularExpression('#<li class="nr-mcp-agent-tile nr-mcp-agent-tile-descriptions nr-mcp-agent-tile-done">\s*<svg class="nr-mcp-agent-tile-check"[^>]*aria-hidden="true"[^>]*>.*</svg>\s*<p class="nr-mcp-agent-tile-done-text">Every page you may edit has a meta description – great!</p>#s', $html);
+        self::assertStringNotContainsString('nr-mcp-agent-tile-action', $html);
     }
 
     /**

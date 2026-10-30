@@ -1,0 +1,20 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<f:layout name="Widget/Widget" />
+<f:section name="main">
+    <f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_dashboard.xlf:" />
+    <div class="nr-mcp-agent-widget nr-mcp-agent-edit-page">
+        <f:if condition="{available}">
+            <f:then>
+                <p class="nr-mcp-agent-intro">{f:translate(key: '{ll}editPage.intro')}</p>
+                <f:comment>The page module opens with its page tree, and a new chat beside it follows the page chosen there.</f:comment>
+                <a class="btn btn-primary nr-mcp-agent-primary" href="{uri}" data-nr-chat-start="1" data-nr-chat-page-module="1">{f:translate(key: '{ll}editPage.action')}</a>
+            </f:then>
+            <f:else>
+                <p>{f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.notAvailable')}</p>
+            </f:else>
+        </f:if>
+    </div>
+</f:section>

@@ -38,6 +38,20 @@ services:
   Netresearch\NrMcpAgent\Service\AltText\AltTextImagePolicyInterface:
     alias: Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy
 
+  # The dashboard's page counts, shared by the widgets' requests (ext_localconf.php).
+  cache.nrmcpagent_dashboard:
+    class: TYPO3\CMS\Core\Cache\Frontend\FrontendInterface
+    factory: ['@TYPO3\CMS\Core\Cache\CacheManager', 'getCache']
+    arguments: ['nrmcpagent_dashboard']
+
+  Netresearch\NrMcpAgent\Service\Assistant\DescriptionTour:
+    arguments:
+      $cache: '@cache.nrmcpagent_dashboard'
+
+  # Instantiated by DataHandler through makeInstance().
+  Netresearch\NrMcpAgent\Hooks\DashboardCountInvalidation:
+    public: true
+
   Netresearch\NrMcpAgent\Controller\ChatModuleController:
     public: true
 

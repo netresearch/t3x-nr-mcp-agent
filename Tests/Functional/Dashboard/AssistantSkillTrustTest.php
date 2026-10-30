@@ -12,13 +12,10 @@ namespace Netresearch\NrMcpAgent\Tests\Functional\Dashboard;
 use Netresearch\NrMcpAgent\Backend\ToolbarItems\ChatToolbarItem;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Dashboard\ImprovePageWidget;
-use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\SkillTrustRepository;
 use Netresearch\NrMcpAgent\Service\Assistant\CatalogueSkillResolver;
 use Netresearch\NrMcpAgent\Service\Assistant\ChatStartUriBuilder;
 use Netresearch\NrMcpAgent\Service\Assistant\ConfiguredGuidedSkillProvider;
-use Netresearch\NrMcpAgent\Service\Assistant\DeterministicPageSuggestionProvider;
-use Netresearch\NrMcpAgent\Service\Assistant\NullOpenPointReader;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
 use Netresearch\NrMcpAgent\Tests\Unit\Service\Assistant\SkillCatalogueStub;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,8 +27,6 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
-use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
-use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Dashboard\Widgets\WidgetConfigurationInterface;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
@@ -86,14 +81,11 @@ final class AssistantSkillTrustTest extends FunctionalTestCase
     private function renderImprovePage(CatalogueSkillResolver $resolver): string
     {
         $config = new ExtensionConfiguration();
-        $pages  = new PageChoiceRepository($this->get(ConnectionPool::class), $this->get(SiteFinder::class), $this->get(TcaSchemaFactory::class));
         $widget = new ImprovePageWidget(
             $this->createMock(WidgetConfigurationInterface::class),
             $this->get(BackendViewFactory::class),
             new ChatToolbarItem($config, $this->get(PageRenderer::class)),
             new ConfiguredGuidedSkillProvider($config, new SkillLabels($this->get(LanguageServiceFactory::class)), $resolver),
-            $pages,
-            new DeterministicPageSuggestionProvider(new NullOpenPointReader(), $pages, $this->get(LanguageServiceFactory::class)),
             new ChatStartUriBuilder($this->get(UriBuilder::class)),
         );
         $widget->setRequest(
@@ -131,7 +123,7 @@ final class AssistantSkillTrustTest extends FunctionalTestCase
     {
         $html = $this->renderImprovePage($this->resolver([1 => ['source' => 2, 'trust' => 'community'], 2 => ['source' => 5, 'trust' => 'verified']]));
 
-        self::assertStringContainsString('name="skill" value="5:seo-optimieren"', $html);
+        self::assertStringContainsString('data-nr-chat-skill="5:seo-optimieren"', $html);
         self::assertStringContainsString('Optimise SEO', $html);
         self::assertStringNotContainsString('2:seo-optimieren', $html);
     }

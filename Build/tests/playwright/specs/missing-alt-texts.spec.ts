@@ -43,7 +43,7 @@ async function openDashboard(page: Page): Promise<FrameLocator> {
     await expect.poll(() => routerModule(page)).toMatch(/^dashboard$/);
     const frame = page.frameLocator('iframe[name="list_frame"]');
     await expect(frame.locator('.nr-mcp-agent-website-check')).toBeVisible({ timeout: 15000 });
-    await expect(frame.locator('.nr-mcp-agent-alt-text-tile')).toBeVisible({ timeout: 15000 });
+    await expect(frame.locator('.nr-mcp-agent-tile-altTexts')).toBeVisible({ timeout: 15000 });
     await dashboardWidgetsLoaded(page);
 
     return frame;
@@ -96,13 +96,14 @@ test.describe('The list of missing alt texts', () => {
 
     test('the tile in "Recommended for your website" counts the images and leads to the list', async ({ page }) => {
         const frame = await openDashboard(page);
-        const tile = frame.locator('.nr-mcp-agent-alt-text-tile');
+        const tile = frame.locator('.nr-mcp-agent-tile-altTexts');
 
         await expect(tile).toContainText('3');
         await expect(tile).toContainText('Images without alt text');
         await expect(tile).toContainText('Found on 1 page and in 1 record');
 
-        await follow(frame, tile.getByRole('link', { name: 'View: images without alt text' }));
+        // The name starts with the visible "View" and says the number and what it counts.
+        await follow(frame, tile.getByRole('link', { name: 'View: 3 Images without alt text' }));
     });
 
     test('"Pages" comes first and open, each record type follows as a tab', async ({ page }) => {

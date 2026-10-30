@@ -1,0 +1,186 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SPDX-FileCopyrightText: Netresearch DTT GmbH */
+
+/* The AI assistant widgets on the dashboard (AssistantListWidget.php): an
+ * opening sentence, then one primary action, a list of rows with a chevron,
+ * number tiles or a grid of buttons.
+ *
+ * Every colour comes from the backend's tokens, so light and dark follow the
+ * backend's colour scheme; buttons are TYPO3's own .btn-primary. The focus
+ * outline of a row is drawn in the text colour, which keeps its contrast
+ * against the row in both schemes. */
+
+.nr-mcp-agent-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    height: 100%;
+}
+
+.nr-mcp-agent-intro {
+    max-width: 65ch;
+    margin: 0;
+}
+
+.nr-mcp-agent-subheading {
+    margin: 0.25rem 0 0;
+    font-size: 1em;
+    font-weight: 600;
+}
+
+/* One primary action, kept at the bottom of the widget as in the design. */
+.nr-mcp-agent-primary {
+    width: 100%;
+    margin-top: auto;
+}
+
+/* Rows: the whole row is the link. */
+.nr-mcp-agent-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color);
+    border-radius: var(--typo3-component-border-radius);
+    background: var(--typo3-component-bg);
+    overflow: hidden;
+}
+
+.nr-mcp-agent-rows-item + .nr-mcp-agent-rows-item {
+    border-top: var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color);
+}
+
+.nr-mcp-agent-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    color: var(--typo3-component-color);
+    text-decoration: none;
+}
+
+.nr-mcp-agent-row:hover {
+    background: var(--typo3-component-hover-bg);
+    color: var(--typo3-component-hover-color, var(--typo3-component-color));
+    text-decoration: none;
+}
+
+.nr-mcp-agent-row:focus-visible {
+    position: relative;
+    outline: 2px solid var(--typo3-text-color-base, currentColor);
+    outline-offset: -2px;
+    background: var(--typo3-component-hover-bg);
+}
+
+.nr-mcp-agent-row-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.nr-mcp-agent-row-secondary {
+    color: var(--typo3-text-color-variant);
+    font-size: 0.875em;
+}
+
+.nr-mcp-agent-row-chevron {
+    flex: none;
+    color: var(--typo3-text-color-variant);
+}
+
+.nr-mcp-agent-row:hover .nr-mcp-agent-row-chevron,
+.nr-mcp-agent-row:focus-visible .nr-mcp-agent-row-chevron {
+    color: inherit;
+}
+
+/* Number tiles: the number first and large, what it counts, one action. */
+.nr-mcp-agent-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.nr-mcp-agent-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: var(--typo3-component-border-width, 1px) solid var(--typo3-component-border-color);
+    border-radius: var(--typo3-component-border-radius);
+    background: var(--typo3-component-bg);
+}
+
+.nr-mcp-agent-tile-figure {
+    margin: 0;
+}
+
+.nr-mcp-agent-tile-count {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: 400;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.nr-mcp-agent-tile-detail {
+    margin: 0;
+    color: var(--typo3-text-color-variant);
+    font-size: 0.875em;
+}
+
+.nr-mcp-agent-tile-action {
+    width: 100%;
+    margin-top: auto;
+}
+
+/* A count that reached 0: a short success state, no action. */
+.nr-mcp-agent-tile-done {
+    justify-content: center;
+}
+
+.nr-mcp-agent-tile-check {
+    color: var(--typo3-text-color-success);
+}
+
+.nr-mcp-agent-tile-done-text {
+    margin: 0;
+}
+
+/* A short note below an action. */
+.nr-mcp-agent-hint {
+    margin: 0;
+    color: var(--typo3-text-color-variant);
+    font-size: 0.875em;
+}
+
+/* The grid of "create" buttons. */
+.nr-mcp-agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.nr-mcp-agent-grid-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: start;
+}
+
+@media (forced-colors: active) {
+    .nr-mcp-agent-row:focus-visible {
+        outline-color: Highlight;
+    }
+
+    .nr-mcp-agent-tile-check {
+        color: CanvasText;
+    }
+}
