@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-10-30
+
+### Fixed
+
+- **The status badge "Bereit" is readable in the selected chat row (#285).** In TYPO3 14.3 its text colour followed the row colour, so the badge was white on white in the selected row (1.04:1) and too faint elsewhere. Neutral badges now use the core badge colours, and the warning badge's edge uses the warning text colour; every tone reaches at least 4.5:1 text contrast in light and dark mode.
+- **The start time that tells alike chats apart stays visible (#285).** In narrow lists and in the selected sidebar row it was cut off first. It now never shrinks; the title before it is shortened instead. In the narrow dashboard widget the arrow stays on the title line.
+- **"Letzte Chats" shows in its full-width size on dashboards arranged before 0.26.0 (#285).** TYPO3 keeps a widget's size once it is placed, so those dashboards kept the old narrow widget.
+
+### Upgrading
+
+- **Run the upgrade wizard `nrMcpAgent_recentChatsWidgetSize`.** It removes only the stored position of the "Letzte Chats" widget where it is smaller than the new size, on every dashboard. The dashboard then places it again at full width, usually below the widgets that shared its rows; other widgets keep their places.
+
 ## [0.26.1] - 2026-10-30
 
 ### Fixed
