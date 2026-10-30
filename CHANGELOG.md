@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-10-30
+
+### Fixed
+
+- **Two tours started on the same page within one minute have different titles (#283).** The start time after a repeated title stops at the minute, so both read "SEO optimieren · RTE CKEditor Image · 29. Okt., 11:27". Where the minute does not tell them apart, the label now includes the seconds; where even the second is the same, the conversations are numbered "(1)", "(2)" in the order they were started.
+
 ## [0.26.0] - 2026-10-30
 
 ### Changed
