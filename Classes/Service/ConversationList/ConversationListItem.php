@@ -30,6 +30,7 @@ final readonly class ConversationListItem implements JsonSerializable
      * @param string                                                                               $createdAt    ISO 8601, '' when unknown
      * @param array{kind: string, text: string, label: string, absolute: string, datetime: string} $lastActivity when the last message was written
      * @param 'neutral'|'info'|'warning'|'danger'                                                  $statusTone   the colour the status is shown in
+     * @param string                                                                               $titleSuffix  what tells two alike titles apart, the end of $displayTitle; '' when nothing has to
      */
     public function __construct(
         public int $uid,
@@ -52,15 +53,20 @@ final readonly class ConversationListItem implements JsonSerializable
         public string $statusLabel,
         public int $messageCount,
         public bool $pinned,
+        public string $titleSuffix = '',
     ) {}
 
-    /** The same item with another title, as the presenter tells two alike apart. */
-    public function withDisplayTitle(string $displayTitle): self
+    /**
+     * The same item with the start time after its title, as the presenter
+     * tells two alike apart. The suffix is kept apart as well, so a list that
+     * shortens the title shortens the part before it (ADR-027).
+     */
+    public function withTitleSuffix(string $suffix): self
     {
         return new self(
             uid: $this->uid,
             title: $this->title,
-            displayTitle: $displayTitle,
+            displayTitle: $this->displayTitle . ConversationTitle::SEPARATOR . $suffix,
             fullTitle: $this->fullTitle,
             titleKind: $this->titleKind,
             context: $this->context,
@@ -78,7 +84,16 @@ final readonly class ConversationListItem implements JsonSerializable
             statusLabel: $this->statusLabel,
             messageCount: $this->messageCount,
             pinned: $this->pinned,
+            titleSuffix: $suffix,
         );
+    }
+
+    /** The shown title without the suffix that tells it apart; the whole title when there is none. */
+    public function getTitleBase(): string
+    {
+        return $this->titleSuffix === ''
+            ? $this->displayTitle
+            : substr($this->displayTitle, 0, -strlen(ConversationTitle::SEPARATOR . $this->titleSuffix));
     }
 
     /**
@@ -90,6 +105,7 @@ final readonly class ConversationListItem implements JsonSerializable
             'uid'          => $this->uid,
             'title'        => $this->title,
             'displayTitle' => $this->displayTitle,
+            'titleSuffix'  => $this->titleSuffix,
             'fullTitle'    => $this->fullTitle,
             'titleKind'    => $this->titleKind,
             'contextLabel' => $this->contextLabel,

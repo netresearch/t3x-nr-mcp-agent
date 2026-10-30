@@ -142,6 +142,30 @@ describe('the chat module list', () => {
         expect(titles).toHaveLength(3);
     });
 
+    /**
+     * The start time that tells two alike titles apart is a span the row
+     * does not shrink; the title before it is cut short instead. Read as
+     * one, the row still says the whole title, for screen readers too.
+     */
+    test('keeps the start that tells two alike chats apart out of the part that is cut short', async () => {
+        const twin = (uid, suffix) => ({...TOUR, uid, displayTitle: `SEO optimieren · Über uns · ${suffix}`, titleSuffix: suffix});
+        const el = await render('../../Resources/Public/JavaScript/chat-app.js', 'nr-chat-app', null, {
+            conversations: [twin(7, '29. Okt., 11:27:01'), twin(10, '29. Okt., 11:27:44'), OWN],
+        });
+        const titles = [...el.shadowRoot.querySelectorAll('.conversation-item .conv-summary-title')];
+        const split = titles.filter((t) => t.classList.contains('conv-summary-title--split'));
+
+        expect(split.map((t) => [t.querySelector('.conv-summary-title-base').textContent, t.querySelector('.conv-summary-title-suffix').textContent]))
+            .toEqual(expect.arrayContaining([
+                ['SEO optimieren · Über uns', ' · 29. Okt., 11:27:01'],
+                ['SEO optimieren · Über uns', ' · 29. Okt., 11:27:44'],
+            ]));
+        expect(split).toHaveLength(2);
+        expect(split.map((t) => t.textContent.trim())).toContain('SEO optimieren · Über uns · 29. Okt., 11:27:01');
+        // A title without a suffix stays one piece.
+        expect(titles.find((t) => !t.classList.contains('conv-summary-title--split')).querySelector('.conv-summary-title-suffix')).toBeNull();
+    });
+
     test('names the open conversation by its display title', async () => {
         const el = await render('../../Resources/Public/JavaScript/chat-app.js', 'nr-chat-app');
 
@@ -302,5 +326,17 @@ describe('keeping the lists in step', () => {
         chat.conversations = [{...EMPTY, messageCount: 2}];
         await chat.handleSend('Und wie viele davon sind versteckt?');
         expect(chat._api.listConversations).not.toHaveBeenCalled();
+    });
+});
+
+describe('splitTitle()', () => {
+    test('splits off the suffix the server added, and only that', async () => {
+        const {splitTitle} = await import('../../Resources/Public/JavaScript/conversation-list.js');
+
+        expect(splitTitle('SEO optimieren · Über uns · 29. Okt., 11:27:01', '29. Okt., 11:27:01')).toEqual(['SEO optimieren · Über uns', '29. Okt., 11:27:01']);
+        // Renamed since: the suffix is no longer at its end.
+        expect(splitTitle('Mein Titel', '29. Okt., 11:27:01')).toEqual(['Mein Titel', '']);
+        expect(splitTitle('SEO optimieren', '')).toEqual(['SEO optimieren', '']);
+        expect(splitTitle('SEO optimieren', undefined)).toEqual(['SEO optimieren', '']);
     });
 });

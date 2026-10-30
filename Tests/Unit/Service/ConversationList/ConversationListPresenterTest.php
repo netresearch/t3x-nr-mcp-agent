@@ -439,6 +439,41 @@ final class ConversationListPresenterTest extends TestCase
         self::assertCount(4, array_unique($titles));
     }
 
+    /**
+     * The start time that tells them apart is also kept apart from the title,
+     * so a list that has to shorten the title shortens the part before it
+     * (the dashboard widget cut "29. Okt., 11:27:01" off, and the rows read
+     * alike). A title nothing has to tell apart has no suffix.
+     */
+    #[Test]
+    public function theStartThatTellsThemApartIsKeptApartFromTheTitle(): void
+    {
+        $tours = [];
+        foreach ([4 => '2026-10-29T11:27:44+00:00', 5 => '2026-10-29T11:27:44+00:00', 6 => '2026-10-29T11:27:01+00:00'] as $uid => $time) {
+            $tour = Conversation::fromRow(['uid' => $uid, 'be_user' => 3, 'title' => 'Diese Seite prüfen', 'message_count' => 2, 'crdate' => strtotime($time)]);
+            $tour->setViewContext(12, 'web_layout', 1);
+            $tour->setSkillIdentifier('seo-optimieren', 4);
+            $tours[] = $tour;
+        }
+
+        $items = [];
+        foreach ($this->presenter([12 => ['uid' => 12, 'title' => 'Über uns']])->present([...$tours, $this->conversation(7)], $this->user()) as $item) {
+            $items[$item->uid] = $item;
+        }
+
+        self::assertMatchesRegularExpression('/^29\. Okt\.?,? 11:27:01$/', $items[6]->titleSuffix);
+        self::assertMatchesRegularExpression('/^29\. Okt\.?,? 11:27:44 \(1\)$/', $items[4]->titleSuffix);
+        self::assertMatchesRegularExpression('/^29\. Okt\.?,? 11:27:44 \(2\)$/', $items[5]->titleSuffix);
+        foreach ([4, 5, 6] as $uid) {
+            self::assertSame('SEO optimieren · Über uns', $items[$uid]->getTitleBase());
+            self::assertSame($items[$uid]->getTitleBase() . ' · ' . $items[$uid]->titleSuffix, $items[$uid]->displayTitle);
+            self::assertSame($items[$uid]->titleSuffix, $items[$uid]->jsonSerialize()['titleSuffix']);
+        }
+
+        self::assertSame('', $items[7]->titleSuffix);
+        self::assertSame($items[7]->displayTitle, $items[7]->getTitleBase());
+    }
+
     /** The time is kept on the conversation; only a row without it is read from its last message. */
     #[Test]
     public function theLastMessageTimeIsReadFromTheMessagesOnlyForARowWithoutIt(): void

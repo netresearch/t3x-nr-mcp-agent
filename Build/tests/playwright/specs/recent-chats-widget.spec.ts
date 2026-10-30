@@ -66,6 +66,38 @@ test.describe('The "Recent chats" dashboard widget', () => {
             .toHaveAccessibleName(/^E2E recent deleted page\s*,\s*Deleted page · Guided tour\s*,\s*Ready\s*,\s*Jan 1$/);
     });
 
+    /**
+     * Two chats with the same title, started within one minute, are told
+     * apart by the second they were started. In a narrow widget the title was
+     * cut short at its end, so the start time was what disappeared and the
+     * rows read alike; and the arrow took a line of its own. Measured with
+     * getBoundingClientRect(), at the width of a one-column widget.
+     */
+    test('a narrow widget keeps the time that tells two chats apart, and the arrow beside the title', async ({ page }) => {
+        const frame = await openDashboard(page);
+        const twins = frame.getByRole('link', { name: /^E2E recent twin/ });
+        await expect(twins).toHaveCount(2);
+        await expect(twins.first()).toHaveAccessibleName(/^E2E recent twin with a title long enough to be cut short · .*11:27:44/);
+
+        await frame.locator('.nr-recent-chats').evaluate((list: HTMLElement) => { list.style.width = '280px'; });
+        const rows = await twins.evaluateAll((links) => links.map((link) => {
+            const title = link.querySelector('.nr-recent-chats-title')!.getBoundingClientRect();
+            const base = link.querySelector('.nr-recent-chats-title-base') as HTMLElement;
+            const suffix = link.querySelector('.nr-recent-chats-title-suffix')!.getBoundingClientRect();
+            const arrow = link.querySelector('.nr-recent-chats-arrow')!.getBoundingClientRect();
+            return {
+                baseCut: base.scrollWidth > base.clientWidth,
+                suffixInside: suffix.width > 0 && suffix.right <= title.right + 0.5,
+                arrowBesideTitle: arrow.top < title.bottom && arrow.bottom > title.top,
+            };
+        }));
+
+        expect(rows).toEqual([
+            { baseCut: true, suffixInside: true, arrowBesideTitle: true },
+            { baseCut: true, suffixInside: true, arrowBesideTitle: true },
+        ]);
+    });
+
     test('a chat about a page opens in the chat and shows its page in the page module', async ({ page }) => {
         const frame = await openDashboard(page);
         const panel = page.locator('ai-chat-panel');

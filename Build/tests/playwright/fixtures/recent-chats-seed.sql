@@ -27,6 +27,15 @@ VALUES
     (0, @admin_uid, 'E2E recent tour', '', 2, 'idle', '', '{"pageId":3,"module":"web_layout","languageId":0}', 'e2e-process', '', '{"progress":{"label":"E2E","current":2,"total":4,"completed":false},"highlight":null}', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
     (0, @admin_uid, 'E2E recent deleted page', '', 2, 'idle', '', '{"pageId":4,"module":"web_layout"}', 'e2e-process', '', '', '', '', '', '', '', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
 
+-- Two chats with the same long title, started within one minute: the list
+-- tells them apart by the second they were started, and a narrow widget must
+-- cut the title short, not that time (recent-chats-widget.spec.ts).
+INSERT INTO tx_nrmcpagent_conversation
+    (pid, be_user, title, messages, message_count, status, system_prompt, view_context, skill_identifier, activity, guided_state, approval_card, card_outcomes, error_message, approval_run_uuid, pending_input, tstamp, crdate)
+VALUES
+    (0, @admin_uid, 'E2E recent twin with a title long enough to be cut short', '', 2, 'idle', '', '', '', '', '', '', '', '', '', '', UNIX_TIMESTAMP('2026-10-29 11:27:01'), UNIX_TIMESTAMP('2026-10-29 11:27:01')),
+    (0, @admin_uid, 'E2E recent twin with a title long enough to be cut short', '', 2, 'idle', '', '', '', '', '', '', '', '', '', '', UNIX_TIMESTAMP('2026-10-29 11:27:44'), UNIX_TIMESTAMP('2026-10-29 11:27:44'));
+
 INSERT INTO tx_nrmcpagent_message (pid, conversation, sorting, role, payload, crdate)
 SELECT 0, c.uid, t.n, IF(t.n = 0, 'user', 'assistant'),
        JSON_OBJECT('role', IF(t.n = 0, 'user', 'assistant'),
