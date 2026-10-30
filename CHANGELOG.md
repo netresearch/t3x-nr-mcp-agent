@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-10-30
+
+### Fixed
+
+- **"Recent chats" no longer cuts off its last row behind "New chat" (#291).** Ten rows with a context line are taller than the widget, and the dashboard's content area scrolled the hint and the list together, so the last row ended under the footer. The list now scrolls in a named, keyboard-reachable section of its own; the hint stays above it and "New chat" and "Show all chats" stay below it.
+
 ## [0.27.1] - 2026-10-30
 
 ### Fixed
