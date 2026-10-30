@@ -1,0 +1,44 @@
+"be_groups"
+,"uid","pid","title","tables_modify","non_exclude_fields","allowed_languages","workspace_perms","tstamp","crdate"
+,1,0,"Redaktion","pages","pages:description","",1,1710000000,1710000000
+,2,0,"Ohne Beschreibungsfeld","pages","","",1,1710000000,1710000000
+,3,0,"Nur Englisch","pages","pages:description","1",1,1710000000,1710000000
+,4,0,"Ohne Seiten","","pages:description","",1,1710000000,1710000000
+"be_users"
+,"uid","pid","username","password","admin","db_mountpoints","options","usergroup","workspace_id","workspace_perms","tstamp","crdate"
+,1,0,"admin","$2y$12$xxx",1,"",0,"",0,1,1710000000,1710000000
+,2,0,"editor","$2y$12$xxx",0,"1",3,"1",0,1,1710000000,1710000000
+,3,0,"no-field","$2y$12$xxx",0,"1",3,"2",0,1,1710000000,1710000000
+,4,0,"english","$2y$12$xxx",0,"1",3,"3",0,1,1710000000,1710000000
+,5,0,"no-pages","$2y$12$xxx",0,"1",3,"4",0,1,1710000000,1710000000
+"sys_workspace"
+,"uid","pid","title"
+,1,0,"Entwurf"
+"pages"
+,"uid","pid","title","doktype","sys_language_uid","l10n_parent","description","hidden","deleted","editlock","perms_userid","perms_user","perms_everybody","t3ver_wsid","t3ver_oid","t3ver_state","tstamp"
+,1,0,"Start",1,0,0,"",0,0,0,1,31,31,0,0,0,100
+,2,1,"Mit Beschreibung",1,0,0,"Steht da.",0,0,0,1,31,31,0,0,0,200
+,3,1,"Nur Leerzeichen",1,0,0,"   ",0,0,0,1,31,31,0,0,0,300
+,4,1,"Versteckt",1,0,0,"",1,0,0,1,31,31,0,0,0,400
+,5,1,"Ordner",254,0,0,"",0,0,0,1,31,31,0,0,0,500
+,6,1,"Link",3,0,0,"",0,0,0,1,31,31,0,0,0,600
+,7,1,"Nur ansehen",1,0,0,"",0,0,0,1,1,1,0,0,0,700
+,8,1,"Gesperrt",1,0,0,"",0,0,1,1,31,31,0,0,0,800
+,9,1,"Geloescht",1,0,0,"",0,1,0,1,31,31,0,0,0,850
+,10,1,"Start (EN)",1,1,1,"",0,0,0,1,31,31,0,0,0,150
+,11,1,"With description (EN)",1,1,2,"",0,0,0,1,31,31,0,0,0,250
+,12,1,"Hidden parent (EN)",1,1,4,"",0,0,0,1,31,31,0,0,0,450
+,13,1,"Start (FR)",1,2,1,"",0,0,0,1,31,31,0,0,0,460
+,14,1,"Spaces (EN) hidden",1,1,3,"",1,0,0,1,31,31,0,0,0,470
+,15,0,"Fremder Baum",1,0,0,"",0,0,0,1,31,31,0,0,0,650
+,16,1,"Abstand",199,0,0,"",0,0,0,1,31,31,0,0,0,660
+,17,1,"Neu",1,0,0,\NULL,0,0,0,1,31,31,0,0,0,900
+,18,1,"Benutzerbereich",6,0,0,"",0,0,0,1,31,31,0,0,0,910
+,19,1,"Mountpoint",7,0,0,"",0,0,0,1,31,31,0,0,0,920
+,20,1,"Mit Beschreibung",1,0,0,"",0,0,0,1,31,31,1,2,0,200
+,21,1,"Nur Leerzeichen",1,0,0,"Neu im Entwurf.",0,0,0,1,31,31,1,3,0,300
+,22,1,"Neu im Entwurf",1,0,0,"",0,0,0,1,31,31,1,0,1,950
+,23,1,"Neu",1,0,0,\NULL,0,0,0,1,31,31,1,17,2,900
+,24,1,"Start",1,0,0,"Im Entwurf geschrieben.",0,0,0,1,31,31,1,1,0,100
+,25,1,"Wird Ordner",1,0,0,"",0,0,0,1,31,31,0,0,0,500
+,26,1,"Wird Ordner",254,0,0,"",0,0,0,1,31,31,1,25,0,500
