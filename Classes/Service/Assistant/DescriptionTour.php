@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service\Assistant;
 
+use Doctrine\DBAL\Exception as DatabaseException;
 use Netresearch\NrMcpAgent\Domain\Repository\MissingDescriptionRepository;
+use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 
@@ -26,6 +28,10 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
  * most five minutes (ext_localconf.php). DashboardCountInvalidation drops it
  * whenever DataHandler writes a page, so an editor's own change shows on the
  * next dashboard; a change of permissions shows within five minutes.
+ *
+ * Where the cache cannot be read or written (its tables are missing when a
+ * deploy skipped `extension:setup`), the count is read directly and the
+ * failure logged, once per widget request.
  */
 final readonly class DescriptionTour
 {
@@ -43,6 +49,7 @@ final readonly class DescriptionTour
         private SkillLabels $labels,
         private SkillResolverInterface $resolver,
         private FrontendInterface $cache,
+        private ?LoggerInterface $logger = null,
     ) {}
 
     /**
@@ -77,8 +84,19 @@ final readonly class DescriptionTour
      */
     private function counted(): ?array
     {
-        $key    = $this->cacheKey();
-        $cached = $key === null ? false : $this->cache->get($key);
+        $key = $this->cacheKey();
+        if ($key === null) {
+            return $this->descriptions->summary();
+        }
+
+        try {
+            $cached = $this->cache->get($key);
+        } catch (DatabaseException $exception) {
+            $this->cacheFailed($exception);
+
+            return $this->descriptions->summary();
+        }
+
         if (is_array($cached) && array_key_exists('summary', $cached)) {
             /** @var array{count: int, translations: int, first: array{pageUid: int, languageUid: int, title: string}|null}|null $summary */
             $summary = $cached['summary'];
@@ -87,11 +105,21 @@ final readonly class DescriptionTour
         }
 
         $summary = $this->descriptions->summary();
-        if ($key !== null) {
+        try {
             $this->cache->set($key, ['summary' => $summary], [self::CACHE_TAG]);
+        } catch (DatabaseException $exception) {
+            $this->cacheFailed($exception);
         }
 
         return $summary;
+    }
+
+    private function cacheFailed(DatabaseException $exception): void
+    {
+        $this->logger?->warning('The dashboard cache "{cache}" is not usable, the page count is read directly. Run "typo3 extension:setup" to create its tables.', [
+            'cache'     => self::CACHE,
+            'exception' => $exception,
+        ]);
     }
 
     /** What the count depends on besides the pages: who, where, and what they may do. Null without a user. */
