@@ -42,3 +42,4 @@ consequences of each decision.
     ADR-024-chat-as-a-column-beside-the-page-tree
     ADR-025-the-skill-says-whether-it-needs-a-page
     ADR-026-missing-alt-texts-site-check
+    ADR-027-every-list-names-a-chat-by-its-context

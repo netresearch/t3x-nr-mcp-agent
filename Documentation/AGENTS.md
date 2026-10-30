@@ -7,7 +7,7 @@
 
 ## Overview
 
-RST documentation rendered on docs.typo3.org via `guides.xml`. Structure: `Introduction/`, `Installation/`, `Configuration/`, `Usage/`, `Developer/` (`Architecture.rst`, `AgentLoop.rst`, `Commands.rst`, `Testing.rst`, `ADR/` with ADR-001…026), `Changelog.rst`, `Images/`.
+RST documentation rendered on docs.typo3.org via `guides.xml`. Structure: `Introduction/`, `Installation/`, `Configuration/`, `Usage/`, `Developer/` (`Architecture.rst`, `AgentLoop.rst`, `Commands.rst`, `Testing.rst`, `ADR/` with ADR-001…027), `Changelog.rst`, `Images/`.
 
 ## Setup
 
