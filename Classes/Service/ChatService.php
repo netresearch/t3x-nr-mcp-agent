@@ -1396,17 +1396,29 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // proposal writes, from which the chat derives the point and the
         // highlight the model did not report (amendment of 2026-10-31).
         // Read only for a process run: an ordinary chat pays nothing for it.
-        $proposalView = $this->guidedState instanceof GuidedStateLinker && $result->outcome === AgentRunOutcome::AWAITING_APPROVAL && $result->runUuid !== ''
+        // The derivation is a convenience: if reading the proposal fails,
+        // the pause is kept and only the derivation is skipped.
+        $onProposal = false;
+        $proposal   = null;
+        if ($this->guidedState instanceof GuidedStateLinker && $result->outcome === AgentRunOutcome::AWAITING_APPROVAL && $result->runUuid !== ''
             && ($this->processRuns?->isProcessRun($conversation) ?? false)
-            ? $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $result->runUuid)
-            : null;
-        $onProposal = $proposalView instanceof WaitingRunView && $this->offersProcessAnswers($conversation, $proposalView);
-        $this->guidedState?->absorb(
-            $conversation,
-            $result->runUuid,
-            $onProposal,
-            $onProposal ? NrLlmCardTarget::of($proposalView) : null,
-        );
+        ) {
+            try {
+                $view       = $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $result->runUuid);
+                $onProposal = $view instanceof WaitingRunView && $this->offersProcessAnswers($conversation, $view);
+                $proposal   = $onProposal && $view instanceof WaitingRunView ? NrLlmCardTarget::of($view) : null;
+            } catch (Throwable $e) {
+                $onProposal = false;
+                $proposal   = null;
+                $this->logger?->warning('Pending proposal of run {run} not read for the guided state: {message}', [
+                    'run'       => $result->runUuid,
+                    'message'   => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+            }
+        }
+
+        $this->guidedState?->absorb($conversation, $result->runUuid, $onProposal, $proposal);
 
         // Every recorded run, whatever its outcome — completed, failed,
         // refused, stopped or waiting: the next turn names it as predecessor

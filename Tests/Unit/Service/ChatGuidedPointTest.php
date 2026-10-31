@@ -43,6 +43,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
@@ -86,7 +87,7 @@ final class ChatGuidedPointTest extends TestCase
         ]);
     }
 
-    private function service(AgentRunResult|Throwable $answer, ?WaitingRunView $next = null, bool $processRun = true): ChatService
+    private function service(AgentRunResult|Throwable $answer, WaitingRunView|Throwable|null $next = null, bool $processRun = true): ChatService
     {
         $runtime = $this->createStub(AgentRuntimeInterface::class);
         if ($answer instanceof Throwable) {
@@ -97,7 +98,17 @@ final class ChatGuidedPointTest extends TestCase
 
         $reader = $this->createStub(PendingApprovalReaderInterface::class);
         $reader->method('read')->willReturnCallback(
-            static fn (mixed $actor, string $runUuid): ?WaitingRunView => $runUuid === 'run-2' ? $next : new WaitingRunView('run-1', WaitingRunView::MODE_APPROVAL, 0, 'Chat', 'digest-abc', []),
+            static function (mixed $actor, string $runUuid) use ($next): ?WaitingRunView {
+                if ($runUuid !== 'run-2') {
+                    return new WaitingRunView('run-1', WaitingRunView::MODE_APPROVAL, 0, 'Chat', 'digest-abc', []);
+                }
+
+                if ($next instanceof Throwable) {
+                    throw $next;
+                }
+
+                return $next;
+            },
         );
 
         $runs = $this->createStub(ProcessRunDetectorInterface::class);
@@ -222,6 +233,23 @@ final class ChatGuidedPointTest extends TestCase
         self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
         self::assertSame(3, $conversation->getGuidedState()['progress']['current'] ?? null);
         self::assertFalse($conversation->isGuidedPointSettled(), 'the move used the decision up');
+    }
+
+    /**
+     * Reading the proposal is only for the header: when it fails, the pause
+     * stands and the point stays where it was.
+     */
+    #[Test]
+    public function aProposalThatCannotBeReadKeepsThePause(): void
+    {
+        $conversation = $this->waiting();
+        $service      = $this->service($this->pausedOnTheNextProposal(), new RuntimeException('view unreadable'));
+        $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Keep, 'Behalten');
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame('run-2', $conversation->getApprovalRunUuid());
+        self::assertSame(2, $conversation->getGuidedState()['progress']['current'] ?? null);
     }
 
     /** A variant is another proposal for the same point. */
