@@ -97,4 +97,33 @@ final class ConversationGuidedStateTest extends TestCase
 
         self::assertSame(['table' => 'tt_content', 'uid' => 1], $state['highlight']);
     }
+
+    /**
+     * A settled point (amendment of 2026-10-31) is noted only in a running
+     * tour, survives the round trip through the row, leaves the state the
+     * chat shows unchanged, and goes with the state.
+     */
+    #[Test]
+    public function aSettledPointIsNotedOnlyInARunningTour(): void
+    {
+        $conversation = new Conversation();
+        $conversation->markGuidedPointSettled();
+        self::assertFalse($conversation->isGuidedPointSettled(), 'no tour, nothing to note');
+
+        $progress = ['label' => 'Über uns · Deutsch', 'current' => 2, 'total' => 5, 'completed' => false];
+        $conversation->setGuidedState($progress, ['table' => 'tt_content', 'uid' => 100]);
+        $conversation->markGuidedPointSettled();
+
+        $stored = Conversation::fromRow(['uid' => 1, 'guided_state' => $conversation->toRow()['guided_state']]);
+        self::assertTrue($stored->isGuidedPointSettled());
+        self::assertSame(['progress' => $progress, 'highlight' => ['table' => 'tt_content', 'uid' => 100]], $stored->getGuidedState());
+
+        $stored->setGuidedState(null, null);
+        self::assertFalse($stored->isGuidedPointSettled());
+
+        $done = new Conversation();
+        $done->setGuidedState(['completed' => true] + $progress, null);
+        $done->markGuidedPointSettled();
+        self::assertFalse($done->isGuidedPointSettled(), 'a completed tour has no next point');
+    }
 }

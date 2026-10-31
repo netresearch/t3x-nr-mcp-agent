@@ -15,7 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 use Netresearch\NrMcpAgent\Service\PageProperty;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
+use Netresearch\NrMcpAgent\Service\VisibleContentElement;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -49,7 +49,9 @@ final class HighlightElementTool extends GuidedTool
             'Show the user what the current point of a guided process is about, on the page the conversation is about.'
             . ' Give exactly one of the two parameters: contentUid when the point is about a content element (the page'
             . ' module beside the chat highlights it), pageField when the point is about a property of the page itself,'
-            . ' such as its meta description, title or SEO title (the chat names that property). It changes nothing in TYPO3.',
+            . ' such as its meta description, title or SEO title (the chat names that property). It changes nothing in TYPO3.'
+            . ' When you propose a change to one content element or one page property, the chat shows that target by itself;'
+            . ' call this tool only for a point without such a proposal, for example beside a question or before a new element.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -90,15 +92,8 @@ final class HighlightElementTool extends GuidedTool
      */
     private function highlightContent(array $arguments, AgentRunReference $run, int $owner, BackendUserAuthentication $user): ToolResult
     {
-        $uid      = self::int($arguments, 'contentUid');
-        $record   = $uid > 0 ? BackendUtility::getRecord(self::TABLE, $uid, 'uid,pid,sys_language_uid') : null;
-        $pid      = is_array($record) && is_numeric($record['pid'] ?? null) ? (int) $record['pid'] : 0;
-        $language = is_array($record) && is_numeric($record['sys_language_uid'] ?? null) ? (int) $record['sys_language_uid'] : 0;
-        if ($pid <= 0
-            || !$user->check('tables_select', self::TABLE)
-            || !$user->checkLanguageAccess($language)
-            || !$this->mayShowPage($user, $pid)
-        ) {
+        $element = VisibleContentElement::resolve($user, self::int($arguments, 'contentUid'));
+        if ($element === null) {
             // One answer for "does not exist" and "may not see": knowing a
             // uid is not enough to learn whether it exists.
             return ToolResult::error('Error: no content element with this uid that you may see.');
@@ -106,11 +101,11 @@ final class HighlightElementTool extends GuidedTool
 
         $this->runState->store($run->uuid, $owner, 'highlight', [
             'table' => self::TABLE,
-            'uid'   => $uid,
-            'pid'   => $pid,
+            'uid'   => $element['uid'],
+            'pid'   => $element['pid'],
         ]);
 
-        return ToolResult::text(sprintf('Content element %d on page %d is highlighted for the user.', $uid, $pid));
+        return ToolResult::text(sprintf('Content element %d on page %d is highlighted for the user.', $element['uid'], $element['pid']));
     }
 
     /**

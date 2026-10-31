@@ -23,6 +23,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\RunStateRepository;
 use Netresearch\NrMcpAgent\EventListener\PageModuleHighlight;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\GuidedStateLinker;
+use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTarget;
 use Netresearch\NrMcpAgent\Tool\HighlightElementTool;
 use Netresearch\NrMcpAgent\Tool\SetProgressTool;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -487,6 +488,171 @@ final class GuidedToolsTest extends FunctionalTestCase
 
         self::assertSame(['progress' => null, 'highlight' => null], $conversation->getGuidedState());
         self::assertSame(1, $this->rows('tx_nrmcpagent_run_state'));
+    }
+
+    /**
+     * A pause on a proposal after a settled point (amendment of 2026-10-31):
+     * the point moves on by one and the highlight is what the proposal
+     * writes, with nothing reported by the model.
+     *
+     * @return iterable<string, array{OpenPointTarget, array<string, int|string>}>
+     */
+    public static function proposalsTheEditorMaySee(): iterable
+    {
+        yield 'a property of the page' => [new OpenPointTarget('pages', 20, ['description']), ['table' => 'pages', 'uid' => 20, 'field' => 'description']];
+        yield 'a content element of the page' => [new OpenPointTarget('tt_content', 100, ['bodytext', 'header']), ['table' => 'tt_content', 'uid' => 100]];
+    }
+
+    /**
+     * @param array<string, int|string> $expected
+     */
+    #[Test]
+    #[DataProvider('proposalsTheEditorMaySee')]
+    public function aProposalAfterASettledPointMovesOnAndNamesWhatItWrites(OpenPointTarget $proposal, array $expected): void
+    {
+        $this->setUpBackendUser(self::EDITOR);
+        $conversation = $this->atPointTwoAboutTheElement();
+        $conversation->markGuidedPointSettled();
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN, true, $proposal);
+
+        self::assertSame(3, $conversation->getGuidedState()['progress']['current'] ?? null);
+        self::assertSame($expected, $conversation->getGuidedState()['highlight']);
+        self::assertFalse($conversation->isGuidedPointSettled());
+    }
+
+    /** The first proposal after the overview is point 1, without a decision before it. */
+    #[Test]
+    public function theFirstProposalAfterTheOverviewIsPointOne(): void
+    {
+        $this->setUpBackendUser(self::EDITOR);
+        $conversation = $this->conversation(self::EDITOR, 20);
+        $conversation->setGuidedState(['label' => self::LABEL, 'current' => 0, 'total' => 5, 'completed' => false], null);
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN, true, new OpenPointTarget('pages', 20, ['title']));
+
+        self::assertSame(1, $conversation->getGuidedState()['progress']['current'] ?? null);
+        self::assertSame(['table' => 'pages', 'uid' => 20, 'field' => 'title'], $conversation->getGuidedState()['highlight']);
+    }
+
+    /** Without a settled point — another variant, a question in between — the point stays. */
+    #[Test]
+    public function aProposalOnAnUnsettledPointStaysOnIt(): void
+    {
+        $this->setUpBackendUser(self::EDITOR);
+        $conversation = $this->atPointTwoAboutTheElement();
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN, true, new OpenPointTarget('pages', 20, ['title']));
+
+        self::assertSame(2, $conversation->getGuidedState()['progress']['current'] ?? null);
+        self::assertSame(['table' => 'pages', 'uid' => 20, 'field' => 'title'], $conversation->getGuidedState()['highlight']);
+    }
+
+    /**
+     * A settled point survives a run that pauses on a question and reports
+     * nothing, and the proposal after it moves on.
+     */
+    #[Test]
+    public function aSettledPointWaitsForTheNextProposal(): void
+    {
+        $this->setUpBackendUser(self::EDITOR);
+        $conversation = $this->atPointTwoAboutTheElement();
+        $conversation->markGuidedPointSettled();
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
+        self::assertTrue($conversation->isGuidedPointSettled());
+        self::assertSame(2, $conversation->getGuidedState()['progress']['current'] ?? null);
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN, true, new OpenPointTarget('pages', 20, ['title']));
+        self::assertSame(3, $conversation->getGuidedState()['progress']['current'] ?? null);
+    }
+
+    /** What the model reported wins over what the proposal would give. */
+    #[Test]
+    public function whatTheModelReportedWins(): void
+    {
+        $this->call(SetProgressTool::class, ['label' => self::LABEL, 'current' => 4, 'total' => 5]);
+        $this->call(HighlightElementTool::class, ['contentUid' => 100]);
+        $conversation = $this->atPointTwoAboutTheElement();
+        $conversation->markGuidedPointSettled();
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN, true, new OpenPointTarget('pages', 20, ['description']));
+
+        self::assertSame(4, $conversation->getGuidedState()['progress']['current'] ?? null);
+        self::assertSame(['table' => 'tt_content', 'uid' => 100], $conversation->getGuidedState()['highlight']);
+        self::assertFalse($conversation->isGuidedPointSettled());
+    }
+
+    /**
+     * A proposal names nothing the highlight tool would refuse, and nothing
+     * outside the conversation's page; the point still moves on.
+     *
+     * @return iterable<string, array{OpenPointTarget}>
+     */
+    public static function proposalsThatNameNothing(): iterable
+    {
+        yield 'an element on a page she may not show' => [new OpenPointTarget('tt_content', 101, ['bodytext'])];
+        yield 'an element in a language she may not edit' => [new OpenPointTarget('tt_content', 102, ['bodytext'])];
+        yield 'an element that does not exist' => [new OpenPointTarget('tt_content', 999, ['bodytext'])];
+        yield 'an excluded page property her group does not allow' => [new OpenPointTarget('pages', 20, ['nav_title'])];
+        yield 'two page properties at once' => [new OpenPointTarget('pages', 20, ['description', 'title'])];
+        yield 'a property of another page' => [new OpenPointTarget('pages', 30, ['title'])];
+        yield 'a record of another table' => [new OpenPointTarget('sys_file_reference', 7, ['alternative'])];
+    }
+
+    #[Test]
+    #[DataProvider('proposalsThatNameNothing')]
+    public function aProposalNamesNothingTheToolWouldRefuse(OpenPointTarget $proposal): void
+    {
+        $this->setUpBackendUser(self::EDITOR);
+        $conversation = $this->atPointTwoAboutTheElement();
+        $conversation->markGuidedPointSettled();
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN, true, $proposal);
+
+        self::assertNull($conversation->getGuidedState()['highlight']);
+        self::assertSame(3, $conversation->getGuidedState()['progress']['current'] ?? null);
+    }
+
+    /** Checked for the conversation's owner only: under another live user, nothing is named. */
+    #[Test]
+    public function aProposalIsCheckedForTheConversationsOwnerOnly(): void
+    {
+        $this->setUpBackendUser(1);
+        $conversation = $this->atPointTwoAboutTheElement();
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN, true, new OpenPointTarget('pages', 20, ['title']));
+
+        self::assertSame(['table' => 'tt_content', 'uid' => 100], $conversation->getGuidedState()['highlight'], 'the point stays, and so does its element');
+    }
+
+    /**
+     * Without a running tour there is nothing to move: before the overview,
+     * after the completion report, and at the last point.
+     */
+    #[Test]
+    public function aProposalMovesNoPointOutsideARunningTour(): void
+    {
+        $this->setUpBackendUser(self::EDITOR);
+        $linker = $this->get(GuidedStateLinker::class);
+
+        $none = $this->conversation(self::EDITOR, 20);
+        $linker->absorb($none, self::RUN, true, new OpenPointTarget('pages', 20, ['title']));
+        self::assertSame(['progress' => null, 'highlight' => null], $none->getGuidedState());
+
+        $done = $this->conversation(self::EDITOR, 20);
+        $done->setGuidedState(['label' => self::LABEL, 'current' => 5, 'total' => 5, 'completed' => true], null);
+
+        $linker->absorb($done, self::RUN, true, new OpenPointTarget('pages', 20, ['title']));
+        self::assertSame(['label' => self::LABEL, 'current' => 5, 'total' => 5, 'completed' => true], $done->getGuidedState()['progress']);
+        self::assertNull($done->getGuidedState()['highlight']);
+
+        $last = $this->conversation(self::EDITOR, 20);
+        $last->setGuidedState(['label' => self::LABEL, 'current' => 5, 'total' => 5, 'completed' => false], null);
+        $last->markGuidedPointSettled();
+
+        $linker->absorb($last, self::RUN, true, new OpenPointTarget('pages', 20, ['title']));
+        self::assertSame(5, $last->getGuidedState()['progress']['current'] ?? null, 'never past the last point');
     }
 
     /**

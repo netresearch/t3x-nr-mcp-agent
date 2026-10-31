@@ -14,14 +14,10 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
-use Throwable;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * What the chat's guided-state tools share (ADR-020): their group, data
- * class and effect, and the access checks on the page they are about.
+ * class and effect, and the argument readers.
  *
  * - Group `nr_mcp_agent`, so an administrator can switch them off together.
  * - Data class EDITOR_CONTENT: they read and name editorial records (a
@@ -66,24 +62,6 @@ abstract class GuidedTool implements ToolInterface, ToolDataClassInterface, Tool
     public function getEffect(): ToolEffect
     {
         return ToolEffect::READ_ONLY;
-    }
-
-    /** Whether the user may show the page (the page module's own condition). */
-    protected function mayShowPage(BackendUserAuthentication $user, int $pageUid): bool
-    {
-        if ($pageUid <= 0) {
-            return false;
-        }
-
-        try {
-            $row = BackendUtility::readPageAccess($pageUid, $user->getPagePermsClause(Permission::PAGE_SHOW));
-        } catch (Throwable) {
-            return false;
-        }
-
-        $uid = is_array($row) ? ($row['uid'] ?? null) : null;
-
-        return is_numeric($uid) && (int) $uid === $pageUid;
     }
 
     /**

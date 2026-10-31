@@ -760,14 +760,47 @@ final class Conversation
     }
 
     /**
+     * Whether the editor's last decision settled the current point of a
+     * guided process — the proposal was applied, kept or skipped — so that
+     * the next proposal is about the next point (ADR-020, amendment of
+     * 2026-10-31). Kept with the guided state and reset with it.
+     */
+    public function isGuidedPointSettled(): bool
+    {
+        $decoded = $this->guidedState !== '' ? json_decode($this->guidedState, true) : null;
+
+        return is_array($decoded) && ($decoded['settled'] ?? false) === true;
+    }
+
+    /**
      * @param array{label: string, current: int, total: int, completed: bool}|null $progress
      * @param array{table: string, uid: int, field?: string}|null                  $highlight
+     * @param bool                                                                 $pointSettled see isGuidedPointSettled(); only stored beside a progress
      */
-    public function setGuidedState(?array $progress, ?array $highlight): void
+    public function setGuidedState(?array $progress, ?array $highlight, bool $pointSettled = false): void
     {
+        $state = ['progress' => $progress, 'highlight' => $highlight];
+        if ($pointSettled && $progress !== null) {
+            $state['settled'] = true;
+        }
+
         $this->guidedState = $progress === null && $highlight === null
             ? ''
-            : json_encode(['progress' => $progress, 'highlight' => $highlight], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+            : json_encode($state, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Note that the editor's decision settled the current point (see
+     * isGuidedPointSettled()). Nothing to note without a running process.
+     */
+    public function markGuidedPointSettled(): void
+    {
+        $state = $this->getGuidedState();
+        if ($state['progress'] === null || $state['progress']['completed']) {
+            return;
+        }
+
+        $this->setGuidedState($state['progress'], $state['highlight'], true);
     }
 
     public function isArchived(): bool
