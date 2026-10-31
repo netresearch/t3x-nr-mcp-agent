@@ -1155,11 +1155,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         $conversation->clearApprovalDecision();
 
-        // A proposal that was approved, kept or skipped settled its point: the
+        // A proposal that was applied, kept or skipped settled its point: the
         // next proposal is about the next one (ADR-020, amendment of
-        // 2026-10-31). A variant, or an approved write the trace shows did
-        // not land, stays on it.
-        if ($approved ? $outcome !== ProposalOutcome::NotApplied : in_array($denyReason, [DenyReason::Keep, DenyReason::Skip], true)) {
+        // 2026-10-31). A variant stays on it, and so does an approval whose
+        // write the trace does not show as applied or to be checked.
+        if ($approved ? in_array($outcome, [ProposalOutcome::Applied, ProposalOutcome::Check], true) : in_array($denyReason, [DenyReason::Keep, DenyReason::Skip], true)) {
             $conversation->markGuidedPointSettled();
         }
 
@@ -1395,7 +1395,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // (ADR-020). A pause on a process proposal also hands over what the
         // proposal writes, from which the chat derives the point and the
         // highlight the model did not report (amendment of 2026-10-31).
+        // Read only for a process run: an ordinary chat pays nothing for it.
         $proposalView = $this->guidedState instanceof GuidedStateLinker && $result->outcome === AgentRunOutcome::AWAITING_APPROVAL && $result->runUuid !== ''
+            && ($this->processRuns?->isProcessRun($conversation) ?? false)
             ? $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $result->runUuid)
             : null;
         $onProposal = $proposalView instanceof WaitingRunView && $this->offersProcessAnswers($conversation, $proposalView);

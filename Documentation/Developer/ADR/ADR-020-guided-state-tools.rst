@@ -169,8 +169,8 @@ proposal are therefore taken over by the chat:
 -   **The point from the decision, not from the target.** A proposal cannot
     tell which point it belongs to: points 1 and 3 of one measured content
     tour wrote the same element, and a variant writes the same field again.
-    The editor's decision can. "Übernehmen" (unless the trace shows the write
-    did not land), "Behalten" and "Überspringen" settle the point; the
+    The editor's decision can. "Übernehmen" whose write the trace shows as
+    applied or to be checked, "Behalten" and "Überspringen" settle the point; the
     conversation notes that in its guided state. The next pause on a proposal
     then moves ``current`` on by one, never past ``total``, and uses the note
     up. "Andere Variante", a free message and an answered question leave the
@@ -185,10 +185,12 @@ proposal are therefore taken over by the chat:
     reads the pending call nr-llm already shows on the card and writes only
     the conversation's guided state.
 
-The one path the chat cannot see is a point closed by an answer ("Ohne
-Beispiel weiter") followed directly by the next point's proposal. There the
-model has to report the new point itself; the failure signature, if it does
-not, is a header one point behind from there until the completion report.
+Two paths the chat cannot see: a point closed by an answer to a question
+("Ohne Beispiel weiter"), and a point the editor closes with a free message
+("passt, weiter"), each followed directly by the next point's proposal. There
+the model has to report the new point itself; the failure signature, if it
+does not, is a header one point behind from there until the completion
+report.
 
 **Group, data class, effect.** Group ``nr_mcp_agent`` (an administrator or a
 configuration's tool groups can switch both off together), data class

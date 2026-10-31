@@ -567,6 +567,26 @@ final class GuidedToolsTest extends FunctionalTestCase
         self::assertSame(3, $conversation->getGuidedState()['progress']['current'] ?? null);
     }
 
+    /**
+     * Progress the model reports beside a question names the point itself:
+     * the settled point is used up, and the proposal after the answer stays
+     * on the point the model named.
+     */
+    #[Test]
+    public function progressReportedBesideAQuestionUsesTheSettledPointUp(): void
+    {
+        $this->setUpBackendUser(self::EDITOR);
+        $this->call(SetProgressTool::class, ['label' => self::LABEL, 'current' => 3, 'total' => 5]);
+        $conversation = $this->atPointTwoAboutTheElement();
+        $conversation->markGuidedPointSettled();
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN);
+        self::assertFalse($conversation->isGuidedPointSettled());
+
+        $this->get(GuidedStateLinker::class)->absorb($conversation, self::RUN, true, new OpenPointTarget('pages', 20, ['title']));
+        self::assertSame(3, $conversation->getGuidedState()['progress']['current'] ?? null);
+    }
+
     /** What the model reported wins over what the proposal would give. */
     #[Test]
     public function whatTheModelReportedWins(): void

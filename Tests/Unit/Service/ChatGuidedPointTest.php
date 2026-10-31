@@ -10,13 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
@@ -39,6 +43,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
@@ -81,10 +86,14 @@ final class ChatGuidedPointTest extends TestCase
         ]);
     }
 
-    private function service(AgentRunResult $answer, ?WaitingRunView $next = null, bool $processRun = true): ChatService
+    private function service(AgentRunResult|Throwable $answer, ?WaitingRunView $next = null, bool $processRun = true): ChatService
     {
         $runtime = $this->createStub(AgentRuntimeInterface::class);
-        $runtime->method('approve')->willReturn($answer);
+        if ($answer instanceof Throwable) {
+            $runtime->method('approve')->willThrowException($answer);
+        } else {
+            $runtime->method('approve')->willReturn($answer);
+        }
 
         $reader = $this->createStub(PendingApprovalReaderInterface::class);
         $reader->method('read')->willReturnCallback(
@@ -152,6 +161,50 @@ final class ChatGuidedPointTest extends TestCase
         $service->processConversation($conversation);
 
         self::assertSame($settled, $conversation->isGuidedPointSettled());
+    }
+
+    /**
+     * An approval settles the point when the trace shows the write applied
+     * or to be checked, not when the call failed or never ran.
+     *
+     * @return iterable<string, array{list<RunStep>, bool}>
+     */
+    public static function approvals(): iterable
+    {
+        $tool  = static fn (bool $isError): RunStep => new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'update_page_metadata', toolIsError: $isError);
+        $write = new RunStep(kind: RunStep::KIND_WRITE, round: 1, durationMs: 1.0, writeTarget: new RecordReference('pages', 20), writeCompleteness: WriteCompleteness::COMPLETE);
+
+        yield 'the write applied' => [[$tool(false), $write], true];
+        yield 'the call failed' => [[$tool(true)], false];
+        yield 'no call ran' => [[], false];
+    }
+
+    /**
+     * @param list<RunStep> $steps
+     */
+    #[Test]
+    #[DataProvider('approvals')]
+    public function anApprovalSettlesThePointWhenTheWriteLanded(array $steps, bool $settled): void
+    {
+        $conversation = $this->waiting();
+        $service      = $this->service(new AgentRunResult(AgentRunOutcome::COMPLETED, 'run-1', $steps, new ToolLoopResult('Weiter.', [], 1, false, new UsageStatistics(1, 1, 2))));
+        $service->recordDecision($conversation, true, 'digest-abc');
+        $service->processConversation($conversation);
+
+        self::assertSame($settled, $conversation->isGuidedPointSettled());
+    }
+
+    /** A decision nr-llm hands back settles nothing: the card returns as it was. */
+    #[Test]
+    public function aDecisionHandedBackSettlesNothing(): void
+    {
+        $conversation = $this->waiting();
+        $service      = $this->service(RunNotAwaitingApprovalException::forRun('run-1'));
+        $service->recordDecision($conversation, false, 'digest-abc', DenyReason::Keep, 'Behalten');
+        $service->processConversation($conversation);
+
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertFalse($conversation->isGuidedPointSettled());
     }
 
     /**
