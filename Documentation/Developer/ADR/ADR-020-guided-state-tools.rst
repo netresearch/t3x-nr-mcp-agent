@@ -143,6 +143,55 @@ matter. The panel then sends the ``clear`` message, as for a page property.
 The rule relies on a skill reporting the point with ``chat_set_progress``
 whenever it moves to another one, as the tool's description asks.
 
+*Amendment of 2026-10-31: the chat derives the point and the highlight of a
+proposal.* On the demo, 52 of 65 chat turns between 2026-10-23 and
+2026-10-30 held a model round whose only calls were ``chat_set_progress``,
+``chat_highlight_element`` or ``chat_list_open_points``, and those rounds took
+35 % of the active time; every model call costs about 1.3 s on top of its
+output tokens. The tours asked for progress, highlight and proposal as
+separate steps. Asked to send all three in one response, the model batched
+progress and highlight beside a question (nr-llm 0.41.18 runs those reads
+before the pause) but never beside a write: 0 of 10 approval turns, measured
+on 2026-10-31. The calls that only report the state of a point with a
+proposal are therefore taken over by the chat:
+
+-   **Highlight from the proposal.** When a run of a process pauses on a
+    proposal (``offersProcessAnswers()``) and reported no highlight, the chat
+    reads what the pending write names (nr-llm's ``PendingCallView::
+    $pendingTarget``) and highlights it under the checks of
+    ``chat_highlight_element``, for the conversation's owner only: a content
+    element the owner may see (``VisibleContentElement``, now shared with the
+    tool), on the conversation's page; or exactly one property of the
+    conversation's page the owner may edit. A write naming several fields,
+    another page, another table or no target (a new element) names nothing,
+    and the existing rule applies: the highlight stays on the same point and
+    is dropped on a new one.
+-   **The point from the decision, not from the target.** A proposal cannot
+    tell which point it belongs to: points 1 and 3 of one measured content
+    tour wrote the same element, and a variant writes the same field again.
+    The editor's decision can. "Übernehmen" whose write the trace shows as
+    applied or to be checked, "Behalten" and "Überspringen" settle the point; the
+    conversation notes that in its guided state. The next pause on a proposal
+    then moves ``current`` on by one, never past ``total``, and uses the note
+    up. "Andere Variante", a free message and an answered question leave the
+    point as it is. After the overview (point 0) the first proposal is point
+    1. A note survives runs that pause on a question in between.
+-   **What the model reports wins.** Progress or a highlight the run reported
+    replaces the derived one, and reported progress also uses the note up.
+    The tools stay, and their descriptions now ask for progress after the
+    overview, beside a question, when the model moves on without a proposal,
+    and at the end; and for a highlight only where no proposal names one.
+-   **Consent is unchanged.** Nothing is written in TYPO3; the derivation
+    reads the pending call nr-llm already shows on the card and writes only
+    the conversation's guided state.
+
+Two paths the chat cannot see: a point closed by an answer to a question
+("Ohne Beispiel weiter"), and a point the editor closes with a free message
+("passt, weiter"), each followed directly by the next point's proposal. There
+the model has to report the new point itself; the failure signature, if it
+does not, is a header one point behind from there until the completion
+report.
+
 **Group, data class, effect.** Group ``nr_mcp_agent`` (an administrator or a
 configuration's tool groups can switch both off together), data class
 ``EDITOR_CONTENT`` and enabled by default. Without a declared data class

@@ -35,9 +35,11 @@ final class SetProgressTool extends GuidedTool
         return new ToolSpec(
             self::NAME,
             'Show the user where a guided process stands, in the chat header: a short label (for example the page'
-            . ' and language) and the current point of the total. Call it whenever the current point changes,'
+            . ' and language) and the current point of the total. Call it with current 0 and the total after the overview,'
+            . ' beside a question that is about a point, when you move to another point without proposing a change,'
             . ' and once with completed = true when the process is finished; that ends the process.'
-            . ' It changes nothing in TYPO3.',
+            . ' When you propose a change after the user settled the point before, the chat moves on to the next point'
+            . ' by itself; do not call this tool for that. It changes nothing in TYPO3.',
             [
                 'type'       => 'object',
                 'properties' => [

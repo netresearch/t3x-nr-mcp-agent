@@ -74,6 +74,7 @@ use Netresearch\NrMcpAgent\Service\AltText\AltTextImagePolicyInterface;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImageRefusal;
 use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
 use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
+use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
 use Netresearch\NrMcpAgent\Utility\ChangeClaim;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
@@ -1154,6 +1155,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         $conversation->clearApprovalDecision();
 
+        // A proposal that was applied, kept or skipped settled its point: the
+        // next proposal is about the next one (ADR-020, amendment of
+        // 2026-10-31). A variant stays on it, and so does an approval whose
+        // write the trace does not show as applied or to be checked.
+        if ($approved ? in_array($outcome, [ProposalOutcome::Applied, ProposalOutcome::Check], true) : in_array($denyReason, [DenyReason::Keep, DenyReason::Skip], true)) {
+            $conversation->markGuidedPointSettled();
+        }
+
         // An approved proposal whose run then ended its step without a choice,
         // a proposal or the end of the process is followed by ONE turn the chat
         // starts itself, which is the "Weiter" the editor would have pressed
@@ -1383,8 +1392,33 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         // Whatever the outcome, what the guided-state tools reported during
         // the run is taken over now — the first moment the chat knows the run
-        // (ADR-020).
-        $this->guidedState?->absorb($conversation, $result->runUuid);
+        // (ADR-020). A pause on a process proposal also hands over what the
+        // proposal writes, from which the chat derives the point and the
+        // highlight the model did not report (amendment of 2026-10-31).
+        // Read only for a process run: an ordinary chat pays nothing for it.
+        // The derivation is a convenience: if reading the proposal fails,
+        // the pause is kept and only the derivation is skipped.
+        $onProposal = false;
+        $proposal   = null;
+        if ($this->guidedState instanceof GuidedStateLinker && $result->outcome === AgentRunOutcome::AWAITING_APPROVAL && $result->runUuid !== ''
+            && ($this->processRuns?->isProcessRun($conversation) ?? false)
+        ) {
+            try {
+                $view       = $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $result->runUuid);
+                $onProposal = $view instanceof WaitingRunView && $this->offersProcessAnswers($conversation, $view);
+                $proposal   = $onProposal && $view instanceof WaitingRunView ? NrLlmCardTarget::of($view) : null;
+            } catch (Throwable $e) {
+                $onProposal = false;
+                $proposal   = null;
+                $this->logger?->warning('Pending proposal of run {run} not read for the guided state: {message}', [
+                    'run'       => $result->runUuid,
+                    'message'   => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+            }
+        }
+
+        $this->guidedState?->absorb($conversation, $result->runUuid, $onProposal, $proposal);
 
         // Every recorded run, whatever its outcome — completed, failed,
         // refused, stopped or waiting: the next turn names it as predecessor
