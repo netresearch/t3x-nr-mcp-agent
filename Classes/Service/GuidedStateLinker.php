@@ -72,26 +72,11 @@ readonly class GuidedStateLinker
             $settled = false;
         }
 
-        $highlight = $current['highlight'];
-        $named     = $state['highlight'] ?? null;
-        $derived   = $named === null && $proposal instanceof OpenPointTarget && $pausedOnProposal && $running
+        $named   = $state['highlight'] ?? null;
+        $derived = $named === null && $proposal instanceof OpenPointTarget && $pausedOnProposal && $running
             ? $this->proposalHighlight($proposal, $conversation)
             : null;
-        if ($named !== null) {
-            $highlight = $this->highlight($named, $conversation);
-        } elseif ($derived !== null) {
-            $highlight = $derived;
-        } elseif ($progress !== null && $progress['current'] !== ($current['progress']['current'] ?? null)) {
-            // A new point without a highlight is about no element: the
-            // element of the point before is no longer what it is about
-            // (NEXT-221). Both come from this run's state, so the order of
-            // the two tool calls within one run does not matter; a highlight
-            // set before an approval pause and progress reported only after
-            // the resume would drop it (the tours report progress first).
-            // A point moved on by a proposal that names nothing the editor
-            // may see is the same case.
-            $highlight = null;
-        }
+        $highlight = $this->nextHighlight($current, $progress, $named, $derived, $conversation);
 
         $completed = $progress['completed'] ?? false;
         $conversation->setGuidedState($progress, $completed ? null : $highlight, $settled && !$completed);
@@ -99,6 +84,36 @@ readonly class GuidedStateLinker
         if ($state !== null) {
             $this->runState->delete($runUuid, $conversation->getBeUser());
         }
+    }
+
+    /**
+     * What a reported highlight names wins, then what the proposal names. A
+     * new point without either is about no element: the element of the
+     * point before is no longer what it is about (NEXT-221). Both come from
+     * this run's state, so the order of the two tool calls within one run
+     * does not matter; a highlight set before an approval pause and progress
+     * reported only after the resume would drop it (the tours report
+     * progress first). A point moved on by a proposal that names nothing the
+     * editor may see is the same case. A run on the same point keeps it.
+     *
+     * @param array{progress: array{label: string, current: int, total: int, completed: bool}|null, highlight: array{table: string, uid: int, field?: string}|null} $current
+     * @param array{label: string, current: int, total: int, completed: bool}|null                                                                                  $progress
+     * @param array<string, mixed>|null                                                                                                                             $named
+     * @param array{table: string, uid: int, field?: string}|null                                                                                                   $derived
+     *
+     * @return array{table: string, uid: int, field?: string}|null
+     */
+    private function nextHighlight(array $current, ?array $progress, ?array $named, ?array $derived, Conversation $conversation): ?array
+    {
+        if ($named !== null) {
+            return $this->highlight($named, $conversation);
+        }
+
+        if ($derived !== null || ($progress !== null && $progress['current'] !== ($current['progress']['current'] ?? null))) {
+            return $derived;
+        }
+
+        return $current['highlight'];
     }
 
     /**
