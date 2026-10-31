@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-31
+
+### Changed
+
+- **A guided tour's header point and highlight follow the proposal without extra model rounds (#294).** When a process run pauses on a write proposal and the model reported neither progress nor highlight, the chat highlights what the proposal writes — a content element of the page the editor may see, or one page property the editor may edit — and moves the header on by one point after the editor applied, kept or skipped the proposal before (or after the overview). "Andere Variante", a free message or an answered question stay on the point. What the model reports through `chat_set_progress` and `chat_highlight_element` still wins, and their descriptions now ask the model to call them only beside questions, after the overview, when moving on without a proposal and at the end. On the demo the tours spent one model round each on progress and highlight before every proposal (ADR-020, amendment of 2026-10-31).
+
 ## [0.27.2] - 2026-10-30
 
 ### Fixed
