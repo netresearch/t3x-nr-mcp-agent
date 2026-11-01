@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
+use Error;
 use Netresearch\NrMcpAgent\Domain\Repository\ChatWorkerRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 
@@ -31,8 +32,14 @@ final readonly class WorkerChatProcessor implements ChatProcessorInterface
 
     public function dispatch(int $conversationUid): void
     {
-        if ($this->workers->countIdle() < $this->repository->countWaitingForWorker()) {
+        if ($this->workers->countIdle() >= $this->repository->countWaitingForWorker()) {
+            return;
+        }
+
+        try {
             $this->execProcessor->dispatch($conversationUid);
+        } catch (Error) {
+            // The function is disabled here: the turn stays queued for the next worker.
         }
     }
 }

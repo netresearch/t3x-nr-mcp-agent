@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Error;
 use Netresearch\NrMcpAgent\Domain\Repository\ChatWorkerRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\ExecChatProcessor;
@@ -49,5 +50,20 @@ final class WorkerChatProcessorTest extends TestCase
         $resolver->method('resolve')->willThrowException(new \Netresearch\NrMcpAgent\Exception\Typo3CliBinaryNotFoundException('not here'));
 
         (new WorkerChatProcessor($workers, $conversations, new ExecChatProcessor($resolver, $conversations, new NullLogger())))->dispatch(7);
+    }
+
+    #[Test]
+    public function whereTheProcessFunctionIsDisabledTheTurnWaitsForAWorker(): void
+    {
+        $conversations = $this->createStub(ConversationRepository::class);
+        $conversations->method('countWaitingForWorker')->willReturn(1);
+
+        // What calling a disabled function raises.
+        $resolver = $this->createStub(Typo3CliBinaryResolver::class);
+        $resolver->method('resolve')->willThrowException(new Error('Call to undefined function'));
+
+        (new WorkerChatProcessor($this->createStub(ChatWorkerRepository::class), $conversations, new ExecChatProcessor($resolver, $conversations, new NullLogger())))->dispatch(7);
+
+        $this->expectNotToPerformAssertions();
     }
 }

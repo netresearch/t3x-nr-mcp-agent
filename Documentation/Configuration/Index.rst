@@ -519,6 +519,7 @@ set up a systemd service to keep the worker running:
     [Unit]
     Description=TYPO3 AI Chat Worker
     After=mysql.service
+    StartLimitIntervalSec=0
 
     [Service]
     Type=simple
@@ -529,7 +530,7 @@ set up a systemd service to keep the worker running:
         ai-chat:worker --poll-interval=100 --max-turns=1
     Restart=always
     RestartSec=0
-    TimeoutStopSec=120
+    TimeoutStopSec=610
 
     [Install]
     WantedBy=multi-user.target

@@ -42,6 +42,17 @@ class ConversationRepositoryTest extends FunctionalTestCase
     }
 
     #[Test]
+    public function aTurnThatReportsActivityCountsAsAlive(): void
+    {
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation');
+        $connection->update('tx_nrmcpagent_conversation', ['tstamp' => 1000], ['uid' => 1]);
+
+        $this->subject->updateActivity(1, '[]');
+
+        self::assertGreaterThan(1000, (int) $connection->select(['tstamp'], 'tx_nrmcpagent_conversation', ['uid' => 1])->fetchOne());
+    }
+
+    #[Test]
     public function findByUidReturnsConversation(): void
     {
         $conversation = $this->subject->findByUid(1);
