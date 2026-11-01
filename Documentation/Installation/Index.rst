@@ -15,12 +15,12 @@ Requirements
 *   EXT:filelist (``typo3/cms-filelist``) -- the file picker
     uses its element browser
 *   `netresearch/nr-llm <https://github.com/netresearch/
-    t3x-nr-llm>`__ (^0.41.7) -- LLM abstraction layer
+    t3x-nr-llm>`__ (^0.41.7 || ^0.42) -- LLM abstraction layer
 
 Optional:
 
 *   `netresearch/nr-vault <https://github.com/netresearch/
-    t3x-nr-vault>`__ (^0.14) -- for secure API key storage
+    t3x-nr-vault>`__ (^0.16.0 || ^1.1) -- for secure API key storage
 
 Quick start
 ===========
