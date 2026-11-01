@@ -402,14 +402,15 @@ readonly class ConversationRepository
     }
 
     /**
-     * Single-column write of the running turn's activity (NEXT-172). Called
-     * from the worker while the turn runs, so it must not touch any other
-     * column the turn's final write owns.
+     * Write of the running turn's activity (NEXT-172). Called from the worker
+     * while the turn runs, so it must not touch any other column the turn's final
+     * write owns. `tstamp` says the turn is alive: `ai-chat:cleanup` takes a turn
+     * without a write for five minutes for dead.
      */
     public function updateActivity(int $uid, string $activityJson): void
     {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
-        $conn->update(self::TABLE, ['activity' => $activityJson], ['uid' => $uid]);
+        $conn->update(self::TABLE, ['activity' => $activityJson, 'tstamp' => time()], ['uid' => $uid]);
     }
 
     /**
@@ -598,6 +599,25 @@ readonly class ConversationRepository
 
             return true;
         });
+    }
+
+    /**
+     * How many turns no process holds yet.
+     */
+    public function countWaitingForWorker(): int
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+
+        $count = $qb->count('uid')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('status', $qb->createNamedParameter(ConversationStatus::Processing->value)),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($count) ? (int) $count : 0;
     }
 
     /**

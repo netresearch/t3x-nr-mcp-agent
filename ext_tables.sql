@@ -96,3 +96,13 @@ CREATE TABLE tx_nrmcpagent_open_point (
 CREATE TABLE sys_file_reference (
     tx_nrmcpagent_decorative tinyint(1) unsigned DEFAULT 0 NOT NULL
 );
+
+#
+# Table structure for table 'tx_nrmcpagent_chat_worker'
+#
+CREATE TABLE tx_nrmcpagent_chat_worker (
+    worker_id varchar(64) DEFAULT '' NOT NULL,
+    idle_until int(11) unsigned DEFAULT 0 NOT NULL,
+
+    PRIMARY KEY (worker_id)
+);

@@ -68,6 +68,12 @@ class TurnTimingRecorder implements LoggerAwareInterface
         $this->conversationUid = $conversation->getUid();
         $this->marks           = $conversation->getTurnTiming();
 
+        // A list that ended belongs to the last turn: a waiting worker can hold
+        // this one before the request has stamped it.
+        if (isset($this->marks['stored'])) {
+            $this->marks = [];
+        }
+
         if ($startedForTurn) {
             $this->marks['processStart'] = $this->stampOf($_SERVER['REQUEST_TIME_FLOAT'] ?? null);
         }
