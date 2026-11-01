@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-11-01
+
+### Changed
+
+- `netresearch/nr-llm` is accepted at `^0.41.7 || ^0.42` (`ext_emconf.php`: `0.41.7-0.42.99`). On a 0.x version a caret does not admit the next minor, so an installation could not move to nr-llm 0.42.0. nr-llm 0.42 adds `defer()` to `AgentRuntimeInterface`, which this extension does not implement.
+
 ## [0.28.0] - 2026-10-31
 
 ### Changed
