@@ -43,7 +43,7 @@
         "typo3/cms-workspaces": "^13.4 || ^14.3"
     },
     "suggest": {
-        "netresearch/nr-vault": "For secure API key storage (^0.14)",
+        "netresearch/nr-vault": "For secure API key storage (^0.16.0 || ^1.1)",
         "phpoffice/phpspreadsheet": "^3.0 — Required for XLSX upload support",
         "typo3/cms-dashboard": "For the \"AI Chat\" dashboard widget",
         "typo3/cms-seo": "For the social-image and SEO-title checks behind the dashboard's page suggestions"
