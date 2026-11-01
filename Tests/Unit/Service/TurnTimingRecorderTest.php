@@ -22,6 +22,20 @@ final class TurnTimingRecorderTest extends TestCase
     /** @var list<array{int, array<string, int>}> */
     private array $writes = [];
 
+    private mixed $requestTime = null;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->requestTime = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+    }
+
+    protected function tearDown(): void
+    {
+        $_SERVER['REQUEST_TIME_FLOAT'] = $this->requestTime;
+        parent::tearDown();
+    }
+
     private function recorder(): TurnTimingRecorder
     {
         $repository = $this->createStub(ConversationRepository::class);
