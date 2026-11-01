@@ -188,6 +188,7 @@ final class ChatWorkerCommand extends Command
         foreach (['EXEC_TIME', 'SIM_EXEC_TIME'] as $global) {
             $GLOBALS[$global] = $now;
         }
+
         foreach (['ACCESS_TIME', 'SIM_ACCESS_TIME'] as $global) {
             $GLOBALS[$global] = $now - $now % 60;
         }

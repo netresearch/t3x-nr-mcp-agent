@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Domain\Repository;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -35,7 +36,13 @@ class ChatWorkerRepository
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $until      = time() + self::IDLE_SECONDS;
         if ($connection->update(self::TABLE, ['idle_until' => $until], ['worker_id' => $workerId]) === 0) {
-            $connection->insert(self::TABLE, ['worker_id' => $workerId, 'idle_until' => $until]);
+            try {
+                $connection->insert(self::TABLE, ['worker_id' => $workerId, 'idle_until' => $until]);
+            } catch (UniqueConstraintViolationException) {
+                // MariaDB counts a row an update left as it was as unchanged.
+                return;
+            }
+
             // A new worker clears what crashed ones left: nothing else ends them.
             $connection->executeStatement(
                 'DELETE FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE ' . $connection->quoteIdentifier('idle_until') . ' < ?',
