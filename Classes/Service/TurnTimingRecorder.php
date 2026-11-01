@@ -59,14 +59,20 @@ class TurnTimingRecorder implements LoggerAwareInterface
         ]);
     }
 
-    /** The process holds the turn. */
-    public function begin(Conversation $conversation): void
+    /**
+     * The process holds the turn. Only a process started for this turn has a
+     * `processStart`: a long-running worker's start says nothing about it.
+     */
+    public function begin(Conversation $conversation, bool $startedForTurn = true): void
     {
         $this->conversationUid = $conversation->getUid();
         $this->marks           = $conversation->getTurnTiming();
 
-        $this->marks['processStart'] = $this->stampOf($_SERVER['REQUEST_TIME_FLOAT'] ?? null);
-        $this->marks['claimed']      = $this->now();
+        if ($startedForTurn) {
+            $this->marks['processStart'] = $this->stampOf($_SERVER['REQUEST_TIME_FLOAT'] ?? null);
+        }
+
+        $this->marks['claimed'] = $this->now();
     }
 
     /** The first stamp of a phase counts: a continuation repeats phases. */

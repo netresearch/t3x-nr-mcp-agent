@@ -75,6 +75,16 @@ final class TurnTimingRecorderTest extends TestCase
     }
 
     #[Test]
+    public function aWorkerThatRunsManyTurnsHasNoProcessStart(): void
+    {
+        $recorder = $this->recorder();
+        $recorder->begin($this->conversation(), startedForTurn: false);
+        $recorder->finish();
+
+        self::assertSame(['claimed', 'stored'], array_keys($this->writes[0][1]));
+    }
+
+    #[Test]
     public function theFirstStampOfAPhaseCounts(): void
     {
         $recorder = $this->recorder();

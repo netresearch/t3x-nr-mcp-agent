@@ -64,7 +64,7 @@ final class ChatWorkerCommand extends Command
                     ));
 
                     BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool);
-                    $this->turnTiming?->begin($conversation);
+                    $this->turnTiming?->begin($conversation, startedForTurn: false);
 
                     if ($conversation->hasPendingToolCalls()) {
                         $this->chatService->resumeConversation($conversation);
