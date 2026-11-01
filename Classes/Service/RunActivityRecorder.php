@@ -50,7 +50,7 @@ class RunActivityRecorder implements LoggerAwareInterface
 
     /**
      * The steps nr-llm sends while the model writes, by value: an nr-llm without
-     * them (below 0.44) sends none, and the chat then shows the text at the end.
+     * them (below 0.43.1) sends none, and the chat then shows the text at the end.
      */
     private const KIND_TEXT_DELTA = 'text_delta';
 
