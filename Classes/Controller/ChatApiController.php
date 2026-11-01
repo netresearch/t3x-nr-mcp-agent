@@ -1028,6 +1028,8 @@ final readonly class ChatApiController
 
     private function dispatchTurn(int $conversationUid): void
     {
+        // A turn that was killed left its text; the reader's stream opens now.
+        $this->repository->updateLiveText($conversationUid, '');
         $this->turnTiming?->dispatched($conversationUid);
         $this->processor->dispatch($conversationUid);
     }

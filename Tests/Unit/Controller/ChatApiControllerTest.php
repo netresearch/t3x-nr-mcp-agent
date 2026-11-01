@@ -196,6 +196,24 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function theTextOfAKilledTurnIsGoneBeforeTheNextTurnStarts(): void
+    {
+        $order = [];
+        $this->repository->method('findOneByUidAndBeUser')->willReturn(new Conversation());
+        $this->repository->method('countActiveByBeUser')->willReturn(0);
+        $this->repository->method('updateLiveText')->willReturnCallback(static function (int $uid, string $text) use (&$order): void {
+            $order[] = 'text:' . $text;
+        });
+        $this->processor->method('dispatch')->willReturnCallback(static function () use (&$order): void {
+            $order[] = 'dispatched';
+        });
+
+        $this->subject->sendMessage($this->createRequest('POST', '{"conversationUid": 1, "content": "Hello AI"}'));
+
+        self::assertSame(['text:', 'dispatched'], $order);
+    }
+
+    #[Test]
     public function theTurnIsStampedBeforeItIsHandedOver(): void
     {
         $conversation = new Conversation();

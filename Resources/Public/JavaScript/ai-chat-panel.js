@@ -2292,6 +2292,13 @@ export class AiChatPanel extends LitElement {
 
     // ── ChatCoreController callback hooks ───────────────────────────────
 
+    /** Read before the next render: a reader who scrolled up stays where they are. */
+    isAtBottom() {
+        const el = this.renderRoot?.querySelector('.panel-messages');
+
+        return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+    }
+
     onScrollToBottom(force = false) {
         // Wait for Lit to finish rendering, then scroll
         this.updateComplete.then(() => {

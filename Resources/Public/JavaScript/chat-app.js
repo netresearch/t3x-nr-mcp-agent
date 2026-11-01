@@ -574,6 +574,13 @@ export class ChatApp extends LitElement {
         return Number.parseInt(new URLSearchParams(globalThis.location.search).get('conversation') ?? '', 10) || 0;
     }
 
+    /** Read before the next render: a reader who scrolled up stays where they are. */
+    isAtBottom() {
+        const el = this.renderRoot?.querySelector('.messages');
+
+        return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+    }
+
     onScrollToBottom(force = false) {
         const doScroll = () => {
             const container = this.renderRoot?.querySelector('.messages');

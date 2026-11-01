@@ -81,6 +81,17 @@ describe('the stream of a running turn', () => {
         expect(chat.host.onScrollToBottom).toHaveBeenCalledTimes(2);
     });
 
+    test('a reader who scrolled up stays where they are', () => {
+        const chat = controller();
+        chat.host.isAtBottom = () => false;
+        chat.startPollingIfNeeded();
+
+        latest().emit({text: 'Hal'});
+
+        expect(chat.liveText).toBe('Hal');
+        expect(chat.host.onScrollToBottom).not.toHaveBeenCalled();
+    });
+
     test('a text that is no continuation replaces what is shown', () => {
         const chat = controller();
         chat.startPollingIfNeeded();

@@ -41,6 +41,19 @@ describe.each(SURFACES)('$name', ({module: modulePath, tag, open}) => {
         document.body.replaceChildren();
     });
 
+    test('only a reader at the bottom counts as following the text', async () => {
+        const el = await render(modulePath, tag, open, {status: 'locked', liveText: 'Text'});
+        const list = el.shadowRoot.querySelector('.messages, .panel-messages');
+        Object.defineProperty(list, 'scrollHeight', {value: 1000, configurable: true});
+        Object.defineProperty(list, 'clientHeight', {value: 400, configurable: true});
+
+        list.scrollTop = 600;
+        expect(el.isAtBottom()).toBe(true);
+
+        list.scrollTop = 500;
+        expect(el.isAtBottom()).toBe(false);
+    });
+
     test('the running text is rendered as an answer and hidden from the live region', async () => {
         const el = await render(modulePath, tag, open, {status: 'locked', liveText: 'Das ist **wichtig**'});
 

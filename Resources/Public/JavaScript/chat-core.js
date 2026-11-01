@@ -552,7 +552,7 @@ export class ChatCoreController {
     }
 
     async selectConversation(uid) {
-        this._closeStream();
+        this.stopPolling();
         this.activeUid = uid;
         this._knownMessageCount = 0;
         this.expandedTools = new Set();
@@ -992,6 +992,7 @@ export class ChatCoreController {
         if (typeof event.totalCount === 'number' && event.totalCount > this._knownMessageCount) {
             void this._pollAtOnce();
         }
+        const follow = this.host.isAtBottom?.() ?? true;
         if (event.activity) {
             this.activity = event.activity;
         }
@@ -1002,7 +1003,9 @@ export class ChatCoreController {
             this.liveText += event.append;
         }
         this.host.requestUpdate();
-        this.host.onScrollToBottom();
+        if (follow) {
+            this.host.onScrollToBottom(true);
+        }
     }
 
     /** The turn has ended, or a message arrived: it comes with one poll, now. */
