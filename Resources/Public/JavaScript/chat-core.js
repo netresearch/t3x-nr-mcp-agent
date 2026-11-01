@@ -815,9 +815,12 @@ export class ChatCoreController {
 
             // Without a stream the poll is what shows the text as it grows.
             if (!this._stream && typeof data.liveText === 'string' && data.liveText !== this.liveText) {
+                const follow = this.host.isAtBottom?.() ?? true;
                 this.liveText = data.liveText;
                 this.host.requestUpdate();
-                this.host.onScrollToBottom();
+                if (follow) {
+                    this.host.onScrollToBottom(true);
+                }
             }
 
             if (newMessages.length > 0 || statusChanged) {

@@ -282,6 +282,18 @@ describe('the stream of a running turn', () => {
         expect(chat.liveText).toBe('Hal');
     });
 
+    test('without a stream a reader who scrolled up stays there too', async () => {
+        delete globalThis.EventSource;
+        const chat = controller([{status: 'processing', messages: [], totalCount: 1, liveText: 'Hal'}]);
+        chat.host.isAtBottom = () => false;
+        chat.startPollingIfNeeded();
+
+        await jest.advanceTimersByTimeAsync(2000);
+
+        expect(chat.liveText).toBe('Hal');
+        expect(chat.host.onScrollToBottom).not.toHaveBeenCalled();
+    });
+
     test('a reload in the middle of an answer finds the text so far', async () => {
         const chat = controller();
         chat._api.getMessages = async () => ({status: 'locked', messages: [{role: 'user', content: 'Hallo'}], totalCount: 1, liveText: 'Guten'});
