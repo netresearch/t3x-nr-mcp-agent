@@ -40,6 +40,7 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
+use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
 use Netresearch\NrMcpAgent\Service\UnavailableToolsReaderInterface;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -79,6 +80,7 @@ final class ChatServiceFeedbackTest extends TestCase
         ?AgentRun $run = null,
         array $events = [],
         bool $eventsFail = false,
+        ?TurnTimingRecorder $timing = null,
     ): ChatService {
         $agentRuntime = $this->createMock(AgentRuntimeInterface::class);
         $agentRuntime->method('run')->willReturnCallback(
@@ -139,6 +141,7 @@ final class ChatServiceFeedbackTest extends TestCase
             $this->createMock(UserContextPrompt::class),
             $this->createMock(RunActivityRecorder::class),
             unavailableTools: $reader,
+            turnTiming: $timing,
         );
     }
 
@@ -183,6 +186,34 @@ final class ChatServiceFeedbackTest extends TestCase
         self::assertInstanceOf(ChatMessage::class, $system);
 
         return $system->content;
+    }
+
+    // ---- the turn's timing ------------------------------------------------------
+
+    #[Test]
+    public function aTurnStampsItsRunAndEndsItsTiming(): void
+    {
+        $marks  = [];
+        $timing = $this->createMock(TurnTimingRecorder::class);
+        $timing->method('mark')->willReturnCallback(static function (string $phase) use (&$marks): void {
+            $marks[] = $phase;
+        });
+        $timing->expects(self::once())->method('finish');
+
+        $this->createChatService(timing: $timing)->processConversation($this->conversation('Hallo'));
+
+        self::assertSame(['runBegin', 'runEnd'], $marks);
+    }
+
+    #[Test]
+    public function aTurnThatFailsStillEndsItsTiming(): void
+    {
+        $tasks = $this->createMock(TaskRepository::class);
+        $tasks->method('findByUid')->willThrowException(new RuntimeException('gone'));
+        $timing = $this->createMock(TurnTimingRecorder::class);
+        $timing->expects(self::once())->method('finish');
+
+        $this->createChatService(taskRepository: $tasks, timing: $timing)->processConversation($this->conversation('Hallo'));
     }
 
     // ---- 1. a claimed change the run did not write ----------------------------

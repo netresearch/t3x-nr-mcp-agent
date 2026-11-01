@@ -53,6 +53,7 @@ class RunActivityRecorder implements LoggerAwareInterface
 
     public function __construct(
         private readonly ConversationRepository $repository,
+        private readonly ?TurnTimingRecorder $turnTiming = null,
     ) {}
 
     /** A new turn: the previous turn's activity no longer describes anything. */
@@ -74,6 +75,10 @@ class RunActivityRecorder implements LoggerAwareInterface
         return function (RunStep $step) use ($conversation): void {
             if (!in_array($step->kind, self::SHOWN_KINDS, true)) {
                 return;
+            }
+
+            if ($step->kind === RunStep::KIND_LLM) {
+                $this->turnTiming?->mark('firstLlm');
             }
 
             $entry = [

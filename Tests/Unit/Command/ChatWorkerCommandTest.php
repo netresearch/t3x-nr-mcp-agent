@@ -65,7 +65,7 @@ class ChatWorkerCommandTest extends TestCase
 
         self::assertNotNull($constructor);
         $parameters = $constructor->getParameters();
-        self::assertCount(3, $parameters);
+        self::assertCount(4, $parameters);
         self::assertSame('chatService', $parameters[0]->getName());
         self::assertSame('repository', $parameters[1]->getName());
         self::assertSame('connectionPool', $parameters[2]->getName());

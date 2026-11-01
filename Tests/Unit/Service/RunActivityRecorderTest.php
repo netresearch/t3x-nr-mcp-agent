@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
+use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -53,6 +54,18 @@ final class RunActivityRecorderTest extends TestCase
 
         self::assertSame([], $conversation->getActivity());
         self::assertSame([''], $this->written);
+    }
+
+    #[Test]
+    public function theFirstModelCallIsStampedAndAToolCallIsNot(): void
+    {
+        $repository = $this->createStub(ConversationRepository::class);
+        $timing     = $this->createMock(TurnTimingRecorder::class);
+        $timing->expects(self::once())->method('mark')->with('firstLlm');
+
+        $onStep = (new RunActivityRecorder($repository, $timing))->onStep($this->conversation());
+        $onStep(new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'read_records'));
+        $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0));
     }
 
     #[Test]

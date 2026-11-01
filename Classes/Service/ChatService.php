@@ -248,6 +248,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?AltTextConversation $altText = null,
         private readonly ?AltTextImagePolicyInterface $imagePolicy = null,
         private readonly ?ImageAnalysisTurnSettings $turnSettings = null,
+        private readonly ?TurnTimingRecorder $turnTiming = null,
     ) {}
 
     /**
@@ -368,6 +369,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function processTurn(Conversation $conversation, string $operation, bool $afterApproval = false): void
     {
+        try {
+            $this->turnUnderSettings($conversation, $operation, $afterApproval);
+        } finally {
+            $this->turnTiming?->finish();
+        }
+    }
+
+    private function turnUnderSettings(Conversation $conversation, string $operation, bool $afterApproval): void
+    {
         // The turn runs with the privacy setting "Bildanalyse" it was
         // dispatched with: a worker loaded the configuration when it started
         // and would otherwise go on with that (ImageAnalysisTurnSettings).
@@ -477,7 +487,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // parameter stays on the LlmConfiguration, so toArray() is empty and no
         // provider option is overridden by naming ourselves here.
         $request = $this->runRequest($conversation, $configuration, $messages, $operation);
-        $result  = $this->agentRuntime->run($request, $this->activityRecorder->onStep($conversation));
+        $this->turnTiming?->mark('runBegin');
+        $result = $this->agentRuntime->run($request, $this->activityRecorder->onStep($conversation));
+        $this->turnTiming?->mark('runEnd');
 
         // The start marker is spent once a run that carried the invocation
         // exists, whatever its outcome: a refused start is not tried again on
@@ -976,6 +988,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         $runUuid = $conversation->getApprovalRunUuid();
 
+        $this->turnTiming?->mark('runBegin');
+
         try {
             $result = $this->agentRuntime->submitInput(
                 $this->resolveActor($conversation->getBeUser()),
@@ -987,6 +1001,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 ),
                 $this->activityRecorder->onStep($conversation),
             );
+            $this->turnTiming?->mark('runEnd');
         } catch (StaleInputTurnException|InvalidInputSubmissionException|SubmitterNotPermittedException|RunAlreadyResumingException|RunConfigurationInactiveException|RunNotAwaitingInputException $e) {
             // These leave the run waiting for its answer: the question comes
             // back with the reason, in the reader's language, and the answer
@@ -1068,6 +1083,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The card of a conversation about a missing alt text (ADR-026): an
         // approved write is confirmed by the chat, in the reader's language.
         $altTextCard = $approved && AltTextConversation::isAbout($conversation) ? $this->altText?->card($conversation, $readView()) : null;
+        $this->turnTiming?->mark('runBegin');
+
         try {
             $result = $this->agentRuntime->approve(
                 $this->resolveActor($conversation->getBeUser()),
@@ -1084,6 +1101,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 },
             );
             $recordDecision();
+            $this->turnTiming?->mark('runEnd');
         } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException|RunConfigurationInactiveException|SelfApprovalDeniedException $e) {
             // These six RELEASE the run rather than consume it: it is still
             // pending and still decidable. A deactivated configuration is one

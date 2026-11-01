@@ -174,6 +174,16 @@ The central entity. Stored in
     Tool arguments and results are not stored here; nr-llm's run
     record keeps them.
 
+``turn_timing``
+    JSON object of the current turn's phases, in milliseconds since
+    the epoch: ``request``, ``dispatched``, ``processStart``,
+    ``claimed``, ``runBegin``, ``firstLlm``, ``runEnd``, ``stored``.
+    Written column-only by ``TurnTimingRecorder``: the first two by
+    the web request, the rest at the end of the turn, so they appear
+    together once it is over. Returned as ``timing`` by
+    ``getMessages`` on both paths, so a measurement needs no access
+    to the server.
+
 ``view_context``
     JSON ``{"pageId": int, "module": string}``: the page the
     module frame showed and the open module when the user last

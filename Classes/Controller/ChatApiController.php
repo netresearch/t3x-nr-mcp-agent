@@ -49,6 +49,7 @@ use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use Netresearch\NrMcpAgent\Service\SkillPageNeed;
 use Netresearch\NrMcpAgent\Service\TourContext;
+use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
 use Netresearch\NrMcpAgent\Utility\ContinueIntent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -132,6 +133,9 @@ final readonly class ChatApiController
         // Names the element a guided step is about, for the chip above the
         // input (NEXT-221); without it the chip shows the page only.
         private ?HighlightTitle $highlightTitle = null,
+        // Stamps when the turn left the request; without it the turn's timing
+        // starts in the process that runs it.
+        private ?TurnTimingRecorder $turnTiming = null,
         // What every list shows about a conversation (ADR-027); without it
         // the list carries the stored titles and no context.
         private ?ConversationListPresenter $listPresenter = null,
@@ -327,7 +331,7 @@ final readonly class ChatApiController
 
         $uid = $this->repository->add($conversation);
         if ($startsTour || $startsAltText) {
-            $this->processor->dispatch($uid);
+            $this->dispatchTurn($uid);
         }
 
         return new JsonResponse([
@@ -917,6 +921,7 @@ final readonly class ChatApiController
                     ...$this->presentError($meta['error_message'], $meta['error_code']),
                     'approvalUrl' => $this->buildApprovalUrl($meta['approval_run_uuid']),
                     'activity'    => $meta['activity'],
+                    'timing'      => $meta['turn_timing'],
                 ]);
             }
         }
@@ -974,6 +979,7 @@ final readonly class ChatApiController
             // when it is installed.
             'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
             'activity'     => $conversation->getActivity(),
+            'timing'       => $conversation->getTurnTiming(),
             // The page a guided process is bound to has been deleted: the
             // chat shows it read-only, with a notice (refuseReadOnly()).
             'pageGone' => $this->isPageGone($conversation),
@@ -981,6 +987,12 @@ final readonly class ChatApiController
             // what the chat may do next (ADR-026).
             'altText' => $this->altTextState($conversation),
         ]);
+    }
+
+    private function dispatchTurn(int $conversationUid): void
+    {
+        $this->turnTiming?->dispatched($conversationUid);
+        $this->processor->dispatch($conversationUid);
     }
 
     /**
@@ -1434,7 +1446,7 @@ final readonly class ChatApiController
             }
         }
 
-        $this->processor->dispatch($conversation->getUid());
+        $this->dispatchTurn($conversation->getUid());
 
         return new JsonResponse(['status' => 'processing'], 202);
     }
@@ -1993,7 +2005,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
-        $this->processor->dispatch($conversation->getUid());
+        $this->dispatchTurn($conversation->getUid());
 
         return new JsonResponse(['status' => $conversation->getStatus()->value], 202);
     }
@@ -2348,7 +2360,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
-        $this->processor->dispatch($conversation->getUid());
+        $this->dispatchTurn($conversation->getUid());
 
         // 202, like every other path that hands work to the worker. The decision
         // is recorded, not yet carried out; the chat's poll reports the outcome,
@@ -2465,7 +2477,7 @@ final readonly class ChatApiController
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
-        $this->processor->dispatch($conversation->getUid());
+        $this->dispatchTurn($conversation->getUid());
 
         return new JsonResponse(['status' => 'processing'], 202);
     }

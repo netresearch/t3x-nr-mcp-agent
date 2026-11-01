@@ -302,6 +302,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
             'approval_run_uuid' => '',
             'tstamp'            => time(),
             'activity'          => [],
+            'turn_timing'       => [],
             'about_image'       => false,
         ]);
 
