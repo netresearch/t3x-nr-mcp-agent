@@ -9,7 +9,7 @@
 ADR-007: Polling over WebSockets or SSE
 =======================================
 
-**Status:** Accepted
+**Status:** Accepted, amended by :ref:`ADR-028 <adr-028>`
 
 **Date:** 2026-03-15
 

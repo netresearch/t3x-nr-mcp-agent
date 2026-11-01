@@ -9,7 +9,7 @@
 ADR-028: The answer reaches the reader while it is written
 ==========================================================
 
-**Status:** Accepted
+**Status:** Accepted, amends ADR-007
 
 **Date:** 2026-11-01
 
@@ -36,6 +36,10 @@ need no code of their own. Only the transcript is a record.
 Server-Sent Events, with the same headers and padding as nr-llm's playground and
 the Cowriter dialog. Through the demo's chain (Caddy, nginx, PHP-FPM) the Cowriter
 route delivered its events as they were sent, measured on 2026-11-01.
+
+**ADR-007 is amended, for its two reasons.** The connection limit of FPM is met by
+``maxLiveStreams`` and a lease; the message bus between the processes is the row,
+which the stream reads. Polling stays the contract.
 
 **Polling stays.** The stream carries the text, the activity and the number of
 messages, nothing else. A message that arrives inside a turn that goes on makes

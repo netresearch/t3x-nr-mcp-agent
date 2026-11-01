@@ -67,7 +67,7 @@ final class RunActivityRecorderTest extends TestCase
 
         $conversation = Conversation::fromRow(['uid' => 7, 'be_user' => 1]);
         $onStep       = (new RunActivityRecorder($repository, liveText: $liveText))->onStep($conversation);
-        $onStep(new RunStep(kind: RunStep::KIND_TEXT_DELTA, round: 2, durationMs: 0.0, content: 'Hal'));
+        $onStep(new RunStep(kind: 'text_delta', round: 2, durationMs: 0.0, content: 'Hal'));
 
         self::assertSame([], $conversation->getActivity());
     }
@@ -80,7 +80,7 @@ final class RunActivityRecorderTest extends TestCase
 
         $onStep = (new RunActivityRecorder($this->createStub(ConversationRepository::class), liveText: $liveText))
             ->onStep(Conversation::fromRow(['uid' => 7, 'be_user' => 1]));
-        $onStep(new RunStep(kind: RunStep::KIND_TEXT_RESTART, round: 1, durationMs: 0.0, content: ''));
+        $onStep(new RunStep(kind: 'text_restart', round: 1, durationMs: 0.0, content: ''));
     }
 
     #[Test]

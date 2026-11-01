@@ -7,7 +7,7 @@
  * token, and gone with the turn.
  */
 
-import {describe, test, expect, beforeAll, jest} from '@jest/globals';
+import {afterEach, describe, test, expect, beforeAll, jest} from '@jest/globals';
 
 const SURFACES = [
     {name: 'chat-app (full page)', module: '../../Resources/Public/JavaScript/chat-app.js', tag: 'nr-chat-app'},
@@ -41,6 +41,10 @@ describe.each(SURFACES)('$name', ({module: modulePath, tag, open}) => {
         document.body.replaceChildren();
     });
 
+    afterEach(() => {
+        document.body.replaceChildren();
+    });
+
     test('only a reader at the bottom counts as following the text', async () => {
         const el = await render(modulePath, tag, open, {status: 'locked', liveText: 'Text'});
         const list = el.shadowRoot.querySelector('.messages, .panel-messages');
@@ -60,6 +64,7 @@ describe.each(SURFACES)('$name', ({module: modulePath, tag, open}) => {
         const live = el.shadowRoot.querySelector('[data-live-text]');
         expect(live.querySelector('strong')?.textContent).toBe('wichtig');
         expect(live.getAttribute('aria-hidden')).toBe('true');
+        expect(live.hasAttribute('inert')).toBe(true);
         expect(el.shadowRoot.querySelector('.typing-indicator')).not.toBeNull();
     });
 

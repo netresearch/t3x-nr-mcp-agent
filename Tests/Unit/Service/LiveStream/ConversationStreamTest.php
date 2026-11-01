@@ -58,7 +58,7 @@ final class ConversationStreamTest extends TestCase
 
         $test    = $this;
         $emitter = new class ($test) implements EventEmitterInterface {
-            public function __construct(private ConversationStreamTest $test) {}
+            public function __construct(private readonly ConversationStreamTest $test) {}
 
             public function open(): void
             {

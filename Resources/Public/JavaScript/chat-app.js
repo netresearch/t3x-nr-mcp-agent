@@ -793,7 +793,7 @@ export class ChatApp extends LitElement {
                     <div class="message-row assistant" aria-label="${lll('chat.processing')}">
                         <div class="avatar avatar-assistant">${AVATAR_ASSISTANT(16)}</div>
                         <div class="message-bubble">
-                            ${this.chat.liveText ? html`<div class="message assistant" data-live-text aria-hidden="true">${this._renderAssistantContent({role: 'assistant', content: this.chat.liveText})}</div>` : nothing}
+                            ${this.chat.liveText ? html`<div class="message assistant" data-live-text aria-hidden="true" inert>${this._renderAssistantContent({role: 'assistant', content: this.chat.liveText})}</div>` : nothing}
                             <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
                         </div>
                     </div>
