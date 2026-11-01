@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Command;
 
+use DateTimeImmutable;
 use Netresearch\NrMcpAgent\Command\ChatWorkerCommand;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ChatWorkerRepository;
@@ -23,7 +24,10 @@ use ReflectionClass;
 use ReflectionMethod;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\DateTimeAspect;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * The ways a worker ends. A worker that ends is the normal case: its supervisor
@@ -116,6 +120,26 @@ final class ChatWorkerCommandLimitsTest extends TestCase
         $this->runWorker(['--max-turns' => 1], $repository, $workers);
 
         self::assertSame(['idle', 'dequeued', 'withdrawn', 'withdrawn'], $order);
+    }
+
+    #[Test]
+    public function aTurnRunsAtTheTimeItIsTaken(): void
+    {
+        $GLOBALS['EXEC_TIME'] = $GLOBALS['ACCESS_TIME'] = $GLOBALS['SIM_EXEC_TIME'] = $GLOBALS['SIM_ACCESS_TIME'] = 1000;
+        GeneralUtility::makeInstance(Context::class)->setAspect('date', new DateTimeAspect(new DateTimeImmutable('@1000')));
+        $repository = $this->createStub(ConversationRepository::class);
+        $repository->method('dequeueForWorker')->willReturnCallback(
+            static fn (): Conversation => Conversation::fromRow(['uid' => 7, 'be_user' => 1]),
+        );
+        $before = time();
+
+        $this->runWorker(['--max-turns' => 1], $repository);
+
+        self::assertGreaterThanOrEqual($before, $GLOBALS['EXEC_TIME']);
+        self::assertGreaterThanOrEqual($before, $GLOBALS['SIM_EXEC_TIME']);
+        self::assertGreaterThan(1000, $GLOBALS['ACCESS_TIME']);
+        self::assertGreaterThan(1000, $GLOBALS['SIM_ACCESS_TIME']);
+        self::assertGreaterThanOrEqual($before, GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('date', 'timestamp'));
     }
 
     #[Test]

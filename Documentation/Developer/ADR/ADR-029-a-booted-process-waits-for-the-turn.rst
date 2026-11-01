@@ -31,9 +31,10 @@ Decision
 worker boots, waits for a turn, runs it and ends; ``--max-turns=1`` is the
 recommended setting and its supervisor starts the next one at once. So the reader
 no longer waits for the boot, and every turn still gets a fresh process: nothing
-of a turn reaches the next one, memory cannot grow, and a changed configuration
-counts from the next turn. The price is a boot after each turn instead of before
-it, which nobody waits for.
+of a turn reaches the next one and memory cannot grow. The price is a boot after
+each turn instead of before it, which nobody waits for, and a changed configuration
+counts from the next boot, so at the latest after ``--time-limit``. TYPO3 reads the
+time once at boot, so a worker sets it again when it takes a turn.
 
 **Keeping a process across turns stays possible and is not the default.**
 ``--max-turns=0`` saves that boot and needs the state above to be safe. It would
@@ -51,7 +52,9 @@ may reach for the turn; the claim in ``dequeueForWorker()`` and
 
 **The limits end a worker, not a turn.** ``--time-limit`` and ``--memory-limit``
 take effect between turns. SIGTERM and SIGINT let a running turn finish.
-``--turn-limit`` is the one exception: a turn that exceeds it ends the process.
+``--turn-limit`` is the one exception: a turn that exceeds it ends the process,
+after the provider call it may be blocked in, which has a timeout of its own. A
+supervisor's stop grace period above it lets a deployment wait for a running turn.
 
 **A turn is never run again by itself.** A turn that was killed or exceeded the
 limit may have written, and the duplicated pages of an earlier version came from a

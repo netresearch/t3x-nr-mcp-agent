@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Command;
 
+use DateTimeImmutable;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ChatWorkerRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
@@ -24,7 +25,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\DateTimeAspect;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Keeps a booted TYPO3 waiting for the next chat turn (ADR-029).
@@ -35,7 +39,8 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * --turn-limit ends the process and is marked failed, so the reader gets a Retry;
  * a turn is never run a second time by itself, because it may have written.
  * The last two need the `pcntl` extension; without it the process dies on SIGTERM
- * and a stuck turn waits for `ai-chat:cleanup`.
+ * and a stuck turn waits for `ai-chat:cleanup`. A signal is handled between two
+ * calls, so a turn blocked in a provider call ends when that call does.
  */
 #[AsCommand(name: 'ai-chat:worker', description: 'Long-running worker that processes chat conversations from queue')]
 final class ChatWorkerCommand extends Command
@@ -46,7 +51,7 @@ final class ChatWorkerCommand extends Command
 
     private const DEFAULT_MEMORY_LIMIT_MB = 256;
 
-    private const DEFAULT_TURN_LIMIT_SECONDS = 300;
+    private const DEFAULT_TURN_LIMIT_SECONDS = 600;
 
     private const TURN_LIMIT_MESSAGE = 'The turn took too long and was stopped.';
 
@@ -143,6 +148,7 @@ final class ChatWorkerCommand extends Command
                 $conversation->getBeUser(),
             ));
 
+            $this->setTheClock();
             BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool);
             $this->turnTiming?->begin($conversation, startedForTurn: false);
 
@@ -170,6 +176,20 @@ final class ChatWorkerCommand extends Command
         }
 
         return $conversation;
+    }
+
+    /**
+     * TYPO3 reads the time once, at boot, and this process may have waited since:
+     * a record written now would carry the time the worker started.
+     */
+    private function setTheClock(): void
+    {
+        $now                        = time();
+        $GLOBALS['EXEC_TIME']       = $now;
+        $GLOBALS['ACCESS_TIME']     = $now - $now % 60;
+        $GLOBALS['SIM_EXEC_TIME']   = $now;
+        $GLOBALS['SIM_ACCESS_TIME'] = $GLOBALS['ACCESS_TIME'];
+        GeneralUtility::makeInstance(Context::class)->setAspect('date', new DateTimeAspect(new DateTimeImmutable('@' . $now)));
     }
 
     private function limitReached(int $turns, int $maxTurns, int $startedAt, int $timeLimit, int $memoryLimit): bool

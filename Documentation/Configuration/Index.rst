@@ -555,7 +555,7 @@ A worker ends by itself and expects to be started again:
     and 256.
 
 ``--turn-limit``
-    A turn that runs longer than this many seconds, 300 by default, ends
+    A turn that runs longer than this many seconds, 600 by default, ends
     the process and fails, and the reader gets a Retry. It is never run a
     second time by itself, because it may have written.
 

@@ -71,6 +71,19 @@ final class TurnTimingRecorderTest extends TestCase
     }
 
     #[Test]
+    public function aWorkerThatHoldsTheTurnFirstDoesNotContinueTheLastTurnsList(): void
+    {
+        $recorder = $this->recorder();
+        $recorder->begin($this->conversation(['request' => 11, 'runBegin' => 13, 'stored' => 14]), startedForTurn: false);
+        $recorder->mark('runBegin');
+        $recorder->finish();
+
+        [, $marks] = $this->writes[0];
+        self::assertArrayNotHasKey('request', $marks);
+        self::assertGreaterThan(14, $marks['runBegin']);
+    }
+
+    #[Test]
     public function theProcessAddsToTheStampsTheRequestLeft(): void
     {
         $_SERVER['REQUEST_TIME_FLOAT'] = 1001.25;
