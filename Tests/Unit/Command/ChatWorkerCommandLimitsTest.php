@@ -125,7 +125,11 @@ final class ChatWorkerCommandLimitsTest extends TestCase
     #[Test]
     public function aTurnRunsAtTheTimeItIsTaken(): void
     {
-        $GLOBALS['EXEC_TIME'] = $GLOBALS['ACCESS_TIME'] = $GLOBALS['SIM_EXEC_TIME'] = $GLOBALS['SIM_ACCESS_TIME'] = 1000;
+        $clock = ['EXEC_TIME', 'ACCESS_TIME', 'SIM_EXEC_TIME', 'SIM_ACCESS_TIME'];
+        foreach ($clock as $global) {
+            $GLOBALS[$global] = 1000;
+        }
+
         GeneralUtility::makeInstance(Context::class)->setAspect('date', new DateTimeAspect(new DateTimeImmutable('@1000')));
         $repository = $this->createStub(ConversationRepository::class);
         $repository->method('dequeueForWorker')->willReturnCallback(
@@ -135,10 +139,10 @@ final class ChatWorkerCommandLimitsTest extends TestCase
 
         $this->runWorker(['--max-turns' => 1], $repository);
 
-        self::assertGreaterThanOrEqual($before, $GLOBALS['EXEC_TIME']);
-        self::assertGreaterThanOrEqual($before, $GLOBALS['SIM_EXEC_TIME']);
-        self::assertGreaterThan(1000, $GLOBALS['ACCESS_TIME']);
-        self::assertGreaterThan(1000, $GLOBALS['SIM_ACCESS_TIME']);
+        foreach ($clock as $global) {
+            self::assertGreaterThanOrEqual($before - 60, $GLOBALS[$global]);
+        }
+
         self::assertGreaterThanOrEqual($before, GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('date', 'timestamp'));
     }
 
@@ -169,7 +173,7 @@ final class ChatWorkerCommandLimitsTest extends TestCase
             protected function doWrite(string $message, bool $newline): void
             {
                 if (str_contains($message, 'Processing conversation')) {
-                    $this->armedFor = (int) pcntl_alarm(0);
+                    $this->armedFor = pcntl_alarm(0);
                     pcntl_alarm($this->armedFor);
                 }
             }

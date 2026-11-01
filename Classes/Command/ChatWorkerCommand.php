@@ -184,11 +184,14 @@ final class ChatWorkerCommand extends Command
      */
     private function setTheClock(): void
     {
-        $now                        = time();
-        $GLOBALS['EXEC_TIME']       = $now;
-        $GLOBALS['ACCESS_TIME']     = $now - $now % 60;
-        $GLOBALS['SIM_EXEC_TIME']   = $now;
-        $GLOBALS['SIM_ACCESS_TIME'] = $GLOBALS['ACCESS_TIME'];
+        $now = time();
+        foreach (['EXEC_TIME', 'SIM_EXEC_TIME'] as $global) {
+            $GLOBALS[$global] = $now;
+        }
+        foreach (['ACCESS_TIME', 'SIM_ACCESS_TIME'] as $global) {
+            $GLOBALS[$global] = $now - $now % 60;
+        }
+
         GeneralUtility::makeInstance(Context::class)->setAspect('date', new DateTimeAspect(new DateTimeImmutable('@' . $now)));
     }
 
@@ -242,6 +245,7 @@ final class ChatWorkerCommand extends Command
     {
         $conversation->setStatus(ConversationStatus::Failed);
         $conversation->setErrorMessage(self::TURN_LIMIT_MESSAGE);
+
         $this->repository->updateIf($conversation, ConversationStatus::Locked);
     }
 

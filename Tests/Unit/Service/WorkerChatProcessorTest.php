@@ -12,6 +12,7 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 use Error;
 use Netresearch\NrMcpAgent\Domain\Repository\ChatWorkerRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Exception\Typo3CliBinaryNotFoundException;
 use Netresearch\NrMcpAgent\Service\ExecChatProcessor;
 use Netresearch\NrMcpAgent\Service\Typo3CliBinaryResolver;
 use Netresearch\NrMcpAgent\Service\WorkerChatProcessor;
@@ -47,7 +48,7 @@ final class WorkerChatProcessorTest extends TestCase
         $conversations->expects($startsProcess ? self::once() : self::never())->method('findByUid')->with(7)->willReturn(null);
 
         $resolver = $this->createStub(Typo3CliBinaryResolver::class);
-        $resolver->method('resolve')->willThrowException(new \Netresearch\NrMcpAgent\Exception\Typo3CliBinaryNotFoundException('not here'));
+        $resolver->method('resolve')->willThrowException(new Typo3CliBinaryNotFoundException('not here'));
 
         (new WorkerChatProcessor($workers, $conversations, new ExecChatProcessor($resolver, $conversations, new NullLogger())))->dispatch(7);
     }
