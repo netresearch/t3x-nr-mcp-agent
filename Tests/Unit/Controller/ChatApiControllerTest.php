@@ -21,6 +21,7 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -193,6 +194,50 @@ class ChatApiControllerTest extends TestCase
     }
 
     #[Test]
+    public function theTurnIsStampedBeforeItIsHandedOver(): void
+    {
+        $conversation = new Conversation();
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('countActiveByBeUser')->willReturn(0);
+
+        $order  = [];
+        $timing = $this->createStub(TurnTimingRecorder::class);
+        $timing->method('dispatched')->willReturnCallback(static function () use (&$order): void {
+            $order[] = 'stamped';
+        });
+        $this->processor->method('dispatch')->willReturnCallback(static function () use (&$order): void {
+            $order[] = 'dispatched';
+        });
+
+        $subject = new ChatApiController($this->repository, $this->processor, $this->config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder, turnTiming: $timing);
+
+        $subject->sendMessage($this->createRequest('POST', '{"conversationUid": 1, "content": "Hello AI"}'));
+
+        self::assertSame(['stamped', 'dispatched'], $order);
+    }
+
+    #[Test]
+    public function aPollThatFindsNoNewMessageCarriesTheTiming(): void
+    {
+        $this->repository->method('findPollStatus')->willReturn([
+            'status'            => 'processing',
+            'message_count'     => 1,
+            'error_message'     => '',
+            'error_code'        => '',
+            'approval_run_uuid' => '',
+            'tstamp'            => 0,
+            'activity'          => [],
+            'turn_timing'       => ['request' => 11],
+            'about_image'       => false,
+        ]);
+
+        $request = $this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '1']);
+        $data    = json_decode((string) $this->subject->getMessages($request)->getBody(), true);
+
+        self::assertSame(['request' => 11], $data['timing']);
+    }
+
+    #[Test]
     public function sendMessageEnforcesRateLimit(): void
     {
         $conversation = new Conversation();
@@ -247,6 +292,7 @@ class ChatApiControllerTest extends TestCase
             'error_code'        => '',
             'approval_run_uuid' => '',
             'activity'          => [],
+            'turn_timing'       => [],
             'about_image'       => false,
         ]);
 
@@ -890,6 +936,7 @@ class ChatApiControllerTest extends TestCase
             'approval_run_uuid' => 'run-uuid-1234',
             'tstamp'            => time() - 600,
             'activity'          => [],
+            'turn_timing'       => [],
             'about_image'       => false,
         ]);
         $conversation = new Conversation();
@@ -918,6 +965,7 @@ class ChatApiControllerTest extends TestCase
             'approval_run_uuid' => '',
             'tstamp'            => time() - 600,
             'activity'          => [],
+            'turn_timing'       => [],
             'about_image'       => false,
         ]);
         $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
@@ -1069,6 +1117,7 @@ class ChatApiControllerTest extends TestCase
             'error_code'        => '',
             'approval_run_uuid' => '',
             'activity'          => [],
+            'turn_timing'       => [],
             'about_image'       => false,
         ]);
         // findOneByUidAndBeUser should never be called in the fast path

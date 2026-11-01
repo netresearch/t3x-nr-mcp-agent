@@ -93,6 +93,8 @@ final class Conversation
      */
     private string $activity = '';
 
+    private string $turnTiming = '';
+
     /**
      * What the guided-state tools last reported for this conversation's runs
      * (ADR-020): the progress for the header and the element to highlight, as
@@ -236,6 +238,7 @@ final class Conversation
         $conversation->skillUid           = (int) self::val($row, 'skill_uid', 0);
         $conversation->skillStartPending  = (bool) self::val($row, 'skill_start_pending', false);
         $conversation->activity           = (string) self::val($row, 'activity', '');
+        $conversation->turnTiming         = (string) self::val($row, 'turn_timing', '');
         $conversation->guidedState        = (string) self::val($row, 'guided_state', '');
         $conversation->approvalCard       = (string) self::val($row, 'approval_card', '');
         $conversation->cardOutcomes       = (string) self::val($row, 'card_outcomes', '');
@@ -674,6 +677,28 @@ final class Conversation
     public function setActivity(array $entries): void
     {
         $this->activity = $entries === [] ? '' : json_encode($entries, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * The stamps of the current turn's phases (TurnTimingRecorder).
+     *
+     * @return array<string, int>
+     */
+    public function getTurnTiming(): array
+    {
+        return self::decodeTurnTiming($this->turnTiming);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public static function decodeTurnTiming(string $json): array
+    {
+        $decoded = $json !== '' ? json_decode($json, true) : null;
+
+        return is_array($decoded)
+            ? array_filter($decoded, static fn (mixed $stamp, int|string $phase): bool => is_string($phase) && is_int($stamp), ARRAY_FILTER_USE_BOTH)
+            : [];
     }
 
     /**

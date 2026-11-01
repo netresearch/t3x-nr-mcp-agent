@@ -413,16 +413,26 @@ readonly class ConversationRepository
     }
 
     /**
+     * Single-column write of the turn's timing, for the reason updateActivity()
+     * gives.
+     */
+    public function updateTurnTiming(int $uid, string $timingJson): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, ['turn_timing' => $timingJson], ['uid' => $uid]);
+    }
+
+    /**
      * Lightweight poll check — returns status metadata without loading messages.
      *
      * `about_image`: the conversation is about a missing alt text (ADR-026).
      *
-     * @return array{status: string, message_count: int, error_message: string, error_code: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>, about_image: bool}|null
+     * @return array{status: string, message_count: int, error_message: string, error_code: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>, turn_timing: array<string, int>, about_image: bool}|null
      */
     public function findPollStatus(int $uid, int $beUserUid): ?array
     {
         $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $qb->select('status', 'message_count', 'error_message', 'error_code', 'approval_run_uuid', 'tstamp', 'activity', 'alt_text_hit')
+        $row = $qb->select('status', 'message_count', 'error_message', 'error_code', 'approval_run_uuid', 'tstamp', 'activity', 'turn_timing', 'alt_text_hit')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -443,6 +453,7 @@ readonly class ConversationRepository
         $approvalRunUuid = $row['approval_run_uuid'] ?? '';
         $tstamp          = $row['tstamp'] ?? 0;
         $activity        = $row['activity'] ?? '';
+        $turnTiming      = $row['turn_timing'] ?? '';
 
         if (is_int($messageCount)) {
             $messageCountInt = $messageCount;
@@ -458,6 +469,7 @@ readonly class ConversationRepository
             'approval_run_uuid' => is_string($approvalRunUuid) ? $approvalRunUuid : '',
             'tstamp'            => is_numeric($tstamp) ? (int) $tstamp : 0,
             'activity'          => Conversation::decodeActivity(is_string($activity) ? $activity : ''),
+            'turn_timing'       => Conversation::decodeTurnTiming(is_string($turnTiming) ? $turnTiming : ''),
             'about_image'       => is_string($row['alt_text_hit'] ?? null) && $row['alt_text_hit'] !== '',
         ];
     }

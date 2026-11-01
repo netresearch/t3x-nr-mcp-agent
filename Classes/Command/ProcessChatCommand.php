@@ -13,6 +13,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
 use Netresearch\NrMcpAgent\Utility\BackendUserInitializer;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -31,6 +32,7 @@ final class ProcessChatCommand extends Command
         private readonly ChatService $chatService,
         private readonly ConversationRepository $repository,
         private readonly ConnectionPool $connectionPool,
+        private readonly ?TurnTimingRecorder $turnTiming = null,
     ) {
         parent::__construct();
     }
@@ -69,6 +71,7 @@ final class ProcessChatCommand extends Command
         }
 
         BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool);
+        $this->turnTiming?->begin($conversation);
 
         try {
             if ($conversation->hasPendingToolCalls()) {
