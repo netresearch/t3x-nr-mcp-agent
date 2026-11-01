@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-01
+
+### Added
+
+- Each turn stores when its phases happened: request, hand-over, process start, claim, run, first model call, end. `getMessages` returns them as `timing`, so the time a reader waits can be split into its parts. Update the database schema: `tx_nrmcpagent_conversation` gains `turn_timing`.
+
+### Changed
+
+- `netresearch/nr-llm` is accepted at `^0.41.7 || ^0.42 || ^0.43` (`ext_emconf.php`: `0.41.7-0.43.99`).
+
 ## [0.28.1] - 2026-11-01
 
 ### Changed
