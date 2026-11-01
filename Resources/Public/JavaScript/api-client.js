@@ -68,6 +68,18 @@ export class ApiClient {
     }
 
     /**
+     * Where the running turn of a conversation can be followed (ADR-028).
+     *
+     * @param {number} conversationUid
+     * @returns {string}
+     */
+    streamUrl(conversationUid) {
+        const url = this._url('ai_chat_conversation_stream');
+
+        return `${url}${url.includes('?') ? '&' : '?'}conversationUid=${encodeURIComponent(conversationUid)}`;
+    }
+
+    /**
      * @param {number} conversationUid
      * @param {string} content
      * @param {number|null} [fileUid]

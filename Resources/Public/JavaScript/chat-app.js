@@ -574,6 +574,13 @@ export class ChatApp extends LitElement {
         return Number.parseInt(new URLSearchParams(globalThis.location.search).get('conversation') ?? '', 10) || 0;
     }
 
+    /** Read before the next render: a reader who scrolled up stays where they are. */
+    isAtBottom() {
+        const el = this.renderRoot?.querySelector('.messages');
+
+        return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+    }
+
     onScrollToBottom(force = false) {
         const doScroll = () => {
             const container = this.renderRoot?.querySelector('.messages');
@@ -785,7 +792,10 @@ export class ChatApp extends LitElement {
                 ${this.chat.isProcessing() ? html`
                     <div class="message-row assistant" aria-label="${lll('chat.processing')}">
                         <div class="avatar avatar-assistant">${AVATAR_ASSISTANT(16)}</div>
-                        <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
+                        <div class="message-bubble">
+                            ${this.chat.liveText ? html`<div class="message assistant" data-live-text aria-hidden="true" inert>${this._renderAssistantContent({role: 'assistant', content: this.chat.liveText})}</div>` : nothing}
+                            <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
+                        </div>
                     </div>
                 ` : nothing}
                 ${this._renderStatusNotice(isResumable)}

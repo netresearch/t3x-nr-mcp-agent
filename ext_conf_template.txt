@@ -13,6 +13,9 @@ processRunMaxIterations = 12
 # cat=basic/processing; type=options[exec,worker]; label=Processing Strategy (exec: fork CLI process per request, worker: long-running systemd worker)
 processingStrategy = exec
 
+# cat=basic/processing; type=int; label=Conversations that may stream their answer at the same time: each one holds a PHP-FPM worker while a turn runs, so keep this well below pm.max_children. Further conversations show the answer when it is complete, through polling. 0 switches streaming off.
+maxLiveStreams = 3
+
 # cat=basic/access; type=string; label=Allowed Backend User Groups (comma-separated UIDs, empty = all)
 allowedGroups =
 

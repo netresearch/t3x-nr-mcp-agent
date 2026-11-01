@@ -19,6 +19,8 @@ CREATE TABLE tx_nrmcpagent_conversation (
     skill_start_pending tinyint(1) unsigned DEFAULT 0 NOT NULL,
     activity text,
     turn_timing text,
+    live_text mediumtext,
+    stream_lease int(11) unsigned DEFAULT 0 NOT NULL,
     guided_state text,
     approval_card text,
     card_outcomes text,

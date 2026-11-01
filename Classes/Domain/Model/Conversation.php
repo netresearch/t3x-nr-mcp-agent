@@ -95,6 +95,8 @@ final class Conversation
 
     private string $turnTiming = '';
 
+    private string $liveText = '';
+
     /**
      * What the guided-state tools last reported for this conversation's runs
      * (ADR-020): the progress for the header and the element to highlight, as
@@ -239,6 +241,7 @@ final class Conversation
         $conversation->skillStartPending  = (bool) self::val($row, 'skill_start_pending', false);
         $conversation->activity           = (string) self::val($row, 'activity', '');
         $conversation->turnTiming         = (string) self::val($row, 'turn_timing', '');
+        $conversation->liveText           = (string) self::val($row, 'live_text', '');
         $conversation->guidedState        = (string) self::val($row, 'guided_state', '');
         $conversation->approvalCard       = (string) self::val($row, 'approval_card', '');
         $conversation->cardOutcomes       = (string) self::val($row, 'card_outcomes', '');
@@ -677,6 +680,12 @@ final class Conversation
     public function setActivity(array $entries): void
     {
         $this->activity = $entries === [] ? '' : json_encode($entries, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /** The text the model has written so far in the running turn (ADR-028). */
+    public function getLiveText(): string
+    {
+        return $this->liveText;
     }
 
     /**

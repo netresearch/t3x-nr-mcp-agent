@@ -43,6 +43,7 @@ use Netresearch\NrMcpAgent\Service\ConversationList\ConversationListPresenter;
 use Netresearch\NrMcpAgent\Service\ConversationList\ConversationTitle;
 use Netresearch\NrMcpAgent\Service\HighlightTitle;
 use Netresearch\NrMcpAgent\Service\InputPause;
+use Netresearch\NrMcpAgent\Service\LiveStream\ConversationStream;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
@@ -61,6 +62,7 @@ use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Http\NullResponse;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Localization\Locales;
@@ -136,6 +138,8 @@ final readonly class ChatApiController
         // Stamps when the turn left the request; without it the turn's timing
         // starts in the process that runs it.
         private ?TurnTimingRecorder $turnTiming = null,
+        // Without it the answer arrives through polling only (ADR-028).
+        private ?ConversationStream $liveStream = null,
         // What every list shows about a conversation (ADR-027); without it
         // the list carries the stored titles and no context.
         private ?ConversationListPresenter $listPresenter = null,
@@ -922,6 +926,7 @@ final readonly class ChatApiController
                     'approvalUrl' => $this->buildApprovalUrl($meta['approval_run_uuid']),
                     'activity'    => $meta['activity'],
                     'timing'      => $meta['turn_timing'],
+                    'liveText'    => $meta['live_text'],
                 ]);
             }
         }
@@ -980,6 +985,7 @@ final readonly class ChatApiController
             'dashboardUrl' => $conversation->getGuidedState()['progress']['completed'] ?? false ? $this->dashboardUrl() : '',
             'activity'     => $conversation->getActivity(),
             'timing'       => $conversation->getTurnTiming(),
+            'liveText'     => $conversation->getLiveText(),
             // The page a guided process is bound to has been deleted: the
             // chat shows it read-only, with a notice (refuseReadOnly()).
             'pageGone' => $this->isPageGone($conversation),
@@ -989,8 +995,41 @@ final readonly class ChatApiController
         ]);
     }
 
+    /**
+     * GET /ai-chat/conversations/stream: a running turn as Server-Sent Events
+     * (ADR-028). A refusal is an ordinary answer, and the chat then polls.
+     */
+    public function streamConversation(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied instanceof ResponseInterface) {
+            return $accessDenied;
+        }
+
+        /** @var array<string, string> $queryParams */
+        $queryParams = $request->getQueryParams();
+        $uid         = (int) ($queryParams['conversationUid'] ?? 0);
+        $beUser      = $this->getBeUserUid();
+
+        if (!$this->liveStream instanceof ConversationStream || !$this->liveStream->admit($uid, $beUser)) {
+            return new JsonResponse(['error' => 'No stream available'], 503);
+        }
+
+        if ($this->repository->findStreamState($uid, $beUser) === null) {
+            $this->repository->releaseStreamLease($uid, $beUser);
+
+            return new JsonResponse(['error' => $this->translate('error.conversationNotFound')], 404);
+        }
+
+        $this->liveStream->run($uid, $beUser);
+
+        return new NullResponse();
+    }
+
     private function dispatchTurn(int $conversationUid): void
     {
+        // A turn that was killed left its text; the reader's stream opens now.
+        $this->repository->updateLiveText($conversationUid, '');
         $this->turnTiming?->dispatched($conversationUid);
         $this->processor->dispatch($conversationUid);
     }

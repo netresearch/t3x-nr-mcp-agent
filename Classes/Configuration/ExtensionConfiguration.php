@@ -151,6 +151,12 @@ class ExtensionConfiguration
         return $this->getString('processingStrategy', 'exec');
     }
 
+    /** How many conversations may stream at the same time; 0 switches streaming off. */
+    public function getMaxLiveStreams(): int
+    {
+        return (int) $this->getString('maxLiveStreams', '3');
+    }
+
     /** @return list<int> */
     public function getAllowedGroupIds(): array
     {

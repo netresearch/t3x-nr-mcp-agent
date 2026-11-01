@@ -2292,6 +2292,13 @@ export class AiChatPanel extends LitElement {
 
     // ── ChatCoreController callback hooks ───────────────────────────────
 
+    /** Read before the next render: a reader who scrolled up stays where they are. */
+    isAtBottom() {
+        const el = this.renderRoot?.querySelector('.panel-messages');
+
+        return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+    }
+
     onScrollToBottom(force = false) {
         // Wait for Lit to finish rendering, then scroll
         this.updateComplete.then(() => {
@@ -3098,7 +3105,10 @@ export class AiChatPanel extends LitElement {
                 ${this.chat.isProcessing() ? html`
                     <div class="message-row assistant" aria-label="${lll('chat.processing')}">
                         <div class="avatar avatar-assistant">${AVATAR_ASSISTANT(14)}</div>
-                        <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
+                        <div class="message-bubble">
+                            ${this.chat.liveText ? html`<div class="message assistant" data-live-text aria-hidden="true" inert>${this._renderAssistantContent({role: 'assistant', content: this.chat.liveText})}</div>` : nothing}
+                            <div class="typing-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
+                        </div>
                     </div>
                 ` : nothing}
                 ${this._renderStatusNotice(isResumable)}

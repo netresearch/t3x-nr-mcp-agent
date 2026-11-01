@@ -48,12 +48,21 @@ class RunActivityRecorder implements LoggerAwareInterface
     /** Older entries are dropped beyond this; a turn rarely comes near it. */
     public const MAX_ENTRIES = 100;
 
+    /**
+     * The steps nr-llm sends while the model writes, by value: an nr-llm without
+     * them (below 0.43.1) sends none, and the chat then shows the text at the end.
+     */
+    private const KIND_TEXT_DELTA = 'text_delta';
+
+    private const KIND_TEXT_RESTART = 'text_restart';
+
     /** Step kinds worth showing: a model round, and a tool call. */
     private const SHOWN_KINDS = [RunStep::KIND_LLM, RunStep::KIND_TOOL];
 
     public function __construct(
         private readonly ConversationRepository $repository,
         private readonly ?TurnTimingRecorder $turnTiming = null,
+        private readonly ?LiveTextRecorder $liveText = null,
     ) {}
 
     /** A new turn: the previous turn's activity no longer describes anything. */
@@ -73,12 +82,26 @@ class RunActivityRecorder implements LoggerAwareInterface
     public function onStep(Conversation $conversation): Closure
     {
         return function (RunStep $step) use ($conversation): void {
+            if ($step->kind === self::KIND_TEXT_DELTA) {
+                $this->turnTiming?->mark('firstText');
+                $this->liveText?->append($conversation->getUid(), $step->round, $step->content ?? '');
+
+                return;
+            }
+
+            if ($step->kind === self::KIND_TEXT_RESTART) {
+                $this->liveText?->restart($conversation->getUid());
+
+                return;
+            }
+
             if (!in_array($step->kind, self::SHOWN_KINDS, true)) {
                 return;
             }
 
             if ($step->kind === RunStep::KIND_LLM) {
                 $this->turnTiming?->mark('firstLlm');
+                $this->liveText?->flush($conversation->getUid());
             }
 
             $entry = [

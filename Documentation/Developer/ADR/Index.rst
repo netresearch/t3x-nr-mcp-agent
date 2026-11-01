@@ -43,3 +43,4 @@ consequences of each decision.
     ADR-025-the-skill-says-whether-it-needs-a-page
     ADR-026-missing-alt-texts-site-check
     ADR-027-every-list-names-a-chat-by-its-context
+    ADR-028-the-answer-reaches-the-reader-while-it-is-written

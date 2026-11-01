@@ -22,6 +22,11 @@ const UNSET_MODULES = new Set(['null', 'undefined']);
 
 export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']);
 
+/** How often the chat asks while nothing else tells it what happens. */
+const POLL_MS = 2000;
+/** How often it asks beside an open stream, to notice a stream that went quiet. */
+const POLL_GUARD_MS = 10000;
+
 /**
  * The label for each reason nr-llm gives when it drops a guided process
  * (nr-llm DroppedSourceReason, ADR-228). Only these four are given for a
@@ -402,6 +407,11 @@ export class ChatCoreController {
     activity = [];
     /** Whether the activity list is shown. */
     activityOpen = false;
+    /**
+     * The text the model has written so far in the running turn (ADR-028). It
+     * goes when the turn's messages arrive; only a message is a record.
+     */
+    liveText = '';
 
     /**
      * The image a conversation about a missing alt text is on (ADR-026):
@@ -432,6 +442,15 @@ export class ChatCoreController {
      * starts a loop of its own, and two loops would run from then on.
      */
     _pollGeneration = 0;
+    /**
+     * The open stream of the running turn. While it runs, the poll only stands
+     * guard: a turn that ended unnoticed is found within POLL_GUARD_MS.
+     * @type {EventSource|null}
+     */
+    _stream = null;
+    /** The generation of the poll on its way, and whether another was asked for. */
+    _polling = null;
+    _pollAgain = false;
     /** True while an attachment is being uploaded. */
     uploading = false;
     /** @type {number} */
@@ -533,6 +552,7 @@ export class ChatCoreController {
     }
 
     async selectConversation(uid) {
+        this.stopPolling();
         this.activeUid = uid;
         this._knownMessageCount = 0;
         this.expandedTools = new Set();
@@ -705,6 +725,7 @@ export class ChatCoreController {
             this.dashboardUrl = data.dashboardUrl || '';
             this.skill = data.skill || null;
             this.activity = data.activity || [];
+            this.liveText = data.liveText || '';
             this.pageGone = data.pageGone === true;
             this._setAltText(data.altText ?? null);
             if (data.pendingApproval) {
@@ -737,12 +758,41 @@ export class ChatCoreController {
         }
     }
 
+    /**
+     * One poll at a time: two answers about the same range would append the
+     * same message twice, or put back a status that is already over. A poll
+     * asked for meanwhile runs after it. A poll of a stopped loop counts for
+     * nothing: its request may never answer, and the next loop must not wait
+     * for it.
+     */
     async pollMessages() {
+        const generation = this._pollGeneration;
+        if (this._polling === generation) {
+            this._pollAgain = true;
+            return;
+        }
+
+        this._polling = generation;
+        try {
+            await this._pollOnce(generation);
+        } finally {
+            if (this._polling === generation) {
+                this._polling = null;
+            }
+        }
+
+        if (this._pollAgain && generation === this._pollGeneration) {
+            this._pollAgain = false;
+            await this.pollMessages();
+        }
+    }
+
+    async _pollOnce(generation) {
         const uid = this.activeUid;
         if (!uid) return;
         try {
             const data = await this._api.getMessages(uid, this._knownMessageCount);
-            if (uid !== this.activeUid) return; // stale response, discard
+            if (uid !== this.activeUid || generation !== this._pollGeneration) return; // stale response, discard
             // Fewer messages than this view holds: the transcript was cut
             // elsewhere — an edit in another tab or in the other surface.
             // Appending to the old list would never show the new answer.
@@ -761,6 +811,16 @@ export class ChatCoreController {
             if (JSON.stringify(activity) !== JSON.stringify(this.activity)) {
                 this.activity = activity;
                 this.host.requestUpdate();
+            }
+
+            // Without a stream the poll is what shows the text as it grows.
+            if (!this._stream && typeof data.liveText === 'string' && data.liveText !== this.liveText) {
+                const follow = this.host.isAtBottom?.() ?? true;
+                this.liveText = data.liveText;
+                this.host.requestUpdate();
+                if (follow) {
+                    this.host.onScrollToBottom(true);
+                }
             }
 
             if (newMessages.length > 0 || statusChanged) {
@@ -818,6 +878,7 @@ export class ChatCoreController {
 
             // Stop polling when no longer processing
             if (!this.isProcessing()) {
+                this.liveText = '';
                 this.stopPolling();
             }
         } catch (e) {
@@ -838,6 +899,7 @@ export class ChatCoreController {
     startPollingIfNeeded() {
         this.stopPolling();
         if (this.isProcessing()) {
+            this._openStream();
             this.schedulePoll();
         }
     }
@@ -845,19 +907,120 @@ export class ChatCoreController {
     schedulePoll() {
         const generation = this._pollGeneration;
         this._pollTimer = setTimeout(async () => {
+            this._pollTimer = null;
             if (!this.host.isConnected || generation !== this._pollGeneration) return;
             await this.pollMessages();
             if (generation === this._pollGeneration && this.host.isConnected && this.isProcessing()) {
                 this.schedulePoll();
             }
-        }, 2000);
+        }, this._stream ? POLL_GUARD_MS : POLL_MS);
     }
 
     stopPolling() {
         this._pollGeneration++;
+        this._pollAgain = false;
+        this._closeStream();
         if (this._pollTimer) {
             clearTimeout(this._pollTimer);
             this._pollTimer = null;
+        }
+    }
+
+    /**
+     * Follow the running turn over a stream (ADR-028). Polling goes on beside
+     * it, slower, and takes over when the stream is refused or breaks: the
+     * chat works the same without it, only later.
+     */
+    _openStream() {
+        if (this._stream || typeof EventSource === 'undefined' || !this.activeUid) {
+            return;
+        }
+
+        let url;
+        try {
+            url = this._api.streamUrl(this.activeUid);
+        } catch {
+            return;
+        }
+
+        const stream = new EventSource(url);
+        const uid = this.activeUid;
+        let answered = false;
+        stream.onmessage = (message) => {
+            if (this._stream !== stream || uid !== this.activeUid) return;
+            answered = true;
+            this._applyStreamEvent(JSON.parse(message.data));
+        };
+        // EventSource reconnects by itself, also after a refusal it cannot
+        // tell from a dropped connection: closing here keeps that decision.
+        stream.onerror = () => {
+            if (this._stream !== stream) return;
+            this._closeStream();
+            if (answered && this.isProcessing()) {
+                this._openStream();
+            }
+            this._rearmPoll();
+        };
+        this._stream = stream;
+    }
+
+    _closeStream() {
+        this._stream?.close();
+        this._stream = null;
+    }
+
+    /** A poll waiting on the slow timer comes to the normal one. */
+    _rearmPoll() {
+        if (this._pollTimer) {
+            clearTimeout(this._pollTimer);
+            this.schedulePoll();
+        }
+    }
+
+    /**
+     * @param {{activity?: Array, text?: string, append?: string, done?: boolean, reconnect?: boolean}} event
+     */
+    _applyStreamEvent(event) {
+        if (event.done) {
+            this._closeStream();
+            void this._pollAtOnce();
+            return;
+        }
+        if (event.reconnect) {
+            this._closeStream();
+            this._openStream();
+            return;
+        }
+
+        if (typeof event.totalCount === 'number' && event.totalCount > this._knownMessageCount) {
+            void this._pollAtOnce();
+        }
+        const follow = this.host.isAtBottom?.() ?? true;
+        if (event.activity) {
+            this.activity = event.activity;
+        }
+        if (typeof event.text === 'string') {
+            this.liveText = event.text;
+        }
+        if (typeof event.append === 'string') {
+            this.liveText += event.append;
+        }
+        this.host.requestUpdate();
+        if (follow) {
+            this.host.onScrollToBottom(true);
+        }
+    }
+
+    /** The turn has ended, or a message arrived: it comes with one poll, now. */
+    async _pollAtOnce() {
+        if (this._pollTimer) {
+            clearTimeout(this._pollTimer);
+            this._pollTimer = null;
+        }
+        const generation = this._pollGeneration;
+        await this.pollMessages();
+        if (generation === this._pollGeneration && this.host.isConnected && this.isProcessing()) {
+            this.schedulePoll();
         }
     }
 
@@ -971,6 +1134,7 @@ export class ChatCoreController {
             this.pendingFile = null;
             this.messages = [...this.messages, msg];
             this.activity = [];
+            this.liveText = '';
             this.status = 'processing';
             this._knownMessageCount++;
             const firstMessage = (this.getActiveConversation()?.messageCount ?? 1) === 0;

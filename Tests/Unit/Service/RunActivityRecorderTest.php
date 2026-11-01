@@ -12,6 +12,7 @@ namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Service\LiveTextRecorder;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
 use PHPUnit\Framework\Attributes\Test;
@@ -54,6 +55,43 @@ final class RunActivityRecorderTest extends TestCase
 
         self::assertSame([], $conversation->getActivity());
         self::assertSame([''], $this->written);
+    }
+
+    #[Test]
+    public function theTextOfARoundGoesToTheLiveTextAndNotIntoTheActivity(): void
+    {
+        $liveText = $this->createMock(LiveTextRecorder::class);
+        $liveText->expects(self::once())->method('append')->with(7, 2, 'Hal');
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->expects(self::never())->method('updateActivity');
+
+        $conversation = Conversation::fromRow(['uid' => 7, 'be_user' => 1]);
+        $onStep       = (new RunActivityRecorder($repository, liveText: $liveText))->onStep($conversation);
+        $onStep(new RunStep(kind: 'text_delta', round: 2, durationMs: 0.0, content: 'Hal'));
+
+        self::assertSame([], $conversation->getActivity());
+    }
+
+    #[Test]
+    public function aRestartReachesTheLiveText(): void
+    {
+        $liveText = $this->createMock(LiveTextRecorder::class);
+        $liveText->expects(self::once())->method('restart')->with(7);
+
+        $onStep = (new RunActivityRecorder($this->createStub(ConversationRepository::class), liveText: $liveText))
+            ->onStep(Conversation::fromRow(['uid' => 7, 'be_user' => 1]));
+        $onStep(new RunStep(kind: 'text_restart', round: 1, durationMs: 0.0, content: ''));
+    }
+
+    #[Test]
+    public function theEndOfAModelRoundWritesWhatTheThrottleHeldBack(): void
+    {
+        $liveText = $this->createMock(LiveTextRecorder::class);
+        $liveText->expects(self::once())->method('flush')->with(7);
+
+        $onStep = (new RunActivityRecorder($this->createStub(ConversationRepository::class), liveText: $liveText))
+            ->onStep(Conversation::fromRow(['uid' => 7, 'be_user' => 1]));
+        $onStep(new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0));
     }
 
     #[Test]

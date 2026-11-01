@@ -68,6 +68,21 @@ LLM connection
 Processing
 ==========
 
+..  confval:: maxLiveStreams
+    :type: int
+    :default: 3
+
+    How many conversations may stream their answer at the same time. A
+    stream holds a PHP-FPM worker while a turn runs, so keep this well
+    below ``pm.max_children``. A further conversation shows the answer
+    when it is complete, through polling, as does every conversation
+    with ``0``.
+
+    The stream needs a web server that passes a response on while it is
+    written. It sends ``X-Accel-Buffering: no`` for nginx. A proxy in
+    front that buffers responses makes the chat show the text in larger
+    pieces. See ADR-028.
+
 ..  confval:: processingStrategy
     :type: string
     :default: exec

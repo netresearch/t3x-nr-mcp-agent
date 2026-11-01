@@ -22,7 +22,7 @@ Frontend assets of the backend module and toolbar panel. `Private/`: Fluid layou
 
 ## Conventions
 
-- One Lit component per file; keep the polling-based API contract (`api-client.js` ↔ `ChatApiController`) — no WebSockets/SSE (ADR-007)
+- One Lit component per file; keep the polling-based API contract (`api-client.js` ↔ `ChatApiController`), with the bounded stream of ADR-028 beside it — no other WebSockets/SSE (ADR-007)
 - Translations: every new UI label goes into `locallang_chat.xlf` AND `de.locallang_chat.xlf`
 - The floating toolbar panel lives outside the module iframe (ADR-011) — style changes must be verified in both the module and the pop-out panel
 

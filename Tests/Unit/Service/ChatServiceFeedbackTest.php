@@ -38,6 +38,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\LiveTextRecorder;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
@@ -81,6 +82,8 @@ final class ChatServiceFeedbackTest extends TestCase
         array $events = [],
         bool $eventsFail = false,
         ?TurnTimingRecorder $timing = null,
+        ?LiveTextRecorder $liveText = null,
+        ?ConversationRepository $repository = null,
     ): ChatService {
         $agentRuntime = $this->createMock(AgentRuntimeInterface::class);
         $agentRuntime->method('run')->willReturnCallback(
@@ -127,7 +130,7 @@ final class ChatServiceFeedbackTest extends TestCase
         }
 
         return new ChatService(
-            $this->createMock(ConversationRepository::class),
+            $repository ?? $this->createMock(ConversationRepository::class),
             $config,
             $agentRuntime,
             $this->createMock(PendingApprovalReaderInterface::class),
@@ -142,6 +145,7 @@ final class ChatServiceFeedbackTest extends TestCase
             $this->createMock(RunActivityRecorder::class),
             unavailableTools: $reader,
             turnTiming: $timing,
+            liveText: $liveText,
         );
     }
 
@@ -214,6 +218,36 @@ final class ChatServiceFeedbackTest extends TestCase
         $timing->expects(self::once())->method('finish');
 
         $this->createChatService(taskRepository: $tasks, timing: $timing)->processConversation($this->conversation('Hallo'));
+    }
+
+    #[Test]
+    public function aTurnStartsWithoutTheTextOfAnEarlierOne(): void
+    {
+        $liveText = $this->createMock(LiveTextRecorder::class);
+        $liveText->expects(self::once())->method('reset');
+
+        $this->createChatService(liveText: $liveText)->processConversation($this->conversation('Hallo'));
+    }
+
+    #[Test]
+    public function theLiveTextGoesOnlyAfterTheTurnStoredItsMessages(): void
+    {
+        $order      = [];
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('update')->willReturnCallback(static function () use (&$order): bool {
+            $order[] = 'stored';
+
+            return true;
+        });
+        $liveText = $this->createMock(LiveTextRecorder::class);
+        $liveText->method('clear')->willReturnCallback(static function () use (&$order): void {
+            $order[] = 'cleared';
+        });
+
+        $this->createChatService(liveText: $liveText, repository: $repository)->processConversation($this->conversation('Hallo'));
+
+        self::assertSame('cleared', end($order));
+        self::assertContains('stored', $order);
     }
 
     // ---- 1. a claimed change the run did not write ----------------------------

@@ -480,6 +480,7 @@ final class ChatApiControllerEditTest extends TestCase
             'tstamp'            => time(),
             'activity'          => [['kind' => 'llm', 'round' => 1, 'ms' => 900]],
             'turn_timing'       => [],
+            'live_text'         => '',
             'about_image'       => false,
         ]);
         $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
