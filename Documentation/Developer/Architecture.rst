@@ -184,6 +184,17 @@ The central entity. Stored in
     ``getMessages`` on both paths, so a measurement needs no access
     to the server.
 
+``live_text``
+    The text the model has written so far in the running turn,
+    written column-only by ``LiveTextRecorder`` and emptied when the
+    turn's messages are stored. ``getMessages`` returns it as
+    ``liveText``, and ``/ai-chat/conversations/stream`` sends it as it
+    grows. See ADR-028.
+
+``stream_lease``
+    Until when a stream of this conversation holds one of the
+    ``maxLiveStreams`` slots, as a timestamp. See ADR-028.
+
 ``view_context``
     JSON ``{"pageId": int, "module": string}``: the page the
     module frame showed and the open module when the user last

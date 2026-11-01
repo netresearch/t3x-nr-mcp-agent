@@ -249,6 +249,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?AltTextImagePolicyInterface $imagePolicy = null,
         private readonly ?ImageAnalysisTurnSettings $turnSettings = null,
         private readonly ?TurnTimingRecorder $turnTiming = null,
+        private readonly ?LiveTextRecorder $liveText = null,
     ) {}
 
     /**
@@ -369,9 +370,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function processTurn(Conversation $conversation, string $operation, bool $afterApproval = false): void
     {
+        $this->liveText?->reset($conversation->getUid());
+
         try {
             $this->turnUnderSettings($conversation, $operation, $afterApproval);
         } finally {
+            // After the turn stored its messages: a reader never finds neither.
+            $this->liveText?->clear($conversation->getUid());
             $this->turnTiming?->finish();
         }
     }

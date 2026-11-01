@@ -30,6 +30,11 @@ return [
         'target'  => ChatApiController::class . '::getMessages',
         'methods' => ['GET'],
     ],
+    'ai_chat_conversation_stream' => [
+        'path'    => '/ai-chat/conversations/stream',
+        'target'  => ChatApiController::class . '::streamConversation',
+        'methods' => ['GET'],
+    ],
     'ai_chat_conversation_send' => [
         'path'    => '/ai-chat/conversations/send',
         'target'  => ChatApiController::class . '::sendMessage',

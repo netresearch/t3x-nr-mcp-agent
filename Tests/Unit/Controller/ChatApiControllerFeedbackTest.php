@@ -303,6 +303,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
             'tstamp'            => time(),
             'activity'          => [],
             'turn_timing'       => [],
+            'live_text'         => '',
             'about_image'       => false,
         ]);
 

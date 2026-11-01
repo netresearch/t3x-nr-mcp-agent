@@ -423,16 +423,94 @@ readonly class ConversationRepository
     }
 
     /**
+     * Single-column write of the text the model is writing (ADR-028), for the
+     * reason updateActivity() gives.
+     */
+    public function updateLiveText(int $uid, string $text): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, ['live_text' => $text], ['uid' => $uid]);
+    }
+
+    /**
+     * What a stream reads on every tick; null when the row is gone or not the
+     * user's.
+     *
+     * @return array{status: string, message_count: int, activity: list<array<string, bool|int|string>>, live_text: string}|null
+     */
+    public function findStreamState(int $uid, int $beUserUid): ?array
+    {
+        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $row = $qb->select('status', 'message_count', 'activity', 'live_text')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
+                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchAssociative();
+
+        if ($row === false) {
+            return null;
+        }
+
+        return [
+            'status'        => is_string($row['status'] ?? null) ? $row['status'] : '',
+            'message_count' => is_numeric($row['message_count'] ?? null) ? (int) $row['message_count'] : 0,
+            'activity'      => Conversation::decodeActivity(is_string($row['activity'] ?? null) ? $row['activity'] : ''),
+            'live_text'     => is_string($row['live_text'] ?? null) ? $row['live_text'] : '',
+        ];
+    }
+
+    /**
+     * Take a stream slot, unless $max other conversations hold one. Two readers
+     * can pass the count at the same moment and go one over; the limit is a
+     * margin below the FPM pool, not an exact number.
+     */
+    public function takeStreamLease(int $uid, int $beUserUid, int $until, int $max): bool
+    {
+        $qb   = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $held = $qb->count('uid')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->gt('stream_lease', $qb->createNamedParameter(time(), Connection::PARAM_INT)),
+                $qb->expr()->neq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        if (is_numeric($held) && (int) $held >= $max) {
+            return false;
+        }
+
+        $this->renewStreamLease($uid, $beUserUid, $until);
+
+        return true;
+    }
+
+    public function renewStreamLease(int $uid, int $beUserUid, int $until): void
+    {
+        $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $conn->update(self::TABLE, ['stream_lease' => $until], ['uid' => $uid, 'be_user' => $beUserUid]);
+    }
+
+    public function releaseStreamLease(int $uid, int $beUserUid): void
+    {
+        $this->renewStreamLease($uid, $beUserUid, 0);
+    }
+
+    /**
      * Lightweight poll check — returns status metadata without loading messages.
      *
      * `about_image`: the conversation is about a missing alt text (ADR-026).
      *
-     * @return array{status: string, message_count: int, error_message: string, error_code: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>, turn_timing: array<string, int>, about_image: bool}|null
+     * @return array{status: string, message_count: int, error_message: string, error_code: string, approval_run_uuid: string, tstamp: int, activity: list<array<string, bool|int|string>>, turn_timing: array<string, int>, live_text: string, about_image: bool}|null
      */
     public function findPollStatus(int $uid, int $beUserUid): ?array
     {
         $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $row = $qb->select('status', 'message_count', 'error_message', 'error_code', 'approval_run_uuid', 'tstamp', 'activity', 'turn_timing', 'alt_text_hit')
+        $row = $qb->select('status', 'message_count', 'error_message', 'error_code', 'approval_run_uuid', 'tstamp', 'activity', 'turn_timing', 'live_text', 'alt_text_hit')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -470,6 +548,7 @@ readonly class ConversationRepository
             'tstamp'            => is_numeric($tstamp) ? (int) $tstamp : 0,
             'activity'          => Conversation::decodeActivity(is_string($activity) ? $activity : ''),
             'turn_timing'       => Conversation::decodeTurnTiming(is_string($turnTiming) ? $turnTiming : ''),
+            'live_text'         => is_string($row['live_text'] ?? null) ? $row['live_text'] : '',
             'about_image'       => is_string($row['alt_text_hit'] ?? null) && $row['alt_text_hit'] !== '',
         ];
     }

@@ -21,6 +21,8 @@ use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use Netresearch\NrMcpAgent\Service\LiveStream\ConversationStream;
+use Netresearch\NrMcpAgent\Service\LiveStream\EventEmitterInterface;
 use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -228,6 +230,7 @@ class ChatApiControllerTest extends TestCase
             'tstamp'            => 0,
             'activity'          => [],
             'turn_timing'       => ['request' => 11],
+            'live_text'         => '',
             'about_image'       => false,
         ]);
 
@@ -235,6 +238,56 @@ class ChatApiControllerTest extends TestCase
         $data    = json_decode((string) $this->subject->getMessages($request)->getBody(), true);
 
         self::assertSame(['request' => 11], $data['timing']);
+    }
+
+    #[Test]
+    public function aStreamWithoutASlotIsRefusedAndNeverOpened(): void
+    {
+        $this->repository->expects(self::never())->method('findStreamState');
+
+        $response = $this->streamSubject(admit: false)->streamConversation($this->createRequest('GET', '', ['conversationUid' => '1']));
+
+        self::assertSame(503, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function aStreamOfAForeignConversationIsRefusedAndGivesItsSlotBack(): void
+    {
+        $this->repository->method('findStreamState')->willReturn(null);
+        $this->repository->expects(self::once())->method('releaseStreamLease');
+
+        $response = $this->streamSubject(admit: true)->streamConversation($this->createRequest('GET', '', ['conversationUid' => '1']));
+
+        self::assertSame(404, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function aPollCarriesTheLiveText(): void
+    {
+        $this->repository->method('findPollStatus')->willReturn([
+            'status'            => 'locked',
+            'message_count'     => 1,
+            'error_message'     => '',
+            'error_code'        => '',
+            'approval_run_uuid' => '',
+            'tstamp'            => 0,
+            'activity'          => [],
+            'turn_timing'       => [],
+            'live_text'         => 'Hal',
+            'about_image'       => false,
+        ]);
+
+        $data = json_decode((string) $this->subject->getMessages($this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '1']))->getBody(), true);
+
+        self::assertSame('Hal', $data['liveText']);
+    }
+
+    private function streamSubject(bool $admit): ChatApiController
+    {
+        $this->repository->method('takeStreamLease')->willReturn($admit);
+        $this->config->method('getMaxLiveStreams')->willReturn(3);
+
+        return new ChatApiController($this->repository, $this->processor, $this->config, $this->chatService, $this->chatApproval, $this->resourceFactory, $this->storageRepository, new DocumentExtractorRegistry([]), new UploadMimeTypeMap(), $this->uriBuilder, liveStream: new ConversationStream($this->repository, $this->config, $this->createStub(EventEmitterInterface::class)));
     }
 
     #[Test]
@@ -293,6 +346,7 @@ class ChatApiControllerTest extends TestCase
             'approval_run_uuid' => '',
             'activity'          => [],
             'turn_timing'       => [],
+            'live_text'         => '',
             'about_image'       => false,
         ]);
 
@@ -937,6 +991,7 @@ class ChatApiControllerTest extends TestCase
             'tstamp'            => time() - 600,
             'activity'          => [],
             'turn_timing'       => [],
+            'live_text'         => '',
             'about_image'       => false,
         ]);
         $conversation = new Conversation();
@@ -966,6 +1021,7 @@ class ChatApiControllerTest extends TestCase
             'tstamp'            => time() - 600,
             'activity'          => [],
             'turn_timing'       => [],
+            'live_text'         => '',
             'about_image'       => false,
         ]);
         $this->repository->expects(self::never())->method('findOneByUidAndBeUser');
@@ -1118,6 +1174,7 @@ class ChatApiControllerTest extends TestCase
             'approval_run_uuid' => '',
             'activity'          => [],
             'turn_timing'       => [],
+            'live_text'         => '',
             'about_image'       => false,
         ]);
         // findOneByUidAndBeUser should never be called in the fast path

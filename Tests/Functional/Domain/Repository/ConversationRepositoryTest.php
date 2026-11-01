@@ -157,6 +157,37 @@ class ConversationRepositoryTest extends FunctionalTestCase
     }
 
     #[Test]
+    public function aStreamSlotIsCountedAcrossConversationsAndGoesWithItsLease(): void
+    {
+        $until = time() + 15;
+
+        self::assertTrue($this->subject->takeStreamLease(1, 1, $until, 1));
+        self::assertFalse($this->subject->takeStreamLease(2, 1, $until, 1), 'The one slot is taken.');
+        self::assertTrue($this->subject->takeStreamLease(1, 1, $until, 1), 'A conversation does not compete with itself.');
+
+        $this->subject->releaseStreamLease(1, 1);
+
+        self::assertTrue($this->subject->takeStreamLease(2, 1, $until, 1));
+    }
+
+    #[Test]
+    public function anExpiredLeaseHoldsNoSlot(): void
+    {
+        $this->subject->renewStreamLease(1, 1, time() - 1);
+
+        self::assertTrue($this->subject->takeStreamLease(2, 1, time() + 15, 1));
+    }
+
+    #[Test]
+    public function theStreamReadsTheTextAndOnlyTheOwnersRow(): void
+    {
+        $this->subject->updateLiveText(1, 'Hal');
+
+        self::assertSame('Hal', $this->subject->findStreamState(1, 1)['live_text'] ?? null);
+        self::assertNull($this->subject->findStreamState(1, 999));
+    }
+
+    #[Test]
     public function claimForProcessLocksAProcessingRowForTheClaimant(): void
     {
         $conversation = $this->subject->claimForProcess(2, 'process_1');
