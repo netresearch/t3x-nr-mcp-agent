@@ -9,15 +9,30 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
+use Netresearch\NrMcpAgent\Domain\Repository\ChatWorkerRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+
 /**
- * No-op dispatcher for worker mode.
- * The ChatWorkerCommand polls the DB for conversations with status 'processing'.
+ * Leaves the turn to a waiting `ai-chat:worker` (ADR-029). Workers pick a turn
+ * up by polling its status, so there is nothing to do while one is free.
+ *
+ * Without a free worker the turn starts a process of its own, as with the
+ * `exec` strategy: all workers busy with other turns, restarting after a deploy,
+ * or down. A turn then costs the start of a process, and never waits for a
+ * worker that is not coming. Both may reach for the turn; one claim wins.
  */
 final readonly class WorkerChatProcessor implements ChatProcessorInterface
 {
+    public function __construct(
+        private ChatWorkerRepository $workers,
+        private ConversationRepository $repository,
+        private ExecChatProcessor $execProcessor,
+    ) {}
+
     public function dispatch(int $conversationUid): void
     {
-        // Worker picks up conversations by polling status field.
-        // Nothing to do here.
+        if ($this->workers->countIdle() < $this->repository->countWaitingForWorker()) {
+            $this->execProcessor->dispatch($conversationUid);
+        }
     }
 }

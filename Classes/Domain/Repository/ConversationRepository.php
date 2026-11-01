@@ -601,6 +601,25 @@ readonly class ConversationRepository
     }
 
     /**
+     * How many turns no process holds yet.
+     */
+    public function countWaitingForWorker(): int
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+
+        $count = $qb->count('uid')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('status', $qb->createNamedParameter(ConversationStatus::Processing->value)),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($count) ? (int) $count : 0;
+    }
+
+    /**
      * Atomically claim one 'processing' conversation for a worker.
      * Uses UPDATE...LIMIT 1 with row-level locking to prevent race conditions.
      */

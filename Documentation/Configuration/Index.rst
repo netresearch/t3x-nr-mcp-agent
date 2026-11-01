@@ -526,9 +526,10 @@ set up a systemd service to keep the worker running:
     Group=www-data
     WorkingDirectory=/var/www/html
     ExecStart=/var/www/html/vendor/bin/typo3 \
-        ai-chat:worker --poll-interval=200
+        ai-chat:worker --poll-interval=100 --max-turns=1
     Restart=always
-    RestartSec=5
+    RestartSec=0
+    TimeoutStopSec=120
 
     [Install]
     WantedBy=multi-user.target
@@ -540,6 +541,33 @@ Enable and start the service:
     sudo systemctl daemon-reload
     sudo systemctl enable typo3-ai-chat-worker
     sudo systemctl start typo3-ai-chat-worker
+
+A worker ends by itself and expects to be started again:
+
+``--max-turns``
+    After this many turns. ``1`` starts every turn in a fresh process that
+    is already booted, which is the recommended value: nothing of a turn
+    reaches the next one, and a configuration change counts from the next
+    turn. ``0`` keeps the process running, without a boot between turns.
+
+``--time-limit``, ``--memory-limit``
+    After this many seconds, above this many megabytes. Defaults: 3600
+    and 256.
+
+``--turn-limit``
+    A turn that runs longer than this many seconds, 300 by default, ends
+    the process and fails, and the reader gets a Retry. It is never run a
+    second time by itself, because it may have written.
+
+SIGTERM and SIGINT stop a worker after its current turn, so give it the
+time (``TimeoutStopSec``, or ``stop_grace_period`` in Compose). This and
+``--turn-limit`` need the PHP extension ``pcntl``; without it the process
+dies on SIGTERM and a stuck turn waits for ``ai-chat:cleanup``.
+
+One worker runs one turn at a time. Run as many as turns should run at the
+same time. A turn that finds no free worker starts a process of its own, as
+with ``exec``, so a worker that is down costs the time of that start and
+nothing else. See ADR-029.
 
 Scheduled cleanup
 =================

@@ -44,3 +44,4 @@ consequences of each decision.
     ADR-026-missing-alt-texts-site-check
     ADR-027-every-list-names-a-chat-by-its-context
     ADR-028-the-answer-reaches-the-reader-while-it-is-written
+    ADR-029-a-booted-process-waits-for-the-turn
