@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-02
+
+### Added
+
+- The chat shows the answer while the model writes it, in the module and in the panel, with nr-llm 0.43.1 or later. A running turn is followed over a server-sent event stream, and the 2 s poll stays as the fallback. `maxLiveStreams` limits the streams of the instance (ADR-028). Update the database schema: `tx_nrmcpagent_conversation` gains `live_text` and `stream_lease`.
+- `ai-chat:worker` keeps a booted process waiting for the next turn, so the reader no longer waits for TYPO3 to boot. With `--max-turns=1` every turn still gets a fresh process. A dispatch without a free worker starts a process as `exec` does (ADR-029). Update the database schema: the table `tx_nrmcpagent_chat_worker` is new. A site that wants it sets `processingStrategy=worker` and runs the command under a supervisor.
+
+### Changed
+
+- A running turn renews `tstamp` with its activity, so `ai-chat:cleanup` no longer fails a long turn that is alive.
+
 ## [0.29.0] - 2026-11-01
 
 ### Added
