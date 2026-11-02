@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.3] - 2026-11-02
+
+### Fixed
+
+- The chat's activity list shows a declined card as the editor's decision (*Bisherigen Inhalt behalten*, *Für später übersprungen*, *Andere Variante angefordert*) and no longer lists the declined call as a tool that failed. A call nr-llm held back while the run waited reads "noch nicht ausgeführt"; an approved call or an answered question whose tool was switched off reads "nicht ausgeführt: nicht mehr freigegeben", with the hint to ask an administrator. The run record reads the same calls the same way (ADR-030, #308).
+
 ## [0.30.2] - 2026-11-02
 
 ### Fixed
