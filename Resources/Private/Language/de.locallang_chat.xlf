@@ -719,6 +719,30 @@
                 <source>Denied by you</source>
                 <target>Von dir abgelehnt</target>
             </trans-unit>
+            <trans-unit id="activity.kept" resname="activity.kept">
+                <source>Kept the current content</source>
+                <target>Bisherigen Inhalt behalten</target>
+            </trans-unit>
+            <trans-unit id="activity.skipped" resname="activity.skipped">
+                <source>Skipped for now</source>
+                <target>Für später übersprungen</target>
+            </trans-unit>
+            <trans-unit id="activity.variant" resname="activity.variant">
+                <source>Asked for another variant</source>
+                <target>Andere Variante angefordert</target>
+            </trans-unit>
+            <trans-unit id="activity.notPermitted" resname="activity.notPermitted">
+                <source>not run: no longer allowed</source>
+                <target>nicht ausgeführt: nicht mehr freigegeben</target>
+            </trans-unit>
+            <trans-unit id="activity.notPermittedHint" resname="activity.notPermittedHint">
+                <source>Switched off or for administrators only. Ask an administrator to allow it again.</source>
+                <target>Abgeschaltet oder nur für Administratoren. Bitte die Administration, es wieder freizugeben.</target>
+            </trans-unit>
+            <trans-unit id="activity.held" resname="activity.held">
+                <source>not run yet</source>
+                <target>noch nicht ausgeführt</target>
+            </trans-unit>
             <trans-unit id="activity.waiting" resname="activity.waiting">
                 <source>Waiting for your approval</source>
                 <target>Wartet auf deine Freigabe</target>

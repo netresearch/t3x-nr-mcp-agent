@@ -13,6 +13,7 @@ use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Throwable;
@@ -77,11 +78,20 @@ class RunActivityRecorder implements LoggerAwareInterface
      * already holds, so a continuation after an approval extends the list of
      * the run it belongs to.
      *
+     * A call nr-llm refused is read as RefusedCalls reads it for the run
+     * record: a declined card's call gets no entry, the decision is the
+     * entry; a call held back is not a failure; an approved call nr-llm no
+     * longer permits is a failure with its reason.
+     *
+     * @param RefusedCalls::AFTER_* $segment what the steps continue
+     *
      * @return Closure(RunStep): void
      */
-    public function onStep(Conversation $conversation): Closure
+    public function onStep(Conversation $conversation, string $segment = RefusedCalls::AFTER_TURN): Closure
     {
-        return function (RunStep $step) use ($conversation): void {
+        $refusals = new RefusedCalls($segment);
+
+        return function (RunStep $step) use ($conversation, $refusals): void {
             if ($step->kind === self::KIND_TEXT_DELTA) {
                 $this->turnTiming?->mark('firstText');
                 $this->liveText?->append($conversation->getUid(), $step->round, $step->content ?? '');
@@ -95,7 +105,9 @@ class RunActivityRecorder implements LoggerAwareInterface
                 return;
             }
 
-            if (!in_array($step->kind, self::SHOWN_KINDS, true)) {
+            // A declined card's call gets no entry: the decision is the entry.
+            $refusal = $refusals->read($step);
+            if (!in_array($step->kind, self::SHOWN_KINDS, true) || $refusal === RefusedCalls::DECLINED) {
                 return;
             }
 
@@ -104,24 +116,45 @@ class RunActivityRecorder implements LoggerAwareInterface
                 $this->liveText?->flush($conversation->getUid());
             }
 
-            $entry = [
-                'kind'  => $step->kind,
-                'round' => $step->round,
-                'ms'    => (int) round($step->durationMs),
-            ];
-            if ($step->kind === RunStep::KIND_TOOL) {
-                $entry['tool']  = $step->toolName ?? '';
-                $entry['error'] = $step->toolIsError === true;
-            }
-
-            $this->append($conversation, $entry);
+            $this->append($conversation, $this->entryOf($step, $refusal));
         };
     }
 
-    /** The user's decision on a pending tool call, in the list where it happened. */
-    public function recordDecision(Conversation $conversation, bool $approved): void
+    /**
+     * @param RefusedCalls::DECLINED|RefusedCalls::NOT_PERMITTED|RefusedCalls::HELD|null $refusal
+     *
+     * @return array<string, bool|int|string>
+     */
+    private function entryOf(RunStep $step, ?string $refusal): array
     {
-        $this->append($conversation, ['kind' => 'approval', 'approved' => $approved]);
+        $entry = [
+            'kind'  => $step->kind,
+            'round' => $step->round,
+            'ms'    => (int) round($step->durationMs),
+        ];
+        if ($step->kind === RunStep::KIND_TOOL) {
+            $entry['tool']  = $step->toolName ?? '';
+            $entry['error'] = $step->toolIsError === true && $refusal !== RefusedCalls::HELD;
+            if ($refusal !== null) {
+                $entry['refusal'] = $refusal;
+            }
+        }
+
+        return $entry;
+    }
+
+    /**
+     * The user's decision on a pending tool call, in the list where it
+     * happened, with the answer a declined card was given (ADR-018).
+     */
+    public function recordDecision(Conversation $conversation, bool $approved, ?DenyReason $reason = null): void
+    {
+        $entry = ['kind' => 'approval', 'approved' => $approved];
+        if (!$approved && $reason instanceof DenyReason) {
+            $entry['reason'] = $reason->value;
+        }
+
+        $this->append($conversation, $entry);
     }
 
     /**
