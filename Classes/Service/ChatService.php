@@ -1419,17 +1419,6 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
-     * Map the settled AgentRuntime result onto the conversation: the final
-     * assistant answer on completion, a Failed status with a sanitized reason
-     * for any other outcome.
-     *
-     * @param bool $mayContinue the result answers an approved decision: a step
-     *                          it left open is not reported but continued, and
-     *                          the conversation stays busy for that turn
-     *
-     * @return bool true when the caller has to run the continuation turn
-     */
-    /**
      * The decision taken on a card, in the run record's words (ADR-030).
      */
     private function decisionOf(bool $approved, ?DenyReason $reason): string
@@ -1444,7 +1433,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     }
 
     /**
-     * @param RefusedCalls::AFTER_* $segment what the run segment continues
+     * Map the settled AgentRuntime result onto the conversation: the final
+     * assistant answer on completion, a Failed status with a sanitized reason
+     * for any other outcome.
+     *
+     * @param bool                  $mayContinue the result answers an approved decision: a step
+     *                                           it left open is not reported but continued, and
+     *                                           the conversation stays busy for that turn
+     * @param RefusedCalls::AFTER_* $segment     what the run segment continues
+     *
+     * @return bool true when the caller has to run the continuation turn
      */
     private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false, ?string $decision = null, string $segment = RefusedCalls::AFTER_TURN): bool
     {

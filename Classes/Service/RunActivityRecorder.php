@@ -105,12 +105,9 @@ class RunActivityRecorder implements LoggerAwareInterface
                 return;
             }
 
-            if (!in_array($step->kind, self::SHOWN_KINDS, true)) {
-                return;
-            }
-
+            // A declined card's call gets no entry: the decision is the entry.
             $refusal = $refusals->read($step);
-            if ($refusal === RefusedCalls::DECLINED) {
+            if (!in_array($step->kind, self::SHOWN_KINDS, true) || $refusal === RefusedCalls::DECLINED) {
                 return;
             }
 
