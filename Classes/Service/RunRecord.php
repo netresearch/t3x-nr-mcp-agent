@@ -46,6 +46,9 @@ final class RunRecord
 
     public const DECISION_VARIANT = 'variant';
 
+    /** The editor moved on while a card or a question waited; the run was released undecided. */
+    public const DECISION_WITHDRAWN = 'withdrawn';
+
     /**
      * Tools that only drive the chat's own display (ADR-020) or ask the
      * editor something (ADR-018): they say nothing about the installation.
@@ -66,40 +69,15 @@ final class RunRecord
                 $name = self::token($step->toolName);
                 $tools[$name] ??= ['tool' => $name, 'calls' => 0, 'errors' => 0];
                 ++$tools[$name]['calls'];
-                if ($step->toolIsError !== false) {
-                    ++$tools[$name]['errors'];
-                }
-
+                $tools[$name]['errors'] += $step->toolIsError !== false ? 1 : 0;
                 $ran[] = $name;
-
-                continue;
-            }
-
-            if ($step->kind === RunStep::KIND_WRITE && $step->writeTarget instanceof RecordReference) {
-                $writes[] = [
-                    'table'    => self::token($step->writeTarget->table),
-                    'uid'      => $step->writeTarget->uid,
-                    'complete' => $step->hookFailedAfterWrite === true ? null : match ($step->writeCompleteness) {
-                        WriteCompleteness::COMPLETE => true,
-                        WriteCompleteness::PARTIAL  => false,
-                        null                        => null,
-                    },
-                ];
-
-                continue;
-            }
-
-            if ($step->kind === RunStep::KIND_LLM) {
+            } elseif ($step->kind === RunStep::KIND_WRITE && $step->writeTarget instanceof RecordReference) {
+                $writes[] = self::writeOf($step->writeTarget, $step);
+            } elseif ($step->kind === RunStep::KIND_LLM) {
                 // The calls the model asked for last: the one still waiting
                 // when the run paused is among them. Names only.
-                $waiting = [];
-                foreach ($step->requestedToolCalls ?? [] as $call) {
-                    if (is_array($call) && is_string($call['name'] ?? null) && !in_array($call['name'], self::DISPLAY_TOOLS, true)) {
-                        $waiting[] = self::token($call['name']);
-                    }
-                }
-
-                $ran = [];
+                $waiting = self::requestedNames($step);
+                $ran     = [];
             }
         }
 
@@ -114,6 +92,50 @@ final class RunRecord
         }
 
         return $entry;
+    }
+
+    /**
+     * @return array{table: string, uid: int, complete: bool|null}
+     */
+    private static function writeOf(RecordReference $target, RunStep $step): array
+    {
+        $complete = match ($step->writeCompleteness) {
+            WriteCompleteness::COMPLETE => true,
+            WriteCompleteness::PARTIAL  => false,
+            null                        => null,
+        };
+
+        return [
+            'table'    => self::token($target->table),
+            'uid'      => $target->uid,
+            'complete' => $step->hookFailedAfterWrite === true ? null : $complete,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function requestedNames(RunStep $step): array
+    {
+        $names = [];
+        foreach ($step->requestedToolCalls ?? [] as $call) {
+            if (is_array($call) && is_string($call['name'] ?? null) && !in_array($call['name'], self::DISPLAY_TOOLS, true)) {
+                $names[] = self::token($call['name']);
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * A waiting card or question the editor left undecided by writing
+     * something else or ending the tour (ADR-030).
+     *
+     * @return Entry
+     */
+    public static function withdrawn(): array
+    {
+        return ['outcome' => 'cancelled', 'tools' => [], 'writes' => [], 'waiting' => [], 'decision' => self::DECISION_WITHDRAWN];
     }
 
     /**

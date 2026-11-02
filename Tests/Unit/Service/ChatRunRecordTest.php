@@ -366,6 +366,86 @@ final class ChatRunRecordTest extends TestCase
         );
     }
 
+    /**
+     * Two proposals without text beside them: the pause, the decision and
+     * the next pause share one position. The notes keep the order in which
+     * they happened.
+     */
+    #[Test]
+    public function notesAtOnePositionKeepTheOrderInWhichTheyHappened(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Titel und Beschreibung setzen');
+
+        $card    = ['tool' => 'update_page_metadata', 'table' => 'pages', 'uid' => 3, 'fields' => ['seo_title']];
+        $waiting = static fn (): AgentRunResult => new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-1', [
+            new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0, requestedToolCalls: [['id' => 'c', 'name' => 'update_page_metadata', 'arguments' => []]]),
+        ]);
+        $applied = new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-1', [
+            new RunStep(kind: RunStep::KIND_TOOL, round: 0, durationMs: 1.0, toolName: 'update_page_metadata', toolIsError: false),
+            new RunStep(kind: RunStep::KIND_WRITE, round: 0, durationMs: 1.0, writeTarget: new RecordReference('pages', 3), writeCompleteness: WriteCompleteness::COMPLETE),
+            new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0, requestedToolCalls: [['id' => 'd', 'name' => 'update_page_metadata', 'arguments' => []]]),
+        ]);
+
+        $service = $this->service($waiting(), $applied);
+        $service->processConversation($conversation);
+        self::assertTrue($service->recordDecision($conversation, true, 'digest', card: $card));
+        $service->processConversation($conversation);
+
+        $texts = array_column(RunRecordNotes::of($conversation), 'text');
+        self::assertCount(3, $texts);
+        self::assertStringContainsString('proposed update_page_metadata, waiting', $texts[0]);
+        self::assertStringContainsString('(fields: seo_title) — approved by the editor and saved', $texts[1]);
+        self::assertStringContainsString('saved: pages:3; proposed update_page_metadata, waiting', $texts[2]);
+    }
+
+    /** Steps in which nothing ran leave the budget first: a long talk does not push a tour's saves out. */
+    #[Test]
+    public function plainStepsLeaveTheBudgetBeforeSaves(): void
+    {
+        $conversation = $this->tourThenQuestion();
+        for ($i = 0; $i < RunRecordNotes::MAX_NOTES + 10; ++$i) {
+            $conversation->appendRunRecord(RunRecord::of($this->completed('ok')));
+            $conversation->appendMessage(MessageRole::Assistant, 'Antwort ' . $i);
+            $conversation->appendMessage(MessageRole::User, 'Frage ' . $i);
+        }
+
+        $text = implode("\n", array_column(RunRecordNotes::of($conversation), 'text'));
+
+        self::assertSame(6, substr_count($text, 'approved by the editor and saved'));
+        self::assertStringContainsString('earlier entries of this conversation exist but are not shown here', $text);
+    }
+
+    /** A card the editor left undecided reads as withdrawn, not as still waiting. */
+    #[Test]
+    public function aWithdrawnProposalReadsAsWithdrawn(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Titel verbessern');
+        $conversation->appendRunRecord(RunRecord::withdrawn());
+
+        self::assertSame(
+            '[Chat record — written by the chat from the run, not by the assistant: the editor moved on without deciding; the waiting proposal or question was withdrawn and nothing from it was saved.]',
+            RunRecordNotes::of($conversation)[0]['text'] ?? '',
+        );
+    }
+
+    /** The row keeps the newest entries only; the notes never read more. */
+    #[Test]
+    public function theStoredRecordIsCapped(): void
+    {
+        $conversation = new Conversation();
+        for ($i = 0; $i < 250; ++$i) {
+            $conversation->appendMessage(MessageRole::User, 'Frage ' . $i);
+            $conversation->appendRunRecord(RunRecord::unknown());
+        }
+
+        $records = $conversation->getRunRecords();
+        self::assertCount(200, $records);
+        self::assertSame(250, $records[199]['after']);
+    }
+
     #[Test]
     public function olderEntriesBeyondTheBudgetAreSaidToExist(): void
     {

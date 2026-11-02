@@ -1995,26 +1995,17 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function placeNotes(array $wire, array $owner, array $notes): array
     {
-        $isAssistantText = static fn (?int $i): bool => $i !== null
-            && ($wire[$i]['role'] ?? null) === MessageRole::Assistant->value
-            && is_string($wire[$i]['content'] ?? null);
-
         $before = [];
         $after  = [];
         $alone  = [];
         foreach ($notes as $note) {
             $answer   = $owner[$note['at']] ?? null;
-            $previous = null;
-            for ($i = $note['at'] - 1; $i >= 0; --$i) {
-                if (isset($owner[$i])) {
-                    $previous = $owner[$i];
-                    break;
-                }
-            }
-
-            if ($isAssistantText($answer) && ($previous === null || $answer !== $previous || !$isAssistantText($previous))) {
+            $previous = $this->ownerBefore($owner, $note['at']);
+            // The segment's answer opens with the note, unless the answer is
+            // the same wire message as what came before, which it then closes.
+            if ($this->isAssistantText($wire, $answer) && $answer !== $previous) {
                 $before[$answer][] = $note['text'];
-            } elseif ($isAssistantText($previous)) {
+            } elseif ($this->isAssistantText($wire, $previous)) {
                 $after[$previous][] = $note['text'];
             } else {
                 $alone[$previous ?? -1][] = $note['text'];
@@ -2039,6 +2030,33 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return $placed;
+    }
+
+    /**
+     * The wire message the nearest stored message before `$at` went into;
+     * null when none did.
+     *
+     * @param array<int, int> $owner
+     */
+    private function ownerBefore(array $owner, int $at): ?int
+    {
+        for ($i = $at - 1; $i >= 0; --$i) {
+            if (isset($owner[$i])) {
+                return $owner[$i];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $wire
+     */
+    private function isAssistantText(array $wire, ?int $index): bool
+    {
+        return $index !== null
+            && ($wire[$index]['role'] ?? null) === MessageRole::Assistant->value
+            && is_string($wire[$index]['content'] ?? null);
     }
 
     /**

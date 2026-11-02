@@ -16,9 +16,12 @@ use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
+use Netresearch\NrMcpAgent\Service\RunRecord;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -206,6 +209,46 @@ final class ChatApiControllerEditTest extends TestCase
         self::assertSame(400, $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => '  ']))->getStatusCode());
         self::assertSame(400, $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 0, 'content' => str_repeat('x', 51)]))->getStatusCode());
         self::assertNull($this->claimed);
+    }
+
+    /**
+     * The record of the turns that were cut away goes with them (ADR-030):
+     * the edited question's new turn would otherwise read the old answer's
+     * write as its own.
+     */
+    #[Test]
+    public function editingForgetsTheRecordOfTheTurnsItCutAway(): void
+    {
+        $conversation = $this->conversation(array_slice($this->transcript(), 0, 1));
+        $conversation->appendRunRecord(RunRecord::unknown());
+        $conversation->appendMessage(MessageRole::Assistant, 'first answer');
+        $conversation->appendMessage(MessageRole::User, 'second question');
+        $conversation->appendCardOutcome(ProposalOutcome::Applied, ['tool' => 'record_update', 'table' => 'tt_content', 'uid' => 5, 'fields' => ['header']]);
+        $conversation->appendRunRecord(RunRecord::unknown());
+        $conversation->appendMessage(MessageRole::Assistant, 'second answer');
+
+        $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 2, 'expectedContent' => 'second question', 'messageCount' => 4, 'content' => 'reworded']));
+
+        self::assertNotNull($this->claimed);
+        self::assertSame([1], array_column($this->claimed->getRunRecords(), 'after'), 'the record before the edited message stays');
+        self::assertSame([], $this->claimed->getCardOutcomes());
+    }
+
+    /** A card left undecided by an edit is recorded as withdrawn, before the edited message (ADR-030). */
+    #[Test]
+    public function editingRecordsTheAbandonedApprovalAsWithdrawn(): void
+    {
+        $conversation = $this->conversation($this->transcript(), ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-1');
+        $this->chatApproval->method('releasePendingRun')->willReturn(true);
+
+        $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 2, 'expectedContent' => 'second question', 'messageCount' => 4, 'content' => 'reworded']));
+
+        self::assertNotNull($this->claimed);
+        $records = $this->claimed->getRunRecords();
+        self::assertCount(1, $records);
+        self::assertSame(RunRecord::DECISION_WITHDRAWN, $records[0]['decision'] ?? null);
+        self::assertSame(2, $records[0]['after']);
     }
 
     #[Test]

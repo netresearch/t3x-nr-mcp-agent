@@ -126,6 +126,9 @@ final class Conversation
      */
     private string $runRecord = '';
 
+    /** Entries of the run record kept in the row; the notes read at most the newest 40. */
+    private const MAX_RUN_RECORDS = 200;
+
     private bool $archived = false;
 
     private bool $pinned = false;
@@ -585,8 +588,12 @@ final class Conversation
         // conversation was last about, apart from the selected one (ADR-030):
         // it is no selection, and nothing that acts on the selected page reads
         // it, but the model is told which page the conversation was about.
-        $previous = $this->getViewContext()['pageId'];
-        $last     = $pageId === 0 ? ($previous > 0 ? $previous : $this->getLastPageId()) : 0;
+        $last = 0;
+        if ($pageId === 0) {
+            $previous = $this->getViewContext()['pageId'];
+            $last     = $previous > 0 ? $previous : $this->getLastPageId();
+        }
+
         if ($last > 0) {
             $context['lastPageId'] = $last;
         }
@@ -1009,15 +1016,35 @@ final class Conversation
      *
      * @param array{outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>} $entry
      */
-    public function appendRunRecord(array $entry): void
+    public function appendRunRecord(array $entry, ?int $after = null): void
     {
-        $records         = $this->getRunRecords();
-        $records[]       = ['after' => $this->messageCount] + $entry;
+        $records = $this->getRunRecords();
+        // `cards` is how many card outcomes there were: at the same position
+        // the notes keep the order in which both were recorded.
+        $records[] = ['after' => $after ?? $this->messageCount, 'cards' => count($this->getCardOutcomes())] + $entry;
+        // Only the newest entries are ever read (RunRecordNotes); the column
+        // is a text column.
+        $records         = array_slice($records, -self::MAX_RUN_RECORDS);
         $this->runRecord = json_encode($records, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
 
     /**
-     * @return list<array{after: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}>
+     * Forget what is recorded from the transcript position on, when the
+     * messages from there were cut away (an edited message, ADR-030): the
+     * turns they described are gone, and their records would otherwise be
+     * read as the record of the turns that take their place.
+     */
+    public function forgetRecordsFrom(int $position): void
+    {
+        $records         = array_values(array_filter($this->getRunRecords(), static fn (array $r): bool => $r['after'] < $position));
+        $this->runRecord = $records === [] ? '' : json_encode($records, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+
+        $outcomes           = array_values(array_filter($this->getCardOutcomes(), static fn (array $o): bool => $o['after'] < $position));
+        $this->cardOutcomes = $outcomes === [] ? '' : json_encode($outcomes, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return list<array{after: int, cards: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}>
      */
     public function getRunRecords(): array
     {
@@ -1028,40 +1055,68 @@ final class Conversation
 
         $records = [];
         foreach ($decoded as $entry) {
-            if (!is_array($entry) || !is_int($entry['after'] ?? null) || !is_string($entry['outcome'] ?? null)) {
-                continue;
+            if (is_array($entry) && is_int($entry['after'] ?? null) && is_string($entry['outcome'] ?? null)) {
+                $records[] = $this->runRecordOf($entry, $entry['after'], $entry['outcome']);
             }
-
-            $tools = [];
-            foreach (is_array($entry['tools'] ?? null) ? $entry['tools'] : [] as $tool) {
-                if (is_array($tool) && is_string($tool['tool'] ?? null) && is_int($tool['calls'] ?? null) && is_int($tool['errors'] ?? null)) {
-                    $tools[] = ['tool' => $tool['tool'], 'calls' => $tool['calls'], 'errors' => $tool['errors']];
-                }
-            }
-
-            $writes = [];
-            foreach (is_array($entry['writes'] ?? null) ? $entry['writes'] : [] as $write) {
-                $complete = is_array($write) ? ($write['complete'] ?? null) : null;
-                if (is_array($write) && is_string($write['table'] ?? null) && is_int($write['uid'] ?? null)) {
-                    $writes[] = ['table' => $write['table'], 'uid' => $write['uid'], 'complete' => is_bool($complete) ? $complete : null];
-                }
-            }
-
-            $record = [
-                'after'   => $entry['after'],
-                'outcome' => $entry['outcome'],
-                'tools'   => $tools,
-                'writes'  => $writes,
-                'waiting' => array_values(array_filter(is_array($entry['waiting'] ?? null) ? $entry['waiting'] : [], is_string(...))),
-            ];
-            if (is_string($entry['decision'] ?? null)) {
-                $record['decision'] = $entry['decision'];
-            }
-
-            $records[] = $record;
         }
 
         return $records;
+    }
+
+    /**
+     * @param array<mixed> $entry
+     *
+     * @return array{after: int, cards: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}
+     */
+    private function runRecordOf(array $entry, int $after, string $outcome): array
+    {
+        $record = [
+            'after'   => $after,
+            'cards'   => is_int($entry['cards'] ?? null) ? $entry['cards'] : 0,
+            'outcome' => $outcome,
+            'tools'   => array_values(array_filter(array_map($this->toolOf(...), $this->listOf($entry['tools'] ?? null)))),
+            'writes'  => array_values(array_filter(array_map($this->writeOf(...), $this->listOf($entry['writes'] ?? null)))),
+            'waiting' => array_values(array_filter($this->listOf($entry['waiting'] ?? null), is_string(...))),
+        ];
+        if (is_string($entry['decision'] ?? null)) {
+            $record['decision'] = $entry['decision'];
+        }
+
+        return $record;
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function listOf(mixed $value): array
+    {
+        return is_array($value) ? array_values($value) : [];
+    }
+
+    /**
+     * @return array{tool: string, calls: int, errors: int}|null
+     */
+    private function toolOf(mixed $tool): ?array
+    {
+        if (!is_array($tool) || !is_string($tool['tool'] ?? null) || !is_int($tool['calls'] ?? null) || !is_int($tool['errors'] ?? null)) {
+            return null;
+        }
+
+        return ['tool' => $tool['tool'], 'calls' => $tool['calls'], 'errors' => $tool['errors']];
+    }
+
+    /**
+     * @return array{table: string, uid: int, complete: bool|null}|null
+     */
+    private function writeOf(mixed $write): ?array
+    {
+        if (!is_array($write) || !is_string($write['table'] ?? null) || !is_int($write['uid'] ?? null)) {
+            return null;
+        }
+
+        $complete = $write['complete'] ?? null;
+
+        return ['table' => $write['table'], 'uid' => $write['uid'], 'complete' => is_bool($complete) ? $complete : null];
     }
 
     /**

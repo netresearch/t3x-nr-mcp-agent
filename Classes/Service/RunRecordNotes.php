@@ -42,29 +42,28 @@ final class RunRecordNotes
      */
     public static function of(Conversation $conversation): array
     {
-        $notes = [];
-        foreach ($conversation->getCardOutcomes() as $outcome) {
-            $notes[] = ['at' => $outcome['after'], 'order' => count($notes), 'text' => self::cardText($outcome)];
-        }
+        $notes = self::inRecordedOrder($conversation);
 
-        foreach ($conversation->getRunRecords() as $record) {
-            $notes[] = ['at' => $record['after'], 'order' => count($notes), 'text' => self::recordText($record)];
-        }
+        // Over the budget, notes of steps in which nothing ran go first, then
+        // the oldest: a long talk must not push a tour's saves out.
+        $keep = array_fill(0, count($notes), true);
+        foreach ([true, false] as $plainOnly) {
+            foreach ($notes as $i => $note) {
+                if (!self::overBudget($notes, $keep)) {
+                    break 2;
+                }
 
-        // Card outcomes are recorded before the record of the same segment,
-        // so at the same position the card comes first.
-        usort($notes, static fn (array $a, array $b): int => [$a['at'], $a['order']] <=> [$b['at'], $b['order']]);
-
-        $kept  = [];
-        $chars = 0;
-        for ($i = count($notes) - 1; $i >= 0; --$i) {
-            $length = mb_strlen($notes[$i]['text']);
-            if (count($kept) >= self::MAX_NOTES || $chars + $length > self::MAX_CHARS) {
-                break;
+                if (!$plainOnly || $note['plain']) {
+                    $keep[$i] = false;
+                }
             }
+        }
 
-            $chars += $length;
-            array_unshift($kept, ['at' => $notes[$i]['at'], 'text' => $notes[$i]['text']]);
+        $kept = [];
+        foreach ($notes as $i => $note) {
+            if ($keep[$i]) {
+                $kept[] = ['at' => $note['at'], 'text' => $note['text']];
+            }
         }
 
         $omitted = count($notes) - count($kept);
@@ -77,6 +76,66 @@ final class RunRecordNotes
         }
 
         return $kept;
+    }
+
+    /**
+     * Card outcomes and run records in the order they were recorded: a run
+     * record knows how many card outcomes existed before it. Sorted by
+     * position, ties keep that order.
+     *
+     * @return list<array{at: int, text: string, plain: bool}>
+     */
+    private static function inRecordedOrder(Conversation $conversation): array
+    {
+        $cards = $conversation->getCardOutcomes();
+        $next  = 0;
+        $notes = [];
+        foreach ($conversation->getRunRecords() as $record) {
+            for (; $next < min($record['cards'], count($cards)); ++$next) {
+                $notes[] = ['at' => $cards[$next]['after'], 'text' => self::cardText($cards[$next]), 'plain' => false];
+            }
+
+            $notes[] = ['at' => $record['after'], 'text' => self::recordText($record), 'plain' => self::isPlain($record)];
+        }
+
+        for (; $next < count($cards); ++$next) {
+            $notes[] = ['at' => $cards[$next]['after'], 'text' => self::cardText($cards[$next]), 'plain' => false];
+        }
+
+        // usort is stable: at the same position the recorded order stays.
+        usort($notes, static fn (array $a, array $b): int => $a['at'] <=> $b['at']);
+
+        return $notes;
+    }
+
+    /**
+     * @param list<array{at: int, text: string, plain: bool}> $notes
+     * @param array<int, bool>                                $keep
+     */
+    private static function overBudget(array $notes, array $keep): bool
+    {
+        $count = 0;
+        $chars = 0;
+        foreach ($notes as $i => $note) {
+            if ($keep[$i]) {
+                ++$count;
+                $chars += mb_strlen($note['text']);
+            }
+        }
+
+        return $count > self::MAX_NOTES || $chars > self::MAX_CHARS;
+    }
+
+    /**
+     * A completed step in which nothing ran, nothing was written and nothing
+     * was decided.
+     *
+     * @param array{after: int, cards: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>} $record
+     */
+    private static function isPlain(array $record): bool
+    {
+        return $record['outcome'] === 'completed' && $record['tools'] === [] && $record['writes'] === []
+            && $record['waiting'] === [] && !isset($record['decision']);
     }
 
     /**
@@ -109,10 +168,14 @@ final class RunRecordNotes
     }
 
     /**
-     * @param array{after: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>} $record
+     * @param array{after: int, cards: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>} $record
      */
     private static function recordText(array $record): string
     {
+        if (($record['decision'] ?? null) === RunRecord::DECISION_WITHDRAWN) {
+            return self::PREFIX . 'the editor moved on without deciding; the waiting proposal or question was withdrawn and nothing from it was saved.]';
+        }
+
         $parts   = [];
         $parts[] = match ($record['decision'] ?? null) {
             RunRecord::DECISION_APPROVED => 'the editor approved the waiting proposal',

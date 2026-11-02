@@ -46,6 +46,7 @@ use Netresearch\NrMcpAgent\Service\InputPause;
 use Netresearch\NrMcpAgent\Service\LiveStream\ConversationStream;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
+use Netresearch\NrMcpAgent\Service\RunRecord;
 use Netresearch\NrMcpAgent\Service\SkillCatalogueInterface;
 use Netresearch\NrMcpAgent\Service\SkillInvocationInterface;
 use Netresearch\NrMcpAgent\Service\SkillPageNeed;
@@ -757,6 +758,8 @@ final readonly class ChatApiController
         // No later turn continues the ended process from its run.
         $conversation->setLastRunUuid('');
         if ($waiting) {
+            // Later turns read that the waiting card was withdrawn (ADR-030).
+            $conversation->appendRunRecord(RunRecord::withdrawn());
             $conversation->setStatus(ConversationStatus::Idle);
             $conversation->setApprovalRunUuid('');
             $conversation->clearApprovalDecision();
@@ -1341,6 +1344,9 @@ final readonly class ChatApiController
         $original['content']   = $content;
         $original['createdAt'] = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
         $conversation->setMessages([...array_slice($messages, 0, $index), $original]);
+        // The turns after the edited message are gone, and so is their
+        // record: it would otherwise be read as the new turn's (ADR-030).
+        $conversation->forgetRecordsFrom($index + 1);
 
         return $this->queueTurn($conversation, $currentStatus, $body, $before);
     }
@@ -1479,6 +1485,10 @@ final readonly class ChatApiController
                 return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
             }
 
+            // The card or question was left undecided: later turns read that
+            // it was withdrawn, not that it still waits (ADR-030). Placed
+            // before the message that moved on.
+            $conversation->appendRunRecord(RunRecord::withdrawn(), max(0, $conversation->getMessageCount() - 1));
             $conversation->setStatus(ConversationStatus::Processing);
             if (!$this->repository->updateIf($conversation, ConversationStatus::Locked)) {
                 return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);

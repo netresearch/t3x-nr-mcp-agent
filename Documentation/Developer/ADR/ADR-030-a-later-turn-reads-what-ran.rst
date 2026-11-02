@@ -64,7 +64,19 @@ or an answer, or one that failed — the chat stores in ``run_record``:
     write complete, partial or unconfirmed;
 -   the calls still waiting for a decision;
 -   the decision taken on a card, where no card outcome already says it — a
-    plain denial records none there.
+    plain denial records none there;
+-   a card or question the editor left undecided, by writing a new message,
+    editing one or ending the tour, as withdrawn: otherwise its record would
+    go on saying that it waits.
+
+Each entry also notes how many card outcomes existed before it, so notes at
+the same transcript position keep the order in which they happened. The row
+keeps the newest 200 entries.
+
+**An edited message takes its turns' record with it.** Editing a message cuts
+the transcript after it; the run records and card outcomes of the cut turns
+go too. Kept, they would be read as the record of the turns that take their
+place.
 
 The record is built from the run's structured steps, never from the model's
 words, and only from what nr-llm's privacy filter keeps at every level: tool
@@ -79,9 +91,10 @@ written by the chat from the run, not by the assistant: …]", and places each
 in the assistant message of the segment it describes; a segment without an
 answer gets an assistant message of its own between the two user messages
 around it. The notes are never stored in the transcript. At most 40 notes and
-6000 characters are sent, the newest first kept; when older notes are left
-out, the first note says that they exist and cannot be read in this turn,
-rather than letting the gap read as "nothing happened".
+6000 characters are sent. Over that budget, notes of steps in which nothing
+ran, nothing was written and nothing was decided are left out first, then the
+oldest; the first note then says that older notes exist and cannot be read in
+this turn, rather than letting the gap read as "nothing happened".
 
 **The note beside a flagged answer is scoped to its step (amends ADR-017).**
 It said "Nothing it describes as done was saved". An answer that sums up what
