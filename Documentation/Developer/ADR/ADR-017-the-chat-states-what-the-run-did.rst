@@ -13,6 +13,10 @@ ADR-017: The chat states what the run did, not what it said
 
 **Date:** 2026-09-23
 
+**Amended by:** :ref:`adr-030` — the note beside a flagged answer covers
+its own step only; what earlier steps saved reaches the model as the chat's
+record.
+
 Context
 =======
 

@@ -397,7 +397,7 @@ final class ChatServiceFeedbackTest extends TestCase
         self::assertIsArray($assistant);
         self::assertSame('assistant', $assistant['role'] ?? null);
         self::assertSame(
-            self::FALSE_SUCCESS . "\n\n[Note from the chat: the run behind this answer wrote no record. Nothing it describes as done was saved.]",
+            self::FALSE_SUCCESS . "\n\n[Note from the chat: the run behind this answer wrote no record in this step. A change it describes as done in this step was not saved; what earlier steps saved is in the chat records.]",
             $assistant['content'] ?? null,
         );
         // Never persisted: the stored answer is what the model wrote.

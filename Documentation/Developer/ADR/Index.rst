@@ -45,3 +45,4 @@ consequences of each decision.
     ADR-027-every-list-names-a-chat-by-its-context
     ADR-028-the-answer-reaches-the-reader-while-it-is-written
     ADR-029-a-booted-process-waits-for-the-turn
+    ADR-030-a-later-turn-reads-what-ran

@@ -21,6 +21,7 @@ use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
 use Netresearch\NrMcpAgent\Service\ProcessPinReleaseInterface;
+use Netresearch\NrMcpAgent\Service\RunRecord;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -106,6 +107,8 @@ final class ChatApiControllerEndTourTest extends TestCase
         self::assertSame(['progress' => null, 'highlight' => null], $conversation->getGuidedState());
         self::assertSame('', $conversation->getApprovalDecision());
         self::assertNull($conversation->getApprovalCard());
+        // Later turns read that the waiting card or question was withdrawn (ADR-030).
+        self::assertSame([RunRecord::DECISION_WITHDRAWN], array_column($conversation->getRunRecords(), 'decision'));
     }
 
     /**

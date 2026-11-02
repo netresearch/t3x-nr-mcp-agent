@@ -112,4 +112,37 @@ final class UserContextPromptTest extends FunctionalTestCase
 
         self::assertStringContainsString('- Selected page: uid 10, title "Startseite"', $prompt);
     }
+
+    /**
+     * A question sent from where no page is shown, in a conversation that
+     * was about a page (ADR-030): the model is told which page that was, not
+     * only that none is selected.
+     */
+    #[Test]
+    public function withoutASelectedPageThePageOfTheConversationIsNamed(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+        $conversation       = $this->conversationOf(1, 10);
+        $conversation->setViewContext(0, '');
+
+        $prompt = $this->get(UserContextPrompt::class)->build($conversation);
+
+        self::assertStringContainsString(sprintf(UserContextPrompt::LAST_PAGE, 10, '"Startseite"'), $prompt);
+        self::assertStringNotContainsString(UserContextPrompt::NO_PAGE, $prompt);
+        self::assertStringNotContainsString('- Selected page', $prompt);
+    }
+
+    /** The last page is named only when the user may see it. */
+    #[Test]
+    public function aLastPageTheUserMayNotSeeIsLeftOut(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
+        $conversation       = $this->conversationOf(2, 10);
+        $conversation->setViewContext(0, '');
+
+        $prompt = $this->get(UserContextPrompt::class)->build($conversation);
+
+        self::assertStringNotContainsString('Startseite', $prompt);
+        self::assertStringContainsString(UserContextPrompt::NO_PAGE, $prompt);
+    }
 }

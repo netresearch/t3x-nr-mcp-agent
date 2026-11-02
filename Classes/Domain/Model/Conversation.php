@@ -118,6 +118,17 @@ final class Conversation
      */
     private string $cardOutcomes = '';
 
+    /**
+     * What each run segment of this conversation did (ADR-030), as JSON: the
+     * tools that ran, the records written, the decision taken on a card and
+     * how the run ended, with where in the transcript it happened. Later
+     * turns read it, since a new run sees only the transcript's text.
+     */
+    private string $runRecord = '';
+
+    /** Entries of the run record kept in the row; the notes read at most the newest 40. */
+    private const MAX_RUN_RECORDS = 200;
+
     private bool $archived = false;
 
     private bool $pinned = false;
@@ -245,6 +256,7 @@ final class Conversation
         $conversation->guidedState        = (string) self::val($row, 'guided_state', '');
         $conversation->approvalCard       = (string) self::val($row, 'approval_card', '');
         $conversation->cardOutcomes       = (string) self::val($row, 'card_outcomes', '');
+        $conversation->runRecord          = (string) self::val($row, 'run_record', '');
         $conversation->archived           = (bool) self::val($row, 'archived', false);
         $conversation->pinned             = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage       = (string) self::val($row, 'error_message', '');
@@ -304,6 +316,7 @@ final class Conversation
             'guided_state'         => $this->guidedState,
             'approval_card'        => $this->approvalCard,
             'card_outcomes'        => $this->cardOutcomes,
+            'run_record'           => $this->runRecord,
             'archived'             => (int) $this->archived,
             'pinned'               => (int) $this->pinned,
             'error_message'        => $this->errorMessage,
@@ -571,9 +584,35 @@ final class Conversation
             $context['languageId'] = $languageId;
         }
 
-        $this->viewContext = $pageId === 0 && $module === ''
+        // A turn sent from where no page is shown keeps the page the
+        // conversation was last about, apart from the selected one (ADR-030):
+        // it is no selection, and nothing that acts on the selected page reads
+        // it, but the model is told which page the conversation was about.
+        $last = 0;
+        if ($pageId === 0) {
+            $previous = $this->getViewContext()['pageId'];
+            $last     = $previous > 0 ? $previous : $this->getLastPageId();
+        }
+
+        if ($last > 0) {
+            $context['lastPageId'] = $last;
+        }
+
+        $this->viewContext = $pageId === 0 && $module === '' && $last === 0
             ? ''
             : json_encode($context, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * The page the conversation was last about while no page is selected
+     * (ADR-030); 0 when a page is selected or the conversation never had one.
+     */
+    public function getLastPageId(): int
+    {
+        $decoded = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
+        $last    = is_array($decoded) ? ($decoded['lastPageId'] ?? null) : null;
+
+        return is_int($last) && $last > 0 ? $last : 0;
     }
 
     public function getSkillIdentifier(): string
@@ -969,6 +1008,115 @@ final class Conversation
         }
 
         return $outcomes;
+    }
+
+    /**
+     * What a run segment did (ADR-030), placed where the transcript stands
+     * now: before the answer the segment adds after it.
+     *
+     * @param array{outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>} $entry
+     */
+    public function appendRunRecord(array $entry, ?int $after = null): void
+    {
+        $records = $this->getRunRecords();
+        // `cards` is how many card outcomes there were: at the same position
+        // the notes keep the order in which both were recorded.
+        $records[] = ['after' => $after ?? $this->messageCount, 'cards' => count($this->getCardOutcomes())] + $entry;
+        // Only the newest entries are ever read (RunRecordNotes); the column
+        // is a text column.
+        $records         = array_slice($records, -self::MAX_RUN_RECORDS);
+        $this->runRecord = json_encode($records, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Forget what is recorded from the transcript position on, when the
+     * messages from there were cut away (an edited message, ADR-030): the
+     * turns they described are gone, and their records would otherwise be
+     * read as the record of the turns that take their place.
+     */
+    public function forgetRecordsFrom(int $position): void
+    {
+        $records         = array_values(array_filter($this->getRunRecords(), static fn (array $r): bool => $r['after'] < $position));
+        $this->runRecord = $records === [] ? '' : json_encode($records, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+
+        $outcomes           = array_values(array_filter($this->getCardOutcomes(), static fn (array $o): bool => $o['after'] < $position));
+        $this->cardOutcomes = $outcomes === [] ? '' : json_encode($outcomes, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return list<array{after: int, cards: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}>
+     */
+    public function getRunRecords(): array
+    {
+        $decoded = $this->runRecord !== '' ? json_decode($this->runRecord, true) : null;
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $records = [];
+        foreach ($decoded as $entry) {
+            if (is_array($entry) && is_int($entry['after'] ?? null) && is_string($entry['outcome'] ?? null)) {
+                $records[] = $this->runRecordOf($entry, $entry['after'], $entry['outcome']);
+            }
+        }
+
+        return $records;
+    }
+
+    /**
+     * @param array<mixed> $entry
+     *
+     * @return array{after: int, cards: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}
+     */
+    private function runRecordOf(array $entry, int $after, string $outcome): array
+    {
+        $record = [
+            'after'   => $after,
+            'cards'   => is_int($entry['cards'] ?? null) ? $entry['cards'] : 0,
+            'outcome' => $outcome,
+            'tools'   => array_values(array_filter(array_map($this->toolOf(...), $this->listOf($entry['tools'] ?? null)))),
+            'writes'  => array_values(array_filter(array_map($this->writeOf(...), $this->listOf($entry['writes'] ?? null)))),
+            'waiting' => array_values(array_filter($this->listOf($entry['waiting'] ?? null), is_string(...))),
+        ];
+        if (is_string($entry['decision'] ?? null)) {
+            $record['decision'] = $entry['decision'];
+        }
+
+        return $record;
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function listOf(mixed $value): array
+    {
+        return is_array($value) ? array_values($value) : [];
+    }
+
+    /**
+     * @return array{tool: string, calls: int, errors: int}|null
+     */
+    private function toolOf(mixed $tool): ?array
+    {
+        if (!is_array($tool) || !is_string($tool['tool'] ?? null) || !is_int($tool['calls'] ?? null) || !is_int($tool['errors'] ?? null)) {
+            return null;
+        }
+
+        return ['tool' => $tool['tool'], 'calls' => $tool['calls'], 'errors' => $tool['errors']];
+    }
+
+    /**
+     * @return array{table: string, uid: int, complete: bool|null}|null
+     */
+    private function writeOf(mixed $write): ?array
+    {
+        if (!is_array($write) || !is_string($write['table'] ?? null) || !is_int($write['uid'] ?? null)) {
+            return null;
+        }
+
+        $complete = $write['complete'] ?? null;
+
+        return ['table' => $write['table'], 'uid' => $write['uid'], 'complete' => is_bool($complete) ? $complete : null];
     }
 
     /**

@@ -13,6 +13,9 @@ ADR-025: The Skill Says Whether It Needs a Page
 
 **Date:** 2026-10-25
 
+**Amended by:** :ref:`adr-030` — a turn sent without a page keeps the
+conversation's last page apart from the selection, and the prompt names it.
+
 Context
 =======
 
