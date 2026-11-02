@@ -456,7 +456,7 @@ final class ChatRunRecordTest extends TestCase
         $conversation->appendRunRecord(RunRecord::withdrawn());
 
         self::assertSame(
-            '[Chat record — written by the chat from the run, not by the assistant: the editor moved on without deciding; the waiting proposal or question was withdrawn and nothing from it was saved.]',
+            '[Chat record — written by the chat from the run, not by the assistant: the editor moved on without deciding in the chat; nothing from the waiting proposal or question was saved in the chat (a decision taken later in AI Tasks is not recorded here).]',
             RunRecordNotes::of($conversation)[0]['text'] ?? '',
         );
     }

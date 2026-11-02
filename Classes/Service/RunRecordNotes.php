@@ -173,7 +173,7 @@ final class RunRecordNotes
     private static function recordText(array $record): string
     {
         if (($record['decision'] ?? null) === RunRecord::DECISION_WITHDRAWN) {
-            return self::PREFIX . 'the editor moved on without deciding; the waiting proposal or question was withdrawn and nothing from it was saved.]';
+            return self::PREFIX . 'the editor moved on without deciding in the chat; nothing from the waiting proposal or question was saved in the chat (a decision taken later in AI Tasks is not recorded here).]';
         }
 
         $parts   = [];

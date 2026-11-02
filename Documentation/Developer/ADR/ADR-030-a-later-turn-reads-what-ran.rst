@@ -66,8 +66,11 @@ or an answer, or one that failed — the chat stores in ``run_record``:
 -   the decision taken on a card, where no card outcome already says it — a
     plain denial records none there;
 -   a card or question the editor left undecided, by writing a new message
-    or ending the tour, as withdrawn: otherwise its record would go on saying
-    that it waits. An edit records nothing: it cuts the waiting turn away.
+    or ending the tour: otherwise its record would go on saying that it
+    waits. The note says that nothing from it was saved in the chat. The
+    run of an ordinary chat is not cancelled and may still be decided in AI
+    Tasks; the note says that such a later decision is not recorded here. An
+    edit records nothing: it cuts the waiting turn away.
 
 Each entry also notes how many card outcomes existed before it, so notes at
 the same transcript position keep the order in which they happened. The row
@@ -109,11 +112,11 @@ steps saved is in the chat records.
 selection (amends ADR-025).** ``view_context`` keeps ``lastPageId`` when a turn
 comes with page 0. It is no selected page: the skill invocation, the
 highlight, the list and everything else that acts on the selected page read
-``pageId`` as before. Only the prompt uses it: instead of "No page is
-selected", the model is told that no page is selected now, which page the
-conversation was about, that questions about what happened concern that page,
-and to ask before new work on a page the user does not refer to. The page is
-named only when the user may see it, as the selected page is.
+``pageId`` as before. Only the prompt uses it: instead of "No page is selected", the model is told
+that no page is selected now, which page was last selected in the
+conversation, that the transcript and the chat records say which pages earlier
+steps worked on, and to ask before new work on a page the user does not refer
+to. The page is named only when the user may see it, as the selected page is.
 
 **No new system-prompt rule.** The record is the fact; whether the model also
 needs a rule to answer questions about past actions from it is measured on the
