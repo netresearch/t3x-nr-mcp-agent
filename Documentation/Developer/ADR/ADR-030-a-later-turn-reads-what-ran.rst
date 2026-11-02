@@ -59,7 +59,12 @@ or an answer, or one that failed — the chat stores in ``run_record``:
 -   how the run ended (completed, waiting, failed, …; ``unknown`` when the
     turn failed before nr-llm returned its steps);
 -   the tools that ran, with the number of calls and of failed calls, leaving
-    out the tools that only drive the chat's display or ask the editor;
+    out the tools that only drive the chat's display or ask the editor, and
+    the calls of a turn whose card was not approved: nr-llm records those as tool
+    steps with an error result before the continuation's first model round,
+    and listed as failed they read as failed attempts to save (amendment of
+    2026-11-02; two of five answers to "was ist hier passiert?" after three
+    *Behalten* answers on the demo said so);
 -   the records written, as ``table:uid``, and whether nr-llm reports the
     write complete, partial or unconfirmed;
 -   the calls still waiting for a decision;

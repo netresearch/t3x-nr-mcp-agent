@@ -1209,7 +1209,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The run record names the decision only where no card outcome
         // already says what became of the proposal (ADR-030).
         $before = $conversation->getMessageCount();
-        if ($this->applyResult($conversation, $result, $approved, $cardRecorded ? null : $this->decisionOf($approved, $denyReason))) {
+        if ($this->applyResult($conversation, $result, $approved, $cardRecorded ? null : $this->decisionOf($approved, $denyReason), !$approved)) {
             $this->processTurn($conversation, self::OPERATION_CHAT_TURN, afterApproval: true);
 
             return;
@@ -1441,7 +1441,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         };
     }
 
-    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false, ?string $decision = null): bool
+    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false, ?string $decision = null, bool $afterDenial = false): bool
     {
         // Whatever the outcome, what the guided-state tools reported during
         // the run is taken over now — the first moment the chat knows the run
@@ -1485,7 +1485,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         // What this segment did, for every later turn: a new run sees only
         // the transcript's text, not this run's tools and results (ADR-030).
-        $conversation->appendRunRecord(RunRecord::of($result, $decision));
+        $conversation->appendRunRecord(RunRecord::of($result, $decision, $afterDenial));
 
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult instanceof ToolLoopResult) {
             $this->appendTextBesideToolCalls($conversation, $result);

@@ -41,6 +41,7 @@ use Netresearch\NrMcpAgent\Service\RunRecord;
 use Netresearch\NrMcpAgent\Service\RunRecordNotes;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -260,6 +261,82 @@ final class ChatRunRecordTest extends TestCase
         self::assertStringContainsString('proposal update_page_metadata on pages:3 (fields: description) — the editor kept the current value, NOT saved.', $text);
         // The card outcome says it; the record of the segment does not repeat the decision.
         self::assertStringNotContainsString('the editor kept the current value, so', $text);
+    }
+
+    /**
+     * @return iterable<string, array{0: ?DenyReason}>
+     */
+    public static function denials(): iterable
+    {
+        yield 'Behalten' => [DenyReason::Keep];
+        yield 'Überspringen' => [DenyReason::Skip];
+        yield 'Andere Variante' => [DenyReason::Variant];
+        yield 'plain denial' => [null];
+    }
+
+    /**
+     * nr-llm records the declined call as a tool step with an error result
+     * before the continuation's first model round. It never ran: the record
+     * does not list it as a tool that ran and failed. Measured on the demo on
+     * 2026-11-02: after three "Behalten" answers, two of five answers to "was
+     * ist hier passiert?" said the change attempts after "Behalten" had
+     * failed. A tool that fails later in the same segment is still reported.
+     */
+    #[Test]
+    #[DataProvider('denials')]
+    public function aDeclinedCallIsNotReportedAsAToolThatFailed(?DenyReason $reason): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Diese Seite prüfen');
+        $conversation->appendMessage(MessageRole::Assistant, 'Ich schlage eine Beschreibung vor.');
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-1');
+
+        // The shape of the continuation nr-llm returned on the demo: the
+        // refused call, then the model's round, a search that failed and the
+        // next proposal.
+        $continued = new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-1', [
+            new RunStep(kind: RunStep::KIND_TOOL, round: 4, durationMs: 0.0, toolName: 'update_page_metadata', toolResult: 'Error: approval_denied (decided_by: run_owner, reason: keep).', toolIsError: true),
+            new RunStep(kind: RunStep::KIND_LLM, round: 5, durationMs: 1.0, requestedToolCalls: [['id' => 'c1', 'name' => 'search_fal_files', 'arguments' => []]]),
+            new RunStep(kind: RunStep::KIND_TOOL, round: 5, durationMs: 1.0, toolName: 'search_fal_files', toolIsError: true),
+            new RunStep(kind: RunStep::KIND_LLM, round: 6, durationMs: 1.0, requestedToolCalls: [['id' => 'c2', 'name' => 'update_page_metadata', 'arguments' => []]]),
+        ]);
+        $service = $this->service($this->completed('Nichts.'), $continued);
+        $card    = ['tool' => 'update_page_metadata', 'table' => 'pages', 'uid' => 3, 'fields' => ['og_description']];
+        self::assertTrue($service->recordDecision($conversation, false, 'digest', $reason, $reason instanceof DenyReason ? 'Antwort' : '', $card));
+        $service->processConversation($conversation);
+
+        $records = $conversation->getRunRecords();
+        $last    = $records[array_key_last($records)] ?? [];
+        self::assertSame([['tool' => 'search_fal_files', 'calls' => 1, 'errors' => 1]], $last['tools'] ?? null);
+        self::assertSame(['update_page_metadata'], $last['waiting'] ?? null);
+        $notes = implode("\n", array_column(RunRecordNotes::of($conversation), 'text'));
+        self::assertStringContainsString('tools run: search_fal_files ×1 (1 failed)', $notes);
+        self::assertStringNotContainsString('update_page_metadata ×', $notes);
+    }
+
+    /** An approved call ran: it is reported as a tool that ran, and a failure of it as a failure. */
+    #[Test]
+    public function anApprovedCallThatFailedIsStillReportedAsFailed(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Diese Seite prüfen');
+        $conversation->appendMessage(MessageRole::Assistant, 'Ich schlage eine Beschreibung vor.');
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-1');
+
+        $continued = $this->completed('Das hat nicht geklappt.', [
+            new RunStep(kind: RunStep::KIND_TOOL, round: 4, durationMs: 1.0, toolName: 'update_page_metadata', toolIsError: true),
+            new RunStep(kind: RunStep::KIND_LLM, round: 5, durationMs: 1.0),
+        ]);
+        $service = $this->service($this->completed('Nichts.'), $continued);
+        self::assertTrue($service->recordDecision($conversation, true, 'digest'));
+        $service->processConversation($conversation);
+
+        $notes = implode("\n", array_column(RunRecordNotes::of($conversation), 'text'));
+        self::assertStringContainsString('tools run: update_page_metadata ×1 (1 failed)', $notes);
     }
 
     #[Test]
