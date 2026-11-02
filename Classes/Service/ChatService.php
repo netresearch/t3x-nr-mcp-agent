@@ -1015,7 +1015,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $conversation->getBeUser(),
                     $conversation->getApprovalTurnDigest(),
                 ),
-                $this->activityRecorder->onStep($conversation),
+                $this->activityRecorder->onStep($conversation, RefusedCalls::AFTER_INPUT),
             );
             $this->turnTiming?->mark('runEnd');
         } catch (StaleInputTurnException|InvalidInputSubmissionException|SubmitterNotPermittedException|RunAlreadyResumingException|RunConfigurationInactiveException|RunNotAwaitingInputException $e) {
@@ -1054,7 +1054,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $conversation->clearApprovalDecision();
-        $this->applyResult($conversation, $result);
+        $this->applyResult($conversation, $result, segment: RefusedCalls::AFTER_INPUT);
     }
 
     /**

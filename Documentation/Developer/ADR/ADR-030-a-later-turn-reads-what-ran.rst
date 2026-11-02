@@ -169,36 +169,54 @@ refuse calls in these places (``ToolLoopService``):
         -   failure (``not_permitted``)
         -   "nicht ausgeführt: nicht mehr freigegeben", and to ask an
             administrator to allow it again
-    *   -   An approved call that needs input
+    *   -   After an approval: a question (``ask_choice``) the model asked in
+            the same turn, outside a guided process
+        -   not run (``held``)
+        -   "noch nicht ausgeführt"; the model asks it again
+    *   -   After an answer: the question's own tool, no longer offered
         -   failure (``not_permitted``)
-        -   as above; unreachable while nr-llm refuses tools that need both
-    *   -   After an answer: a call no longer offered, a second call that
-            needs input, a write without an approval
+        -   as for the approved call: the answer was not taken
+    *   -   After an answer: another call no longer offered, a second call
+            that needs input, a write without an approval
         -   not run (``held``)
         -   "noch nicht ausgeführt"
     *   -   Beside a proposal or a question: a second write, a call that
             needs input, a remote call
         -   not run (``held``)
         -   "noch nicht ausgeführt"
+    *   -   A call the invocation policy refuses (not permitted, unknown,
+            denied by a rule), in any segment
+        -   failure
+        -   "fehlgeschlagen", as before: nr-llm times these like a call that
+            ran
 
 **Decision.** ``RefusedCalls`` reads one segment's steps for both the
 activity list and the run record, so the two cannot disagree. It reads
 structure, never the result text: where the step stands (a continuation opens
-with the waiting turn's calls, before its first model round) and its duration
-(nr-llm records every refusal with exactly 0.0 ms; a call that ran is timed).
+with the waiting turn's calls, before its first model round), its duration
+(nr-llm records the refusals of a waiting turn's calls with exactly 0.0 ms; a
+call that ran is timed) and whether the tool asks the editor something
+(``ask_choice``, nr-llm's only such tool: after an answer nr-llm runs every call
+of the question's tool with the answer and refuses one only when the tool is no
+longer offered).
 A declined card's calls get no entry in the list and no place in the record;
 a call held back is listed as not run and left out of the record; an approved
 call nr-llm no longer permits is a failure in both, with its reason in the
-list. A declined card's entry names the answer the editor gave.
+list. An answered question nr-llm no longer permits is a failure in the list;
+the record leaves ``ask_choice`` out, as it always did. A declined card's entry
+names the answer the editor gave.
 
 **Consequences.**
 
 -   The reading depends on nr-llm recording refusals with a duration of 0.0.
     A refusal recorded with a measured duration would be shown as failed
     again, which is the state before this amendment.
--   After an answer, a call whose tool was switched off while the question
-    waited reads "noch nicht ausgeführt", not "nicht mehr freigegeben": nothing
-    in the step separates it from the other refusals of that path. nr-llm
-    would have to type the refusal for the chat to tell them apart.
+-   After an answer, another call whose tool was switched off while the
+    question waited reads "noch nicht ausgeführt", not "nicht mehr
+    freigegeben": nothing in the step separates it from the other refusals of
+    that path. nr-llm would have to type the refusal for the chat to tell them
+    apart.
+-   A tool of another extension that asks the editor something is read like
+    any other tool until it is added to ``RefusedCalls::QUESTION_TOOLS``.
 -   Activity rows written before the upgrade keep their entries.
 

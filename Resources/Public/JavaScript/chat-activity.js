@@ -90,7 +90,8 @@ export const chatActivityStyles = css`
     .activity li:last-child { border-bottom: none; }
     .activity .activity-icon { flex-shrink: 0; width: 1.2em; text-align: center; }
     .activity .activity-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-    .activity .activity-hint { display: block; color: var(--nr-chat-text-variant); font-size: 11px; }
+    .activity li { flex-wrap: wrap; }
+    .activity .activity-hint { flex-basis: 100%; padding-left: calc(1.2em + 6px); color: var(--nr-chat-text-variant); font-size: 11px; }
     .activity .activity-meta { flex-shrink: 0; color: var(--nr-chat-text-variant); font-size: 11px; }
     .activity .activity-error { color: var(--nr-chat-status-danger); }
     .activity .activity-waiting { color: var(--nr-chat-status-info); }
@@ -214,8 +215,9 @@ export function renderActivity(chat, placement) {
                     : entries.map((e) => html`
                         <li class="${e.tone ? `activity-${e.tone}` : ''}">
                             <span class="activity-icon" aria-hidden="true">${e.icon}</span>
-                            <span class="activity-label">${e.label}${e.hint ? html`<span class="activity-hint">${e.hint}</span>` : nothing}</span>
+                            <span class="activity-label">${e.label}</span>
                             ${e.meta ? html`<span class="activity-meta">${e.meta}</span>` : nothing}
+                            ${e.hint ? html`<span class="activity-hint">${e.hint}</span>` : nothing}
                         </li>
                     `)}
             </ol>

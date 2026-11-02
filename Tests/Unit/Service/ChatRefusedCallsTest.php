@@ -221,6 +221,55 @@ final class ChatRefusedCallsTest extends TestCase
         self::assertStringContainsString('update_page_metadata ×1 (1 failed)', $notes);
     }
 
+    /**
+     * Outside a guided process an approval suspends the whole turn, a
+     * question the model asked in it included. On approval nr-llm runs the
+     * write and refuses the question ("requires user input that was not
+     * provided"); the model asks it again. That is not a tool the editor
+     * has to get switched on again.
+     */
+    #[Test]
+    public function aQuestionBesideAnApprovedWriteIsHeldNotRefused(): void
+    {
+        $conversation = $this->waitingForApproval();
+        $service      = $this->service([
+            new RunStep(kind: RunStep::KIND_TOOL, round: 5, durationMs: 2.0, toolName: 'update_page_metadata', toolIsError: false),
+            self::refused('ask_choice', 5),
+            self::round(6),
+        ], AgentRunOutcome::COMPLETED);
+        self::assertTrue($service->recordDecision($conversation, true, 'digest'));
+        $service->processConversation($conversation);
+
+        self::assertSame([
+            ['kind' => 'tool', 'tool' => 'update_page_metadata', 'error' => false],
+            ['kind' => 'tool', 'tool' => 'ask_choice', 'error' => false, 'refusal' => RefusedCalls::HELD],
+        ], self::toolEntries($conversation));
+    }
+
+    /**
+     * After an answer nr-llm runs every call of the question's tool with the
+     * answer; it refuses one only when the tool is no longer offered. The
+     * answer was not taken: the editor is told why.
+     */
+    #[Test]
+    public function aQuestionWhoseToolWasSwitchedOffIsNotPermitted(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Diese Seite prüfen');
+        $conversation->setStatus(ConversationStatus::AwaitingInput);
+        $conversation->setApprovalRunUuid('run-1');
+
+        $service = $this->service([self::refused('ask_choice', 3), self::round(4)], AgentRunOutcome::COMPLETED);
+        self::assertTrue($service->recordInput($conversation, ['choice' => 'Ohne Vorschaubild weiter'], 'digest', 'Ohne Vorschaubild weiter'));
+        $service->processConversation($conversation);
+
+        self::assertSame(
+            [['kind' => 'tool', 'tool' => 'ask_choice', 'error' => true, 'refusal' => RefusedCalls::NOT_PERMITTED]],
+            self::toolEntries($conversation),
+        );
+    }
+
     /** An approved call that ran and failed stays a failure without a refusal. */
     #[Test]
     public function anApprovedCallThatRanAndFailedIsAPlainFailure(): void

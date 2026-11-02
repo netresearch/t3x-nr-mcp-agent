@@ -189,6 +189,15 @@ describe.each([
         expect(list.querySelector('ol').hasAttribute('aria-live')).toBe(false);
         expect(list.querySelector('[role="status"]').textContent.trim()).toBe('activity.tool, 4 ms');
 
+        // A failure is read status first, then what to do about it: the hint
+        // follows the meta, as the live announcement orders them.
+        el.chat.activity = [{kind: 'tool', round: 1, ms: 0, tool: 'update_page_metadata', error: true, refusal: 'not_permitted'}];
+        el.requestUpdate();
+        await el.updateComplete;
+        const text = list.querySelector('li').textContent.replace(/\s+/g, ' ');
+        expect(text.indexOf('activity.notPermitted ')).toBeGreaterThan(-1);
+        expect(text.indexOf('activity.notPermitted ')).toBeLessThan(text.indexOf('activity.notPermittedHint'));
+
         // The list carries its own close button: over a narrow chat it can
         // cover the header's toggle.
         list.querySelector('.activity-close').click();
