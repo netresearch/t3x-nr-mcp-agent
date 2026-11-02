@@ -71,22 +71,16 @@ final class RefusedCalls
     {
         if ($step->kind === RunStep::KIND_LLM) {
             $this->beforeFirstRound = false;
-
-            return null;
         }
 
-        if ($step->kind !== RunStep::KIND_TOOL) {
-            return null;
-        }
+        $opening = $this->beforeFirstRound;
 
-        if ($this->beforeFirstRound && $this->segment === self::AFTER_DENIAL) {
-            return self::DECLINED;
-        }
-
-        if ($step->toolIsError !== true || $step->durationMs !== 0.0) {
-            return null;
-        }
-
-        return $this->beforeFirstRound && $this->segment === self::AFTER_APPROVAL ? self::NOT_PERMITTED : self::HELD;
+        return match (true) {
+            $step->kind !== RunStep::KIND_TOOL                       => null,
+            $opening && $this->segment === self::AFTER_DENIAL        => self::DECLINED,
+            $step->toolIsError !== true || $step->durationMs !== 0.0 => null,
+            $opening && $this->segment === self::AFTER_APPROVAL      => self::NOT_PERMITTED,
+            default                                                  => self::HELD,
+        };
     }
 }

@@ -119,21 +119,31 @@ class RunActivityRecorder implements LoggerAwareInterface
                 $this->liveText?->flush($conversation->getUid());
             }
 
-            $entry = [
-                'kind'  => $step->kind,
-                'round' => $step->round,
-                'ms'    => (int) round($step->durationMs),
-            ];
-            if ($step->kind === RunStep::KIND_TOOL) {
-                $entry['tool']  = $step->toolName ?? '';
-                $entry['error'] = $step->toolIsError === true && $refusal !== RefusedCalls::HELD;
-                if ($refusal !== null) {
-                    $entry['refusal'] = $refusal;
-                }
-            }
-
-            $this->append($conversation, $entry);
+            $this->append($conversation, $this->entryOf($step, $refusal));
         };
+    }
+
+    /**
+     * @param RefusedCalls::DECLINED|RefusedCalls::NOT_PERMITTED|RefusedCalls::HELD|null $refusal
+     *
+     * @return array<string, bool|int|string>
+     */
+    private function entryOf(RunStep $step, ?string $refusal): array
+    {
+        $entry = [
+            'kind'  => $step->kind,
+            'round' => $step->round,
+            'ms'    => (int) round($step->durationMs),
+        ];
+        if ($step->kind === RunStep::KIND_TOOL) {
+            $entry['tool']  = $step->toolName ?? '';
+            $entry['error'] = $step->toolIsError === true && $refusal !== RefusedCalls::HELD;
+            if ($refusal !== null) {
+                $entry['refusal'] = $refusal;
+            }
+        }
+
+        return $entry;
     }
 
     /**
