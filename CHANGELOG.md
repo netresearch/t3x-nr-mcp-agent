@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-11-02
+
+### Fixed
+
+- A later turn reads what earlier runs did. Every run segment is recorded in `run_record` from the run's structured steps: how it ended, the tools that ran, the records written and whether the write is complete, calls still waiting, and decisions no card outcome covers. Each later turn gives the model these records and the card outcomes as labelled notes in the turn they belong to, within a budget of 40 notes and 6000 characters. Asked "was ist hier passiert?" after a finished tour, the model no longer answers that nothing happened (ADR-030). Update the database schema: `tx_nrmcpagent_conversation` gains `run_record`.
+- The note beside an answer flagged as "nothing saved" covers its own step only, so a summary of earlier saves is no longer called unsaved.
+- A turn sent from where no page is shown names the page last selected in the conversation instead of saying only that no page is selected.
+
 ## [0.30.0] - 2026-11-02
 
 ### Added
