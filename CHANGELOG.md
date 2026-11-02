@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.2] - 2026-11-02
+
+### Fixed
+
+- The chat record a later turn reads no longer lists the calls of a card that was not approved as tools that ran and failed. Asked "was ist hier passiert?" after a tour with *Behalten*, *Überspringen* or *Andere Variante* answers, the model no longer describes those decisions as failed attempts to save (ADR-030, #306).
+
 ## [0.30.1] - 2026-11-02
 
 ### Fixed
