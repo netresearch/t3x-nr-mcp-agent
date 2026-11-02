@@ -544,6 +544,24 @@
             <trans-unit id="activity.denied" resname="activity.denied">
                 <source>Denied by you</source>
             </trans-unit>
+            <trans-unit id="activity.kept" resname="activity.kept">
+                <source>Kept the current content</source>
+            </trans-unit>
+            <trans-unit id="activity.skipped" resname="activity.skipped">
+                <source>Skipped for now</source>
+            </trans-unit>
+            <trans-unit id="activity.variant" resname="activity.variant">
+                <source>Asked for another variant</source>
+            </trans-unit>
+            <trans-unit id="activity.notPermitted" resname="activity.notPermitted">
+                <source>not run: no longer allowed</source>
+            </trans-unit>
+            <trans-unit id="activity.notPermittedHint" resname="activity.notPermittedHint">
+                <source>Switched off or for administrators only. Ask an administrator to allow it again.</source>
+            </trans-unit>
+            <trans-unit id="activity.held" resname="activity.held">
+                <source>not run yet</source>
+            </trans-unit>
             <trans-unit id="activity.waiting" resname="activity.waiting">
                 <source>Waiting for your approval</source>
             </trans-unit>

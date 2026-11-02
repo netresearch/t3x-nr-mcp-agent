@@ -42,6 +42,45 @@ describe('activityEntries', () => {
         expect(entries[2].meta).toBe('activity.failed');
     });
 
+    test('an approved call the runtime no longer permits is a failure that says why and what to do', () => {
+        const chat = controller({status: 'idle', activity: [
+            {kind: 'approval', approved: true},
+            {kind: 'tool', round: 5, ms: 0, tool: 'update_page_metadata', error: true, refusal: 'not_permitted'},
+        ]});
+
+        const entry = activityEntries(chat)[1];
+
+        expect(entry.tone).toBe('error');
+        expect(entry.icon).toBe('✕');
+        expect(entry.meta).toBe('activity.notPermitted');
+        expect(entry.hint).toBe('activity.notPermittedHint');
+    });
+
+    test('a call the runtime held back is not shown as failed', () => {
+        const chat = controller({status: 'idle', activity: [
+            {kind: 'tool', round: 1, ms: 0, tool: 'update_content_element', error: false, refusal: 'held'},
+        ]});
+
+        const entry = activityEntries(chat)[0];
+
+        expect(entry.tone).toBe('');
+        expect(entry.icon).not.toBe('✕');
+        expect(entry.meta).toBe('activity.held');
+        expect(entry.hint).toBe('');
+    });
+
+    test.each([
+        ['keep', 'activity.kept'],
+        ['skip', 'activity.skipped'],
+        ['variant', 'activity.variant'],
+        [undefined, 'activity.denied'],
+    ])('a declined card names the answer %s', (reason, label) => {
+        const chat = controller({status: 'idle', activity: [{kind: 'approval', approved: false, reason}]});
+
+        expect(activityEntries(chat)[0].label).toBe(label);
+        expect(activityEntries(chat)[0].tone).toBe('');
+    });
+
     test('a turn that waits for an approval ends with what it waits for', () => {
         const chat = controller({
             status: 'awaiting_approval',

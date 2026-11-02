@@ -1080,20 +1080,22 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // either, so the continuation's provider calls stay unattributed.
         $approved = $conversation->getApprovalDecision() === self::DECISION_APPROVE;
 
-        // The decision is listed when the runtime acts on it: before the first
-        // step of the continuation, or once approve() returns if none fires. A
-        // decision the runtime refuses never appears in the list.
-        $decisionRecorded = false;
-        $recordDecision   = function () use (&$decisionRecorded, $conversation, $approved): void {
-            if (!$decisionRecorded) {
-                $decisionRecorded = true;
-                $this->activityRecorder->recordDecision($conversation, $approved);
-            }
-        };
-        $recordStep = $this->activityRecorder->onStep($conversation);
         // The card the decision answers, read before nr-llm acts on it: an
         // open point is keyed by what that card showed (ADR-022).
         $denyReason = $conversation->getApprovalDenyReason();
+
+        // The decision is listed when the runtime acts on it: before the first
+        // step of the continuation, or once approve() returns if none fires. A
+        // decision the runtime refuses never appears in the list. The steps
+        // are read as the run record reads them (RefusedCalls).
+        $decisionRecorded = false;
+        $recordDecision   = function () use (&$decisionRecorded, $conversation, $approved, $denyReason): void {
+            if (!$decisionRecorded) {
+                $decisionRecorded = true;
+                $this->activityRecorder->recordDecision($conversation, $approved, $denyReason);
+            }
+        };
+        $recordStep = $this->activityRecorder->onStep($conversation, $approved ? RefusedCalls::AFTER_APPROVAL : RefusedCalls::AFTER_DENIAL);
         $card       = $conversation->getApprovalCard();
         $readView   = fn (): ?WaitingRunView => $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid);
         $cardTarget = $this->openPoints?->cardTarget($conversation, $readView());
@@ -1209,7 +1211,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The run record names the decision only where no card outcome
         // already says what became of the proposal (ADR-030).
         $before = $conversation->getMessageCount();
-        if ($this->applyResult($conversation, $result, $approved, $cardRecorded ? null : $this->decisionOf($approved, $denyReason), !$approved)) {
+        if ($this->applyResult($conversation, $result, $approved, $cardRecorded ? null : $this->decisionOf($approved, $denyReason), $approved ? RefusedCalls::AFTER_APPROVAL : RefusedCalls::AFTER_DENIAL)) {
             $this->processTurn($conversation, self::OPERATION_CHAT_TURN, afterApproval: true);
 
             return;
@@ -1441,7 +1443,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         };
     }
 
-    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false, ?string $decision = null, bool $afterDenial = false): bool
+    /**
+     * @param RefusedCalls::AFTER_* $segment what the run segment continues
+     */
+    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false, ?string $decision = null, string $segment = RefusedCalls::AFTER_TURN): bool
     {
         // Whatever the outcome, what the guided-state tools reported during
         // the run is taken over now — the first moment the chat knows the run
@@ -1485,7 +1490,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         // What this segment did, for every later turn: a new run sees only
         // the transcript's text, not this run's tools and results (ADR-030).
-        $conversation->appendRunRecord(RunRecord::of($result, $decision, $afterDenial));
+        $conversation->appendRunRecord(RunRecord::of($result, $decision, $segment));
 
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult instanceof ToolLoopResult) {
             $this->appendTextBesideToolCalls($conversation, $result);

@@ -13,6 +13,7 @@ use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Throwable;
@@ -77,11 +78,20 @@ class RunActivityRecorder implements LoggerAwareInterface
      * already holds, so a continuation after an approval extends the list of
      * the run it belongs to.
      *
+     * A call nr-llm refused is read as RefusedCalls reads it for the run
+     * record: a declined card's call gets no entry, the decision is the
+     * entry; a call held back is not a failure; an approved call nr-llm no
+     * longer permits is a failure with its reason.
+     *
+     * @param RefusedCalls::AFTER_* $segment what the steps continue
+     *
      * @return Closure(RunStep): void
      */
-    public function onStep(Conversation $conversation): Closure
+    public function onStep(Conversation $conversation, string $segment = RefusedCalls::AFTER_TURN): Closure
     {
-        return function (RunStep $step) use ($conversation): void {
+        $refusals = new RefusedCalls($segment);
+
+        return function (RunStep $step) use ($conversation, $refusals): void {
             if ($step->kind === self::KIND_TEXT_DELTA) {
                 $this->turnTiming?->mark('firstText');
                 $this->liveText?->append($conversation->getUid(), $step->round, $step->content ?? '');
@@ -99,6 +109,11 @@ class RunActivityRecorder implements LoggerAwareInterface
                 return;
             }
 
+            $refusal = $refusals->read($step);
+            if ($refusal === RefusedCalls::DECLINED) {
+                return;
+            }
+
             if ($step->kind === RunStep::KIND_LLM) {
                 $this->turnTiming?->mark('firstLlm');
                 $this->liveText?->flush($conversation->getUid());
@@ -111,17 +126,28 @@ class RunActivityRecorder implements LoggerAwareInterface
             ];
             if ($step->kind === RunStep::KIND_TOOL) {
                 $entry['tool']  = $step->toolName ?? '';
-                $entry['error'] = $step->toolIsError === true;
+                $entry['error'] = $step->toolIsError === true && $refusal !== RefusedCalls::HELD;
+                if ($refusal !== null) {
+                    $entry['refusal'] = $refusal;
+                }
             }
 
             $this->append($conversation, $entry);
         };
     }
 
-    /** The user's decision on a pending tool call, in the list where it happened. */
-    public function recordDecision(Conversation $conversation, bool $approved): void
+    /**
+     * The user's decision on a pending tool call, in the list where it
+     * happened, with the answer a declined card was given (ADR-018).
+     */
+    public function recordDecision(Conversation $conversation, bool $approved, ?DenyReason $reason = null): void
     {
-        $this->append($conversation, ['kind' => 'approval', 'approved' => $approved]);
+        $entry = ['kind' => 'approval', 'approved' => $approved];
+        if (!$approved && $reason instanceof DenyReason) {
+            $entry['reason'] = $reason->value;
+        }
+
+        $this->append($conversation, $entry);
     }
 
     /**

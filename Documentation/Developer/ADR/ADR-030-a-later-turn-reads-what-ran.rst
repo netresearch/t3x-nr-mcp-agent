@@ -64,7 +64,8 @@ or an answer, or one that failed — the chat stores in ``run_record``:
     steps with an error result before the continuation's first model round,
     and listed as failed they read as failed attempts to save (amendment of
     2026-11-02; two of five answers to "was ist hier passiert?" after three
-    *Behalten* answers on the demo said so);
+    *Behalten* answers on the demo said so), and the calls nr-llm held back
+    while the run waited (see the amendment below);
 -   the records written, as ``table:uid``, and whether nr-llm reports the
     write complete, partial or unconfirmed;
 -   the calls still waiting for a decision;
@@ -142,3 +143,62 @@ Consequences
     already.
 -   The record says what ran and what was written, not what the values were.
     "Which title was saved?" is answered by reading the record, as before.
+
+
+Amendment of 2026-11-02: calls nr-llm refused
+=============================================
+
+**Context.** nr-llm records every call it refuses as a tool step with an
+error result, like a tool that ran and failed. The chat's activity list showed
+"fehlgeschlagen" under "Von dir abgelehnt" after every *Behalten*, and the run
+record counted calls nr-llm held back as failed tools. nr-llm 0.41.7 to 0.43.4
+refuse calls in these places (``ToolLoopService``):
+
+..  list-table::
+    :header-rows: 1
+
+    *   -   Refusal
+        -   Reading
+        -   Shown to the editor
+    *   -   A declined card's calls, and a ``load_skill`` of the declined turn
+        -   decision
+        -   the answer (*Behalten*, *Überspringen*, *Andere Variante*, or
+            "abgelehnt"), no tool entry
+    *   -   An approved call whose tool is no longer offered (switched off,
+            admin-only)
+        -   failure (``not_permitted``)
+        -   "nicht ausgeführt: nicht mehr freigegeben", and to ask an
+            administrator to allow it again
+    *   -   An approved call that needs input
+        -   failure (``not_permitted``)
+        -   as above; unreachable while nr-llm refuses tools that need both
+    *   -   After an answer: a call no longer offered, a second call that
+            needs input, a write without an approval
+        -   not run (``held``)
+        -   "noch nicht ausgeführt"
+    *   -   Beside a proposal or a question: a second write, a call that
+            needs input, a remote call
+        -   not run (``held``)
+        -   "noch nicht ausgeführt"
+
+**Decision.** ``RefusedCalls`` reads one segment's steps for both the
+activity list and the run record, so the two cannot disagree. It reads
+structure, never the result text: where the step stands (a continuation opens
+with the waiting turn's calls, before its first model round) and its duration
+(nr-llm records every refusal with exactly 0.0 ms; a call that ran is timed).
+A declined card's calls get no entry in the list and no place in the record;
+a call held back is listed as not run and left out of the record; an approved
+call nr-llm no longer permits is a failure in both, with its reason in the
+list. A declined card's entry names the answer the editor gave.
+
+**Consequences.**
+
+-   The reading depends on nr-llm recording refusals with a duration of 0.0.
+    A refusal recorded with a measured duration would be shown as failed
+    again, which is the state before this amendment.
+-   After an answer, a call whose tool was switched off while the question
+    waited reads "noch nicht ausgeführt", not "nicht mehr freigegeben": nothing
+    in the step separates it from the other refusals of that path. nr-llm
+    would have to type the refusal for the chat to tell them apart.
+-   Activity rows written before the upgrade keep their entries.
+

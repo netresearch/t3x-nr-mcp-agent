@@ -40,11 +40,13 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessRefusal;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
+use Netresearch\NrMcpAgent\Service\RefusedCalls;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use Netresearch\NrMcpAgent\Tests\Unit\Enum\ProcessRefusalTest;
@@ -380,14 +382,14 @@ final class ChatApprovalTest extends TestCase
                 $this->log[] = 'start';
             }
 
-            public function onStep(Conversation $conversation): Closure
+            public function onStep(Conversation $conversation, string $segment = RefusedCalls::AFTER_TURN): Closure
             {
                 return function (RunStep $step): void {
                     $this->log[] = 'step:' . $step->kind;
                 };
             }
 
-            public function recordDecision(Conversation $conversation, bool $approved): void
+            public function recordDecision(Conversation $conversation, bool $approved, ?DenyReason $reason = null): void
             {
                 $this->log[] = 'decision:' . ($approved ? 'approved' : 'denied');
             }

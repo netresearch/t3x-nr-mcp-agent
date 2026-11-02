@@ -90,6 +90,7 @@ export const chatActivityStyles = css`
     .activity li:last-child { border-bottom: none; }
     .activity .activity-icon { flex-shrink: 0; width: 1.2em; text-align: center; }
     .activity .activity-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .activity .activity-hint { display: block; color: var(--nr-chat-text-variant); font-size: 11px; }
     .activity .activity-meta { flex-shrink: 0; color: var(--nr-chat-text-variant); font-size: 11px; }
     .activity .activity-error { color: var(--nr-chat-status-danger); }
     .activity .activity-waiting { color: var(--nr-chat-status-info); }
@@ -112,41 +113,62 @@ function formatDuration(ms) {
     return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
 
+/** The label of a declined card, by the answer the editor gave (ADR-018). */
+const DENIAL_LABELS = {keep: 'activity.kept', skip: 'activity.skipped', variant: 'activity.variant'};
+
+/**
+ * A tool call. The server reads what nr-llm refused (RefusedCalls): a call it
+ * held back did not fail and comes again; an approved call it no longer
+ * permits did not run, and the editor is told why and what to do.
+ */
+function toolEntry(entry) {
+    const label = lll('activity.tool', entry.tool || '?');
+    if (entry.refusal === 'not_permitted') {
+        return {icon: '✕', label, meta: lll('activity.notPermitted'), hint: lll('activity.notPermittedHint'), tone: 'error'};
+    }
+    if (entry.refusal === 'held') {
+        return {icon: '↷', label, meta: lll('activity.held'), hint: '', tone: ''};
+    }
+    return {
+        icon: entry.error ? '✕' : '⚙',
+        label,
+        meta: entry.error ? lll('activity.failed') : formatDuration(entry.ms),
+        hint: '',
+        tone: entry.error ? 'error' : '',
+    };
+}
+
 /**
  * The entries as the list shows them: the recorded steps, then — derived
  * from the conversation's state — a pending approval or the running turn.
  *
- * @returns {Array<{icon: string, label: string, meta: string, tone: string}>}
+ * @returns {Array<{icon: string, label: string, meta: string, hint: string, tone: string}>}
  */
 export function activityEntries(chat) {
     const entries = (chat.activity || []).map((entry) => {
         if (entry.kind === 'tool') {
-            return {
-                icon: entry.error ? '✕' : '⚙',
-                label: lll('activity.tool', entry.tool || '?'),
-                meta: entry.error ? lll('activity.failed') : formatDuration(entry.ms),
-                tone: entry.error ? 'error' : '',
-            };
+            return toolEntry(entry);
         }
         if (entry.kind === 'approval') {
             return {
                 icon: entry.approved ? '✓' : '⊘',
-                label: entry.approved ? lll('activity.approved') : lll('activity.denied'),
+                label: lll(entry.approved ? 'activity.approved' : (DENIAL_LABELS[entry.reason] ?? 'activity.denied')),
                 meta: '',
+                hint: '',
                 tone: '',
             };
         }
-        return {icon: '◌', label: lll('activity.modelRound', entry.round ?? 0), meta: formatDuration(entry.ms), tone: ''};
+        return {icon: '◌', label: lll('activity.modelRound', entry.round ?? 0), meta: formatDuration(entry.ms), hint: '', tone: ''};
     });
 
     if (chat.status === 'awaiting_approval') {
         // Tool names reach administrators only; for everyone else they are empty.
         const names = (chat.pendingApproval?.calls || []).map((c) => c.name).filter(Boolean).join(', ');
-        entries.push({icon: '⏸', label: lll('activity.waiting'), meta: names, tone: 'waiting'});
+        entries.push({icon: '⏸', label: lll('activity.waiting'), meta: names, hint: '', tone: 'waiting'});
     } else if (chat.status === 'awaiting_input') {
-        entries.push({icon: '⏸', label: lll('activity.waitingInput'), meta: '', tone: 'waiting'});
+        entries.push({icon: '⏸', label: lll('activity.waitingInput'), meta: '', hint: '', tone: 'waiting'});
     } else if (chat.isProcessing()) {
-        entries.push({icon: '⟳', label: lll('activity.working'), meta: '', tone: 'waiting'});
+        entries.push({icon: '⟳', label: lll('activity.working'), meta: '', hint: '', tone: 'waiting'});
     }
 
     return entries;
@@ -164,7 +186,7 @@ export function latestStepAnnouncement(chat) {
     if (recorded.length === 0) return '';
     const entries = activityEntries({...chat, activity: [recorded[recorded.length - 1]], status: 'idle', isProcessing: () => false});
     const latest = entries[0];
-    return latest ? [latest.label, latest.meta].filter(Boolean).join(', ') : '';
+    return latest ? [latest.label, latest.meta, latest.hint].filter(Boolean).join(', ') : '';
 }
 
 /**
@@ -192,7 +214,7 @@ export function renderActivity(chat, placement) {
                     : entries.map((e) => html`
                         <li class="${e.tone ? `activity-${e.tone}` : ''}">
                             <span class="activity-icon" aria-hidden="true">${e.icon}</span>
-                            <span class="activity-label">${e.label}</span>
+                            <span class="activity-label">${e.label}${e.hint ? html`<span class="activity-hint">${e.hint}</span>` : nothing}</span>
                             ${e.meta ? html`<span class="activity-meta">${e.meta}</span>` : nothing}
                         </li>
                     `)}

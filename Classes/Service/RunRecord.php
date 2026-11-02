@@ -56,17 +56,17 @@ final class RunRecord
     private const DISPLAY_TOOLS = ['chat_set_progress', 'chat_highlight_element', 'chat_list_open_points', 'ask_choice'];
 
     /**
-     * @param bool $afterDenial the segment continues a run after a card that was not approved
+     * @param RefusedCalls::AFTER_* $segment what the segment continues
      *
      * @return Entry
      */
-    public static function of(AgentRunResult $result, ?string $decision = null, bool $afterDenial = false): array
+    public static function of(AgentRunResult $result, ?string $decision = null, string $segment = RefusedCalls::AFTER_TURN): array
     {
         $tools   = [];
         $writes  = [];
         $waiting = [];
         $ran     = [];
-        foreach (self::stepsThatRan($result->steps, $afterDenial) as $step) {
+        foreach (self::stepsThatRan($result->steps, $segment) as $step) {
             if ($step->kind === RunStep::KIND_TOOL && is_string($step->toolName) && !in_array($step->toolName, self::DISPLAY_TOOLS, true)) {
                 $name = self::token($step->toolName);
                 $tools[$name] ??= ['tool' => $name, 'calls' => 0, 'errors' => 0];
@@ -97,24 +97,23 @@ final class RunRecord
     }
 
     /**
-     * The steps of the segment, without the calls a decision refused.
+     * The steps of the segment, without the calls nr-llm refused and nobody
+     * has to act on: a declined card's calls and calls it held back
+     * (RefusedCalls). Listed as tools that failed, they read as failed
+     * attempts to save. An approved call nr-llm no longer permits stays: the
+     * change was not made.
      *
-     * A continuation after a card that was not approved opens with the
-     * declined turn's calls, which nr-llm records as tool steps with an error
-     * result before the first model round. They never ran; listed as tools
-     * that failed, they read as failed attempts to save.
-     *
-     * @param list<RunStep> $steps
+     * @param list<RunStep>         $steps
+     * @param RefusedCalls::AFTER_* $segment
      *
      * @return list<RunStep>
      */
-    private static function stepsThatRan(array $steps, bool $afterDenial): array
+    private static function stepsThatRan(array $steps, string $segment): array
     {
-        $refused = $afterDenial;
-        $kept    = [];
+        $refusals = new RefusedCalls($segment);
+        $kept     = [];
         foreach ($steps as $step) {
-            $refused = $refused && $step->kind !== RunStep::KIND_LLM;
-            if (!$refused || $step->kind !== RunStep::KIND_TOOL) {
+            if (!in_array($refusals->read($step), [RefusedCalls::DECLINED, RefusedCalls::HELD], true)) {
                 $kept[] = $step;
             }
         }
