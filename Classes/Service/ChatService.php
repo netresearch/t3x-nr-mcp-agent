@@ -2012,6 +2012,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             }
         }
 
+        // A message of its own may not open the transcript nor close it: the
+        // model is called on a user turn. A note before the first message, or
+        // after the last one — a retry after a failed segment —, goes into
+        // that user message instead, still labelled as the chat's.
+        $last = count($wire) - 1;
+        foreach ([-1 => 0, $last => $last] as $slot => $into) {
+            if (isset($alone[$slot]) && isset($wire[$into]) && ($wire[$into]['role'] ?? null) === MessageRole::User->value) {
+                $wire[$into]['content'] = $this->withNotes($wire[$into]['content'] ?? '', $alone[$slot], $slot === -1);
+                unset($alone[$slot]);
+            }
+        }
+
         $placed = [];
         foreach ($alone[-1] ?? [] as $text) {
             $placed[] = ['role' => MessageRole::Assistant->value, 'content' => $text];
@@ -2030,6 +2042,28 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return $placed;
+    }
+
+    /**
+     * A user message's content with notes before or after its text; a
+     * multimodal content gets them as a text block of their own.
+     *
+     * @param list<string> $notes
+     *
+     * @return string|list<mixed>
+     */
+    private function withNotes(mixed $content, array $notes, bool $before): string|array
+    {
+        $text = implode("\n\n", $notes);
+        if (is_array($content)) {
+            $block = ['type' => 'text', 'text' => $text];
+
+            return $before ? [$block, ...array_values($content)] : [...array_values($content), $block];
+        }
+
+        $content = is_string($content) ? $content : '';
+
+        return $before ? $text . "\n\n" . $content : $content . "\n\n" . $text;
     }
 
     /**

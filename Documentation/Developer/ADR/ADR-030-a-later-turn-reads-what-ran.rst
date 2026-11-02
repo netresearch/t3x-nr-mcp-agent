@@ -65,9 +65,9 @@ or an answer, or one that failed — the chat stores in ``run_record``:
 -   the calls still waiting for a decision;
 -   the decision taken on a card, where no card outcome already says it — a
     plain denial records none there;
--   a card or question the editor left undecided, by writing a new message,
-    editing one or ending the tour, as withdrawn: otherwise its record would
-    go on saying that it waits.
+-   a card or question the editor left undecided, by writing a new message
+    or ending the tour, as withdrawn: otherwise its record would go on saying
+    that it waits. An edit records nothing: it cuts the waiting turn away.
 
 Each entry also notes how many card outcomes existed before it, so notes at
 the same transcript position keep the order in which they happened. The row
@@ -90,7 +90,9 @@ builds notes from the record and the card outcomes, labelled "[Chat record —
 written by the chat from the run, not by the assistant: …]", and places each
 in the assistant message of the segment it describes; a segment without an
 answer gets an assistant message of its own between the two user messages
-around it. The notes are never stored in the transcript. At most 40 notes and
+around it. The model is called on a user turn, so a note that would open or
+close the transcript — the record of a failed segment, read again by a retry —
+goes into that user message instead, labelled the same way. The notes are never stored in the transcript. At most 40 notes and
 6000 characters are sent. Over that budget, notes of steps in which nothing
 ran, nothing was written and nothing was decided are left out first, then the
 oldest; the first note then says that older notes exist and cannot be read in

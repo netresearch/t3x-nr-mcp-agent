@@ -289,6 +289,36 @@ final class ChatRunRecordTest extends TestCase
         );
     }
 
+    /**
+     * A retry runs over the same transcript, which ends on the user's
+     * message: the failed segment's record goes into that message, so the
+     * model is still called on a user turn and still learns what was saved.
+     */
+    #[Test]
+    public function aRetryAfterAFailedRunReadsItsRecordOnAUserTurn(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Zwei Elemente anlegen');
+
+        $failed = new AgentRunResult(AgentRunOutcome::FAILED, 'run-1', [
+            new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'create_content_element_draft', toolIsError: false),
+            new RunStep(kind: RunStep::KIND_WRITE, round: 1, durationMs: 1.0, writeTarget: new RecordReference('tt_content', 41), writeCompleteness: WriteCompleteness::COMPLETE),
+        ]);
+        $service = $this->service($failed);
+        $service->processConversation($conversation);
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+
+        $service->resumeConversation($conversation);
+
+        $wire = $this->wire();
+        self::assertSame(['user'], array_column($wire, 0));
+        self::assertStringStartsWith("Zwei Elemente anlegen\n\n[Chat record", $wire[0][1]);
+        self::assertStringContainsString('saved: tt_content:41', $wire[0][1]);
+        // Never stored.
+        self::assertSame('Zwei Elemente anlegen', $conversation->getDecodedMessages()[0]['content']);
+    }
+
     /** A write nr-llm reports as partial, or as not confirmed, is never called saved. */
     #[Test]
     public function aPartialOrUnconfirmedWriteIsNotCalledSaved(): void

@@ -234,9 +234,12 @@ final class ChatApiControllerEditTest extends TestCase
         self::assertSame([], $this->claimed->getCardOutcomes());
     }
 
-    /** A card left undecided by an edit is recorded as withdrawn, before the edited message (ADR-030). */
+    /**
+     * An edit cuts the waiting card's turn away with everything after the
+     * edited message: there is no withdrawal to record (ADR-030).
+     */
     #[Test]
-    public function editingRecordsTheAbandonedApprovalAsWithdrawn(): void
+    public function editingRecordsNoWithdrawalForTheTurnItCutAway(): void
     {
         $conversation = $this->conversation($this->transcript(), ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid('run-1');
@@ -245,10 +248,24 @@ final class ChatApiControllerEditTest extends TestCase
         $this->subject->editMessage($this->request(['conversationUid' => 1, 'index' => 2, 'expectedContent' => 'second question', 'messageCount' => 4, 'content' => 'reworded']));
 
         self::assertNotNull($this->claimed);
+        self::assertSame([], $this->claimed->getRunRecords());
+    }
+
+    /** A new message that leaves a card undecided records it as withdrawn, before the message (ADR-030). */
+    #[Test]
+    public function aNewMessageRecordsTheAbandonedApprovalAsWithdrawn(): void
+    {
+        $conversation = $this->conversation($this->transcript(), ConversationStatus::AwaitingApproval);
+        $conversation->setApprovalRunUuid('run-1');
+        $this->chatApproval->method('releasePendingRun')->willReturn(true);
+
+        $this->subject->sendMessage($this->request(['conversationUid' => 1, 'content' => 'lass das']));
+
+        self::assertNotNull($this->claimed);
         $records = $this->claimed->getRunRecords();
         self::assertCount(1, $records);
         self::assertSame(RunRecord::DECISION_WITHDRAWN, $records[0]['decision'] ?? null);
-        self::assertSame(2, $records[0]['after']);
+        self::assertSame(4, $records[0]['after'], 'at the new message, so it closes the card turn');
     }
 
     #[Test]

@@ -1348,7 +1348,9 @@ final readonly class ChatApiController
         // record: it would otherwise be read as the new turn's (ADR-030).
         $conversation->forgetRecordsFrom($index + 1);
 
-        return $this->queueTurn($conversation, $currentStatus, $body, $before);
+        // The waiting turn was cut away with everything after the edited
+        // message, so there is no withdrawal to record (ADR-030).
+        return $this->queueTurn($conversation, $currentStatus, $body, $before, recordWithdrawal: false);
     }
 
     /**
@@ -1416,10 +1418,12 @@ final readonly class ChatApiController
     /**
      * Claim the conversation for a new turn and hand it to the worker.
      *
-     * @param array<string, mixed> $body   the request body, for the view context
-     * @param Conversation         $before the row before this request changed it
+     * @param array<string, mixed> $body             the request body, for the view context
+     * @param Conversation         $before           the row before this request changed it
+     * @param bool                 $recordWithdrawal whether a waiting card or question this turn
+     *                                               abandons is recorded as withdrawn (ADR-030)
      */
-    private function queueTurn(Conversation $conversation, ConversationStatus $currentStatus, array $body, Conversation $before): ResponseInterface
+    private function queueTurn(Conversation $conversation, ConversationStatus $currentStatus, array $body, Conversation $before, bool $recordWithdrawal = true): ResponseInterface
     {
         // Where the user is in the backend, for this turn (NEXT-172). Only
         // shape is checked here; the worker decides what the user may see.
@@ -1488,7 +1492,10 @@ final readonly class ChatApiController
             // The card or question was left undecided: later turns read that
             // it was withdrawn, not that it still waits (ADR-030). Placed
             // before the message that moved on.
-            $conversation->appendRunRecord(RunRecord::withdrawn(), max(0, $conversation->getMessageCount() - 1));
+            if ($recordWithdrawal) {
+                $conversation->appendRunRecord(RunRecord::withdrawn(), max(0, $conversation->getMessageCount() - 1));
+            }
+
             $conversation->setStatus(ConversationStatus::Processing);
             if (!$this->repository->updateIf($conversation, ConversationStatus::Locked)) {
                 return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
