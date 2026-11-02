@@ -66,20 +66,7 @@ final class RunRecord
         $writes  = [];
         $waiting = [];
         $ran     = [];
-        // A continuation after a card that was not approved opens with the
-        // card's calls, which nr-llm records as tool steps with an error
-        // result before the first model round. They never ran; listed as
-        // tools that failed, they read as failed attempts to save.
-        $refused = $afterDenial;
-        foreach ($result->steps as $step) {
-            if ($step->kind === RunStep::KIND_LLM) {
-                $refused = false;
-            }
-
-            if ($refused && $step->kind === RunStep::KIND_TOOL) {
-                continue;
-            }
-
+        foreach (self::stepsThatRan($result->steps, $afterDenial) as $step) {
             if ($step->kind === RunStep::KIND_TOOL && is_string($step->toolName) && !in_array($step->toolName, self::DISPLAY_TOOLS, true)) {
                 $name = self::token($step->toolName);
                 $tools[$name] ??= ['tool' => $name, 'calls' => 0, 'errors' => 0];
@@ -107,6 +94,32 @@ final class RunRecord
         }
 
         return $entry;
+    }
+
+    /**
+     * The steps of the segment, without the calls a decision refused.
+     *
+     * A continuation after a card that was not approved opens with the
+     * declined turn's calls, which nr-llm records as tool steps with an error
+     * result before the first model round. They never ran; listed as tools
+     * that failed, they read as failed attempts to save.
+     *
+     * @param list<RunStep> $steps
+     *
+     * @return list<RunStep>
+     */
+    private static function stepsThatRan(array $steps, bool $afterDenial): array
+    {
+        $refused = $afterDenial;
+        $kept    = [];
+        foreach ($steps as $step) {
+            $refused = $refused && $step->kind !== RunStep::KIND_LLM;
+            if (!$refused || $step->kind !== RunStep::KIND_TOOL) {
+                $kept[] = $step;
+            }
+        }
+
+        return $kept;
     }
 
     /**
