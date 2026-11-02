@@ -24,6 +24,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     guided_state text,
     approval_card text,
     card_outcomes text,
+    run_record text,
     archived tinyint(1) unsigned DEFAULT 0 NOT NULL,
     pinned tinyint(1) unsigned DEFAULT 0 NOT NULL,
     error_message text,

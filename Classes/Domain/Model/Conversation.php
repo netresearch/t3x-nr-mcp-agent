@@ -118,6 +118,14 @@ final class Conversation
      */
     private string $cardOutcomes = '';
 
+    /**
+     * What each run segment of this conversation did (ADR-030), as JSON: the
+     * tools that ran, the records written, the decision taken on a card and
+     * how the run ended, with where in the transcript it happened. Later
+     * turns read it, since a new run sees only the transcript's text.
+     */
+    private string $runRecord = '';
+
     private bool $archived = false;
 
     private bool $pinned = false;
@@ -245,6 +253,7 @@ final class Conversation
         $conversation->guidedState        = (string) self::val($row, 'guided_state', '');
         $conversation->approvalCard       = (string) self::val($row, 'approval_card', '');
         $conversation->cardOutcomes       = (string) self::val($row, 'card_outcomes', '');
+        $conversation->runRecord          = (string) self::val($row, 'run_record', '');
         $conversation->archived           = (bool) self::val($row, 'archived', false);
         $conversation->pinned             = (bool) self::val($row, 'pinned', false);
         $conversation->errorMessage       = (string) self::val($row, 'error_message', '');
@@ -304,6 +313,7 @@ final class Conversation
             'guided_state'         => $this->guidedState,
             'approval_card'        => $this->approvalCard,
             'card_outcomes'        => $this->cardOutcomes,
+            'run_record'           => $this->runRecord,
             'archived'             => (int) $this->archived,
             'pinned'               => (int) $this->pinned,
             'error_message'        => $this->errorMessage,
@@ -571,9 +581,31 @@ final class Conversation
             $context['languageId'] = $languageId;
         }
 
-        $this->viewContext = $pageId === 0 && $module === ''
+        // A turn sent from where no page is shown keeps the page the
+        // conversation was last about, apart from the selected one (ADR-030):
+        // it is no selection, and nothing that acts on the selected page reads
+        // it, but the model is told which page the conversation was about.
+        $previous = $this->getViewContext()['pageId'];
+        $last     = $pageId === 0 ? ($previous > 0 ? $previous : $this->getLastPageId()) : 0;
+        if ($last > 0) {
+            $context['lastPageId'] = $last;
+        }
+
+        $this->viewContext = $pageId === 0 && $module === '' && $last === 0
             ? ''
             : json_encode($context, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * The page the conversation was last about while no page is selected
+     * (ADR-030); 0 when a page is selected or the conversation never had one.
+     */
+    public function getLastPageId(): int
+    {
+        $decoded = $this->viewContext !== '' ? json_decode($this->viewContext, true) : null;
+        $last    = is_array($decoded) ? ($decoded['lastPageId'] ?? null) : null;
+
+        return is_int($last) && $last > 0 ? $last : 0;
     }
 
     public function getSkillIdentifier(): string
@@ -969,6 +1001,67 @@ final class Conversation
         }
 
         return $outcomes;
+    }
+
+    /**
+     * What a run segment did (ADR-030), placed where the transcript stands
+     * now: before the answer the segment adds after it.
+     *
+     * @param array{outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>} $entry
+     */
+    public function appendRunRecord(array $entry): void
+    {
+        $records         = $this->getRunRecords();
+        $records[]       = ['after' => $this->messageCount] + $entry;
+        $this->runRecord = json_encode($records, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return list<array{after: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}>
+     */
+    public function getRunRecords(): array
+    {
+        $decoded = $this->runRecord !== '' ? json_decode($this->runRecord, true) : null;
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $records = [];
+        foreach ($decoded as $entry) {
+            if (!is_array($entry) || !is_int($entry['after'] ?? null) || !is_string($entry['outcome'] ?? null)) {
+                continue;
+            }
+
+            $tools = [];
+            foreach (is_array($entry['tools'] ?? null) ? $entry['tools'] : [] as $tool) {
+                if (is_array($tool) && is_string($tool['tool'] ?? null) && is_int($tool['calls'] ?? null) && is_int($tool['errors'] ?? null)) {
+                    $tools[] = ['tool' => $tool['tool'], 'calls' => $tool['calls'], 'errors' => $tool['errors']];
+                }
+            }
+
+            $writes = [];
+            foreach (is_array($entry['writes'] ?? null) ? $entry['writes'] : [] as $write) {
+                $complete = is_array($write) ? ($write['complete'] ?? null) : null;
+                if (is_array($write) && is_string($write['table'] ?? null) && is_int($write['uid'] ?? null)) {
+                    $writes[] = ['table' => $write['table'], 'uid' => $write['uid'], 'complete' => is_bool($complete) ? $complete : null];
+                }
+            }
+
+            $record = [
+                'after'   => $entry['after'],
+                'outcome' => $entry['outcome'],
+                'tools'   => $tools,
+                'writes'  => $writes,
+                'waiting' => array_values(array_filter(is_array($entry['waiting'] ?? null) ? $entry['waiting'] : [], is_string(...))),
+            ];
+            if (is_string($entry['decision'] ?? null)) {
+                $record['decision'] = $entry['decision'];
+            }
+
+            $records[] = $record;
+        }
+
+        return $records;
     }
 
     /**

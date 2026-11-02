@@ -1,0 +1,128 @@
+{
+    "_comment": "Transcript of a demo conversation (SEO tour, then a question three days later), copied from the chat API; card outcomes mapped from the presented labels to their stored form.",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Diese Seite prüfen"
+        },
+        {
+            "role": "assistant",
+            "content": "Prüfe „AI Chat Agent“ …",
+            "besideToolCall": true
+        },
+        {
+            "role": "assistant",
+            "content": "Vorschläge für diese Seite schreibe ich auf Englisch, weil die Seite englisch ist.\n\n**Probleme**\n- Der Seitentitel „AI Chat Agent“ ist kurz und nennt TYPO3 nicht.\n- Ein Vorschaubild für soziale Medien fehlt.\n\n**Empfehlungen**\n- Social-Media-Vorschau für Facebook und LinkedIn (Open Graph): Titel ergänzen.\n- Social-Media-Vorschau für Facebook und LinkedIn (Open Graph): Beschreibung ergänzen.\n- Vorschau für X (Twitter): Titel ergänzen.\n- Vorschau für X (Twitter): Beschreibung ergänzen.\n\n**In Ordnung:** Die Meta Description beschreibt die Seite passend. Die Hauptüberschrift nennt das Thema, die Seite ist indexierbar und ihre URL ist aussagekräftig.",
+            "besideToolCall": true
+        },
+        {
+            "role": "assistant",
+            "content": "Lass uns das Schritt für Schritt gemeinsam optimieren."
+        },
+        {
+            "role": "user",
+            "content": "Los geht's",
+            "notice": "inputAnswer"
+        },
+        {
+            "role": "assistant",
+            "content": "**Seitentitel präzisieren**\n\n„AI Chat Agent“ benennt die Funktion, aber nicht den Bezug zu TYPO3. Ein genauerer Titel macht das Thema der Seite schon in Suchergebnissen deutlicher.",
+            "besideToolCall": true
+        },
+        {
+            "role": "assistant",
+            "content": "**Vorschaubild für soziale Medien fehlt**\n\nBeim Teilen der Seite fehlt ein eigenes Bild. Ich schlage die vorhandene Abbildung zum TYPO3-Backend-Chat als Vorschaubild vor.",
+            "besideToolCall": true
+        },
+        {
+            "role": "assistant",
+            "content": "**Social-Media-Vorschau für Facebook und LinkedIn (Open Graph): Titel fehlt**\n\nEin eigener Vorschautitel kann beim Teilen den Bezug zu TYPO3 deutlicher machen. Das ist eine Empfehlung, kein Fehler.",
+            "besideToolCall": true
+        },
+        {
+            "role": "assistant",
+            "content": "**Social-Media-Vorschau für Facebook und LinkedIn (Open Graph): Beschreibung fehlt**\n\nEine eigene Beschreibung zeigt beim Teilen, worum es auf der Seite geht. Ich würde die Fragen zu Seiten und Inhalten sowie die Antworten auf Basis der TYPO3-Daten hervorheben.",
+            "besideToolCall": true
+        },
+        {
+            "role": "assistant",
+            "content": "**Vorschau für X (Twitter): Titel fehlt**\n\nEin eigener Titel macht auch in dieser Vorschau deutlich, dass es um den AI Chat Agent für TYPO3 geht.",
+            "besideToolCall": true
+        },
+        {
+            "role": "assistant",
+            "content": "**Vorschau für X (Twitter): Beschreibung fehlt**\n\nEine kurze Beschreibung zeigt beim Teilen, welche Fragen der Chat beantworten kann. Ich schlage dafür eine Fassung vor, die sich auf die belegten Funktionen der Seite beschränkt.",
+            "besideToolCall": true
+        },
+        {
+            "role": "assistant",
+            "content": "Die SEO-Tour für „AI Chat Agent“ ist abgeschlossen. Die deutsche Version kann ebenfalls geprüft werden."
+        },
+        {
+            "role": "user",
+            "content": "was ist hier passiert?"
+        }
+    ],
+    "cardOutcomes": [
+        {
+            "outcome": "applied",
+            "after": 6,
+            "tool": "update_page_metadata",
+            "table": "pages",
+            "uid": 157,
+            "fields": [
+                "seo_title"
+            ]
+        },
+        {
+            "outcome": "applied",
+            "after": 7,
+            "tool": "set_page_social_image",
+            "table": "pages",
+            "uid": 157,
+            "fields": [
+                "og_image"
+            ]
+        },
+        {
+            "outcome": "applied",
+            "after": 8,
+            "tool": "update_page_metadata",
+            "table": "pages",
+            "uid": 157,
+            "fields": [
+                "og_title"
+            ]
+        },
+        {
+            "outcome": "applied",
+            "after": 9,
+            "tool": "update_page_metadata",
+            "table": "pages",
+            "uid": 157,
+            "fields": [
+                "og_description"
+            ]
+        },
+        {
+            "outcome": "applied",
+            "after": 10,
+            "tool": "update_page_metadata",
+            "table": "pages",
+            "uid": 157,
+            "fields": [
+                "twitter_title"
+            ]
+        },
+        {
+            "outcome": "applied",
+            "after": 11,
+            "tool": "update_page_metadata",
+            "table": "pages",
+            "uid": 157,
+            "fields": [
+                "twitter_description"
+            ]
+        }
+    ]
+}

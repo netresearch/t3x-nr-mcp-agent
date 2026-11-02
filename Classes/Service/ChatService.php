@@ -144,8 +144,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * What the model is told, next turn, beside an answer that got the
      * nothing-saved notice: the notice is for the reader, and the model would
      * otherwise go on believing its own claim.
+     *
+     * Scoped to this step: an answer that sums up what earlier steps saved
+     * gets the notice too (ADR-017), and "nothing was saved" without the
+     * scope told the model that those earlier saves never happened (ADR-030).
      */
-    private const NOTHING_SAVED_CORRECTION = '[Note from the chat: the run behind this answer wrote no record. Nothing it describes as done was saved.]';
+    private const NOTHING_SAVED_CORRECTION = '[Note from the chat: the run behind this answer wrote no record in this step. A change it describes as done in this step was not saved; what earlier steps saved is in the chat records.]';
 
     /**
      * How the model is told why a tool it is not offered is unavailable, per
@@ -436,6 +440,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
+            $conversation->appendRunRecord(RunRecord::unknown());
             $this->persist($conversation);
         }
     }
@@ -473,11 +478,17 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // scaled image where the provider can see it, and not the chat's own
         // lines.
         $transcript = $conversation->getDecodedMessages();
+        // What earlier runs did goes with the turn it belongs to (ADR-030):
+        // the model reads the chat's record next to its own words. Positions
+        // are those of the stored transcript, which the alt-text flow
+        // replaces with its own.
+        $notes = RunRecordNotes::of($conversation);
         if ($this->altText instanceof AltTextConversation && AltTextConversation::isAbout($conversation)) {
             $transcript = $this->altText->transcript($conversation, $transcript, $provider instanceof VisionCapableInterface && $provider->supportsVision());
+            $notes      = [];
         }
 
-        foreach ($this->buildLlmMessages($transcript, $provider) as $message) {
+        foreach ($this->buildLlmMessages($transcript, $provider, $notes) as $message) {
             $messages[] = $message;
         }
 
@@ -1036,6 +1047,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
+            $conversation->appendRunRecord(RunRecord::unknown());
             $this->persist($conversation);
 
             return;
@@ -1146,6 +1158,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // The continuation calls the same provider as a turn does, so a
             // missing key fails here as well and must be phrased the same way.
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
+            $conversation->appendRunRecord(RunRecord::unknown($this->decisionOf($approved, $denyReason)));
             $this->persist($conversation);
 
             return;
@@ -1172,7 +1185,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $denyReason === DenyReason::Keep    => ProposalOutcome::Kept,
             default                             => null,
         };
-        if ($card !== null && $outcome instanceof ProposalOutcome) {
+        $cardRecorded = $card !== null && $outcome instanceof ProposalOutcome;
+        if ($cardRecorded) {
             $conversation->appendCardOutcome($outcome, $card);
         }
 
@@ -1192,8 +1206,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // (ADR-023, amendment of 2026-10-23). The turn is started here and
         // nowhere else, and its own result is applied without this option, so
         // a second open step shows the line and the button: no loop is possible.
+        // The run record names the decision only where no card outcome
+        // already says what became of the proposal (ADR-030).
         $before = $conversation->getMessageCount();
-        if ($this->applyResult($conversation, $result, $approved)) {
+        if ($this->applyResult($conversation, $result, $approved, $cardRecorded ? null : $this->decisionOf($approved, $denyReason))) {
             $this->processTurn($conversation, self::OPERATION_CHAT_TURN, afterApproval: true);
 
             return;
@@ -1411,7 +1427,21 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      *
      * @return bool true when the caller has to run the continuation turn
      */
-    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false): bool
+    /**
+     * The decision taken on a card, in the run record's words (ADR-030).
+     */
+    private function decisionOf(bool $approved, ?DenyReason $reason): string
+    {
+        return match (true) {
+            $approved                       => RunRecord::DECISION_APPROVED,
+            $reason === DenyReason::Skip    => RunRecord::DECISION_SKIPPED,
+            $reason === DenyReason::Keep    => RunRecord::DECISION_KEPT,
+            $reason === DenyReason::Variant => RunRecord::DECISION_VARIANT,
+            default                         => RunRecord::DECISION_DENIED,
+        };
+    }
+
+    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false, ?string $decision = null): bool
     {
         // Whatever the outcome, what the guided-state tools reported during
         // the run is taken over now — the first moment the chat knows the run
@@ -1452,6 +1482,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $this->noteDroppedProcess($conversation, $result);
+
+        // What this segment did, for every later turn: a new run sees only
+        // the transcript's text, not this run's tools and results (ADR-030).
+        $conversation->appendRunRecord(RunRecord::of($result, $decision));
 
         if ($result->outcome === AgentRunOutcome::COMPLETED && $result->loopResult instanceof ToolLoopResult) {
             $this->appendTextBesideToolCalls($conversation, $result);
@@ -1827,19 +1861,24 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Converts stored messages (which may contain fileUid references) into
      * the multimodal content arrays expected by the LLM API.
      *
-     * @param list<array<string, mixed>> $messages
+     * @param list<array<string, mixed>>         $messages
+     * @param list<array{at: int, text: string}> $notes    the chat's record of earlier runs (ADR-030)
      *
      * @return list<array<string, mixed>>
      */
-    private function buildLlmMessages(array $messages, ProviderInterface $provider): array
+    private function buildLlmMessages(array $messages, ProviderInterface $provider, array $notes = []): array
     {
         $result = [];
+        // Which message on the wire each stored message ended up in, so a
+        // note of the run record goes to the turn it belongs to.
+        $owner = [];
         // Text the model wrote beside a tool call is one turn with what it
         // wrote after it: it goes to the model joined with the next assistant
         // message, or alone where none follows, never as a second assistant
         // message in a row.
-        $beside = [];
-        foreach ($messages as $msg) {
+        $beside      = [];
+        $besideIndex = [];
+        foreach (array_values($messages) as $index => $msg) {
             // The reader's line about a dropped process: the model needs no
             // telling, since the process's instructions simply stop reaching it,
             // and a second assistant message before the answer is not a turn.
@@ -1850,19 +1889,30 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             }
 
             if (($msg[Conversation::KEY_BESIDE_TOOL_CALL] ?? false) === true && is_string($msg['content'] ?? null)) {
-                $beside[] = $msg['content'];
+                $beside[]      = $msg['content'];
+                $besideIndex[] = $index;
                 continue;
             }
 
             if ($beside !== []) {
                 if (($msg['role'] ?? null) === MessageRole::Assistant->value && is_string($msg['content'] ?? null)) {
                     $msg['content'] = implode("\n\n", [...$beside, $msg['content']]);
+                    foreach ($besideIndex as $joined) {
+                        $owner[$joined] = count($result);
+                    }
                 } else {
+                    foreach ($besideIndex as $joined) {
+                        $owner[$joined] = count($result);
+                    }
+
                     $result[] = ['role' => MessageRole::Assistant->value, 'content' => implode("\n\n", $beside)];
                 }
 
-                $beside = [];
+                $beside      = [];
+                $besideIndex = [];
             }
+
+            $owner[$index] = count($result);
 
             // The notice is rendered for the reader; the model is told the same
             // thing in its own transcript, per turn and never persisted, or it
@@ -1919,10 +1969,76 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         if ($beside !== []) {
+            foreach ($besideIndex as $joined) {
+                $owner[$joined] = count($result);
+            }
+
             $result[] = ['role' => MessageRole::Assistant->value, 'content' => implode("\n\n", $beside)];
         }
 
-        return $result;
+        return $notes === [] ? $result : $this->placeNotes($result, $owner, $notes);
+    }
+
+    /**
+     * Put each note of the run record into the turn it belongs to (ADR-030).
+     *
+     * A note recorded when the transcript had `at` messages describes the
+     * segment whose answer is message `at`: it opens that answer. Where the
+     * segment left no answer, it closes the assistant message before it, or
+     * stands as an assistant message of its own between two user messages.
+     *
+     * @param list<array<string, mixed>>         $wire
+     * @param array<int, int>                    $owner stored message index => wire index
+     * @param list<array{at: int, text: string}> $notes
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function placeNotes(array $wire, array $owner, array $notes): array
+    {
+        $isAssistantText = static fn (?int $i): bool => $i !== null
+            && ($wire[$i]['role'] ?? null) === MessageRole::Assistant->value
+            && is_string($wire[$i]['content'] ?? null);
+
+        $before = [];
+        $after  = [];
+        $alone  = [];
+        foreach ($notes as $note) {
+            $answer   = $owner[$note['at']] ?? null;
+            $previous = null;
+            for ($i = $note['at'] - 1; $i >= 0; --$i) {
+                if (isset($owner[$i])) {
+                    $previous = $owner[$i];
+                    break;
+                }
+            }
+
+            if ($isAssistantText($answer) && ($previous === null || $answer !== $previous || !$isAssistantText($previous))) {
+                $before[$answer][] = $note['text'];
+            } elseif ($isAssistantText($previous)) {
+                $after[$previous][] = $note['text'];
+            } else {
+                $alone[$previous ?? -1][] = $note['text'];
+            }
+        }
+
+        $placed = [];
+        foreach ($alone[-1] ?? [] as $text) {
+            $placed[] = ['role' => MessageRole::Assistant->value, 'content' => $text];
+        }
+
+        foreach ($wire as $i => $message) {
+            if (isset($before[$i]) || isset($after[$i])) {
+                $content            = is_string($message['content'] ?? null) ? $message['content'] : '';
+                $message['content'] = implode("\n\n", [...($before[$i] ?? []), ...($content !== '' ? [$content] : []), ...($after[$i] ?? [])]);
+            }
+
+            $placed[] = $message;
+            if (isset($alone[$i])) {
+                $placed[] = ['role' => MessageRole::Assistant->value, 'content' => implode("\n\n", $alone[$i])];
+            }
+        }
+
+        return $placed;
     }
 
     /**
