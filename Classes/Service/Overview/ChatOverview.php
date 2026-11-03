@@ -116,7 +116,14 @@ final readonly class ChatOverview
             ChatAccessDecision::NotInAllowedGroup => $this->row('access.notInAllowedGroup', self::PROBLEM, [], 'settings'),
         };
 
-        $taskUid  = $this->config->getLlmTaskUid($this->groupIds($viewer));
+        $taskUid = $this->config->getLlmTaskUid($this->groupIds($viewer));
+        if ($taskUid === 0) {
+            // No task for this viewer: the access row above already says so.
+            $rows[] = $this->processingRow();
+
+            return $rows;
+        }
+
         $resolved = $this->taskResolver->check($taskUid, $this->actor($viewer));
         $rows[]   = $resolved instanceof ResolvedChatTask
             ? $this->row('task.ok', self::OK, [$resolved->task->getName(), $resolved->configuration->getName()])
@@ -208,6 +215,20 @@ final readonly class ChatOverview
         $pairs   = $this->config->getGroupTaskMapping();
         $pairs[] = [0, $this->config->getLlmTaskUid([])];
         foreach ($pairs as [$groupUid, $taskUid]) {
+            if ($taskUid === 0) {
+                // Left unset on purpose: these users do not get the chat.
+                $rows[] = [
+                    'group'             => $groupUid,
+                    'task'              => $taskUid,
+                    'state'             => self::INFO,
+                    'key'               => 'task.mapping.none',
+                    'taskName'          => '',
+                    'configurationName' => '',
+                ];
+
+                continue;
+            }
+
             $resolved = $this->taskResolver->check($taskUid, $admin);
             $rows[]   = [
                 'group'             => $groupUid,

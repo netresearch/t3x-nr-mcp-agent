@@ -21,7 +21,8 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
  * With a Task only for one backend group and none for everyone else, a user
- * outside that group is told so, not that nobody gets the chat.
+ * outside that group is told so, not that nobody gets the chat, and the
+ * unset Task for everyone else is not reported as a missing one.
  */
 final class OverviewControllerGroupMappingTest extends FunctionalTestCase
 {
@@ -43,8 +44,29 @@ final class OverviewControllerGroupMappingTest extends FunctionalTestCase
     #[Test]
     public function aUserOutsideTheMappedGroupsIsToldItIsTheirGroups(): void
     {
+        $body = $this->render(2);
+
+        self::assertStringContainsString('data-nr-readiness="access.noTaskForYourGroups"', $body);
+        self::assertStringNotContainsString('so nobody gets it', $body);
+        // No task for everyone else is a choice, not a missing task.
+        self::assertStringNotContainsString('data-nr-readiness="task.missing"', $body);
+    }
+
+    #[Test]
+    public function anAdministratorSeesThatEveryoneElseHasNoTask(): void
+    {
+        $body = $this->render(1);
+
+        self::assertStringContainsString('data-nr-mapping="task.mapping.none"', $body);
+        self::assertStringContainsString('No task: these users do not get the chat.', $body);
+        // Task 1 of group 7 has no record here: that row alone is missing.
+        self::assertSame(1, substr_count($body, 'data-nr-mapping="task.mapping.taskMissing"'));
+    }
+
+    private function render(int $userUid): string
+    {
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users_overview.csv');
-        $backendUser     = $this->setUpBackendUser(2);
+        $backendUser     = $this->setUpBackendUser($userUid);
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
         $module          = $this->get(ModuleProvider::class)->getModule('nr_mcp_agent_chat');
         self::assertNotNull($module);
@@ -55,9 +77,6 @@ final class OverviewControllerGroupMappingTest extends FunctionalTestCase
             ->withAttribute('normalizedParams', NormalizedParams::createFromServerParams([]));
         $GLOBALS['TYPO3_REQUEST'] = $request;
 
-        $body = (string) $this->get(OverviewController::class)->indexAction($request)->getBody();
-
-        self::assertStringContainsString('data-nr-readiness="access.noTaskForYourGroups"', $body);
-        self::assertStringNotContainsString('so nobody gets it', $body);
+        return (string) $this->get(OverviewController::class)->indexAction($request)->getBody();
     }
 }

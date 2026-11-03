@@ -133,6 +133,9 @@
             <trans-unit id="readiness.task.mapping.ok" resname="readiness.task.mapping.ok">
                 <source>Task "%1$s" with configuration "%2$s".</source>
             </trans-unit>
+            <trans-unit id="readiness.task.mapping.none" resname="readiness.task.mapping.none">
+                <source>No task: these users do not get the chat.</source>
+            </trans-unit>
             <trans-unit id="readiness.task.mapping.taskMissing" resname="readiness.task.mapping.taskMissing">
                 <source>The task does not exist.</source>
             </trans-unit>
@@ -234,6 +237,9 @@
             </trans-unit>
             <trans-unit id="budget.month" resname="budget.month">
                 <source>This month you used %1$s of your limit of %2$s (all AI functions).</source>
+            </trans-unit>
+            <trans-unit id="budget.otherLimit" resname="budget.otherLimit">
+                <source>This month you used %1$s (all AI functions). A personal limit applies, but not to the monthly cost.</source>
             </trans-unit>
             <trans-unit id="budget.noLimit" resname="budget.noLimit">
                 <source>This month you used %1$s (all AI functions). No personal limit applies.</source>

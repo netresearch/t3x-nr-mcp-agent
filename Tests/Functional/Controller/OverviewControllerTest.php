@@ -176,7 +176,16 @@ final class OverviewControllerTest extends FunctionalTestCase
         $body = $this->render(2);
 
         self::assertStringNotContainsString('of your limit of', $body);
-        self::assertStringContainsString('This month you used $9.50 (all AI functions).', $body);
+        self::assertStringContainsString('This month you used $9.50 (all AI functions). A personal limit applies, but not to the monthly cost.', $body);
+        self::assertStringNotContainsString('No personal limit', $body);
+    }
+
+    #[Test]
+    public function withoutABudgetRecordNoPersonalLimitApplies(): void
+    {
+        $body = $this->render(2);
+
+        self::assertStringContainsString('This month you used $9.50 (all AI functions). No personal limit applies.', $body);
     }
 
     #[Test]

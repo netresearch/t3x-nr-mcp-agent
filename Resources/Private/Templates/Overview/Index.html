@@ -73,7 +73,7 @@
                     </thead>
                     <tbody>
                         <f:for each="{taskMapping}" as="mapping">
-                            <tr>
+                            <tr data-nr-mapping="{mapping.key}">
                                 <td><f:if condition="{mapping.group}"><f:then>{mapping.group}</f:then><f:else>{f:translate(key: '{ll}taskMapping.everyoneElse')}</f:else></f:if></td>
                                 <td>{mapping.task}</td>
                                 <td><f:render section="State" arguments="{state: mapping.state, ll: ll}" /></td>
@@ -168,6 +168,9 @@
             <f:then>
                 <p>{f:translate(key: '{ll}budget.month', arguments: {0: budget.month.cost.used, 1: budget.month.cost.limit})}</p>
             </f:then>
+            <f:else if="{budget.hasPersonalLimit}">
+                <p>{f:translate(key: '{ll}budget.otherLimit', arguments: {0: budget.month.cost.used})}</p>
+            </f:else>
             <f:else>
                 <p>{f:translate(key: '{ll}budget.noLimit', arguments: {0: budget.month.cost.used})}</p>
             </f:else>
