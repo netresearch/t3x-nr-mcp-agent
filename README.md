@@ -18,8 +18,9 @@ Backend users manage content through natural language.
 
 ## Features
 
-- **Integrated chat module** -- A dedicated backend module under Admin Tools with
-  a modern chat interface built as a Lit web component.
+- **Integrated chat module** -- **AI > AI Chat** gives an overview of the chat
+  (readiness, configuration, usage); the full-page chat, a Lit web component,
+  opens from it.
 - **Tools from nr-llm** -- The chat runs on nr-llm's agent runtime and tool
   registry: its builtin read and write tools, and any MCP server configured in
   nr-llm's *MCP Servers* module.

@@ -261,8 +261,8 @@
                 <target>Begonnene Unterhaltungen</target>
             </trans-unit>
             <trans-unit id="conversations.startedWithSkill" resname="conversations.startedWithSkill">
-                <source>of which started with a skill (guided tours and tasks)</source>
-                <target>davon mit einem Skill begonnen (geführte Touren und Aufgaben)</target>
+                <source>of which have a skill now (guided tours and tasks; an ended tour has none)</source>
+                <target>davon jetzt mit einem Skill (geführte Touren und Aufgaben; eine beendete Tour hat keinen)</target>
             </trans-unit>
             <trans-unit id="usage.calls" resname="usage.calls">
                 <source>Model calls</source>

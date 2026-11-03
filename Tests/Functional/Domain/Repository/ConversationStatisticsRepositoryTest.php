@@ -110,4 +110,14 @@ final class ConversationStatisticsRepositoryTest extends FunctionalTestCase
         ], $this->subject->findWaitingForUser(2, 10));
         self::assertSame([], $this->subject->findWaitingForUser(3, 10));
     }
+
+    #[Test]
+    public function theWaitingChatWithTheLatestMessageComesFirst(): void
+    {
+        // Started earlier, but its last message is the most recent (ADR-027).
+        $this->getConnectionPool()->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->update('tx_nrmcpagent_conversation', ['last_message_at' => 1790000000], ['uid' => 4]);
+
+        self::assertSame([4, 3], array_column($this->subject->findWaitingForUser(2, 10), 'uid'));
+    }
 }

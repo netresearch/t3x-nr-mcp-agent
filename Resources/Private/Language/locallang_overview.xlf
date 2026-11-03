@@ -197,7 +197,7 @@
                 <source>Conversations started</source>
             </trans-unit>
             <trans-unit id="conversations.startedWithSkill" resname="conversations.startedWithSkill">
-                <source>of which started with a skill (guided tours and tasks)</source>
+                <source>of which have a skill now (guided tours and tasks; an ended tour has none)</source>
             </trans-unit>
             <trans-unit id="usage.calls" resname="usage.calls">
                 <source>Model calls</source>

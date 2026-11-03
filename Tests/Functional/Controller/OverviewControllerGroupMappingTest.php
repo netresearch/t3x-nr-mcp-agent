@@ -63,6 +63,21 @@ final class OverviewControllerGroupMappingTest extends FunctionalTestCase
         self::assertSame(1, substr_count($body, 'data-nr-mapping="task.mapping.taskMissing"'));
     }
 
+    #[Test]
+    public function aMappedTaskIsCheckedAsAMemberOfItsGroup(): void
+    {
+        // Task 1 runs a configuration only group 8 may use; the mapping hands
+        // it to group 7, whose members would be refused when a chat starts.
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/tx_nrllm_model.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/tx_nrllm_task.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/overview_group_restricted.csv');
+
+        $body = $this->render(1);
+
+        self::assertStringContainsString('data-nr-mapping="task.mapping.configurationRestricted"', $body);
+        self::assertStringNotContainsString('data-nr-mapping="task.mapping.ok"', $body);
+    }
+
     private function render(int $userUid): string
     {
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users_overview.csv');

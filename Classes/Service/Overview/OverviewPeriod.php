@@ -29,7 +29,7 @@ final readonly class OverviewPeriod
 
     public static function fromRequestValue(mixed $value, DateTimeImmutable $now): self
     {
-        $days = is_numeric($value) ? (int) $value : self::DEFAULT_DAYS;
+        $days = filter_var($value, FILTER_VALIDATE_INT);
         if (!in_array($days, self::CHOICES, true)) {
             $days = self::DEFAULT_DAYS;
         }

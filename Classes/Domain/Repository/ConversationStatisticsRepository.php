@@ -74,7 +74,10 @@ readonly class ConversationStatisticsRepository
         return $this->int($qb->executeQuery()->fetchOne());
     }
 
-    /** Of those, the ones started with a skill: guided tours and skill tasks. */
+    /**
+     * Of those, the ones that have a skill now: guided tours and skill tasks.
+     * The column holds the current skill, so an ended tour no longer counts.
+     */
     public function countStartedWithSkill(int $from, int $to, ?int $beUserUid): int
     {
         $qb = $this->startedBetween($from, $to, $beUserUid);
@@ -142,7 +145,15 @@ readonly class ConversationStatisticsRepository
                 )),
                 $qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)),
             )
-            ->orderBy('crdate', 'DESC')
+            // Most recent last message first, as the other lists (ADR-027):
+            // the kept last_message_at, or tstamp for an older row.
+            ->addSelectLiteral(sprintf(
+                'CASE WHEN %1$s > 0 THEN %1$s ELSE %2$s END AS %3$s',
+                $qb->quoteIdentifier('last_message_at'),
+                $qb->quoteIdentifier('tstamp'),
+                $qb->quoteIdentifier('last_activity'),
+            ))
+            ->orderBy('last_activity', 'DESC')
             ->addOrderBy('uid', 'DESC')
             ->setMaxResults($limit);
 

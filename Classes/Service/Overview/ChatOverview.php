@@ -202,9 +202,9 @@ final readonly class ChatOverview
     }
 
     /**
-     * Each groupTaskMapping row, checked as an administrator would run it
-     * (the group restriction depends on the user and is checked per viewer
-     * above).
+     * Each groupTaskMapping row, checked as a member of the mapped group. The
+     * row for everyone else is checked as an administrator: who falls under
+     * it depends on the user, and the readiness rows above check the viewer.
      *
      * @return list<array{group: int, task: int, state: string, key: string, taskName: string, configurationName: string}>
      */
@@ -229,7 +229,10 @@ final readonly class ChatOverview
                 continue;
             }
 
-            $resolved = $this->taskResolver->check($taskUid, $admin);
+            // A mapped row is checked as a member of its group, so a
+            // configuration withheld from that group shows here.
+            $actor    = $groupUid > 0 ? AiActorContext::backendUser(0, false, [$groupUid]) : $admin;
+            $resolved = $this->taskResolver->check($taskUid, $actor);
             $rows[]   = [
                 'group'             => $groupUid,
                 'task'              => $taskUid,

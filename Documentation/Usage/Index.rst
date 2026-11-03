@@ -31,7 +31,11 @@ need access to the module in their backend group
 (*Access Lists > Modules*); administrators always have it.
 
 What the chat does
-    Two or three sentences and the places it appears.
+    The chat answers questions about the installation and
+    prepares changes to pages, content and files; every change
+    waits for your approval. The page lists where it appears:
+    the top bar, the column beside the page tree, the dashboard
+    widgets and the list of missing alternative texts.
 
 Does it work for you?
     Each line is checked when the page loads, for the viewer,
@@ -48,7 +52,8 @@ Does it work for you?
 
 Usage
     For the last 7, 30 or 90 days: conversations by state now,
-    conversations started and those started with a skill, open
+    conversations started and those of them that have a skill
+    now (an ended guided tour has none), open
     points of guided tours, model calls and failed calls, billed
     requests, tokens and estimated cost from nr-llm, and your
     budget. Administrators see the figures of all users and the
@@ -60,7 +65,8 @@ Usage
 
 Configuration
     Administrators see every setting of the extension
-    configuration with its value and whether it is the default.
+    configuration with its value and whether it is the default,
+    except ``maxConversationsPerUser``, which nothing reads.
 
 Go to
     The full-page chat, the missing alternative texts, and the
