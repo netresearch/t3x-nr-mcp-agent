@@ -56,6 +56,9 @@ final readonly class ChatOverview
     /** The settings not shown: read nowhere, so showing a value would mislead. */
     private const HIDDEN_SETTINGS = ['maxConversationsPerUser'];
 
+    /** The extension's own settings template: a fixed path, never a value from outside. */
+    private const EXT_CONF_TEMPLATE = __DIR__ . '/../../../ext_conf_template.txt';
+
     private const ACTIVE_STATUSES = [
         ConversationStatus::Processing,
         ConversationStatus::Locked,
@@ -72,7 +75,6 @@ final readonly class ChatOverview
         private ExtensionUsageReaderInterface $usage,
         private UserBudgetStatusService $budget,
         private UnavailableToolsReaderInterface $unavailableTools,
-        private string $extConfTemplatePath = __DIR__ . '/../../../ext_conf_template.txt',
     ) {}
 
     /**
@@ -249,7 +251,7 @@ final readonly class ChatOverview
      */
     private function templateDefaults(): array
     {
-        $lines = is_readable($this->extConfTemplatePath) ? file($this->extConfTemplatePath, FILE_IGNORE_NEW_LINES) : false;
+        $lines = is_readable(self::EXT_CONF_TEMPLATE) ? file(self::EXT_CONF_TEMPLATE, FILE_IGNORE_NEW_LINES) : false;
         if ($lines === false) {
             return [];
         }
