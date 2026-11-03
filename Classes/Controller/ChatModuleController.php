@@ -13,6 +13,7 @@ use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
 
 final readonly class ChatModuleController
@@ -34,8 +35,11 @@ final readonly class ChatModuleController
         $this->pageRenderer->addInlineLanguageLabelFile('EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf');
         $this->pageRenderer->addCssFile('EXT:nr_mcp_agent/Resources/Public/Css/chat.css');
 
-        $view = $this->moduleTemplateFactory->create($request);
-        $view->setTitle('AI Chat');
+        $view     = $this->moduleTemplateFactory->create($request);
+        $language = $GLOBALS['LANG'] ?? null;
+        $view->setTitle($language instanceof LanguageService
+            ? $language->sL('LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_mod.xlf:mlang_tabs_tab')
+            : 'AI Chat');
         $view->assignMultiple([
             'maxMessageLength' => $this->config->getMaxMessageLength(),
         ]);

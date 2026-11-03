@@ -35,6 +35,8 @@ final class LocallangAltTextParityTest extends TestCase
         yield 'list' => ['locallang_alttext.xlf'];
         yield 'decorative field' => ['locallang_db.xlf'];
         yield 'dashboard' => ['locallang_dashboard.xlf'];
+        yield 'overview module' => ['locallang_overview.xlf'];
+        yield 'module labels' => ['locallang_mod.xlf'];
     }
 
     #[Test]

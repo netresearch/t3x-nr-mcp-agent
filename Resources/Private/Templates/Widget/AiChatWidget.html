@@ -27,7 +27,7 @@
                         <ul class="nr-recent-chats" data-nr-chat-locale="{locale}" data-nr-chat-today="{f:translate(key: '{ll}widget.time.today')}" data-nr-chat-yesterday="{f:translate(key: '{ll}widget.time.yesterday')}">
                             <f:for each="{conversations}" as="conversation">
                                 <li>
-                                    <a href="{f:be.uri(route: 'nr_mcp_agent_chat', parameters: {conversation: conversation.uid})}"
+                                    <a href="{f:be.uri(route: 'nr_mcp_agent_chat.conversation', parameters: {conversation: conversation.uid})}"
                                        class="nr-recent-chats-entry"
                                        data-nr-chat-conversation="{conversation.uid}"
                                        data-nr-chat-page="{conversation.page.uid}"
@@ -75,11 +75,11 @@
 </f:section>
 <f:section name="footer">
     <f:if condition="{available}">
-        <a class="btn btn-default" href="{f:be.uri(route: 'nr_mcp_agent_chat')}" data-nr-chat-new="1">
+        <a class="btn btn-default" href="{f:be.uri(route: 'nr_mcp_agent_chat.conversation')}" data-nr-chat-new="1">
             <core:icon identifier="actions-plus" size="small" />
             {f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:conversations.new')}
         </a>
-        <a class="nr-recent-chats-all" href="{f:be.uri(route: 'nr_mcp_agent_chat')}">
+        <a class="nr-recent-chats-all" href="{f:be.uri(route: 'nr_mcp_agent_chat.conversation')}">
             {f:translate(key: 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:widget.showAll')}
         </a>
     </f:if>

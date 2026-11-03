@@ -192,7 +192,7 @@ final class AssistantWidgetsTest extends TestCase
         $variables = $widget->templateVariables();
 
         self::assertTrue($variables['available']);
-        self::assertSame(['action' => '/nr_mcp_agent_chat', 'hidden' => ['token' => 't']], $variables['form']);
+        self::assertSame(['action' => '/nr_mcp_agent_chat.conversation', 'hidden' => ['token' => 't']], $variables['form']);
         self::assertMatchesRegularExpression('/^nr-mcp-agent-prompt-[0-9a-f]{8}$/', $variables['idPrefix']);
         self::assertNotSame($variables['idPrefix'], $this->prompt(true)->templateVariables()['idPrefix']);
 
@@ -243,8 +243,8 @@ final class AssistantWidgetsTest extends TestCase
 
         self::assertSame(
             ['available' => true, 'rows' => [
-                ['label' => 'SEO optimieren', 'description' => 'Prüfen', 'uri' => '/nr_mcp_agent_chat?token=t&skill=3%3Aseo-optimieren', 'skill' => '3:seo-optimieren'],
-                ['label' => 'Inhalt verbessern', 'description' => '', 'uri' => '/nr_mcp_agent_chat?token=t&skill=3%3Ainhalt-verbessern', 'skill' => '3:inhalt-verbessern'],
+                ['label' => 'SEO optimieren', 'description' => 'Prüfen', 'uri' => '/nr_mcp_agent_chat.conversation?token=t&skill=3%3Aseo-optimieren', 'skill' => '3:seo-optimieren'],
+                ['label' => 'Inhalt verbessern', 'description' => '', 'uri' => '/nr_mcp_agent_chat.conversation?token=t&skill=3%3Ainhalt-verbessern', 'skill' => '3:inhalt-verbessern'],
             ]],
             $this->improve(true, $skills)->templateVariables(),
         );
@@ -259,8 +259,8 @@ final class AssistantWidgetsTest extends TestCase
 
         self::assertSame(
             ['available' => true, 'rows' => [
-                ['label' => 'Neue Seite anlegen', 'skill' => 'neue-seite', 'needsPage' => false, 'uri' => '/nr_mcp_agent_chat?token=t&skill=neue-seite'],
-                ['label' => 'SEO optimieren', 'skill' => 'seo-optimieren', 'needsPage' => true, 'uri' => '/nr_mcp_agent_chat?token=t&skill=seo-optimieren'],
+                ['label' => 'Neue Seite anlegen', 'skill' => 'neue-seite', 'needsPage' => false, 'uri' => '/nr_mcp_agent_chat.conversation?token=t&skill=neue-seite'],
+                ['label' => 'SEO optimieren', 'skill' => 'seo-optimieren', 'needsPage' => true, 'uri' => '/nr_mcp_agent_chat.conversation?token=t&skill=seo-optimieren'],
             ]],
             $this->tasks(true, $tasks)->templateVariables(),
         );
@@ -283,7 +283,7 @@ final class AssistantWidgetsTest extends TestCase
         $types->method('available')->willReturn(['page']);
         $widget = new CreateContentWidget($this->createMock(WidgetConfigurationInterface::class), $this->viewFactory(), $this->chatAccess(true), $types, $this->uriBuilder());
 
-        self::assertSame(['available' => true, 'types' => ['page'], 'uri' => '/nr_mcp_agent_chat?token=t'], $widget->templateVariables());
+        self::assertSame(['available' => true, 'types' => ['page'], 'uri' => '/nr_mcp_agent_chat.conversation?token=t'], $widget->templateVariables());
     }
 
     /**
@@ -315,7 +315,7 @@ final class AssistantWidgetsTest extends TestCase
         self::assertTrue($variables['available']);
         self::assertSame('recommendations.intro', $variables['intro']);
         self::assertSame(
-            [['summary' => 'Die Meta Description fehlt.', 'start' => 'recommendations.start', 'uri' => '/nr_mcp_agent_chat?token=t&skill=3%3Aseo-optimieren&pageUid=21&languageUid=1', 'skill' => '3:seo-optimieren', 'page' => 21, 'language' => 1]],
+            [['summary' => 'Die Meta Description fehlt.', 'start' => 'recommendations.start', 'uri' => '/nr_mcp_agent_chat.conversation?token=t&skill=3%3Aseo-optimieren&pageUid=21&languageUid=1', 'skill' => '3:seo-optimieren', 'page' => 21, 'language' => 1]],
             $variables['points'],
         );
     }
@@ -376,7 +376,7 @@ final class AssistantWidgetsTest extends TestCase
                 'action' => [
                     'text'  => 'descriptions.start',
                     'name'  => 'descriptions.startName',
-                    'uri'   => '/nr_mcp_agent_chat?token=t&skill=3%3Aseo-optimieren&pageUid=21&languageUid=1',
+                    'uri'   => '/nr_mcp_agent_chat.conversation?token=t&skill=3%3Aseo-optimieren&pageUid=21&languageUid=1',
                     'start' => ['skill' => '3:seo-optimieren', 'page' => 21, 'language' => 1],
                 ],
             ],
@@ -470,7 +470,7 @@ final class AssistantWidgetsTest extends TestCase
         self::assertSame(
             ['available' => true, 'checks' => [
                 ['label' => 'websiteCheck.altTexts', 'uri' => '/alt-texts', 'start' => null],
-                ['label' => 'websiteCheck.descriptions', 'uri' => '/nr_mcp_agent_chat?token=t&skill=3%3Aseo-optimieren&pageUid=9&languageUid=0', 'start' => ['skill' => '3:seo-optimieren', 'page' => 9, 'language' => 0]],
+                ['label' => 'websiteCheck.descriptions', 'uri' => '/nr_mcp_agent_chat.conversation?token=t&skill=3%3Aseo-optimieren&pageUid=9&languageUid=0', 'start' => ['skill' => '3:seo-optimieren', 'page' => 9, 'language' => 0]],
             ]],
             $widget($this->descriptionTour(['count' => 2, 'translations' => 0, 'first' => ['pageUid' => 9, 'languageUid' => 0, 'title' => 'Neun']]))->templateVariables(),
         );

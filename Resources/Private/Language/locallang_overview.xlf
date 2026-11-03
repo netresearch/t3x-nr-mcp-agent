@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" datatype="plaintext" original="messages" date="2026-11-03T00:00:00Z" product-name="nr_mcp_agent">
+        <body>
+            <trans-unit id="title" resname="title">
+                <source>AI Chat</source>
+            </trans-unit>
+            <trans-unit id="understanding.heading" resname="understanding.heading">
+                <source>What the AI chat does</source>
+            </trans-unit>
+            <trans-unit id="understanding.text" resname="understanding.text">
+                <source>The AI chat answers questions about this TYPO3 installation and prepares changes to pages, content and files. Every change it wants to make waits for your approval. Guided tours walk through a task, such as improving page descriptions, page by page.</source>
+            </trans-unit>
+            <trans-unit id="understanding.where.toolbar" resname="understanding.where.toolbar">
+                <source>The chat icon in the top bar opens the chat as a panel on every backend page.</source>
+            </trans-unit>
+            <trans-unit id="understanding.where.column" resname="understanding.where.column">
+                <source>Beside the page module, the chat can sit as a column next to the page tree.</source>
+            </trans-unit>
+            <trans-unit id="understanding.where.dashboard" resname="understanding.where.dashboard">
+                <source>Dashboard widgets show recent chats, recommendations and start guided tours.</source>
+            </trans-unit>
+            <trans-unit id="understanding.where.altTexts" resname="understanding.where.altTexts">
+                <source>The list of missing alternative texts offers to write them with the chat.</source>
+            </trans-unit>
+            <trans-unit id="action.openChat" resname="action.openChat">
+                <source>Open the chat</source>
+            </trans-unit>
+            <trans-unit id="action.chatFullPage" resname="action.chatFullPage">
+                <source>The chat as a full page</source>
+            </trans-unit>
+            <trans-unit id="action.altTexts" resname="action.altTexts">
+                <source>Missing alternative texts</source>
+            </trans-unit>
+            <trans-unit id="readiness.heading" resname="readiness.heading">
+                <source>Does it work for you?</source>
+            </trans-unit>
+            <trans-unit id="readiness.intro" resname="readiness.intro">
+                <source>Each line is checked now, for you, with the rules the chat itself applies. A line marked "Not checked" could not be measured from here.</source>
+            </trans-unit>
+            <trans-unit id="column.state" resname="column.state">
+                <source>State</source>
+            </trans-unit>
+            <trans-unit id="column.finding" resname="column.finding">
+                <source>Finding</source>
+            </trans-unit>
+            <trans-unit id="column.action" resname="column.action">
+                <source>What to do</source>
+            </trans-unit>
+            <trans-unit id="readiness.access.allowed" resname="readiness.access.allowed">
+                <source>You have access to the chat.</source>
+            </trans-unit>
+            <trans-unit id="readiness.access.noTask" resname="readiness.access.noTask">
+                <source>No nr-llm task is configured for the chat, so nobody gets it.</source>
+            </trans-unit>
+            <trans-unit id="readiness.access.noTaskForYourGroups" resname="readiness.access.noTaskForYourGroups">
+                <source>No nr-llm task is configured for your backend groups, and none for everyone else.</source>
+            </trans-unit>
+            <trans-unit id="readiness.access.notInAllowedGroup" resname="readiness.access.notInAllowedGroup">
+                <source>The chat is limited to backend groups you are not a direct member of.</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.ok" resname="readiness.task.ok">
+                <source>Your chat runs the task "%1$s" with the configuration "%2$s".</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.missing" resname="readiness.task.missing">
+                <source>The nr-llm task %1$d the chat uses for you does not exist.</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.configurationMissing" resname="readiness.task.configurationMissing">
+                <source>The nr-llm task %1$d names no LLM configuration.</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.configurationDisabled" resname="readiness.task.configurationDisabled">
+                <source>The LLM configuration of task %1$d is disabled.</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.configurationRestricted" resname="readiness.task.configurationRestricted">
+                <source>The LLM configuration of task %1$d is restricted to backend groups you are not in.</source>
+            </trans-unit>
+            <trans-unit id="readiness.tools.ok" resname="readiness.tools.ok">
+                <source>The model "%1$s" can call tools, which the chat needs to look things up and prepare changes.</source>
+            </trans-unit>
+            <trans-unit id="readiness.tools.missing" resname="readiness.tools.missing">
+                <source>The model "%1$s" is not marked as able to call tools. The chat can then only answer from the conversation.</source>
+            </trans-unit>
+            <trans-unit id="readiness.tools.unchecked" resname="readiness.tools.unchecked">
+                <source>The configuration "%1$s" chooses its model when it runs, so tool support cannot be checked here.</source>
+            </trans-unit>
+            <trans-unit id="readiness.unavailableTools.none" resname="readiness.unavailableTools.none">
+                <source>No tool of this configuration is withheld from you.</source>
+            </trans-unit>
+            <trans-unit id="readiness.unavailableTools.some" resname="readiness.unavailableTools.some">
+                <source>%1$d tools of this configuration are withheld from you (switched off or not permitted).</source>
+            </trans-unit>
+            <trans-unit id="readiness.processing.exec" resname="readiness.processing.exec">
+                <source>Each message starts its own background process (processing strategy "exec"); no worker needs to run.</source>
+            </trans-unit>
+            <trans-unit id="readiness.processing.workerIdle" resname="readiness.processing.workerIdle">
+                <source>%1$d workers are waiting for messages right now; %2$d messages are waiting for a worker.</source>
+            </trans-unit>
+            <trans-unit id="readiness.processing.noIdleWorker" resname="readiness.processing.noIdleWorker">
+                <source>No worker is waiting right now (%1$d messages are waiting). Messages then start a process of their own, which is slower. Workers may be busy or not running; a busy worker leaves no trace.</source>
+            </trans-unit>
+            <trans-unit id="fix.settings" resname="fix.settings">
+                <source>Extension configuration</source>
+            </trans-unit>
+            <trans-unit id="fix.nrllm_tasks" resname="fix.nrllm_tasks">
+                <source>nr-llm tasks</source>
+            </trans-unit>
+            <trans-unit id="fix.nrllm_configurations" resname="fix.nrllm_configurations">
+                <source>LLM configurations</source>
+            </trans-unit>
+            <trans-unit id="fix.nrllm_models" resname="fix.nrllm_models">
+                <source>LLM models</source>
+            </trans-unit>
+            <trans-unit id="fix.nrllm_tools" resname="fix.nrllm_tools">
+                <source>Tools</source>
+            </trans-unit>
+            <trans-unit id="fix.askAdministrator" resname="fix.askAdministrator">
+                <source>Ask an administrator.</source>
+            </trans-unit>
+            <trans-unit id="taskMapping.heading" resname="taskMapping.heading">
+                <source>Task per backend group</source>
+            </trans-unit>
+            <trans-unit id="taskMapping.group" resname="taskMapping.group">
+                <source>Backend group</source>
+            </trans-unit>
+            <trans-unit id="taskMapping.task" resname="taskMapping.task">
+                <source>Task</source>
+            </trans-unit>
+            <trans-unit id="taskMapping.everyoneElse" resname="taskMapping.everyoneElse">
+                <source>Everyone else</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.ok" resname="readiness.task.mapping.ok">
+                <source>Task "%1$s" with configuration "%2$s".</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.taskMissing" resname="readiness.task.mapping.taskMissing">
+                <source>The task does not exist.</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.configurationMissing" resname="readiness.task.mapping.configurationMissing">
+                <source>The task names no LLM configuration.</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.configurationDisabled" resname="readiness.task.mapping.configurationDisabled">
+                <source>The task's LLM configuration is disabled.</source>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.configurationRestricted" resname="readiness.task.mapping.configurationRestricted">
+                <source>The task's LLM configuration is restricted to other groups.</source>
+            </trans-unit>
+            <trans-unit id="usage.heading" resname="usage.heading">
+                <source>Usage</source>
+            </trans-unit>
+            <trans-unit id="period.label" resname="period.label">
+                <source>Period</source>
+            </trans-unit>
+            <trans-unit id="period.days" resname="period.days">
+                <source>Last %1$d days</source>
+            </trans-unit>
+            <trans-unit id="period.heading" resname="period.heading">
+                <source>Last %1$d days</source>
+            </trans-unit>
+            <trans-unit id="usage.scope.all" resname="usage.scope.all">
+                <source>Figures of all users of this installation.</source>
+            </trans-unit>
+            <trans-unit id="usage.scope.own" resname="usage.scope.own">
+                <source>Your own figures.</source>
+            </trans-unit>
+            <trans-unit id="conversations.heading" resname="conversations.heading">
+                <source>Conversations now</source>
+            </trans-unit>
+            <trans-unit id="conversations.active" resname="conversations.active">
+                <source>Working on an answer</source>
+            </trans-unit>
+            <trans-unit id="conversations.awaitingApproval" resname="conversations.awaitingApproval">
+                <source>Waiting for approval</source>
+            </trans-unit>
+            <trans-unit id="conversations.awaitingInput" resname="conversations.awaitingInput">
+                <source>Waiting for an answer</source>
+            </trans-unit>
+            <trans-unit id="conversations.failed" resname="conversations.failed">
+                <source>Failed</source>
+            </trans-unit>
+            <trans-unit id="conversations.idle" resname="conversations.idle">
+                <source>Ready</source>
+            </trans-unit>
+            <trans-unit id="conversations.archived" resname="conversations.archived">
+                <source>Archived</source>
+            </trans-unit>
+            <trans-unit id="conversations.openPoints" resname="conversations.openPoints">
+                <source>Open points of guided tours</source>
+            </trans-unit>
+            <trans-unit id="conversations.now" resname="conversations.now">
+                <source>Current state; archived and deleted conversations are not in the other lines.</source>
+            </trans-unit>
+            <trans-unit id="conversations.started" resname="conversations.started">
+                <source>Conversations started</source>
+            </trans-unit>
+            <trans-unit id="conversations.startedWithSkill" resname="conversations.startedWithSkill">
+                <source>of which started with a skill (guided tours and tasks)</source>
+            </trans-unit>
+            <trans-unit id="usage.calls" resname="usage.calls">
+                <source>Model calls</source>
+            </trans-unit>
+            <trans-unit id="usage.failedCalls" resname="usage.failedCalls">
+                <source>of which failed</source>
+            </trans-unit>
+            <trans-unit id="usage.requests" resname="usage.requests">
+                <source>Billed requests</source>
+            </trans-unit>
+            <trans-unit id="usage.tokens" resname="usage.tokens">
+                <source>Tokens</source>
+            </trans-unit>
+            <trans-unit id="usage.cost" resname="usage.cost">
+                <source>Estimated cost</source>
+            </trans-unit>
+            <trans-unit id="usage.telemetryOff" resname="usage.telemetryOff">
+                <source>Telemetry is switched off in nr-llm, so new model calls are not counted.</source>
+            </trans-unit>
+            <trans-unit id="usage.callsCountedFrom" resname="usage.callsCountedFrom">
+                <source>Model calls are counted from %1$s on: nr-llm keeps them for %2$d days. Requests, tokens and cost cover the whole period.</source>
+            </trans-unit>
+            <trans-unit id="failures.heading" resname="failures.heading">
+                <source>Failed conversations by error</source>
+            </trans-unit>
+            <trans-unit id="failures.code" resname="failures.code">
+                <source>Error code</source>
+            </trans-unit>
+            <trans-unit id="failures.count" resname="failures.count">
+                <source>Conversations</source>
+            </trans-unit>
+            <trans-unit id="failures.noCode" resname="failures.noCode">
+                <source>(no code)</source>
+            </trans-unit>
+            <trans-unit id="budget.heading" resname="budget.heading">
+                <source>Your budget</source>
+            </trans-unit>
+            <trans-unit id="budget.month" resname="budget.month">
+                <source>This month you used %1$s of your limit of %2$s (all AI functions).</source>
+            </trans-unit>
+            <trans-unit id="budget.noLimit" resname="budget.noLimit">
+                <source>This month you used %1$s (all AI functions). No personal limit applies.</source>
+            </trans-unit>
+            <trans-unit id="waiting.heading" resname="waiting.heading">
+                <source>Your conversations waiting for you</source>
+            </trans-unit>
+            <trans-unit id="configuration.heading" resname="configuration.heading">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="configuration.intro" resname="configuration.intro">
+                <source>Settings of the extension configuration, as they apply now.</source>
+            </trans-unit>
+            <trans-unit id="configuration.setting" resname="configuration.setting">
+                <source>Setting</source>
+            </trans-unit>
+            <trans-unit id="configuration.value" resname="configuration.value">
+                <source>Value</source>
+            </trans-unit>
+            <trans-unit id="configuration.source" resname="configuration.source">
+                <source>Source</source>
+            </trans-unit>
+            <trans-unit id="configuration.empty" resname="configuration.empty">
+                <source>(empty)</source>
+            </trans-unit>
+            <trans-unit id="configuration.default" resname="configuration.default">
+                <source>Default</source>
+            </trans-unit>
+            <trans-unit id="configuration.set" resname="configuration.set">
+                <source>Set in the extension configuration</source>
+            </trans-unit>
+            <trans-unit id="configuration.cleanup" resname="configuration.cleanup">
+                <source>Old conversations are archived and removed by the cleanup command, run it from the scheduler or cron:</source>
+            </trans-unit>
+            <trans-unit id="actions.heading" resname="actions.heading">
+                <source>Go to</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_tasks" resname="link.nrllm_tasks">
+                <source>nr-llm tasks</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_configurations" resname="link.nrllm_configurations">
+                <source>LLM configurations</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_models" resname="link.nrllm_models">
+                <source>LLM models</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_tools" resname="link.nrllm_tools">
+                <source>Tools of the AI agent</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_mcp" resname="link.nrllm_mcp">
+                <source>MCP servers</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_skills" resname="link.nrllm_skills">
+                <source>Skills</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_runs" resname="link.nrllm_runs">
+                <source>Agent runs (approvals and inputs of all users)</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_analytics" resname="link.nrllm_analytics">
+                <source>LLM usage analysis</source>
+            </trans-unit>
+            <trans-unit id="link.nrllm_aitasks" resname="link.nrllm_aitasks">
+                <source>AI tasks: your runs and your budget</source>
+            </trans-unit>
+            <trans-unit id="state.ok" resname="state.ok">
+                <source>Ready</source>
+            </trans-unit>
+            <trans-unit id="state.problem" resname="state.problem">
+                <source>Not ready</source>
+            </trans-unit>
+            <trans-unit id="state.warning" resname="state.warning">
+                <source>Attention</source>
+            </trans-unit>
+            <trans-unit id="state.info" resname="state.info">
+                <source>Note</source>
+            </trans-unit>
+            <trans-unit id="state.unchecked" resname="state.unchecked">
+                <source>Not checked</source>
+            </trans-unit>
+            <trans-unit id="setting.llmTaskUid" resname="setting.llmTaskUid">
+                <source>nr-llm task</source>
+            </trans-unit>
+            <trans-unit id="setting.groupTaskMapping" resname="setting.groupTaskMapping">
+                <source>Task per backend group</source>
+            </trans-unit>
+            <trans-unit id="setting.processRunMaxIterations" resname="setting.processRunMaxIterations">
+                <source>Rounds per guided-process run</source>
+            </trans-unit>
+            <trans-unit id="setting.processingStrategy" resname="setting.processingStrategy">
+                <source>Processing strategy</source>
+            </trans-unit>
+            <trans-unit id="setting.maxLiveStreams" resname="setting.maxLiveStreams">
+                <source>Conversations streaming at the same time</source>
+            </trans-unit>
+            <trans-unit id="setting.allowedGroups" resname="setting.allowedGroups">
+                <source>Allowed backend groups</source>
+            </trans-unit>
+            <trans-unit id="setting.autoArchiveDays" resname="setting.autoArchiveDays">
+                <source>Archive inactive conversations after (days)</source>
+            </trans-unit>
+            <trans-unit id="setting.maxMessageLength" resname="setting.maxMessageLength">
+                <source>Maximum message length</source>
+            </trans-unit>
+            <trans-unit id="setting.maxActiveConversationsPerUser" resname="setting.maxActiveConversationsPerUser">
+                <source>Working conversations per user</source>
+            </trans-unit>
+            <trans-unit id="setting.attachmentFolder" resname="setting.attachmentFolder">
+                <source>Attachment folder</source>
+            </trans-unit>
+            <trans-unit id="setting.dashboardGuidedSkills" resname="setting.dashboardGuidedSkills">
+                <source>Guided skills on the dashboard</source>
+            </trans-unit>
+            <trans-unit id="setting.altTextExcludedTables" resname="setting.altTextExcludedTables">
+                <source>Tables left out of the alternative-text check</source>
+            </trans-unit>
+            <trans-unit id="setting.altTextExcludedFields" resname="setting.altTextExcludedFields">
+                <source>Fields left out of the alternative-text check</source>
+            </trans-unit>
+            <trans-unit id="setting.imageAnalysis" resname="setting.imageAnalysis">
+                <source>Image analysis</source>
+            </trans-unit>
+            <trans-unit id="setting.imageAnalysisExcludedFolders" resname="setting.imageAnalysisExcludedFolders">
+                <source>Folders left out of image analysis</source>
+            </trans-unit>
+            <trans-unit id="setting.dashboardQuickTasks" resname="setting.dashboardQuickTasks">
+                <source>Quick tasks on the dashboard</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

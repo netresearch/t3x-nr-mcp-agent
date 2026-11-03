@@ -54,8 +54,9 @@ async function login(page: Page): Promise<void> {
 }
 
 async function navigateToChatModule(page: Page): Promise<FrameLocator> {
-    // Navigate directly to the module URL (works in both v13 and v14)
-    await page.goto(`${BASE_URL}/typo3/module/nr/mcp/agent/chat`);
+    // Navigate directly to the full-page chat, the module's sub-route
+    // "conversation" (ADR-031); works in both v13 and v14
+    await page.goto(`${BASE_URL}/typo3/module/nr/mcp/agent/chat/conversation`);
     await page.waitForTimeout(1500);
     // Module content is rendered in a typo3-iframe-module or iframe
     const iframe = page.frameLocator('typo3-iframe-module iframe, iframe').first();

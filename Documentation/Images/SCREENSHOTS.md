@@ -22,7 +22,7 @@ and where they are used in the documentation.
 **Used in:** Introduction/Index.rst, Usage/Index.rst
 
 **What to show:**
-- Full-page AI Chat backend module (Admin Tools > AI Chat)
+- Full-page AI chat (AI > AI Chat, link "The chat as a full page")
 - A conversation open in the main area with at least 2–3 message exchanges
 - The conversation sidebar visible on the left with 2–3 conversations listed
 - Ideally a response that contains some Markdown (a short list or bold text)

@@ -105,6 +105,8 @@ test.describe('Approval card in an overflowing transcript', () => {
 
         await page.locator(`a[href*="${MODULE_HREF_PATTERN}"]`).click();
         const iframe: FrameLocator = page.frameLocator('iframe[name="list_frame"]');
+        // The module opens its overview; the chat is its sub-route (ADR-031).
+        await iframe.getByRole('link', { name: 'The chat as a full page' }).click();
         const chatApp = iframe.locator('nr-chat-app');
         await expect(chatApp).toBeVisible({ timeout: 15000 });
 

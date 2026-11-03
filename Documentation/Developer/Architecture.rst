@@ -52,8 +52,9 @@ WebSocket or Server-Sent Events connections.
 
 The AI Chat is accessible in two ways:
 
-*   **Backend module** (Admin Tools > AI Chat) -- Full-page chat
-    interface for longer conversations and history management.
+*   **Backend module** (AI > AI Chat) -- An overview: readiness for the
+    viewer, configuration, usage and links (ADR-031). The full-page chat is
+    its sub-route ``nr_mcp_agent_chat.conversation``.
 *   **Toolbar panel** -- Floating bottom panel triggered by the
     toolbar button. Stays visible across module navigation,
     allowing users to chat while working in the page tree.
@@ -378,7 +379,7 @@ Component map
      - Responsibility
      - Key files
    * - **Backend Module**
-     - Chat UI (Admin Tools > AI Chat)
+     - Overview and full-page chat (AI > AI Chat, ADR-031)
      - ``Classes/Controller/``, ``Resources/Private/Templates/``
    * - **Floating Panel**
      - Toolbar chat widget, persistent across navigation

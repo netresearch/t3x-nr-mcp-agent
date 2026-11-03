@@ -1,0 +1,485 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages" date="2026-11-03T00:00:00Z" product-name="nr_mcp_agent">
+        <body>
+            <trans-unit id="title" resname="title">
+                <source>AI Chat</source>
+                <target>KI-Chat</target>
+            </trans-unit>
+            <trans-unit id="understanding.heading" resname="understanding.heading">
+                <source>What the AI chat does</source>
+                <target>Was der KI-Chat macht</target>
+            </trans-unit>
+            <trans-unit id="understanding.text" resname="understanding.text">
+                <source>The AI chat answers questions about this TYPO3 installation and prepares changes to pages, content and files. Every change it wants to make waits for your approval. Guided tours walk through a task, such as improving page descriptions, page by page.</source>
+                <target>Der KI-Chat beantwortet Fragen zu dieser TYPO3-Installation und bereitet Änderungen an Seiten, Inhalten und Dateien vor. Jede Änderung wartet auf Ihre Freigabe. Geführte Touren arbeiten eine Aufgabe ab, etwa Seitenbeschreibungen verbessern, Seite für Seite.</target>
+            </trans-unit>
+            <trans-unit id="understanding.where.toolbar" resname="understanding.where.toolbar">
+                <source>The chat icon in the top bar opens the chat as a panel on every backend page.</source>
+                <target>Das Chat-Symbol in der oberen Leiste öffnet den Chat als Fenster auf jeder Backend-Seite.</target>
+            </trans-unit>
+            <trans-unit id="understanding.where.column" resname="understanding.where.column">
+                <source>Beside the page module, the chat can sit as a column next to the page tree.</source>
+                <target>Neben dem Seitenmodul kann der Chat als Spalte neben dem Seitenbaum stehen.</target>
+            </trans-unit>
+            <trans-unit id="understanding.where.dashboard" resname="understanding.where.dashboard">
+                <source>Dashboard widgets show recent chats, recommendations and start guided tours.</source>
+                <target>Dashboard-Widgets zeigen letzte Chats und Empfehlungen und starten geführte Touren.</target>
+            </trans-unit>
+            <trans-unit id="understanding.where.altTexts" resname="understanding.where.altTexts">
+                <source>The list of missing alternative texts offers to write them with the chat.</source>
+                <target>Die Liste fehlender Alternativtexte bietet an, sie mit dem Chat zu schreiben.</target>
+            </trans-unit>
+            <trans-unit id="action.openChat" resname="action.openChat">
+                <source>Open the chat</source>
+                <target>Chat öffnen</target>
+            </trans-unit>
+            <trans-unit id="action.chatFullPage" resname="action.chatFullPage">
+                <source>The chat as a full page</source>
+                <target>Der Chat als ganze Seite</target>
+            </trans-unit>
+            <trans-unit id="action.altTexts" resname="action.altTexts">
+                <source>Missing alternative texts</source>
+                <target>Fehlende Alternativtexte</target>
+            </trans-unit>
+            <trans-unit id="readiness.heading" resname="readiness.heading">
+                <source>Does it work for you?</source>
+                <target>Funktioniert es für Sie?</target>
+            </trans-unit>
+            <trans-unit id="readiness.intro" resname="readiness.intro">
+                <source>Each line is checked now, for you, with the rules the chat itself applies. A line marked "Not checked" could not be measured from here.</source>
+                <target>Jede Zeile wird jetzt für Sie geprüft, mit den Regeln, die der Chat selbst anwendet. Eine Zeile mit „Nicht geprüft“ ließ sich von hier aus nicht messen.</target>
+            </trans-unit>
+            <trans-unit id="column.state" resname="column.state">
+                <source>State</source>
+                <target>Zustand</target>
+            </trans-unit>
+            <trans-unit id="column.finding" resname="column.finding">
+                <source>Finding</source>
+                <target>Befund</target>
+            </trans-unit>
+            <trans-unit id="column.action" resname="column.action">
+                <source>What to do</source>
+                <target>Was zu tun ist</target>
+            </trans-unit>
+            <trans-unit id="readiness.access.allowed" resname="readiness.access.allowed">
+                <source>You have access to the chat.</source>
+                <target>Sie haben Zugriff auf den Chat.</target>
+            </trans-unit>
+            <trans-unit id="readiness.access.noTask" resname="readiness.access.noTask">
+                <source>No nr-llm task is configured for the chat, so nobody gets it.</source>
+                <target>Für den Chat ist kein nr-llm-Task eingestellt, deshalb bekommt ihn niemand.</target>
+            </trans-unit>
+            <trans-unit id="readiness.access.noTaskForYourGroups" resname="readiness.access.noTaskForYourGroups">
+                <source>No nr-llm task is configured for your backend groups, and none for everyone else.</source>
+                <target>Für Ihre Backend-Gruppen ist kein nr-llm-Task eingestellt, und auch keiner für alle anderen.</target>
+            </trans-unit>
+            <trans-unit id="readiness.access.notInAllowedGroup" resname="readiness.access.notInAllowedGroup">
+                <source>The chat is limited to backend groups you are not a direct member of.</source>
+                <target>Der Chat ist auf Backend-Gruppen beschränkt, in denen Sie nicht direkt Mitglied sind.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.ok" resname="readiness.task.ok">
+                <source>Your chat runs the task "%1$s" with the configuration "%2$s".</source>
+                <target>Ihr Chat läuft mit dem Task „%1$s“ und der Konfiguration „%2$s“.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.missing" resname="readiness.task.missing">
+                <source>The nr-llm task %1$d the chat uses for you does not exist.</source>
+                <target>Der nr-llm-Task %1$d, den der Chat für Sie verwendet, existiert nicht.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.configurationMissing" resname="readiness.task.configurationMissing">
+                <source>The nr-llm task %1$d names no LLM configuration.</source>
+                <target>Der nr-llm-Task %1$d nennt keine LLM-Konfiguration.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.configurationDisabled" resname="readiness.task.configurationDisabled">
+                <source>The LLM configuration of task %1$d is disabled.</source>
+                <target>Die LLM-Konfiguration von Task %1$d ist deaktiviert.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.configurationRestricted" resname="readiness.task.configurationRestricted">
+                <source>The LLM configuration of task %1$d is restricted to backend groups you are not in.</source>
+                <target>Die LLM-Konfiguration von Task %1$d ist auf Backend-Gruppen beschränkt, in denen Sie nicht sind.</target>
+            </trans-unit>
+            <trans-unit id="readiness.tools.ok" resname="readiness.tools.ok">
+                <source>The model "%1$s" can call tools, which the chat needs to look things up and prepare changes.</source>
+                <target>Das Modell „%1$s“ kann Werkzeuge aufrufen; das braucht der Chat zum Nachsehen und für Änderungen.</target>
+            </trans-unit>
+            <trans-unit id="readiness.tools.missing" resname="readiness.tools.missing">
+                <source>The model "%1$s" is not marked as able to call tools. The chat can then only answer from the conversation.</source>
+                <target>Das Modell „%1$s“ ist nicht als werkzeugfähig markiert. Der Chat kann dann nur aus dem Gespräch antworten.</target>
+            </trans-unit>
+            <trans-unit id="readiness.tools.unchecked" resname="readiness.tools.unchecked">
+                <source>The configuration "%1$s" chooses its model when it runs, so tool support cannot be checked here.</source>
+                <target>Die Konfiguration „%1$s“ wählt ihr Modell erst beim Lauf, deshalb lässt sich die Werkzeugfähigkeit hier nicht prüfen.</target>
+            </trans-unit>
+            <trans-unit id="readiness.unavailableTools.none" resname="readiness.unavailableTools.none">
+                <source>No tool of this configuration is withheld from you.</source>
+                <target>Kein Werkzeug dieser Konfiguration ist Ihnen vorenthalten.</target>
+            </trans-unit>
+            <trans-unit id="readiness.unavailableTools.some" resname="readiness.unavailableTools.some">
+                <source>%1$d tools of this configuration are withheld from you (switched off or not permitted).</source>
+                <target>%1$d Werkzeuge dieser Konfiguration sind Ihnen vorenthalten (abgeschaltet oder nicht erlaubt).</target>
+            </trans-unit>
+            <trans-unit id="readiness.processing.exec" resname="readiness.processing.exec">
+                <source>Each message starts its own background process (processing strategy "exec"); no worker needs to run.</source>
+                <target>Jede Nachricht startet einen eigenen Hintergrundprozess (Verarbeitung „exec“); es muss kein Worker laufen.</target>
+            </trans-unit>
+            <trans-unit id="readiness.processing.workerIdle" resname="readiness.processing.workerIdle">
+                <source>%1$d workers are waiting for messages right now; %2$d messages are waiting for a worker.</source>
+                <target>Gerade warten %1$d Worker auf Nachrichten; %2$d Nachrichten warten auf einen Worker.</target>
+            </trans-unit>
+            <trans-unit id="readiness.processing.noIdleWorker" resname="readiness.processing.noIdleWorker">
+                <source>No worker is waiting right now (%1$d messages are waiting). Messages then start a process of their own, which is slower. Workers may be busy or not running; a busy worker leaves no trace.</source>
+                <target>Gerade wartet kein Worker (%1$d Nachrichten warten). Nachrichten starten dann einen eigenen Prozess, das ist langsamer. Die Worker sind vielleicht beschäftigt oder laufen nicht; ein beschäftigter Worker hinterlässt keine Spur.</target>
+            </trans-unit>
+            <trans-unit id="fix.settings" resname="fix.settings">
+                <source>Extension configuration</source>
+                <target>Extension-Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="fix.nrllm_tasks" resname="fix.nrllm_tasks">
+                <source>nr-llm tasks</source>
+                <target>nr-llm-Tasks</target>
+            </trans-unit>
+            <trans-unit id="fix.nrllm_configurations" resname="fix.nrllm_configurations">
+                <source>LLM configurations</source>
+                <target>LLM-Konfigurationen</target>
+            </trans-unit>
+            <trans-unit id="fix.nrllm_models" resname="fix.nrllm_models">
+                <source>LLM models</source>
+                <target>LLM-Modelle</target>
+            </trans-unit>
+            <trans-unit id="fix.nrllm_tools" resname="fix.nrllm_tools">
+                <source>Tools</source>
+                <target>Werkzeuge</target>
+            </trans-unit>
+            <trans-unit id="fix.askAdministrator" resname="fix.askAdministrator">
+                <source>Ask an administrator.</source>
+                <target>Wenden Sie sich an die Administration.</target>
+            </trans-unit>
+            <trans-unit id="taskMapping.heading" resname="taskMapping.heading">
+                <source>Task per backend group</source>
+                <target>Task je Backend-Gruppe</target>
+            </trans-unit>
+            <trans-unit id="taskMapping.group" resname="taskMapping.group">
+                <source>Backend group</source>
+                <target>Backend-Gruppe</target>
+            </trans-unit>
+            <trans-unit id="taskMapping.task" resname="taskMapping.task">
+                <source>Task</source>
+                <target>Task</target>
+            </trans-unit>
+            <trans-unit id="taskMapping.everyoneElse" resname="taskMapping.everyoneElse">
+                <source>Everyone else</source>
+                <target>Alle anderen</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.ok" resname="readiness.task.mapping.ok">
+                <source>Task "%1$s" with configuration "%2$s".</source>
+                <target>Task „%1$s“ mit Konfiguration „%2$s“.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.taskMissing" resname="readiness.task.mapping.taskMissing">
+                <source>The task does not exist.</source>
+                <target>Der Task existiert nicht.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.configurationMissing" resname="readiness.task.mapping.configurationMissing">
+                <source>The task names no LLM configuration.</source>
+                <target>Der Task nennt keine LLM-Konfiguration.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.configurationDisabled" resname="readiness.task.mapping.configurationDisabled">
+                <source>The task's LLM configuration is disabled.</source>
+                <target>Die LLM-Konfiguration des Tasks ist deaktiviert.</target>
+            </trans-unit>
+            <trans-unit id="readiness.task.mapping.configurationRestricted" resname="readiness.task.mapping.configurationRestricted">
+                <source>The task's LLM configuration is restricted to other groups.</source>
+                <target>Die LLM-Konfiguration des Tasks ist auf andere Gruppen beschränkt.</target>
+            </trans-unit>
+            <trans-unit id="usage.heading" resname="usage.heading">
+                <source>Usage</source>
+                <target>Nutzung</target>
+            </trans-unit>
+            <trans-unit id="period.label" resname="period.label">
+                <source>Period</source>
+                <target>Zeitraum</target>
+            </trans-unit>
+            <trans-unit id="period.days" resname="period.days">
+                <source>Last %1$d days</source>
+                <target>Letzte %1$d Tage</target>
+            </trans-unit>
+            <trans-unit id="period.heading" resname="period.heading">
+                <source>Last %1$d days</source>
+                <target>Letzte %1$d Tage</target>
+            </trans-unit>
+            <trans-unit id="usage.scope.all" resname="usage.scope.all">
+                <source>Figures of all users of this installation.</source>
+                <target>Zahlen aller Benutzer dieser Installation.</target>
+            </trans-unit>
+            <trans-unit id="usage.scope.own" resname="usage.scope.own">
+                <source>Your own figures.</source>
+                <target>Ihre eigenen Zahlen.</target>
+            </trans-unit>
+            <trans-unit id="conversations.heading" resname="conversations.heading">
+                <source>Conversations now</source>
+                <target>Unterhaltungen jetzt</target>
+            </trans-unit>
+            <trans-unit id="conversations.active" resname="conversations.active">
+                <source>Working on an answer</source>
+                <target>Arbeiten an einer Antwort</target>
+            </trans-unit>
+            <trans-unit id="conversations.awaitingApproval" resname="conversations.awaitingApproval">
+                <source>Waiting for approval</source>
+                <target>Warten auf Freigabe</target>
+            </trans-unit>
+            <trans-unit id="conversations.awaitingInput" resname="conversations.awaitingInput">
+                <source>Waiting for an answer</source>
+                <target>Warten auf eine Antwort</target>
+            </trans-unit>
+            <trans-unit id="conversations.failed" resname="conversations.failed">
+                <source>Failed</source>
+                <target>Fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="conversations.idle" resname="conversations.idle">
+                <source>Ready</source>
+                <target>Bereit</target>
+            </trans-unit>
+            <trans-unit id="conversations.archived" resname="conversations.archived">
+                <source>Archived</source>
+                <target>Archiviert</target>
+            </trans-unit>
+            <trans-unit id="conversations.openPoints" resname="conversations.openPoints">
+                <source>Open points of guided tours</source>
+                <target>Offene Punkte geführter Touren</target>
+            </trans-unit>
+            <trans-unit id="conversations.now" resname="conversations.now">
+                <source>Current state; archived and deleted conversations are not in the other lines.</source>
+                <target>Aktueller Stand; archivierte und gelöschte Unterhaltungen stehen nicht in den anderen Zeilen.</target>
+            </trans-unit>
+            <trans-unit id="conversations.started" resname="conversations.started">
+                <source>Conversations started</source>
+                <target>Begonnene Unterhaltungen</target>
+            </trans-unit>
+            <trans-unit id="conversations.startedWithSkill" resname="conversations.startedWithSkill">
+                <source>of which started with a skill (guided tours and tasks)</source>
+                <target>davon mit einem Skill begonnen (geführte Touren und Aufgaben)</target>
+            </trans-unit>
+            <trans-unit id="usage.calls" resname="usage.calls">
+                <source>Model calls</source>
+                <target>Modellaufrufe</target>
+            </trans-unit>
+            <trans-unit id="usage.failedCalls" resname="usage.failedCalls">
+                <source>of which failed</source>
+                <target>davon fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="usage.requests" resname="usage.requests">
+                <source>Billed requests</source>
+                <target>Abgerechnete Anfragen</target>
+            </trans-unit>
+            <trans-unit id="usage.tokens" resname="usage.tokens">
+                <source>Tokens</source>
+                <target>Tokens</target>
+            </trans-unit>
+            <trans-unit id="usage.cost" resname="usage.cost">
+                <source>Estimated cost</source>
+                <target>Geschätzte Kosten</target>
+            </trans-unit>
+            <trans-unit id="usage.telemetryOff" resname="usage.telemetryOff">
+                <source>Telemetry is switched off in nr-llm, so new model calls are not counted.</source>
+                <target>Die Telemetrie ist in nr-llm abgeschaltet, neue Modellaufrufe werden daher nicht gezählt.</target>
+            </trans-unit>
+            <trans-unit id="usage.callsCountedFrom" resname="usage.callsCountedFrom">
+                <source>Model calls are counted from %1$s on: nr-llm keeps them for %2$d days. Requests, tokens and cost cover the whole period.</source>
+                <target>Modellaufrufe sind ab %1$s gezählt: nr-llm bewahrt sie %2$d Tage auf. Anfragen, Tokens und Kosten umfassen den ganzen Zeitraum.</target>
+            </trans-unit>
+            <trans-unit id="failures.heading" resname="failures.heading">
+                <source>Failed conversations by error</source>
+                <target>Fehlgeschlagene Unterhaltungen nach Fehler</target>
+            </trans-unit>
+            <trans-unit id="failures.code" resname="failures.code">
+                <source>Error code</source>
+                <target>Fehlercode</target>
+            </trans-unit>
+            <trans-unit id="failures.count" resname="failures.count">
+                <source>Conversations</source>
+                <target>Unterhaltungen</target>
+            </trans-unit>
+            <trans-unit id="failures.noCode" resname="failures.noCode">
+                <source>(no code)</source>
+                <target>(kein Code)</target>
+            </trans-unit>
+            <trans-unit id="budget.heading" resname="budget.heading">
+                <source>Your budget</source>
+                <target>Ihr Budget</target>
+            </trans-unit>
+            <trans-unit id="budget.month" resname="budget.month">
+                <source>This month you used %1$s of your limit of %2$s (all AI functions).</source>
+                <target>In diesem Monat haben Sie %1$s von Ihrem Limit von %2$s verbraucht (alle KI-Funktionen).</target>
+            </trans-unit>
+            <trans-unit id="budget.noLimit" resname="budget.noLimit">
+                <source>This month you used %1$s (all AI functions). No personal limit applies.</source>
+                <target>In diesem Monat haben Sie %1$s verbraucht (alle KI-Funktionen). Für Sie gilt kein persönliches Limit.</target>
+            </trans-unit>
+            <trans-unit id="waiting.heading" resname="waiting.heading">
+                <source>Your conversations waiting for you</source>
+                <target>Ihre Unterhaltungen, die auf Sie warten</target>
+            </trans-unit>
+            <trans-unit id="configuration.heading" resname="configuration.heading">
+                <source>Configuration</source>
+                <target>Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="configuration.intro" resname="configuration.intro">
+                <source>Settings of the extension configuration, as they apply now.</source>
+                <target>Einstellungen der Extension-Konfiguration, wie sie jetzt gelten.</target>
+            </trans-unit>
+            <trans-unit id="configuration.setting" resname="configuration.setting">
+                <source>Setting</source>
+                <target>Einstellung</target>
+            </trans-unit>
+            <trans-unit id="configuration.value" resname="configuration.value">
+                <source>Value</source>
+                <target>Wert</target>
+            </trans-unit>
+            <trans-unit id="configuration.source" resname="configuration.source">
+                <source>Source</source>
+                <target>Herkunft</target>
+            </trans-unit>
+            <trans-unit id="configuration.empty" resname="configuration.empty">
+                <source>(empty)</source>
+                <target>(leer)</target>
+            </trans-unit>
+            <trans-unit id="configuration.default" resname="configuration.default">
+                <source>Default</source>
+                <target>Standardwert</target>
+            </trans-unit>
+            <trans-unit id="configuration.set" resname="configuration.set">
+                <source>Set in the extension configuration</source>
+                <target>In der Extension-Konfiguration gesetzt</target>
+            </trans-unit>
+            <trans-unit id="configuration.cleanup" resname="configuration.cleanup">
+                <source>Old conversations are archived and removed by the cleanup command, run it from the scheduler or cron:</source>
+                <target>Alte Unterhaltungen archiviert und entfernt der Aufräumbefehl; lassen Sie ihn per Scheduler oder Cron laufen:</target>
+            </trans-unit>
+            <trans-unit id="actions.heading" resname="actions.heading">
+                <source>Go to</source>
+                <target>Weiter zu</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_tasks" resname="link.nrllm_tasks">
+                <source>nr-llm tasks</source>
+                <target>nr-llm-Tasks</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_configurations" resname="link.nrllm_configurations">
+                <source>LLM configurations</source>
+                <target>LLM-Konfigurationen</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_models" resname="link.nrllm_models">
+                <source>LLM models</source>
+                <target>LLM-Modelle</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_tools" resname="link.nrllm_tools">
+                <source>Tools of the AI agent</source>
+                <target>Werkzeuge des KI-Agenten</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_mcp" resname="link.nrllm_mcp">
+                <source>MCP servers</source>
+                <target>MCP-Server</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_skills" resname="link.nrllm_skills">
+                <source>Skills</source>
+                <target>Skills</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_runs" resname="link.nrllm_runs">
+                <source>Agent runs (approvals and inputs of all users)</source>
+                <target>Agent-Läufe (Freigaben und Eingaben aller Benutzer)</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_analytics" resname="link.nrllm_analytics">
+                <source>LLM usage analysis</source>
+                <target>LLM-Nutzungsanalyse</target>
+            </trans-unit>
+            <trans-unit id="link.nrllm_aitasks" resname="link.nrllm_aitasks">
+                <source>AI tasks: your runs and your budget</source>
+                <target>KI-Aufgaben: Ihre Läufe und Ihr Budget</target>
+            </trans-unit>
+            <trans-unit id="state.ok" resname="state.ok">
+                <source>Ready</source>
+                <target>Bereit</target>
+            </trans-unit>
+            <trans-unit id="state.problem" resname="state.problem">
+                <source>Not ready</source>
+                <target>Nicht bereit</target>
+            </trans-unit>
+            <trans-unit id="state.warning" resname="state.warning">
+                <source>Attention</source>
+                <target>Achtung</target>
+            </trans-unit>
+            <trans-unit id="state.info" resname="state.info">
+                <source>Note</source>
+                <target>Hinweis</target>
+            </trans-unit>
+            <trans-unit id="state.unchecked" resname="state.unchecked">
+                <source>Not checked</source>
+                <target>Nicht geprüft</target>
+            </trans-unit>
+            <trans-unit id="setting.llmTaskUid" resname="setting.llmTaskUid">
+                <source>nr-llm task</source>
+                <target>nr-llm-Task</target>
+            </trans-unit>
+            <trans-unit id="setting.groupTaskMapping" resname="setting.groupTaskMapping">
+                <source>Task per backend group</source>
+                <target>Task je Backend-Gruppe</target>
+            </trans-unit>
+            <trans-unit id="setting.processRunMaxIterations" resname="setting.processRunMaxIterations">
+                <source>Rounds per guided-process run</source>
+                <target>Runden je Lauf eines geführten Ablaufs</target>
+            </trans-unit>
+            <trans-unit id="setting.processingStrategy" resname="setting.processingStrategy">
+                <source>Processing strategy</source>
+                <target>Verarbeitung</target>
+            </trans-unit>
+            <trans-unit id="setting.maxLiveStreams" resname="setting.maxLiveStreams">
+                <source>Conversations streaming at the same time</source>
+                <target>Gleichzeitig streamende Unterhaltungen</target>
+            </trans-unit>
+            <trans-unit id="setting.allowedGroups" resname="setting.allowedGroups">
+                <source>Allowed backend groups</source>
+                <target>Erlaubte Backend-Gruppen</target>
+            </trans-unit>
+            <trans-unit id="setting.autoArchiveDays" resname="setting.autoArchiveDays">
+                <source>Archive inactive conversations after (days)</source>
+                <target>Inaktive Unterhaltungen archivieren nach (Tagen)</target>
+            </trans-unit>
+            <trans-unit id="setting.maxMessageLength" resname="setting.maxMessageLength">
+                <source>Maximum message length</source>
+                <target>Maximale Nachrichtenlänge</target>
+            </trans-unit>
+            <trans-unit id="setting.maxActiveConversationsPerUser" resname="setting.maxActiveConversationsPerUser">
+                <source>Working conversations per user</source>
+                <target>Gleichzeitig arbeitende Unterhaltungen je Benutzer</target>
+            </trans-unit>
+            <trans-unit id="setting.attachmentFolder" resname="setting.attachmentFolder">
+                <source>Attachment folder</source>
+                <target>Ordner für Anhänge</target>
+            </trans-unit>
+            <trans-unit id="setting.dashboardGuidedSkills" resname="setting.dashboardGuidedSkills">
+                <source>Guided skills on the dashboard</source>
+                <target>Geführte Skills im Dashboard</target>
+            </trans-unit>
+            <trans-unit id="setting.altTextExcludedTables" resname="setting.altTextExcludedTables">
+                <source>Tables left out of the alternative-text check</source>
+                <target>Tabellen ohne Alternativtext-Prüfung</target>
+            </trans-unit>
+            <trans-unit id="setting.altTextExcludedFields" resname="setting.altTextExcludedFields">
+                <source>Fields left out of the alternative-text check</source>
+                <target>Felder ohne Alternativtext-Prüfung</target>
+            </trans-unit>
+            <trans-unit id="setting.imageAnalysis" resname="setting.imageAnalysis">
+                <source>Image analysis</source>
+                <target>Bildanalyse</target>
+            </trans-unit>
+            <trans-unit id="setting.imageAnalysisExcludedFolders" resname="setting.imageAnalysisExcludedFolders">
+                <source>Folders left out of image analysis</source>
+                <target>Ordner ohne Bildanalyse</target>
+            </trans-unit>
+            <trans-unit id="setting.dashboardQuickTasks" resname="setting.dashboardQuickTasks">
+                <source>Quick tasks on the dashboard</source>
+                <target>Schnellaufgaben im Dashboard</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

@@ -25,7 +25,8 @@ use TYPO3\CMS\Backend\Routing\UriBuilder;
  */
 final readonly class ChatStartUriBuilder
 {
-    public const ROUTE = 'nr_mcp_agent_chat';
+    /** The full-page chat, a sub-route of the module since its first page became the overview (ADR-031). */
+    public const ROUTE = 'nr_mcp_agent_chat.conversation';
 
     /** Query parameter carrying the skill identifier. */
     public const PARAMETER_SKILL = 'skill';

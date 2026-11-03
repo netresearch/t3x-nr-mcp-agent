@@ -44,7 +44,7 @@ final class ChatStartUriBuilderTest extends TestCase
         $calls = [];
         $uri   = $this->builder($calls)->build('seo-optimieren', 21);
 
-        self::assertSame([['nr_mcp_agent_chat', ['skill' => 'seo-optimieren', 'pageUid' => 21, 'languageUid' => 0]]], $calls);
+        self::assertSame([['nr_mcp_agent_chat.conversation', ['skill' => 'seo-optimieren', 'pageUid' => 21, 'languageUid' => 0]]], $calls);
         self::assertSame('/typo3/module/chat?token=abc&skill=seo-optimieren&pageUid=21&languageUid=0#x', $uri);
     }
 
@@ -55,7 +55,7 @@ final class ChatStartUriBuilderTest extends TestCase
         $calls = [];
         $uri   = $this->builder($calls)->build('3:seo-optimieren', 21, 2);
 
-        self::assertSame([['nr_mcp_agent_chat', ['skill' => '3:seo-optimieren', 'pageUid' => 21, 'languageUid' => 2]]], $calls);
+        self::assertSame([['nr_mcp_agent_chat.conversation', ['skill' => '3:seo-optimieren', 'pageUid' => 21, 'languageUid' => 2]]], $calls);
         self::assertStringContainsString('&languageUid=2', $uri);
     }
 
@@ -77,7 +77,7 @@ final class ChatStartUriBuilderTest extends TestCase
         $calls = [];
         $this->builder($calls)->build('neue-seite');
 
-        self::assertSame([['nr_mcp_agent_chat', ['skill' => 'neue-seite']]], $calls);
+        self::assertSame([['nr_mcp_agent_chat.conversation', ['skill' => 'neue-seite']]], $calls);
     }
 
     /** The form's own fields win: the module URL's values for them are not repeated as hidden fields. */

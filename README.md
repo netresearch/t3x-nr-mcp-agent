@@ -93,7 +93,7 @@ If not installed, XLSX files will be rejected at upload time with a 422 response
 3. Go to **Admin Tools > Settings > Extension Configuration > nr_mcp_agent** and
    set `llmTaskUid` to the Task UID from step 2.
 
-The AI Chat module is now available under **Admin Tools > AI Chat**.
+The chat opens from the chat icon in the top bar; the module **AI > AI Chat** shows whether it works, how it is configured and how it was used.
 
 ## DDEV Development
 

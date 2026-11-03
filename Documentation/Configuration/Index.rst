@@ -126,8 +126,9 @@ Access control
     :default: *(empty)*
 
     Comma-separated list of backend user group UIDs that
-    are allowed to use the AI Chat module. Leave empty
-    to allow all backend users with module access.
+    are allowed to use the AI chat. Leave empty to allow
+    all backend users. Only direct membership counts, not
+    subgroups; administrators always have access.
 
 Chat panel
 ==========
@@ -216,10 +217,12 @@ User interface
     :type: int
     :default: 50
 
-    Maximum number of conversations to keep per user.
-    Set to ``0`` for unlimited. When the limit is reached,
-    the oldest non-pinned conversations are archived
-    automatically.
+    Offered in the extension configuration, but not
+    enforced: no code reads it, and conversations are not
+    archived when a user exceeds it. Old conversations are
+    archived by ``autoArchiveDays`` and removed by the
+    ``ai-chat:cleanup`` command. The overview module does
+    not list this setting.
 
 ..  confval:: autoArchiveDays
     :type: int

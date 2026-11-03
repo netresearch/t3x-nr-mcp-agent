@@ -21,10 +21,12 @@ Introduction
 What does it do?
 ================
 
-AI Chat adds a backend module to TYPO3 that lets
-administrators and editors interact with an AI assistant
-directly from the TYPO3 backend. The module is available
-under **Admin Tools > AI Chat**.
+AI Chat lets administrators and editors work with an AI
+assistant directly in the TYPO3 backend. The chat opens from
+the chat icon in the top bar, as a panel or as a column beside
+the page tree. The module **AI > AI Chat** gives an overview:
+whether the chat works for you, how it is configured, and how
+it was used.
 
 Using the tools nr-llm registers, the assistant can read and
 modify TYPO3 content -- pages, content elements, records --
@@ -45,12 +47,13 @@ Key features
 ..  card-grid::
     :columns: 2
 
-    ..  card:: Integrated chat module
+    ..  card:: Chat on every backend page
 
-        A dedicated backend module under Admin Tools
-        with a modern chat interface. Send messages,
-        view responses, and manage conversations without
-        leaving TYPO3.
+        A chat panel from the top bar, or a column beside
+        the page tree. Send messages, approve changes and
+        manage conversations without leaving TYPO3. The
+        module **AI > AI Chat** shows readiness, settings
+        and usage.
 
     ..  card:: Tools from nr-llm
 

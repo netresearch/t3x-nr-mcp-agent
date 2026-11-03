@@ -33,8 +33,9 @@ Quick start
     Configuration > nr_mcp_agent** and set ``llmTaskUid``
     to the Task UID from step 2.
 
-The AI Chat module is now available under
-**Admin Tools > AI Chat**.
+The chat now opens from the chat icon in the top bar. The
+module **AI > AI Chat** shows whether it works and how it is
+configured.
 
 Composer installation
 =====================
