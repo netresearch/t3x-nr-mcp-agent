@@ -123,20 +123,21 @@ final class BackendUserInitializerWorkspaceTest extends FunctionalTestCase
         $repository->update($conversation);
         self::assertSame(2, $this->conversationWorkspace($uid));
 
-        // The owner's decision on the run's card, taken from another
-        // workspace, carries the run on where it was started.
-        self::assertTrue($owner->setTemporaryWorkspace(0));
-        $conversation->setApprovalRunUuid('run-1');
-        $conversation->recordApprovalDecision(true, 'digest');
-        $repository->update($conversation);
-        self::assertSame(2, $this->conversationWorkspace($uid), 'a decision moved the turn');
-
         // Another user's request — an approver of the turn, working in
         // workspace 1 — does not move it.
         $other = $this->setUpBackendUser(2);
         self::assertSame(1, $other->workspace, 'positive control: the approver works elsewhere');
         $repository->update($conversation);
         self::assertSame(2, $this->conversationWorkspace($uid));
+
+        // The owner's decision on the run's card, taken from another
+        // workspace, carries the run on where it was started.
+        $owner = $this->setUpBackendUser(1);
+        self::assertTrue($owner->setTemporaryWorkspace(0));
+        $conversation->setApprovalRunUuid('run-1');
+        $conversation->recordApprovalDecision(true, 'digest');
+        $repository->update($conversation);
+        self::assertSame(2, $this->conversationWorkspace($uid), 'a decision moved the turn');
     }
 
     private function user(): BackendUserAuthentication
