@@ -1,0 +1,10 @@
+"be_groups"
+,"uid","pid","title","deleted","hidden"
+,7,0,"Mapped group",0,0
+,8,0,"Allowed group",0,0
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","description","model_uid","model_selection_mode","system_prompt","temperature","max_tokens","top_p","frequency_penalty","presence_penalty","timeout","allowed_groups","deleted","hidden","tstamp","crdate"
+,1,0,"test-config","Test Config","",1,"fixed","You are a helpful assistant.",0.70,1000,1.00,0.00,0.00,0,1,0,0,1710000000,1710000000
+"tx_nrllm_configuration_begroups_mm"
+,"uid_local","uid_foreign","sorting","sorting_foreign"
+,1,8,1,1

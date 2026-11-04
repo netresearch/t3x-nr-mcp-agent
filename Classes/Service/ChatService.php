@@ -73,6 +73,7 @@ use Netresearch\NrMcpAgent\Service\AltText\AltTextFlowPrompt;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImagePolicyInterface;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImageRefusal;
 use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
+use Netresearch\NrMcpAgent\Service\ChatTask\ChatTaskResolver;
 use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
@@ -170,7 +171,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * "Unattributed". The value never reaches the provider — it is call metadata
      * persisted on the telemetry row.
      */
-    private const CALLER_SOURCE_EXTENSION = 'nr_mcp_agent';
+    public const CALLER_SOURCE_EXTENSION = 'nr_mcp_agent';
 
     /** A turn taken on a queued conversation — the ordinary chat request. */
     private const OPERATION_CHAT_TURN = 'chatTurn';
@@ -1803,37 +1804,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function resolveConfiguration(AiActorContext $actor): LlmConfiguration
     {
-        $taskUid = $this->config->getLlmTaskUid();
-        $task    = $this->taskRepository->findByUid($taskUid);
-        if ($task === null) {
-            throw new ChatNotConfiguredException(sprintf('nr-llm Task with uid %d not found', $taskUid));
-        }
-
-        $configuration = $task->getConfiguration();
-        if ($configuration === null) {
-            throw new ChatNotConfiguredException(sprintf('nr-llm Task with uid %d has no LLM configuration assigned', $taskUid));
-        }
-
-        // The Task names a Configuration; whether this user may run it is the
-        // Configuration's to say — its active flag and its backend-group
-        // restriction, as nr-llm's own modules check them. The runtime does
-        // not, so without this a Task mapped to a group (ADR-015), or the
-        // single llmTaskUid, would run a Configuration withheld from the user.
-        if (!$configuration->isActive()) {
-            throw new ChatNotConfiguredException(sprintf(
-                'The nr-llm configuration "%s" of Task %d is disabled. Ask an administrator to enable it or to assign another Task.',
-                $configuration->getName(),
-                $taskUid,
-            ));
-        }
-
-        if (!$this->configurationResolver->actorMayUse($configuration, $actor)) {
-            throw new ChatNotConfiguredException(sprintf(
-                'The nr-llm configuration "%s" of Task %d is restricted to other backend groups. Ask an administrator for access or for another Task.',
-                $configuration->getName(),
-                $taskUid,
-            ));
-        }
+        // The rule is ChatTaskResolver's, so the overview module can ask it
+        // without running a turn; the messages are the ones the chat shows.
+        $resolved = (new ChatTaskResolver($this->taskRepository, $this->configurationResolver))
+            ->resolve($this->config->getLlmTaskUid(), $actor);
+        $task          = $resolved->task;
+        $configuration = $resolved->configuration;
 
         $this->resolvedPrompts = [
             'system_prompt'   => $configuration->getSystemPrompt(),

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Backend\ToolbarItems;
 
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
+use Netresearch\NrMcpAgent\Service\ChatAccess;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Toolbar\RequestAwareToolbarItemInterface;
 use TYPO3\CMS\Backend\Toolbar\ToolbarItemInterface;
@@ -30,37 +31,7 @@ final readonly class ChatToolbarItem implements ToolbarItemInterface, RequestAwa
 
     public function checkAccess(): bool
     {
-        if ($this->config->getLlmTaskUid() === 0) {
-            return false;
-        }
-
-        $allowed = $this->config->getAllowedGroupIds();
-        if ($allowed === []) {
-            return true;
-        }
-
-        $beUser = $this->getBackendUser();
-        if (!$beUser instanceof BackendUserAuthentication) {
-            return false;
-        }
-
-        // Admin users always have access (consistent with ChatApiController)
-        if ($beUser->isAdmin()) {
-            return true;
-        }
-
-        return $this->userIsInAllowedGroup($beUser, $allowed);
-    }
-
-    /**
-     * @param list<int> $allowed
-     */
-    private function userIsInAllowedGroup(BackendUserAuthentication $beUser, array $allowed): bool
-    {
-        $usergroup  = $beUser->user['usergroup'] ?? null;
-        $userGroups = array_map(intval(...), explode(',', is_string($usergroup) ? $usergroup : ''));
-
-        return array_intersect($allowed, $userGroups) !== [];
+        return (new ChatAccess($this->config))->decide($this->getBackendUser())->isAllowed();
     }
 
     public function getItem(): string

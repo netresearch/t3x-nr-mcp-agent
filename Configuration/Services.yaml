@@ -61,6 +61,10 @@ services:
   Netresearch\NrMcpAgent\Controller\MissingAltTextsController:
     public: true
 
+  # The module's first page (ADR-031).
+  Netresearch\NrMcpAgent\Controller\OverviewController:
+    public: true
+
   # Processor: chosen by the extension setting processingStrategy (exec | worker)
   Netresearch\NrMcpAgent\Service\ChatProcessorInterface:
     factory: ['@Netresearch\NrMcpAgent\Service\ChatProcessorFactory', 'create']

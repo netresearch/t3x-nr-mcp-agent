@@ -15,7 +15,7 @@ Requirements
 *   EXT:filelist (``typo3/cms-filelist``) -- the file picker
     uses its element browser
 *   `netresearch/nr-llm <https://github.com/netresearch/
-    t3x-nr-llm>`__ (^0.41.7 || ^0.42 || ^0.43) -- LLM abstraction layer
+    t3x-nr-llm>`__ (^0.43.9) -- LLM abstraction layer
 
 Optional:
 
@@ -33,8 +33,9 @@ Quick start
     Configuration > nr_mcp_agent** and set ``llmTaskUid``
     to the Task UID from step 2.
 
-The AI Chat module is now available under
-**Admin Tools > AI Chat**.
+The chat now opens from the chat icon in the top bar. The
+module **AI > AI Chat** shows whether it works and how it is
+configured.
 
 Composer installation
 =====================

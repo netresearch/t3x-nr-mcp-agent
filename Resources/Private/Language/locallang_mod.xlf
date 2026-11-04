@@ -8,7 +8,7 @@
                 <source>AI Chat</source>
             </trans-unit>
             <trans-unit id="mlang_labels_tabdescr" resname="mlang_labels_tabdescr">
-                <source>AI-powered chat assistant with MCP tool integration</source>
+                <source>Overview of the AI chat: whether it works, how it is configured and used</source>
             </trans-unit>
             <trans-unit id="mlang_labels_tablabel" resname="mlang_labels_tablabel">
                 <source>AI Chat</source>

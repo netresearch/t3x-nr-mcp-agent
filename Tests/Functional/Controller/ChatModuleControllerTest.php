@@ -91,11 +91,12 @@ class ChatModuleControllerTest extends FunctionalTestCase
 
         // Build a Route that carries the packageName option so BackendViewFactory
         // can resolve the Fluid template paths from the correct extension.
+        // The chat is the module's sub-route "conversation" (ADR-031).
         $routeOptions = $module->getDefaultRouteOptions();
-        $defaultOpts  = $routeOptions['_default'] ?? [];
-        $route        = new Route('path', $defaultOpts);
+        self::assertSame(ChatModuleController::class . '::indexAction', $routeOptions['conversation']['target'] ?? null);
+        $route = new Route('path', $routeOptions['conversation']);
 
-        $request = (new ServerRequest('https://localhost/typo3/module/tools/nr-mcp-agent-chat', 'GET'))
+        $request = (new ServerRequest('https://localhost/typo3/module/nr/mcp/agent/chat/conversation', 'GET'))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', $route)
             ->withAttribute('module', $module)

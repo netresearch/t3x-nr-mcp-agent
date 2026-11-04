@@ -7,19 +7,70 @@
 Usage
 =====
 
-Opening the AI Chat module
-==========================
+Opening the chat
+================
 
-Navigate to **Admin Tools > AI Chat** in the TYPO3
-backend. The module is available to all backend users
-who have access to the Admin Tools section (unless
-restricted via the ``allowedGroups`` setting).
+Click the chat icon in the top bar of the TYPO3 backend. The
+chat opens as a panel, or beside the page module as a column
+next to the page tree. The full-page chat is linked from the
+overview module and from the dashboard widgets.
 
 ..  figure:: /Images/ChatModule.png
-    :alt: AI Chat backend module
+    :alt: The full-page AI chat
     :class: with-shadow
 
-    The AI Chat module in the TYPO3 backend.
+    The full-page chat.
+
+..  _usage-overview-module:
+
+The overview module
+===================
+
+**AI > AI Chat** opens an overview of the chat. Backend users
+need access to the module in their backend group
+(*Access Lists > Modules*); administrators always have it.
+
+What the chat does
+    The chat answers questions about the installation and
+    prepares changes to pages, content and files; every change
+    waits for your approval. The page lists where it appears:
+    the top bar, the column beside the page tree, the dashboard
+    widgets and the list of missing alternative texts.
+
+Does it work for you?
+    Each line is checked when the page loads, for the viewer,
+    with the rules the chat applies itself: access
+    (``allowedGroups``), the nr-llm Task and its LLM
+    configuration (``llmTaskUid``, ``groupTaskMapping``),
+    whether the model can call tools, how many tools are
+    withheld, and how messages are processed. With the
+    ``worker`` strategy the page counts idle workers; a worker
+    busy with a turn leaves no trace, so "no idle worker" is a
+    warning, not a failure. A line the page cannot measure says
+    *Not checked*. Administrators also see each
+    ``groupTaskMapping`` row.
+
+Usage
+    For the last 7, 30 or 90 days: conversations by state now,
+    conversations started and those of them that have a skill
+    now (an ended guided tour has none), open
+    points of guided tours, model calls and failed calls, billed
+    requests, tokens and estimated cost from nr-llm, and your
+    budget. Administrators see the figures of all users and the
+    failed conversations per error code; editors see their own.
+    No message and no other user's conversation title is shown.
+    Model calls are kept by nr-llm for its telemetry retention;
+    when the period reaches further back, the page says from
+    which day they are counted.
+
+Configuration
+    Administrators see every setting of the extension
+    configuration with its value and whether it is the default,
+    except ``maxConversationsPerUser``, which nothing reads.
+
+Go to
+    The full-page chat, the missing alternative texts, and the
+    nr-llm modules the viewer may open.
 
 Sending messages
 ================

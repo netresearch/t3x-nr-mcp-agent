@@ -18,8 +18,9 @@ Backend users manage content through natural language.
 
 ## Features
 
-- **Integrated chat module** -- A dedicated backend module under Admin Tools with
-  a modern chat interface built as a Lit web component.
+- **Integrated chat module** -- **AI > AI Chat** gives an overview of the chat
+  (readiness, configuration, usage); the full-page chat, a Lit web component,
+  opens from it.
 - **Tools from nr-llm** -- The chat runs on nr-llm's agent runtime and tool
   registry: its builtin read and write tools, and any MCP server configured in
   nr-llm's *MCP Servers* module.
@@ -93,7 +94,7 @@ If not installed, XLSX files will be rejected at upload time with a 422 response
 3. Go to **Admin Tools > Settings > Extension Configuration > nr_mcp_agent** and
    set `llmTaskUid` to the Task UID from step 2.
 
-The AI Chat module is now available under **Admin Tools > AI Chat**.
+The chat opens from the chat icon in the top bar; the module **AI > AI Chat** shows whether it works, how it is configured and how it was used.
 
 ## DDEV Development
 

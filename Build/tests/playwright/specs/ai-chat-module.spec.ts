@@ -23,17 +23,26 @@ const TYPO3_PASSWORD = process.env.TYPO3_ADMIN_PASSWORD || 'Joh316!!';
 const MODULE_HREF_PATTERN = '/nr/mcp/agent/chat';
 
 /**
- * Navigate to the AI Chat module via the sidebar link and return the
- * iframe FrameLocator that contains the module content.
+ * Open the AI Chat module via the sidebar link: its first page is the
+ * overview (ADR-031). Returns the iframe FrameLocator of the module content.
  */
-async function navigateToModule(page: Page): Promise<FrameLocator> {
+async function navigateToOverview(page: Page): Promise<FrameLocator> {
     const chatLink = page.locator(`a[href*="${MODULE_HREF_PATTERN}"]`);
     await chatLink.click();
-    // Wait for the module iframe to appear and load
     const iframeEl = page.locator('iframe');
     await expect(iframeEl).toBeVisible({ timeout: 10000 });
     const iframe = page.frameLocator('iframe[name="list_frame"]');
-    // Wait for the Lit component inside the iframe
+    await expect(iframe.locator('.nr-mcp-agent-overview')).toBeVisible({ timeout: 15000 });
+    return iframe;
+}
+
+/**
+ * Open the full-page chat, the module's sub-route "conversation", from the
+ * overview's link, and return the iframe with the chat app loaded.
+ */
+async function navigateToModule(page: Page): Promise<FrameLocator> {
+    const iframe = await navigateToOverview(page);
+    await iframe.getByRole('link', { name: 'The chat as a full page' }).click();
     await expect(iframe.locator('nr-chat-app')).toBeVisible({ timeout: 15000 });
     return iframe;
 }
@@ -58,6 +67,18 @@ test.describe('AI Chat Backend Module', () => {
 
         const chatLink = moduleMenu.locator(`a[href*="${MODULE_HREF_PATTERN}"]`);
         await expect(chatLink).toHaveCount(1);
+    });
+
+    test('the module opens the overview, not the chat', async ({ page }) => {
+        const iframe = await navigateToOverview(page);
+        await expect(iframe.getByRole('heading', { level: 1, name: 'AI Chat' })).toBeVisible();
+        await expect(iframe.getByRole('heading', { level: 2, name: 'Does it work for you?' })).toBeVisible();
+        await expect(iframe.locator('nr-chat-app')).toHaveCount(0);
+    });
+
+    test('the overview says why the chat is not available without a task', async ({ page }) => {
+        const iframe = await navigateToOverview(page);
+        await expect(iframe.locator('[data-nr-readiness="access.noTask"]')).toContainText('Not ready');
     });
 
     test('AI Chat module loads and renders nr-chat-app', async ({ page }) => {

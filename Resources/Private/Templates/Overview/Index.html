@@ -1,0 +1,245 @@
+<f:comment>
+    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: Netresearch DTT GmbH
+</f:comment>
+<html
+    xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+    xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+    data-namespace-typo3-fluid="true"
+>
+<f:layout name="Module" />
+<f:section name="Content">
+<f:variable name="ll" value="LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_overview.xlf:" />
+<div class="nr-mcp-agent-overview">
+    <h1>{f:translate(key: '{ll}title')}</h1>
+
+    <section class="mb-4" aria-labelledby="nr-overview-understanding">
+        <h2 id="nr-overview-understanding">{f:translate(key: '{ll}understanding.heading')}</h2>
+        <p>{f:translate(key: '{ll}understanding.text')}</p>
+        <ul>
+            <li>{f:translate(key: '{ll}understanding.where.toolbar')}</li>
+            <li>{f:translate(key: '{ll}understanding.where.column')}</li>
+            <li>{f:translate(key: '{ll}understanding.where.dashboard')}</li>
+            <li>{f:translate(key: '{ll}understanding.where.altTexts')}</li>
+        </ul>
+        <p>
+            <a class="btn btn-primary" href="{chatUri}" data-nr-chat-start="1">
+                <core:icon identifier="actions-chat" size="small" />
+                {f:translate(key: '{ll}action.openChat')}
+            </a>
+        </p>
+    </section>
+
+    <section class="mb-4" aria-labelledby="nr-overview-readiness">
+        <h2 id="nr-overview-readiness">{f:translate(key: '{ll}readiness.heading')}</h2>
+        <p class="text-body-secondary">{f:translate(key: '{ll}readiness.intro')}</p>
+        <div class="table-fit">
+            <table class="table table-striped">
+                <caption class="visually-hidden">{f:translate(key: '{ll}readiness.heading')}</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">{f:translate(key: '{ll}column.state')}</th>
+                        <th scope="col">{f:translate(key: '{ll}column.finding')}</th>
+                        <th scope="col">{f:translate(key: '{ll}column.action')}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <f:for each="{readiness}" as="row">
+                        <tr data-nr-readiness="{row.key}">
+                            <td><f:render section="State" arguments="{state: row.state, ll: ll}" /></td>
+                            <td>{f:translate(key: '{ll}readiness.{row.key}', arguments: row.args)}</td>
+                            <td>
+                                <f:if condition="{row.fix} && {links.{row.fix}}">
+                                    <f:then><a href="{links.{row.fix}}">{f:translate(key: '{ll}fix.{row.fix}')}</a></f:then>
+                                    <f:else if="{row.fix}">{f:translate(key: '{ll}fix.askAdministrator')}</f:else>
+                                </f:if>
+                            </td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </div>
+        <f:if condition="{taskMapping}">
+            <h3>{f:translate(key: '{ll}taskMapping.heading')}</h3>
+            <div class="table-fit">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">{f:translate(key: '{ll}taskMapping.group')}</th>
+                            <th scope="col">{f:translate(key: '{ll}taskMapping.task')}</th>
+                            <th scope="col">{f:translate(key: '{ll}column.state')}</th>
+                            <th scope="col">{f:translate(key: '{ll}column.finding')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <f:for each="{taskMapping}" as="mapping">
+                            <tr data-nr-mapping="{mapping.key}">
+                                <td><f:if condition="{mapping.group}"><f:then>{mapping.group}</f:then><f:else>{f:translate(key: '{ll}taskMapping.everyoneElse')}</f:else></f:if></td>
+                                <td>{mapping.task}</td>
+                                <td><f:render section="State" arguments="{state: mapping.state, ll: ll}" /></td>
+                                <td>{f:translate(key: '{ll}readiness.{mapping.key}', arguments: {0: mapping.taskName, 1: mapping.configurationName})}</td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+        </f:if>
+    </section>
+
+    <section class="mb-4" aria-labelledby="nr-overview-usage">
+        <h2 id="nr-overview-usage">{f:translate(key: '{ll}usage.heading')}</h2>
+        <nav aria-label="{f:translate(key: '{ll}period.label')}" class="mb-3">
+            <ul class="nav nav-pills">
+                <f:for each="{periodLinks}" as="uri" key="days">
+                    <li class="nav-item">
+                        <f:if condition="{days} == {period.days}">
+                            <f:then><a class="nav-link active" aria-current="page" href="{uri}">{f:translate(key: '{ll}period.days', arguments: {0: days})}</a></f:then>
+                            <f:else><a class="nav-link" href="{uri}">{f:translate(key: '{ll}period.days', arguments: {0: days})}</a></f:else>
+                        </f:if>
+                    </li>
+                </f:for>
+            </ul>
+        </nav>
+        <p class="text-body-secondary">
+            <f:if condition="{isAdmin}">
+                <f:then>{f:translate(key: '{ll}usage.scope.all')}</f:then>
+                <f:else>{f:translate(key: '{ll}usage.scope.own')}</f:else>
+            </f:if>
+        </p>
+
+        <div class="row row-cols-1 row-cols-md-2 g-3">
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-header"><h3 class="card-title h5 mb-0">{f:translate(key: '{ll}conversations.heading')}</h3></div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.active')}</dt><dd class="col-4 text-end" data-nr-count="active">{conversations.active}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.awaitingApproval')}</dt><dd class="col-4 text-end" data-nr-count="awaitingApproval">{conversations.awaitingApproval}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.awaitingInput')}</dt><dd class="col-4 text-end" data-nr-count="awaitingInput">{conversations.awaitingInput}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.failed')}</dt><dd class="col-4 text-end" data-nr-count="failed">{conversations.failed}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.idle')}</dt><dd class="col-4 text-end" data-nr-count="idle">{conversations.idle}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.archived')}</dt><dd class="col-4 text-end" data-nr-count="archived">{conversations.archived}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.openPoints')}</dt><dd class="col-4 text-end" data-nr-count="openPoints">{openPoints}</dd>
+                        </dl>
+                        <p class="text-body-secondary small mt-2 mb-0">{f:translate(key: '{ll}conversations.now')}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-header"><h3 class="card-title h5 mb-0">{f:translate(key: '{ll}period.heading', arguments: {0: period.days})}</h3></div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.started')}</dt><dd class="col-4 text-end" data-nr-count="started">{conversations.started}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}conversations.startedWithSkill')}</dt><dd class="col-4 text-end" data-nr-count="startedWithSkill">{conversations.startedWithSkill}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}usage.calls')}</dt><dd class="col-4 text-end" data-nr-count="calls">{usage.calls}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}usage.failedCalls')}</dt><dd class="col-4 text-end" data-nr-count="failedCalls">{usage.failedCalls}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}usage.requests')}</dt><dd class="col-4 text-end" data-nr-count="requests">{usage.requests}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}usage.tokens')}</dt><dd class="col-4 text-end" data-nr-count="tokens">{usage.tokens}</dd>
+                            <dt class="col-8">{f:translate(key: '{ll}usage.cost')}</dt><dd class="col-4 text-end" data-nr-count="cost">{usage.cost}</dd>
+                        </dl>
+                        <f:if condition="!{usage.telemetryEnabled}">
+                            <p class="text-body-secondary small mt-2 mb-0">{f:translate(key: '{ll}usage.telemetryOff')}</p>
+                        </f:if>
+                        <f:if condition="{usage.callsCountedFrom}">
+                            <p class="text-body-secondary small mt-2 mb-0">{f:translate(key: '{ll}usage.callsCountedFrom', arguments: {0: '{usage.callsCountedFrom -> f:format.date(format: \'Y-m-d\')}', 1: usage.retentionDays})}</p>
+                        </f:if>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <f:if condition="{failures}">
+            <h3 class="mt-3">{f:translate(key: '{ll}failures.heading')}</h3>
+            <div class="table-fit">
+                <table class="table table-striped">
+                    <thead><tr><th scope="col">{f:translate(key: '{ll}failures.code')}</th><th scope="col">{f:translate(key: '{ll}failures.count')}</th></tr></thead>
+                    <tbody>
+                        <f:for each="{failures}" as="count" key="code">
+                            <tr><td><code><f:if condition="{code}"><f:then>{code}</f:then><f:else>{f:translate(key: '{ll}failures.noCode')}</f:else></f:if></code></td><td>{count}</td></tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+        </f:if>
+
+        <h3 class="mt-3">{f:translate(key: '{ll}budget.heading')}</h3>
+        <f:if condition="{budget.month.cost.limited}">
+            <f:then>
+                <p>{f:translate(key: '{ll}budget.month', arguments: {0: budget.month.cost.used, 1: budget.month.cost.limit})}</p>
+            </f:then>
+            <f:else if="{budget.hasPersonalLimit}">
+                <p>{f:translate(key: '{ll}budget.otherLimit', arguments: {0: budget.month.cost.used})}</p>
+            </f:else>
+            <f:else>
+                <p>{f:translate(key: '{ll}budget.noLimit', arguments: {0: budget.month.cost.used})}</p>
+            </f:else>
+        </f:if>
+    </section>
+
+    <f:if condition="{waiting}">
+        <section class="mb-4" aria-labelledby="nr-overview-waiting">
+            <h2 id="nr-overview-waiting">{f:translate(key: '{ll}waiting.heading')}</h2>
+            <ul>
+                <f:for each="{waiting}" as="conversation">
+                    <li><a href="{chatUri}&amp;conversation={conversation.uid}">{conversation.title}</a> — {f:translate(key: '{ll}conversations.{f:if(condition: \'{conversation.status} == awaiting_approval\', then: \'awaitingApproval\', else: \'awaitingInput\')}')}</li>
+                </f:for>
+            </ul>
+        </section>
+    </f:if>
+
+    <f:comment>The overview hands the configuration to administrators only.</f:comment>
+    <f:if condition="{configuration}">
+        <section class="mb-4" aria-labelledby="nr-overview-configuration">
+            <h2 id="nr-overview-configuration">{f:translate(key: '{ll}configuration.heading')}</h2>
+            <p class="text-body-secondary">
+                {f:translate(key: '{ll}configuration.intro')}
+                <f:if condition="{links.settings}"><a href="{links.settings}">{f:translate(key: '{ll}fix.settings')}</a></f:if>
+            </p>
+            <div class="table-fit">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">{f:translate(key: '{ll}configuration.setting')}</th>
+                            <th scope="col">{f:translate(key: '{ll}configuration.value')}</th>
+                            <th scope="col">{f:translate(key: '{ll}configuration.source')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <f:for each="{configuration}" as="setting">
+                            <tr>
+                                <th scope="row">{f:translate(key: '{ll}setting.{setting.key}', default: setting.key)} <code class="small">{setting.key}</code></th>
+                                <td><f:if condition="{setting.value} != ''"><f:then><code>{setting.value}</code></f:then><f:else>{f:translate(key: '{ll}configuration.empty')}</f:else></f:if></td>
+                                <td><f:if condition="{setting.isDefault}"><f:then>{f:translate(key: '{ll}configuration.default')}</f:then><f:else>{f:translate(key: '{ll}configuration.set')}</f:else></f:if></td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-body-secondary">{f:translate(key: '{ll}configuration.cleanup')} <code>vendor/bin/typo3 ai-chat:cleanup</code></p>
+        </section>
+    </f:if>
+
+    <section class="mb-4" aria-labelledby="nr-overview-actions">
+        <h2 id="nr-overview-actions">{f:translate(key: '{ll}actions.heading')}</h2>
+        <ul>
+            <li><a href="{chatUri}">{f:translate(key: '{ll}action.chatFullPage')}</a></li>
+            <f:if condition="{altTextsUri}"><li><a href="{altTextsUri}">{f:translate(key: '{ll}action.altTexts')}</a></li></f:if>
+            <f:for each="{links}" as="uri" key="module">
+                <f:if condition="{module} != 'settings'"><li><a href="{uri}">{f:translate(key: '{ll}link.{module}')}</a></li></f:if>
+            </f:for>
+        </ul>
+    </section>
+</div>
+</f:section>
+
+<f:section name="State">
+    <f:switch expression="{state}">
+        <f:case value="ok"><span class="badge badge-success"><core:icon identifier="actions-check" size="small" /> {f:translate(key: '{ll}state.ok')}</span></f:case>
+        <f:case value="problem"><span class="badge badge-danger"><core:icon identifier="actions-close" size="small" /> {f:translate(key: '{ll}state.problem')}</span></f:case>
+        <f:case value="warning"><span class="badge badge-warning"><core:icon identifier="actions-exclamation" size="small" /> {f:translate(key: '{ll}state.warning')}</span></f:case>
+        <f:case value="info"><span class="badge badge-info"><core:icon identifier="actions-info" size="small" /> {f:translate(key: '{ll}state.info')}</span></f:case>
+        <f:defaultCase><span class="badge badge-default"><core:icon identifier="actions-question" size="small" /> {f:translate(key: '{ll}state.unchecked')}</span></f:defaultCase>
+    </f:switch>
+</f:section>
+</html>
