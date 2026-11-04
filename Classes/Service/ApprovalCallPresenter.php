@@ -192,6 +192,8 @@ final readonly class ApprovalCallPresenter
      * "„Aktiviert“ ändern" on a card that disables a redirect names the
      * opposite of what it does, so the card keeps its action label, which
      * the preview's heading ("Weiterleitung deaktivieren") usually supplies.
+     * A structured label that differs from the schema's is the tool's own
+     * wording and still names the change.
      *
      * @param array{table: string, fields: list<string>, fieldLabels: list<string>}|null                                                                            $affected
      * @param list<array{field: string, label: string, current: string|null, proposed: string, measure: array{count: int, min: int|null, max: int|null}|null}>|null $structured
@@ -206,9 +208,13 @@ final readonly class ApprovalCallPresenter
                 return null;
             }
 
-            $label = $structured[0]['label'] !== '' || !$this->readsOpposite($affected['table'], $structured[0]['field'])
-                ? $this->singleFieldLabel($structured[0], $affected)
-                : null;
+            $label = $this->singleFieldLabel($structured[0], $affected);
+            if ($this->readsOpposite($affected['table'], $structured[0]['field'])
+                && in_array($label, $this->fieldLabels($affected['table'], [$structured[0]['field']], $language), true)
+            ) {
+                // nr-llm's structured labels are mostly the schema's own.
+                $label = null;
+            }
         } elseif (($structured === null || $structured === []) && $affected !== null && count($affected['fieldLabels']) === 1
             && !$this->readsOpposite($affected['table'], $affected['fields'][0] ?? '')
         ) {

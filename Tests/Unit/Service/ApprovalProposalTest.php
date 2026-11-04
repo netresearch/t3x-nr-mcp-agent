@@ -120,6 +120,9 @@ final class ApprovalProposalTest extends TestCase
         self::assertSame('Weiterleitung deaktivieren', $this->presentRedirectCall('disable_redirect', 'Weiterleitung deaktivieren', $target, [
             new FieldProposal('disabled', '', '0', '1'),
         ])['heading'], 'a structured entry without a label of its own');
+        self::assertSame('Weiterleitung deaktivieren', $this->presentRedirectCall('disable_redirect', 'Weiterleitung deaktivieren', $target, [
+            new FieldProposal('disabled', 'Aktiviert', '0', '1'),
+        ])['heading'], "a structured entry carrying the schema's label, as nr-llm's columnLabel() sends it");
     }
 
     /** A check column that is not inverted still names the change, and so does a tool's own label for an inverted one. */
