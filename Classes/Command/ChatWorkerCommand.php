@@ -175,7 +175,7 @@ final class ChatWorkerCommand extends Command
             ));
 
             $this->setTheClock();
-            BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool);
+            BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool, $conversation->getWorkspace());
             $this->turnTiming?->begin($conversation, startedForTurn: false);
 
             if ($conversation->hasPendingToolCalls()) {
@@ -197,8 +197,9 @@ final class ChatWorkerCommand extends Command
         } finally {
             $this->armTurnLimit(0);
             $this->running = null;
-            // Clear BE_USER after processing to prevent leaking auth context between jobs.
-            $GLOBALS['BE_USER'] = null;
+            // Clear BE_USER and the workspace after processing to prevent
+            // leaking auth context between jobs.
+            BackendUserInitializer::release();
         }
 
         return $conversation;

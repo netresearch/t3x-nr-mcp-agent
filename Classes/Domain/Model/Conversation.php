@@ -85,6 +85,14 @@ final class Conversation
     private bool $skillStartPending = false;
 
     /**
+     * The TYPO3 workspace the editor worked in when they handed the latest
+     * turn to the worker: 0 for live, a draft workspace's uid, -1 for a turn
+     * handed over before it was kept. Written with the Processing status
+     * that hands the turn over (ConversationRepository).
+     */
+    private int $workspace = -1;
+
+    /**
      * What the agent did in the current turn, as a JSON list of step
      * summaries (NEXT-172). Written column by column while the turn runs
      * ({@see \Netresearch\NrMcpAgent\Service\RunActivityRecorder}) and
@@ -269,6 +277,7 @@ final class Conversation
         $conversation->lastRunUuid        = (string) self::val($row, 'last_run_uuid', '');
         $conversation->altTextHit         = (string) self::val($row, 'alt_text_hit', '');
         $conversation->imageAnalysis      = (string) self::val($row, 'image_analysis', '');
+        $conversation->workspace          = (int) self::val($row, 'workspace', -1);
         $conversation->tstamp             = (int) self::val($row, 'tstamp', 0);
         $conversation->crdate             = (int) self::val($row, 'crdate', 0);
         $conversation->titleSource        = (string) self::val($row, 'title_source', '');
@@ -329,6 +338,7 @@ final class Conversation
             'approval_deny_reason' => $this->approvalDenyReason,
             'alt_text_hit'         => $this->altTextHit,
             'image_analysis'       => $this->imageAnalysis,
+            'workspace'            => $this->workspace,
         ];
     }
 
@@ -678,6 +688,21 @@ final class Conversation
     public function setImageAnalysisSnapshot(string $snapshot): void
     {
         $this->imageAnalysis = $snapshot;
+    }
+
+    /**
+     * The workspace the latest turn was handed over in: 0 for live, a draft
+     * workspace's uid, null when it is not known — a turn handed over before
+     * the workspace was kept.
+     */
+    public function getWorkspace(): ?int
+    {
+        return $this->workspace >= 0 ? $this->workspace : null;
+    }
+
+    public function setWorkspace(int $workspace): void
+    {
+        $this->workspace = $workspace >= 0 ? $workspace : -1;
     }
 
     public function getSkillUid(): int

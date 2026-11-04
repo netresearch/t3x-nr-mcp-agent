@@ -37,6 +37,7 @@ CREATE TABLE tx_nrmcpagent_conversation (
     last_run_uuid varchar(64) DEFAULT '' NOT NULL,
     alt_text_hit text,
     image_analysis text,
+    workspace int(11) DEFAULT '-1' NOT NULL,
     last_message_at int(11) unsigned DEFAULT 0 NOT NULL,
     tstamp int(11) unsigned DEFAULT 0 NOT NULL,
     crdate int(11) unsigned DEFAULT 0 NOT NULL,

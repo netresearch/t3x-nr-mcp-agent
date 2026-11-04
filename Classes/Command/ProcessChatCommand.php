@@ -70,7 +70,7 @@ final class ProcessChatCommand extends Command
             return Command::SUCCESS;
         }
 
-        BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool);
+        BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool, $conversation->getWorkspace());
         $this->turnTiming?->begin($conversation);
 
         try {
