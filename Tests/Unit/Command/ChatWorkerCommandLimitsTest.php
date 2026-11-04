@@ -35,6 +35,27 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class ChatWorkerCommandLimitsTest extends TestCase
 {
+    private mixed $requestTime = null;
+
+    /**
+     * The worker treats a settings file written since the process started as
+     * changed, and reads that start from REQUEST_TIME, which in a test run is
+     * the start of PHPUnit. Pin it, so the file times below are relative to a
+     * known start however long the suite has run.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->requestTime       = $_SERVER['REQUEST_TIME'] ?? null;
+        $_SERVER['REQUEST_TIME'] = time() - 10;
+    }
+
+    protected function tearDown(): void
+    {
+        $_SERVER['REQUEST_TIME'] = $this->requestTime;
+        parent::tearDown();
+    }
+
     /**
      * @param array<string, int> $options
      */
@@ -90,11 +111,13 @@ final class ChatWorkerCommandLimitsTest extends TestCase
     {
         $file = tempnam(sys_get_temp_dir(), 'settings');
         self::assertIsString($file);
-        touch($file, time() - 60);
+        // Both times lie before the process start, as when a deploy replaces
+        // the file and keeps an older time: only the difference tells.
+        touch($file, time() - 120);
 
         $repository = $this->createMock(ConversationRepository::class);
         $repository->expects(self::once())->method('dequeueForWorker')->willReturnCallback(static function () use ($file): ?Conversation {
-            touch($file, time() + 60);
+            touch($file, time() - 60);
 
             return null;
         });
@@ -119,7 +142,8 @@ final class ChatWorkerCommandLimitsTest extends TestCase
     {
         $file = tempnam(sys_get_temp_dir(), 'settings');
         self::assertIsString($file);
-        touch($file, time() + 60);
+        // Written after the process started and before the worker looked.
+        touch($file, time() - 2);
 
         $repository = $this->createMock(ConversationRepository::class);
         $repository->expects(self::never())->method('dequeueForWorker');
@@ -137,6 +161,33 @@ final class ChatWorkerCommandLimitsTest extends TestCase
         $file = tempnam(sys_get_temp_dir(), 'settings');
         self::assertIsString($file);
         touch($file, time() - 60);
+        $calls      = 0;
+        $repository = $this->createStub(ConversationRepository::class);
+        $repository->method('dequeueForWorker')->willReturnCallback(static function () use (&$calls): ?Conversation {
+            ++$calls;
+
+            return null;
+        });
+
+        try {
+            $this->runWorker(['--time-limit' => 1, '--poll-interval' => 1], $repository, configurationFile: $file);
+        } finally {
+            unlink($file);
+        }
+
+        self::assertGreaterThan(1, $calls);
+    }
+
+    /**
+     * A file time ahead of this host's clock is not a save during the boot:
+     * stopping on it would restart every worker until the clock catches up.
+     */
+    #[Test]
+    public function aSettingsFileFromTheFutureIsNoChange(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'settings');
+        self::assertIsString($file);
+        touch($file, time() + 600);
         $calls      = 0;
         $repository = $this->createStub(ConversationRepository::class);
         $repository->method('dequeueForWorker')->willReturnCallback(static function () use (&$calls): ?Conversation {

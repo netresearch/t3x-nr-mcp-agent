@@ -106,14 +106,16 @@ final class ChatWorkerCommand extends Command
         $settingsFile   = $this->settingsFile ?? $this->systemSettingsFile();
         $settingsAtBoot = $this->modificationTime($settingsFile);
         // TYPO3 read the settings before this line; a save between the two
-        // reads would go unseen, so a file written in or after the second the
-        // process started counts as changed too. It costs a restart at most.
+        // reads would go unseen, so a file written between the second the
+        // process started and now counts as changed too. It costs a restart at
+        // most. A time after now (a clock ahead of this host) is not a save
+        // during the boot and must not stop every worker that starts.
         $processStart = is_int($_SERVER['REQUEST_TIME'] ?? null) ? $_SERVER['REQUEST_TIME'] : $startedAt;
 
         try {
             while (!$this->stopRequested) {
                 $settingsNow = $this->modificationTime($settingsFile);
-                if ($settingsNow !== $settingsAtBoot || ($settingsNow !== null && $settingsNow >= $processStart)) {
+                if ($settingsNow !== $settingsAtBoot || ($settingsNow !== null && $settingsNow >= $processStart && $settingsNow <= $startedAt)) {
                     $output->writeln('<info>The settings changed since this worker started; stopping so a new one reads them.</info>');
 
                     break;

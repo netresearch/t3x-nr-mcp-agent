@@ -457,7 +457,7 @@
                 <target>Lauf eines geführten Ablaufs</target>
             </trans-unit>
             <trans-unit id="rounds.ceiling" resname="rounds.ceiling">
-                <source>Most any run may take</source>
+                <source>Maximum rounds for any run</source>
                 <target>Höchstens je Lauf</target>
             </trans-unit>
             <trans-unit id="rounds.source.chat" resname="rounds.source.chat">

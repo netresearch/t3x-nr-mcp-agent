@@ -552,8 +552,10 @@ default for every caller. The ceiling of 20 that the amendment of
     a high maximum cannot run into a proxy timeout there. nr-llm's own
     Agent Runs inbox and playground continue a run inside the request; see
     nr-llm ADR-101.
--   A save in the second the worker started counts as a change, so a
-    save during its boot is not missed; it costs at most one more restart.
+-   A save between the second the worker started and its first look
+    counts as a change, so a save during its boot is not missed; it costs
+    at most one more restart. A file time ahead of the host's clock does
+    not.
     A turn that a worker takes in the instant between the save and its
     check still runs on the old values.
 -   A segment that resumes after *Übernehmen* or a choice keeps the run's
