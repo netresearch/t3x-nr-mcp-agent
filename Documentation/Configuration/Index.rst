@@ -75,7 +75,9 @@ LLM connection
     default applies: the nr-llm setting ``agent.defaultMaxIterations``
     (5 unless changed). nr-llm caps every value at ``agent.maxIterations``.
     A run that resumes after an approval or an answer gets the number
-    again, capped at the maximum in force then.
+    again, capped at the maximum in force then. More rounds make a turn
+    longer; a worker ends a turn after ``--turn-limit`` seconds, so a large
+    value may need a larger limit.
 
     The overview module lists the rounds each kind of run gets, as
     nr-llm applies them. A worker that started before a change stops
@@ -568,6 +570,10 @@ A worker ends by itself and expects to be started again:
     A turn that runs longer than this many seconds, 600 by default, ends
     the process and fails, and the reader gets a Retry. It is never run a
     second time by itself, because it may have written.
+
+A changed setting
+    When the system settings file was written since the worker started, it
+    stops before its next turn, so the next worker reads the new values.
 
 SIGTERM and SIGINT stop a worker after its current turn, so give it the
 time (``TimeoutStopSec``, or ``stop_grace_period`` in Compose). This and

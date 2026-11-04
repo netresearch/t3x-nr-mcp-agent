@@ -33,7 +33,9 @@ recommended setting and its supervisor starts the next one at once. So the reade
 no longer waits for the boot, and every turn still gets a fresh process: nothing
 of a turn reaches the next one and memory cannot grow. The price is a boot after
 each turn instead of before it, which nobody waits for, and a changed configuration
-counts from the next boot, so at the latest after ``--time-limit``. TYPO3 reads the
+counts from the next boot, so at the latest after ``--time-limit``. (Since the
+round-cap amendment of ADR-023 of 2026-11-04, a worker stops before its next turn
+when the settings were saved since it started.) TYPO3 reads the
 time once at boot, so a worker sets it again when it takes a turn.
 
 **Keeping a process across turns stays possible and is not the default.**

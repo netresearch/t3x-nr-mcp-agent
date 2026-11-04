@@ -250,28 +250,14 @@ final readonly class ChatOverview
     }
 
     /**
-     * The model rounds a run gets (ADR-023, amendments of 2026-10-22 and
-     * 2026-11-04): what the chat asks nr-llm for, clamped by nr-llm the way
-     * its runtime clamps it. `source` says where the number comes from:
-     * `chat` and `process` for this extension's settings, `nrLlmDefault` for
-     * a chat run that asks for none, `nrLlmCeiling` for a value above nr-llm's
-     * maximum.
-     *
      * @return array{chat: int, chatSource: string, process: int, processSource: string, ceiling: int}
      */
     private function rounds(): array
     {
-        $ceiling = $this->roundLimits->ceiling();
-        $chat    = $this->config->getChatRunMaxIterations();
-        $process = $this->config->getProcessRunMaxIterations();
-
-        return [
-            'chat'          => $this->roundLimits->roundsFor($chat),
-            'chatSource'    => $chat === null ? 'nrLlmDefault' : ($chat > $ceiling ? 'nrLlmCeiling' : 'chat'),
-            'process'       => $this->roundLimits->roundsFor($process),
-            'processSource' => $process > $ceiling ? 'nrLlmCeiling' : 'process',
-            'ceiling'       => $ceiling,
-        ];
+        return (new RoundsOverview($this->roundLimits))->rounds(
+            $this->config->getChatRunMaxIterations(),
+            $this->config->getProcessRunMaxIterations(),
+        );
     }
 
     /**

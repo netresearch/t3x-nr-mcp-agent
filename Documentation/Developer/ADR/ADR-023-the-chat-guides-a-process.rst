@@ -539,7 +539,8 @@ default for every caller. The ceiling of 20 that the amendment of
 -   **A worker stops when the settings changed since it started**
     (ADR-029). TYPO3 reads the extension settings once, at boot; a worker
     waiting while an administrator saves new ones would run the next turn
-    on the old ones. It checks when ``config/system/settings.php`` was last
+    on the old ones. It checks when the system settings file
+    (``config/system/settings.php`` in a Composer installation) was last
     written before it takes a turn and stops instead, and its supervisor
     starts one that reads the new values. A value written into
     ``additional.php`` takes effect with the next deploy, as before.
@@ -551,6 +552,12 @@ default for every caller. The ceiling of 20 that the amendment of
     a high maximum cannot run into a proxy timeout there. nr-llm's own
     Agent Runs inbox and playground continue a run inside the request; see
     nr-llm ADR-101.
--   A turn that a worker takes in the instant between the save and its
+-   A save in the second the worker started counts as a change, so a
+    save during its boot is not missed; it costs at most one more restart.
+    A turn that a worker takes in the instant between the save and its
     check still runs on the old values.
+-   A segment that resumes after *Übernehmen* or a choice keeps the run's
+    cap (nr-llm keeps it across a resume since its ADR-101 amendment for
+    #1162), so the consequence of 2026-10-22 that such a segment gets the
+    loop's default of 5 no longer holds.
 

@@ -109,11 +109,34 @@ final class ChatWorkerCommandLimitsTest extends TestCase
         self::assertStringContainsString('settings changed', $output->fetch());
     }
 
+    /**
+     * A save in the moment between TYPO3 reading the settings and the worker
+     * noting the file's time would go unseen: a file written in or after the
+     * second the process started counts as changed, before any turn.
+     */
+    #[Test]
+    public function aWorkerStopsAtOnceWhenTheSettingsAreNoOlderThanItsStart(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'settings');
+        self::assertIsString($file);
+        touch($file, time() + 60);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->expects(self::never())->method('dequeueForWorker');
+
+        try {
+            self::assertSame(0, $this->runWorker(['--time-limit' => 5, '--poll-interval' => 1], $repository, configurationFile: $file));
+        } finally {
+            unlink($file);
+        }
+    }
+
     #[Test]
     public function aWorkerWhoseSettingsStayTheSameKeepsWaiting(): void
     {
         $file = tempnam(sys_get_temp_dir(), 'settings');
         self::assertIsString($file);
+        touch($file, time() - 60);
         $calls      = 0;
         $repository = $this->createStub(ConversationRepository::class);
         $repository->method('dequeueForWorker')->willReturnCallback(static function () use (&$calls): ?Conversation {

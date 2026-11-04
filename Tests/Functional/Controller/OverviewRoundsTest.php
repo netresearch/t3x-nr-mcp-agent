@@ -22,8 +22,8 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 /**
  * The rounds of an ordinary chat run with a value of its own (ADR-023,
  * round-cap amendment of 2026-11-04): the overview shows the setting, not
- * nr-llm's default, and a value above nr-llm's maximum as that maximum.
- * OverviewControllerTest covers the run without a value.
+ * nr-llm's default. OverviewControllerTest covers the run without a value
+ * and a value above nr-llm's maximum; RoundsOverviewTest every source.
  */
 final class OverviewRoundsTest extends FunctionalTestCase
 {
@@ -38,7 +38,7 @@ final class OverviewRoundsTest extends FunctionalTestCase
 
     protected array $configurationToUseInTestInstance = [
         'EXTENSIONS' => [
-            'nr_mcp_agent' => ['llmTaskUid' => '1', 'chatRunMaxIterations' => '8', 'processRunMaxIterations' => '30'],
+            'nr_mcp_agent' => ['llmTaskUid' => '1', 'chatRunMaxIterations' => '8', 'processRunMaxIterations' => '20'],
             'nr_llm'       => ['agent' => ['defaultMaxIterations' => '6', 'maxIterations' => '25']],
         ],
     ];
@@ -50,13 +50,14 @@ final class OverviewRoundsTest extends FunctionalTestCase
     }
 
     #[Test]
-    public function aChatRunWithItsOwnValueShowsItAndAValueAboveTheMaximumShowsTheMaximum(): void
+    public function runsWithValuesOfTheirOwnShowThem(): void
     {
         $body = $this->render(1);
 
         self::assertStringContainsString('data-nr-rounds="chat">8<', $body);
         self::assertStringContainsString('Setting chatRunMaxIterations', $body);
-        self::assertStringContainsString('data-nr-rounds="process">25<', $body);
+        self::assertStringContainsString('data-nr-rounds="process">20<', $body);
+        self::assertStringContainsString('Setting processRunMaxIterations', $body);
         self::assertStringContainsString('data-nr-rounds="ceiling">25<', $body);
     }
 
