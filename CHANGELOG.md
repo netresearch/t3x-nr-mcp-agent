@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.2] - 2026-11-04
+
+### Fixed
+
+- The approval card no longer names an inverted toggle as the change. Disabling a redirect read "„Aktiviert“ ändern", because TYPO3 labels the `disabled` column "Enabled" and inverts its toggle; the card now keeps the preview's heading ("Weiterleitung deaktivieren"), and an applied outcome no longer reads "Aktiviert (Weiterleitung 12)". This holds for every column whose toggle sets `invertStateDisplay` (ADR-023 amendment of 2026-11-04, #314).
+
 ## [0.31.1] - 2026-11-04
 
 ### Removed
