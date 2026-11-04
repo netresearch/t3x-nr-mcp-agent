@@ -17,6 +17,7 @@ use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -134,16 +135,28 @@ final class ChatWorkerCommandLimitsTest extends TestCase
 
     /**
      * A save in the moment between TYPO3 reading the settings and the worker
-     * noting the file's time would go unseen: a file written in or after the
-     * second the process started counts as changed, before any turn.
+     * noting the file's time would go unseen: a file written between the
+     * second the process started and the worker's first look counts as
+     * changed, before any turn. Both ends of that window are the realistic
+     * times, since a boot takes about a second.
+     *
+     * @return iterable<string, array{int}>
      */
+    public static function timesDuringTheBoot(): iterable
+    {
+        yield 'after the start' => [-2];
+        yield 'in the second the process started' => [-10];
+        yield 'in the second the worker looked' => [0];
+    }
+
     #[Test]
-    public function aWorkerStopsAtOnceWhenTheSettingsAreNoOlderThanItsStart(): void
+    #[DataProvider('timesDuringTheBoot')]
+    public function aWorkerStopsAtOnceWhenTheSettingsWereWrittenDuringItsBoot(int $offset): void
     {
         $file = tempnam(sys_get_temp_dir(), 'settings');
         self::assertIsString($file);
-        // Written after the process started and before the worker looked.
-        touch($file, time() - 2);
+        // REQUEST_TIME is time() - 10 (setUp).
+        touch($file, time() + $offset);
 
         $repository = $this->createMock(ConversationRepository::class);
         $repository->expects(self::never())->method('dequeueForWorker');

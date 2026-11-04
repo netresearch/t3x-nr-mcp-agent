@@ -107,9 +107,11 @@ final class ChatWorkerCommand extends Command
         $settingsAtBoot = $this->modificationTime($settingsFile);
         // TYPO3 read the settings before this line; a save between the two
         // reads would go unseen, so a file written between the second the
-        // process started and now counts as changed too. It costs a restart at
-        // most. A time after now (a clock ahead of this host) is not a save
-        // during the boot and must not stop every worker that starts.
+        // process started and now counts as changed too. File times have a
+        // resolution of one second, so a worker that starts in the second of a
+        // save stops again: a save costs restarts for up to one second. A time
+        // after now (a clock ahead of this host) is not a save during the boot
+        // and must not stop every worker that starts.
         $processStart = is_int($_SERVER['REQUEST_TIME'] ?? null) ? $_SERVER['REQUEST_TIME'] : $startedAt;
 
         try {

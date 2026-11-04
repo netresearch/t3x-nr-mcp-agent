@@ -553,9 +553,10 @@ default for every caller. The ceiling of 20 that the amendment of
     Agent Runs inbox and playground continue a run inside the request; see
     nr-llm ADR-101.
 -   A save between the second the worker started and its first look
-    counts as a change, so a save during its boot is not missed; it costs
-    at most one more restart. A file time ahead of the host's clock does
-    not.
+    counts as a change, so a save during its boot is not missed. File
+    times have a resolution of one second, so a worker that starts in the
+    second of a save stops again: a save costs restarts for up to one
+    second. A file time ahead of the host's clock does not count.
     A turn that a worker takes in the instant between the save and its
     check still runs on the old values.
 -   A segment that resumes after *Übernehmen* or a choice keeps the run's
