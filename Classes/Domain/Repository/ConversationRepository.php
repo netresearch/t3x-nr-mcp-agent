@@ -1000,7 +1000,9 @@ readonly class ConversationRepository
         // the one their user record names when the worker gets to it (nr-llm
         // ADR-260). Only the owner's request sets it: a user who decides
         // another user's approval works in a workspace of their own, and the
-        // run keeps the one it was started in.
+        // run keeps the one it was started in. Nor does a decision or an
+        // answer: it continues a run that writes where it was started, and
+        // the turn carrying it out runs there too.
         $requestUser = $GLOBALS['BE_USER'] ?? null;
         $requestUid  = $requestUser instanceof BackendUserAuthentication ? ($requestUser->user['uid'] ?? null) : null;
         if ($conversation->getStatus() === ConversationStatus::Processing
@@ -1008,6 +1010,8 @@ readonly class ConversationRepository
             && is_numeric($requestUid)
             && (int) $requestUid === $conversation->getBeUser()
             && $requestUser->workspace >= 0
+            && !$conversation->hasPendingApprovalDecision()
+            && !$conversation->hasPendingInputSubmission()
         ) {
             $conversation->setWorkspace($requestUser->workspace);
         }

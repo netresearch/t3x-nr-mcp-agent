@@ -115,9 +115,21 @@ final class BackendUserInitializerWorkspaceTest extends FunctionalTestCase
 
         $conversation = $repository->findOneByUidAndBeUser($uid, 1);
         self::assertInstanceOf(Conversation::class, $conversation);
+        // Only the write that hands the turn over records it.
+        $repository->update($conversation);
+        self::assertSame(-1, $this->conversationWorkspace($uid), 'recorded without a hand-over');
+
         $conversation->setStatus(ConversationStatus::Processing);
         $repository->update($conversation);
         self::assertSame(2, $this->conversationWorkspace($uid));
+
+        // The owner's decision on the run's card, taken from another
+        // workspace, carries the run on where it was started.
+        self::assertTrue($owner->setTemporaryWorkspace(0));
+        $conversation->setApprovalRunUuid('run-1');
+        $conversation->recordApprovalDecision(true, 'digest');
+        $repository->update($conversation);
+        self::assertSame(2, $this->conversationWorkspace($uid), 'a decision moved the turn');
 
         // Another user's request — an approver of the turn, working in
         // workspace 1 — does not move it.

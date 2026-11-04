@@ -36,6 +36,8 @@ use stdClass;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\WorkspaceAspect;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -187,6 +189,68 @@ class ChatWorkerCommandExecuteTest extends TestCase
         self::assertStringContainsString('Error: Provider said: Incorrect API key provided: [REDACTED] for [URL]', $written);
         self::assertStringNotContainsString('sk-proj-abcdefghijklmnop', $written);
         self::assertStringNotContainsString('raw-secret-value', $written);
+    }
+
+    /**
+     * nr-llm ADR-260: the worker sets the user up in the workspace the turn
+     * was handed over in — here one the user may no longer use, so the turn
+     * fails with that reason — and leaves the process in live afterwards,
+     * whatever the turn set.
+     */
+    #[Test]
+    public function theTurnRunsInItsWorkspaceAndTheWorkerReturnsToLive(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid'      => 4, 'be_user' => 4, 'status' => 'processing', 'workspace' => 5,
+            'messages' => '[{"role":"user","content":"Hello"}]', 'message_count' => 1,
+        ]);
+
+        $backendUser = $this->createMock(BackendUserAuthentication::class);
+        $backendUser->method('checkWorkspace')->willReturn(false);
+        GeneralUtility::addInstance(BackendUserAuthentication::class, $backendUser);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('dequeueForWorker')->willReturn($conversation);
+        $repository->method('update')->willThrowException(new RuntimeException('break'));
+
+        $context = GeneralUtility::makeInstance(Context::class);
+        $context->setAspect('workspace', new WorkspaceAspect(9));
+
+        $command = new ChatWorkerCommand($this->createChatService(), $repository, $this->buildConnectionPoolMockForUser(4));
+        $input   = new ArrayInput(['--poll-interval' => '0']);
+        $input->bind($command->getDefinition());
+
+        try {
+            $command->run($input, new BufferedOutput());
+        } catch (RuntimeException) {
+            // expected break
+        }
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertStringContainsString('may no longer work in workspace 5', $conversation->getErrorMessage());
+        self::assertSame(0, $context->getPropertyFromAspect('workspace', 'id'));
+    }
+
+    private function buildConnectionPoolMockForUser(int $uid): ConnectionPool
+    {
+        $exprBuilder = $this->createMock(ExpressionBuilder::class);
+        $exprBuilder->method('eq')->willReturn('1 = 1');
+
+        $result = $this->createMock(Result::class);
+        $result->method('fetchAssociative')->willReturn(['uid' => $uid, 'username' => 'editor', 'admin' => 0, 'workspace_id' => 0]);
+
+        $qb = $this->createMock(QueryBuilder::class);
+        $qb->method('select')->willReturnSelf();
+        $qb->method('from')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($exprBuilder);
+        $qb->method('createNamedParameter')->willReturn('?');
+        $qb->method('executeQuery')->willReturn($result);
+
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturn($qb);
+
+        return $connectionPool;
     }
 
     #[Test]

@@ -70,10 +70,13 @@ final class ProcessChatCommand extends Command
             return Command::SUCCESS;
         }
 
-        BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool, $conversation->getWorkspace());
-        $this->turnTiming?->begin($conversation);
-
         try {
+            // Inside the try: a user who is gone, or may no longer work in the
+            // turn's workspace, fails the turn the claim already holds,
+            // instead of leaving it locked until the cleanup times it out.
+            BackendUserInitializer::initialize($conversation->getBeUser(), $this->connectionPool, $conversation->getWorkspace());
+            $this->turnTiming?->begin($conversation);
+
             if ($conversation->hasPendingToolCalls()) {
                 $this->chatService->resumeConversation($conversation);
             } else {
