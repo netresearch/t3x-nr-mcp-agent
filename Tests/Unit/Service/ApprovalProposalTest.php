@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\EditorActionLabelsInterface;
+use Netresearch\NrMcpAgent\Service\PreviewHeadingRecogniserInterface;
 use Netresearch\NrMcpAgent\Service\StructuredPreview;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -42,6 +43,24 @@ final class ApprovalProposalTest extends TestCase
                 'title'       => ['label' => 'LLL:core:pages.title_field'],
             ],
         ];
+        // The column TYPO3's TcaEnrichment (13.3 and later) adds for
+        // `enablecolumns.disabled`: labelled "Enabled", its toggle inverted,
+        // so the stored 1 the label names reads "off". `force_https` is a
+        // check column that is not inverted.
+        $GLOBALS['TCA']['sys_redirect'] = [
+            'ctrl'    => ['title' => 'LLL:redirects:sys_redirect'],
+            'columns' => [
+                'disabled' => [
+                    'label'  => 'core.db.general:enabled',
+                    'config' => ['type' => 'check', 'renderType' => 'checkboxToggle', 'default' => 0, 'items' => [['label' => '', 'invertStateDisplay' => true]]],
+                ],
+                'force_https' => [
+                    'label'  => 'LLL:redirects:force_https',
+                    'config' => ['type' => 'check', 'renderType' => 'checkboxToggle', 'default' => 0, 'items' => [['label' => '']]],
+                ],
+                'target' => ['label' => 'LLL:redirects:target'],
+            ],
+        ];
     }
 
     protected function tearDown(): void
@@ -56,11 +75,82 @@ final class ApprovalProposalTest extends TestCase
         $language->method('sL')->willReturnCallback(static fn (string $reference): string => match ($reference) {
             'LLL:core:pages.title'                     => 'Seite',
             'LLL:core:pages.description'               => 'Beschreibung',
+            'LLL:redirects:sys_redirect'               => 'Weiterleitung',
+            'core.db.general:enabled'                  => 'Aktiviert',
+            'LLL:redirects:force_https'                => 'HTTPS erzwingen',
+            'LLL:redirects:target'                     => 'Ziel',
             ApprovalCallPresenter::FIELD_HEADING_LABEL => '„%s“ ändern',
             default                                    => '',
         });
 
         return $language;
+    }
+
+    /**
+     * The presenter as the chat builds it, with nr-llm's redirect headings
+     * recognised, for a call whose preview opens with `$heading`.
+     *
+     * @param list<FieldProposal> $structured
+     *
+     * @return array<string, mixed>
+     */
+    private function presentRedirectCall(string $tool, string $heading, PendingWriteTarget $target, array $structured = []): array
+    {
+        $headings = $this->createMock(PreviewHeadingRecogniserInterface::class);
+        $headings->method('isHeading')->willReturnCallback(
+            static fn (string $line): bool => in_array($line, ['Weiterleitung deaktivieren', 'Weiterleitung ändern'], true),
+        );
+        $call = new PendingCallView($tool, '{}', true, [$heading, 'Weiterleitung: „/alt“ → „/neu“'], pendingTarget: $target, structuredPreview: $structured);
+
+        return (new ApprovalCallPresenter(null, $headings))->present([$call], $this->german(), $this->german())[0];
+    }
+
+    /**
+     * An inverted toggle's label names the opposite of what setting it does:
+     * disabling a redirect sets "Aktiviert" to 1. The card keeps the
+     * preview's heading instead of "„Aktiviert“ ändern".
+     */
+    #[Test]
+    public function anInvertedToggleNeverNamesTheHeading(): void
+    {
+        $target = new PendingWriteTarget(new RecordReference('sys_redirect', 12), ['disabled']);
+
+        self::assertSame('Weiterleitung deaktivieren', $this->presentRedirectCall('disable_redirect', 'Weiterleitung deaktivieren', $target)['heading']);
+        self::assertSame('Weiterleitung ändern', $this->presentRedirectCall('update_redirect', 'Weiterleitung ändern', $target)['heading'], 'enabling it again');
+        self::assertSame('Weiterleitung deaktivieren', $this->presentRedirectCall('disable_redirect', 'Weiterleitung deaktivieren', $target, [
+            new FieldProposal('disabled', '', '0', '1'),
+        ])['heading'], 'a structured entry without a label of its own');
+    }
+
+    /** A check column that is not inverted still names the change, and so does a tool's own label for an inverted one. */
+    #[Test]
+    public function aToggleThatIsNotInvertedStillNamesTheHeading(): void
+    {
+        self::assertSame('„HTTPS erzwingen“ ändern', $this->presentRedirectCall(
+            'update_redirect',
+            'Weiterleitung ändern',
+            new PendingWriteTarget(new RecordReference('sys_redirect', 12), ['force_https']),
+        )['heading']);
+        self::assertSame('„Weiterleitung abgeschaltet“ ändern', $this->presentRedirectCall(
+            'disable_redirect',
+            'Weiterleitung deaktivieren',
+            new PendingWriteTarget(new RecordReference('sys_redirect', 12), ['disabled']),
+            [new FieldProposal('disabled', 'Weiterleitung abgeschaltet', '0', '1')],
+        )['heading'], "the tool's own label is no TCA label");
+    }
+
+    /** "Aktiviert" never names an applied disable in the outcomes either; the other fields still do. */
+    #[Test]
+    public function outcomesLeaveAnInvertedTogglesLabelOut(): void
+    {
+        $presented = (new ApprovalCallPresenter())->presentOutcomes([
+            ['outcome' => 'applied', 'after' => 2, 'tool' => 'disable_redirect', 'table' => 'sys_redirect', 'uid' => 12, 'fields' => ['disabled']],
+            ['outcome' => 'applied', 'after' => 3, 'tool' => 'update_redirect', 'table' => 'sys_redirect', 'uid' => 12, 'fields' => ['disabled', 'target']],
+            ['outcome' => 'applied', 'after' => 4, 'tool' => 'update_redirect', 'table' => 'sys_redirect', 'uid' => 12, 'fields' => ['force_https']],
+        ], $this->german());
+
+        self::assertSame(['', 'Ziel', 'HTTPS erzwingen'], array_column($presented, 'subject'));
+        self::assertSame('Weiterleitung 12', $presented[0]['record']);
     }
 
     /**

@@ -481,3 +481,32 @@ does with *Behalten* itself (ADR-022).
 
 **Consequence.** The failure signature of a regression is the old sentence in
 the assistant's answer after *Behalten*: it calls the point skipped.
+
+
+Amendment of 2026-11-04: an inverted toggle never names the change
+===================================================================
+
+**Context.** The heading rule of the amendment "the approval card is a
+system step" turned the schema label of the one field a write touches into
+"„<label>“ ändern". nr-llm's ``disable_redirect`` names ``disabled`` as its
+target (ADR-214 of nr-llm: a target names the fields a write sets). TYPO3
+labels that column "Aktiviert" and inverts its toggle, so the card that
+disables a redirect read "„Aktiviert“ ändern", the opposite of what it does.
+The applied outcome read "Aktiviert (Weiterleitung 12)" the same way.
+
+**Decision.** A column whose toggle item carries ``invertStateDisplay`` —
+every ``enablecolumns.disabled`` column TYPO3 builds (``disabled``,
+``hidden``), and ``nav_hide``, ``no_search``, ``no_index``, ``no_follow`` —
+never names the change by its schema label. The heading falls back to the
+action label, which the preview's heading supplies ("Weiterleitung
+deaktivieren", "Weiterleitung ändern"), and the outcome's subject leaves that
+label out. A label the tool sends in its structured preview is the tool's
+wording and still names the heading. The "Betroffen" line keeps the label:
+it names the field the write touches, not what the write does to it.
+
+The fix is in this extension, not in nr-llm: the target names the field
+correctly, and the rule covers every tool that names such a column,
+``update_redirect`` with ``disabled`` and third-party tools included.
+
+**Consequence.** The failure signature of a regression is a card or a status
+line that names an inverted toggle's label ("Aktiviert") as the change.
