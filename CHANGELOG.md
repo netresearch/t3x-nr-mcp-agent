@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-04
+
+### Changed
+
+- **AI > AI Chat** is now an overview of the chat instead of a second copy of it. It says what the chat does and where it appears; whether it works for the viewer, checked with the rules the chat applies (access, the nr-llm Task and its configuration, tool support of the model, withheld tools, processing); for administrators every extension setting with its value and whether it is the default, and each `groupTaskMapping` row checked as a member of its group; usage for 7, 30 or 90 days (conversations by state, model calls and failures, requests, tokens and cost from nr-llm) and the viewer's budget. Administrators see all users' figures, editors their own; no message content is shown. The full-page chat moves to the sub-route `nr_mcp_agent_chat.conversation`; links with chat parameters are redirected there (ADR-031, #310).
+- The module moves to the AI section of nr-llm; identifier and path stay.
+- Requires nr-llm 0.43.9, which provides the usage reader the overview counts with.
+
+### Fixed
+
+- The module has German labels and a current description; the full-page chat's title is translated.
+- The documentation of `maxConversationsPerUser` described an archival nothing performs; the setting is read nowhere, and the overview leaves it out.
+
 ## [0.30.3] - 2026-11-02
 
 ### Fixed
