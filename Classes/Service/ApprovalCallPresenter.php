@@ -188,7 +188,14 @@ final readonly class ApprovalCallPresenter
      * The label is nr-llm's structured one where it carries one ("Title for X
      * (Twitter)"), else the schema's.
      *
-     * @param array{fields: list<string>, fieldLabels: list<string>}|null                                                                                           $affected
+     * Never the schema's label of an inverted toggle ({@see self::readsOpposite()}):
+     * "„Aktiviert“ ändern" on a card that disables a redirect names the
+     * opposite of what it does, so the card keeps its action label, which
+     * the preview's heading ("Weiterleitung deaktivieren") usually supplies.
+     * A structured label that differs from the schema's is the tool's own
+     * wording and still names the change.
+     *
+     * @param array{table: string, fields: list<string>, fieldLabels: list<string>}|null                                                                            $affected
      * @param list<array{field: string, label: string, current: string|null, proposed: string, measure: array{count: int, min: int|null, max: int|null}|null}>|null $structured
      */
     private function fieldHeading(?array $affected, ?array $structured, ?LanguageService $language): ?string
@@ -202,7 +209,15 @@ final readonly class ApprovalCallPresenter
             }
 
             $label = $this->singleFieldLabel($structured[0], $affected);
-        } elseif (($structured === null || $structured === []) && $affected !== null && count($affected['fieldLabels']) === 1) {
+            if ($this->readsOpposite($affected['table'], $structured[0]['field'])
+                && in_array($label, $this->fieldLabels($affected['table'], [$structured[0]['field']], $language), true)
+            ) {
+                // nr-llm's structured labels are mostly the schema's own.
+                $label = null;
+            }
+        } elseif (($structured === null || $structured === []) && $affected !== null && count($affected['fieldLabels']) === 1
+            && !$this->readsOpposite($affected['table'], $affected['fields'][0] ?? '')
+        ) {
             $label = $affected['fieldLabels'][0];
         }
 
@@ -236,7 +251,8 @@ final readonly class ApprovalCallPresenter
      * The conversation's proposal outcomes as the chat shows them (ADR-023):
      * where each happened, what became of it, and what it was about in the
      * reader's language — the fields' labels, else the change's name, and the
-     * record.
+     * record. An inverted toggle's label is left out: "Aktiviert" would name
+     * an applied disable as its opposite ({@see self::readsOpposite()}).
      *
      * @param list<array{outcome: string, after: int, tool: string, table: string, uid: int, fields: list<string>}> $outcomes
      *
@@ -247,7 +263,8 @@ final readonly class ApprovalCallPresenter
         $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
         $presented       = [];
         foreach ($outcomes as $entry) {
-            $fields      = $entry['table'] !== '' ? implode(', ', $this->fieldLabels($entry['table'], $entry['fields'], $language)) : '';
+            $named       = array_values(array_filter($entry['fields'], fn (string $field): bool => !$this->readsOpposite($entry['table'], $field)));
+            $fields      = $entry['table'] !== '' ? implode(', ', $this->fieldLabels($entry['table'], $named, $language)) : '';
             $presented[] = [
                 'outcome' => $entry['outcome'],
                 'after'   => $entry['after'],
@@ -283,6 +300,30 @@ final readonly class ApprovalCallPresenter
         }
 
         return $labels;
+    }
+
+    /**
+     * Whether the column is a toggle whose label names the state its stored 0
+     * stands for: a toggle item with `invertStateDisplay`, as TYPO3 builds
+     * for every `enablecolumns.disabled` column (`disabled`, `hidden`: label
+     * "Enabled", stored 1 means off) and as `nav_hide` or `no_index` are.
+     * Its label never says which way a write turns it.
+     */
+    private function readsOpposite(string $table, string $field): bool
+    {
+        $columns = $this->tca($table)['columns'] ?? null;
+        $config  = is_array($columns) && is_array($columns[$field] ?? null) ? ($columns[$field]['config'] ?? null) : null;
+        if (!is_array($config) || !is_array($config['items'] ?? null)) {
+            return false;
+        }
+
+        foreach ($config['items'] as $item) {
+            if (is_array($item) && ($item['invertStateDisplay'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
