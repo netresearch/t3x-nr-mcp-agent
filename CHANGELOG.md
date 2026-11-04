@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-11-04
+
 ### Removed
 
 - The extension setting `maxConversationsPerUser`. Nothing ever read it: no conversation was archived when a user exceeded it, and the overview already left it out. Old conversations are archived by `autoArchiveDays` through `ai-chat:cleanup`, as before. A value an installation still stores for it has no effect.
