@@ -53,9 +53,6 @@ final readonly class ChatOverview
 
     public const UNCHECKED = 'unchecked';
 
-    /** The settings not shown: read nowhere, so showing a value would mislead. */
-    private const HIDDEN_SETTINGS = ['maxConversationsPerUser'];
-
     /** The extension's own settings template: a fixed path, never a value from outside. */
     private const EXT_CONF_TEMPLATE = __DIR__ . '/../../../ext_conf_template.txt';
 
@@ -258,10 +255,6 @@ final readonly class ChatOverview
         $current = is_array($raw) ? $raw : [];
         $rows    = [];
         foreach ($this->templateDefaults() as $key => $default) {
-            if (in_array($key, self::HIDDEN_SETTINGS, true)) {
-                continue;
-            }
-
             $value  = $current[$key] ?? $default;
             $value  = is_scalar($value) ? (string) $value : '';
             $rows[] = ['key' => $key, 'value' => $value, 'default' => $default, 'isDefault' => $value === $default];

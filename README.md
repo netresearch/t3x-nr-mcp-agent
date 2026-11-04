@@ -147,7 +147,6 @@ All settings are in **Admin Tools > Settings > Extension Configuration > nr_mcp_
 | `allowedGroups` | *(empty)* | Comma-separated group UIDs (empty = all) |
 | `maxMessageLength` | `10000` | Max characters per message |
 | `maxActiveConversationsPerUser` | `3` | Max concurrent processing conversations |
-| `maxConversationsPerUser` | `50` | Max conversations kept per user |
 | `autoArchiveDays` | `30` | Auto-archive after N days of inactivity |
 | `attachmentFolder` | `ai-chat` | Folder for chat attachments in the default storage; a per-user subfolder is created inside it |
 | `altTextExcludedTables` | *(empty)* | Tables the check for missing alt texts leaves out |

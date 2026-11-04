@@ -168,11 +168,6 @@ class ExtensionConfiguration
         return array_map(intval(...), explode(',', $groups));
     }
 
-    public function getMaxConversationsPerUser(): int
-    {
-        return (int) $this->getString('maxConversationsPerUser', '50');
-    }
-
     public function getAutoArchiveDays(): int
     {
         return (int) $this->getString('autoArchiveDays', '30');
