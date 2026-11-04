@@ -2355,9 +2355,9 @@ final readonly class ChatApiController
      * POST /ai-chat/conversations/approve.
      *
      * Records the decision and hands it to the worker, like every other path
-     * here. approve() drives the whole continuation — up to MAX_ITERATIONS
-     * provider round-trips — which a gateway timeout would kill with the write
-     * already done and nothing written back.
+     * here. approve() drives the whole continuation — up to nr-llm's
+     * configured ceiling of provider round-trips — which a gateway timeout
+     * would cut off with the write already done and nothing written back.
      *
      * The objection to doing it this way is that the click no longer gets its
      * answer in the response. It gets it from the poll instead, which is where

@@ -154,6 +154,30 @@ class ExtensionConfigurationTest extends TestCase
         }
     }
 
+    /** Unset, an ordinary chat run asks for no number and gets nr-llm's default. */
+    #[Test]
+    public function getChatRunMaxIterationsIsNullWhenNotConfigured(): void
+    {
+        self::assertNull((new ExtensionConfiguration())->getChatRunMaxIterations());
+    }
+
+    #[Test]
+    public function getChatRunMaxIterationsReturnsTheConfiguredValue(): void
+    {
+        self::assertSame(9, $this->configuredWithSettings(['chatRunMaxIterations' => '9'])->getChatRunMaxIterations());
+        self::assertSame(9, $this->configuredWithSettings(['chatRunMaxIterations' => 9])->getChatRunMaxIterations());
+        self::assertSame(9, $this->configuredWithSettings(['chatRunMaxIterations' => ' 9 '])->getChatRunMaxIterations());
+    }
+
+    /** An empty, zero, negative or non-numeric value is no value: nr-llm's default applies. */
+    #[Test]
+    public function getChatRunMaxIterationsIsNullForAnInvalidValue(): void
+    {
+        foreach (['0', '-3', 'abc', '', '2.5', '9 rounds'] as $value) {
+            self::assertNull($this->configuredWithSettings(['chatRunMaxIterations' => $value])->getChatRunMaxIterations(), $value);
+        }
+    }
+
     #[Test]
     public function getAutoArchiveDaysReturnsConfiguredValue(): void
     {

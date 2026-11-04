@@ -543,6 +543,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             'options'       => (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
         ];
 
+        // An ordinary run asks for the configured chat cap, or for nothing,
+        // which leaves nr-llm's configured default (ADR-023, amendment of
+        // 2026-11-04). A process run replaces it with its own cap below.
+        $chatRounds = $this->config->getChatRunMaxIterations();
+        if ($chatRounds !== null) {
+            $base['maxIterations'] = $chatRounds;
+        }
+
         $identifier = $conversation->getSkillIdentifier();
         if ($identifier === '') {
             return new AgentRunRequest(...$base);
@@ -1062,9 +1070,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Carry out a decision the request recorded.
      *
      * approve() drives the whole continuation, which is why it runs here and
-     * not in the web request: up to MAX_ITERATIONS provider round-trips inside
-     * PHP-FPM would be killed by a gateway timeout with the write already done
-     * and nothing written back.
+     * not in the web request: up to nr-llm's configured ceiling of provider
+     * round-trips inside PHP-FPM would be cut off by a gateway timeout with
+     * the write already done and nothing written back.
      *
      * The digest travels exactly as the card carried it. The runtime verifies
      * it against the state it claims (ADR-132), so a decision recorded before

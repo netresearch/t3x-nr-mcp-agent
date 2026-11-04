@@ -58,12 +58,29 @@ LLM connection
     as a process, such as the SEO tour) may take before it stops. A
     round is one answer of the model, with or without tool calls. The
     chat asks nr-llm for this cap on every run that starts or continues
-    a process; nr-llm caps it at its own ceiling of 20. Ordinary chat
-    runs ask for nothing and keep nr-llm's default of 5. A value below
-    1 uses the default.
+    a process; nr-llm caps it at its maximum, the nr-llm setting
+    ``agent.maxIterations`` (20 unless changed). Ordinary chat runs take
+    ``chatRunMaxIterations``. A value below 1 uses the default.
 
     A run that reaches the cap says so in the chat, and a tour offers
     *Weiter* to go on. See ADR-023.
+
+..  confval:: chatRunMaxIterations
+    :type: int
+    :default: 0
+
+    How many model rounds an ordinary chat run, one without a guided
+    process, may take before it stops. ``0``, an empty value or anything
+    that is not a whole number above 0 asks nr-llm for no number, so its
+    default applies: the nr-llm setting ``agent.defaultMaxIterations``
+    (5 unless changed). nr-llm caps every value at ``agent.maxIterations``.
+    A run that resumes after an approval or an answer gets the number
+    again, capped at the maximum in force then.
+
+    The overview module lists the rounds each kind of run gets, as
+    nr-llm applies them. A worker that started before a change stops
+    before its next turn and the next worker reads the new value. See
+    ADR-023.
 
 Processing
 ==========

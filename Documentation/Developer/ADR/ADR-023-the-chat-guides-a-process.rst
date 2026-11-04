@@ -513,3 +513,44 @@ the field by its label; no shipped process proposes such a write.
 
 **Consequence.** The failure signature of a regression is a card or a status
 line that names an inverted toggle's label ("Aktiviert") as the change.
+
+Amendment of 2026-11-04: an ordinary chat run has its own round cap
+====================================================================
+
+**Context.** nr-llm made its round limits settings (nr-llm ADR-101,
+amendment of 2026-11-04): ``agent.defaultMaxIterations`` (5 unless
+changed) for a run that asks for no number, and ``agent.maxIterations``
+(20 unless changed) as the maximum. An ordinary chat run asked for no
+number, so the only way to give it more rounds was to change nr-llm's
+default for every caller. The ceiling of 20 that the amendment of
+2026-10-22 names is now that setting.
+
+**Decision.**
+
+-   **An ordinary chat run asks for** ``chatRunMaxIterations``. ``0``, the
+    default, and every value that is not a whole number above 0 ask for
+    nothing, so nr-llm's default applies as before. A process run keeps
+    ``processRunMaxIterations``.
+-   **The overview shows the rounds a run gets**, read through nr-llm's
+    ``AgentRoundLimitsInterface``, which applies the rule its runtime
+    applies: the ordinary run, the process run and the maximum, each with
+    where the number comes from. The settings table beside it keeps
+    showing the stored values.
+-   **A worker stops when the settings changed since it started**
+    (ADR-029). TYPO3 reads the extension settings once, at boot; a worker
+    waiting while an administrator saves new ones would run the next turn
+    on the old ones. It checks when ``config/system/settings.php`` was last
+    written before it takes a turn and stops instead, and its supervisor
+    starts one that reads the new values. A value written into
+    ``additional.php`` takes effect with the next deploy, as before.
+
+**Consequences.**
+
+-   The chat card's decision still runs in the worker or the forked
+    process (``decideApproval()`` answers 202), never in the web request, so
+    a high maximum cannot run into a proxy timeout there. nr-llm's own
+    Agent Runs inbox and playground continue a run inside the request; see
+    nr-llm ADR-101.
+-   A turn that a worker takes in the instant between the save and its
+    check still runs on the old values.
+

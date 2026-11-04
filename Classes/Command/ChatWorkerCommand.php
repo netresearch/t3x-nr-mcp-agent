@@ -27,6 +27,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\DateTimeAspect;
+use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -34,8 +35,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Keeps a booted TYPO3 waiting for the next chat turn (ADR-029).
  *
  * It ends by itself, so that whatever supervises it starts a fresh one:
- * after --max-turns turns, after --time-limit seconds, above --memory-limit, and
- * on SIGTERM or SIGINT, which a running turn finishes first. A turn that exceeds
+ * after --max-turns turns, after --time-limit seconds, above --memory-limit,
+ * when the settings were saved since it started (it would run on the old ones),
+ * and on SIGTERM or SIGINT, which a running turn finishes first. A turn that exceeds
  * --turn-limit ends the process and is marked failed, so the reader gets a Retry;
  * a turn is never run a second time by itself, because it may have written.
  * The last two need the `pcntl` extension; without it the process dies on SIGTERM
@@ -68,6 +70,9 @@ final class ChatWorkerCommand extends Command
         private readonly ConnectionPool $connectionPool,
         private readonly ?TurnTimingRecorder $turnTiming = null,
         private readonly ?ChatWorkerRepository $workers = null,
+        // The file the backend writes the extension settings to. Null reads
+        // TYPO3's own; a test passes a file of its own.
+        private readonly ?string $settingsFile = null,
     ) {
         parent::__construct();
     }
@@ -95,12 +100,20 @@ final class ChatWorkerCommand extends Command
 
         $output->writeln(sprintf('<info>AI Chat worker %s started. Polling every %dms</info>', $workerId, $pollInterval / 1000));
 
-        $startedAt = time();
-        $lastBeat  = 0;
-        $turns     = 0;
+        $startedAt      = time();
+        $lastBeat       = 0;
+        $turns          = 0;
+        $settingsFile   = $this->settingsFile ?? $this->systemSettingsFile();
+        $settingsAtBoot = $this->modificationTime($settingsFile);
 
         try {
             while (!$this->stopRequested) {
+                if ($this->modificationTime($settingsFile) !== $settingsAtBoot) {
+                    $output->writeln('<info>The settings changed since this worker started; stopping so a new one reads them.</info>');
+
+                    break;
+                }
+
                 if (time() - $lastBeat >= self::HEARTBEAT_SECONDS) {
                     $this->workers?->reportIdle($workerId);
                     $lastBeat = time();
@@ -194,6 +207,38 @@ final class ChatWorkerCommand extends Command
         }
 
         GeneralUtility::makeInstance(Context::class)->setAspect('date', new DateTimeAspect(new DateTimeImmutable('@' . $now)));
+    }
+
+    /**
+     * When the settings file was last written, or null when it cannot be read.
+     * TYPO3 reads the extension settings once, at boot; a worker that keeps
+     * waiting after an administrator saved new ones would run the next turn on
+     * the old ones (ADR-029; ADR-023, round-cap amendment of 2026-11-04).
+     */
+    private function modificationTime(?string $file): ?int
+    {
+        if ($file === null) {
+            return null;
+        }
+
+        clearstatcache(true, $file);
+        if (!is_file($file)) {
+            return null;
+        }
+
+        $time = filemtime($file);
+
+        return $time === false ? null : $time;
+    }
+
+    /** TYPO3's settings file, or null where TYPO3 has not set up its paths. */
+    private function systemSettingsFile(): ?string
+    {
+        try {
+            return Environment::getConfigPath() . '/system/settings.php';
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function limitReached(int $turns, int $maxTurns, int $startedAt, int $timeLimit, int $memoryLimit): bool

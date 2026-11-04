@@ -134,16 +134,32 @@ class ExtensionConfiguration
      * amendment of 2026-10-22).
      *
      * The chat asks nr-llm for this cap on every run that starts or continues
-     * a process; nr-llm clamps it to its own ceiling (nr-llm ADR-101). Ordinary
-     * runs ask for nothing and keep nr-llm's default. A value below 1, or one
-     * that is not a number, falls back to the default: a typo must not leave a
-     * tour with one round.
+     * a process; nr-llm clamps it to its configured ceiling (nr-llm ADR-101).
+     * Ordinary runs take {@see self::getChatRunMaxIterations()}. A value below
+     * 1, or one that is not a number, falls back to the default: a typo must
+     * not leave a tour with one round.
      */
     public function getProcessRunMaxIterations(): int
     {
         $value = $this->getString('processRunMaxIterations', (string) self::DEFAULT_PROCESS_RUN_MAX_ITERATIONS);
 
         return ctype_digit(trim($value)) && (int) $value > 0 ? (int) $value : self::DEFAULT_PROCESS_RUN_MAX_ITERATIONS;
+    }
+
+    /**
+     * How many model rounds an ordinary chat run may take, one without a
+     * guided process (ADR-023, round-cap amendment of 2026-11-04), or null for nr-llm's
+     * configured default.
+     *
+     * nr-llm clamps the value to its configured ceiling. An empty, zero,
+     * negative or non-numeric value is no value: the run asks for nothing and
+     * nr-llm's default applies, as it did before the setting existed.
+     */
+    public function getChatRunMaxIterations(): ?int
+    {
+        $value = trim($this->getString('chatRunMaxIterations', ''));
+
+        return ctype_digit($value) && (int) $value > 0 ? (int) $value : null;
     }
 
     public function getProcessingStrategy(): string

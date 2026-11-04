@@ -325,6 +325,45 @@
             <trans-unit id="setting.groupTaskMapping" resname="setting.groupTaskMapping">
                 <source>Task per backend group</source>
             </trans-unit>
+            <trans-unit id="rounds.heading" resname="rounds.heading">
+                <source>Model rounds per run</source>
+            </trans-unit>
+            <trans-unit id="rounds.intro" resname="rounds.intro">
+                <source>How many model rounds a chat run may take before it stops, as nr-llm applies them. A run that resumes after an approval or an answer gets the number again.</source>
+            </trans-unit>
+            <trans-unit id="rounds.run" resname="rounds.run">
+                <source>Run</source>
+            </trans-unit>
+            <trans-unit id="rounds.value" resname="rounds.value">
+                <source>Rounds</source>
+            </trans-unit>
+            <trans-unit id="rounds.chat" resname="rounds.chat">
+                <source>Ordinary chat run</source>
+            </trans-unit>
+            <trans-unit id="rounds.process" resname="rounds.process">
+                <source>Run of a guided process</source>
+            </trans-unit>
+            <trans-unit id="rounds.ceiling" resname="rounds.ceiling">
+                <source>Most any run may take</source>
+            </trans-unit>
+            <trans-unit id="rounds.source.chat" resname="rounds.source.chat">
+                <source>Setting chatRunMaxIterations</source>
+            </trans-unit>
+            <trans-unit id="rounds.source.process" resname="rounds.source.process">
+                <source>Setting processRunMaxIterations</source>
+            </trans-unit>
+            <trans-unit id="rounds.source.nrLlmDefault" resname="rounds.source.nrLlmDefault">
+                <source>nr-llm default (agent.defaultMaxIterations)</source>
+            </trans-unit>
+            <trans-unit id="rounds.source.nrLlmCeiling" resname="rounds.source.nrLlmCeiling">
+                <source>Capped at the nr-llm maximum (agent.maxIterations)</source>
+            </trans-unit>
+            <trans-unit id="rounds.source.nrLlm" resname="rounds.source.nrLlm">
+                <source>nr-llm setting agent.maxIterations</source>
+            </trans-unit>
+            <trans-unit id="setting.chatRunMaxIterations" resname="setting.chatRunMaxIterations">
+                <source>Rounds per ordinary chat run</source>
+            </trans-unit>
             <trans-unit id="setting.processRunMaxIterations" resname="setting.processRunMaxIterations">
                 <source>Rounds per guided-process run</source>
             </trans-unit>

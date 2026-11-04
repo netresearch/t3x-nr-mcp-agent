@@ -90,7 +90,7 @@ final class ChatServiceSkillTest extends TestCase
         return new AgentRunResult(AgentRunOutcome::COMPLETED, $runUuid, $steps, new ToolLoopResult('ok', [], 1, false, new UsageStatistics(1, 1, 2)));
     }
 
-    private function service(?SkillCatalogueInterface $skills, ?SkillInvocationInterface $invocation = null): ChatService
+    private function service(?SkillCatalogueInterface $skills, ?SkillInvocationInterface $invocation = null, ?int $chatRounds = null): ChatService
     {
         $runtime = $this->createMock(AgentRuntimeInterface::class);
         $runtime->method('run')->willReturnCallback(function (AgentRunRequest $request): AgentRunResult {
@@ -101,6 +101,7 @@ final class ChatServiceSkillTest extends TestCase
         $config = $this->createStub(ExtensionConfiguration::class);
         $config->method('getLlmTaskUid')->willReturn(1);
         $config->method('getProcessRunMaxIterations')->willReturn(self::PROCESS_ROUNDS);
+        $config->method('getChatRunMaxIterations')->willReturn($chatRounds);
         $configuration = $this->createMock(LlmConfiguration::class);
         $configuration->method('isActive')->willReturn(true);
         $configuration->method('getLlmModel')->willReturn($this->createMock(LlmModel::class));
@@ -284,6 +285,26 @@ final class ChatServiceSkillTest extends TestCase
 
         $this->service($this->catalogue([]))->processConversation($this->conversation('seo-page-tour', 'run-0'));
         self::assertNull($this->lastRequest()->maxIterations, 'a skill that left the catalogue');
+    }
+
+    /**
+     * ADR-023, round-cap amendment of 2026-11-04: an ordinary chat run asks for the
+     * configured chat round cap; a process run keeps the process cap.
+     */
+    #[Test]
+    public function aRunWithoutAProcessAsksForTheConfiguredChatRoundCap(): void
+    {
+        $this->service($this->catalogue(augmentation: new RunAugmentation(forcedSkills: [new Skill()])), chatRounds: 9)->processConversation($this->conversation('tone-check', 'run-0'));
+        self::assertSame(9, $this->lastRequest()->maxIterations, 'a plain skill');
+
+        $this->service($this->catalogue(), chatRounds: 9)->processConversation($this->conversation(''));
+        self::assertSame(9, $this->lastRequest()->maxIterations, 'no skill');
+
+        $this->service($this->catalogue([]), chatRounds: 9)->processConversation($this->conversation('seo-page-tour', 'run-0'));
+        self::assertSame(9, $this->lastRequest()->maxIterations, 'a skill that left the catalogue');
+
+        $this->service($this->catalogue(), new NrLlmSkillInvocation(), chatRounds: 9)->processConversation($this->conversation('seo-page-tour', 'run-0'));
+        self::assertSame(self::PROCESS_ROUNDS, $this->lastRequest()->maxIterations, 'a process');
     }
 
     /** A skill that left the catalogue still names the predecessor, so nr-llm can say it dropped the process. */

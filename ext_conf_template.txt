@@ -7,7 +7,10 @@ llmTaskUid = 0
 # cat=basic/llm; type=string; label=nr-llm Task per backend group: comma-separated groupUid:taskUid pairs, e.g. 3:12,5:14. The first pair whose group the user belongs to (subgroups included) decides; users in none of them use the Task UID above.
 groupTaskMapping =
 
-# cat=basic/llm; type=int+; label=Rounds per guided-process run: how many model rounds a run of a guided process (a skill marked as a process) may take before it stops; ordinary chat runs keep nr-llm's own default. nr-llm caps every value at its ceiling of 20. A value below 1 uses the default of 12.
+# cat=basic/llm; type=int+; label=Rounds per ordinary chat run: how many model rounds a chat run without a guided process may take before it stops. 0 or empty asks for no number, so nr-llm's default applies (nr_llm setting agent.defaultMaxIterations, 5 unless changed). nr-llm caps every value at its maximum (agent.maxIterations, 20 unless changed). A value that is not a whole number above 0 counts as empty.
+chatRunMaxIterations = 0
+
+# cat=basic/llm; type=int+; label=Rounds per guided-process run: how many model rounds a run of a guided process (a skill marked as a process) may take before it stops. nr-llm caps every value at its maximum (agent.maxIterations, 20 unless changed). A value below 1 uses the default of 12.
 processRunMaxIterations = 12
 
 # cat=basic/processing; type=options[exec,worker]; label=Processing Strategy (exec: fork CLI process per request, worker: long-running systemd worker)

@@ -38,7 +38,7 @@ final class ChatWorkerCommandLimitsTest extends TestCase
     /**
      * @param array<string, int> $options
      */
-    private function runWorker(array $options, ConversationRepository $repository, ?ChatWorkerRepository $workers = null, BufferedOutput $output = new BufferedOutput()): int
+    private function runWorker(array $options, ConversationRepository $repository, ?ChatWorkerRepository $workers = null, BufferedOutput $output = new BufferedOutput(), ?string $configurationFile = null): int
     {
         // BackendUserInitializer needs a database, and a turn is not what this
         // test is about: the initializer's failure takes the error path, which
@@ -50,6 +50,7 @@ final class ChatWorkerCommandLimitsTest extends TestCase
             $this->createStub(ConnectionPool::class),
             $this->createStub(TurnTimingRecorder::class),
             $workers,
+            $configurationFile,
         );
         $input = new ArrayInput($options, $command->getDefinition());
 
@@ -76,6 +77,74 @@ final class ChatWorkerCommandLimitsTest extends TestCase
         $started = time();
         self::assertSame(0, $this->runWorker(['--time-limit' => 1, '--poll-interval' => 1], $repository));
         self::assertLessThanOrEqual(3, time() - $started);
+    }
+
+    /**
+     * A worker reads the extension settings once, at boot. One that waited
+     * while an administrator saved new settings would run the next turn on the
+     * old ones, so it stops before taking another turn and its supervisor
+     * starts one that reads the new settings.
+     */
+    #[Test]
+    public function aWorkerStopsBeforeTheNextTurnWhenTheSettingsWereSavedSinceItStarted(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'settings');
+        self::assertIsString($file);
+        touch($file, time() - 60);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->expects(self::once())->method('dequeueForWorker')->willReturnCallback(static function () use ($file): ?Conversation {
+            touch($file, time() + 60);
+
+            return null;
+        });
+        $output = new BufferedOutput();
+
+        try {
+            self::assertSame(0, $this->runWorker(['--time-limit' => 5, '--poll-interval' => 1], $repository, output: $output, configurationFile: $file));
+        } finally {
+            unlink($file);
+        }
+
+        self::assertStringContainsString('settings changed', $output->fetch());
+    }
+
+    #[Test]
+    public function aWorkerWhoseSettingsStayTheSameKeepsWaiting(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'settings');
+        self::assertIsString($file);
+        $calls      = 0;
+        $repository = $this->createStub(ConversationRepository::class);
+        $repository->method('dequeueForWorker')->willReturnCallback(static function () use (&$calls): ?Conversation {
+            ++$calls;
+
+            return null;
+        });
+
+        try {
+            $this->runWorker(['--time-limit' => 1, '--poll-interval' => 1], $repository, configurationFile: $file);
+        } finally {
+            unlink($file);
+        }
+
+        self::assertGreaterThan(1, $calls);
+    }
+
+    #[Test]
+    public function aMissingSettingsFileIsNoChange(): void
+    {
+        $calls      = 0;
+        $repository = $this->createStub(ConversationRepository::class);
+        $repository->method('dequeueForWorker')->willReturnCallback(static function () use (&$calls): ?Conversation {
+            ++$calls;
+
+            return null;
+        });
+
+        $this->runWorker(['--time-limit' => 1, '--poll-interval' => 1], $repository, configurationFile: sys_get_temp_dir() . '/no-such-settings-' . bin2hex(random_bytes(4)) . '.php');
+
+        self::assertGreaterThan(1, $calls);
     }
 
     #[Test]

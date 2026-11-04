@@ -41,7 +41,10 @@ final class OverviewControllerTest extends FunctionalTestCase
         'EXTENSIONS' => [
             // maxConversationsPerUser: a value an installation still stores
             // for the removed setting.
-            'nr_mcp_agent' => ['llmTaskUid' => '1', 'maxLiveStreams' => '5', 'maxConversationsPerUser' => '50'],
+            'nr_mcp_agent' => ['llmTaskUid' => '1', 'maxLiveStreams' => '5', 'maxConversationsPerUser' => '50', 'processRunMaxIterations' => '12'],
+            // A ceiling below the process cap, so the overview has to show
+            // the clamped value (ADR-023, round-cap amendment of 2026-11-04).
+            'nr_llm' => ['agent' => ['defaultMaxIterations' => '6', 'maxIterations' => '10']],
         ],
     ];
 
@@ -129,6 +132,30 @@ final class OverviewControllerTest extends FunctionalTestCase
         self::assertStringNotContainsString('maxConversationsPerUser', $body);
         // Another user's conversation title stays out even for an administrator.
         self::assertStringNotContainsString('other failed', $body);
+    }
+
+    /**
+     * The rounds a run gets, as nr-llm applies them: an ordinary chat run
+     * without a value of its own takes nr-llm's default, and the process cap
+     * of 12 is clamped to nr-llm's ceiling of 10 (ADR-023, amendment of
+     * 2026-11-04).
+     */
+    #[Test]
+    public function anAdministratorSeesTheRoundsARunGets(): void
+    {
+        $body = $this->render(1);
+
+        self::assertMatchesRegularExpression('#data-nr-rounds="chat">6<#', $body);
+        self::assertMatchesRegularExpression('#data-nr-rounds="process">10<#', $body);
+        self::assertMatchesRegularExpression('#data-nr-rounds="ceiling">10<#', $body);
+        self::assertStringContainsString('nr-llm default', $body);
+        self::assertStringContainsString('Capped at the nr-llm maximum', $body);
+    }
+
+    #[Test]
+    public function anEditorDoesNotSeeTheRounds(): void
+    {
+        self::assertStringNotContainsString('data-nr-rounds', $this->render(2));
     }
 
     #[Test]
