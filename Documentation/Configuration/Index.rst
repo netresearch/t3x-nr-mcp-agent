@@ -213,17 +213,6 @@ Every prompt ends with the user's context:
 User interface
 ==============
 
-..  confval:: maxConversationsPerUser
-    :type: int
-    :default: 50
-
-    Offered in the extension configuration, but not
-    enforced: no code reads it, and conversations are not
-    archived when a user exceeds it. Old conversations are
-    archived by ``autoArchiveDays`` and removed by the
-    ``ai-chat:cleanup`` command. The overview module does
-    not list this setting.
-
 ..  confval:: autoArchiveDays
     :type: int
     :default: 30

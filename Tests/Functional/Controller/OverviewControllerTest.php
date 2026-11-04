@@ -122,7 +122,8 @@ final class OverviewControllerTest extends FunctionalTestCase
 
         self::assertMatchesRegularExpression('#<code class="small">maxLiveStreams</code></th>\s*<td><code>5</code></td>\s*<td>Set in the extension configuration</td>#', $body);
         self::assertMatchesRegularExpression('#<code class="small">processingStrategy</code></th>\s*<td><code>exec</code></td>\s*<td>Default</td>#', $body);
-        // Read nowhere, so not shown (see the overview's HIDDEN_SETTINGS).
+        // Removed in 0.31.1: a value an installation still stores for it is
+        // not listed, because the list comes from the settings template.
         self::assertStringNotContainsString('maxConversationsPerUser', $body);
         // Another user's conversation title stays out even for an administrator.
         self::assertStringNotContainsString('other failed', $body);

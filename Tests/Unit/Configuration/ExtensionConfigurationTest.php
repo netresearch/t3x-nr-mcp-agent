@@ -155,22 +155,6 @@ class ExtensionConfigurationTest extends TestCase
     }
 
     #[Test]
-    public function getMaxConversationsPerUserReturnsConfiguredValue(): void
-    {
-        // Consume the setUp mock first
-        GeneralUtility::makeInstance(Typo3ExtensionConfiguration::class);
-
-        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
-        $mock->method('get')->with('nr_mcp_agent')->willReturn([
-            'maxConversationsPerUser' => '100',
-        ]);
-        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
-
-        $config = new ExtensionConfiguration();
-        self::assertSame(100, $config->getMaxConversationsPerUser());
-    }
-
-    #[Test]
     public function getAutoArchiveDaysReturnsConfiguredValue(): void
     {
         // Consume the setUp mock first
@@ -198,20 +182,6 @@ class ExtensionConfigurationTest extends TestCase
 
         $config = new ExtensionConfiguration();
         self::assertSame(30, $config->getAutoArchiveDays());
-    }
-
-    #[Test]
-    public function getMaxConversationsPerUserDefaultsTo50(): void
-    {
-        // Consume the setUp mock first
-        GeneralUtility::makeInstance(Typo3ExtensionConfiguration::class);
-
-        $mock = $this->createMock(Typo3ExtensionConfiguration::class);
-        $mock->method('get')->with('nr_mcp_agent')->willReturn([]);
-        GeneralUtility::addInstance(Typo3ExtensionConfiguration::class, $mock);
-
-        $config = new ExtensionConfiguration();
-        self::assertSame(50, $config->getMaxConversationsPerUser());
     }
 
     #[Test]

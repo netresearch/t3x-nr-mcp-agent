@@ -65,8 +65,7 @@ Usage
 
 Configuration
     Administrators see every setting of the extension
-    configuration with its value and whether it is the default,
-    except ``maxConversationsPerUser``, which nothing reads.
+    configuration with its value and whether it is the default.
 
 Go to
     The full-page chat, the missing alternative texts, and the

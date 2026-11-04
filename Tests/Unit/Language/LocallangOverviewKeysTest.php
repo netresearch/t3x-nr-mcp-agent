@@ -56,7 +56,7 @@ final class LocallangOverviewKeysTest extends TestCase
             $used[] = 'link.' . $module;
         }
 
-        foreach (array_diff($settings[1], ['maxConversationsPerUser']) as $setting) {
+        foreach ($settings[1] as $setting) {
             $used[] = 'setting.' . $setting;
         }
 

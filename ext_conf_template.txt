@@ -19,9 +19,6 @@ maxLiveStreams = 3
 # cat=basic/access; type=string; label=Allowed Backend User Groups (comma-separated UIDs, empty = all)
 allowedGroups =
 
-# cat=basic/ui; type=int; label=Max conversations to keep per user (0 = unlimited)
-maxConversationsPerUser = 50
-
 # cat=basic/ui; type=int; label=Auto-archive conversations after days of inactivity (0 = never)
 autoArchiveDays = 30
 
