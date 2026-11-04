@@ -20,7 +20,8 @@ use ReflectionMethod;
 use SplFileInfo;
 
 /**
- * A setting the extension configuration offers is read by some code.
+ * A setting the extension configuration offers is read, and its getter is
+ * called.
  *
  * `maxConversationsPerUser` was offered for months with a getter nothing
  * called, and its documentation described an archival nobody had built. An
@@ -47,6 +48,21 @@ final class EverySettingIsReadTest extends TestCase
         }
 
         self::assertSame([], $unread, 'a setting nothing reads');
+    }
+
+    #[Test]
+    public function everyOfferedSettingIsReadByTheConfiguration(): void
+    {
+        $template = (string) file_get_contents(dirname(__DIR__, 3) . '/ext_conf_template.txt');
+        preg_match_all('/^([A-Za-z][\w.]*)\s*=/m', $template, $keys);
+        $configuration = (string) file_get_contents(dirname(__DIR__, 3) . '/Classes/Configuration/ExtensionConfiguration.php');
+
+        self::assertNotSame([], $keys[1], 'the template was read');
+        self::assertSame(
+            [],
+            array_values(array_filter($keys[1], static fn (string $key): bool => !str_contains($configuration, "'" . $key . "'"))),
+            'a setting the template offers and the configuration never reads',
+        );
     }
 
     private function classesExceptTheConfiguration(): string
