@@ -24,7 +24,7 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 final class ProcessChatCommandTest extends FunctionalTestCase
 {
     // nr_mcp_agent depends on filelist (the FAL picker's element browser).
-    protected array $coreExtensionsToLoad = ['filelist'];
+    protected array $coreExtensionsToLoad = ['filelist', 'workspaces'];
 
     protected array $testExtensionsToLoad = [
         'netresearch/nr-vault',
@@ -68,6 +68,27 @@ final class ProcessChatCommandTest extends FunctionalTestCase
 
         self::assertSame(0, $exitCode);
         self::assertSame($before, $this->row(1));
+    }
+
+    /**
+     * nr-llm ADR-260: the turn runs in the workspace it was handed over in.
+     * Where the user may no longer work there (here: it is gone), the turn the
+     * claim holds fails with the reason, instead of staying locked until the
+     * cleanup times it out, and nothing runs.
+     */
+    #[Test]
+    public function aTurnWhoseWorkspaceTheUserMayNoLongerUseFails(): void
+    {
+        $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->update('tx_nrmcpagent_conversation', ['workspace' => 7], ['uid' => 2]);
+
+        $tester   = new CommandTester($this->get(ProcessChatCommand::class));
+        $exitCode = $tester->execute(['conversationUid' => '2']);
+
+        self::assertSame(1, $exitCode);
+        $row = $this->row(2);
+        self::assertSame(ConversationStatus::Failed->value, $row['status']);
+        self::assertStringContainsString('may no longer work in workspace 7', (string) $row['error_message']);
     }
 
     /**

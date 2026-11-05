@@ -311,6 +311,38 @@ class ChatServiceTest extends TestCase
         self::assertFalse($this->capturedRequest->actor->isServiceAccount());
     }
 
+    /**
+     * nr-llm ADR-260: the run records the workspace the turn was handed over
+     * in, where the worker set the user up; a turn handed over before it was
+     * kept, or a user who is not in it, records none.
+     */
+    #[Test]
+    public function agentRunActorCarriesTheTurnsWorkspace(): void
+    {
+        foreach ([[3, 3, 3], [-1, 3, null], [3, 0, null]] as [$handedOverIn, $userWorksIn, $expected]) {
+            $this->capturedRequest = null;
+            $conversation          = new Conversation();
+            $conversation->setBeUser(42);
+            $conversation->setWorkspace($handedOverIn);
+            $conversation->appendMessage(MessageRole::User, 'Hello');
+
+            $backendUser            = $this->createStub(BackendUserAuthentication::class);
+            $backendUser->user      = ['uid' => 42];
+            $backendUser->workspace = $userWorksIn;
+            $backendUser->method('isAdmin')->willReturn(false);
+            $GLOBALS['BE_USER'] = $backendUser;
+
+            try {
+                $this->createChatService()->processConversation($conversation);
+            } finally {
+                unset($GLOBALS['BE_USER']);
+            }
+
+            self::assertNotNull($this->capturedRequest);
+            self::assertSame($expected, $this->capturedRequest->actor->workspaceId, sprintf('handed over in %d, user in %d', $handedOverIn, $userWorksIn));
+        }
+    }
+
     #[Test]
     public function systemMessageCarriesNetresearchIdentityAndToolSteering(): void
     {

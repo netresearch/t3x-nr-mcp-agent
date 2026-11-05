@@ -163,6 +163,18 @@ is built with the editor's own rights. Where the AI configuration requires a
 second approver, the card offers only the denial and a colleague approves
 the step in AI Tasks.
 
+A message you send while you work in a TYPO3 workspace is carried out in
+that workspace, also when you switch to another one before the chat has
+finished. A content element the chat changes there is stored as a draft of
+the workspace: it appears in the **Workspaces** module, and the live site
+stays as it was until the workspace is published. The approval card names
+the workspace, for example *Workspace: “Entwurf” — saved there as a draft*.
+The chat reads the page as your workspace shows it. Changes nr-llm cannot
+yet make in a workspace — other than changing a content element — are
+refused there with a message instead of being made live. When you may no
+longer work in the workspace the message was sent from, the turn fails and
+nothing is written.
+
 The tool's internal name, its arguments and the record identifiers are
 under **Show technical details**, which is closed until you open it.
 

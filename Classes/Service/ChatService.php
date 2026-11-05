@@ -436,7 +436,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         try {
-            $configuration = $this->resolveConfiguration($this->resolveActor($conversation->getBeUser()));
+            $configuration = $this->resolveConfiguration($this->actorFor($conversation));
             $this->runAgentTurn($conversation, $configuration, $operation, $afterApproval);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
@@ -539,7 +539,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $base = [
             'configuration' => $configuration,
             'messages'      => $messages,
-            'actor'         => $this->resolveActor($conversation->getBeUser()),
+            'actor'         => $this->actorFor($conversation),
             'options'       => (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
         ];
 
@@ -655,7 +655,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         $run = $this->agentRunRepository->findByUuid($runUuid);
         if (!$run instanceof AgentRun
-            || !$this->resolveActor($conversation->getBeUser())->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
+            || !$this->actorFor($conversation)->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
         ) {
             return false;
         }
@@ -749,7 +749,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return true;
         }
 
-        $actor   = $this->resolveActor($before->getBeUser());
+        $actor   = $this->actorFor($before);
         $guarded = $this->runCanceller?->cancelIfWaiting($actor, $runUuid);
         if ($guarded instanceof WaitingRunCancel) {
             return $guarded->releasesConversation();
@@ -836,7 +836,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return $unknown;
         }
 
-        $actor = $this->resolveActor($conversation->getBeUser());
+        $actor = $this->actorFor($conversation);
         $run   = $this->agentRunRepository->findByUuid($runUuid);
         if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
             return $unknown;
@@ -891,7 +891,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return $this->pendingApprovalReader->read(
-            $this->resolveActor($conversation->getBeUser()),
+            $this->actorFor($conversation),
             $runUuid,
         );
     }
@@ -960,7 +960,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     public function pendingInput(Conversation $conversation): ?InputPause
     {
         $runUuid = $conversation->getApprovalRunUuid();
-        $actor   = $this->resolveActor($conversation->getBeUser());
+        $actor   = $this->actorFor($conversation);
         $view    = $runUuid !== '' && $conversation->getStatus() === ConversationStatus::AwaitingInput
             ? $this->pendingApprovalReader->read($actor, $runUuid)
             : null;
@@ -1017,7 +1017,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         try {
             $result = $this->agentRuntime->submitInput(
-                $this->resolveActor($conversation->getBeUser()),
+                $this->actorFor($conversation),
                 $runUuid,
                 new InputSubmission(
                     $conversation->getPendingInputData(),
@@ -1106,7 +1106,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         };
         $recordStep = $this->activityRecorder->onStep($conversation, $approved ? RefusedCalls::AFTER_APPROVAL : RefusedCalls::AFTER_DENIAL);
         $card       = $conversation->getApprovalCard();
-        $readView   = fn (): ?WaitingRunView => $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $runUuid);
+        $readView   = fn (): ?WaitingRunView => $this->pendingApprovalReader->read($this->actorFor($conversation), $runUuid);
         $cardTarget = $this->openPoints?->cardTarget($conversation, $readView());
         // The card of a conversation about a missing alt text (ADR-026): an
         // approved write is confirmed by the chat, in the reader's language.
@@ -1115,7 +1115,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
         try {
             $result = $this->agentRuntime->approve(
-                $this->resolveActor($conversation->getBeUser()),
+                $this->actorFor($conversation),
                 $runUuid,
                 ($this->decisionFactory ?? new ApprovalDecisionFactory())->create(
                     $approved,
@@ -1409,7 +1409,20 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         return is_numeric($uid) ? (int) $uid : 0;
     }
 
-    private function resolveActor(int $beUserUid): AiActorContext
+    /**
+     * The actor of a conversation's turn: its user, in the workspace the turn
+     * was handed over in (nr-llm ADR-260), which the worker set the backend
+     * user up in. A run records it and writes there, or nowhere.
+     */
+    private function actorFor(Conversation $conversation): AiActorContext
+    {
+        return $this->resolveActor($conversation->getBeUser(), $conversation->getWorkspace());
+    }
+
+    /**
+     * @param int|null $workspace the workspace the turn was handed over in, null when not known
+     */
+    private function resolveActor(int $beUserUid, ?int $workspace = null): AiActorContext
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
         if ($beUserUid > 0 && $backendUser instanceof BackendUserAuthentication) {
@@ -1420,7 +1433,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $backendUser->userGroupsUID,
                 ));
 
-                return AiActorContext::backendUser($beUserUid, $backendUser->isAdmin(), $groupIds);
+                // Only where the user really works in it: the worker set them
+                // up in the turn's workspace, or refused the turn.
+                $pinned = $workspace !== null && $backendUser->workspace === $workspace ? $workspace : null;
+
+                return AiActorContext::backendUser($beUserUid, $backendUser->isAdmin(), $groupIds, [], $pinned);
             }
         }
 
@@ -1469,7 +1486,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             && ($this->processRuns?->isProcessRun($conversation) ?? false)
         ) {
             try {
-                $view       = $this->pendingApprovalReader->read($this->resolveActor($conversation->getBeUser()), $result->runUuid);
+                $view       = $this->pendingApprovalReader->read($this->actorFor($conversation), $result->runUuid);
                 $onProposal = $view instanceof WaitingRunView && $this->offersProcessAnswers($conversation, $view);
                 $proposal   = $onProposal && $view instanceof WaitingRunView ? NrLlmCardTarget::of($view) : null;
             } catch (Throwable $e) {
@@ -1727,7 +1744,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         try {
-            $events = $this->agentRuntime->events($this->resolveActor($conversation->getBeUser()), $result->runUuid);
+            $events = $this->agentRuntime->events($this->actorFor($conversation), $result->runUuid);
         } catch (Throwable) {
             // No evidence either way: say nothing rather than a wrong notice.
             return false;
