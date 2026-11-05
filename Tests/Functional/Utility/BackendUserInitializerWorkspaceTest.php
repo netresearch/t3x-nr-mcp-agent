@@ -136,6 +136,7 @@ final class BackendUserInitializerWorkspaceTest extends FunctionalTestCase
         self::assertTrue($owner->setTemporaryWorkspace(0));
         $conversation->setApprovalRunUuid('run-1');
         $conversation->recordApprovalDecision(true, 'digest');
+
         $repository->update($conversation);
         self::assertSame(2, $this->conversationWorkspace($uid), 'a decision moved the turn');
     }
