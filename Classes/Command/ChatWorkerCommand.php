@@ -100,11 +100,14 @@ final class ChatWorkerCommand extends Command
 
         $output->writeln(sprintf('<info>AI Chat worker %s started. Polling every %dms</info>', $workerId, $pollInterval / 1000));
 
+        // The settings file is looked at before the start time is taken, so a
+        // save between the two is either in the baseline's window below or a
+        // change against it, never neither.
+        $settingsFile   = $this->settingsFile ?? $this->systemSettingsFile();
+        $settingsAtBoot = $this->settingsStamp($settingsFile);
         $startedAt      = time();
         $lastBeat       = 0;
         $turns          = 0;
-        $settingsFile   = $this->settingsFile ?? $this->systemSettingsFile();
-        $settingsAtBoot = $this->modificationTime($settingsFile);
         // TYPO3 read the settings before this line; a save between the two
         // reads would go unseen, so a file written between the second the
         // process started and now counts as changed too. File times have a
@@ -116,8 +119,9 @@ final class ChatWorkerCommand extends Command
 
         try {
             while (!$this->stopRequested) {
-                $settingsNow = $this->modificationTime($settingsFile);
-                if ($settingsNow !== $settingsAtBoot || ($settingsNow !== null && $settingsNow >= $processStart && $settingsNow <= $startedAt)) {
+                $settingsNow = $this->settingsStamp($settingsFile);
+                $writtenAt   = $settingsNow['mtime'] ?? null;
+                if ($settingsNow !== $settingsAtBoot || ($writtenAt !== null && $writtenAt >= $processStart && $writtenAt <= $startedAt)) {
                     $output->writeln('<info>The settings changed since this worker started; stopping so a new one reads them.</info>');
 
                     break;
@@ -219,12 +223,18 @@ final class ChatWorkerCommand extends Command
     }
 
     /**
-     * When the settings file was last written, or null when it cannot be read.
-     * TYPO3 reads the extension settings once, at boot; a worker that keeps
-     * waiting after an administrator saved new ones would run the next turn on
-     * the old ones (ADR-029; ADR-023, round-cap amendment of 2026-11-04).
+     * What identifies the settings file's current content: its modification
+     * and change time, inode and size, or null when it cannot be read. The
+     * change time is set by the kernel on every write and no copy tool
+     * restores it, so a replacement that keeps the modification time is seen
+     * too. TYPO3 reads the extension settings once, at boot; a worker that
+     * keeps waiting after an administrator saved new ones would run the next
+     * turn on the old ones (ADR-029; ADR-023, round-cap amendment of
+     * 2026-11-04).
+     *
+     * @return array{mtime: int, ctime: int, ino: int, size: int}|null
      */
-    private function modificationTime(?string $file): ?int
+    private function settingsStamp(?string $file): ?array
     {
         if ($file === null) {
             return null;
@@ -235,9 +245,9 @@ final class ChatWorkerCommand extends Command
             return null;
         }
 
-        $time = filemtime($file);
+        $stat = stat($file);
 
-        return $time === false ? null : $time;
+        return $stat === false ? null : ['mtime' => $stat['mtime'], 'ctime' => $stat['ctime'], 'ino' => $stat['ino'], 'size' => $stat['size']];
     }
 
     /** TYPO3's settings file, or null where TYPO3 has not set up its paths. */

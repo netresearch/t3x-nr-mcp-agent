@@ -437,8 +437,8 @@
                 <target>Modellrunden je Lauf</target>
             </trans-unit>
             <trans-unit id="rounds.intro" resname="rounds.intro">
-                <source>How many model rounds a chat run may take before it stops, as nr-llm applies them. A run that resumes after an approval or an answer gets the number again.</source>
-                <target>Wie viele Modellrunden ein Chat-Lauf nehmen darf, bevor er endet, so wie nr-llm sie anwendet. Ein Lauf, der nach einer Freigabe oder einer Antwort weiterläuft, bekommt die Zahl erneut.</target>
+                <source>How many model rounds a chat run may take before it stops, as nr-llm applies them. A run that resumes after an approval or an answer gets the number again. A run that reaches its number ends with one more request without tools, which writes the answer.</source>
+                <target>Wie viele Modellrunden ein Chat-Lauf nehmen darf, bevor er endet, so wie nr-llm sie anwendet. Ein Lauf, der nach einer Freigabe oder einer Antwort weiterläuft, bekommt die Zahl erneut. Ein Lauf, der seine Zahl erreicht, endet mit einer weiteren Anfrage ohne Tools, die die Antwort schreibt.</target>
             </trans-unit>
             <trans-unit id="rounds.run" resname="rounds.run">
                 <source>Run</source>

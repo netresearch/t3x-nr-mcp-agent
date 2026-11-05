@@ -168,6 +168,37 @@ final class ChatWorkerCommandLimitsTest extends TestCase
         }
     }
 
+    /**
+     * A replacement that keeps the modification time (a deploy copying with
+     * preserved times) is a change too.
+     */
+    #[Test]
+    public function aWorkerStopsWhenTheSettingsFileIsReplacedWithTheSameModificationTime(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'settings');
+        self::assertIsString($file);
+        touch($file, time() - 120);
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->expects(self::once())->method('dequeueForWorker')->willReturnCallback(static function () use ($file): ?Conversation {
+            $replacement = $file . '.new';
+            file_put_contents($replacement, '<?php return [];');
+            touch($replacement, (int) filemtime($file));
+            rename($replacement, $file);
+
+            return null;
+        });
+        $output = new BufferedOutput();
+
+        try {
+            $this->runWorker(['--time-limit' => 5, '--poll-interval' => 1], $repository, output: $output, configurationFile: $file);
+        } finally {
+            unlink($file);
+        }
+
+        self::assertStringContainsString('settings changed', $output->fetch());
+    }
+
     #[Test]
     public function aWorkerWhoseSettingsStayTheSameKeepsWaiting(): void
     {
@@ -183,7 +214,7 @@ final class ChatWorkerCommandLimitsTest extends TestCase
         });
 
         try {
-            $this->runWorker(['--time-limit' => 1, '--poll-interval' => 1], $repository, configurationFile: $file);
+            $this->runWorker(['--time-limit' => 2, '--poll-interval' => 1], $repository, configurationFile: $file);
         } finally {
             unlink($file);
         }
@@ -210,7 +241,7 @@ final class ChatWorkerCommandLimitsTest extends TestCase
         });
 
         try {
-            $this->runWorker(['--time-limit' => 1, '--poll-interval' => 1], $repository, configurationFile: $file);
+            $this->runWorker(['--time-limit' => 2, '--poll-interval' => 1], $repository, configurationFile: $file);
         } finally {
             unlink($file);
         }
@@ -229,7 +260,7 @@ final class ChatWorkerCommandLimitsTest extends TestCase
             return null;
         });
 
-        $this->runWorker(['--time-limit' => 1, '--poll-interval' => 1], $repository, configurationFile: sys_get_temp_dir() . '/no-such-settings-' . bin2hex(random_bytes(4)) . '.php');
+        $this->runWorker(['--time-limit' => 2, '--poll-interval' => 1], $repository, configurationFile: sys_get_temp_dir() . '/no-such-settings-' . bin2hex(random_bytes(4)) . '.php');
 
         self::assertGreaterThan(1, $calls);
     }

@@ -329,7 +329,7 @@
                 <source>Model rounds per run</source>
             </trans-unit>
             <trans-unit id="rounds.intro" resname="rounds.intro">
-                <source>How many model rounds a chat run may take before it stops, as nr-llm applies them. A run that resumes after an approval or an answer gets the number again.</source>
+                <source>How many model rounds a chat run may take before it stops, as nr-llm applies them. A run that resumes after an approval or an answer gets the number again. A run that reaches its number ends with one more request without tools, which writes the answer.</source>
             </trans-unit>
             <trans-unit id="rounds.run" resname="rounds.run">
                 <source>Run</source>
