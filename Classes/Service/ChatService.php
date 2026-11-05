@@ -158,10 +158,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * adds — falls back to the value itself.
      */
     private const UNAVAILABLE_REASONS = [
-        'toolDisabled'       => 'switched off by an administrator',
-        'requiresAdmin'      => 'for administrators only',
-        'configurationGroup' => 'not part of the tool groups this chat is configured with',
-        'trustZone'          => 'withheld because this AI provider may not receive the data it returns',
+        'toolDisabled'          => 'switched off by an administrator',
+        'requiresAdmin'         => 'for administrators only',
+        'configurationGroup'    => 'not part of the tool groups this chat is configured with',
+        'configurationExcluded' => 'excluded by the configuration this chat uses',
+        'trustZone'             => 'withheld because this AI provider may not receive the data it returns',
     ];
 
     /**

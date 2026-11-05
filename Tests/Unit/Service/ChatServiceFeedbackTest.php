@@ -528,6 +528,7 @@ final class ChatServiceFeedbackTest extends TestCase
     {
         $this->createChatService(unavailable: [
             ['name' => 'read_source', 'reason' => 'configurationGroup'],
+            ['name' => 'publish_page', 'reason' => 'configurationExcluded'],
             ['name' => 'get_env_raw', 'reason' => 'requiresAdmin'],
             ['name' => 'create_record_draft', 'reason' => 'toolDisabled'],
             ['name' => 'fetch_logs', 'reason' => 'trustZone'],
@@ -538,6 +539,7 @@ final class ChatServiceFeedbackTest extends TestCase
         self::assertStringContainsString(
             "Tools that exist in this installation but are NOT available to this user in this chat, with the reason:\n"
             . "- read_source: not part of the tool groups this chat is configured with\n"
+            . "- publish_page: excluded by the configuration this chat uses\n"
             . "- get_env_raw: for administrators only\n"
             . "- create_record_draft: switched off by an administrator\n"
             . "- fetch_logs: withheld because this AI provider may not receive the data it returns\n"
