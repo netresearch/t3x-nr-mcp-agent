@@ -181,7 +181,7 @@ describe('"Optimieren" in the list', () => {
 
     test('a refused start takes the highlight back to the image the chat is on and says why', async () => {
         const root = render();
-        const panel = fakePanel({ok: false, code: 'workspace', error: 'Nur im Live-Arbeitsbereich.'});
+        const panel = fakePanel({ok: false, code: 'tools', error: 'Die Werkzeuge sind nicht freigegeben.'});
         panel.activeAltTextReference = 1;
         initAltTextOptimise(root, () => panel, assign);
 
@@ -189,7 +189,7 @@ describe('"Optimieren" in the list', () => {
         await flush();
 
         expect(current()).toEqual([1]);
-        expect(document.querySelector('[data-nr-alt-text-status]').textContent).toBe('Nur im Live-Arbeitsbereich.');
+        expect(document.querySelector('[data-nr-alt-text-status]').textContent).toBe('Die Werkzeuge sind nicht freigegeben.');
     });
 
     test('opened again while the chat works on a row of this page, that row is highlighted at once', () => {

@@ -207,19 +207,6 @@ final class AltTextConversationStartTest extends FunctionalTestCase
         self::assertSame(0, $this->countConversations());
     }
 
-    /** The tools write in the live workspace only; in a draft workspace nothing starts, and it says why. */
-    #[Test]
-    public function aDraftWorkspaceStartsNothing(): void
-    {
-        $this->loginAs(self::EDITOR);
-        $GLOBALS['BE_USER']->workspace = 1;
-
-        [$status, $body] = $this->create(['altTextReference' => 1]);
-
-        self::assertSame([409, 'workspace'], [$status, $body['code'] ?? null]);
-        self::assertSame(0, $this->countConversations());
-    }
-
     /**
      * Without either tool the chat could neither save the text nor the mark:
      * "Optimieren" says so instead of starting.

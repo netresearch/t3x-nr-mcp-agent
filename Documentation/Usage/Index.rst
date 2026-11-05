@@ -891,12 +891,17 @@ the provider cannot see images, or the image cannot be read. The preview of
 the image in the chat and in the list stays; it is shown in the backend
 only.
 
-**Optimise** works in the live workspace, when an administrator has enabled
-the tools ``set_file_reference_alternative_text`` and
+**Optimise** works in the live workspace and in a draft workspace, when an
+administrator has enabled the tools ``set_file_reference_alternative_text`` and
 ``set_file_reference_decorative`` in nr-llm's **Tools** module, and when
 you may approve your own changes in the chat
 (:ref:`usage-approving-a-step`). Otherwise the button stays in
 the list, and a note above the list says why it does not work.
+
+In a draft workspace the list shows the images as that workspace shows them,
+and the alt text or the decorative mark you approve is saved there as a
+draft; live stays unchanged until the workspace is published. The approval
+card names the workspace.
 
 .. _usage-decorative-images:
 

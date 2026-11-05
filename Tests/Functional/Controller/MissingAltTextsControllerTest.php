@@ -553,15 +553,19 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         self::assertSame(0, $xpath->query(self::OPTIMISE_BUTTON)?->length);
     }
 
-    /** In a draft workspace the tools do not write, and the list says so. */
+    /**
+     * A user who may work in no workspace (core sets a negative one) has
+     * nowhere to save, and the list says so. A draft workspace is no reason
+     * (ADR-032, AltTextInADraftWorkspaceTest).
+     */
     #[Test]
-    public function inADraftWorkspaceOptimiseSaysWhy(): void
+    public function withoutAnyWorkspaceOptimiseSaysWhy(): void
     {
         $this->login(2);
-        $GLOBALS['BE_USER']->workspace = 1;
+        $GLOBALS['BE_USER']->workspace = -99;
         $xpath                         = $this->render([], $this->controllerWithTools());
 
-        self::assertStringContainsString('live workspace only', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
+        self::assertStringContainsString('may not work in any workspace', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
         self::assertSame(0, $xpath->query(self::OPTIMISE_BUTTON)?->length);
     }
 }

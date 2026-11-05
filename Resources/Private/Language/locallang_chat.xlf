@@ -743,7 +743,7 @@
                 <source>A conversation about an image starts from the image alone.</source>
             </trans-unit>
             <trans-unit id="error.altTextWorkspace" resname="error.altTextWorkspace">
-                <source>Alt texts are saved from the chat in the live workspace only. Switch to the live workspace to optimise this image.</source>
+                <source>You may not work in any workspace at the moment, so the chat cannot save alt texts. Ask an administrator for access to a workspace.</source>
             </trans-unit>
             <trans-unit id="error.altTextToolsUnavailable" resname="error.altTextToolsUnavailable">
                 <source>Optimising is not available: an administrator has to enable the tools “set_file_reference_alternative_text” and “set_file_reference_decorative” for the chat.</source>

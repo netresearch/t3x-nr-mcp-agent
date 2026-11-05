@@ -364,7 +364,7 @@ class AltTextConversation
         $block = $this->image->modelBlock($reference, $vision);
         $user  = $GLOBALS['BE_USER'] ?? null;
         $mark  = $user instanceof BackendUserAuthentication && $this->gate instanceof AltTextGate && $this->gate->mayMarkDecorative($user, $reference);
-        $text  = $this->context->describe($hit, $block !== null, $mark);
+        $text  = $this->context->describe($hit, $block !== null, $mark, $user instanceof BackendUserAuthentication ? $user->workspace : 0);
 
         return $block === null ? $text : [['type' => 'text', 'text' => $text], $block];
     }

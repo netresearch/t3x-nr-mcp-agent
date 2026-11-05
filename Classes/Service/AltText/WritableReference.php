@@ -11,7 +11,9 @@ namespace Netresearch\NrMcpAgent\Service\AltText;
 
 /**
  * An image reference a backend user may write, with the record it hangs on
- * and that record's page (ReferenceWriteAccess). The rows are as stored, live.
+ * and that record's page (ReferenceWriteAccess). The reference and the record
+ * are as the user's workspace shows them, under their live uid; the page is
+ * the live one (ADR-032).
  */
 final readonly class WritableReference
 {

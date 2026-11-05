@@ -19,7 +19,9 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * owner's rights, never taken from the browser: the reference to write,
  * the file, the language the alt text is written in, the page or the
  * record, the content element or the field, the element's text and the
- * elements around it on the page, or the record's text fields.
+ * elements around it on the page, or the record's text fields. In a draft
+ * workspace these are read as that workspace shows them (ADR-032), so the
+ * model proposes from the text the editor sees there.
  *
  * Titles and texts are editor content: the block is fenced, and the system
  * prompt (AltTextFlowPrompt) tells the model it is data, not instructions.
@@ -47,30 +49,32 @@ class AltTextContext
     /**
      * The fenced context block for an open hit; `$imageAttached` says
      * whether the scaled image follows it, `$mayMarkDecorative` whether the
-     * editor may set the decorative mark.
+     * editor may set the decorative mark, `$workspace` the workspace the
+     * texts are read in.
      */
-    public function describe(MissingAltText $hit, bool $imageAttached, bool $mayMarkDecorative = true): string
+    public function describe(MissingAltText $hit, bool $imageAttached, bool $mayMarkDecorative = true, int $workspace = 0): string
     {
-        $card  = $this->list->describe($hit);
-        $lines = [
+        $workspace = max(0, $workspace);
+        $card      = $this->list->describe($hit);
+        $lines     = [
             sprintf('Reference to write (pass it as "reference"): %d', $hit->referenceUid),
             sprintf('File name: %s', $hit->fileName),
             sprintf('Language of this use, write the alt text in it: %s', $this->languageName($hit)),
         ];
 
         if ($hit->type === MissingAltTextScan::PAGES) {
-            $page        = $this->rows->findLive('pages', $hit->pageUid, true) ?? [];
+            $page        = $this->rows->findAsTheUserSees('pages', $hit->pageUid, $workspace, true) ?? [];
             $lines[]     = sprintf('Page: "%s"', $hit->pageTitle);
             $description = $this->excerpt($page['description'] ?? null, self::EXCERPT);
             if ($description !== '') {
                 $lines[] = sprintf('Page description: "%s"', $description);
             }
 
-            $lines = [...$lines, ...$this->element($hit, $card['part'])];
+            $lines = [...$lines, ...$this->element($hit, $card['part'], $workspace)];
         } else {
             $lines[] = sprintf('Record: %s "%s"', $card['subjectType'], $card['subject']);
             $lines[] = sprintf('Image field: %s', $card['part']);
-            $lines   = [...$lines, ...$this->recordTexts($hit)];
+            $lines   = [...$lines, ...$this->recordTexts($hit, $workspace)];
         }
 
         $lines[] = $imageAttached
@@ -88,13 +92,13 @@ class AltTextContext
      *
      * @return list<string>
      */
-    private function element(MissingAltText $hit, string $label): array
+    private function element(MissingAltText $hit, string $label, int $workspace): array
     {
         if ($hit->elementUid === 0) {
             return [sprintf('Where: %s', $label)];
         }
 
-        $element = $this->rows->findLive('tt_content', $hit->elementUid, true) ?? [];
+        $element = $this->rows->findAsTheUserSees('tt_content', $hit->elementUid, $workspace, true) ?? [];
         $lines   = [sprintf('Content element: %s', $label)];
         $text    = $this->excerpt($element['bodytext'] ?? null, self::EXCERPT);
         if ($text !== '') {
@@ -108,6 +112,7 @@ class AltTextContext
             $this->int($element['sorting'] ?? 0),
             $hit->elementUid,
             self::NEIGHBOURS,
+            $workspace,
         );
         foreach (['before' => 'Content before it', 'after' => 'Content after it'] as $side => $heading) {
             foreach ($neighbours[$side] as $row) {
@@ -126,10 +131,11 @@ class AltTextContext
      *
      * @return list<string>
      */
-    private function recordTexts(MissingAltText $hit): array
+    private function recordTexts(MissingAltText $hit, int $workspace): array
     {
-        $record  = $this->rows->findLive($hit->type, $hit->groupUid, false) ?? [];
         $tca     = $GLOBALS['TCA'] ?? null;
+        $ctrl    = is_array($tca) && is_array($tca[$hit->type] ?? null) && is_array($tca[$hit->type]['ctrl'] ?? null) ? $tca[$hit->type]['ctrl'] : [];
+        $record  = $this->rows->findAsTheUserSees($hit->type, $hit->groupUid, $workspace, (bool) ($ctrl['versioningWS'] ?? false)) ?? [];
         $columns = is_array($tca) && is_array($tca[$hit->type] ?? null) && is_array($tca[$hit->type]['columns'] ?? null) ? $tca[$hit->type]['columns'] : [];
         $lines   = [];
         foreach ($columns as $name => $column) {

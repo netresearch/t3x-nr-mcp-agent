@@ -47,3 +47,4 @@ consequences of each decision.
     ADR-029-a-booted-process-waits-for-the-turn
     ADR-030-a-later-turn-reads-what-ran
     ADR-031-the-module-is-an-overview
+    ADR-032-missing-alt-texts-in-a-draft-workspace

@@ -49,7 +49,8 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
  * `set_file_reference_alternative_text` asks (ReferenceWriteAccess), with the
  * grant for this column, so no card is offered that the DataHandler would
  * then refuse. Like nr-llm's writers it ships disabled, in the writers' group
- * `editing`, live workspace only.
+ * `editing`. In a draft workspace the run recorded it writes a version there
+ * and its card names the workspace (ADR-032, nr-llm ADR-260).
  */
 final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataClassInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
 {
@@ -77,7 +78,8 @@ final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataCl
             . ' off. A decorative image is rendered with an empty alt attribute and skipped by screen readers; use it'
             . ' only for images that carry no information, such as patterns, ornaments or dividers. The mark belongs to'
             . ' this use of the image only and keeps its language. Writes through the TYPO3 DataHandler as the acting'
-            . ' backend user, in the live workspace only.',
+            . ' backend user, in the workspace the request was started in: in live, or as a draft (workspace version)'
+            . ' in a draft workspace, where live stays unchanged until the workspace is published.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -101,7 +103,7 @@ final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataCl
             return ToolResult::error($call);
         }
 
-        $refusal = $this->writer->write($user, $call['reference'], $call['decorative']);
+        $refusal = $this->writer->write($user, $call['reference'], $call['decorative'], $context->actor->workspaceId);
         if ($refusal !== null) {
             return ToolResult::error($refusal);
         }
@@ -111,13 +113,16 @@ final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataCl
                 ? 'File reference [%d] is marked as decorative: it is rendered with alt="" and no longer listed as missing an alt text.'
                 : 'File reference [%d] is no longer marked as decorative.',
             $call['reference'],
-        ))->withWriteTarget(new RecordReference(self::TABLE, $call['reference']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
+        ) . DecorativeImageWriter::draftNote($user))->withWriteTarget(new RecordReference(self::TABLE, $call['reference']), WriteKind::UPDATED, WriteCompleteness::COMPLETE);
     }
 
     /**
      * What the card shows, in the acting user's language: what is set, the
-     * record and its page, the field, the file and, for a decorative mark on
-     * an image that belongs to a section or a record, the warning.
+     * record and its page, the field, the file, in a draft workspace that
+     * workspace (the acting user's, the one the run writes into), and, for a
+     * decorative mark on an image that belongs to a section or a record, the
+     * warning. A call the write will refuse for its workspace shows that
+     * refusal alone, so the card never promises a draft that is not stored.
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
@@ -129,6 +134,11 @@ final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataCl
         $call = $this->arguments($arguments);
         if (is_string($call)) {
             return [$call];
+        }
+
+        $refusal = $this->writer->workspaceRefusal($user, $context->actor->workspaceId);
+        if ($refusal !== null) {
+            return [$refusal];
         }
 
         $plan = $this->writer->plan($user, $call['reference']);
@@ -145,6 +155,10 @@ final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataCl
 
         $lines[] = sprintf($this->text($language, 'tool.field'), $this->fieldLabel($language, $plan->table, $plan->field));
         $lines[] = sprintf($this->text($language, 'tool.file'), $this->fileName($plan));
+        if ($user->workspace > 0) {
+            $lines[] = sprintf($this->text($language, 'tool.workspace'), DecorativeImageWriter::workspaceTitle($user));
+        }
+
         if ($call['decorative']) {
             $warning = $this->warning->of($plan, $language);
             if ($warning !== '') {
