@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-05
+
+### Added
+
+- A chat turn runs in the TYPO3 workspace the editor started it in: the conversation keeps the workspace of the owner's request (`tx_nrmcpagent_conversation.workspace`), the worker sets the backend user and the Context workspace aspect to it for the turn and returns to live afterwards, and nr-llm gets an actor carrying it, so a content change lands as a workspace version and live stays unchanged. A turn whose user may no longer work in that workspace fails; a turn queued before this version runs where the user record points, as before (#319).
+
+### Changed
+
+- Requires nr-llm 0.43.16, which writes into the editor's workspace (nr-llm ADR-260).
+
 ## [0.32.0] - 2026-11-05
 
 ### Added
