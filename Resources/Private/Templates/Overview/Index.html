@@ -220,6 +220,42 @@
         </section>
     </f:if>
 
+    <f:comment>The rounds a run gets, as nr-llm clamps them. Administrators only, like the configuration.</f:comment>
+    <f:if condition="{rounds}">
+        <section class="mb-4" aria-labelledby="nr-overview-rounds">
+            <h2 id="nr-overview-rounds">{f:translate(key: '{ll}rounds.heading')}</h2>
+            <p class="text-body-secondary">{f:translate(key: '{ll}rounds.intro')}</p>
+            <div class="table-fit">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">{f:translate(key: '{ll}rounds.run')}</th>
+                            <th scope="col">{f:translate(key: '{ll}rounds.value')}</th>
+                            <th scope="col">{f:translate(key: '{ll}configuration.source')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row">{f:translate(key: '{ll}rounds.chat')}</th>
+                            <td data-nr-rounds="chat">{rounds.chat}</td>
+                            <td>{f:translate(key: '{ll}rounds.source.{rounds.chatSource}')}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{f:translate(key: '{ll}rounds.process')}</th>
+                            <td data-nr-rounds="process">{rounds.process}</td>
+                            <td>{f:translate(key: '{ll}rounds.source.{rounds.processSource}')}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{f:translate(key: '{ll}rounds.ceiling')}</th>
+                            <td data-nr-rounds="ceiling">{rounds.ceiling}</td>
+                            <td>{f:translate(key: '{ll}rounds.source.nrLlm')}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </f:if>
+
     <section class="mb-4" aria-labelledby="nr-overview-actions">
         <h2 id="nr-overview-actions">{f:translate(key: '{ll}actions.heading')}</h2>
         <ul>

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface;
 use Netresearch\NrLlm\Service\Budget\UserBudgetStatusService;
 use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\Usage\ExtensionUsageReaderInterface;
@@ -72,6 +73,10 @@ final readonly class ChatOverview
         private ExtensionUsageReaderInterface $usage,
         private UserBudgetStatusService $budget,
         private UnavailableToolsReaderInterface $unavailableTools,
+        // nr-llm's round limits, read through the resolver its runtime uses
+        // (nr-llm ADR-101, amendment of 2026-11-04), so the rounds shown are
+        // the rounds a run gets.
+        private AgentRoundLimitsInterface $roundLimits,
     ) {}
 
     /**
@@ -89,6 +94,7 @@ final readonly class ChatOverview
             'readiness'     => $this->readiness($viewer),
             'taskMapping'   => $isAdmin ? $this->taskMapping() : [],
             'configuration' => $isAdmin ? $this->settings() : [],
+            'rounds'        => $isAdmin ? $this->rounds() : [],
             'conversations' => $this->conversationCounts($scope, $period),
             'failures'      => $this->statistics->countFailedByErrorCode($scope),
             'openPoints'    => $this->statistics->countOpenPoints($scope),
@@ -241,6 +247,17 @@ final readonly class ChatOverview
         }
 
         return $rows;
+    }
+
+    /**
+     * @return array{chat: int, chatSource: string, process: int, processSource: string, ceiling: int}
+     */
+    private function rounds(): array
+    {
+        return (new RoundsOverview($this->roundLimits))->rounds(
+            $this->config->getChatRunMaxIterations(),
+            $this->config->getProcessRunMaxIterations(),
+        );
     }
 
     /**

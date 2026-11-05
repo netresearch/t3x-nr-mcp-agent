@@ -142,7 +142,8 @@ All settings are in **Admin Tools > Settings > Extension Configuration > nr_mcp_
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `llmTaskUid` | `0` | UID of the nr-llm Task record **(required)** |
-| `processRunMaxIterations` | `12` | Model rounds a run of a guided process may take; nr-llm caps it at 20, ordinary chat runs keep nr-llm's default |
+| `chatRunMaxIterations` | `0` | Model rounds an ordinary chat run may take; 0 uses nr-llm's default (`agent.defaultMaxIterations`), nr-llm caps it at `agent.maxIterations` |
+| `processRunMaxIterations` | `12` | Model rounds a run of a guided process may take; nr-llm caps it at `agent.maxIterations` (20 unless changed) |
 | `processingStrategy` | `exec` | `exec` (fork per request) or `worker` (long-running) |
 | `allowedGroups` | *(empty)* | Comma-separated group UIDs (empty = all) |
 | `maxMessageLength` | `10000` | Max characters per message |

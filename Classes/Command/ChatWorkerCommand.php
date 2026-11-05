@@ -27,6 +27,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\DateTimeAspect;
+use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -34,8 +35,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Keeps a booted TYPO3 waiting for the next chat turn (ADR-029).
  *
  * It ends by itself, so that whatever supervises it starts a fresh one:
- * after --max-turns turns, after --time-limit seconds, above --memory-limit, and
- * on SIGTERM or SIGINT, which a running turn finishes first. A turn that exceeds
+ * after --max-turns turns, after --time-limit seconds, above --memory-limit,
+ * when the settings were saved since it started (it would run on the old ones),
+ * and on SIGTERM or SIGINT, which a running turn finishes first. A turn that exceeds
  * --turn-limit ends the process and is marked failed, so the reader gets a Retry;
  * a turn is never run a second time by itself, because it may have written.
  * The last two need the `pcntl` extension; without it the process dies on SIGTERM
@@ -68,6 +70,9 @@ final class ChatWorkerCommand extends Command
         private readonly ConnectionPool $connectionPool,
         private readonly ?TurnTimingRecorder $turnTiming = null,
         private readonly ?ChatWorkerRepository $workers = null,
+        // The file the backend writes the extension settings to. Null reads
+        // TYPO3's own; a test passes a file of its own.
+        private readonly ?string $settingsFile = null,
     ) {
         parent::__construct();
     }
@@ -95,12 +100,33 @@ final class ChatWorkerCommand extends Command
 
         $output->writeln(sprintf('<info>AI Chat worker %s started. Polling every %dms</info>', $workerId, $pollInterval / 1000));
 
-        $startedAt = time();
-        $lastBeat  = 0;
-        $turns     = 0;
+        // The settings file is looked at before the start time is taken, so a
+        // save between the two is either in the baseline's window below or a
+        // change against it, never neither.
+        $settingsFile   = $this->settingsFile ?? $this->systemSettingsFile();
+        $settingsAtBoot = $this->settingsStamp($settingsFile);
+        $startedAt      = time();
+        $lastBeat       = 0;
+        $turns          = 0;
+        // TYPO3 read the settings before this line; a save between the two
+        // reads would go unseen, so a file written between the second the
+        // process started and now counts as changed too. File times have a
+        // resolution of one second, so a worker that starts in the second of a
+        // save stops again: a save costs restarts for up to one second. A time
+        // after now (a clock ahead of this host) is not a save during the boot
+        // and must not stop every worker that starts.
+        $processStart = is_int($_SERVER['REQUEST_TIME'] ?? null) ? $_SERVER['REQUEST_TIME'] : $startedAt;
 
         try {
             while (!$this->stopRequested) {
+                $settingsNow = $this->settingsStamp($settingsFile);
+                $writtenAt   = $settingsNow['mtime'] ?? null;
+                if ($settingsNow !== $settingsAtBoot || ($writtenAt !== null && $writtenAt >= $processStart && $writtenAt <= $startedAt)) {
+                    $output->writeln('<info>The settings changed since this worker started; stopping so a new one reads them.</info>');
+
+                    break;
+                }
+
                 if (time() - $lastBeat >= self::HEARTBEAT_SECONDS) {
                     $this->workers?->reportIdle($workerId);
                     $lastBeat = time();
@@ -194,6 +220,44 @@ final class ChatWorkerCommand extends Command
         }
 
         GeneralUtility::makeInstance(Context::class)->setAspect('date', new DateTimeAspect(new DateTimeImmutable('@' . $now)));
+    }
+
+    /**
+     * What identifies the settings file's current content: its modification
+     * and change time, inode and size, or null when it cannot be read. The
+     * change time is set by the kernel on every write and no copy tool
+     * restores it, so a replacement that keeps the modification time is seen
+     * too. TYPO3 reads the extension settings once, at boot; a worker that
+     * keeps waiting after an administrator saved new ones would run the next
+     * turn on the old ones (ADR-029; ADR-023, round-cap amendment of
+     * 2026-11-04).
+     *
+     * @return array{mtime: int, ctime: int, ino: int, size: int}|null
+     */
+    private function settingsStamp(?string $file): ?array
+    {
+        if ($file === null) {
+            return null;
+        }
+
+        clearstatcache(true, $file);
+        if (!is_file($file)) {
+            return null;
+        }
+
+        $stat = stat($file);
+
+        return $stat === false ? null : ['mtime' => $stat['mtime'], 'ctime' => $stat['ctime'], 'ino' => $stat['ino'], 'size' => $stat['size']];
+    }
+
+    /** TYPO3's settings file, or null where TYPO3 has not set up its paths. */
+    private function systemSettingsFile(): ?string
+    {
+        try {
+            return Environment::getConfigPath() . '/system/settings.php';
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function limitReached(int $turns, int $maxTurns, int $startedAt, int $timeLimit, int $memoryLimit): bool
