@@ -72,7 +72,7 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
         $workspaces->insert('sys_workspace', ['uid' => self::DRAFT, 'pid' => 0, 'title' => 'Entwurf', 'members' => 'be_users_2']);
         $workspaces->insert('sys_workspace', ['uid' => self::OTHER_DRAFT, 'pid' => 0, 'title' => 'Andere', 'members' => 'be_users_2']);
 
-        $this->repository =$this->get(ConversationRepository::class);
+        $this->repository = $this->get(ConversationRepository::class);
     }
 
     private function gate(): AltTextGate
@@ -217,7 +217,8 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
     /**
      * The model reads the page, the element and the elements around it as
      * the workspace shows them: versions, an element new there, and not one
-     * deleted there.
+     * deleted there, moved to another column there or new in another
+     * workspace.
      */
     #[Test]
     public function theModelReadsTheTextsAsTheWorkspaceShowsThem(): void
@@ -226,8 +227,11 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
         $base    = ['pid' => 10, 'colPos' => 0, 'sys_language_uid' => 0];
         $content->insert('tt_content', [...$base, 'uid' => 600, 'CType' => 'textpic', 'header' => 'Unser Team', 'bodytext' => 'Text im Entwurf', 'sorting' => 256, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 100, 't3ver_state' => 0]);
         $content->insert('tt_content', [...$base, 'uid' => 601, 'CType' => 'image', 'header' => 'Nachbar im Entwurf', 'sorting' => 128, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 101, 't3ver_state' => 0]);
-        $content->insert('tt_content', [...$base, 'uid' => 602, 'CType' => 'text', 'header' => 'Neu im Entwurf', 'sorting' => 300, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1]);
+        $content->insert('tt_content', [...$base, 'uid' => 602, 'CType' => 'text', 'header' => 'Neu im Entwurf', 'sorting' => 290, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1]);
         $content->insert('tt_content', [...$base, 'uid' => 603, 'CType' => 'text', 'header' => 'Neu woanders', 'sorting' => 310, 't3ver_wsid' => self::OTHER_DRAFT, 't3ver_oid' => 0, 't3ver_state' => 1]);
+        // In live, "Text und Medien" (124) and "Versteckt" (102) follow the element.
+        $content->insert('tt_content', [...$base, 'uid' => 604, 'CType' => 'textmedia', 'header' => 'Text und Medien', 'sorting' => 300, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 124, 't3ver_state' => 2]);
+        $content->insert('tt_content', [...$base, 'uid' => 605, 'CType' => 'image', 'header' => 'Versteckt', 'hidden' => 1, 'sorting' => 384, 'colPos' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 102, 't3ver_state' => 0]);
         $this->getConnectionPool()->getConnectionForTable('pages')->insert('pages', [
             'uid'          => 700, 'pid' => 1, 'title' => 'Startseite', 'description' => 'Beschreibung im Entwurf', 'doktype' => 1, 'sorting' => 100,
             'perms_userid' => 1, 'perms_user' => 31, 'perms_everybody' => 31, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 10, 't3ver_state' => 0,
@@ -241,11 +245,23 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
         $draft = $this->get(AltTextContext::class)->describe($hit, false, true, self::DRAFT);
 
         self::assertStringNotContainsString('im Entwurf', $live, 'live reads live');
+        self::assertStringContainsString('Content after it: "Text und Medien"', $live, 'live control');
+        self::assertStringContainsString('Content after it: "Versteckt"', $live, 'live control');
         self::assertStringContainsString('Page description: "Beschreibung im Entwurf"', $draft);
         self::assertStringContainsString('Text of the element: "Text im Entwurf"', $draft);
         self::assertStringContainsString('Content before it: "Nachbar im Entwurf"', $draft);
         self::assertStringContainsString('Content after it: "Neu im Entwurf"', $draft);
         self::assertStringNotContainsString('Neu woanders', $draft);
+        self::assertStringNotContainsString('Text und Medien', $draft, 'deleted in the workspace');
+        self::assertStringNotContainsString('Versteckt', $draft, 'moved to another column in the workspace');
+
+        // The worker's path: the turn's user, set up in the workspace, reads it.
+        [$status, $body] = $this->start(1);
+        self::assertSame(201, $status);
+        $conversation = $this->repository->findByUid((int) $body['uid']);
+        self::assertNotNull($conversation);
+        $transcript = json_encode($this->get(AltTextConversation::class)->transcript($conversation, $conversation->getDecodedMessages(), false), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        self::assertStringContainsString('Text im Entwurf', $transcript);
     }
 
     /** A user who may work in no workspace has nowhere to save: nothing starts, and it says why. */

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
 use Netresearch\NrMcpAgent\Tool\SetDecorativeImageTool;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -207,16 +208,26 @@ final class SetDecorativeImageToolWorkspaceTest extends FunctionalTestCase
     }
 
     /**
-     * Where an installation lets the table be edited live in a workspace,
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function tablesCoreKeepsNoDraftOf(): iterable
+    {
+        yield 'versioning taken off' => ['versioningWS', false];
+        yield 'always edited live' => ['versioningWS_alwaysAllowLiveEdit', true];
+    }
+
+    /**
+     * Where an installation takes the versioning off or lets the table be edited live in a workspace,
      * core keeps no draft: the write would go live past the workspace, so it
      * is refused, and live keeps no mark.
      */
     #[Test]
-    public function aTableCoreKeepsNoDraftOfIsRefused(): void
+    #[DataProvider('tablesCoreKeepsNoDraftOf')]
+    public function aTableCoreKeepsNoDraftOfIsRefused(string $flag, bool $value): void
     {
-        $GLOBALS['TCA']['sys_file_reference']['ctrl']['versioningWS_alwaysAllowLiveEdit'] = true;
-        $user                                                                             = $this->editorIn(self::DRAFT);
-        $context                                                                          = $this->pinnedRun($user);
+        $GLOBALS['TCA']['sys_file_reference']['ctrl'][$flag] = $value;
+        $user                                                = $this->editorIn(self::DRAFT);
+        $context                                             = $this->pinnedRun($user);
 
         $card   = $this->tool()->previewCall(['reference' => self::REFERENCE, 'decorative' => true], $context);
         $result = $this->tool()->execute(['reference' => self::REFERENCE, 'decorative' => true], $context);
@@ -268,6 +279,19 @@ final class SetDecorativeImageToolWorkspaceTest extends FunctionalTestCase
         self::assertSame(['uid' => 901, 'wsid' => self::OTHER_DRAFT, 'oid' => self::REFERENCE, 'state' => 0, 'mark' => 0], $rows[1], 'the other workspace');
         self::assertSame([self::DRAFT, 1], [$rows[2]['wsid'], $rows[2]['mark']]);
         self::assertSame(0, $this->rowsOf(902)[0]['mark']);
+    }
+
+    /** A reference deleted in the workspace is not there for it; live keeps it unmarked. */
+    #[Test]
+    public function aReferenceDeletedInTheWorkspaceIsNotThere(): void
+    {
+        $this->insertReference(['uid' => 904, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => self::REFERENCE, 't3ver_state' => 2]);
+        $user = $this->editorIn(self::DRAFT);
+
+        $result = $this->tool()->execute(['reference' => self::REFERENCE, 'decorative' => true], $this->pinnedRun($user));
+
+        self::assertSame([true, ReferenceWriteAccess::NOT_PERMITTED], [$result->isError, $result->content]);
+        self::assertSame([0, 0], array_column($this->rowsOf(self::REFERENCE), 'mark'));
     }
 
     /** A version row of the editor's own workspace, named by its own uid, is reached through its live uid only. */
