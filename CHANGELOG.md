@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-05
+
+### Added
+
+- Ordinary chat runs get a model-round cap of their own: the setting `chatRunMaxIterations` (default `0`) asks nr-llm for that many rounds; `0`, empty and anything that is not a whole number above 0 ask for none, so nr-llm's configured default applies as before. Process runs keep `processRunMaxIterations`. nr-llm caps both at its maximum, `agent.maxIterations`, also when a run resumes (ADR-023 round-cap amendment of 2026-11-04, #317).
+- The overview module shows administrators the rounds an ordinary run and a process run get and nr-llm's maximum, with where each number comes from.
+
+### Changed
+
+- The chat worker (`ai-chat:worker`) stops before its next turn when the system settings file was written since it started, so settings saved in the backend reach the next turn; its supervisor starts a new worker (#317).
+- Requires nr-llm 0.43.15, which ships `AgentRoundLimitsInterface`.
+
 ## [0.31.2] - 2026-11-04
 
 ### Fixed
