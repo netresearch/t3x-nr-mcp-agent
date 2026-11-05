@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-11-05
+
+### Fixed
+
+- The list of unavailable tools in the chat's system prompt names a tool that the LLM configuration excludes as "excluded by the configuration this chat uses" instead of passing nr-llm's raw reason code `configurationExcluded` to the model (nr-llm 0.43.17) (#322).
+
 ## [0.33.0] - 2026-11-05
 
 ### Added
