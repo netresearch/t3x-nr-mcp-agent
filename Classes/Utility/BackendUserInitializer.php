@@ -39,8 +39,11 @@ final class BackendUserInitializer
         $backendUser = self::setUp($userRecord, null);
 
         if ($workspace !== null && $backendUser->workspace !== $workspace) {
-            // Asked first, so core never falls back to another workspace and
-            // stores that on the user's record. A user who may no longer work
+            // Asked first, so the set-up in the turn's workspace never falls
+            // back to another one and stores that on the user's record. (The
+            // first set-up above runs core's own: where the workspace the
+            // record names is gone, core stores its fallback, as for any
+            // backend login.) A user who may no longer work
             // there gets no turn: writing anywhere else than where the turn
             // was started is the one outcome that must not happen.
             if ($backendUser->checkWorkspace($workspace) === false) {
