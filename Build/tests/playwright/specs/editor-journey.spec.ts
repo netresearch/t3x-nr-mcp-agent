@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 import { Locator, Page } from '@playwright/test';
-import { test, expect, waitForBackend, dashboardWidgetsLoaded } from '../fixtures/backend';
+import { test, expect, waitForBackend, dashboardWidgetsLoaded, markModuleFrame, moduleFrameLoaded } from '../fixtures/backend';
 
 /**
  * One editor's way through the chat column, clicked as an editor clicks it,
@@ -49,10 +49,18 @@ async function storePreferences(page: Page, layout: string, width: string): Prom
     }, { layout, width });
 }
 
+/**
+ * Open a module from the menu and wait until its document has loaded, and on
+ * the dashboard its widgets as well: leaving the dashboard while a widget
+ * still loads aborts the widget's request, which the error guard reports.
+ */
 async function openModule(page: Page, selector: string, identifier: RegExp): Promise<void> {
+    await markModuleFrame(page);
     await page.locator(selector).first().click();
     await expect.poll(() => page.evaluate(() => (document.querySelector('typo3-backend-module-router') as any)?.module ?? ''))
         .toMatch(identifier);
+    await moduleFrameLoaded(page);
+    await dashboardWidgetsLoaded(page);
 }
 
 /** The column is open in the content area, before the module. */
@@ -119,7 +127,6 @@ test.describe('An editor working with the chat column', () => {
 
         // 1. Dashboard: open the chat, dock it as a column.
         await openModule(page, '[data-modulemenu-identifier="dashboard"]', /^dashboard$/);
-        await dashboardWidgetsLoaded(page);
         await page.locator('.ai-chat-toolbar-btn').click();
         await expect(panel).toHaveAttribute('state', 'expanded');
         await panel.getByRole('button', { name: 'Column mode' }).click();

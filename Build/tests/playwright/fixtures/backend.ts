@@ -153,6 +153,36 @@ export async function waitForBackend(page: Page): Promise<void> {
 }
 
 /**
+ * Mark the document the module frame shows now, so that
+ * moduleFrameLoaded() waits for the next one. Clicking the module the frame
+ * already shows reloads it (core's iframe module sets `src` again for an
+ * unchanged endpoint), and the router's `module` names the target before
+ * the click as well as after it: without the mark, a wait would pass on the
+ * document that is about to go.
+ */
+export async function markModuleFrame(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        const frame = (window as any).frames?.list_frame;
+        if (frame) {
+            frame.document.nrE2eReplaced = true;
+        }
+    });
+}
+
+/** Wait until the module frame shows a new, fully loaded document (markModuleFrame()). */
+export async function moduleFrameLoaded(page: Page): Promise<void> {
+    await page.waitForFunction(() => {
+        const frame = (window as any).frames?.list_frame;
+        try {
+            return Boolean(frame) && frame.location.href !== 'about:blank'
+                && frame.document.readyState === 'complete' && frame.document.nrE2eReplaced !== true;
+        } catch {
+            return false;
+        }
+    }, null, { timeout: 15000 });
+}
+
+/**
  * Wait until every widget of the dashboard in the module frame has its
  * content (its Lit fetch task done or failed), if the module frame shows the
  * dashboard. Leaving the dashboard while a widget still loads aborts its
