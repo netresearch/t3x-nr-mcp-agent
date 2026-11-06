@@ -24,7 +24,7 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
  * The decorative mark in a draft workspace (ADR-032): the run that recorded
  * the editor's workspace stores a version of the reference there, live stays
  * as it is; a run that did not record it, another workspace's draft and a
- * table core keeps no draft of are refused. Against the list's fixture
+ * table that is not versioned or is edited live are refused. Against the list's fixture
  * (missing_alt_texts.csv) with a real workspace the editor is a member of.
  */
 final class SetDecorativeImageToolWorkspaceTest extends FunctionalTestCase
@@ -232,9 +232,10 @@ final class SetDecorativeImageToolWorkspaceTest extends FunctionalTestCase
     }
 
     /**
-     * Where an installation takes the versioning off or lets the table be edited live in a workspace,
-     * core keeps no draft: the write would go live past the workspace, so it
-     * is refused, and live keeps no mark.
+     * Where an installation takes the versioning off or lets the table be
+     * edited live in a workspace, the write could go live past the workspace
+     * (TYPO3 13.4 edits the live row for either), so it is refused, and live
+     * keeps no mark.
      */
     #[Test]
     #[DataProvider('tablesCoreKeepsNoDraftOf')]
@@ -248,7 +249,7 @@ final class SetDecorativeImageToolWorkspaceTest extends FunctionalTestCase
         $result = $this->tool()->execute(['reference' => self::REFERENCE, 'decorative' => true], $context);
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('keeps no draft', $result->content);
+        self::assertStringContainsString('are not versioned here or may be edited live', $result->content);
         self::assertSame([$result->content], $card);
         self::assertSame([['uid' => self::REFERENCE, 'wsid' => 0, 'oid' => 0, 'state' => 0, 'mark' => 0]], $this->rowsOf(self::REFERENCE));
     }

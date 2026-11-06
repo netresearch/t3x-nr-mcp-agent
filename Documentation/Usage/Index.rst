@@ -901,10 +901,11 @@ the list, and a note above the list says why it does not work.
 In a draft workspace the list shows the images as that workspace shows them,
 and the alt text or the decorative mark you approve is saved there as a
 draft; live stays unchanged until the workspace is published. The approval
-card names the workspace. Where the installation keeps no drafts of image
-uses (an administrator set ``versioningWS_alwaysAllowLiveEdit`` for
-``sys_file_reference``), **Optimise** works in the live workspace only, and
-the note above the list says so.
+card names the workspace. Where the installation does not version image
+uses or lets them be edited live (an administrator turned ``versioningWS``
+off or set ``versioningWS_alwaysAllowLiveEdit`` for ``sys_file_reference``),
+**Optimise** works in the live workspace only, and the note above the list
+says so.
 
 .. _usage-decorative-images:
 

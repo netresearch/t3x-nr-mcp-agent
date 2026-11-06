@@ -233,6 +233,9 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
         // In live, "Text und Medien" (124) and "Versteckt" (102) follow the element.
         $content->insert('tt_content', [...$base, 'uid' => 604, 'CType' => 'textmedia', 'header' => 'Text und Medien', 'sorting' => 300, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 124, 't3ver_state' => 2]);
         $content->insert('tt_content', [...$base, 'uid' => 605, 'CType' => 'image', 'header' => 'Versteckt', 'hidden' => 1, 'sorting' => 384, 'colPos' => 1, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 102, 't3ver_state' => 0]);
+        // Live after "Versteckt"; moved to another page in the workspace.
+        $content->insert('tt_content', [...$base, 'uid' => 606, 'CType' => 'text', 'header' => 'Weggezogen', 'sorting' => 390]);
+        $content->insert('tt_content', [...$base, 'uid' => 607, 'CType' => 'text', 'header' => 'Weggezogen', 'sorting' => 390, 'pid' => 11, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 606, 't3ver_state' => 4]);
         $this->getConnectionPool()->getConnectionForTable('pages')->insert('pages', [
             'uid'          => 700, 'pid' => 1, 'title' => 'Startseite', 'description' => 'Beschreibung im Entwurf', 'doktype' => 1, 'sorting' => 100,
             'perms_userid' => 1, 'perms_user' => 31, 'perms_everybody' => 31, 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 10, 't3ver_state' => 0,
@@ -255,6 +258,7 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
         self::assertStringNotContainsString('Neu woanders', $draft);
         self::assertStringNotContainsString('Text und Medien', $draft, 'deleted in the workspace');
         self::assertStringNotContainsString('Versteckt', $draft, 'moved to another column in the workspace');
+        self::assertStringNotContainsString('Weggezogen', $draft, 'moved to another page in the workspace');
 
         // The transcript the run reads, built with the turn's user (the worker
         // sets that user up in the recorded workspace, BackendUserInitializer).
@@ -267,10 +271,35 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
     }
 
     /**
+     * A record's text fields are read as the workspace shows the record. The
+     * fixture's record type has no text field, so its title is made one.
+     */
+    #[Test]
+    public function theModelReadsARecordsTextsAsTheWorkspaceShowsThem(): void
+    {
+        $GLOBALS['TCA']['tx_alttexttest_item']['columns']['title']['config']['type'] = 'text';
+        $this->getConnectionPool()->getConnectionForTable('tx_alttexttest_item')->insert('tx_alttexttest_item', [
+            'uid' => 600, 'pid' => 19, 'title' => 'Artikel im Entwurf', 't3ver_wsid' => self::DRAFT, 't3ver_oid' => 1, 't3ver_state' => 0,
+        ]);
+
+        $user = $this->editorIn(self::DRAFT);
+        $hit  = $this->gate()->hit($user, 28);
+        self::assertInstanceOf(MissingAltText::class, $hit, is_string($hit) ? $hit : '');
+
+        $live  = $this->get(AltTextContext::class)->describe($hit, false, true, 0);
+        $draft = $this->get(AltTextContext::class)->describe($hit, false, true, self::DRAFT);
+
+        self::assertStringContainsString('title: "Erster Artikel"', $live, 'live control');
+        self::assertStringContainsString('title: "Artikel im Entwurf"', $draft);
+        self::assertStringNotContainsString('title: "Erster Artikel"', $draft);
+    }
+
+    /**
      * On a page with more elements than the workspace's neighbours are
-     * picked from, the candidates are the element's language, nearest by
-     * sorting: neither another language's elements nor elements far after it
-     * crowd out the one before it.
+     * picked from, the candidates are the first ones of the element's
+     * language by sorting: neither another language's elements nor elements
+     * far after it crowd out the one before it. With more elements before it
+     * than that, its neighbours are not among them (ADR-032).
      */
     #[Test]
     public function theElementBeforeIsFoundOnABusyPage(): void
@@ -293,8 +322,8 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
     }
 
     /**
-     * Where the installation's TCA lets core keep no draft of an image
-     * reference, neither writer writes in a draft workspace: "Optimieren" is
+     * Where the installation's TCA lets image references be edited live,
+     * neither writer writes in a draft workspace: "Optimieren" is
      * refused there and says so, and stays available in live.
      */
     #[Test]
@@ -306,7 +335,7 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
         [$status, $body] = $this->start(1);
 
         self::assertSame([409, 'liveOnly'], [$status, $body['code'] ?? null]);
-        self::assertStringContainsString('keeps no drafts of image uses', (string) $body['error']);
+        self::assertStringContainsString('image uses are not versioned or may be edited live', (string) $body['error']);
         $live            = $this->editorIn(self::DRAFT);
         $live->workspace = 0;
         self::assertNull($this->gate()->refusal($live));

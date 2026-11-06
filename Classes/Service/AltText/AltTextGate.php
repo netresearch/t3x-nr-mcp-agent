@@ -71,8 +71,10 @@ class AltTextGate
      *
      * `workspace`: the user may work in no workspace (core sets a negative
      * one), so a turn records none and nothing could be saved. `liveOnly`:
-     * the user works in a draft workspace, and the installation's TCA lets
-     * core keep no draft of an image reference, so both writers refuse there.
+     * the user works in a draft workspace, and the installation's TCA turns
+     * the versioning of image references off or lets them be edited live
+     * (DecorativeImageWriter::tableKeepsDrafts()), so both writers refuse
+     * there.
      */
     public function refusal(BackendUserAuthentication $user): ?string
     {

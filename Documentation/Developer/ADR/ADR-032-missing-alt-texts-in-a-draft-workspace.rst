@@ -54,8 +54,9 @@ Decision
 ``workspace`` only for a user who may work in no workspace (core sets a
 negative workspace): there a turn records none, and nothing could be saved.
 The label ``error.altTextWorkspace`` says that. In a draft workspace it
-answers ``liveOnly`` where the installation's TCA lets core keep no draft of
-``sys_file_reference`` (see below): both writers refuse there, and the label
+answers ``liveOnly`` where the installation's TCA turns the versioning of
+``sys_file_reference`` off or lets it be edited live (see below): both
+writers refuse there, and the label
 ``error.altTextLiveOnly`` says so. Every other step of the flow works in the
 workspace the editor works in when they take it, and the turn records it.
 

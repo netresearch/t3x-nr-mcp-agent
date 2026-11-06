@@ -57,8 +57,8 @@ class DecorativeImageWriter
     /**
      * Why the mark cannot be written in the workspace the user works in, or
      * null: in live, and in the draft workspace the run recorded
-     * (`$runWorkspace`, nr-llm's `AiActorContext::$workspaceId`) where core
-     * keeps a draft of the table.
+     * (`$runWorkspace`, nr-llm's `AiActorContext::$workspaceId`) where the
+     * table is versioned and not edited live (tableKeepsDrafts()).
      */
     public function workspaceRefusal(BackendUserAuthentication $user, ?int $runWorkspace): ?string
     {
@@ -73,9 +73,9 @@ class DecorativeImageWriter
 
         if (!self::tableKeepsDrafts()) {
             return sprintf(
-                'Refused: the acting backend user works in the draft workspace "%s", and TYPO3 keeps no draft of %s records '
-                . 'here: the mark would go live at once, past the workspace. Nothing was written. Tell the user that this '
-                . 'change can only be made in the live workspace.',
+                'Refused: the acting backend user works in the draft workspace "%s", and %s records are not versioned here '
+                . 'or may be edited live (TCA versioningWS, versioningWS_alwaysAllowLiveEdit): the mark could go live at once, '
+                . 'past the workspace. Nothing was written. Tell the user that this change can only be made in the live workspace.',
                 self::workspaceTitle($user),
                 self::TABLE,
             );

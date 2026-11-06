@@ -988,8 +988,8 @@
                 <target>Du darfst zurzeit in keiner Arbeitsumgebung arbeiten, daher kann der Chat keine Alt-Texte speichern. Bitte eine Administratorin oder einen Administrator um Zugang zu einer Arbeitsumgebung.</target>
             </trans-unit>
             <trans-unit id="error.altTextLiveOnly" resname="error.altTextLiveOnly">
-                <source>This installation keeps no drafts of image uses, so alt texts can be saved from the chat in the live workspace only. Switch to the live workspace to optimise this image.</source>
-                <target>Diese Installation speichert keine Entwürfe von Bildverwendungen, daher speichert der Chat Alt-Texte nur in der Live-Arbeitsumgebung. Wechsle in die Live-Arbeitsumgebung, um dieses Bild zu optimieren.</target>
+                <source>In this installation, image uses are not versioned or may be edited live, so the chat saves alt texts in the live workspace only. Switch to the live workspace to optimise images.</source>
+                <target>In dieser Installation werden Bildverwendungen nicht versioniert oder dürfen live bearbeitet werden, daher speichert der Chat Alt-Texte nur in der Live-Arbeitsumgebung. Wechsle in die Live-Arbeitsumgebung, um Bilder zu optimieren.</target>
             </trans-unit>
             <trans-unit id="error.altTextToolsUnavailable" resname="error.altTextToolsUnavailable">
                 <source>Optimising is not available: an administrator has to enable the tools “set_file_reference_alternative_text” and “set_file_reference_decorative” for the chat.</source>
