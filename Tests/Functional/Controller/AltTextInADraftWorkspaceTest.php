@@ -319,6 +319,11 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
 
         self::assertSame(['Davor'], array_column($neighbours['before'], 'header'));
         self::assertSame(['Weit danach'], array_column($neighbours['after'], 'header'));
+        self::assertSame(
+            ['before' => [], 'after' => []],
+            $this->get(ImageReferenceRepository::class)->neighbourContent(50, 0, 0, 1100, 5000, 0, self::DRAFT),
+            'none asked for, none given',
+        );
     }
 
     /**

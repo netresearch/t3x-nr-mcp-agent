@@ -109,9 +109,11 @@ Consequences
     nr-llm's alt text writer still refuses a draft workspace: for a live
     reference after its card, for a reference new in the workspace already
     on the card. The decorative mark works with 0.43.16 and later.
--   ✗ A reference whose page or inline owner is new in the workspace is in
-    the list but refused at "Optimieren" with the neutral 403, because
-    nr-llm reads pages and owners live.
+-   ✗ A reference on a record whose page, or on an inline record whose
+    owner, is new in the workspace is in the list but refused at
+    "Optimieren" with the neutral 403, because nr-llm reads those pages and
+    owners live. In a page's own file field the page is the record and is
+    read as the workspace shows it, as nr-llm reads it.
 -   ✗ An alt text that is set live and emptied only in the workspace is
     still not listed there (:ref:`adr-026`).
 -   ✗ An element moved onto the page in the workspace is not among the

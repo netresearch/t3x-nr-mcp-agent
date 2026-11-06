@@ -901,7 +901,11 @@ the list, and a note above the list says why it does not work.
 In a draft workspace the list shows the images as that workspace shows them,
 and the alt text or the decorative mark you approve is saved there as a
 draft; live stays unchanged until the workspace is published. The approval
-card names the workspace. Where an administrator turned ``versioningWS``
+card names the workspace. Two exceptions: an image whose alt text is set in
+live and emptied only in the workspace is not listed, and an image on a
+record whose page, or on an inline record whose owner, exists only in the
+workspace is listed but cannot be optimised there. Where an administrator
+turned ``versioningWS``
 off or set ``versioningWS_alwaysAllowLiveEdit`` for ``sys_file_reference``,
 **Optimise** works in the live workspace only, and the note above the list
 says so.

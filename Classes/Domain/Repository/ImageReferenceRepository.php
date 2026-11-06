@@ -149,7 +149,8 @@ readonly class ImageReferenceRepository
         usort($before, $bySorting);
         usort($after, $bySorting);
 
-        return ['before' => array_slice($before, -$around), 'after' => array_slice($after, 0, $around)];
+        // array_slice() with -0 would keep every element before it.
+        return ['before' => $around > 0 ? array_slice($before, -$around) : [], 'after' => array_slice($after, 0, max(0, $around))];
     }
 
     /**
