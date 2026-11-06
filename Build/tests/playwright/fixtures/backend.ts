@@ -150,13 +150,19 @@ export async function waitForBackend(page: Page): Promise<void> {
             return false;
         }
     }, null, { timeout: 15000 });
-    // The startup module is often the dashboard: let the widgets of the loaded
-    // document finish, so a test that leaves at once does not abort their
-    // requests (dashboardWidgetsLoaded()). Nothing to wait for elsewhere.
+    // The startup module is often the dashboard: let it load its dashboards
+    // and their widgets, so a test that leaves at once does not abort their
+    // requests (dashboardWidgetsLoaded()). The widget elements appear only
+    // after the dashboard's own request (`loading` false, 13.4 and 14.3), and
+    // an empty dashboard has none. Nothing to wait for in another module.
     await page.waitForFunction(() => {
         const frame = (window as any).frames?.list_frame;
         try {
-            return Array.from(frame.document.querySelectorAll('typo3-dashboard-widget'))
+            const dashboard = frame.document.querySelector('typo3-dashboard') as any;
+            if (dashboard === null) {
+                return true;
+            }
+            return dashboard.loading === false && Array.from(frame.document.querySelectorAll('typo3-dashboard-widget'))
                 .every((widget: any) => (widget.fetchTask?.status ?? 0) >= 2);
         } catch {
             return false;
