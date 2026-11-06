@@ -581,7 +581,7 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         $GLOBALS['BE_USER']->workspace = 1;
         $xpath                         = $this->render([], $this->controllerWithTools());
 
-        self::assertStringContainsString('image uses are not versioned or may be edited live', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
+        self::assertStringContainsString('cannot save alt texts as drafts in a workspace', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
         self::assertSame(0, $xpath->query(self::OPTIMISE_BUTTON)?->length);
     }
 }

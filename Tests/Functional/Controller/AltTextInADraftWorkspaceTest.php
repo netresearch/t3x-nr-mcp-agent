@@ -335,7 +335,7 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
         [$status, $body] = $this->start(1);
 
         self::assertSame([409, 'liveOnly'], [$status, $body['code'] ?? null]);
-        self::assertStringContainsString('image uses are not versioned or may be edited live', (string) $body['error']);
+        self::assertStringContainsString('cannot save alt texts as drafts in a workspace', (string) $body['error']);
         $live            = $this->editorIn(self::DRAFT);
         $live->workspace = 0;
         self::assertNull($this->gate()->refusal($live));

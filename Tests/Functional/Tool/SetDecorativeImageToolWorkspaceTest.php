@@ -249,7 +249,7 @@ final class SetDecorativeImageToolWorkspaceTest extends FunctionalTestCase
         $result = $this->tool()->execute(['reference' => self::REFERENCE, 'decorative' => true], $context);
 
         self::assertTrue($result->isError);
-        self::assertStringContainsString('are not versioned here or may be edited live', $result->content);
+        self::assertStringContainsString('turns versioning off or sets versioningWS_alwaysAllowLiveEdit', $result->content);
         self::assertSame([$result->content], $card);
         self::assertSame([['uid' => self::REFERENCE, 'wsid' => 0, 'oid' => 0, 'state' => 0, 'mark' => 0]], $this->rowsOf(self::REFERENCE));
     }

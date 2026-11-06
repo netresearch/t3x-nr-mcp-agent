@@ -118,6 +118,9 @@ Consequences
     elements around the image that the model reads. On a page with more
     than 500 elements in the image's language, the elements around it are
     picked from the first 500 by sorting.
+-   ✗ Writing the alt text or the mark on a reference whose draft was
+    already sent to review sets its stage back to "editing", as every
+    DataHandler write in a workspace does and as nr-llm's field tools do.
 -   ✗ The scaled image the worker sends to the model is cropped as the live
     reference says: outside a backend request, core's ``ResourceFactory``
     reads the reference without the workspace overlay.
