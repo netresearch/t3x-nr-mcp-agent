@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The alternative-text flows work in a draft TYPO3 workspace: starting, switching, continuing and retrying an alt-text conversation, the list of missing alternative texts and `set_decorative_image` read the references as the editor's workspace shows them and write a workspace version of the file reference; live stays as it is until the workspace is published. Where the TCA keeps `sys_file_reference` from being versioned in a draft workspace, the flows refuse with a reason naming that setting (ADR-032) (#324).
+- The alternative-text flows work in a draft TYPO3 workspace: starting, switching, continuing and retrying an alt-text conversation, the list of missing alternative texts and `set_decorative_image` read the references as the editor's workspace shows them, and an approved alternative text or decorative mark is saved as a workspace version of the file reference; live stays as it is until the workspace is published. Where the TCA keeps `sys_file_reference` from being versioned in a draft workspace, the flows refuse with a reason naming that setting (ADR-032) (#324).
 
 ### Changed
 
