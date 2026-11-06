@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 import { FrameLocator, Locator, Page } from '@playwright/test';
-import { test, expect, waitForBackend, dashboardWidgetsLoaded } from '../fixtures/backend';
+import { test, expect, waitForBackend, dashboardWidgetsLoaded, markModuleFrame, moduleFrameLoaded } from '../fixtures/backend';
 
 /**
  * The list "Fehlende Alt-Texte" (ADR-026) and its two dashboard entries,
@@ -39,8 +39,12 @@ async function routerModule(page: Page): Promise<string> {
 
 /** The dashboard, with both entries rendered. */
 async function openDashboard(page: Page): Promise<FrameLocator> {
+    // Where the dashboard is open already (it is the startup module), the
+    // click reloads it.
+    await markModuleFrame(page);
     await page.locator('[data-modulemenu-identifier="dashboard"]').first().click();
     await expect.poll(() => routerModule(page)).toMatch(/^dashboard$/);
+    await moduleFrameLoaded(page);
     const frame = page.frameLocator('iframe[name="list_frame"]');
     await expect(frame.locator('.nr-mcp-agent-website-check')).toBeVisible({ timeout: 15000 });
     await expect(frame.locator('.nr-mcp-agent-tile-altTexts')).toBeVisible({ timeout: 15000 });
