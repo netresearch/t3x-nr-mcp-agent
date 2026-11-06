@@ -71,7 +71,7 @@ class DecorativeImageWriter
                 . 'only. Start the request again from the draft workspace.';
         }
 
-        if (!$this->tableKeepsDrafts()) {
+        if (!self::tableKeepsDrafts()) {
             return sprintf(
                 'Refused: the acting backend user works in the draft workspace "%s", and TYPO3 keeps no draft of %s records '
                 . 'here: the mark would go live at once, past the workspace. Nothing was written. Tell the user that this '
@@ -143,12 +143,13 @@ class DecorativeImageWriter
     }
 
     /**
-     * Whether core keeps a draft of a change to the table in a workspace:
-     * `ctrl.versioningWS` of the loaded TCA, and no
+     * Whether core keeps a draft of a change to an image reference in a
+     * workspace: `ctrl.versioningWS` of the loaded TCA, and no
      * `versioningWS_alwaysAllowLiveEdit`, which lets TYPO3 13.4 edit the live
-     * row of a versioned table in a workspace too.
+     * row of a versioned table in a workspace too. nr-llm's alt text writer
+     * asks the same before it writes (nr-llm ADR-262).
      */
-    private function tableKeepsDrafts(): bool
+    public static function tableKeepsDrafts(): bool
     {
         $tca  = $GLOBALS['TCA'] ?? null;
         $ctrl = is_array($tca) && is_array($tca[self::TABLE] ?? null) ? ($tca[self::TABLE]['ctrl'] ?? null) : null;

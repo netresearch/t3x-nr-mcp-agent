@@ -53,9 +53,11 @@ Decision
 **A draft workspace is no refusal.** ``AltTextGate::refusal()`` answers
 ``workspace`` only for a user who may work in no workspace (core sets a
 negative workspace): there a turn records none, and nothing could be saved.
-The label ``error.altTextWorkspace`` says that. Every other step of the flow
-works in the workspace the editor works in when they take it, and the turn
-records it.
+The label ``error.altTextWorkspace`` says that. In a draft workspace it
+answers ``liveOnly`` where the installation's TCA lets core keep no draft of
+``sys_file_reference`` (see below): both writers refuse there, and the label
+``error.altTextLiveOnly`` says so. Every other step of the flow works in the
+workspace the editor works in when they take it, and the turn records it.
 
 **The image is decided on as the workspace shows it.**
 ``ReferenceWriteAccess`` reads the reference and its record as nr-llm's
@@ -102,16 +104,19 @@ Consequences
     reference in that workspace, and live stays as it is until the
     workspace is published.
 -   nr-llm must be a version that contains #1294 (the first release after
-    0.43.17). With 0.43.17, nr-llm's alt text writer still refuses a draft
-    workspace after its card; the decorative mark works with 0.43.16 and
-    later.
+    0.43.17); the release of this extension requires it. With 0.43.17,
+    nr-llm's alt text writer still refuses a draft workspace: for a live
+    reference after its card, for a reference new in the workspace already
+    on the card. The decorative mark works with 0.43.16 and later.
 -   ✗ A reference whose page or inline owner is new in the workspace is in
     the list but refused at "Optimieren" with the neutral 403, because
     nr-llm reads pages and owners live.
 -   ✗ An alt text that is set live and emptied only in the workspace is
     still not listed there (:ref:`adr-026`).
 -   ✗ An element moved onto the page in the workspace is not among the
-    elements around the image that the model reads.
+    elements around the image that the model reads. On a page with more
+    than 500 elements in the image's language, the elements around it are
+    picked from the first 500 by sorting.
 -   ✗ The scaled image the worker sends to the model is cropped as the live
     reference says: outside a backend request, core's ``ResourceFactory``
     reads the reference without the workspace overlay.

@@ -14,6 +14,7 @@ use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Domain\Repository\ImageReferenceRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextContext;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
@@ -255,13 +256,60 @@ final class AltTextInADraftWorkspaceTest extends FunctionalTestCase
         self::assertStringNotContainsString('Text und Medien', $draft, 'deleted in the workspace');
         self::assertStringNotContainsString('Versteckt', $draft, 'moved to another column in the workspace');
 
-        // The worker's path: the turn's user, set up in the workspace, reads it.
+        // The transcript the run reads, built with the turn's user (the worker
+        // sets that user up in the recorded workspace, BackendUserInitializer).
         [$status, $body] = $this->start(1);
         self::assertSame(201, $status);
         $conversation = $this->repository->findByUid((int) $body['uid']);
         self::assertNotNull($conversation);
         $transcript = json_encode($this->get(AltTextConversation::class)->transcript($conversation, $conversation->getDecodedMessages(), false), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         self::assertStringContainsString('Text im Entwurf', $transcript);
+    }
+
+    /**
+     * On a page with more elements than the workspace's neighbours are
+     * picked from, the candidates are the element's language, nearest by
+     * sorting: neither another language's elements nor elements far after it
+     * crowd out the one before it.
+     */
+    #[Test]
+    public function theElementBeforeIsFoundOnABusyPage(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 500; ++$i) {
+            // Inserted first, so they come first by uid.
+            $rows[] = [2000 + $i, 50, 0, 1, 1 + $i, 'Andere Sprache', 0, 0, 0];
+            $rows[] = [2500 + $i, 50, 0, 0, 5000 + $i, 'Weit danach', 0, 0, 0];
+        }
+
+        $rows[]  = [5001, 50, 0, 0, 1000, 'Davor', 0, 0, 0];
+        $columns = ['uid', 'pid', 'colPos', 'sys_language_uid', 'sorting', 'header', 't3ver_wsid', 't3ver_oid', 't3ver_state'];
+        $this->getConnectionPool()->getConnectionForTable('tt_content')->bulkInsert('tt_content', $rows, $columns);
+
+        $neighbours = $this->get(ImageReferenceRepository::class)->neighbourContent(50, 0, 0, 1100, 5000, 1, self::DRAFT);
+
+        self::assertSame(['Davor'], array_column($neighbours['before'], 'header'));
+        self::assertSame(['Weit danach'], array_column($neighbours['after'], 'header'));
+    }
+
+    /**
+     * Where the installation's TCA lets core keep no draft of an image
+     * reference, neither writer writes in a draft workspace: "Optimieren" is
+     * refused there and says so, and stays available in live.
+     */
+    #[Test]
+    public function withoutDraftsOfImageReferencesADraftWorkspaceStartsNothing(): void
+    {
+        $GLOBALS['TCA']['sys_file_reference']['ctrl']['versioningWS_alwaysAllowLiveEdit'] = true;
+        $this->editorIn(self::DRAFT);
+
+        [$status, $body] = $this->start(1);
+
+        self::assertSame([409, 'liveOnly'], [$status, $body['code'] ?? null]);
+        self::assertStringContainsString('keeps no drafts of image uses', (string) $body['error']);
+        $live            = $this->editorIn(self::DRAFT);
+        $live->workspace = 0;
+        self::assertNull($this->gate()->refusal($live));
     }
 
     /** A user who may work in no workspace has nowhere to save: nothing starts, and it says why. */

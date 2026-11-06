@@ -116,10 +116,13 @@ readonly class ImageReferenceRepository
             ->from('tt_content')
             ->where(
                 $qb->expr()->eq('pid', $qb->createNamedParameter($pageUid, Connection::PARAM_INT)),
+                // A version keeps its record's language.
+                $qb->expr()->eq('sys_language_uid', $qb->createNamedParameter($language, Connection::PARAM_INT)),
                 $qb->expr()->neq('uid', $qb->createNamedParameter($elementUid, Connection::PARAM_INT)),
                 $qb->expr()->eq('t3ver_oid', $qb->createNamedParameter(0, Connection::PARAM_INT)),
                 $qb->expr()->in('t3ver_wsid', $qb->createNamedParameter([0, $workspace], Connection::PARAM_INT_ARRAY)),
             )
+            ->orderBy('sorting')
             ->setMaxResults(self::NEIGHBOUR_CANDIDATES)
             ->executeQuery()
             ->fetchAllAssociative();

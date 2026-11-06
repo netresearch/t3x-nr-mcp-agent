@@ -194,6 +194,21 @@ final class SetDecorativeImageToolWorkspaceTest extends FunctionalTestCase
         self::assertSame([['uid' => self::REFERENCE, 'wsid' => 0, 'oid' => 0, 'state' => 0, 'mark' => 0]], $this->rowsOf(self::REFERENCE));
     }
 
+    /** A user who may work in no workspace (core sets a negative one) writes nothing. */
+    #[Test]
+    public function aUserWhoMayWorkInNoWorkspaceWritesNothing(): void
+    {
+        $user            = $this->editorIn(self::DRAFT);
+        $context         = $this->pinnedRun($user);
+        $user->workspace = -99;
+
+        $result = $this->tool()->execute(['reference' => self::REFERENCE, 'decorative' => true], $context);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('does not record which workspace it was started in', $result->content);
+        self::assertSame([['uid' => self::REFERENCE, 'wsid' => 0, 'oid' => 0, 'state' => 0, 'mark' => 0]], $this->rowsOf(self::REFERENCE));
+    }
+
     /** A run recorded in another workspace than the one the user is set up in is refused too. */
     #[Test]
     public function aRunRecordedInAnotherWorkspaceIsRefused(): void
