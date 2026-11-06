@@ -223,20 +223,6 @@ final class SetDecorativeImageToolTest extends FunctionalTestCase
         self::assertSame(1, $this->mark(1));
     }
 
-    /** The tool writes the live workspace only, as nr-llm's writers do. */
-    #[Test]
-    public function aDraftWorkspaceIsRefused(): void
-    {
-        $context                                 = $this->contextAs(self::EDITOR);
-        $context->actingBackendUser()->workspace = 1;
-
-        $result = $this->tool()->execute(['reference' => 1, 'decorative' => true], $context);
-
-        self::assertTrue($result->isError);
-        self::assertStringContainsString('live workspace only', $result->content);
-        self::assertSame(0, $this->mark(1));
-    }
-
     /**
      * @return iterable<string, array{array<string, mixed>}>
      */

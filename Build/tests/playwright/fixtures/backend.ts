@@ -150,6 +150,54 @@ export async function waitForBackend(page: Page): Promise<void> {
             return false;
         }
     }, null, { timeout: 15000 });
+    // The startup module is often the dashboard: let it load its dashboards
+    // and their widgets, so a test that leaves at once does not abort their
+    // requests (dashboardWidgetsLoaded()). The widget elements appear only
+    // after the dashboard's own request (`loading` false, 13.4 and 14.3), and
+    // an empty dashboard has none. Nothing to wait for in another module.
+    await page.waitForFunction(() => {
+        const frame = (window as any).frames?.list_frame;
+        try {
+            const dashboard = frame.document.querySelector('typo3-dashboard') as any;
+            if (dashboard === null) {
+                return true;
+            }
+            return dashboard.loading === false && Array.from(frame.document.querySelectorAll('typo3-dashboard-widget'))
+                .every((widget: any) => (widget.fetchTask?.status ?? 0) >= 2);
+        } catch {
+            return false;
+        }
+    }, null, { timeout: 15000 });
+}
+
+/**
+ * Mark the document the module frame shows now, so that
+ * moduleFrameLoaded() waits for the next one. Clicking the module the frame
+ * already shows reloads it (core's iframe module sets `src` again for an
+ * unchanged endpoint), and the router's `module` names the target before
+ * the click as well as after it: without the mark, a wait would pass on the
+ * document that is about to go.
+ */
+export async function markModuleFrame(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        const frame = (window as any).frames?.list_frame;
+        if (frame) {
+            frame.document.nrE2eReplaced = true;
+        }
+    });
+}
+
+/** Wait until the module frame shows a new, fully loaded document (markModuleFrame()). */
+export async function moduleFrameLoaded(page: Page): Promise<void> {
+    await page.waitForFunction(() => {
+        const frame = (window as any).frames?.list_frame;
+        try {
+            return Boolean(frame) && frame.location.href !== 'about:blank'
+                && frame.document.readyState === 'complete' && frame.document.nrE2eReplaced !== true;
+        } catch {
+            return false;
+        }
+    }, null, { timeout: 15000 });
 }
 
 /**

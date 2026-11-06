@@ -553,15 +553,35 @@ final class MissingAltTextsControllerTest extends FunctionalTestCase
         self::assertSame(0, $xpath->query(self::OPTIMISE_BUTTON)?->length);
     }
 
-    /** In a draft workspace the tools do not write, and the list says so. */
+    /**
+     * A user who may work in no workspace (core sets a negative one) has
+     * nowhere to save, and the list says so. A draft workspace is no reason
+     * (ADR-032, AltTextInADraftWorkspaceTest).
+     */
     #[Test]
-    public function inADraftWorkspaceOptimiseSaysWhy(): void
+    public function withoutAnyWorkspaceOptimiseSaysWhy(): void
     {
+        $this->login(2);
+        $GLOBALS['BE_USER']->workspace = -99;
+        $xpath                         = $this->render([], $this->controllerWithTools());
+
+        self::assertStringContainsString('may not work in any workspace', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
+        self::assertSame(0, $xpath->query(self::OPTIMISE_BUTTON)?->length);
+    }
+
+    /**
+     * In a draft workspace of an installation that lets image references be
+     * edited live, both writers refuse there, and the list says so (ADR-032).
+     */
+    #[Test]
+    public function inADraftWorkspaceWithoutReferenceDraftsOptimiseSaysWhy(): void
+    {
+        $GLOBALS['TCA']['sys_file_reference']['ctrl']['versioningWS_alwaysAllowLiveEdit'] = true;
         $this->login(2);
         $GLOBALS['BE_USER']->workspace = 1;
         $xpath                         = $this->render([], $this->controllerWithTools());
 
-        self::assertStringContainsString('live workspace only', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
+        self::assertStringContainsString('cannot save alt texts as drafts in a workspace', $this->texts($xpath, self::OPTIMISE_NOTE)[0] ?? '');
         self::assertSame(0, $xpath->query(self::OPTIMISE_BUTTON)?->length);
     }
 }

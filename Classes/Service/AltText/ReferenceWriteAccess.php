@@ -20,9 +20,15 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * card (nr-llm ADR-230), so that no card and no button is offered that the
  * DataHandler would then refuse (ADR-026):
  *
- * - the reference is a live, undeleted row in a `type => file` column of a
+ * - the reference is an undeleted row in a `type => file` column of a
  *   table the TCA declares, and that table is not denylisted, `readOnly`, or
- *   `adminOnly` for a non-admin; its record is live and undeleted;
+ *   `adminOnly` for a non-admin; its record is undeleted. Both are read as
+ *   the user's workspace shows them (ADR-032), as nr-llm's writer reads them
+ *   (nr-llm ADR-260): in a draft workspace the live row overlaid with its
+ *   version there, or a row new in that workspace; a version row named by
+ *   its own uid and another workspace's row are not there. The pages and the
+ *   inline owners are read live, as nr-llm reads them, so a reference whose
+ *   page or owner is new in the workspace is refused neutrally;
  * - "edit content" on the record's page (which, through calcPerms(), also
  *   asks the web mounts), and for a page's own file field
  *   "edit page" as well: the form edits it as a page property, while the
@@ -71,7 +77,8 @@ class ReferenceWriteAccess
             return self::NOT_PERMITTED;
         }
 
-        $reference = $this->liveRow(self::TABLE, $referenceUid);
+        $workspace = max(0, $user->workspace);
+        $reference = $this->rowAsSeen(self::TABLE, $referenceUid, $workspace);
         if ($reference === null) {
             return self::NOT_PERMITTED;
         }
@@ -82,7 +89,7 @@ class ReferenceWriteAccess
             return self::NOT_PERMITTED;
         }
 
-        $record = $this->liveRow($table, $this->int($reference['uid_foreign'] ?? 0));
+        $record = $this->rowAsSeen($table, $this->int($reference['uid_foreign'] ?? 0), $workspace);
         if ($record === null) {
             return self::NOT_PERMITTED;
         }
@@ -321,6 +328,20 @@ class ReferenceWriteAccess
         $config     = is_array($definition) ? ($definition['config'] ?? null) : null;
 
         return is_array($config) && ($config['type'] ?? null) === 'file';
+    }
+
+    /**
+     * An undeleted row as a user in `$workspace` sees it, or null.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function rowAsSeen(string $table, int $uid, int $workspace): ?array
+    {
+        if ($this->ctrl($table) === []) {
+            return null;
+        }
+
+        return $this->rows->findAsTheUserSees($table, $uid, $workspace, (bool) ($this->ctrl($table)['versioningWS'] ?? false));
     }
 
     /**

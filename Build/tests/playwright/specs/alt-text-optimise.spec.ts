@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 import { FrameLocator, Locator, Page } from '@playwright/test';
-import { test, expect, waitForBackend, dashboardWidgetsLoaded } from '../fixtures/backend';
+import { test, expect, waitForBackend, dashboardWidgetsLoaded, markModuleFrame, moduleFrameLoaded } from '../fixtures/backend';
 
 /**
  * "Optimieren" in the list of missing alt texts (ADR-026): the chat opens as
@@ -40,7 +40,10 @@ async function login(page: Page): Promise<void> {
 
 /** The list, reached from "Website prüfen" on the dashboard. */
 async function openList(page: Page): Promise<FrameLocator> {
+    // Where the dashboard is open already, the click reloads it.
+    await markModuleFrame(page);
     await page.locator('[data-modulemenu-identifier="dashboard"]').first().click();
+    await moduleFrameLoaded(page);
     const frame = page.frameLocator('iframe[name="list_frame"]');
     const link = frame.locator('.nr-mcp-agent-website-check').getByRole('link', { name: 'Missing alt texts' });
     await expect(link).toBeVisible({ timeout: 15000 });

@@ -24,6 +24,11 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * The order of the refusals is the order of what the user can do about
  * them: the workspace and the chat's set-up first, which hold for every
  * image, then the image itself.
+ *
+ * A draft workspace is no refusal (ADR-032): the conversation records the
+ * workspace its turn was started in, and nr-llm's alt text writer and the
+ * decorative mark write a version there. The image is decided on as that
+ * workspace shows it.
  */
 class AltTextGate
 {
@@ -50,6 +55,7 @@ class AltTextGate
     {
         return match ($code) {
             'workspace'      => [409, 'error.altTextWorkspace'],
+            'liveOnly'       => [409, 'error.altTextLiveOnly'],
             'tools'          => [409, 'error.altTextToolsUnavailable'],
             'approval'       => [409, 'error.altTextApprovalNotAllowed'],
             'secondApprover' => [409, 'error.altTextSecondApprover'],
@@ -60,12 +66,24 @@ class AltTextGate
 
     /**
      * Why the chat cannot work on any image for this user now, as a code
-     * (`workspace`, `tools`, `approval`, `secondApprover`), or null.
+     * (`workspace`, `liveOnly`, `tools`, `approval`, `secondApprover`), or
+     * null.
+     *
+     * `workspace`: the user may work in no workspace (core sets a negative
+     * one), so a turn records none and nothing could be saved. `liveOnly`:
+     * the user works in a draft workspace, and the installation's TCA turns
+     * the versioning of image references off or lets them be edited live
+     * (DecorativeImageWriter::tableKeepsDrafts()), so both writers refuse
+     * there.
      */
     public function refusal(BackendUserAuthentication $user): ?string
     {
-        if ($user->workspace !== 0) {
+        if ($user->workspace < 0) {
             return 'workspace';
+        }
+
+        if ($user->workspace > 0 && !DecorativeImageWriter::tableKeepsDrafts()) {
+            return 'liveOnly';
         }
 
         if ($this->tools->unavailableTools(self::TOOLS) !== []) {

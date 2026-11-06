@@ -398,8 +398,10 @@ final readonly class ChatApiController
      * (ADR-026): the request names the reference and nothing else, and the
      * server reads everything about it again, with the user's rights. The
      * hit has to be open and one the user may fix, as the list decides it;
-     * a page or a skill sent along is refused, as is a draft workspace, where
-     * the tools do not write, and a chat whose runs may not use them.
+     * a page or a skill sent along is refused, as is a user who may work in no
+     * workspace, and a chat whose runs may not use the tools. In a draft
+     * workspace the image is read as that workspace shows it, and the turn
+     * records the workspace, so the tools write a draft there (ADR-032).
      *
      * The conversation is about the page an image of the pages lies on, in
      * the reference's language; a record's image binds no page.

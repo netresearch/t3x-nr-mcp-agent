@@ -13,6 +13,10 @@ ADR-026: A Site-Wide Check for Missing Alt Texts
 
 **Date:** 2026-10-25
 
+**Amended by:** :ref:`adr-032` — an editor in a draft workspace optimises
+there, and the decorative mark is written into the workspace the run
+recorded.
+
 Context
 =======
 
@@ -244,7 +248,8 @@ Slice 2
 ``set_file_reference_decorative(reference, decorative)`` sets or clears
 ``tx_nrmcpagent_decorative`` on one reference through nr-llm's
 ``ToolDataHandler``, the DataHandler its own writers run (nr-llm ADR-206),
-as the acting user, in the live workspace only, reads it back, and names
+as the acting user, in the live workspace only (in the workspace the run
+recorded since :ref:`adr-032`), reads it back, and names
 the reference as its write target, so nr-llm announces the write with
 ``AfterAiRecordWrittenEvent`` as it does for its own writers. nr-llm pauses
 every call of a tool that declares a write for an approval card
@@ -281,8 +286,9 @@ own filter) and one nr-llm's writer would accept (``ReferenceWriteAccess``
 for ``alternative``). A reference that is not there and one that is not
 the user's get one neutral 403, so a uid alone does not tell whether it
 exists; a reference the user may edit that is no longer open gets 409
-``done`` ("Treffer zwischenzeitlich erledigt"). A draft workspace gets 409
-``workspace``: nr-llm's writer writes the live workspace only. A chat whose
+``done`` ("Treffer zwischenzeitlich erledigt"). A draft workspace got 409
+``workspace``, as nr-llm's writer wrote the live workspace only; since
+:ref:`adr-032` only a user who may work in no workspace does. A chat whose
 runs may not call both tools, as nr-llm's own policy answers it
 (``ToolCallPolicyInterface::decide()`` for the chat's configuration),
 gets 409 ``tools`` and the names of the tools an administrator has to
