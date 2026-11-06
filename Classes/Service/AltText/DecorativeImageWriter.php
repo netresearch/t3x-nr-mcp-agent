@@ -74,9 +74,8 @@ class DecorativeImageWriter
         if (!self::tableKeepsDrafts()) {
             return sprintf(
                 'Refused: the acting backend user works in the draft workspace "%s", and the TCA of %s here turns versioning '
-                . 'off or sets versioningWS_alwaysAllowLiveEdit, where this tool writes in the live workspace only (TYPO3 13.4 '
-                . 'would write the live row, past the workspace). Nothing was written. Tell the user that this change can only '
-                . 'be made in the live workspace.',
+                . 'off or sets versioningWS_alwaysAllowLiveEdit, where this tool writes in the live workspace only. Nothing was '
+                . 'written. Tell the user that this change can only be made in the live workspace.',
                 self::workspaceTitle($user),
                 self::TABLE,
             );
