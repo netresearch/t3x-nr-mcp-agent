@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-11-07
+
+### Fixed
+
+- Opening the chat no longer stores a new empty conversation each time. A start that runs nothing takes up the user's newest empty conversation of the same page, language and skill and refreshes it, so it is not archived or deleted right after; guided tours and alternative-text starts still create their own. The overview counts only conversations with at least one message, so its figures match the chat lists. Empty conversations stored before this release stay in place and no longer count.
+
 ## [0.34.1] - 2026-11-07
 
 ### Fixed
