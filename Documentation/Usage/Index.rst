@@ -59,7 +59,8 @@ Usage
     budget. Administrators see the figures of all users and the
     failed conversations per error code; editors see their own.
     No message and no other user's conversation title is shown.
-    Model calls are kept by nr-llm for its telemetry retention;
+    A conversation without a message counts nowhere, as no chat
+    list shows it. Model calls are kept by nr-llm for its telemetry retention;
     when the period reaches further back, the page says from
     which day they are counted.
 

@@ -15,8 +15,9 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
  * The overview module's counts. The fixture holds conversations of two users,
- * an archived and a deleted one, and rows outside the period, each of which a
- * wrong filter would count.
+ * an archived and a deleted one, rows outside the period, and two without a
+ * message (11, 12), which no list shows, each of which a wrong filter would
+ * count.
  */
 final class ConversationStatisticsRepositoryTest extends FunctionalTestCase
 {
@@ -75,7 +76,7 @@ final class ConversationStatisticsRepositoryTest extends FunctionalTestCase
     public function startedCountsTheConversationsCreatedInThePeriod(): void
     {
         // 1780000000..1780999999 holds 1, 2, 3, 5, 6 (user 2) and 8, 9 (user 3);
-        // 4 is before, 10 after, 7 is deleted.
+        // 4 is before, 10 after, 7 is deleted, 11 and 12 hold no message.
         self::assertSame(7, $this->subject->countStarted(1780000000, 1780999999, null));
         self::assertSame(5, $this->subject->countStarted(1780000000, 1780999999, 2));
     }

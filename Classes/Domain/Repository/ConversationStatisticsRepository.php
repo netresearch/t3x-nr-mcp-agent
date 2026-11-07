@@ -17,7 +17,8 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 /**
  * Counts for the overview module. Read-only, and never a message: the counts
  * carry no content, and the only titles it returns are those of the user who
- * asked ({@see findWaitingForUser()}).
+ * asked ({@see findWaitingForUser()}). Only conversations with a message
+ * count, as only those are listed ({@see conversations()}).
  *
  * Every method takes the backend user to narrow to; null counts every user,
  * which only an administrator is shown.
@@ -180,13 +181,21 @@ readonly class ConversationStatisticsRepository
         return $qb;
     }
 
-    /** Not deleted, and of one user when one is given. */
+    /**
+     * Not deleted, with at least one message, and of one user when one is
+     * given. A conversation without a message is listed nowhere (ADR-027),
+     * so the user can neither open nor archive it; counted, it would be a
+     * number the lists do not show.
+     */
     private function conversations(?int $beUserUid): QueryBuilder
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->getRestrictions()->removeAll();
         $qb->from(self::TABLE)
-            ->where($qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)));
+            ->where(
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->gt('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            );
         if ($beUserUid !== null) {
             $qb->andWhere($qb->expr()->eq('be_user', $qb->createNamedParameter($beUserUid, Connection::PARAM_INT)));
         }
