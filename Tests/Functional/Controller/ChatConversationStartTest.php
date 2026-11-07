@@ -46,6 +46,8 @@ final class ChatConversationStartTest extends FunctionalTestCase
 {
     private const SEO_TOUR = '9404:seo-optimieren';
 
+    private const TONE_CHECK = '9403:tone-check';
+
     protected array $coreExtensionsToLoad = ['filelist'];
 
     protected array $testExtensionsToLoad = [
@@ -174,7 +176,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
 
         $entries = [
             self::SEO_TOUR       => ['identifier' => self::SEO_TOUR, 'name' => 'seo-optimieren', 'description' => '', 'uid' => 9422, 'process' => true],
-            '9403:tone-check'    => ['identifier' => '9403:tone-check', 'name' => 'tone-check', 'description' => '', 'uid' => 9421, 'process' => false],
+            self::TONE_CHECK     => ['identifier' => self::TONE_CHECK, 'name' => 'tone-check', 'description' => '', 'uid' => 9421, 'process' => false],
             '9404:unmarked-tour' => ['identifier' => '9404:unmarked-tour', 'name' => 'unmarked-tour', 'description' => '', 'uid' => 9424, 'process' => null],
             // What the skills declare about a page (ADR-025).
             '9405:no-page-tour'  => ['identifier' => '9405:no-page-tour', 'name' => 'no-page-tour', 'description' => '', 'uid' => 9425, 'process' => true, 'page' => 'none'],
@@ -307,7 +309,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $processor = $this->createMock(ChatProcessorInterface::class);
         $processor->expects(self::never())->method('dispatch');
 
-        $body = json_decode((string) $this->createWith($this->tourSubject($processor), ['pageUid' => 10, 'skill' => '9403:tone-check'])->getBody(), true);
+        $body = json_decode((string) $this->createWith($this->tourSubject($processor), ['pageUid' => 10, 'skill' => self::TONE_CHECK])->getBody(), true);
         self::assertIsArray($body);
         $stored = $this->repository->findByUid((int) $body['uid']);
 
@@ -450,7 +452,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $skilled = $this->uidOf($this->create([]));
         self::assertNotSame($instructed, $skilled);
 
-        $this->repository->updateSkillIdentifier($skilled, '9403:tone-check', 1);
+        $this->repository->updateSkillIdentifier($skilled, self::TONE_CHECK, 1);
         $archived = $this->uidOf($this->create([]));
         self::assertNotSame($skilled, $archived);
 

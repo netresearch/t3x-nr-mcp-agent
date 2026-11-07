@@ -334,25 +334,29 @@ final readonly class ChatApiController
             $conversation->setStatus(ConversationStatus::Processing);
         }
 
-        // A start that runs nothing leaves a conversation without a message,
-        // which no list shows (ADR-027). Opening the chat again takes up the
-        // one the last opening left, so every click does not add another;
-        // nothing is created, hence 200.
-        $uid = $startsTour || $startsAltText ? null : $this->repository->findEmptyLike($conversation);
-        if ($uid !== null) {
-            return new JsonResponse([
-                'uid' => $uid,
-            ]);
+        return $this->storeStart($conversation, $startsTour || $startsAltText);
+    }
+
+    /**
+     * Add the new conversation and dispatch its first turn when it starts
+     * with one. A start that runs nothing leaves a conversation without a
+     * message, which no list shows (ADR-027): opening the chat again takes up
+     * the one the last opening left, so every click does not add another.
+     * Nothing is created then, hence 200.
+     */
+    private function storeStart(Conversation $conversation, bool $startsTurn): JsonResponse
+    {
+        $empty = $startsTurn ? null : $this->repository->findEmptyLike($conversation);
+        if ($empty !== null) {
+            return new JsonResponse(['uid' => $empty]);
         }
 
         $uid = $this->repository->add($conversation);
-        if ($startsTour || $startsAltText) {
+        if ($startsTurn) {
             $this->dispatchTurn($uid);
         }
 
-        return new JsonResponse([
-            'uid' => $uid,
-        ], 201);
+        return new JsonResponse(['uid' => $uid], 201);
     }
 
     /**
