@@ -124,7 +124,11 @@ Lists
     rename or a pin.
 -   A conversation without a message is not listed, except the open one: the
     endpoint still sends it, because the chat opens a conversation it has just
-    created from that list.
+    created from that list. Since a user can neither see nor archive it, a
+    start that runs nothing takes up the user's empty conversation of the same
+    start (same page, language and skill, no instructions, title or pin of its
+    own) instead of creating another, and the overview counts only
+    conversations with a message.
 -   The panel's tabs show the status icon and the title; the context, the
     status in words and the time are in the tooltip, and the context and the
     time are each tab's description (``aria-describedby``, pointing to a

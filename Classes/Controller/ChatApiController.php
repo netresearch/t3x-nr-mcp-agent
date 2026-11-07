@@ -334,6 +334,17 @@ final readonly class ChatApiController
             $conversation->setStatus(ConversationStatus::Processing);
         }
 
+        // A start that runs nothing leaves a conversation without a message,
+        // which no list shows (ADR-027). Opening the chat again takes up the
+        // one the last opening left, so every click does not add another;
+        // nothing is created, hence 200.
+        $uid = $startsTour || $startsAltText ? null : $this->repository->findEmptyLike($conversation);
+        if ($uid !== null) {
+            return new JsonResponse([
+                'uid' => $uid,
+            ]);
+        }
+
         $uid = $this->repository->add($conversation);
         if ($startsTour || $startsAltText) {
             $this->dispatchTurn($uid);

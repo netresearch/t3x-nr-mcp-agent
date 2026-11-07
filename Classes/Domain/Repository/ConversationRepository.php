@@ -220,6 +220,49 @@ readonly class ConversationRepository
         return $row !== false ? $this->hydrate($row) : null;
     }
 
+    /**
+     * The uid of the user's newest conversation that the new one, not yet
+     * added, would be the same as, or null: without a message, idle, neither
+     * archived nor pinned, without a title, instructions, image or guided
+     * state of its own, about the same page in the same language and with the
+     * same skill. A start takes it up instead of adding one more conversation
+     * that no list shows (ADR-027).
+     */
+    public function findEmptyLike(Conversation $start): ?int
+    {
+        $row = $start->toRow();
+        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->getRestrictions()->removeAll();
+        $empty = static fn (string $column): string => (string) $qb->expr()->or(
+            $qb->expr()->isNull($column),
+            $qb->expr()->eq($column, $qb->createNamedParameter('')),
+        );
+        $uid = $qb->select('uid')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('be_user', $qb->createNamedParameter($start->getBeUser(), Connection::PARAM_INT)),
+                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->eq('pinned', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->eq('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->eq('status', $qb->createNamedParameter(ConversationStatus::Idle->value)),
+                $qb->expr()->eq('title', $qb->createNamedParameter('')),
+                $qb->expr()->eq('view_context', $qb->createNamedParameter($row['view_context'])),
+                $qb->expr()->eq('skill_identifier', $qb->createNamedParameter($start->getSkillIdentifier())),
+                $qb->expr()->eq('skill_uid', $qb->createNamedParameter($start->getSkillUid(), Connection::PARAM_INT)),
+                $qb->expr()->eq('skill_start_pending', $qb->createNamedParameter((int) $start->isSkillStartPending(), Connection::PARAM_INT)),
+                $empty('system_prompt'),
+                $empty('alt_text_hit'),
+                $empty('guided_state'),
+            )
+            ->orderBy('uid', 'DESC')
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($uid) ? (int) $uid : null;
+    }
+
     public function countActiveByBeUser(int $beUserUid): int
     {
         $qb          = $this->connectionPool->getQueryBuilderForTable(self::TABLE);

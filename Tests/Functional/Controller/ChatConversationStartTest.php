@@ -391,4 +391,98 @@ final class ChatConversationStartTest extends FunctionalTestCase
         self::assertSame(429, $response->getStatusCode());
         self::assertSame(1, $this->countConversations());
     }
+
+    /**
+     * Opening the chat twice without writing leaves one conversation: the
+     * second start takes up the empty one the first left, which no list
+     * shows and the user therefore cannot archive.
+     */
+    #[Test]
+    public function aSecondStartTakesUpTheEmptyConversationOfTheSameStart(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+
+        $first  = $this->uidOf($this->create([]));
+        $second = $this->uidOf($this->create([]), 200);
+
+        self::assertSame($first, $second);
+        self::assertSame(1, $this->countConversations());
+    }
+
+    /** Likewise for a start about a page. */
+    #[Test]
+    public function aSecondStartAboutThePageTakesUpItsEmptyConversation(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+
+        $first  = $this->uidOf($this->create(['pageUid' => 10, 'languageUid' => 0]));
+        $second = $this->uidOf($this->create(['pageUid' => 10, 'languageUid' => 0]), 200);
+
+        self::assertSame($first, $second);
+        self::assertSame(1, $this->countConversations());
+    }
+
+    /**
+     * An empty conversation is taken up only by a start it is the same as:
+     * another page, a conversation with a message, one with its own
+     * instructions, one given a skill, an archived, a renamed, a pinned one,
+     * one that is not idle, and another user's start a new one.
+     */
+    #[Test]
+    public function aStartTakesUpNoConversationThatDiffersFromANewOne(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+
+        $plain = $this->uidOf($this->create([]));
+        self::assertNotSame($plain, $this->uidOf($this->create(['pageUid' => 10, 'languageUid' => 0])));
+
+        $withMessage = $this->repository->findByUid($plain);
+        self::assertNotNull($withMessage);
+        $withMessage->appendMessage(MessageRole::User, 'Hallo');
+        $this->repository->update($withMessage);
+        // Without the title the message gave it, so only the message tells.
+        $this->getConnectionPool()->getConnectionForTable('tx_nrmcpagent_conversation')
+            ->update('tx_nrmcpagent_conversation', ['title' => ''], ['uid' => $plain]);
+        $instructed = $this->uidOf($this->create([]));
+        self::assertNotSame($plain, $instructed);
+
+        $this->repository->updateSystemPrompt($instructed, 'Antworte knapp.', 1);
+        $skilled = $this->uidOf($this->create([]));
+        self::assertNotSame($instructed, $skilled);
+
+        $this->repository->updateSkillIdentifier($skilled, '9403:tone-check', 1);
+        $archived = $this->uidOf($this->create([]));
+        self::assertNotSame($skilled, $archived);
+
+        $this->repository->updateArchived($archived, true, 1);
+        $renamed = $this->uidOf($this->create([]));
+        self::assertNotSame($archived, $renamed);
+
+        $this->repository->updateTitle($renamed, 'Eigener Titel', 1);
+        $pinned = $this->uidOf($this->create([]));
+        self::assertNotSame($renamed, $pinned);
+
+        $this->repository->updatePinned($pinned, true, 1);
+        $failed = $this->uidOf($this->create([]));
+        self::assertNotSame($pinned, $failed);
+
+        $this->repository->updateStatus($failed, ConversationStatus::Failed, 1);
+        $own = $this->uidOf($this->create([]));
+        self::assertNotSame($failed, $own);
+
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
+        self::assertNotSame($own, $this->uidOf($this->create([])));
+        self::assertSame(10, $this->countConversations());
+    }
+
+    /** The conversation's uid; 201 when it was created, 200 when taken up. */
+    private function uidOf(ResponseInterface $response, int $status = 201): int
+    {
+        self::assertSame($status, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertIsInt($body['uid']);
+
+        return $body['uid'];
+    }
 }
