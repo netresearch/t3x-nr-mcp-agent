@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-11-07
+
+### Fixed
+
+- The site set "AI Assistant: decorative images in fluid_styled_content" names `typo3/fluid-styled-content` as an optional dependency. On an installation without fluid_styled_content TYPO3 no longer logs `Invalid set "netresearch/nr-mcp-agent-decorative-images": Missing dependency "typo3/fluid-styled-content"` on every boot; where fluid_styled_content is installed, the set is still loaded after it.
+
 ## [0.34.0] - 2026-11-06
 
 ### Added
