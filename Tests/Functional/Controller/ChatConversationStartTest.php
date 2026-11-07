@@ -28,6 +28,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -475,6 +476,49 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
         self::assertNotSame($own, $this->uidOf($this->create([])));
         self::assertSame(10, $this->countConversations());
+    }
+
+    /**
+     * A conversation taken up counts as changed now: the cleanup archives
+     * idle conversations by their changed-at time and deletes archived ones
+     * by it, and must not take away the one the chat has just opened.
+     */
+    #[Test]
+    public function aConversationTakenUpIsChangedNow(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+        $uid                = $this->uidOf($this->create([]));
+        $this->conversationTable()->update('tx_nrmcpagent_conversation', ['tstamp' => 1000], ['uid' => $uid]);
+
+        $before = time();
+        self::assertSame($uid, $this->uidOf($this->create([]), 200));
+
+        self::assertGreaterThanOrEqual($before, (int) $this->conversationTable()->select(['tstamp'], 'tx_nrmcpagent_conversation', ['uid' => $uid])->fetchOne());
+    }
+
+    /**
+     * The page a conversation keeps apart from its selection (ADR-030) is not
+     * part of its start: an empty conversation that still remembers a page
+     * is taken up by the start without a page, and forgets that page.
+     */
+    #[Test]
+    public function aRememberedPageDoesNotKeepAnEmptyConversationFromBeingTakenUp(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+        $uid                = $this->uidOf($this->create([]));
+        $this->conversationTable()->update('tx_nrmcpagent_conversation', ['view_context' => '{"pageId":0,"module":"","lastPageId":10}'], ['uid' => $uid]);
+
+        self::assertSame($uid, $this->uidOf($this->create([]), 200));
+
+        $stored = $this->repository->findByUid($uid);
+        self::assertNotNull($stored);
+        self::assertSame(0, $stored->getLastPageId());
+        self::assertSame(1, $this->countConversations());
+    }
+
+    private function conversationTable(): Connection
+    {
+        return $this->getConnectionPool()->getConnectionForTable('tx_nrmcpagent_conversation');
     }
 
     /** The conversation's uid; 201 when it was created, 200 when taken up. */

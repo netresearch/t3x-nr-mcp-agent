@@ -221,46 +221,88 @@ readonly class ConversationRepository
     }
 
     /**
-     * The uid of the user's newest conversation that the new one, not yet
-     * added, would be the same as, or null: without a message, idle, neither
-     * archived nor pinned, without a title, instructions, image or guided
-     * state of its own, about the same page in the same language and with the
-     * same skill. A start takes it up instead of adding one more conversation
-     * that no list shows (ADR-027).
+     * Take up the user's newest conversation that the new one, not yet added,
+     * would be the same as, and return its uid, or null: without a message,
+     * idle, neither archived nor pinned, without a title, instructions, image
+     * or guided state of its own, about the same page in the same language
+     * and with the same skill. A start takes it up instead of adding one more
+     * conversation that no list shows (ADR-027).
+     *
+     * The page is compared as the start names it: a page the conversation
+     * remembers apart from its selection (ADR-030) does not keep it from
+     * being taken up. Taking it up writes the start's view context, which
+     * forgets that page, and the changed-at time, so the cleanup's
+     * auto-archive and deletion by age do not take the conversation the chat
+     * has just opened. The write repeats the conditions that can change in
+     * the meantime; when it finds the row changed, nothing is taken up.
      */
-    public function findEmptyLike(Conversation $start): ?int
+    public function takeUpEmptyLike(Conversation $start): ?int
     {
-        $row = $start->toRow();
-        $qb  = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->getRestrictions()->removeAll();
         $empty = static fn (string $column): string => (string) $qb->expr()->or(
             $qb->expr()->isNull($column),
             $qb->expr()->eq($column, $qb->createNamedParameter('')),
         );
-        $uid = $qb->select('uid')
+        $rows = $qb->select('uid', 'view_context')
             ->from(self::TABLE)
             ->where(
                 $qb->expr()->eq('be_user', $qb->createNamedParameter($start->getBeUser(), Connection::PARAM_INT)),
-                $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-                $qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-                $qb->expr()->eq('pinned', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-                $qb->expr()->eq('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
-                $qb->expr()->eq('status', $qb->createNamedParameter(ConversationStatus::Idle->value)),
-                $qb->expr()->eq('title', $qb->createNamedParameter('')),
-                $qb->expr()->eq('view_context', $qb->createNamedParameter($row['view_context'])),
                 $qb->expr()->eq('skill_identifier', $qb->createNamedParameter($start->getSkillIdentifier())),
                 $qb->expr()->eq('skill_uid', $qb->createNamedParameter($start->getSkillUid(), Connection::PARAM_INT)),
                 $qb->expr()->eq('skill_start_pending', $qb->createNamedParameter((int) $start->isSkillStartPending(), Connection::PARAM_INT)),
+                $qb->expr()->eq('pinned', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->eq('title', $qb->createNamedParameter('')),
                 $empty('system_prompt'),
                 $empty('alt_text_hit'),
                 $empty('guided_state'),
+                ...$this->stillEmpty($qb),
             )
             ->orderBy('uid', 'DESC')
-            ->setMaxResults(1)
+            // A bounded read: a match further back only costs one new row.
+            ->setMaxResults(20)
             ->executeQuery()
-            ->fetchOne();
+            ->fetchAllAssociative();
 
-        return is_numeric($uid) ? (int) $uid : null;
+        $wanted = $start->getViewContext();
+        foreach ($rows as $row) {
+            $context = Conversation::fromRow($row)->getViewContext();
+            if ($context['pageId'] !== $wanted['pageId'] || $context['languageId'] !== $wanted['languageId']) {
+                continue;
+            }
+
+            $uid    = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+            $update = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+            $update->getRestrictions()->removeAll();
+            $changed = $update->update(self::TABLE)
+                ->set('view_context', $start->toRow()['view_context'])
+                ->set('tstamp', time())
+                ->where(
+                    $update->expr()->eq('uid', $update->createNamedParameter($uid, Connection::PARAM_INT)),
+                    $update->expr()->eq('be_user', $update->createNamedParameter($start->getBeUser(), Connection::PARAM_INT)),
+                    ...$this->stillEmpty($update),
+                )
+                ->executeStatement();
+
+            return $changed === 1 ? $uid : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Neither deleted nor archived, idle and without a message.
+     *
+     * @return list<string>
+     */
+    private function stillEmpty(QueryBuilder $qb): array
+    {
+        return [
+            $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            $qb->expr()->eq('archived', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            $qb->expr()->eq('message_count', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+            $qb->expr()->eq('status', $qb->createNamedParameter(ConversationStatus::Idle->value)),
+        ];
     }
 
     public function countActiveByBeUser(int $beUserUid): int

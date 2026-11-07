@@ -346,7 +346,7 @@ final readonly class ChatApiController
      */
     private function storeStart(Conversation $conversation, bool $startsTurn): JsonResponse
     {
-        $empty = $startsTurn ? null : $this->repository->findEmptyLike($conversation);
+        $empty = $startsTurn ? null : $this->repository->takeUpEmptyLike($conversation);
         if ($empty !== null) {
             return new JsonResponse(['uid' => $empty]);
         }
