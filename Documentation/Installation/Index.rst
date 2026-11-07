@@ -91,8 +91,10 @@ depends on how the site loads it:
 
 -   **fluid_styled_content as a site set:** add the set *AI Assistant:
     decorative images in fluid_styled_content*
-    (``netresearch/nr-mcp-agent-decorative-images``) to the site. It
-    depends on ``typo3/fluid-styled-content`` and is loaded after it.
+    (``netresearch/nr-mcp-agent-decorative-images``) to the site. It is
+    loaded after ``typo3/fluid-styled-content``. It names that set as an
+    optional dependency, so an installation without fluid_styled_content
+    logs no "Missing dependency" error for it.
     Without the set the extension does not change the site's output.
 -   **bootstrap_package or any other content rendering of its own:** do
     not add the set or the import. They would replace the site's own image
