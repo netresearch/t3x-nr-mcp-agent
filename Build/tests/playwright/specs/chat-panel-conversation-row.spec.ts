@@ -31,18 +31,24 @@ async function login(page: Page): Promise<void> {
     await page.waitForFunction(() => (document.querySelector('ai-chat-panel') as any).chat.loading === false, null, { timeout: 10000 });
 }
 
-/** Create conversations through the chat's own endpoint until there are at least n. */
+/**
+ * Create conversations through the chat's own endpoints until there are at
+ * least n. Each is renamed: a start takes up an empty, untitled conversation
+ * of the same start instead of creating another (ADR-027).
+ */
 async function ensureConversations(page: Page, n: number): Promise<void> {
     await page.evaluate(async (n) => {
         const urls = (window as any).TYPO3.settings.ajaxUrls;
+        const post = async (url: string, body: object) => (await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(body),
+        })).json();
         const list = await (await fetch(urls.ai_chat_conversations, { credentials: 'same-origin' })).json();
         for (let i = list.conversations.length; i < n; i++) {
-            await fetch(urls.ai_chat_conversation_create, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: '{}',
-            });
+            const { uid } = await post(urls.ai_chat_conversation_create, {});
+            await post(urls.ai_chat_conversation_rename, { conversationUid: uid, title: `Row ${i + 1}` });
         }
     }, n);
 }
