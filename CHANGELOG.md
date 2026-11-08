@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-08
+
+### Added
+
+- The alternative-text proposal card and the proposal block of a guided process name the draft workspace the text is written to, with nr-llm's own workspace line. In live they name none. The decorative-image card uses nr-llm's labels for the same line instead of its own copy.
+
 ## [0.34.2] - 2026-11-07
 
 ### Fixed
