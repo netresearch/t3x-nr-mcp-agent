@@ -92,6 +92,10 @@ export const chatAltTextStyles = css`
     .alt-text-note {
         color: var(--nr-chat-text-variant);
     }
+    .alt-text-workspace {
+        margin: 0;
+        font-size: 12px;
+    }
     .alt-text-divider {
         display: flex;
         align-items: center;
@@ -283,6 +287,12 @@ function renderCard(data, idx, current) {
 /**
  * The proposal and its answers, in place of the approval card's body.
  *
+ * In a draft workspace the proposal names it with nr-llm's own line
+ * ("Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, …"), which the
+ * server hands over as the call's `workspace` (ApprovalCallPresenter,
+ * ADR-032): the card shows the proposal instead of nr-llm's preview lines.
+ * The mark's card shows its lines, which name the workspace themselves.
+ *
  * A proposed text: "Übernehmen" approves the card, "Andere Variante" denies it
  * with that reason, "Überspringen" is the chat's own action, and "Als
  * dekorativ markieren" — offered only where the editor may set the mark —
@@ -320,6 +330,7 @@ export function renderAltTextCard(chat, pending) {
     return html`
         <div class="alt-text-proposal">
             <p class="alt-text-proposal-text"><strong>${lll('altText.proposal')}</strong> ${pending.altText?.proposal ?? ''}</p>
+            ${pending.calls?.[0]?.workspace ? html`<p class="alt-text-workspace">${pending.calls[0].workspace}</p>` : nothing}
             ${blocked ? html`<p class="alt-text-note">${lll(approveBlockedLabel(pending.approveBlocked))}</p>` : nothing}
             <div class="alt-text-answers" role="group" aria-label="${lll('altText.answers')}">
                 ${blocked ? nothing : html`<button type="button" class="btn btn-sm btn-answer btn-primary" ?disabled=${busy}

@@ -347,4 +347,20 @@ final class SetDecorativeImageToolWorkspaceTest extends FunctionalTestCase
             self::WORKSPACE_LINE,
         ], $lines);
     }
+
+    /**
+     * The workspace line is nr-llm's own (approvalPreview.workspace.target
+     * with its quotation marks), so it reads exactly as on nr-llm's alt text
+     * card: in German too, where the quotation marks are the language's.
+     */
+    #[Test]
+    public function theWorkspaceLineIsNrLlmsOwnInTheEditorsLanguage(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('be_users')->update('be_users', ['lang' => 'de'], ['uid' => self::EDITOR]);
+        $user = $this->editorIn(self::DRAFT);
+
+        $lines = $this->tool()->previewCall(['reference' => self::REFERENCE, 'decorative' => false], $this->pinnedRun($user));
+
+        self::assertContains('Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird', $lines);
+    }
 }

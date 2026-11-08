@@ -125,7 +125,7 @@ final class AltTextFlowTest extends FunctionalTestCase
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($user);
     }
 
-    private function subject(?WaitingRunView $pending = null): ChatApiController
+    private function subject(?WaitingRunView $pending = null, ?LanguageServiceFactory $languageServiceFactory = null): ChatApiController
     {
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
@@ -146,6 +146,7 @@ final class AltTextFlowTest extends FunctionalTestCase
             new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
+            languageServiceFactory: $languageServiceFactory,
             siteFinder: $this->get(SiteFinder::class),
             altTextGate: new AltTextGate($this->get(MissingAltTextScanner::class), $this->get(ReferenceWriteAccess::class), $tools),
             altTextConversation: $this->get(AltTextConversation::class),
@@ -667,6 +668,36 @@ final class AltTextFlowTest extends FunctionalTestCase
         // Clearing the mark is not setting it: that block is not this one.
         $clearing = $this->pendingCard($conversation, $this->waiting('set_file_reference_decorative', ['reference' => 10, 'decorative' => false], [self::TEAM_IMAGE]));
         self::assertNotSame('altTextMarkNotPermitted', $clearing['approveBlocked']);
+    }
+
+    /**
+     * In a draft workspace nr-llm's alt text writer names the workspace in
+     * its preview lines (nr-llm ADR-260), which the proposal card does not
+     * show: the card carries that line as the call's `workspace`, matched by
+     * nr-llm's own label in the editor's language — here German, from nr-llm's
+     * real translation. In live there is no such line and no workspace.
+     */
+    #[Test]
+    public function theProposalCardCarriesNrLlmsWorkspaceLineInTheEditorsLanguage(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('be_users')->update('be_users', ['lang' => 'de'], ['uid' => self::EDITOR]);
+        $this->loginAs(self::EDITOR);
+        $conversation = $this->settle($this->start(1), ConversationStatus::AwaitingApproval);
+        $line         = 'Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
+        $request      = (new ServerRequest('/', 'GET'))->withQueryParams(['conversationUid' => (string) $conversation->getUid()]);
+
+        $inDraft = $this->waiting('set_file_reference_alternative_text', ['reference' => 1, 'alternative' => 'Ein Team'], ['Bild: „team.jpg“', $line]);
+        $card    = $this->json($this->subject($inDraft, $this->get(LanguageServiceFactory::class))->getMessages($request))['pendingApproval'] ?? null;
+
+        self::assertIsArray($card);
+        self::assertSame('altText', $card['answers']);
+        self::assertSame($line, $card['calls'][0]['workspace'] ?? null);
+
+        $inLive = $this->waiting('set_file_reference_alternative_text', ['reference' => 1, 'alternative' => 'Ein Team'], ['Bild: „team.jpg“']);
+        $card   = $this->json($this->subject($inLive, $this->get(LanguageServiceFactory::class))->getMessages($request))['pendingApproval'] ?? null;
+
+        self::assertIsArray($card);
+        self::assertSame('', $card['calls'][0]['workspace'] ?? null);
     }
 
     /** With the grant, the model's mark is approvable and the model may propose it. */

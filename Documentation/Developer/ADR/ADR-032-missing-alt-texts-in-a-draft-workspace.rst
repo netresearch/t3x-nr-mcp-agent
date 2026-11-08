@@ -88,6 +88,19 @@ promises a draft that is not stored. Who may read the card is nr-llm's
 decision (nr-llm ADR-136, ADR-260); the tool's own check runs against the
 viewer in the viewer's workspace.
 
+*Amended 2026-11-08:* the proposal's card names the workspace too. It shows
+the proposed text instead of the preview lines of nr-llm's
+``set_file_reference_alternative_text``, and with them it hid nr-llm's line
+naming the workspace. ``ApprovalCallPresenter`` hands that line over as the
+call's ``workspace``, recognised by nr-llm's own label
+(``approvalPreview.workspace.target``) in the preview's language and, without
+one, by nr-llm's source text; the proposal's card and the proposal block of a
+process card that shows nr-llm's structured values show it. In live nr-llm
+writes no such line, and the card shows none. The decorative mark's line is
+built from the same nr-llm labels (with ``approvalPreview.value.quoted`` for
+the quotation marks) instead of a translation of this extension's own, which
+read the same in English and German.
+
 **The model reads the texts of the workspace.** ``AltTextContext`` reads the
 page, the content element, the elements around it and a record's text
 fields as the workspace of the turn shows them.

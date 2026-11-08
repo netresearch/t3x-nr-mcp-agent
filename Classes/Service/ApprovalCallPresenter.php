@@ -26,6 +26,13 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * - `technicalDetails`: the identifiers nr-llm appends as the LAST preview
  *   line ("Technical details: …", nr-llm 0.39 and later), taken out of
  *   `previewLines` so the card can put them behind "Show technical details".
+ * - `workspace`: nr-llm's preview line naming the draft workspace the write
+ *   goes to ("Workspace: “Entwurf” — saved there as a draft, …", nr-llm
+ *   ADR-260), or '' — in live, and for a run whose write nr-llm refuses for
+ *   its workspace, nr-llm writes no such line. The line stays in
+ *   `previewLines`; the copy is for the cards that show a proposal or nr-llm's
+ *   structured values instead of the lines (ADR-032), so they name the
+ *   workspace in nr-llm's words, not in a translation of their own.
  *
  * What names the change, in this order:
  *
@@ -70,6 +77,15 @@ final readonly class ApprovalCallPresenter
      */
     private const TECHNICAL_DETAILS_SOURCE_TEXT = 'Technical details: %s';
 
+    /** nr-llm's label for the preview line naming the draft workspace; `%s` holds the workspace's title, quoted. */
+    public const WORKSPACE_LABEL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.workspace.target';
+
+    /**
+     * nr-llm's source text of that label: the fallback when the label cannot be
+     * resolved in the acting user's language, as for the technical line.
+     */
+    private const WORKSPACE_SOURCE_TEXT = 'Workspace: %s — saved there as a draft, live stays unchanged until the workspace is published';
+
     /** The heading of a change to exactly one field; `%s` holds the field's label. */
     public const FIELD_HEADING_LABEL = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.approvalTitleField';
 
@@ -92,6 +108,7 @@ final readonly class ApprovalCallPresenter
      *     toolStillRegistered: bool,
      *     previewLines: list<string>,
      *     technicalDetails: string,
+     *     workspace: string,
      *     previewFailed: bool,
      *     previewStale: bool,
      *     argumentsJson: string,
@@ -104,6 +121,7 @@ final readonly class ApprovalCallPresenter
     {
         $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
         $technicalLabel  = $this->resolve(self::TECHNICAL_DETAILS_LABEL, $previewLanguage);
+        $workspaceLabel  = $this->resolve(self::WORKSPACE_LABEL, $previewLanguage);
 
         $presented = [];
         foreach ($calls as $call) {
@@ -138,7 +156,9 @@ final readonly class ApprovalCallPresenter
                 'toolStillRegistered'    => $call->toolStillRegistered,
                 'previewLines'           => $lines,
                 'technicalDetails'       => $withTechnicalDetails ? $technical : '',
-                'previewFailed'          => $call->previewFailed,
+                // A failed or withheld preview carries a reason, never a draft.
+                'workspace'     => $call->previewFailed ? '' : $this->workspaceLineOf($lines, $workspaceLabel),
+                'previewFailed' => $call->previewFailed,
                 // nr-llm refuses an approved write whose record changed after
                 // the preview and hands the run back with this flag. Without
                 // it the card returns looking exactly as it did before the
@@ -409,6 +429,25 @@ final readonly class ApprovalCallPresenter
         }
 
         return substr($line, strlen($prefix), strlen($line) - strlen($prefix) - strlen($suffix));
+    }
+
+    /**
+     * nr-llm's line naming the draft workspace among `$lines`, or ''. Matched
+     * by the label resolved in the preview's language and, independent of it,
+     * by nr-llm's source text — both ends of the label, and a workspace named
+     * between them, as {@see self::technicalDetailsOf()} matches.
+     *
+     * @param list<string> $lines
+     */
+    private function workspaceLineOf(array $lines, string $label): string
+    {
+        foreach ($lines as $line) {
+            if ($this->technicalDetailsOf($line, $label) !== '' || $this->technicalDetailsOf($line, self::WORKSPACE_SOURCE_TEXT) !== '') {
+                return $line;
+            }
+        }
+
+        return '';
     }
 
     private function resolve(string $reference, ?LanguageService $language): string

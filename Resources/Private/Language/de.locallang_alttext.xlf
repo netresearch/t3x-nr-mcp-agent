@@ -200,10 +200,6 @@
                 <source>File: “%s”</source>
                 <target>Datei: „%s“</target>
             </trans-unit>
-            <trans-unit id="tool.workspace" resname="tool.workspace">
-                <source>Workspace: “%s” — saved there as a draft, live stays unchanged until the workspace is published</source>
-                <target>Arbeitsumgebung: „%s“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird</target>
-            </trans-unit>
             <trans-unit id="decorative.warning.section" resname="decorative.warning.section">
                 <source>Decorative images get no alt text. Screen readers then skip them. That only fits if the image adds nothing to the content. This image belongs to the section “%s” and therefore probably needs an alt text. Mark it as decorative anyway?</source>
                 <target>Dekorative Bilder bekommen keinen Alt-Text. Screenreader überspringen sie dann. Das passt nur, wenn das Bild nichts zum Inhalt beiträgt. Dieses Bild gehört zum Abschnitt „%s“ und braucht deshalb wahrscheinlich einen Alt-Text. Trotzdem als dekorativ markieren?</target>
