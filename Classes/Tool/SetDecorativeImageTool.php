@@ -27,6 +27,7 @@ use Netresearch\NrMcpAgent\Service\AltText\DecorativeImageWriter;
 use Netresearch\NrMcpAgent\Service\AltText\DecorativeWarning;
 use Netresearch\NrMcpAgent\Service\AltText\ReferenceWriteAccess;
 use Netresearch\NrMcpAgent\Service\AltText\WritableReference;
+use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageService;
@@ -62,6 +63,9 @@ final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataCl
     private const TABLE = 'sys_file_reference';
 
     private const LL = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_alttext.xlf:';
+
+    /** nr-llm's quotation marks for a value on a card; `%s` holds the value. */
+    private const NR_LLM_QUOTED = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.value.quoted';
 
     public function __construct(
         private DecorativeImageWriter $writer,
@@ -156,7 +160,13 @@ final readonly class SetDecorativeImageTool implements ToolInterface, ToolDataCl
         $lines[] = sprintf($this->text($language, 'tool.field'), $this->fieldLabel($language, $plan->table, $plan->field));
         $lines[] = sprintf($this->text($language, 'tool.file'), $this->fileName($plan));
         if ($user->workspace > 0) {
-            $lines[] = sprintf($this->text($language, 'tool.workspace'), DecorativeImageWriter::workspaceTitle($user));
+            // nr-llm's own line for a write into a draft workspace, in its
+            // words and quotation marks (nr-llm ADR-260), as nr-llm's alt text
+            // writer shows it on the proposal's card.
+            $lines[] = sprintf(
+                $language->sL(ApprovalCallPresenter::WORKSPACE_LABEL),
+                sprintf($language->sL(self::NR_LLM_QUOTED), DecorativeImageWriter::workspaceTitle($user)),
+            );
         }
 
         if ($call['decorative']) {

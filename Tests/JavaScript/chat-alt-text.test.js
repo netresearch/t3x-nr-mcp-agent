@@ -301,6 +301,23 @@ describe('"Optimieren" in the chat panel', () => {
         expect(routes('ai_chat_conversation_approve').at(-1).body).toEqual({conversationUid: 5, approve: false, turnDigest: 'digest-1', reason: 'variant'});
     });
 
+    test('the proposal names the draft workspace with nr-llm\'s line, and says nothing of one in live', async () => {
+        const workspace = 'Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
+        pending = {...PROPOSAL, calls: [{...PROPOSAL.calls[0], workspace, previewLines: ['Bild: „team.jpg“', workspace]}]};
+        status = 'awaiting_approval';
+        await panel.optimiseAltText(1);
+        await panel.updateComplete;
+
+        const card = panel.shadowRoot.querySelector('.alt-text-proposal');
+        expect(card.querySelector('.alt-text-workspace').textContent).toBe(workspace);
+        expect(card.textContent).not.toContain('Bild: „team.jpg“');
+
+        pending = PROPOSAL;
+        await panel.chat.loadMessages();
+        await panel.updateComplete;
+        expect(panel.shadowRoot.querySelector('.alt-text-proposal .alt-text-workspace')).toBeNull();
+    });
+
     test('"Als dekorativ markieren" asks for the mark\'s card and saves nothing itself; no warning step comes before it', async () => {
         pending = PROPOSAL;
         status = 'awaiting_approval';

@@ -123,6 +123,25 @@ describe.each(SURFACES)('$name proposal', ({module: modulePath, tag, open}) => {
         expect(el.shadowRoot.querySelector('.proposal .approval-preview')).toBeNull();
     });
 
+    test('with the structured preview the workspace line nr-llm wrote is still shown', async () => {
+        const structured = [{field: 'description', current: '', proposed: 'Neu und gut', measure: null}];
+        const workspace = 'Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
+        const el = await render(modulePath, tag, open, {...PROPOSAL, calls: [{...CALL, structured, workspace, previewLines: [...CALL.previewLines, workspace]}]});
+
+        expect(el.shadowRoot.querySelector('.proposal .proposal-workspace').textContent).toBe(workspace);
+
+        const live = await render(modulePath, tag, open, {...PROPOSAL, calls: [{...CALL, structured, workspace: ''}]});
+        expect(live.shadowRoot.querySelector('.proposal .proposal-workspace')).toBeNull();
+    });
+
+    test('without the structured preview the workspace line stands among nr-llm\'s lines, once', async () => {
+        const workspace = 'Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
+        const el = await render(modulePath, tag, open, {...PROPOSAL, calls: [{...CALL, workspace, previewLines: [...CALL.previewLines, workspace]}]});
+
+        expect(el.shadowRoot.querySelector('.proposal .proposal-workspace')).toBeNull();
+        expect([...el.shadowRoot.querySelectorAll('.proposal .approval-preview li')].map((li) => li.textContent)).toContain(workspace);
+    });
+
     test('a length outside the range says so in words', async () => {
         const structured = [{field: 'description', current: 'Alt', proposed: 'Zu lang', measure: {count: 171, min: 140, max: 160}}];
         const el = await render(modulePath, tag, open, {...PROPOSAL, calls: [{...CALL, structured}]});

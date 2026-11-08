@@ -36,6 +36,7 @@ export const chatProposalStyles = css`
     }
     .proposal-facts dt { font-weight: 600; }
     .proposal-facts dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .proposal-workspace { margin: 4px 0 0; }
 `;
 
 /**
@@ -133,6 +134,12 @@ function renderStructured(call) {
 /**
  * The block above the answers.
  *
+ * Where nr-llm's structured values replace its preview lines, the line
+ * naming the draft workspace the write goes to would go with them; the
+ * server hands it over as the call's `workspace` (ApprovalCallPresenter,
+ * ADR-032), and the block shows it below the values. Without structured
+ * values it stands among the lines, once.
+ *
  * @param {object} call the card's one call
  * @param {(call: object) => unknown} renderLines the surface's own rendering of nr-llm's preview lines
  */
@@ -148,6 +155,7 @@ export function renderProposal(call, renderLines) {
                     ${call.structured ? renderStructured(call) : nothing}
                 </dl>
             ` : nothing}
+            ${call.structured && call.workspace ? html`<p class="proposal-workspace">${call.workspace}</p>` : nothing}
             ${call.structured ? nothing : renderLines(call)}
         </div>
     `;

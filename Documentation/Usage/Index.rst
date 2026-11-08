@@ -170,9 +170,10 @@ finished. A content element the chat changes there is stored as a draft of
 the workspace: it appears in the **Workspaces** module, and the live site
 stays as it was until the workspace is published. The approval card names
 the workspace, for example *Workspace: “Entwurf” — saved there as a draft*.
-The chat reads the page as your workspace shows it. Changes nr-llm cannot
-yet make in a workspace — other than changing a content element — are
-refused there with a message instead of being made live. When you may no
+The chat reads the page as your workspace shows it. The card of a proposed
+alternative text names the workspace in the same words. Changes nr-llm
+cannot make in a workspace are refused there with a message instead of being
+made live. When you may no
 longer work in the workspace the message was sent from, the turn fails and
 nothing is written.
 
