@@ -344,6 +344,12 @@ Security
     conversations per user. Prevents a single user from
     overloading the system. Set to ``0`` for unlimited.
 
+    A new or edited message, the start of a guided process, the turns on an
+    image from the list of missing alt texts, and *Retry* of a failed turn
+    are refused while the user is at the limit. A decision on a proposal
+    and an answer to a question carry on a run that is already there; the
+    limit does not apply to them.
+
 Choices in guided processes
 ===========================
 

@@ -42,6 +42,8 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 #[CoversClass(ChatApiController::class)]
 final class ChatApiControllerStartTest extends TestCase
 {
+    use ClaimsThroughUpdateIf;
+
     use SkillLabelsStub;
 
     private const SKILL = ['identifier' => 'seo-page-tour', 'name' => 'SEO einer Seite', 'description' => 'Geführt', 'uid' => 17, 'process' => null];
@@ -58,6 +60,7 @@ final class ChatApiControllerStartTest extends TestCase
     {
         parent::setUp();
         $this->repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($this->repository);
         $this->repository->method('add')->willReturnCallback(function (Conversation $conversation): int {
             $this->added = $conversation;
 

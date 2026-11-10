@@ -28,6 +28,7 @@ use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
+use Netresearch\NrMcpAgent\Enum\TurnClaim;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextGate;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImage;
@@ -351,10 +352,19 @@ final readonly class ChatApiController
             return new JsonResponse(['uid' => $empty]);
         }
 
-        $uid = $this->repository->add($conversation);
-        if ($startsTurn) {
-            $this->dispatchTurn($uid);
+        if (!$startsTurn) {
+            return new JsonResponse(['uid' => $this->repository->add($conversation)], 201);
         }
+
+        // The limit is checked again with the insert: refuseNewTurn() counted
+        // before, and a simultaneous start of the same user may have come
+        // in between (#220).
+        $uid = $this->repository->addWithinLimit($conversation, $this->config->getMaxActiveConversationsPerUser());
+        if ($uid === null) {
+            return $this->tooManyActive();
+        }
+
+        $this->dispatchTurn($uid);
 
         return new JsonResponse(['uid' => $uid], 201);
     }
@@ -1425,11 +1435,16 @@ final readonly class ChatApiController
         if ($maxActive > 0) {
             $activeCount = $this->repository->countActiveByBeUser($this->getBeUserUid());
             if ($activeCount >= $maxActive) {
-                return new JsonResponse(['error' => sprintf('Too many active conversations (max %d)', $maxActive)], 429);
+                return $this->tooManyActive();
             }
         }
 
         return null;
+    }
+
+    private function tooManyActive(): JsonResponse
+    {
+        return new JsonResponse(['error' => sprintf('Too many active conversations (max %d)', $this->config->getMaxActiveConversationsPerUser())], 429);
     }
 
     /**
@@ -1491,8 +1506,15 @@ final readonly class ChatApiController
 
         // Atomic CAS: write full row only if status still matches,
         // preventing race conditions with concurrent requests or worker dequeue.
-        $claimed = $this->repository->updateIf($conversation, $currentStatus);
-        if (!$claimed) {
+        // The limit on running conversations is checked again with it:
+        // refuseNewTurn() counted before, and a simultaneous turn of the same
+        // user may have been claimed in between (#220).
+        $claim = $this->repository->claimTurn($conversation, $currentStatus, $this->config->getMaxActiveConversationsPerUser());
+        if ($claim === TurnClaim::OverLimit) {
+            return $this->tooManyActive();
+        }
+
+        if ($claim === TurnClaim::Lost) {
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 
@@ -2544,9 +2566,17 @@ final readonly class ChatApiController
         $conversation->setApprovalRunUuid('');
         $conversation->clearApprovalDecision();
 
-        // Atomic CAS: write full row only if status still matches.
-        $claimed = $this->repository->updateIf($conversation, $currentStatus);
-        if (!$claimed) {
+        // Atomic CAS: write full row only if status still matches. Retry of a
+        // failed turn starts a run, so the limit on running conversations
+        // applies; a turn still Processing or in its tool loop is counted
+        // already (#220).
+        $maxActive = $this->isBusy($currentStatus) ? 0 : $this->config->getMaxActiveConversationsPerUser();
+        $claim     = $this->repository->claimTurn($conversation, $currentStatus, $maxActive);
+        if ($claim === TurnClaim::OverLimit) {
+            return $this->tooManyActive();
+        }
+
+        if ($claim === TurnClaim::Lost) {
             return new JsonResponse(['error' => $this->translate('error.conversationProcessing')], 409);
         }
 

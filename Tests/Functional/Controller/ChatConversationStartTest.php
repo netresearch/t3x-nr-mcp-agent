@@ -29,6 +29,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -169,7 +170,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
      * A subject that can start a guided process: a catalogue with one process
      * skill and one plain skill, and nr-llm's invocation.
      */
-    private function tourSubject(ChatProcessorInterface $processor, int $maxActive = 0): ChatApiController
+    private function tourSubject(ChatProcessorInterface $processor, int $maxActive = 0, ?ConversationRepository $repository = null): ChatApiController
     {
         $config = $this->createMock(ExtensionConfiguration::class);
         $config->method('getAllowedGroupIds')->willReturn([]);
@@ -191,7 +192,7 @@ final class ChatConversationStartTest extends FunctionalTestCase
         $skills->method('find')->willReturnCallback(static fn (string $identifier): ?array => $entries[$identifier] ?? null);
 
         return new ChatApiController(
-            $this->repository,
+            $repository ?? $this->repository,
             $processor,
             $config,
             $this->createMock(ChatCapabilitiesInterface::class),
@@ -393,6 +394,44 @@ final class ChatConversationStartTest extends FunctionalTestCase
 
         self::assertSame(429, $response->getStatusCode());
         self::assertSame(1, $this->countConversations());
+    }
+
+    /**
+     * A second request of the same user claims a conversation after this
+     * start has counted and before it inserts (#220): the start is refused.
+     */
+    #[Test]
+    public function aGuidedProcessWhoseCountAnotherClaimOvertookStartsNothing(): void
+    {
+        $this->loginWithLanguage();
+        $other = new Conversation();
+        $other->setBeUser(1);
+        $other->setStatus(ConversationStatus::Idle);
+
+        $otherUid  = $this->repository->add($other);
+        $competed  = false;
+        $competing = new CountThenCompeteConversationRepository(
+            $this->get(ConnectionPool::class),
+            function () use ($otherUid, &$competed): void {
+                if ($competed) {
+                    return;
+                }
+
+                $claim = $this->repository->findByUid($otherUid);
+                self::assertNotNull($claim);
+                $claim->setStatus(ConversationStatus::Processing);
+                $competed = $this->repository->updateIf($claim, ConversationStatus::Idle);
+            },
+        );
+        $processor = $this->createMock(ChatProcessorInterface::class);
+        $processor->expects(self::never())->method('dispatch');
+
+        $response = $this->createWith($this->tourSubject($processor, maxActive: 1, repository: $competing), ['pageUid' => 10, 'skill' => self::SEO_TOUR]);
+
+        self::assertTrue($competed, 'the competing claim did not run');
+        self::assertSame(429, $response->getStatusCode());
+        self::assertSame(1, $this->countConversations());
+        self::assertSame(1, $this->repository->countActiveByBeUser(1));
     }
 
     /**
