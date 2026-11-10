@@ -46,6 +46,8 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 #[CoversClass(ChatApiController::class)]
 final class ChatApiControllerFeedbackTest extends TestCase
 {
+    use ClaimsThroughUpdateIf;
+
     /** Demo conversation 49, verbatim: what every reader was shown. */
     private const PROVIDER_FAILURE = 'API key identifier is required for provider OpenAI';
 
@@ -64,6 +66,7 @@ final class ChatApiControllerFeedbackTest extends TestCase
         parent::setUp();
 
         $this->repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($this->repository);
         $this->repository->method('updateIf')->willReturn(true);
         $this->processor    = $this->createMock(ChatProcessorInterface::class);
         $this->chatApproval = $this->createMock(ChatApprovalInterface::class);

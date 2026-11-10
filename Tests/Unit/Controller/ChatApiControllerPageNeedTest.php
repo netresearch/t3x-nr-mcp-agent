@@ -46,6 +46,8 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 #[CoversClass(ChatApiController::class)]
 final class ChatApiControllerPageNeedTest extends TestCase
 {
+    use ClaimsThroughUpdateIf;
+
     private const ENTRIES = [
         'page-needed'   => ['identifier' => 'page-needed', 'name' => 'Seite übersetzen', 'description' => '', 'uid' => 31, 'process' => false, 'page' => 'required'],
         'no-page'       => ['identifier' => 'no-page', 'name' => 'Newsletter', 'description' => '', 'uid' => 32, 'process' => false, 'page' => 'none'],
@@ -61,6 +63,7 @@ final class ChatApiControllerPageNeedTest extends TestCase
     {
         parent::setUp();
         $this->repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($this->repository);
         $this->repository->method('updateIf')->willReturn(true);
         $user               = $this->createStub(BackendUserAuthentication::class);
         $user->user         = ['uid' => 2, 'usergroup' => '', 'admin' => 0];

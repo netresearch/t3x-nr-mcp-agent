@@ -13,6 +13,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Enum\TurnClaim;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -101,6 +102,105 @@ class ConversationRepositoryTest extends FunctionalTestCase
         // User 1 has conv 2 in 'processing'
         self::assertSame(1, $this->subject->countActiveByBeUser(1));
         self::assertSame(0, $this->subject->countActiveByBeUser(2));
+    }
+
+    /** User 1 runs conversation 2 (processing); conversation 1 is idle. */
+    #[Test]
+    public function claimTurnAtTheLimitWritesNothing(): void
+    {
+        $conversation = $this->claimable(1);
+
+        self::assertSame(TurnClaim::OverLimit, $this->subject->claimTurn($conversation, ConversationStatus::Idle, 1));
+        self::assertSame(ConversationStatus::Idle, $this->subject->findByUid(1)?->getStatus());
+        self::assertSame(0, $this->subject->findByUid(1)?->getMessageCount());
+    }
+
+    #[Test]
+    public function claimTurnBelowTheLimitClaims(): void
+    {
+        self::assertSame(TurnClaim::Claimed, $this->subject->claimTurn($this->claimable(1), ConversationStatus::Idle, 2));
+        self::assertSame(2, $this->subject->countActiveByBeUser(1));
+        self::assertSame(1, $this->subject->findByUid(1)?->getMessageCount());
+    }
+
+    #[Test]
+    public function claimTurnWithoutALimitClaimsAtAnyCount(): void
+    {
+        self::assertSame(TurnClaim::Claimed, $this->subject->claimTurn($this->claimable(1), ConversationStatus::Idle, 0));
+        self::assertSame(2, $this->subject->countActiveByBeUser(1));
+    }
+
+    /** A row that is running already is not counted against its own claim. */
+    #[Test]
+    public function claimTurnDoesNotCountTheClaimedRow(): void
+    {
+        $running = $this->subject->findByUid(2);
+        self::assertNotNull($running);
+
+        self::assertSame(TurnClaim::Claimed, $this->subject->claimTurn($running, ConversationStatus::Processing, 1));
+    }
+
+    #[Test]
+    public function claimTurnCountsOnlyTheUsersOwnConversations(): void
+    {
+        $other = $this->subject->findByUid(3);
+        self::assertNotNull($other);
+        $other->setStatus(ConversationStatus::Processing);
+
+        self::assertSame(TurnClaim::Claimed, $this->subject->claimTurn($other, ConversationStatus::Idle, 1));
+    }
+
+    #[Test]
+    public function claimTurnOfARowWithAnotherStatusIsLost(): void
+    {
+        self::assertSame(TurnClaim::Lost, $this->subject->claimTurn($this->claimable(1), ConversationStatus::Failed, 2));
+        self::assertSame(ConversationStatus::Idle, $this->subject->findByUid(1)?->getStatus());
+    }
+
+    #[Test]
+    public function addWithinLimitAtTheLimitAddsNothing(): void
+    {
+        $before = count($this->subject->findByBeUser(1, includeArchived: true));
+
+        self::assertNull($this->subject->addWithinLimit($this->running(), 1));
+        self::assertCount($before, $this->subject->findByBeUser(1, includeArchived: true));
+    }
+
+    #[Test]
+    public function addWithinLimitBelowTheLimitAdds(): void
+    {
+        $uid = $this->subject->addWithinLimit($this->running(), 2);
+
+        self::assertNotNull($uid);
+        self::assertSame(ConversationStatus::Processing, $this->subject->findByUid($uid)?->getStatus());
+        self::assertSame(2, $this->subject->countActiveByBeUser(1));
+    }
+
+    #[Test]
+    public function addWithinLimitWithoutALimitAdds(): void
+    {
+        self::assertNotNull($this->subject->addWithinLimit($this->running(), 0));
+        self::assertSame(2, $this->subject->countActiveByBeUser(1));
+    }
+
+    /** Conversation $uid with a new message and the status a new turn sets. */
+    private function claimable(int $uid): Conversation
+    {
+        $conversation = $this->subject->findByUid($uid);
+        self::assertNotNull($conversation);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+        $conversation->setStatus(ConversationStatus::Processing);
+
+        return $conversation;
+    }
+
+    private function running(): Conversation
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setStatus(ConversationStatus::Processing);
+
+        return $conversation;
     }
 
     #[Test]

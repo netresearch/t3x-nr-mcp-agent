@@ -10,9 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Domain\Repository;
 
 use Doctrine\DBAL\Exception\DeadlockException;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrMcpAgent\Configuration\ImageAnalysisTurnSettings;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
+use Netresearch\NrMcpAgent\Enum\TurnClaim;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -307,6 +309,14 @@ readonly class ConversationRepository
 
     public function countActiveByBeUser(int $beUserUid): int
     {
+        return $this->countActive($beUserUid, 0);
+    }
+
+    /**
+     * The user's running conversations other than $exceptUid.
+     */
+    private function countActive(int $beUserUid, int $exceptUid): int
+    {
         $qb          = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $fetchResult = $qb->count('uid')
             ->from(self::TABLE)
@@ -317,6 +327,7 @@ readonly class ConversationRepository
                     Connection::PARAM_STR_ARRAY,
                 )),
                 $qb->expr()->eq('deleted', $qb->createNamedParameter(0, Connection::PARAM_INT)),
+                $qb->expr()->neq('uid', $qb->createNamedParameter($exceptUid, Connection::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchOne();
@@ -328,6 +339,22 @@ readonly class ConversationRepository
     }
 
     public function add(Conversation $conversation): int
+    {
+        return $this->insert($conversation, 0) ?? 0;
+    }
+
+    /**
+     * add() for a conversation that starts with a running turn: nothing is
+     * added, and null is returned, when its user already runs $maxActive
+     * conversations (no limit when $maxActive is 0 or less). The count and
+     * the insert are one step, see withinLimit().
+     */
+    public function addWithinLimit(Conversation $conversation, int $maxActive): ?int
+    {
+        return $this->insert($conversation, $maxActive);
+    }
+
+    private function insert(Conversation $conversation, int $maxActive): ?int
     {
         $conn             = $this->connectionPool->getConnectionForTable(self::TABLE);
         $data             = $this->rowData($conversation);
@@ -342,7 +369,11 @@ readonly class ConversationRepository
         $data['title']            = $conversation->getTitle();
         $data['title_source']     = $conversation->getTitleSource();
 
-        return $this->transactional($conn, function () use ($conn, $data, $conversation): int {
+        return $this->transactional($conn, function () use ($conn, $data, $conversation, $maxActive): ?int {
+            if (!$this->withinLimit($conn, $conversation->getBeUser(), 0, $maxActive)) {
+                return null;
+            }
+
             $conn->insert(self::TABLE, $data);
             $uid = (int) $conn->lastInsertId();
             $this->writeMessages($conn, $uid, $conversation->getDecodedMessages());
@@ -649,6 +680,17 @@ readonly class ConversationRepository
      */
     public function updateIf(Conversation $conversation, ConversationStatus $expectedStatus): bool
     {
+        return $this->claimTurn($conversation, $expectedStatus, 0) === TurnClaim::Claimed;
+    }
+
+    /**
+     * updateIf() for a claim that starts a run: refused, with nothing written,
+     * when the conversation's user already runs $maxActive other
+     * conversations (no limit when $maxActive is 0 or less). The count and
+     * the write are one step, see withinLimit().
+     */
+    public function claimTurn(Conversation $conversation, ConversationStatus $expectedStatus, int $maxActive): TurnClaim
+    {
         $conn = $this->connectionPool->getConnectionForTable(self::TABLE);
         $data = $this->rowData($conversation);
 
@@ -668,7 +710,11 @@ readonly class ConversationRepository
         // The claim and the transcript commit together: a claim that loses
         // leaves no message rows behind, and a worker cannot dequeue the
         // conversation before its new message is there.
-        return $this->transactional($conn, function () use ($conn, $columns, $params, $conversation): bool {
+        return $this->transactional($conn, function () use ($conn, $columns, $params, $conversation, $maxActive): TurnClaim {
+            if (!$this->withinLimit($conn, $conversation->getBeUser(), $conversation->getUid(), $maxActive)) {
+                return TurnClaim::OverLimit;
+            }
+
             $affected = $conn->executeStatement(
                 'UPDATE ' . self::TABLE . ' SET ' . implode(', ', $columns)
                 . ' WHERE uid = ? AND status = ? AND deleted = ?',
@@ -676,15 +722,55 @@ readonly class ConversationRepository
             );
             if ($affected === 0) {
                 // Lost: nothing was written, so there is nothing to undo.
-                return false;
+                return TurnClaim::Lost;
             }
 
             $this->writeMessages($conn, $conversation->getUid(), $conversation->getDecodedMessages());
             $this->writeAutomaticTitle($conn, $conversation);
             $this->clearLegacyColumn($conn, $conversation->getUid());
 
-            return true;
+            return TurnClaim::Claimed;
         });
+    }
+
+    /**
+     * Whether the user runs fewer than $maxActive conversations besides
+     * $exceptUid; always true when $maxActive is 0 or less. Called inside the
+     * transaction of the write it allows (#220).
+     *
+     * The user's be_users row is locked first, so a second claim of the same
+     * user waits here until the first has committed. The count is the
+     * transaction's first plain read: under REPEATABLE READ (MySQL, MariaDB)
+     * that read fixes the snapshot, which therefore includes the first
+     * claim. SQLite has no row locks and no FOR UPDATE; there a write that
+     * changes nothing takes the database's write lock instead, which
+     * serialises the claims the same way.
+     */
+    private function withinLimit(Connection $conn, int $beUserUid, int $exceptUid, int $maxActive): bool
+    {
+        if ($maxActive <= 0) {
+            return true;
+        }
+
+        if ($conn->getDatabasePlatform() instanceof SQLitePlatform) {
+            // No row locks and no FOR UPDATE: a write that changes nothing
+            // takes the database's write lock first. A count read first would
+            // have to upgrade its read lock at the write, and SQLite answers
+            // that with "database is locked" instead of waiting when another
+            // claim holds the write lock.
+            $conn->executeStatement('UPDATE be_users SET uid = uid WHERE uid = ?', [$beUserUid]);
+        } else {
+            $conn->createQueryBuilder()->getConcreteQueryBuilder()
+                ->select('uid')
+                ->from('be_users')
+                ->where('uid = :uid')
+                ->setParameter('uid', $beUserUid, Connection::PARAM_INT)
+                ->forUpdate()
+                ->executeQuery()
+                ->fetchOne();
+        }
+
+        return $this->countActive($beUserUid, $exceptUid) < $maxActive;
     }
 
     /**

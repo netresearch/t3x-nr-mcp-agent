@@ -46,6 +46,8 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
 
 class ChatApiControllerTest extends TestCase
 {
+    use ClaimsThroughUpdateIf;
+
     private ChatApiController $subject;
 
     private ConversationRepository $repository;
@@ -68,6 +70,7 @@ class ChatApiControllerTest extends TestCase
     {
         parent::setUp();
         $this->repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($this->repository);
         $this->repository->method('updateIf')->willReturn(true);
         $this->processor = $this->createMock(ChatProcessorInterface::class);
         $this->config    = $this->createMock(ExtensionConfiguration::class);
@@ -622,6 +625,7 @@ class ChatApiControllerTest extends TestCase
             'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationProcessing' => 'Der Chat wird bereits verarbeitet',
         ]);
         $repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($repository);
         $repository->method('updateIf')->willReturn(false);
         $repository->method('countActiveByBeUser')->willReturn(0);
         $conversation = new Conversation();
@@ -640,6 +644,7 @@ class ChatApiControllerTest extends TestCase
     public function resumeConversationReturnsConflictWhenCasFails(): void
     {
         $repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($repository);
         $repository->method('updateIf')->willReturn(false);
         $conversation = new Conversation();
         $conversation->setStatus(ConversationStatus::Failed);
@@ -678,6 +683,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getMaxActiveConversationsPerUser')->willReturn(0);
 
         $repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($repository);
         $repository->method('updateIf')->willReturn(true);
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);
@@ -933,6 +939,7 @@ class ChatApiControllerTest extends TestCase
             'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationProcessing' => 'Der Chat wird bereits verarbeitet',
         ]);
         $repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($repository);
         $repository->method('updateIf')->willReturn(false);
         $conversation = new Conversation();
         $conversation->setStatus(ConversationStatus::Failed);
@@ -1417,6 +1424,7 @@ class ChatApiControllerTest extends TestCase
         $config->method('getMaxActiveConversationsPerUser')->willReturn(0);
 
         $repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($repository);
         $repository->method('updateIf')->willReturn(true);
         $conversation = new Conversation();
         $repository->method('findOneByUidAndBeUser')->willReturn($conversation);

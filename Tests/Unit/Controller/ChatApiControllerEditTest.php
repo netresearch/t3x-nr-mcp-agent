@@ -38,6 +38,8 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  */
 final class ChatApiControllerEditTest extends TestCase
 {
+    use ClaimsThroughUpdateIf;
+
     private ConversationRepository&MockObject $repository;
 
     private ChatProcessorInterface&MockObject $processor;
@@ -53,6 +55,7 @@ final class ChatApiControllerEditTest extends TestCase
     {
         parent::setUp();
         $this->repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($this->repository);
         $this->repository->method('updateIf')->willReturnCallback(function (Conversation $c): bool {
             $this->claimed = clone $c;
 
@@ -443,6 +446,7 @@ final class ChatApiControllerEditTest extends TestCase
     public function anEditThatLosesTheClaimIsNotDispatched(): void
     {
         $repository = $this->createMock(ConversationRepository::class);
+        $this->claimThroughUpdateIf($repository);
         $repository->method('updateIf')->willReturn(false);
         $conversation = new Conversation();
         $conversation->setBeUser(1);
