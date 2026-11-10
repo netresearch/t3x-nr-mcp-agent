@@ -77,6 +77,12 @@ make ci                          # lint + phpstan + rector + test + test-js
 - **`$GLOBALS['BE_USER']`** is set intentionally in CLI workers; do not remove without understanding the TYPO3 CLI authentication flow
 - **Proof of concept:** Not production-ready — avoid adding features that assume production stability
 
+## Changelog
+
+- Changes are recorded in [`CHANGELOG.md`](CHANGELOG.md), [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/): `## [X.Y.Z] - YYYY-MM-DD` with `### Added`, `### Changed`, `### Fixed`, `### Removed`, newest first, below an empty `## [Unreleased]`.
+- Feature and fix PRs leave the file alone; the release PR (branch `release/vX.Y.Z`) writes the version's section together with the version bump.
+- `Documentation/Changelog.rst` only points to `CHANGELOG.md`; entries are not copied there.
+
 ## Index of Scoped AGENTS.md
 
 - `./Classes/AGENTS.md` — PHP source: layering, DI, PHPStan level 10 conventions
