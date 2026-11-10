@@ -76,6 +76,32 @@ final class UserContextPromptTest extends FunctionalTestCase
     }
 
     #[Test]
+    public function theReadablePageIsThePageTheUserMayShow(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+
+        self::assertSame(10, $this->get(UserContextPrompt::class)->readablePageId($this->conversationOf(1, 10)));
+    }
+
+    #[Test]
+    public function aPageTheUserMayNotShowIsNoReadablePage(): void
+    {
+        // The editor has no web mount and no permission on page 10.
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(2);
+
+        self::assertSame(0, $this->get(UserContextPrompt::class)->readablePageId($this->conversationOf(2, 10)));
+    }
+
+    /** Another user's conversation is read as nobody's: no page. */
+    #[Test]
+    public function aConversationOfAnotherUserHasNoReadablePage(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+
+        self::assertSame(0, $this->get(UserContextPrompt::class)->readablePageId($this->conversationOf(2, 10)));
+    }
+
+    #[Test]
     public function aPageThatDoesNotExistIsLeftOut(): void
     {
         $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);

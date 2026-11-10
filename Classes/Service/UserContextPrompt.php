@@ -160,6 +160,23 @@ readonly class UserContextPrompt
     }
 
     /**
+     * The conversation's page when the conversation's user, as the current
+     * backend user, may show it; 0 otherwise. The browser names the page of a
+     * turn, so it is only taken as far as the user may see it, by the same
+     * check the prompt names a page with.
+     */
+    public function readablePageId(Conversation $conversation): int
+    {
+        $pageId = $conversation->getViewContext()['pageId'];
+        $user   = $this->ownerAsCurrentUser($conversation);
+        if ($pageId <= 0 || !$user instanceof BackendUserAuthentication) {
+            return 0;
+        }
+
+        return $this->readablePage($pageId, $user) !== null ? $pageId : 0;
+    }
+
+    /**
      * @return array{title: string}|null
      */
     private function readablePage(int $pageId, BackendUserAuthentication $user): ?array

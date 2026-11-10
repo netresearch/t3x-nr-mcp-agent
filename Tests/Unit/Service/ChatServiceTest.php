@@ -53,6 +53,7 @@ use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Localization\Locale;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -879,6 +880,92 @@ class ChatServiceTest extends TestCase
         $options = $this->capturedOptions();
         self::assertSame('nr_mcp_agent', $options->getCallerSourceExtension());
         self::assertSame('resumeChatTurn', $options->getCallerSourceOperation());
+    }
+
+    /**
+     * The run states the site of the page the turn is about, so nr-llm applies
+     * that site's term lists and leaves other sites' out (nr-llm ADR-238,
+     * ADR-244).
+     */
+    #[Test]
+    public function aTurnAboutAPageStatesThePagesSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getSiteByPageId')->with(10)->willReturn(new Site('shop', 1, []));
+
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(10))->processConversation($this->conversationAboutPage(10));
+
+        self::assertSame('shop', $this->capturedOptions()->getSite());
+    }
+
+    #[Test]
+    public function aResumedTurnAboutAPageStatesThePagesSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getSiteByPageId')->with(10)->willReturn(new Site('shop', 1, []));
+        $conversation = $this->conversationAboutPage(10);
+        $conversation->setStatus(ConversationStatus::Failed);
+
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(10))->resumeConversation($conversation);
+
+        self::assertSame('shop', $this->capturedOptions()->getSite());
+    }
+
+    #[Test]
+    public function aTurnAboutNoPageStatesNoSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->expects(self::never())->method('getSiteByPageId');
+
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(0))->processConversation($this->conversationAboutPage(0));
+
+        self::assertNull($this->capturedOptions()->getSite());
+    }
+
+    #[Test]
+    public function aTurnAboutAPageOutsideEverySiteStatesNoSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getSiteByPageId')->willThrowException(new SiteNotFoundException('no site', 1));
+
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(10))->processConversation($this->conversationAboutPage(10));
+
+        self::assertNull($this->capturedOptions()->getSite());
+    }
+
+    /**
+     * The browser names the page of a turn: a page the user may not show
+     * states no site, not the site of that page.
+     */
+    #[Test]
+    public function aTurnAboutAPageTheUserMayNotShowStatesNoSite(): void
+    {
+        // Page 10 belongs to a site: only the access check keeps it out.
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getSiteByPageId')->with(10)->willReturn(new Site('shop', 1, []));
+
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(0))->processConversation($this->conversationAboutPage(10));
+
+        self::assertNull($this->capturedOptions()->getSite());
+    }
+
+    /** A UserContextPrompt whose access check yields $pageId (0: none the user may show). */
+    private function pageTheUserMayShow(int $pageId): UserContextPrompt
+    {
+        $prompt = $this->createMock(UserContextPrompt::class);
+        $prompt->method('readablePageId')->willReturn($pageId);
+
+        return $prompt;
+    }
+
+    private function conversationAboutPage(int $pageId): Conversation
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setViewContext($pageId, 'web_layout', 0);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        return $conversation;
     }
 
     /**

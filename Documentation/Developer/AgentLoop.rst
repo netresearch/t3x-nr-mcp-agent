@@ -39,8 +39,8 @@ Processing a turn
     uid. ``allowedToolNames`` is left at ``null`` so the run is offered the
     whole globally-enabled tool set; nr-llm's own tool gate (RBAC,
     global enable cascade, per-configuration groups) stays authoritative.
-    The request carries a ``ToolOptions`` object whose only content is the
-    caller source (see below).
+    The request carries a ``ToolOptions`` object with the caller source
+    and the site of the conversation's page (see below).
 6.  Map the returned ``AgentRunResult`` onto the conversation.
 
 Caller-source attribution
@@ -56,12 +56,25 @@ names the turn:
     by ``resumeConversation()``.
 
 The tag is call metadata persisted on nr-llm's telemetry row; it is never
-sent to the provider, and the ``ToolOptions`` object carries nothing else,
-so no provider option is overridden by it.
+sent to the provider, and no provider option is overridden by it. nr-llm
+stores it beside the run's suspended state and puts it back when the run
+continues after an approval or an answer
+(``AgentRuntimeInterface::approve()``, ``submitInput()``).
 
-The approval continuation (``AgentRuntimeInterface::approve()``) is not
-tagged: it takes no options object, and nr-llm keeps the caller source out
-of the persisted run state, so those provider calls stay unattributed.
+The site of the page
+====================
+
+A turn about a page states the identifier of that page's site with
+``withSite()``. nr-llm then checks the run against that site's term lists
+and the lists bound to no site, and leaves the lists of other sites out
+(nr-llm ADR-238, ADR-244). The site is stored with the suspended run, so a
+continuation after an approval or an answer is checked the same way. A turn
+about no page, or about a page that belongs to no site, states no site, and
+every forbidden term of every site applies.
+
+The configuration stays the one of the chat's Task. ADR-244 lets a site
+name its own configuration, but a configuration the caller passes wins over
+it, and the chat always passes its Task's.
 
 Outcome mapping
 ===============
