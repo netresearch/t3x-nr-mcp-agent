@@ -352,13 +352,19 @@ final readonly class ChatApiController
             return new JsonResponse(['uid' => $empty]);
         }
 
-        if (!$startsTurn) {
-            return new JsonResponse(['uid' => $this->repository->add($conversation)], 201);
-        }
+        return $startsTurn
+            ? $this->addStartingTurn($conversation)
+            : new JsonResponse(['uid' => $this->repository->add($conversation)], 201);
+    }
 
-        // The limit is checked again with the insert: refuseNewTurn() counted
-        // before, and a simultaneous start of the same user may have come
-        // in between (#220).
+    /**
+     * Add a conversation that starts with a turn and dispatch the turn. The
+     * limit is checked again with the insert: refuseNewTurn() counted before,
+     * and a simultaneous start of the same user may have come in between
+     * (#220).
+     */
+    private function addStartingTurn(Conversation $conversation): JsonResponse
+    {
         $uid = $this->repository->addWithinLimit($conversation, $this->config->getMaxActiveConversationsPerUser());
         if ($uid === null) {
             return $this->tooManyActive();
