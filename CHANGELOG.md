@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-10
+
+### Added
+
+- The chat's runs state the site of the page the conversation is about, so nr-llm applies that site's term lists and leaves other sites' lists out, also when a run resumes after an approval or an answer. The site is taken only from a page the conversation's user may show; a page the user may not show, no page, or a page outside every site states no site (#336).
+
+### Fixed
+
+- The limit of running conversations per user is checked in the same transaction as the claim of the turn, after locking the user's row, so two simultaneous starts or messages of one user can no longer both pass it. Retrying a failed turn now counts against the limit too; on SQLite a second simultaneous claim is refused with 429 instead of failing with "database is locked" (#220, #334).
+
 ## [0.35.0] - 2026-11-08
 
 ### Added
