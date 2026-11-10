@@ -893,7 +893,7 @@ class ChatServiceTest extends TestCase
         $siteFinder = $this->createMock(SiteFinder::class);
         $siteFinder->method('getSiteByPageId')->with(10)->willReturn(new Site('shop', 1, []));
 
-        $this->createChatService(siteFinder: $siteFinder)->processConversation($this->conversationAboutPage(10));
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(10))->processConversation($this->conversationAboutPage(10));
 
         self::assertSame('shop', $this->capturedOptions()->getSite());
     }
@@ -906,7 +906,7 @@ class ChatServiceTest extends TestCase
         $conversation = $this->conversationAboutPage(10);
         $conversation->setStatus(ConversationStatus::Failed);
 
-        $this->createChatService(siteFinder: $siteFinder)->resumeConversation($conversation);
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(10))->resumeConversation($conversation);
 
         self::assertSame('shop', $this->capturedOptions()->getSite());
     }
@@ -917,7 +917,7 @@ class ChatServiceTest extends TestCase
         $siteFinder = $this->createMock(SiteFinder::class);
         $siteFinder->expects(self::never())->method('getSiteByPageId');
 
-        $this->createChatService(siteFinder: $siteFinder)->processConversation($this->conversationAboutPage(0));
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(0))->processConversation($this->conversationAboutPage(0));
 
         self::assertNull($this->capturedOptions()->getSite());
     }
@@ -928,9 +928,33 @@ class ChatServiceTest extends TestCase
         $siteFinder = $this->createMock(SiteFinder::class);
         $siteFinder->method('getSiteByPageId')->willThrowException(new SiteNotFoundException('no site', 1));
 
-        $this->createChatService(siteFinder: $siteFinder)->processConversation($this->conversationAboutPage(10));
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(10))->processConversation($this->conversationAboutPage(10));
 
         self::assertNull($this->capturedOptions()->getSite());
+    }
+
+    /**
+     * The browser names the page of a turn: a page the user may not show
+     * states no site, not the site of that page.
+     */
+    #[Test]
+    public function aTurnAboutAPageTheUserMayNotShowStatesNoSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->expects(self::never())->method('getSiteByPageId');
+
+        $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(0))->processConversation($this->conversationAboutPage(10));
+
+        self::assertNull($this->capturedOptions()->getSite());
+    }
+
+    /** A UserContextPrompt whose access check yields $pageId (0: none the user may show). */
+    private function pageTheUserMayShow(int $pageId): UserContextPrompt
+    {
+        $prompt = $this->createMock(UserContextPrompt::class);
+        $prompt->method('readablePageId')->willReturn($pageId);
+
+        return $prompt;
     }
 
     private function conversationAboutPage(int $pageId): Conversation

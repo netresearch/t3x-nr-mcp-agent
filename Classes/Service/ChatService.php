@@ -1424,11 +1424,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
     /**
      * The identifier of the site of the conversation's page, or '' when the
-     * conversation is about no page or the page belongs to no site.
+     * conversation is about no page, about one its user may not show (the
+     * browser names the page), or about one in no site.
      */
     private function siteOf(Conversation $conversation): string
     {
-        $pageId = $conversation->getViewContext()['pageId'];
+        $pageId = $this->userContextPrompt->readablePageId($conversation);
         if ($pageId <= 0) {
             return '';
         }
