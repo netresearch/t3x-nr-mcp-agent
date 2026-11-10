@@ -191,11 +191,14 @@ final class ChatApprovalTest extends TestCase
         return $conversation;
     }
 
-    private function runWith(AgentRunStatus $status, int $beUser = 1): AgentRun
+    /**
+     * @param AgentRunStatus|string $status a string for a value the installed nr-llm does not list
+     */
+    private function runWith(AgentRunStatus|string $status, int $beUser = 1): AgentRun
     {
         $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
-        foreach (['uuid' => 'run-uuid-1234', 'beUser' => $beUser, 'status' => $status->value] as $name => $value) {
+        foreach (['uuid' => 'run-uuid-1234', 'beUser' => $beUser, 'status' => $status instanceof AgentRunStatus ? $status->value : $status] as $name => $value) {
             $reflection->getProperty($name)->setValue($run, $value);
         }
 
@@ -868,6 +871,65 @@ final class ChatApprovalTest extends TestCase
         self::assertTrue($service->reconcile($conversation));
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
         self::assertStringContainsString('AI Tasks', $conversation->getErrorMessage());
+    }
+
+    /**
+     * @return iterable<string, array{AgentRunStatus}>
+     */
+    public static function terminalStatuses(): iterable
+    {
+        yield 'completed' => [AgentRunStatus::COMPLETED];
+        yield 'failed' => [AgentRunStatus::FAILED];
+        yield 'cancelled' => [AgentRunStatus::CANCELLED];
+    }
+
+    #[Test]
+    #[DataProvider('terminalStatuses')]
+    public function everyTerminalStatusSettlesTheRun(AgentRunStatus $status): void
+    {
+        $conversation  = $this->parkedConversation();
+        $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
+        $runRepository->method('findByUuid')->willReturn($this->runWith($status));
+
+        $service = $this->createChatService(null, null, true, $runRepository);
+        $service->recordDecision($conversation, true, 'digest-abc');
+        $this->staleClaim($conversation);
+
+        self::assertTrue($service->reconcile($conversation));
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+    }
+
+    /**
+     * Statuses this version does not list: nr-llm's coming
+     * `waiting_for_dependency` (a run waiting on a remote agent, nr-llm
+     * ADR-281) and any other value. None of them is an end, so the
+     * conversation must not be declared finished outside the chat.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function unlistedStatuses(): iterable
+    {
+        yield 'waiting on a remote agent' => ['waiting_for_dependency'];
+        yield 'a value nobody knows yet' => ['some_future_status'];
+    }
+
+    #[Test]
+    #[DataProvider('unlistedStatuses')]
+    public function aRunInAnUnlistedStatusIsNotDeclaredFinished(string $status): void
+    {
+        $conversation  = $this->parkedConversation();
+        $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
+        $runRepository->expects(self::once())->method('findByUuid')->willReturn($this->runWith($status));
+
+        $service = $this->createChatService(null, null, true, $runRepository);
+        $service->recordDecision($conversation, true, 'digest-abc');
+        $this->staleClaim($conversation);
+
+        self::assertFalse($service->reconcile($conversation));
+        self::assertSame(ConversationStatus::Processing, $conversation->getStatus());
+        self::assertSame('approve', $conversation->getApprovalDecision());
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+        self::assertSame('', $conversation->getErrorMessage());
     }
 
     /**
