@@ -53,6 +53,7 @@ use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Localization\Locale;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -879,6 +880,67 @@ class ChatServiceTest extends TestCase
         $options = $this->capturedOptions();
         self::assertSame('nr_mcp_agent', $options->getCallerSourceExtension());
         self::assertSame('resumeChatTurn', $options->getCallerSourceOperation());
+    }
+
+    /**
+     * The run states the site of the page the turn is about, so nr-llm applies
+     * that site's term lists and leaves other sites' out (nr-llm ADR-238,
+     * ADR-244).
+     */
+    #[Test]
+    public function aTurnAboutAPageStatesThePagesSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getSiteByPageId')->with(10)->willReturn(new Site('shop', 1, []));
+
+        $this->createChatService(siteFinder: $siteFinder)->processConversation($this->conversationAboutPage(10));
+
+        self::assertSame('shop', $this->capturedOptions()->getSite());
+    }
+
+    #[Test]
+    public function aResumedTurnAboutAPageStatesThePagesSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getSiteByPageId')->with(10)->willReturn(new Site('shop', 1, []));
+        $conversation = $this->conversationAboutPage(10);
+        $conversation->setStatus(ConversationStatus::Failed);
+
+        $this->createChatService(siteFinder: $siteFinder)->resumeConversation($conversation);
+
+        self::assertSame('shop', $this->capturedOptions()->getSite());
+    }
+
+    #[Test]
+    public function aTurnAboutNoPageStatesNoSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->expects(self::never())->method('getSiteByPageId');
+
+        $this->createChatService(siteFinder: $siteFinder)->processConversation($this->conversationAboutPage(0));
+
+        self::assertNull($this->capturedOptions()->getSite());
+    }
+
+    #[Test]
+    public function aTurnAboutAPageOutsideEverySiteStatesNoSite(): void
+    {
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getSiteByPageId')->willThrowException(new SiteNotFoundException('no site', 1));
+
+        $this->createChatService(siteFinder: $siteFinder)->processConversation($this->conversationAboutPage(10));
+
+        self::assertNull($this->capturedOptions()->getSite());
+    }
+
+    private function conversationAboutPage(int $pageId): Conversation
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->setViewContext($pageId, 'web_layout', 0);
+        $conversation->appendMessage(MessageRole::User, 'Hello');
+
+        return $conversation;
     }
 
     /**

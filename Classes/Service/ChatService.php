@@ -82,6 +82,7 @@ use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
@@ -537,11 +538,22 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function runRequest(Conversation $conversation, LlmConfiguration $configuration, array $messages, string $operation): AgentRunRequest
     {
+        $options = (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation);
+        // The site of the page the turn is about: nr-llm applies that site's
+        // term lists and leaves other sites' out, also when the run resumes
+        // after an approval or an answer (nr-llm ADR-238, ADR-244). The
+        // configuration stays the chat Task's: in ADR-244 a configuration the
+        // caller passes wins over the one the site names.
+        $site = $this->siteOf($conversation);
+        if ($site !== '') {
+            $options = $options->withSite($site);
+        }
+
         $base = [
             'configuration' => $configuration,
             'messages'      => $messages,
             'actor'         => $this->actorFor($conversation),
-            'options'       => (new ToolOptions())->withCallerSource(self::CALLER_SOURCE_EXTENSION, $operation),
+            'options'       => $options,
         ];
 
         // An ordinary run asks for the configured chat cap, or for nothing,
@@ -1408,6 +1420,24 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $uid         = $backendUser instanceof BackendUserAuthentication ? ($backendUser->user['uid'] ?? null) : null;
 
         return is_numeric($uid) ? (int) $uid : 0;
+    }
+
+    /**
+     * The identifier of the site of the conversation's page, or '' when the
+     * conversation is about no page or the page belongs to no site.
+     */
+    private function siteOf(Conversation $conversation): string
+    {
+        $pageId = $conversation->getViewContext()['pageId'];
+        if ($pageId <= 0) {
+            return '';
+        }
+
+        try {
+            return $this->siteFinder->getSiteByPageId($pageId)->getIdentifier();
+        } catch (SiteNotFoundException) {
+            return '';
+        }
     }
 
     /**
