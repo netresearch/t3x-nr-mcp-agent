@@ -940,8 +940,9 @@ class ChatServiceTest extends TestCase
     #[Test]
     public function aTurnAboutAPageTheUserMayNotShowStatesNoSite(): void
     {
+        // Page 10 belongs to a site: only the access check keeps it out.
         $siteFinder = $this->createMock(SiteFinder::class);
-        $siteFinder->expects(self::never())->method('getSiteByPageId');
+        $siteFinder->method('getSiteByPageId')->with(10)->willReturn(new Site('shop', 1, []));
 
         $this->createChatService(siteFinder: $siteFinder, userContextPrompt: $this->pageTheUserMayShow(0))->processConversation($this->conversationAboutPage(10));
 
