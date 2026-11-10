@@ -742,8 +742,9 @@ readonly class ConversationRepository
      * user waits here until the first has committed. The count is the
      * transaction's first plain read: under REPEATABLE READ (MySQL, MariaDB)
      * that read fixes the snapshot, which therefore includes the first
-     * claim. SQLite has no row locks and no FOR UPDATE; there the lock is
-     * left out.
+     * claim. SQLite has no row locks and no FOR UPDATE; there a write that
+     * changes nothing takes the database's write lock instead, which
+     * serialises the claims the same way.
      */
     private function withinLimit(Connection $conn, int $beUserUid, int $exceptUid, int $maxActive): bool
     {
@@ -751,7 +752,14 @@ readonly class ConversationRepository
             return true;
         }
 
-        if (!$conn->getDatabasePlatform() instanceof SQLitePlatform) {
+        if ($conn->getDatabasePlatform() instanceof SQLitePlatform) {
+            // No row locks and no FOR UPDATE: a write that changes nothing
+            // takes the database's write lock first. A count read first would
+            // have to upgrade its read lock at the write, and SQLite answers
+            // that with "database is locked" instead of waiting when another
+            // claim holds the write lock.
+            $conn->executeStatement('UPDATE be_users SET uid = uid WHERE uid = ?', [$beUserUid]);
+        } else {
             $conn->createQueryBuilder()->getConcreteQueryBuilder()
                 ->select('uid')
                 ->from('be_users')
