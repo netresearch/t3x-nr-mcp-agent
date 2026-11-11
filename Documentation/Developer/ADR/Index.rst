@@ -48,3 +48,4 @@ consequences of each decision.
     ADR-030-a-later-turn-reads-what-ran
     ADR-031-the-module-is-an-overview
     ADR-032-missing-alt-texts-in-a-draft-workspace
+    ADR-033-the-sites-configuration-runs-the-chat

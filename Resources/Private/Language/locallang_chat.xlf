@@ -441,6 +441,24 @@
             <trans-unit id="error.openTasks" resname="error.openTasks">
                 <source>Open the LLM tasks</source>
             </trans-unit>
+            <trans-unit id="error.openConfigurations" resname="error.openConfigurations">
+                <source>Open the LLM configurations</source>
+            </trans-unit>
+            <trans-unit id="error.siteConfig.unusable" resname="error.siteConfig.unusable">
+                <source>This page belongs to the site "%1$s", which uses its own AI configuration. That configuration cannot be used: it does not exist, is switched off, or is restricted to backend groups you are not in. For this site the chat does not switch to another configuration. An administrator can correct the configuration, or change the site setting "LLM configuration" (nrllm.configuration).</source>
+            </trans-unit>
+            <trans-unit id="error.siteConfig.noFixedModel" resname="error.siteConfig.noFixedModel">
+                <source>This page belongs to the site "%1$s", which uses its own AI configuration "%2$s". That configuration selects its model by criteria, and the chat only runs on a configuration with a fixed model that can call tools. For this site the chat does not switch to another configuration. An administrator can give "%2$s" a fixed model, or name another configuration in the site setting "LLM configuration" (nrllm.configuration).</source>
+            </trans-unit>
+            <trans-unit id="error.siteConfig.noTools" resname="error.siteConfig.noTools">
+                <source>This page belongs to the site "%1$s", which uses its own AI configuration "%2$s". Its model "%3$s" cannot call tools, and the chat reads and changes pages only through tools. For this site the chat does not switch to another model, so that the site's content only goes to the provider it was set up for. An administrator can give "%2$s" a model that supports tool calling, tick "Tool Use" on the model if it supports tool calling, or name another configuration in the site setting "LLM configuration" (nrllm.configuration).</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.siteConfig" resname="error.handBack.siteConfig">
+                <source>The AI configuration the site of this page uses has changed, or can no longer be used, since this proposal was made, so the decision was not carried out. The proposal stays open. Write a new message to continue: the chat then works with the site's current configuration, or says why it cannot.</source>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputSiteConfig" resname="error.handBack.inputSiteConfig">
+                <source>The AI configuration the site of this page uses has changed, or can no longer be used, since this question was asked, so the answer was not taken. Write a new message to continue: the chat then works with the site's current configuration, or says why it cannot.</source>
+            </trans-unit>
 
             <!-- Attachments -->
             <trans-unit id="attachment.attach" resname="attachment.attach">

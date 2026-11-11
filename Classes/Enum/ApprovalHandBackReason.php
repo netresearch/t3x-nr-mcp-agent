@@ -66,6 +66,13 @@ enum ApprovalHandBackReason: string
     case DecidedInChat = 'handBack.decidedInChat';
 
     /**
+     * The site of the conversation's page now names another AI configuration
+     * than the run's, or one the chat cannot run on (ADR-033). The chat holds
+     * the decision back itself; nr-llm is not asked.
+     */
+    case SiteConfiguration = 'handBack.siteConfig';
+
+    /**
      * Only the six refusals that RELEASE the run are hand-backs; ChatService
      * catches exactly these. The refusals of a guided process that leave the
      * run waiting map through {@see ProcessRefusal::approvalHandBack()}. Any other exception leaves the run's state

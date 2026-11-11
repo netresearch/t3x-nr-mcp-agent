@@ -68,12 +68,14 @@ use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
 use Netresearch\NrMcpAgent\Enum\ProposalOutcome;
 use Netresearch\NrMcpAgent\Exception\ChatException;
 use Netresearch\NrMcpAgent\Exception\ChatNotConfiguredException;
+use Netresearch\NrMcpAgent\Exception\SiteConfigurationRefusedException;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextFlowPrompt;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImagePolicyInterface;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImageRefusal;
 use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
 use Netresearch\NrMcpAgent\Service\ChatTask\ChatTaskResolver;
+use Netresearch\NrMcpAgent\Service\ChatTask\SiteConfigurationSelector;
 use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTrackerInterface;
@@ -267,6 +269,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?TurnTimingRecorder $turnTiming = null,
         private readonly ?LiveTextRecorder $liveText = null,
         private readonly GuardrailHintCapture $hintCapture = new GuardrailHintCapture(),
+        // The configuration a site names for itself (ADR-033); without it
+        // every turn runs the Task's configuration, as before.
+        private readonly ?SiteConfigurationSelector $siteConfigurations = null,
     ) {}
 
     /**
@@ -448,8 +453,22 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         try {
-            $configuration = $this->resolveConfiguration($this->actorFor($conversation));
+            // Chosen on every turn, a retry included: a site may have changed
+            // its configuration since the last one (ADR-033).
+            $configuration = $this->resolveConfiguration($this->actorFor($conversation), $this->siteOf($conversation));
             $this->runAgentTurn($conversation, $configuration, $operation, $afterApproval);
+        } catch (SiteConfigurationRefusedException $e) {
+            // Stopped before any model call. The code names the reason, the
+            // message the names the label quotes; both reach every reader in
+            // their language.
+            $this->logger?->warning('Chat turn of conversation {conversation} refused: {message}', [
+                'conversation' => $conversation->getUid(),
+                'message'      => $e->getMessage(),
+            ]);
+            $conversation->setStatus(ConversationStatus::Failed);
+            $conversation->setErrorMessage($e->storedMessage(), $e->reason->value);
+            $conversation->appendRunRecord(RunRecord::unknown());
+            $this->persist($conversation);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage(ErrorMessageSanitizer::sanitizeException($e), $this->failureCode($e));
@@ -553,8 +572,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The site of the page the turn is about: nr-llm applies that site's
         // term lists and leaves other sites' out, also when the run resumes
         // after an approval or an answer (nr-llm ADR-238, ADR-244). The
-        // configuration stays the chat Task's: in ADR-244 a configuration the
-        // caller passes wins over the one the site names.
+        // configuration is the one the same site names, where it names one
+        // (ADR-033): resolveConfiguration() read it through siteOf() too.
         $site = $this->siteOf($conversation);
         if ($site !== '') {
             $options = $options->withSite($site);
@@ -1052,6 +1071,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         $runUuid = $conversation->getApprovalRunUuid();
 
+        if ($this->siteNamesAnotherConfiguration($conversation, $runUuid)) {
+            $this->handBackForSiteConfiguration($conversation, $runUuid, ConversationStatus::AwaitingInput, InputHandBackReason::SiteConfiguration->value);
+
+            return;
+        }
+
         $this->turnTiming?->mark('runBegin');
 
         try {
@@ -1123,6 +1148,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     private function performRecordedDecision(Conversation $conversation): void
     {
         $runUuid = $conversation->getApprovalRunUuid();
+
+        // A denial continues the run with a model call as well, so both
+        // decisions are held back.
+        if ($this->siteNamesAnotherConfiguration($conversation, $runUuid)) {
+            $this->handBackForSiteConfiguration($conversation, $runUuid, ConversationStatus::AwaitingApproval, ApprovalHandBackReason::SiteConfiguration->value);
+
+            return;
+        }
 
         // No caller source is named here: approve() takes no options object, and
         // the caller source is deliberately not part of the persisted options
@@ -1469,6 +1502,67 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         } catch (SiteNotFoundException) {
             return '';
         }
+    }
+
+    /**
+     * Whether a waiting run may not be continued because the site of the
+     * conversation's page now names a configuration other than the run's, or
+     * one the chat cannot run on (ADR-033).
+     *
+     * A run keeps the configuration it started with, and nr-llm continues it
+     * there; a site setting changed while it waited would otherwise be
+     * passed by. A site that names no configuration leaves the run as it was,
+     * as does a run nr-llm does not let the chat read (nr-llm then refuses it
+     * itself).
+     */
+    private function siteNamesAnotherConfiguration(Conversation $conversation, string $runUuid): bool
+    {
+        if (!$this->siteConfigurations instanceof SiteConfigurationSelector) {
+            return false;
+        }
+
+        try {
+            $configuration = $this->siteConfigurations->forSite($this->siteOf($conversation), $this->actorFor($conversation));
+        } catch (SiteConfigurationRefusedException) {
+            return true;
+        } catch (Throwable $e) {
+            // The site's provider cannot even be set up: whether the run may
+            // go on there is unknown, so it does not.
+            $this->logger?->warning('Site configuration of conversation {conversation} not readable: {message}', [
+                'conversation' => $conversation->getUid(),
+                'message'      => $e->getMessage(),
+                'exception'    => $e,
+            ]);
+
+            return true;
+        }
+
+        if (!$configuration instanceof LlmConfiguration) {
+            return false;
+        }
+
+        $run = $runUuid !== '' ? $this->agentRunRepository->findByUuid($runUuid) : null;
+
+        return $run instanceof AgentRun && $run->configurationUid !== $configuration->getUid();
+    }
+
+    /**
+     * Leave the run waiting and hand the card or the question back with the
+     * reason. A new message is the way on: it starts a turn on the site's
+     * configuration, or says why there is none, and leaves the waiting run
+     * without a model call.
+     */
+    private function handBackForSiteConfiguration(Conversation $conversation, string $runUuid, ConversationStatus $status, string $reason): void
+    {
+        $this->logger?->warning('Run {run} of conversation {conversation} not continued: the site of its page names another AI configuration', [
+            'run'          => $runUuid,
+            'conversation' => $conversation->getUid(),
+        ]);
+        $conversation->withdrawDecision();
+        $conversation->setStatus($status);
+        $conversation->setApprovalRunUuid($runUuid);
+        $conversation->setErrorMessage('', $reason);
+        $this->persist($conversation);
     }
 
     /**
@@ -1936,10 +2030,30 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * nr-llm Task (llmTaskUid → Task → Configuration) and cache the Task and
      * Configuration prompts for {@see buildSystemPrompt()}.
      *
-     * @throws ChatNotConfiguredException when the Task or its Configuration is missing
+     * Where the site of the conversation's page names its own configuration
+     * (ADR-033), that one runs instead of the Task's: its system prompt, model
+     * and provider; the Task still gives the chat's prompt template. The
+     * Task's configuration is then not asked for at all.
+     *
+     * Without a conversation (capabilities, unavailable tools) no site is
+     * known and the Task's configuration answers.
+     *
+     * @throws ChatNotConfiguredException        when the Task or its Configuration is missing
+     * @throws SiteConfigurationRefusedException when the site names a configuration the chat cannot run on
      */
-    private function resolveConfiguration(AiActorContext $actor): LlmConfiguration
+    private function resolveConfiguration(AiActorContext $actor, string $site = ''): LlmConfiguration
     {
+        $siteConfiguration = $this->siteConfigurations?->forSite($site, $actor);
+        $task              = $siteConfiguration instanceof LlmConfiguration ? $this->taskRepository->findByUid($this->config->getLlmTaskUid()) : null;
+        if ($siteConfiguration instanceof LlmConfiguration && $task !== null) {
+            $this->resolvedPrompts = [
+                'system_prompt'   => $siteConfiguration->getSystemPrompt(),
+                'prompt_template' => $task->getPromptTemplate(),
+            ];
+
+            return $siteConfiguration;
+        }
+
         // The rule is ChatTaskResolver's, so the overview module can ask it
         // without running a turn; the messages are the ones the chat shows.
         $resolved = (new ChatTaskResolver($this->taskRepository, $this->configurationResolver))

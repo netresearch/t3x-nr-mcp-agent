@@ -583,6 +583,30 @@
                 <source>Open the LLM tasks</source>
                 <target>LLM-Tasks öffnen</target>
             </trans-unit>
+            <trans-unit id="error.openConfigurations" resname="error.openConfigurations">
+                <source>Open the LLM configurations</source>
+                <target>LLM-Konfigurationen öffnen</target>
+            </trans-unit>
+            <trans-unit id="error.siteConfig.unusable" resname="error.siteConfig.unusable">
+                <source>This page belongs to the site "%1$s", which uses its own AI configuration. That configuration cannot be used: it does not exist, is switched off, or is restricted to backend groups you are not in. For this site the chat does not switch to another configuration. An administrator can correct the configuration, or change the site setting "LLM configuration" (nrllm.configuration).</source>
+                <target>Diese Seite gehört zur Site „%1$s“, die eine eigene KI-Konfiguration verwendet. Diese Konfiguration ist nicht nutzbar: Es gibt sie nicht, sie ist ausgeschaltet oder auf Backend-Gruppen beschränkt, in denen du nicht bist. Für diese Site weicht der Chat nicht auf eine andere Konfiguration aus. Die Administration kann die Konfiguration korrigieren oder die Site-Einstellung „LLM-Konfiguration“ (nrllm.configuration) ändern.</target>
+            </trans-unit>
+            <trans-unit id="error.siteConfig.noFixedModel" resname="error.siteConfig.noFixedModel">
+                <source>This page belongs to the site "%1$s", which uses its own AI configuration "%2$s". That configuration selects its model by criteria, and the chat only runs on a configuration with a fixed model that can call tools. For this site the chat does not switch to another configuration. An administrator can give "%2$s" a fixed model, or name another configuration in the site setting "LLM configuration" (nrllm.configuration).</source>
+                <target>Diese Seite gehört zur Site „%1$s“, die die eigene KI-Konfiguration „%2$s“ verwendet. Diese Konfiguration wählt ihr Modell nach Kriterien; der Chat läuft nur mit einer Konfiguration mit festem Modell, das Werkzeuge aufrufen kann. Für diese Site weicht der Chat nicht auf eine andere Konfiguration aus. Die Administration kann „%2$s“ ein festes Modell geben oder in der Site-Einstellung „LLM-Konfiguration“ (nrllm.configuration) eine andere Konfiguration eintragen.</target>
+            </trans-unit>
+            <trans-unit id="error.siteConfig.noTools" resname="error.siteConfig.noTools">
+                <source>This page belongs to the site "%1$s", which uses its own AI configuration "%2$s". Its model "%3$s" cannot call tools, and the chat reads and changes pages only through tools. For this site the chat does not switch to another model, so that the site's content only goes to the provider it was set up for. An administrator can give "%2$s" a model that supports tool calling, tick "Tool Use" on the model if it supports tool calling, or name another configuration in the site setting "LLM configuration" (nrllm.configuration).</source>
+                <target>Diese Seite gehört zur Site „%1$s“, die die eigene KI-Konfiguration „%2$s“ verwendet. Deren Modell „%3$s“ kann keine Werkzeuge aufrufen, und der Chat liest und ändert Seiten nur über Werkzeuge. Für diese Site weicht der Chat nicht auf ein anderes Modell aus, damit die Inhalte der Site nur an den Anbieter gehen, für den sie eingerichtet ist. Die Administration kann „%2$s“ ein Modell mit Werkzeugaufrufen geben, beim Modell die Fähigkeit „Werkzeugnutzung“ ankreuzen, falls es Werkzeugaufrufe beherrscht, oder in der Site-Einstellung „LLM-Konfiguration“ (nrllm.configuration) eine andere Konfiguration eintragen.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.siteConfig" resname="error.handBack.siteConfig">
+                <source>The AI configuration the site of this page uses has changed, or can no longer be used, since this proposal was made, so the decision was not carried out. The proposal stays open. Write a new message to continue: the chat then works with the site's current configuration, or says why it cannot.</source>
+                <target>Die KI-Konfiguration, die die Site dieser Seite verwendet, hat sich seit diesem Vorschlag geändert oder ist nicht mehr nutzbar, deshalb wurde die Entscheidung nicht ausgeführt. Der Vorschlag bleibt offen. Schreib eine neue Nachricht, um weiterzumachen: Der Chat arbeitet dann mit der aktuellen Konfiguration der Site oder sagt, warum das nicht geht.</target>
+            </trans-unit>
+            <trans-unit id="error.handBack.inputSiteConfig" resname="error.handBack.inputSiteConfig">
+                <source>The AI configuration the site of this page uses has changed, or can no longer be used, since this question was asked, so the answer was not taken. Write a new message to continue: the chat then works with the site's current configuration, or says why it cannot.</source>
+                <target>Die KI-Konfiguration, die die Site dieser Seite verwendet, hat sich seit dieser Rückfrage geändert oder ist nicht mehr nutzbar, deshalb wurde die Antwort nicht übernommen. Schreib eine neue Nachricht, um weiterzumachen: Der Chat arbeitet dann mit der aktuellen Konfiguration der Site oder sagt, warum das nicht geht.</target>
+            </trans-unit>
 
             <!-- Attachments -->
             <trans-unit id="attachment.attach" resname="attachment.attach">

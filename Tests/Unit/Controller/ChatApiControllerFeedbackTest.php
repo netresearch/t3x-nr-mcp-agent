@@ -20,6 +20,7 @@ use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
+use Netresearch\NrMcpAgent\Enum\SiteConfigurationRefusal;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -187,6 +188,44 @@ final class ChatApiControllerFeedbackTest extends TestCase
         $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
 
         self::assertSame('/typo3/module/nrllm/tasks', $data['errorLink']);
+    }
+
+    /**
+     * A refused site configuration (ADR-033) is explained to every reader in
+     * their language, with the site, configuration and model it is about; the
+     * stored message is data, never shown as it is.
+     *
+     * @return iterable<string, array{bool}>
+     */
+    public static function siteRefusalReaders(): iterable
+    {
+        yield 'an editor' => [false];
+        yield 'an administrator' => [true];
+    }
+
+    #[Test]
+    #[DataProvider('siteRefusalReaders')]
+    public function aRefusedSiteConfigurationIsExplainedWithItsNames(bool $isAdmin): void
+    {
+        $this->setUpBackendUser(isAdmin: $isAdmin);
+        $languageService = $this->createStub(LanguageService::class);
+        $languageService->method('sL')->willReturnCallback(
+            static fn (string $input): string => str_ends_with($input, ':error.siteConfig.noTools') ? 'site %1$s, configuration %2$s, model %3$s' : $input,
+        );
+        $GLOBALS['LANG'] = $languageService;
+
+        $conversation = new Conversation();
+        $conversation->setBeUser(2);
+        $conversation->setStatus(ConversationStatus::Failed);
+        $conversation->setErrorMessage(SiteConfigurationRefusal::encode('shop', 'Shop AI', 'Small Model'), SiteConfigurationRefusal::NoToolCalling->value);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->uriBuilder->method('buildUriFromRoute')->with('nrllm_configurations')
+            ->willReturn(new Uri('/typo3/module/nrllm/configurations'));
+
+        $data = $this->json($this->subject->getMessages($this->request('', ['conversationUid' => '1'])));
+
+        self::assertSame('site shop, configuration Shop AI, model Small Model', $data['errorMessage']);
+        self::assertSame($isAdmin ? '/typo3/module/nrllm/configurations' : '', $data['errorLink']);
     }
 
     #[Test]
