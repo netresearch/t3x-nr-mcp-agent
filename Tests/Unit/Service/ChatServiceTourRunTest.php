@@ -138,17 +138,24 @@ final class ChatServiceTourRunTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{AgentRunStatus}>
+     * Running or queued, and statuses this version does not list: nr-llm's
+     * coming `waiting_for_dependency` (nr-llm ADR-281) and any other value.
+     * None of them is an end, so the run is not cancelled and the turn is
+     * refused.
+     *
+     * @return iterable<string, array{AgentRunStatus|string}>
      */
     public static function busyRuns(): iterable
     {
         yield 'running' => [AgentRunStatus::RUNNING];
         yield 'queued' => [AgentRunStatus::QUEUED];
+        yield 'waiting on a remote agent' => ['waiting_for_dependency'];
+        yield 'a value nobody knows yet' => ['some_future_status'];
     }
 
     #[Test]
     #[DataProvider('busyRuns')]
-    public function aRunBeingCarriedOnIsNeitherCancelledNorLeft(AgentRunStatus $status): void
+    public function aRunBeingCarriedOnIsNeitherCancelledNorLeft(AgentRunStatus|string $status): void
     {
         $service = $this->service($status, processRuns: $this->processRun(true));
         $this->runtime->expects(self::never())->method('cancel');
@@ -162,29 +169,6 @@ final class ChatServiceTourRunTest extends TestCase
     {
         $service = $this->service(AgentRunStatus::WAITING_FOR_APPROVAL, processRuns: $this->processRun(true));
         $this->runtime->expects(self::once())->method('cancel')->willReturn(false);
-
-        self::assertFalse($service->releasePendingRun($this->parked()));
-    }
-
-    /**
-     * Statuses this version does not list: nr-llm's coming
-     * `waiting_for_dependency` (nr-llm ADR-281) and any other value. The run
-     * has not ended, so it is not cancelled and the turn is refused.
-     *
-     * @return iterable<string, array{string}>
-     */
-    public static function unlistedStatuses(): iterable
-    {
-        yield 'waiting on a remote agent' => ['waiting_for_dependency'];
-        yield 'a value nobody knows yet' => ['some_future_status'];
-    }
-
-    #[Test]
-    #[DataProvider('unlistedStatuses')]
-    public function aRunInAnUnlistedStatusKeepsTheConversation(string $status): void
-    {
-        $service = $this->service($status, processRuns: $this->processRun(true));
-        $this->runtime->expects(self::never())->method('cancel');
 
         self::assertFalse($service->releasePendingRun($this->parked()));
     }
