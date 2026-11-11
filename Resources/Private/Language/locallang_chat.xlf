@@ -329,6 +329,9 @@
             <trans-unit id="chat.stepOpen" resname="chat.stepOpen">
                 <source>The assistant is waiting for you. Reply with a message, or select "Continue" to go on with the next step of the tour.</source>
             </trans-unit>
+            <trans-unit id="chat.ruleHints" resname="chat.ruleHints">
+                <source>Rule-set check of the proposed change:</source>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">

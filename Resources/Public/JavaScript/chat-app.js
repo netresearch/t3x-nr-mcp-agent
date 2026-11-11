@@ -992,9 +992,15 @@ export class ChatApp extends LitElement {
      * and the run wrote nothing (ADR-017). The server stores the code, the
      * label is rendered in the reader's language.
      *
-     * @param {{notice?: string}} msg
+     * Under the line with the rule-set hints (nr-llm ADR-288), the hints as
+     * nr-llm wrote them, as text.
+     *
+     * @param {{notice?: string, data?: object}} msg
      */
     _renderMessageNotice(msg) {
+        if (msg.notice === 'ruleHints') {
+            return this._renderRuleHints(msg);
+        }
         if (msg.notice !== 'nothingSaved') {
             return nothing;
         }
@@ -1008,6 +1014,30 @@ export class ChatApp extends LitElement {
             <div class="message-notice" role="note"
                 style="color:var(--nr-chat-text);font-size:12px;margin-top:4px;">
                 ${lll('chat.nothingSaved')}
+            </div>
+        `;
+    }
+
+    /**
+     * The hints of the rule-set check under its line (nr-llm ADR-288): one
+     * item per hint, each a sentence nr-llm wrote that names the rule and
+     * quotes the passage, or says the text was not checked. A note, like the
+     * nothing-saved label: the editor reads it before deciding on the change.
+     *
+     * @param {{notice?: string, data?: object}} msg
+     */
+    _renderRuleHints(msg) {
+        const hints = this.chat.ruleHints(msg);
+        if (hints.length === 0) {
+            return nothing;
+        }
+
+        return html`
+            <div class="message-notice" role="note"
+                style="color:var(--nr-chat-text);font-size:12px;margin-top:4px;">
+                <ul style="margin:0;padding-left:18px;">
+                    ${hints.map((hint) => html`<li>${hint}</li>`)}
+                </ul>
             </div>
         `;
     }

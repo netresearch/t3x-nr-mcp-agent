@@ -35,9 +35,12 @@ use Netresearch\NrMcpAgent\Service\AltText\AltTextImage;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextList;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltTextScanner;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\GuardrailHintCapture;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Fixtures\StubHint;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Fixtures\StubHintCollector;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -80,7 +83,7 @@ final class ChatAltTextConfirmationTest extends TestCase
     /**
      * @param array<string, mixed> $arguments
      */
-    private function service(AgentRunResult $answer, string $tool, array $arguments, bool $readsTheWaitingRun = true): ChatService
+    private function service(AgentRunResult $answer, string $tool, array $arguments, bool $readsTheWaitingRun = true, ?GuardrailHintCapture $hints = null): ChatService
     {
         $runtime = $this->createMock(AgentRuntimeInterface::class);
         $runtime->method('approve')->willReturn($answer);
@@ -114,6 +117,7 @@ final class ChatAltTextConfirmationTest extends TestCase
             $this->createMock(UserContextPrompt::class),
             $this->createMock(RunActivityRecorder::class),
             altText: $flow,
+            hintCapture: $hints ?? new GuardrailHintCapture(),
         );
     }
 
@@ -148,6 +152,24 @@ final class ChatAltTextConfirmationTest extends TestCase
 
         self::assertSame([AltTextConversation::NOTICE_HIT, AltTextConversation::NOTICE_SAVED], $this->notices($conversation));
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+    }
+
+    /** The chat's confirmation replaces the model's answer, not the line with the rule-set hints (nr-llm ADR-288). */
+    #[Test]
+    public function aConfirmedWriteKeepsTheLineWithTheRuleSetHints(): void
+    {
+        StubHintCollector::$queue = [[new StubHint('unavailable', 'Not checked.')]];
+        $conversation             = $this->waiting();
+        $service                  = $this->service($this->answered($this->written('set_file_reference_alternative_text')), 'set_file_reference_alternative_text', ['reference' => 7, 'alternative' => 'Ein Team'], hints: new GuardrailHintCapture(StubHintCollector::class));
+
+        try {
+            $service->recordDecision($conversation, true, 'digest');
+            $service->processConversation($conversation);
+        } finally {
+            StubHintCollector::$queue = [];
+        }
+
+        self::assertSame([AltTextConversation::NOTICE_HIT, ChatService::NOTICE_RULE_HINTS, AltTextConversation::NOTICE_SAVED], $this->notices($conversation));
     }
 
     #[Test]

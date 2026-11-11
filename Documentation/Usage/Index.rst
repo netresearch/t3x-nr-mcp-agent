@@ -113,6 +113,16 @@ What the chat tells you besides the answer
     if you cannot open AI Tasks, ask someone who may approve there. If the
     step was already decided in AI Tasks, the chat says so and names
     the records the run wrote.
+*   **Rule-set check of the proposed change.** When the chat's AI
+    configuration has the rule-set check of nr-llm switched on in report
+    mode, the text of a change the assistant proposes is checked against
+    the configured rule set. A rule the text may break is listed below
+    this line, with the passage it is about; so is a check that gave no
+    answer, in which case read the text against the rules yourself. The
+    change is
+    still proposed, and you decide on it as usual. In block mode a change
+    that breaks a rule is not proposed at all: the chat ends with an error
+    that names the rule.
 
 Answering a question in the chat
 --------------------------------

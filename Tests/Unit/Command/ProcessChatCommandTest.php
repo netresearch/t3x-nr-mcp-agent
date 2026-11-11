@@ -28,6 +28,7 @@ use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Fixtures\StorableRefusal;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -237,6 +238,40 @@ class ProcessChatCommandTest extends TestCase
         self::assertStringNotContainsString('sk-proj-abcdefghijklmnop', $written);
         self::assertStringNotContainsString('raw-secret-value', $written);
         self::assertSame('Provider said: Incorrect API key provided: [REDACTED] for [URL] <info>', $conversation->getErrorMessage());
+    }
+
+    /** A guardrail refusal is written and stored without the passage it quotes (nr-llm ADR-288). */
+    #[Test]
+    public function aRefusalIsWrittenAndStoredWithoutItsPassage(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid'           => 6,
+            'be_user'       => 1,
+            'status'        => 'processing',
+            'messages'      => '[{"role":"user","content":"Hello"}]',
+            'message_count' => 1,
+        ]);
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('claimForProcess')->willReturn($conversation);
+        $activityRecorder = $this->createMock(RunActivityRecorder::class);
+        $activityRecorder->method('start')->willThrowException(new StorableRefusal('Refused: "the best airfryer ever"', 'Refused by rule 1'));
+        GeneralUtility::addInstance(BackendUserAuthentication::class, $this->createMock(BackendUserAuthentication::class));
+
+        $command = new ProcessChatCommand($this->createChatService($activityRecorder), $repository, $this->connectionPoolWithBackendUser());
+        $input   = new ArrayInput(['conversationUid' => '6']);
+        $input->bind($command->getDefinition());
+
+        $output = new BufferedOutput();
+
+        try {
+            self::assertSame(1, $command->run($input, $output));
+        } finally {
+            GeneralUtility::purgeInstances();
+            unset($GLOBALS['BE_USER']);
+        }
+
+        self::assertStringContainsString('Error: Refused by rule 1', $output->fetch());
+        self::assertSame('Refused by rule 1', $conversation->getErrorMessage());
     }
 
     private function connectionPoolWithBackendUser(): ConnectionPool

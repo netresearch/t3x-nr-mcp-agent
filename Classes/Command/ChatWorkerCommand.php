@@ -187,7 +187,7 @@ final class ChatWorkerCommand extends Command
             // The output ends up in the log the worker's supervisor keeps:
             // the same sanitised text as the stored error message, never
             // the raw one.
-            $message = ErrorMessageSanitizer::sanitize($e->getMessage());
+            $message = ErrorMessageSanitizer::sanitizeException($e);
             $output->writeln(sprintf('<error>Error: %s</error>', OutputFormatter::escape($message)));
             if ($conversation instanceof Conversation) {
                 $conversation->setStatus(ConversationStatus::Failed);

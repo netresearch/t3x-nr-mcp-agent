@@ -2081,9 +2081,31 @@ export class ChatCoreController {
                 parts.push(`*${lll('export.attachment')}: ${msg.fileName}*`);
             }
             parts.push((altTextNoticeText(msg) ?? this.formatRunNotice(msg) ?? this._extractText(msg)).trim());
+            const hints = this.ruleHints(msg);
+            if (hints.length > 0) {
+                parts.push(hints.map((hint) => `- ${hint}`).join('\n'));
+            }
         }
 
         return parts.join('\n\n') + '\n';
+    }
+
+    /**
+     * The sentences of the rule-set hints a line carries (nr-llm ADR-288), as
+     * nr-llm wrote them; an empty list for any other message. They are text
+     * from the server and are only ever rendered as text.
+     *
+     * @param {{notice?: string, data?: {hints?: Array<{kind?: string, message?: string}>}}} msg
+     * @returns {string[]}
+     */
+    ruleHints(msg) {
+        if (msg.notice !== 'ruleHints' || !Array.isArray(msg.data?.hints)) {
+            return [];
+        }
+
+        return msg.data.hints
+            .map((hint) => (typeof hint?.message === 'string' ? hint.message.trim() : ''))
+            .filter((text) => text !== '');
     }
 
     /**
@@ -2104,6 +2126,9 @@ export class ChatCoreController {
         }
         if (msg.notice === 'stepOpen') {
             return lll('chat.stepOpen');
+        }
+        if (msg.notice === 'ruleHints') {
+            return lll('chat.ruleHints');
         }
         if (msg.notice !== 'runFinishedOutside') return null;
         const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];

@@ -435,6 +435,10 @@
                 <source>The assistant is waiting for you. Reply with a message, or select "Continue" to go on with the next step of the tour.</source>
                 <target>Der Assistent wartet auf dich. Antworte mit einer Nachricht oder wähle „Weiter“, damit der Rundgang mit dem nächsten Schritt fortfährt.</target>
             </trans-unit>
+            <trans-unit id="chat.ruleHints" resname="chat.ruleHints">
+                <source>Rule-set check of the proposed change:</source>
+                <target>Prüfung der vorgeschlagenen Änderung gegen das Regelwerk:</target>
+            </trans-unit>
 
             <!-- Tool messages -->
             <trans-unit id="tool.output" resname="tool.output">

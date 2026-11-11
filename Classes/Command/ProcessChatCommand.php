@@ -85,7 +85,7 @@ final class ProcessChatCommand extends Command
         } catch (Throwable $e) {
             // The output ends up in var/log/ai-chat-process.log: the same
             // sanitised text as the stored error message, never the raw one.
-            $message = ErrorMessageSanitizer::sanitize($e->getMessage());
+            $message = ErrorMessageSanitizer::sanitizeException($e);
             $output->writeln(sprintf('<error>Error: %s</error>', OutputFormatter::escape($message)));
             $conversation->setStatus(ConversationStatus::Failed);
             $conversation->setErrorMessage($message);
