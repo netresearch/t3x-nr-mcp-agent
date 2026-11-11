@@ -237,6 +237,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     /** @var array{system_prompt: string, prompt_template: string}|null */
     private ?array $resolvedPrompts = null;
 
+    /**
+     * The uid of the Task's configuration when a site's configuration replaced
+     * it for this turn (ADR-033), else 0. Its term lists still apply.
+     */
+    private int $replacedConfigurationUid = 0;
+
     public function __construct(
         private readonly ConversationRepository $repository,
         private readonly ExtensionConfiguration $config,
@@ -419,7 +425,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
     private function runTurn(Conversation $conversation, string $operation, bool $afterApproval): void
     {
-        $this->resolvedPrompts = null;
+        $this->resolvedPrompts          = null;
+        $this->replacedConfigurationUid = 0;
 
         // A recorded decision is the other kind of work a claimed conversation
         // can carry. It is not a turn over the transcript, so it never reaches
@@ -577,6 +584,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $site = $this->siteOf($conversation);
         if ($site !== '') {
             $options = $options->withSite($site);
+        }
+
+        // On a site's own configuration the term lists of the Task's
+        // configuration apply as well (ADR-033, nr-llm ADR-290): a ban can be
+        // added, never dropped. nr-llm keeps the value for a resumed run.
+        if ($this->replacedConfigurationUid > 0 && $this->replacedConfigurationUid !== $configuration->getUid()) {
+            $options = $options->withGuardrailConfigurations($this->replacedConfigurationUid);
         }
 
         $base = [
@@ -2050,6 +2064,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 'system_prompt'   => $siteConfiguration->getSystemPrompt(),
                 'prompt_template' => $task->getPromptTemplate(),
             ];
+            // Replaced, not dropped: the Task configuration's term lists keep
+            // applying beside the site's (owner decision of 2026-11-11).
+            $this->replacedConfigurationUid = $task->getConfiguration()?->getUid() ?? 0;
 
             return $siteConfiguration;
         }

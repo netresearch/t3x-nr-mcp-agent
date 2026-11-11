@@ -72,6 +72,11 @@ final class ChatSiteConfigurationTest extends TestCase
 
     private const RUN = 'run-uuid-site';
 
+    private const OTHER_TASK_CONFIGURATION_UID = 4;
+
+    /** Whether an administrator gave the chat's Task another configuration. */
+    private bool $taskConfigurationChanged = false;
+
     private ?AgentRunRequest $request = null;
 
     private int $runs = 0;
@@ -137,6 +142,58 @@ final class ChatSiteConfigurationTest extends TestCase
         self::assertStringContainsString('CHAT TEMPLATE', $system);
         // The term lists of that site still apply: nr-llm reads the site from the run.
         self::assertSame('shop', $this->request->options?->getSite());
+    }
+
+    /**
+     * The Task configuration's term lists keep applying on the site's
+     * configuration (owner decision of 2026-11-11, nr-llm ADR-290): its bans
+     * are added to the site's, never dropped. nr-llm reads both and keeps the
+     * value for a resumed run.
+     */
+    #[Test]
+    public function onASitesConfigurationTheTaskConfigurationsTermListsStillApply(): void
+    {
+        $this->turnAboutPage(10);
+
+        self::assertNotNull($this->request);
+        self::assertSame([self::TASK_CONFIGURATION_UID], $this->request->options?->getGuardrailConfigurations());
+    }
+
+    #[Test]
+    public function onTheTasksConfigurationNoFurtherTermListsAreNamed(): void
+    {
+        $this->siteSetting = '';
+
+        $this->turnAboutPage(10);
+
+        self::assertNotNull($this->request);
+        self::assertSame([], $this->request->options?->getGuardrailConfigurations());
+    }
+
+    /**
+     * A worker runs many turns with one service: a turn that follows one on
+     * the site's configuration does not inherit its value.
+     */
+    #[Test]
+    public function theNamedTermListsAreChosenAgainOnEveryTurn(): void
+    {
+        $service      = $this->service(10);
+        $conversation = $this->conversation(10);
+        $conversation->appendMessage(MessageRole::User, 'Ändere die Überschrift');
+
+        $service->processConversation($conversation);
+        self::assertSame([self::TASK_CONFIGURATION_UID], $this->request?->options?->getGuardrailConfigurations());
+
+        // The site drops its setting and the Task gets another configuration:
+        // the turn runs on that one, and the earlier Task configuration is no
+        // longer named.
+        $this->siteSetting              = '';
+        $this->taskConfigurationChanged = true;
+        $conversation->appendMessage(MessageRole::User, 'Und noch etwas');
+        $service->processConversation($conversation);
+        self::assertSame(self::OTHER_TASK_CONFIGURATION_UID, $this->request?->configuration->getUid());
+
+        self::assertSame([], $this->request?->options?->getGuardrailConfigurations());
     }
 
     #[Test]
@@ -421,17 +478,20 @@ final class ChatSiteConfigurationTest extends TestCase
 
     private function service(int $pageId): ChatService
     {
-        $site       = new Site('shop', 1, ['settings' => $this->siteSetting === '' ? [] : ['nrllm' => ['configuration' => $this->siteSetting]]]);
+        // Read when asked, so a test can change the setting between two turns
+        // of the same service, as a long-running worker sees it.
+        $site       = fn (): Site => new Site('shop', 1, ['settings' => $this->siteSetting === '' ? [] : ['nrllm' => ['configuration' => $this->siteSetting]]]);
         $siteFinder = $this->createStub(SiteFinder::class);
-        $siteFinder->method('getSiteByPageId')->willReturn($site);
-        $siteFinder->method('getSiteByIdentifier')->willReturn($site);
+        $siteFinder->method('getSiteByPageId')->willReturnCallback($site);
+        $siteFinder->method('getSiteByIdentifier')->willReturnCallback($site);
         $siteFinder->method('getAllSites')->willReturn([]);
 
         $userContext = $this->createStub(UserContextPrompt::class);
         $userContext->method('readablePageId')->willReturn($pageId);
 
-        $taskModel         = $this->createStub(LlmModel::class);
-        $taskConfiguration = $this->configuration(self::TASK_CONFIGURATION_UID, 'Backend AI Chat', 'TASK PERSONA', $taskModel, false);
+        $taskModel              = $this->createStub(LlmModel::class);
+        $taskConfiguration      = $this->configuration(self::TASK_CONFIGURATION_UID, 'Backend AI Chat', 'TASK PERSONA', $taskModel, false);
+        $otherTaskConfiguration = $this->configuration(self::OTHER_TASK_CONFIGURATION_UID, 'Other Chat', 'TASK PERSONA', $taskModel, false);
 
         $siteModel = $this->createStub(LlmModel::class);
         $siteModel->method('supportsTools')->willReturn($this->siteModelHasToolFlag);
@@ -444,7 +504,9 @@ final class ChatSiteConfigurationTest extends TestCase
         );
 
         $task = $this->createStub(Task::class);
-        $task->method('getConfiguration')->willReturn($taskConfiguration);
+        $task->method('getConfiguration')->willReturnCallback(
+            fn (): LlmConfiguration => $this->taskConfigurationChanged ? $otherTaskConfiguration : $taskConfiguration,
+        );
         $task->method('getPromptTemplate')->willReturn('CHAT TEMPLATE');
         $taskRepository = $this->createStub(TaskRepository::class);
         $taskRepository->method('findByUid')->willReturn($task);

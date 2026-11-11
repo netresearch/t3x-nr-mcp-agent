@@ -99,6 +99,18 @@ of the conversation's page, which only a new turn changes (a decision or an
 answer keeps the page of the turn that made the proposal), so it is the site
 the run was started for.
 
+**The bans of both configurations apply** (owner decision of 2026-11-11).
+On a site's configuration the run names the Task's configuration with
+nr-llm's ``withGuardrailConfigurations()`` (nr-llm ADR-290). nr-llm then
+screens the run with the term lists of both: a ban of either one blocks, a
+list bound to both is read once, and the value survives a pause for an
+approval or an answer. A ban can be added, never dropped, as a privacy level
+can only be tightened. The rule-set judge (nr-llm ADR-288) follows the same
+principle in nr-llm: every side whose judge is on is judged with its own rule
+set by its own judging configuration, and the stricter mode of the two
+decides (block over report over off). The value is chosen again on every
+turn, so a turn on the Task's configuration names nothing further.
+
 **Recorded on the run.** nr-llm stores the configuration on every run
 (``AgentRun::configurationUid``) and shows it in *Agent Runs*. The chat adds
 no record of its own: the run record (ADR-030) feeds later prompts and stays
@@ -121,11 +133,11 @@ Consequences
 -   ● A refusal says which site, configuration and model, and what to
     change, in the reader's language. The editor is not left with a generic
     failure.
--   ● Term lists bound to the site keep applying; the privacy level follows
-    the run's configuration, which is now the site's.
--   ◑ Term lists and the rule-set judge are bound to configurations. A list
-    or judge bound only to the Task's configuration does not apply to a site
-    with its own; it has to be bound to the site's configuration as well.
+-   ● The term lists of the chat's configuration and of the site's
+    configuration both apply; site-bound lists keep applying. The privacy
+    level follows the run's configuration, which is now the site's.
+-   ◑ The chat calls ``withGuardrailConfigurations()``, so it needs an
+    nr-llm release that contains ADR-290.
 -   ◑ A Groq model, or a hand-made model record, that can call tools but
     lacks the *Tool Use* flag is refused until an administrator ticks it.
     The flag is the only per-model statement nr-llm has.

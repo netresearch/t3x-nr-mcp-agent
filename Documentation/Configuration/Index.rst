@@ -208,10 +208,12 @@ model that supports tool calling.
 
 What else follows the site's configuration:
 
-*   **Term lists** apply when they are bound to the configuration the
-    turn runs on. A list bound only to the Task's configuration does not
-    apply to a site with its own configuration; bind it to the site's
-    configuration as well. Site-bound lists keep applying as before.
+*   **Term lists** of both configurations apply: those bound to the
+    chat Task's configuration and those bound to the site's. A ban of either
+    one blocks, and a list bound to both reports its terms once (nr-llm
+    ADR-290). Site-bound lists keep applying as before. The same holds for
+    the rule-set judge: where both configurations have one, both judge, and
+    the stricter mode decides.
 *   **Privacy level** is read from the run's configuration, so the level
     of the site's provider applies.
 *   **Tool groups and excluded tools** are the site configuration's. An
