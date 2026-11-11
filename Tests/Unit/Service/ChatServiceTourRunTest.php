@@ -57,15 +57,18 @@ final class ChatServiceTourRunTest extends TestCase
 
     private ConversationRepository&MockObject $repository;
 
+    /**
+     * @param AgentRunStatus|string|null $status a string for a value the installed nr-llm does not list; null for no readable run
+     */
     private function service(
-        ?AgentRunStatus $status,
+        AgentRunStatus|string|null $status,
         ?ProcessRunDetectorInterface $processRuns = null,
         ?WaitingRunCancellerInterface $runCanceller = null,
     ): ChatService {
         $this->runtime = $this->createMock(AgentRuntimeInterface::class);
 
         $runs = $this->createMock(AgentRunRepositoryInterface::class);
-        $runs->method('findByUuid')->willReturn($status instanceof AgentRunStatus ? $this->agentRun($status) : null);
+        $runs->method('findByUuid')->willReturn($status !== null ? $this->agentRun($status) : null);
 
         $this->repository = $this->createMock(ConversationRepository::class);
 
@@ -91,11 +94,11 @@ final class ChatServiceTourRunTest extends TestCase
         );
     }
 
-    private function agentRun(AgentRunStatus $status): AgentRun
+    private function agentRun(AgentRunStatus|string $status): AgentRun
     {
         $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
-        foreach (['uuid' => self::RUN, 'beUser' => 1, 'status' => $status->value] as $name => $value) {
+        foreach (['uuid' => self::RUN, 'beUser' => 1, 'status' => $status instanceof AgentRunStatus ? $status->value : $status] as $name => $value) {
             $reflection->getProperty($name)->setValue($run, $value);
         }
 
@@ -135,17 +138,24 @@ final class ChatServiceTourRunTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{AgentRunStatus}>
+     * Running or queued, and statuses this version does not list: nr-llm's
+     * coming `waiting_for_dependency` (nr-llm ADR-281) and any other value.
+     * None of them is an end, so the run is not cancelled and the turn is
+     * refused.
+     *
+     * @return iterable<string, array{AgentRunStatus|string}>
      */
     public static function busyRuns(): iterable
     {
         yield 'running' => [AgentRunStatus::RUNNING];
         yield 'queued' => [AgentRunStatus::QUEUED];
+        yield 'waiting on a remote agent' => ['waiting_for_dependency'];
+        yield 'a value nobody knows yet' => ['some_future_status'];
     }
 
     #[Test]
     #[DataProvider('busyRuns')]
-    public function aRunBeingCarriedOnIsNeitherCancelledNorLeft(AgentRunStatus $status): void
+    public function aRunBeingCarriedOnIsNeitherCancelledNorLeft(AgentRunStatus|string $status): void
     {
         $service = $this->service($status, processRuns: $this->processRun(true));
         $this->runtime->expects(self::never())->method('cancel');
@@ -161,6 +171,26 @@ final class ChatServiceTourRunTest extends TestCase
         $this->runtime->expects(self::once())->method('cancel')->willReturn(false);
 
         self::assertFalse($service->releasePendingRun($this->parked()));
+    }
+
+    /**
+     * @return iterable<string, array{AgentRunStatus}>
+     */
+    public static function endedRuns(): iterable
+    {
+        yield 'completed' => [AgentRunStatus::COMPLETED];
+        yield 'failed' => [AgentRunStatus::FAILED];
+        yield 'cancelled' => [AgentRunStatus::CANCELLED];
+    }
+
+    #[Test]
+    #[DataProvider('endedRuns')]
+    public function anEndedRunReleasesTheConversation(AgentRunStatus $status): void
+    {
+        $service = $this->service($status, processRuns: $this->processRun(true));
+        $this->runtime->expects(self::never())->method('cancel');
+
+        self::assertTrue($service->releasePendingRun($this->parked()));
     }
 
     /** A run that cannot be read is no reason to keep the conversation stuck. */

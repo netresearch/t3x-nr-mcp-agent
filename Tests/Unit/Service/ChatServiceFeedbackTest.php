@@ -45,6 +45,7 @@ use Netresearch\NrMcpAgent\Service\TurnTimingRecorder;
 use Netresearch\NrMcpAgent\Service\UnavailableToolsReaderInterface;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -568,11 +569,14 @@ final class ChatServiceFeedbackTest extends TestCase
         return $conversation;
     }
 
-    private function agentRun(AgentRunStatus $status, int $beUser = 2): AgentRun
+    /**
+     * @param AgentRunStatus|string $status a string for a value the installed nr-llm does not list
+     */
+    private function agentRun(AgentRunStatus|string $status, int $beUser = 2): AgentRun
     {
         $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
-        foreach (['uid' => 45, 'uuid' => 'ccc12670-2f8d-4595-a89c-d81291ff5820', 'beUser' => $beUser, 'status' => $status->value] as $name => $value) {
+        foreach (['uid' => 45, 'uuid' => 'ccc12670-2f8d-4595-a89c-d81291ff5820', 'beUser' => $beUser, 'status' => $status instanceof AgentRunStatus ? $status->value : $status] as $name => $value) {
             $reflection->getProperty($name)->setValue($run, $value);
         }
 
@@ -603,6 +607,60 @@ final class ChatServiceFeedbackTest extends TestCase
             ->inspectPendingRun($this->parked());
 
         self::assertSame(ChatApprovalInterface::PENDING_RUN_BUSY, $pending['state']);
+    }
+
+    /**
+     * Statuses this version does not list: nr-llm's coming
+     * `waiting_for_dependency` (nr-llm ADR-281) and any other value. The run
+     * has not ended, so a "go on" message is refused like any busy row
+     * instead of starting a new run over the same transcript.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function unlistedStatuses(): iterable
+    {
+        yield 'waiting on a remote agent' => ['waiting_for_dependency'];
+        yield 'a value nobody knows yet' => ['some_future_status'];
+    }
+
+    #[Test]
+    #[DataProvider('unlistedStatuses')]
+    public function aRunInAnUnlistedStatusIsReportedAsBusy(string $status): void
+    {
+        $pending = $this->createChatService(run: $this->agentRun($status))
+            ->inspectPendingRun($this->parked());
+
+        self::assertSame(['state' => ChatApprovalInterface::PENDING_RUN_BUSY, 'writes' => []], $pending);
+    }
+
+    /** Unchanged by the rule above: a run waiting on a question lets the message through. */
+    #[Test]
+    public function aRunWaitingForInputIsNotReported(): void
+    {
+        $pending = $this->createChatService(run: $this->agentRun(AgentRunStatus::WAITING_FOR_INPUT))
+            ->inspectPendingRun($this->parked());
+
+        self::assertSame(ChatApprovalInterface::PENDING_RUN_UNKNOWN, $pending['state']);
+    }
+
+    /**
+     * @return iterable<string, array{AgentRunStatus}>
+     */
+    public static function endedRuns(): iterable
+    {
+        yield 'completed' => [AgentRunStatus::COMPLETED];
+        yield 'failed' => [AgentRunStatus::FAILED];
+        yield 'cancelled' => [AgentRunStatus::CANCELLED];
+    }
+
+    #[Test]
+    #[DataProvider('endedRuns')]
+    public function anEndedRunIsReportedAsSettled(AgentRunStatus $status): void
+    {
+        $pending = $this->createChatService(run: $this->agentRun($status))
+            ->inspectPendingRun($this->parked());
+
+        self::assertSame(['state' => ChatApprovalInterface::PENDING_RUN_SETTLED, 'writes' => []], $pending);
     }
 
     /**

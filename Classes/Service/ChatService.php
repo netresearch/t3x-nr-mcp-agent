@@ -634,6 +634,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      *
      *   run still waiting  -> nobody consumed the decision; hand the card back
      *   run still running  -> a worker has it; leave it alone
+     *   any other status   -> not an end (e.g. waiting on a remote agent, or
+     *                         a value this version does not know); leave it
      *   run settled        -> the continuation happened somewhere this
      *                         conversation cannot see, so say that plainly
      *                         instead of spinning
@@ -698,7 +700,12 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return $this->repository->updateIf($conversation, ConversationStatus::Processing);
         }
 
-        if ($status === AgentRunStatus::RUNNING || $status === AgentRunStatus::QUEUED) {
+        // Only nr-llm's terminal statuses settle the run. Running or queued, a
+        // worker has it; any other status — one this version does not list,
+        // such as a run waiting on a remote agent (nr-llm ADR-281), or a value
+        // the installed nr-llm does not know — is not an end, so the
+        // conversation is left as it is rather than declared finished.
+        if (!$status instanceof AgentRunStatus || !$status->isTerminal()) {
             return false;
         }
 
@@ -773,13 +780,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         // Not cancelled: what the run is doing instead decides. Gone, not
-        // readable or settled is nothing the conversation could wait for.
-        $run    = $this->agentRunRepository->findByUuid($runUuid);
-        $status = $run instanceof AgentRun && $actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
-            ? AgentRunStatus::tryFrom($run->status)
-            : null;
+        // readable or settled is nothing the conversation could wait for; any
+        // other status, including one this version does not know, is a run
+        // that has not ended.
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            return true;
+        }
 
-        return $status === null || $status->isTerminal();
+        return AgentRunStatus::tryFrom($run->status)?->isTerminal() === true;
     }
 
     /**
@@ -860,12 +869,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return ['state' => self::PENDING_RUN_WAITING, 'writes' => []];
         }
 
-        if ($status === AgentRunStatus::RUNNING || $status === AgentRunStatus::QUEUED) {
-            return ['state' => self::PENDING_RUN_BUSY, 'writes' => []];
+        // A run that waits on a question: unchanged, the message goes through
+        // as an ordinary turn.
+        if ($status === AgentRunStatus::WAITING_FOR_INPUT) {
+            return $unknown;
         }
 
-        if ($status === null || !$status->isTerminal()) {
-            return $unknown;
+        // Running, queued, or any status that is not an end — one this
+        // version does not list, such as a run waiting on a remote agent
+        // (nr-llm ADR-281), or a value the installed nr-llm does not know:
+        // the run is still going, so the message is refused like any busy row.
+        if (!$status instanceof AgentRunStatus || !$status->isTerminal()) {
+            return ['state' => self::PENDING_RUN_BUSY, 'writes' => []];
         }
 
         $writes = [];
