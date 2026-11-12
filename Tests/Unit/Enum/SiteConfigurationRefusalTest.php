@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Enum;
 
+use DOMDocument;
+use DOMElement;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
@@ -39,16 +41,35 @@ final class SiteConfigurationRefusalTest extends TestCase
         ];
 
         foreach (['locallang_chat.xlf' => 'source', 'de.locallang_chat.xlf' => 'target'] as $file => $element) {
-            $xliff = (string) file_get_contents(self::LANGUAGE_DIR . $file);
+            $units = $this->units($file, $element);
             foreach (SiteConfigurationRefusal::cases() as $reason) {
-                $pattern = '/id="' . preg_quote($reason->labelKey(), '/') . '"[^>]*>.*?<' . $element . '>([^<]+)<\/' . $element . '>/s';
-                self::assertMatchesRegularExpression($pattern, $xliff, $file . ' ' . $reason->name);
-                preg_match($pattern, $xliff, $match);
+                $text = $units[$reason->labelKey()] ?? '';
+                self::assertNotSame('', $text, $file . ' ' . $reason->name . ' has no ' . $element);
                 foreach ($placeholders[$reason->name] as $placeholder) {
-                    self::assertStringContainsString($placeholder, $match[1], $file . ' ' . $reason->name);
+                    self::assertStringContainsString($placeholder, $text, $file . ' ' . $reason->name);
                 }
             }
         }
+    }
+
+    /**
+     * The text of the given element of every unit, read from that unit
+     * alone, so a unit without it cannot borrow the next unit's.
+     *
+     * @return array<string, string>
+     */
+    private function units(string $file, string $element): array
+    {
+        $document = new DOMDocument();
+        self::assertTrue($document->load(self::LANGUAGE_DIR . $file), $file . ' must parse');
+
+        $units = [];
+        foreach ($document->getElementsByTagName('trans-unit') as $node) {
+            self::assertInstanceOf(DOMElement::class, $node);
+            $units[$node->getAttribute('id')] = trim($node->getElementsByTagName($element)->item(0)?->textContent ?? '');
+        }
+
+        return $units;
     }
 
     /** The codes share the conversation's error-code column, a varchar(32). */
