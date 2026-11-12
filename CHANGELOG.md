@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-12
+
+### Added
+
+- The chat shows the hints of nr-llm's rule-set judge in report mode as a line under the turn that proposed the write, in the full-page module and the popup, and a block of the judge is stored on the conversation without the passage of the refused text. The Markdown export keeps the hints literal and a multiline hint in one list item (#342).
+- A conversation about a page runs on the LLM configuration the page's site names in the nr-llm site setting `nrllm.configuration` instead of the configuration of the chat's Task. A site configuration the chat cannot run on (unusable, model selected by criteria, or a model or provider without tool calling) is refused before any model call with a message that names the reason and what an administrator can change; the chat never falls back to the Task's configuration for that site. The term lists of the Task's configuration keep applying beside the site's (#343).
+
+### Changed
+
+- nr-llm 0.44.0 or later is required (`withGuardrailConfigurations()`, the rule-set judge's hint collector).
+
+### Fixed
+
+- The chat treats a run as finished only when nr-llm's `AgentRunStatus::isTerminal()` says so; any other status, including `waiting_for_dependency` of nr-llm 0.44, keeps the conversation waiting instead of marking it failed with "This run finished outside the chat" (#340).
+
 ## [0.36.0] - 2026-11-10
 
 ### Added
