@@ -124,7 +124,35 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
 *   any other outcome (``FAILED``, ``GUARDRAIL_BLOCKED``, …) -- set status
     ``failed`` with a sanitized reason taken from ``AgentRunResult::$error``
     or derived from the outcome. The mapping keeps a default arm because
-    ``AgentRunOutcome`` gains cases in nr-llm minor releases.
+    ``AgentRunOutcome`` gains cases in nr-llm minor releases. An error that
+    offers ``storableMessage()`` is stored in that form
+    (``ErrorMessageSanitizer::sanitizeException()``): nr-llm's refusal of
+    the rule-set judge quotes the passage of the refused text in its
+    message and leaves it out of the storable form (nr-llm ADR-288). The
+    same applies to an exception the runtime throws and to the CLI
+    commands' error output.
+
+Hints of the rule-set judge
+===========================
+
+In report mode nr-llm's rule-set judge lets a proposed write through and
+reports hints: a rule the text of the write may break, or that the text was
+not checked (nr-llm ADR-288). The runtime's result carries no hints, so
+``ChatService`` runs ``run()``, ``approve()`` and ``submitInput()`` inside
+nr-llm's ``GuardrailHintCollector`` (``GuardrailHintCapture``), the shared
+service the guardrail middleware records into, resolved through
+``GeneralUtility::makeInstance()`` in the process that runs the turn. An
+nr-llm release without the collector runs the calls as they are.
+
+The hints of one call become one assistant line with the notice
+``ruleHints`` and the hints under ``data.hints`` (kind and message of each),
+after what that call added: the answer, the text beside a proposal, or the
+question. A call that reports nothing adds no line, and a failed call adds
+none, as it is retried over the transcript. The chat renders the label
+``chat.ruleHints`` and each hint as text; the model is not sent the line.
+A violation hint quotes up to the judge's quote length of the proposed
+text, so the line stores that passage; the reasons are in
+``ChatService::noteRuleHints()``.
 
 Text the model writes in the same round as a tool call -- the overview of
 a guided process beside ``chat_set_progress``, the explanation beside a

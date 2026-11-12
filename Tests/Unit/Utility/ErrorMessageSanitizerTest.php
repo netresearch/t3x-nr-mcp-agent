@@ -9,9 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Utility;
 
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Fixtures\StorableRefusal;
 use Netresearch\NrMcpAgent\Utility\ErrorMessageSanitizer;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Throwable;
 
 class ErrorMessageSanitizerTest extends TestCase
 {
@@ -184,5 +188,50 @@ class ErrorMessageSanitizerTest extends TestCase
         self::assertStringContainsString('[URL]', $result2);
         self::assertStringNotContainsString('example.com', $result1);
         self::assertStringNotContainsString('example.com', $result2);
+    }
+
+    /** nr-llm's guardrail refusal (ADR-288): the stored form leaves the quoted passage out. */
+    #[Test]
+    public function anExceptionWithAStorableFormIsStoredInThatForm(): void
+    {
+        $refusal = new StorableRefusal('Blocked: "the best airfryer ever" at https://example.com', 'Blocked by rule 1 at https://example.com');
+
+        self::assertSame('Blocked by rule 1 at [URL]', ErrorMessageSanitizer::sanitizeException($refusal));
+    }
+
+    #[Test]
+    public function anExceptionWithoutAStorableFormIsStoredWithItsMessage(): void
+    {
+        self::assertSame('Failed at [URL]', ErrorMessageSanitizer::sanitizeException(new RuntimeException('Failed at https://example.com')));
+    }
+
+    /** nr-llm's own refusal, where the installed release has the storable form. */
+    #[Test]
+    public function nrLlmsRefusalIsStoredWithoutThePassage(): void
+    {
+        $class = GuardrailViolationException::class;
+        if (!method_exists($class, 'storableMessage')) {
+            self::markTestSkipped('The installed nr-llm has no storable refusal (nr-llm ADR-288).');
+        }
+
+        $refusal = new $class('ruleSetJudge', 'This change was not proposed. Its text breaks the rule set: "best ever"', null, 'The rule-set judge found these rules broken: 1 "No superlatives"');
+        self::assertInstanceOf(Throwable::class, $refusal);
+
+        self::assertSame('The rule-set judge found these rules broken: 1 "No superlatives"', ErrorMessageSanitizer::sanitizeException($refusal));
+    }
+
+    #[Test]
+    public function theStorableFormIsShortenedToTheDefaultLength(): void
+    {
+        self::assertSame(500, mb_strlen(ErrorMessageSanitizer::sanitizeException(new StorableRefusal('x', str_repeat('a', 600)))));
+        self::assertSame(500, mb_strlen(ErrorMessageSanitizer::sanitizeException(new StorableRefusal('x', str_repeat('a', 500)))));
+    }
+
+    #[Test]
+    public function theStorableFormIsShortenedLikeAnyMessage(): void
+    {
+        $result = ErrorMessageSanitizer::sanitizeException(new StorableRefusal('x', str_repeat('a', 80)), 50);
+
+        self::assertSame(50, mb_strlen($result));
     }
 }

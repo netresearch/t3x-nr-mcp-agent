@@ -6,6 +6,25 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {altTextNoticeText} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {ModuleStateStorage} from '@typo3/backend/storage/module-state-storage.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
+
+/**
+ * Plain text for one Markdown list item: line breaks become spaces, HTML
+ * characters become entities and Markdown syntax is backslash-escaped, so a
+ * viewer shows the text the chat showed instead of rendering markup inside it
+ * or starting a new block. Used for the rule-set hints,
+ * which quote a passage of the checked text.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function escapeMarkdownText(text) {
+    return text
+        .replace(/\s*[\r\n]+\s*/g, ' ')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/([\\`*_{}[\]()#+\-!|~])/g, '\\$1');
+}
 import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {PAGE_MODULE} from '@netresearch/nr-mcp-agent/chat-context-chips.js';
 
@@ -2081,9 +2100,31 @@ export class ChatCoreController {
                 parts.push(`*${lll('export.attachment')}: ${msg.fileName}*`);
             }
             parts.push((altTextNoticeText(msg) ?? this.formatRunNotice(msg) ?? this._extractText(msg)).trim());
+            const hints = this.ruleHints(msg);
+            if (hints.length > 0) {
+                parts.push(hints.map((hint) => `- ${escapeMarkdownText(hint)}`).join('\n'));
+            }
         }
 
         return parts.join('\n\n') + '\n';
+    }
+
+    /**
+     * The sentences of the rule-set hints a line carries (nr-llm ADR-288), as
+     * nr-llm wrote them; an empty list for any other message. They are text
+     * from the server and are only ever rendered as text.
+     *
+     * @param {{notice?: string, data?: {hints?: Array<{kind?: string, message?: string}>}}} msg
+     * @returns {string[]}
+     */
+    ruleHints(msg) {
+        if (msg.notice !== 'ruleHints' || !Array.isArray(msg.data?.hints)) {
+            return [];
+        }
+
+        return msg.data.hints
+            .map((hint) => (typeof hint?.message === 'string' ? hint.message.trim() : ''))
+            .filter((text) => text !== '');
     }
 
     /**
@@ -2104,6 +2145,9 @@ export class ChatCoreController {
         }
         if (msg.notice === 'stepOpen') {
             return lll('chat.stepOpen');
+        }
+        if (msg.notice === 'ruleHints') {
+            return lll('chat.ruleHints');
         }
         if (msg.notice !== 'runFinishedOutside') return null;
         const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];

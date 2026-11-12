@@ -139,6 +139,15 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     public const NOTICE_STEP_OPEN = 'stepOpen';
 
+    /**
+     * The notice on the line the chat adds when nr-llm's guardrails reported
+     * hints during a run call (nr-llm ADR-288): the rule-set judge in report
+     * mode names a rule the text of a proposed write may break, or says the
+     * text was not checked. The hints are under `data.hints`, each with its
+     * kind and the sentence the editor reads.
+     */
+    public const NOTICE_RULE_HINTS = 'ruleHints';
+
     /** The kind nr-llm gives a dropped process pin (nr-llm ADR-228). */
     private const DROPPED_PROCESS_KIND = 'process';
 
@@ -257,6 +266,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         private readonly ?ImageAnalysisTurnSettings $turnSettings = null,
         private readonly ?TurnTimingRecorder $turnTiming = null,
         private readonly ?LiveTextRecorder $liveText = null,
+        private readonly GuardrailHintCapture $hintCapture = new GuardrailHintCapture(),
     ) {}
 
     /**
@@ -442,7 +452,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $this->runAgentTurn($conversation, $configuration, $operation, $afterApproval);
         } catch (Throwable $e) {
             $conversation->setStatus(ConversationStatus::Failed);
-            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitizeException($e), $this->failureCode($e));
             $conversation->appendRunRecord(RunRecord::unknown());
             $this->persist($conversation);
         }
@@ -507,7 +517,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // provider option is overridden by naming ourselves here.
         $request = $this->runRequest($conversation, $configuration, $messages, $operation);
         $this->turnTiming?->mark('runBegin');
-        $result = $this->agentRuntime->run($request, $this->activityRecorder->onStep($conversation));
+        $captured = $this->hintCapture->capture(fn (): AgentRunResult => $this->agentRuntime->run($request, $this->activityRecorder->onStep($conversation)));
+        $result   = $captured['result'];
         $this->turnTiming?->mark('runEnd');
 
         // The start marker is spent once a run that carried the invocation
@@ -519,7 +530,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $this->repository->clearSkillStartPending($conversation->getUid());
         }
 
-        $this->applyResult($conversation, $result);
+        $this->applyResult($conversation, $result, hints: $captured['hints']);
     }
 
     /**
@@ -1044,7 +1055,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $this->turnTiming?->mark('runBegin');
 
         try {
-            $result = $this->agentRuntime->submitInput(
+            $captured = $this->hintCapture->capture(fn (): AgentRunResult => $this->agentRuntime->submitInput(
                 $this->actorFor($conversation),
                 $runUuid,
                 new InputSubmission(
@@ -1053,7 +1064,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $conversation->getApprovalTurnDigest(),
                 ),
                 $this->activityRecorder->onStep($conversation, RefusedCalls::AFTER_INPUT),
-            );
+            ));
+            $result = $captured['result'];
             $this->turnTiming?->mark('runEnd');
         } catch (StaleInputTurnException|InvalidInputSubmissionException|SubmitterNotPermittedException|RunAlreadyResumingException|RunConfigurationInactiveException|RunNotAwaitingInputException $e) {
             // These leave the run waiting for its answer: the question comes
@@ -1083,7 +1095,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
 
             $conversation->clearApprovalDecision();
             $conversation->setStatus(ConversationStatus::Failed);
-            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitizeException($e), $this->failureCode($e));
             $conversation->appendRunRecord(RunRecord::unknown());
             $this->persist($conversation);
 
@@ -1091,7 +1103,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         $conversation->clearApprovalDecision();
-        $this->applyResult($conversation, $result, segment: RefusedCalls::AFTER_INPUT);
+        $this->applyResult($conversation, $result, segment: RefusedCalls::AFTER_INPUT, hints: $captured['hints']);
     }
 
     /**
@@ -1142,7 +1154,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $this->turnTiming?->mark('runBegin');
 
         try {
-            $result = $this->agentRuntime->approve(
+            $captured = $this->hintCapture->capture(fn (): AgentRunResult => $this->agentRuntime->approve(
                 $this->actorFor($conversation),
                 $runUuid,
                 ($this->decisionFactory ?? new ApprovalDecisionFactory())->create(
@@ -1155,7 +1167,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $recordDecision();
                     $recordStep($step);
                 },
-            );
+            ));
+            $result = $captured['result'];
             $recordDecision();
             $this->turnTiming?->mark('runEnd');
         } catch (RunNotAwaitingApprovalException|RunAlreadyResumingException|StaleApprovalTurnException|ApproverNotPermittedException|RunConfigurationInactiveException|SelfApprovalDeniedException $e) {
@@ -1196,7 +1209,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $conversation->setStatus(ConversationStatus::Failed);
             // The continuation calls the same provider as a turn does, so a
             // missing key fails here as well and must be phrased the same way.
-            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitize($e->getMessage()), $this->failureCode($e));
+            $conversation->setErrorMessage(ErrorMessageSanitizer::sanitizeException($e), $this->failureCode($e));
             $conversation->appendRunRecord(RunRecord::unknown($this->decisionOf($approved, $denyReason)));
             $this->persist($conversation);
 
@@ -1248,7 +1261,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The run record names the decision only where no card outcome
         // already says what became of the proposal (ADR-030).
         $before = $conversation->getMessageCount();
-        if ($this->applyResult($conversation, $result, $approved, $cardRecorded ? null : $this->decisionOf($approved, $denyReason), $approved ? RefusedCalls::AFTER_APPROVAL : RefusedCalls::AFTER_DENIAL)) {
+        if ($this->applyResult($conversation, $result, $approved, $cardRecorded ? null : $this->decisionOf($approved, $denyReason), $approved ? RefusedCalls::AFTER_APPROVAL : RefusedCalls::AFTER_DENIAL, $captured['hints'])) {
             $this->processTurn($conversation, self::OPERATION_CHAT_TURN, afterApproval: true);
 
             return;
@@ -1300,7 +1313,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $messages = $conversation->getDecodedMessages();
         $kept     = array_slice($messages, 0, $before);
         foreach (array_slice($messages, $before) as $message) {
-            if (($message['role'] ?? null) !== MessageRole::Assistant->value) {
+            // The line with the rule-set hints is the chat's own, not the
+            // model's answer, and stays.
+            if (($message['role'] ?? null) !== MessageRole::Assistant->value || ($message['notice'] ?? null) === self::NOTICE_RULE_HINTS) {
                 $kept[] = $message;
             }
         }
@@ -1510,14 +1525,16 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * assistant answer on completion, a Failed status with a sanitized reason
      * for any other outcome.
      *
-     * @param bool                  $mayContinue the result answers an approved decision: a step
-     *                                           it left open is not reported but continued, and
-     *                                           the conversation stays busy for that turn
-     * @param RefusedCalls::AFTER_* $segment     what the run segment continues
+     * @param bool                                       $mayContinue the result answers an approved decision: a step
+     *                                                                it left open is not reported but continued, and
+     *                                                                the conversation stays busy for that turn
+     * @param RefusedCalls::AFTER_*                      $segment     what the run segment continues
+     * @param list<array{kind: string, message: string}> $hints       what the guardrails reported during the
+     *                                                                call that returned the result
      *
      * @return bool true when the caller has to run the continuation turn
      */
-    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false, ?string $decision = null, string $segment = RefusedCalls::AFTER_TURN): bool
+    private function applyResult(Conversation $conversation, AgentRunResult $result, bool $mayContinue = false, ?string $decision = null, string $segment = RefusedCalls::AFTER_TURN, array $hints = []): bool
     {
         // Whatever the outcome, what the guided-state tools reported during
         // the run is taken over now — the first moment the chat knows the run
@@ -1577,6 +1594,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                     $this->claimsAnUnrecordedChange($answer, $result, $conversation) ? self::NOTICE_NOTHING_SAVED : '',
                 );
             }
+
+            $this->noteRuleHints($conversation, $hints);
 
             // The run did not finish its step: the reader is told so, in their
             // language, and a tour offers to go on (ADR-023, amendment of
@@ -1644,6 +1663,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // The explanation the model wrote beside the proposal goes above
             // the card, which renders after the transcript.
             $this->appendTextBesideToolCalls($conversation, $result);
+            $this->noteRuleHints($conversation, $hints);
             $conversation->setStatus(ConversationStatus::AwaitingApproval);
             $conversation->setErrorMessage('');
             $conversation->setApprovalRunUuid($result->runUuid);
@@ -1665,6 +1685,8 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             if ($question !== '') {
                 $conversation->appendMessage(MessageRole::Assistant, $question);
             }
+
+            $this->noteRuleHints($conversation, $hints);
 
             $conversation->setStatus(ConversationStatus::AwaitingInput);
             $conversation->setErrorMessage('');
@@ -1713,6 +1735,46 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 $conversation->appendTextBesideToolCall($text);
             }
         }
+    }
+
+    /**
+     * One line in the transcript for the hints nr-llm's guardrails reported
+     * during a run call (nr-llm ADR-288), after what that call added to it:
+     * the answer, the text beside a proposal, or the question.
+     *
+     * A line of its own rather than a notice on the answer: a call may end
+     * without any message (a proposal without text beside it), and an answer
+     * can already carry the nothing-saved notice. The reader gets a label in
+     * their language and the hints as nr-llm wrote them, in the language of
+     * the run's user; the model does not see the line
+     * ({@see self::buildLlmMessages()}).
+     *
+     * A violation hint quotes a passage of the proposed write (at most the
+     * judge's quote length), and the line stores it. The chat stores no other
+     * value of a write: the card, the run record and the open points keep
+     * field names only. The passage is kept all the same, because the reader
+     * sees only what the conversation row holds, and a hint that is not
+     * stored is not shown; the hint is the reason the report mode exists. The
+     * text was not refused: it was proposed, and it stays stored also when
+     * the editor cancels the proposal, as the alt-text flow keeps a proposal
+     * that was not saved ({@see self::settleAltTextCard()}). A refused write
+     * is stored without its passage
+     * ({@see ErrorMessageSanitizer::sanitizeException()}).
+     *
+     * @param list<array{kind: string, message: string}> $hints
+     */
+    private function noteRuleHints(Conversation $conversation, array $hints): void
+    {
+        if ($hints === []) {
+            return;
+        }
+
+        $conversation->appendMessage(
+            MessageRole::Assistant,
+            '[The rule-set check reported on the change this run proposed.]',
+            self::NOTICE_RULE_HINTS,
+            data: ['hints' => $hints],
+        );
     }
 
     /**
@@ -1854,8 +1916,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      */
     private function describeFailure(AgentRunResult $result): string
     {
+        // A guardrail's refusal names the rule that stopped the write; the
+        // storable form of it leaves out the passage of the refused text.
         if ($result->error instanceof Throwable) {
-            return ErrorMessageSanitizer::sanitize($result->error->getMessage());
+            return ErrorMessageSanitizer::sanitizeException($result->error);
         }
 
         // Only reference AgentRunOutcome cases guaranteed by the minimum
@@ -1935,7 +1999,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             // and a second assistant message before the answer is not a turn.
             // The line about a run stopped at its round cap is the reader's too:
             // a second assistant message after the answer is not a turn.
-            if (in_array($msg['notice'] ?? null, [self::NOTICE_PROCESS_DROPPED, self::NOTICE_ROUND_LIMIT, self::NOTICE_STEP_OPEN], true)) {
+            // So is the line with the rule-set hints, which are about the
+            // proposal and for the editor who decides on it.
+            if (in_array($msg['notice'] ?? null, [self::NOTICE_PROCESS_DROPPED, self::NOTICE_ROUND_LIMIT, self::NOTICE_STEP_OPEN, self::NOTICE_RULE_HINTS], true)) {
                 continue;
             }
 
@@ -2050,7 +2116,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $after  = [];
         $alone  = [];
         foreach ($notes as $note) {
-            $answer   = $owner[$note['at']] ?? null;
+            // A line the model is not sent can stand where the answer would:
+            // the rule-set hints of a proposal without text beside it. The
+            // answer is then the next message the model is sent.
+            $answer   = $owner[$note['at']] ?? $this->ownerFrom($owner, $note['at']);
             $previous = $this->ownerBefore($owner, $note['at']);
             // The segment's answer opens with the note, unless the answer is
             // the same wire message as what came before, which it then closes.
@@ -2132,6 +2201,19 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         }
 
         return null;
+    }
+
+    /**
+     * The wire message the nearest stored message from `$at` on went into;
+     * null when none did.
+     *
+     * @param array<int, int> $owner
+     */
+    private function ownerFrom(array $owner, int $at): ?int
+    {
+        $later = array_filter(array_keys($owner), static fn (int $index): bool => $index >= $at);
+
+        return $later === [] ? null : $owner[min($later)];
     }
 
     /**

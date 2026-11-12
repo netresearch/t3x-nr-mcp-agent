@@ -29,6 +29,7 @@ use Netresearch\NrMcpAgent\Service\ChatService;
 use Netresearch\NrMcpAgent\Service\PendingApprovalReaderInterface;
 use Netresearch\NrMcpAgent\Service\RunActivityRecorder;
 use Netresearch\NrMcpAgent\Service\UserContextPrompt;
+use Netresearch\NrMcpAgent\Tests\Unit\Service\Fixtures\StorableRefusal;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -189,6 +190,39 @@ class ChatWorkerCommandExecuteTest extends TestCase
         self::assertStringContainsString('Error: Provider said: Incorrect API key provided: [REDACTED] for [URL]', $written);
         self::assertStringNotContainsString('sk-proj-abcdefghijklmnop', $written);
         self::assertStringNotContainsString('raw-secret-value', $written);
+    }
+
+    /** A guardrail refusal is written and stored without the passage it quotes (nr-llm ADR-288). */
+    #[Test]
+    public function aRefusalIsWrittenAndStoredWithoutItsPassage(): void
+    {
+        $conversation = Conversation::fromRow([
+            'uid'      => 3, 'be_user' => 3, 'status' => 'processing',
+            'messages' => '[{"role":"user","content":"Hello"}]', 'message_count' => 1,
+        ]);
+        GeneralUtility::addInstance(BackendUserAuthentication::class, $this->createMock(BackendUserAuthentication::class));
+
+        $repository = $this->createMock(ConversationRepository::class);
+        $repository->method('dequeueForWorker')->willReturn($conversation);
+        $repository->method('update')->willThrowException(new RuntimeException('break'));
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willThrowException(new StorableRefusal('Refused: "the best airfryer ever"', 'Refused by rule 1'));
+
+        $command = new ChatWorkerCommand($this->createChatService(), $repository, $connectionPool);
+        $output  = new BufferedOutput();
+        $input   = new ArrayInput(['--poll-interval' => '0']);
+        $input->bind($command->getDefinition());
+
+        try {
+            $command->run($input, $output);
+        } catch (RuntimeException) {
+            // expected break
+        }
+
+        $written = $output->fetch();
+        self::assertStringContainsString('Error: Refused by rule 1', $written);
+        self::assertStringNotContainsString('airfryer', $written);
+        self::assertSame('Refused by rule 1', $conversation->getErrorMessage());
     }
 
     /**
