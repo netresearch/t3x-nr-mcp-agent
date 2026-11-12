@@ -513,6 +513,7 @@ final class ChatSiteConfigurationTest extends TestCase
 
         $toolProvider = $this->createStubForIntersectionOfInterfaces([ProviderInterface::class, ToolCapableInterface::class]);
         $toolProvider->method('supportsTools')->willReturn(true);
+        self::assertInstanceOf(ProviderInterface::class, $toolProvider);
         $plainProvider = $this->createStub(ProviderInterface::class);
         $adapters      = $this->createStub(ProviderAdapterRegistryInterface::class);
         $adapters->method('createAdapterFromModel')->willReturnCallback(
