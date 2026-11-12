@@ -132,6 +132,11 @@ describe('rule-set hints in the export', () => {
 });
 
 describe('escapeMarkdownText', () => {
+    test('a multiline hint stays one line, so it cannot open a heading', () => {
+        expect(escapeMarkdownText('first\n\nWarning\n=======')).toBe('first Warning =======');
+        expect(escapeMarkdownText('a\r\n# b')).toBe('a \\# b');
+    });
+
     test('HTML and Markdown syntax stay literal text', () => {
         expect(escapeMarkdownText('<img src=x onerror=alert(1)> & *bold* [link](u) `c` # h')).toBe(
             '&lt;img src=x onerror=alert\\(1\\)&gt; &amp; \\*bold\\* \\[link\\]\\(u\\) \\`c\\` \\# h',

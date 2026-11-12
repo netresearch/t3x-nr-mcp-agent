@@ -8,9 +8,10 @@ import {ModuleStateStorage} from '@typo3/backend/storage/module-state-storage.js
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
 
 /**
- * Plain text for a Markdown document: HTML characters become entities and
- * Markdown syntax is backslash-escaped, so a viewer shows the text the chat
- * showed instead of rendering markup inside it. Used for the rule-set hints,
+ * Plain text for one Markdown list item: line breaks become spaces, HTML
+ * characters become entities and Markdown syntax is backslash-escaped, so a
+ * viewer shows the text the chat showed instead of rendering markup inside it
+ * or starting a new block. Used for the rule-set hints,
  * which quote a passage of the checked text.
  *
  * @param {string} text
@@ -18,6 +19,7 @@ import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
  */
 export function escapeMarkdownText(text) {
     return text
+        .replace(/\s*[\r\n]+\s*/g, ' ')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
