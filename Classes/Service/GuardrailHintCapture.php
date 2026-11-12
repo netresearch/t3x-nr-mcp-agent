@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Service;
 
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 use function class_exists;
@@ -33,7 +34,7 @@ use function is_string;
  */
 final class GuardrailHintCapture
 {
-    public const COLLECTOR_CLASS = 'Netresearch\\NrLlm\\Service\\Guardrail\\GuardrailHintCollector';
+    public const COLLECTOR_CLASS = GuardrailHintCollector::class;
 
     private ?object $collector = null;
 

@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Unit\Service;
 
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailHintCollector;
 use Netresearch\NrMcpAgent\Service\GuardrailHintCapture;
 use Netresearch\NrMcpAgent\Tests\Unit\Service\Fixtures\StubHint;
 use Netresearch\NrMcpAgent\Tests\Unit\Service\Fixtures\StubHintCollector;
@@ -31,7 +33,7 @@ final class GuardrailHintCaptureTest extends TestCase
     #[Test]
     public function itNamesNrLlmsCollector(): void
     {
-        self::assertSame('Netresearch\\NrLlm\\Service\\Guardrail\\GuardrailHintCollector', GuardrailHintCapture::COLLECTOR_CLASS);
+        self::assertSame(GuardrailHintCollector::class, GuardrailHintCapture::COLLECTOR_CLASS);
     }
 
     #[Test]
@@ -118,7 +120,7 @@ final class GuardrailHintCaptureTest extends TestCase
     #[Test]
     public function nrLlmsOwnCollectorDeliversTheHintsRecordedDuringTheCall(): void
     {
-        $hintClass = 'Netresearch\\NrLlm\\Domain\\ValueObject\\GuardrailHint';
+        $hintClass = GuardrailHint::class;
         if (!class_exists(GuardrailHintCapture::COLLECTOR_CLASS) || !class_exists($hintClass)) {
             self::markTestSkipped('The installed nr-llm has no GuardrailHintCollector (nr-llm ADR-288).');
         }
