@@ -62,6 +62,13 @@ enum InputHandBackReason: string
     case DecidedInChat = 'handBack.inputDecidedInChat';
 
     /**
+     * The site of the conversation's page now names another AI configuration
+     * than the run's, or one the chat cannot run on (ADR-033). The chat holds
+     * the answer back itself; nr-llm is not asked.
+     */
+    case SiteConfiguration = 'handBack.inputSiteConfig';
+
+    /**
      * Only the refusals that leave the run waiting for its answer are
      * hand-backs; ChatService catches exactly these. The refusals of a guided
      * process that leave the run waiting map through

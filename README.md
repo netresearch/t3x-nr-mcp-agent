@@ -153,6 +153,8 @@ All settings are in **Admin Tools > Settings > Extension Configuration > nr_mcp_
 | `altTextExcludedTables` | *(empty)* | Tables the check for missing alt texts leaves out |
 | `altTextExcludedFields` | `pages.og_image,pages.twitter_image,pages.nav_icon,be_users.avatar,backend_layout.icon` | Image fields (`table.field`) the check leaves out |
 
+A site that names its own LLM configuration in the nr-llm site setting `nrllm.configuration` runs the chat on that configuration instead of the Task's. A site configuration whose model cannot call tools is refused with a message, never replaced (ADR-033).
+
 For the full documentation, see the [Documentation/](Documentation/) folder or
 the rendered docs on [docs.typo3.org](https://docs.typo3.org/).
 

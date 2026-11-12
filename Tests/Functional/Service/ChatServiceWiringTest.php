@@ -9,8 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Functional\Service;
 
+use Netresearch\NrLlm\Service\ConfigurationResolver;
+use Netresearch\NrLlm\Service\Site\SiteLlmSettings;
 use Netresearch\NrMcpAgent\Controller\ChatApiController;
 use Netresearch\NrMcpAgent\Service\ChatService;
+use Netresearch\NrMcpAgent\Service\ChatTask\SiteConfigurationSelector;
 use Netresearch\NrMcpAgent\Service\NrLlmUnavailableToolsReader;
 use Netresearch\NrMcpAgent\Service\NrLlmWaitingRunCanceller;
 use PHPUnit\Framework\Attributes\Test;
@@ -54,6 +57,23 @@ final class ChatServiceWiringTest extends FunctionalTestCase
         $canceller = (new ReflectionProperty(ChatService::class, 'runCanceller'))->getValue($this->get(ChatService::class));
 
         self::assertInstanceOf(NrLlmWaitingRunCanceller::class, $canceller);
+    }
+
+    /**
+     * The site's own configuration (ADR-033) arrives only through autowiring.
+     * Without the selector every turn would run the Task's configuration, and
+     * a resolver without nr-llm's site settings would read no site setting:
+     * both would leave every unit test green.
+     */
+    #[Test]
+    public function theContainerHandsTheChatTheSiteConfigurationSelector(): void
+    {
+        $selector = (new ReflectionProperty(ChatService::class, 'siteConfigurations'))->getValue($this->get(ChatService::class));
+        self::assertInstanceOf(SiteConfigurationSelector::class, $selector);
+
+        $resolver = (new ReflectionProperty(SiteConfigurationSelector::class, 'configurationResolver'))->getValue($selector);
+        self::assertInstanceOf(ConfigurationResolver::class, $resolver);
+        self::assertInstanceOf(SiteLlmSettings::class, (new ReflectionProperty(ConfigurationResolver::class, 'siteSettings'))->getValue($resolver));
     }
 
     /** The × ends the process in nr-llm through the chat service (ADR-023). */

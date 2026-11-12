@@ -170,6 +170,63 @@ The panel supports four states:
 The panel height and state are persisted per user in the
 browser's localStorage.
 
+..  _configuration-site-configuration:
+
+A site's own AI configuration
+=============================
+
+A site can name its own nr-llm configuration in the site setting
+**LLM configuration** (``nrllm.configuration``, set ``netresearch/nr-llm``,
+nr-llm ADR-244), for example because its content may only go to one
+provider. The chat honours it: a conversation about a page of that site
+runs on the site's configuration -- its provider, model and system prompt
+-- instead of the configuration of the chat's Task. The Task's prompt
+template still applies. Sites without the setting, conversations about no
+page, and pages the user may not show keep the Task's configuration. The
+choice is made again on every turn, so a changed setting applies to the
+next message. See ADR-033.
+
+The chat reads and changes pages only through tools, so it refuses a site
+configuration it cannot run on, before any model call, and says why in
+the reader's language:
+
+*   the configuration does not exist, is disabled, or is restricted to
+    backend groups the user is not in;
+*   it selects its model by criteria instead of naming a fixed model;
+*   its model cannot call tools: the model record lacks the capability
+    **Tool Use** (*AI > Models*), or its provider does not support tool
+    calling.
+
+It never falls back to the Task's configuration for that site, because
+that would send the site's content to a provider the site was set up to
+avoid. Administrators also get a link to the LLM configurations.
+
+Model discovery ticks **Tool Use** for the providers that report it per
+model (Mistral, OpenRouter, Ollama) and for the curated OpenAI, Anthropic
+and Gemini models. Groq reports no capabilities: tick it by hand on a Groq
+model that supports tool calling.
+
+What else follows the site's configuration:
+
+*   **Term lists** of both configurations apply: those bound to the
+    chat Task's configuration and those bound to the site's. A ban of either
+    one blocks, and a list bound to both reports its terms once (nr-llm
+    ADR-290). Site-bound lists keep applying as before. The same holds for
+    the rule-set judge: where both configurations have one, both judge, and
+    the stricter mode decides.
+*   **Privacy level** is read from the run's configuration, so the level
+    of the site's provider applies.
+*   **Tool groups and excluded tools** are the site configuration's. An
+    empty group list allows every group.
+*   **Approvals waiting** when the setting changes to another configuration,
+    or to one the chat cannot run on, are not carried out on the old
+    configuration: the chat hands the card or question back and asks for a
+    new message. When the setting is cleared, a waiting run continues on the
+    configuration it started with.
+
+The run of each turn records its configuration; nr-llm's *Agent Runs*
+module (*AI > Operation*) shows it on the run.
+
 System prompt
 =============
 
@@ -206,7 +263,9 @@ extension configuration itself, but in the **nr-llm records**:
 
 When both fields are set, they are combined (separated by a
 blank line). If neither is set, a locale-based default prompt
-is used.
+is used. For a page of a site with its own AI configuration
+(see :ref:`configuration-site-configuration`), the Configuration
+record is the site's.
 
 **Instructions for a conversation** (``tx_nrmcpagent_conversation.system_prompt``)
     Set by the user in the chat (the sliders button, see

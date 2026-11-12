@@ -28,6 +28,7 @@ use Netresearch\NrMcpAgent\Enum\DenyReason;
 use Netresearch\NrMcpAgent\Enum\InputHandBackReason;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Enum\ProcessStopReason;
+use Netresearch\NrMcpAgent\Enum\SiteConfigurationRefusal;
 use Netresearch\NrMcpAgent\Enum\TurnClaim;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextConversation;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextGate;
@@ -1865,6 +1866,14 @@ final readonly class ChatApiController
             return ['errorMessage' => $this->translate($handBack->labelKey()), 'errorLink' => '', 'errorLinkLabel' => ''];
         }
 
+        // The site's own configuration was refused (ADR-033): the reason and
+        // what an administrator can change, for every reader in their
+        // language, with the names the stored message carries.
+        $siteRefusal = SiteConfigurationRefusal::tryFrom($code);
+        if ($siteRefusal !== null) {
+            return $this->presentSiteRefusal($siteRefusal, $message);
+        }
+
         $kind = ConversationErrorCode::tryFrom($code);
         if ($kind === null || $message === '') {
             return $plain;
@@ -1894,6 +1903,32 @@ final readonly class ChatApiController
         }
 
         return ['errorMessage' => $message, 'errorLink' => $link, 'errorLinkLabel' => $this->translate($label)];
+    }
+
+    /**
+     * A refused site configuration as the reader sees it: the sentence names
+     * the site, the configuration and the model; an administrator also gets
+     * the link to the LLM configurations, where most of it is changed.
+     *
+     * @return array{errorMessage: string, errorLink: string, errorLinkLabel: string}
+     */
+    private function presentSiteRefusal(SiteConfigurationRefusal $refusal, string $stored): array
+    {
+        $names   = SiteConfigurationRefusal::decode($stored);
+        $message = sprintf($this->translate($refusal->labelKey()), $names['site'], $names['configuration'], $names['model']);
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication || !$backendUser->isAdmin()) {
+            return ['errorMessage' => $message, 'errorLink' => '', 'errorLinkLabel' => ''];
+        }
+
+        try {
+            $link = (string) $this->uriBuilder->buildUriFromRoute('nrllm_configurations');
+        } catch (RouteNotFoundException) {
+            return ['errorMessage' => $message, 'errorLink' => '', 'errorLinkLabel' => ''];
+        }
+
+        return ['errorMessage' => $message, 'errorLink' => $link, 'errorLinkLabel' => $this->translate('error.openConfigurations')];
     }
 
     /**

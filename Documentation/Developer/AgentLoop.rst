@@ -72,9 +72,24 @@ continuation after an approval or an answer is checked the same way. A turn
 about no page, or about a page that belongs to no site, states no site, and
 every forbidden term of every site applies.
 
-The configuration stays the one of the chat's Task. ADR-244 lets a site
-name its own configuration, but a configuration the caller passes wins over
-it, and the chat always passes its Task's.
+The same site decides the configuration (:ref:`adr-033`). Where it names
+its own in the site setting ``nrllm.configuration`` (nr-llm ADR-244), the
+turn runs on that configuration instead of the Task's; the Task still adds
+its prompt template. ``SiteConfigurationSelector`` reads the setting
+through nr-llm's ``ConfigurationResolver::resolveForSite()`` with the
+turn's actor and refuses, before any model call, a configuration that
+cannot be used, one without a fixed model, and one whose model lacks the
+capability ``tools`` or whose provider adapter is not tool-capable. The
+turn then fails with a code from ``SiteConfigurationRefusal``; it never
+falls back to the Task's configuration. A site that names none, a turn
+about no page and a page in no site keep the Task's configuration.
+
+A run waiting for an approval or an answer keeps the configuration it
+started with. Before ``approve()`` or ``submitInput()`` the chat asks the
+site again: when it now names another configuration than the run's, or one
+the chat refuses, the decision or answer is handed back with
+``handBack.siteConfig`` / ``handBack.inputSiteConfig`` and nr-llm is not
+called. A new message starts a turn on the site's configuration.
 
 Outcome mapping
 ===============
