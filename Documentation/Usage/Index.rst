@@ -118,9 +118,10 @@ What the chat tells you besides the answer
     mode, the text of a change the assistant proposes is checked against
     the configured rule set. A rule the text may break is listed below
     this line, with the passage it is about; so is a check that gave no
-    answer, in which case read the text against the rules yourself. The
-    change is
-    still proposed, and you decide on it as usual. In block mode a change
+    answer, in which case read the text against the rules yourself. A
+    change shorter than 30 words is not checked, so a missing hint does
+    not mean that a text was checked and passed. The change is still
+    proposed, and you decide on it as usual. In block mode a change
     that breaks a rule is not proposed at all: the chat ends with an error
     that names the rule.
 
