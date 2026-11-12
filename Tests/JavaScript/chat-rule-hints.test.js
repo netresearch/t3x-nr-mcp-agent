@@ -9,7 +9,7 @@
  */
 
 import {describe, test, expect, beforeEach} from '@jest/globals';
-import {ChatCoreController} from '../../Resources/Public/JavaScript/chat-core.js';
+import {ChatCoreController, escapeMarkdownText} from '../../Resources/Public/JavaScript/chat-core.js';
 
 const SURFACES = [
     {name: 'chat-app (full page)', module: '../../Resources/Public/JavaScript/chat-app.js', tag: 'nr-chat-app', open: false},
@@ -118,7 +118,9 @@ describe('rule-set hints in the export', () => {
 
         const md = chat.buildMarkdownExport();
         expect(md).toContain('chat.ruleHints');
-        expect(md).toContain(`- ${VIOLATION}\n- ${UNAVAILABLE}`);
+        expect(md).toContain('- This passage may break the rule "No superlatives" \\(snippet "Legal"\\): "the &lt;b&gt;best&lt;/b&gt; airfryer ever"');
+        expect(md).toContain(`- ${UNAVAILABLE}`);
+        expect(md).not.toContain('<b>');
         expect(md).not.toContain('The rule-set check reported');
     });
 
@@ -126,5 +128,13 @@ describe('rule-set hints in the export', () => {
         const chat = new ChatCoreController({addController() {}, requestUpdate() {}});
 
         expect(chat.ruleHints({role: 'assistant', content: 'x', data: {hints: [{kind: 'violation', message: 'y'}]}})).toEqual([]);
+    });
+});
+
+describe('escapeMarkdownText', () => {
+    test('HTML and Markdown syntax stay literal text', () => {
+        expect(escapeMarkdownText('<img src=x onerror=alert(1)> & *bold* [link](u) `c` # h')).toBe(
+            '&lt;img src=x onerror=alert\\(1\\)&gt; &amp; \\*bold\\* \\[link\\]\\(u\\) \\`c\\` \\# h',
+        );
     });
 });

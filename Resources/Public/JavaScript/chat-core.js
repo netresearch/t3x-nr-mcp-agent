@@ -6,6 +6,23 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {altTextNoticeText} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {ModuleStateStorage} from '@typo3/backend/storage/module-state-storage.js';
 import {renderMarkdown} from '@netresearch/nr-mcp-agent/markdown.js';
+
+/**
+ * Plain text for a Markdown document: HTML characters become entities and
+ * Markdown syntax is backslash-escaped, so a viewer shows the text the chat
+ * showed instead of rendering markup inside it. Used for the rule-set hints,
+ * which quote a passage of the checked text.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function escapeMarkdownText(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/([\\`*_{}[\]()#+\-!|~])/g, '\\$1');
+}
 import {clearSentHighlight} from '@netresearch/nr-mcp-agent/chat-guided.js';
 import {PAGE_MODULE} from '@netresearch/nr-mcp-agent/chat-context-chips.js';
 
@@ -2083,7 +2100,7 @@ export class ChatCoreController {
             parts.push((altTextNoticeText(msg) ?? this.formatRunNotice(msg) ?? this._extractText(msg)).trim());
             const hints = this.ruleHints(msg);
             if (hints.length > 0) {
-                parts.push(hints.map((hint) => `- ${hint}`).join('\n'));
+                parts.push(hints.map((hint) => `- ${escapeMarkdownText(hint)}`).join('\n'));
             }
         }
 
