@@ -218,9 +218,11 @@ What else follows the site's configuration:
     of the site's provider applies.
 *   **Tool groups and excluded tools** are the site configuration's. An
     empty group list allows every group.
-*   **Approvals waiting** when the setting changes are not carried out on
-    the old configuration: the chat hands the card or question back and
-    asks for a new message.
+*   **Approvals waiting** when the setting changes to another configuration,
+    or to one the chat cannot run on, are not carried out on the old
+    configuration: the chat hands the card or question back and asks for a
+    new message. When the setting is cleared, a waiting run continues on the
+    configuration it started with.
 
 The run of each turn records its configuration; nr-llm's *Agent Runs*
 module (*AI > Operation*) shows it on the run.
