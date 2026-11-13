@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-13
+
+### Added
+
+- The chat lists what an assignment changed: a read-only disclosure "Änderungen dieses Auftrags" in the full-page module and the popup shows every record the runs of the conversation changed, from nr-llm's `tool_changes` events. A row names the table, the record's title (linked to the edit form where the viewer may modify the table), the uid and separate badges for the action, the workspace, the language, hidden or not hidden, start time, end time and user group restrictions, whether the record was the target of the step, and whether the step failed after the record was written. A record the viewer may not read is counted and never named, and older runs contribute the writes they listed ([#347](https://github.com/netresearch/t3x-nr-mcp-agent/pull/347), ADR-034).
+- The approval card takes workspace and language from nr-llm's structured fields, marks a call that an invocation rule refuses, offers no approval when every call is refused, and tells a reader who works live that the configuration requires a draft workspace. The approval endpoint answers 409 to an approval of such a card.
+
+### Changed
+
+- nr-llm 0.45.0 or later is required (the `tool_changes` events and the structured card fields). The extension's `ext_emconf.php` and `composer.json` accept nr-llm 0.45.x only.
+
 ## [0.37.0] - 2026-11-12
 
 ### Added
