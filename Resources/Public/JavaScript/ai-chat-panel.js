@@ -3486,7 +3486,9 @@ export class AiChatPanel extends LitElement {
                 ${call.previewStale ? html`
                     <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
                 ` : nothing}
+                ${renderCallRefusal(call)}
                 ${renderProposal(call, (c) => this._renderApprovalPreview(c))}
+                ${renderDraftWorkspaceNote(pending)}
                 ${this._renderApproveBlocked(pending)}
                 <div class="approval-actions">
                     ${pending.approveBlocked ? nothing : html`

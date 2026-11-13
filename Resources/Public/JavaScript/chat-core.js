@@ -813,7 +813,10 @@ export class ChatCoreController {
     }
 
     /**
-     * The reader opens or closes the list; the first opening asks for it.
+     * The reader opens or closes the list; every opening asks for it again,
+     * because turns may have changed more records while it was closed and a
+     * failed request must be retryable. The list shown before stays on screen
+     * while the new one loads.
      *
      * @param {boolean} open
      */
@@ -823,7 +826,7 @@ export class ChatCoreController {
         }
 
         this.changesOpen = open;
-        if (open && this.changes === null) {
+        if (open) {
             void this.loadChanges();
         }
     }

@@ -238,6 +238,14 @@ describe.each(SURFACES)('$name approval card, structured facts', ({module: modul
         const notRequired = await render(modulePath, tag, open, {available: false, pending: card([REFUSED], {draftWorkspaceRequired: false, approveBlocked: 'allRefused'})});
         expect(notRequired.shadowRoot.querySelector('.approval-note')).toBeNull();
     });
+
+    test('a guided-process card of a refused write says so and tells the reader to switch workspace', async () => {
+        const el = await render(modulePath, tag, open, {available: false, pending: card([REFUSED], {answers: 'process', draftWorkspaceRequired: true, approveBlocked: 'allRefused'})});
+
+        expect(el.shadowRoot.querySelector('.proposal-card')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('.proposal-card [data-refused="true"]').textContent).toContain('chat.approvalRefused');
+        expect(el.shadowRoot.querySelector('.proposal-card .approval-note[role="note"]').textContent).toContain('chat.approvalDraftWorkspaceRequired');
+    });
 });
 
 describe('loading the list', () => {
@@ -272,6 +280,22 @@ describe('loading the list', () => {
         el.chat.changesOpen = true;
         el.chat._setChangesAvailable({});
         expect(el.chat._api.getChanges).toHaveBeenCalledTimes(1);
+    });
+
+    test('reopening the disclosure asks again, also after a failed request', async () => {
+        const el = await render(SURFACES[0].module, SURFACES[0].tag, false, {data: null});
+        el.chat._api.getChanges = jest.fn(async () => { throw new Error('boom'); });
+        el.chat.setChangesOpen(true);
+        await el.updateComplete;
+        expect(el.chat.changes.state).toBe('error');
+
+        el.chat._api.getChanges = jest.fn(async () => DATA);
+        el.chat.setChangesOpen(false);
+        el.chat.setChangesOpen(true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(el.chat._api.getChanges).toHaveBeenCalledTimes(1);
+        expect(el.chat.changes.state).toBe('loaded');
     });
 
     test('a failed request keeps the list that was shown and says so', async () => {

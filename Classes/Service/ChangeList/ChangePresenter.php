@@ -158,6 +158,12 @@ final readonly class ChangePresenter
             return false;
         }
 
+        // A file record lies on the root level, so its table alone says nothing
+        // about the file: the viewer needs the file mount.
+        if ($table === 'sys_file' || $table === 'sys_file_metadata') {
+            return $viewer->isAdmin() || $this->mayReadStorage($viewer, $this->storageOf($table, $row));
+        }
+
         $pageId = $this->pageOf($table, $row);
         if ($pageId === 0) {
             // A record on the root level, or the root itself.
@@ -165,10 +171,53 @@ final readonly class ChangePresenter
         }
 
         try {
-            return BackendUtility::readPageAccess($pageId, $viewer->getPagePermsClause(Permission::PAGE_SHOW)) !== false;
+            return BackendUtility::readPageAccess($pageId, $viewer->getPagePermsClause(Permission::PAGE_SHOW)) !== false
+                || $this->mayReadDeletedPage($viewer, $pageId);
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * readPageAccess() reads the page with the delete clause on, so a page a
+     * run deleted, or the page of a record on it, would read as unreadable
+     * even for the viewer who may see it. The same two checks, on the row
+     * with deleted ones included.
+     */
+    private function mayReadDeletedPage(BackendUserAuthentication $viewer, int $pageId): bool
+    {
+        $page = BackendUtility::getRecord('pages', $pageId, '*', '', false);
+        if (!is_array($page) || $this->intOf($page['deleted'] ?? 0) !== 1) {
+            return false;
+        }
+
+        return $viewer->doesUserHaveAccess($page, Permission::PAGE_SHOW, false)
+            && $viewer->isInWebMount($page, $viewer->getPagePermsClause(Permission::PAGE_SHOW), false) !== null;
+    }
+
+    /**
+     * @param array<mixed> $row
+     */
+    private function storageOf(string $table, array $row): int
+    {
+        if ($table === 'sys_file') {
+            return $this->intOf($row['storage'] ?? 0);
+        }
+
+        $file = BackendUtility::getRecord('sys_file', $this->intOf($row['file'] ?? 0), 'storage', '', false);
+
+        return is_array($file) ? $this->intOf($file['storage'] ?? 0) : 0;
+    }
+
+    private function mayReadStorage(BackendUserAuthentication $viewer, int $storage): bool
+    {
+        foreach ($viewer->getFileStorages() as $mounted) {
+            if ($mounted->getUid() === $storage) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -214,16 +263,18 @@ final readonly class ChangePresenter
     }
 
     /**
-     * A page that finds the record's site. A page new in a workspace is not in
-     * the live rootline yet, so a page is looked up by its parent.
+     * A page that finds the record's site: the page itself for a page, else the
+     * record's page. LanguageLabel climbs from there, so a page that is new in
+     * a workspace and not in the live rootline yet still finds its parent's
+     * site, and a nested site root finds its own.
      *
      * @param array<mixed> $row
      */
     private function sitePageOf(string $table, array $row): int
     {
-        $pid = $this->intOf($row['pid'] ?? 0);
+        $uid = $this->intOf($row['uid'] ?? 0);
 
-        return $table === 'pages' && $pid === 0 ? $this->intOf($row['uid'] ?? 0) : $pid;
+        return $table === 'pages' && $uid > 0 ? $uid : $this->intOf($row['pid'] ?? 0);
     }
 
     /**

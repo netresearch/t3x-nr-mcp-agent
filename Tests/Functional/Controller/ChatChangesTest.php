@@ -32,6 +32,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -262,5 +263,22 @@ final class ChatChangesTest extends FunctionalTestCase
         self::assertSame([true, false], array_column($card['calls'], 'refused'));
         self::assertSame([0, 1], array_column($card['calls'], 'workspaceId'));
         self::assertFalse($card['draftWorkspaceRequired']);
+    }
+
+    /** A client that still shows an old card can post an approval; nothing is recorded and no worker is started. */
+    #[Test]
+    public function aStaleApprovalOfACardWhoseCallsAreAllRefusedIsRejected(): void
+    {
+        $this->loginAs(self::ADMIN);
+        $uid = $this->waitingWith([new PendingCallView('create_page_draft', '{}', true, ['Regel: Entwurfs-Workspace nötig.'], refusedByRule: true)], draftRequired: true);
+        $this->approval->expects(self::never())->method('recordDecision');
+
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, json_encode(['conversationUid' => $uid, 'approve' => true, 'turnDigest' => 'digest-1'], JSON_THROW_ON_ERROR));
+        rewind($stream);
+        $response = $this->subject()->decideApproval((new ServerRequest('/', 'POST'))->withBody(new Stream($stream)));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertArrayHasKey('error', $this->json($response));
     }
 }

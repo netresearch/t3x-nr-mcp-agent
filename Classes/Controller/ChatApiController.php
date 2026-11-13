@@ -2597,6 +2597,7 @@ final readonly class ChatApiController
         $blocked = $approve ? $this->approveBlockedReason($conversation, $this->chatApproval->pendingApproval($conversation)) : '';
 
         return match ($blocked) {
+            'allRefused'              => new JsonResponse(['error' => $this->translate('chat.approvalAllRefused')], 409),
             'secondApprover'          => new JsonResponse(['error' => $this->translate('error.handBack.secondApprover')], 409),
             'preview'                 => new JsonResponse(['error' => $this->translate('error.approvalNeedsPreview')], 403),
             'altTextMarkNotPermitted' => new JsonResponse(['error' => $this->translate('altText.markNotPermitted')], 403),
