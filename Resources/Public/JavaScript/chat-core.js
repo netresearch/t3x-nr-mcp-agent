@@ -808,7 +808,7 @@ export class ChatCoreController {
 
         this.changesAvailable = data.changesAvailable;
         if (this.changesOpen && this.changesAvailable) {
-            this.loadChanges();
+            void this.loadChanges();
         }
     }
 
@@ -824,7 +824,7 @@ export class ChatCoreController {
 
         this.changesOpen = open;
         if (open && this.changes === null) {
-            this.loadChanges();
+            void this.loadChanges();
         }
     }
 
@@ -849,6 +849,7 @@ export class ChatCoreController {
             }
             this.changes = {state: 'loaded', data};
         } catch (e) {
+            // Not rethrown: the failure is shown as the section's error state.
             if (uid !== this.activeUid || request !== this._changesRequest) {
                 return;
             }

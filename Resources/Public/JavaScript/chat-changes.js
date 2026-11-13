@@ -83,7 +83,7 @@ export function openInContentFrame(event, url) {
     }
 }
 
-const ACTIONS = ['created', 'updated', 'moved', 'deleted', 'restored'];
+const ACTIONS = new Set(['created', 'updated', 'moved', 'deleted', 'restored']);
 
 const RESTRICTION_LABELS = {
     starttime: 'chat.changeRestrictionStarttime',
@@ -102,7 +102,7 @@ export function changeBadges(change) {
     const badges = [];
     const add = (key, text, tone = 'neutral') => badges.push({key, text, tone});
 
-    add('action', ACTIONS.includes(change.action) ? lll(`chat.changeAction.${change.action}`) : lll('chat.changeActionUnknown'));
+    add('action', ACTIONS.has(change.action) ? lll(`chat.changeAction.${change.action}`) : lll('chat.changeActionUnknown'));
     if (change.legacy) {
         // Only the tool's own record is known for a run from before the capture.
         add('legacy', lll('chat.changeLegacy'), 'info');
@@ -141,9 +141,21 @@ export function changeBadges(change) {
 
 function renderChange(change) {
     const name = change.title || lll('chat.changeUntitled');
-    const label = html`<span class="change-table">${change.tableLabel}</span> ${change.editUrl
+    const record = change.editUrl
         ? html`<a href=${change.editUrl} @click=${(e) => openInContentFrame(e, change.editUrl)}>${name}</a>`
-        : html`<strong>${name}</strong>`} <span class="change-uid">(${change.uid})</span>`;
+        : html`<strong>${name}</strong>`;
+    const label = html`<span class="change-table">${change.tableLabel}</span> ${record} <span class="change-uid">(${change.uid})</span>`;
+
+    const historyLabel = lll('chat.changeHistory') + ': ' + name;
+    const historyLink = change.historyUrl
+        ? html`<a href=${change.historyUrl} aria-label=${historyLabel} @click=${(e) => openInContentFrame(e, change.historyUrl)}>${lll('chat.changeHistory')}</a>`
+        : nothing;
+    const workspaceLink = change.workspaceUrl
+        ? html`<a href=${change.workspaceUrl} @click=${(e) => openInContentFrame(e, change.workspaceUrl)}>${lll('chat.changeWorkspaceModule')}</a>`
+        : nothing;
+    const links = change.historyUrl || change.workspaceUrl
+        ? html`<p class="change-links">${historyLink} ${workspaceLink}</p>`
+        : nothing;
 
     return html`
         <li class="change" data-table=${change.table} data-uid=${change.uid}>
@@ -151,12 +163,7 @@ function renderChange(change) {
             <ul class="change-badges" aria-label=${lll('chat.changeFacts')}>
                 ${changeBadges(change).map((badge) => html`<li class="change-badge" data-badge=${badge.key} data-tone=${badge.tone}>${badge.text}</li>`)}
             </ul>
-            ${change.historyUrl || change.workspaceUrl ? html`
-                <p class="change-links">
-                    ${change.historyUrl ? html`<a href=${change.historyUrl} aria-label=${`${lll('chat.changeHistory')}: ${name}`} @click=${(e) => openInContentFrame(e, change.historyUrl)}>${lll('chat.changeHistory')}</a>` : nothing}
-                    ${change.workspaceUrl ? html`<a href=${change.workspaceUrl} @click=${(e) => openInContentFrame(e, change.workspaceUrl)}>${lll('chat.changeWorkspaceModule')}</a>` : nothing}
-                </p>
-            ` : nothing}
+            ${links}
         </li>
     `;
 }

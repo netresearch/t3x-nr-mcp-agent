@@ -51,7 +51,7 @@ final class ChatServiceChangesTest extends TestCase
     /** @var list<string> */
     private array $eventsAskedFor = [];
 
-    private function agentRun(string $uuid, int $owner = self::OWNER, int $configuration = 0): AgentRun
+    private function agentRun(int $owner = self::OWNER, int $configuration = 0): AgentRun
     {
         $run        = (new ReflectionClass(AgentRun::class))->newInstanceWithoutConstructor();
         $reflection = new ReflectionClass($run);
@@ -75,7 +75,7 @@ final class ChatServiceChangesTest extends TestCase
             ], 0)];
         });
         $runs = $this->createMock(AgentRunRepositoryInterface::class);
-        $runs->method('findByUuid')->willReturnCallback(fn (string $uuid): ?AgentRun => in_array($uuid, ['run-a', 'run-b'], true) ? $this->agentRun($uuid, configuration: 5) : null);
+        $runs->method('findByUuid')->willReturnCallback(fn (string $uuid): ?AgentRun => in_array($uuid, ['run-a', 'run-b'], true) ? $this->agentRun(configuration: 5) : null);
 
         return new ChatService(
             $this->createMock(ConversationRepository::class),
