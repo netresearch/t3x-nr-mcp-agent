@@ -35,14 +35,13 @@ final class ApprovalCallPresenterTest extends TestCase
 
     private const HEADING_UPDATE = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.updatePage.heading';
 
-    /** nr-llm's German `approvalPreview.workspace.target`. */
-    private const GERMAN_WORKSPACE = 'Arbeitsumgebung: %s – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
+    /** The chat's own German sentence for a write into a draft workspace (ADR-034). */
+    private const GERMAN_WORKSPACE = 'Wird als Entwurf im Workspace „%s“ gespeichert; Live bleibt unverändert, bis der Workspace veröffentlicht wird';
 
-    /** The line nr-llm's alt text writer adds in a draft workspace, in German. */
-    private const GERMAN_WORKSPACE_LINE = 'Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
+    private const GERMAN_WORKSPACE_UNTITLED = 'Wird als Entwurf in einem Workspace gespeichert, dessen Titel für Sie nicht sichtbar ist';
 
-    /** The same line in nr-llm's source language. */
-    private const ENGLISH_WORKSPACE_LINE = 'Workspace: “Entwurf” — saved there as a draft, live stays unchanged until the workspace is published';
+    /** The prose line nr-llm's writers add in a draft workspace; nothing reads it any more. */
+    private const NR_LLM_WORKSPACE_LINE = 'Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
 
     /**
      * A German reader: the editor action label and nr-llm's technical-details
@@ -52,13 +51,14 @@ final class ApprovalCallPresenterTest extends TestCase
     {
         $language = $this->createMock(LanguageService::class);
         $language->method('sL')->willReturnCallback(static fn (string $reference): string => match ($reference) {
-            self::LABEL                                    => ' Seite als Entwurf anlegen ',
-            self::HEADING_CREATE                           => 'Neue Seite als Entwurf anlegen',
-            self::HEADING_DELETE                           => 'Seite löschen',
-            self::HEADING_UPDATE                           => 'Metadaten der Seite ändern',
-            ApprovalCallPresenter::TECHNICAL_DETAILS_LABEL => 'Technische Details: %s',
-            ApprovalCallPresenter::WORKSPACE_LABEL         => self::GERMAN_WORKSPACE,
-            default                                        => '',
+            self::LABEL                                     => ' Seite als Entwurf anlegen ',
+            self::HEADING_CREATE                            => 'Neue Seite als Entwurf anlegen',
+            self::HEADING_DELETE                            => 'Seite löschen',
+            self::HEADING_UPDATE                            => 'Metadaten der Seite ändern',
+            ApprovalCallPresenter::TECHNICAL_DETAILS_LABEL  => 'Technische Details: %s',
+            ApprovalCallPresenter::WORKSPACE_SENTENCE_LABEL => self::GERMAN_WORKSPACE,
+            ApprovalCallPresenter::WORKSPACE_UNTITLED_LABEL => self::GERMAN_WORKSPACE_UNTITLED,
+            default                                         => '',
         });
 
         return $language;
@@ -470,61 +470,94 @@ final class ApprovalCallPresenterTest extends TestCase
     }
 
     /**
-     * nr-llm names the draft workspace a write goes to in one preview line
-     * (nr-llm ADR-260). A card that shows nr-llm's structured values or a
-     * proposal instead of the lines gets that line as `workspace`, matched by
-     * nr-llm's own label in the preview's language; the line stays among the
-     * preview lines for the cards that show them.
+     * The workspace of a write is nr-llm's structured value (nr-llm ADR-292),
+     * worded by the chat; nr-llm's prose line stays among the preview lines for
+     * the cards that show them.
      */
     #[Test]
-    public function nrLlmsWorkspaceLineIsHandedOverAsTheWorkspace(): void
+    public function theWorkspaceComesFromTheStructuredFields(): void
     {
         $call = new PendingCallView('set_file_reference_alternative_text', '{}', true, [
             'Alternativtext einer Bildverwendung setzen',
-            'Seite: „Startseite“',
-            self::GERMAN_WORKSPACE_LINE,
-            'Bild: „team.jpg“',
+            self::NR_LLM_WORKSPACE_LINE,
             'Technische Details: Tabelle pages, UID 1',
-        ]);
+        ], workspaceId: 3, workspaceTitle: 'Entwurf');
 
         $presented = $this->presenter()->present([$call], $this->german(), $this->german());
 
-        self::assertSame(self::GERMAN_WORKSPACE_LINE, $presented[0]['workspace']);
-        self::assertContains(self::GERMAN_WORKSPACE_LINE, $presented[0]['previewLines']);
+        self::assertSame('Wird als Entwurf im Workspace „Entwurf“ gespeichert; Live bleibt unverändert, bis der Workspace veröffentlicht wird', $presented[0]['workspace']);
+        self::assertSame(3, $presented[0]['workspaceId']);
+        self::assertSame('Entwurf', $presented[0]['workspaceTitle']);
+        self::assertContains(self::NR_LLM_WORKSPACE_LINE, $presented[0]['previewLines']);
+    }
+
+    /** nr-llm's prose line is no longer a source: a call in live names no workspace whatever its lines say. */
+    #[Test]
+    public function aProseLineAloneNamesNoWorkspace(): void
+    {
+        $call = new PendingCallView('set_file_reference_alternative_text', '{}', true, ['Bild: „team.jpg“', self::NR_LLM_WORKSPACE_LINE]);
+
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
+
+        self::assertSame('', $presented[0]['workspace']);
+        self::assertSame(0, $presented[0]['workspaceId']);
+    }
+
+    /** A workspace the reader may not open has no title for them; the card still says that it is a draft. */
+    #[Test]
+    public function aWithheldWorkspaceTitleIsNotInvented(): void
+    {
+        $call = new PendingCallView('set_file_reference_alternative_text', '{}', true, ['Bild: „team.jpg“'], workspaceId: 3, workspaceTitle: '');
+
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
+
+        self::assertSame(self::GERMAN_WORKSPACE_UNTITLED, $presented[0]['workspace']);
+        self::assertSame('', $presented[0]['workspaceTitle']);
+        self::assertSame(3, $presented[0]['workspaceId']);
+    }
+
+    /** A failed preview carries a reason, never a draft. */
+    #[Test]
+    public function aFailedPreviewNamesNoWorkspace(): void
+    {
+        $call = new PendingCallView('set_file_reference_alternative_text', '{}', true, ['Nicht erlaubt.'], previewFailed: true, workspaceId: 3, workspaceTitle: 'Entwurf');
+
+        $presented = $this->presenter()->present([$call], $this->german(), $this->german());
+
+        self::assertSame('', $presented[0]['workspace']);
     }
 
     /**
-     * Without the preview's language the line is matched by nr-llm's source
-     * text, as the technical line is; a German line is then not recognised.
+     * nr-llm refused the call by a rule (nr-llm ADR-293). Its lines are the
+     * rule's explanation; the card marks the call and writes no draft sentence
+     * for a write that will not happen.
      */
     #[Test]
-    public function withoutALanguageTheWorkspaceLineIsMatchedByNrLlmsSourceText(): void
+    public function aCallRefusedByARuleIsMarkedAndNamesNoWorkspace(): void
     {
-        $english = new PendingCallView('set_file_reference_alternative_text', '{}', true, ['Image: “team.jpg”', self::ENGLISH_WORKSPACE_LINE]);
-        $german  = new PendingCallView('set_file_reference_alternative_text', '{}', true, ['Bild: „team.jpg“', self::GERMAN_WORKSPACE_LINE]);
+        $refused = new PendingCallView('create_page_draft', '{}', true, ['Die Konfiguration verlangt einen Entwurfs-Workspace.'], refusedByRule: true, workspaceId: 3, workspaceTitle: 'Entwurf', language: 1);
+        $normal  = new PendingCallView('create_page_draft', '{}', true, ['Titel: „x“']);
 
-        $presented = $this->presenter()->present([$english, $german], null, null);
+        $presented = $this->presenter()->present([$refused, $normal], $this->german(), $this->german());
 
-        self::assertSame([self::ENGLISH_WORKSPACE_LINE, ''], array_column($presented, 'workspace'));
+        self::assertSame([true, false], array_column($presented, 'refused'));
+        self::assertSame('', $presented[0]['workspace']);
+        self::assertNull($presented[0]['language']);
+        self::assertSame(['Die Konfiguration verlangt einen Entwurfs-Workspace.'], $presented[0]['previewLines']);
     }
 
-    /**
-     * In live nr-llm writes no workspace line, and a failed preview carries a
-     * reason, never a workspace; a line that only starts like the label, or
-     * names no workspace between its two halves, is none.
-     */
+    /** A card without a target language states none, which is not the default language. */
     #[Test]
-    public function withoutNrLlmsWorkspaceLineThereIsNoWorkspace(): void
+    public function theLanguageIsNamedOnlyWhereTheToolTakesOne(): void
     {
-        $calls = [
-            new PendingCallView('set_file_reference_alternative_text', '{}', true, ['Bild: „team.jpg“', 'Alternativtext: „Ein Team“']),
-            new PendingCallView('set_file_reference_alternative_text', '{}', true, [self::GERMAN_WORKSPACE_LINE], previewFailed: true),
-            new PendingCallView('set_file_reference_alternative_text', '{}', true, ['Arbeitsumgebung: „Entwurf“']),
-            new PendingCallView('set_file_reference_alternative_text', '{}', true, ['Arbeitsumgebung:  – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird']),
-        ];
+        $withLanguage    = new PendingCallView('create_translation_draft', '{}', true, ['Titel: „x“'], language: 1);
+        $withoutLanguage = new PendingCallView('create_page_draft', '{}', true, ['Titel: „x“']);
+        $defaultLanguage = new PendingCallView('create_translation_draft', '{}', true, ['Titel: „x“'], language: 0);
 
-        $presented = $this->presenter()->present($calls, $this->german(), $this->german());
+        $presented = $this->presenter()->present([$withLanguage, $withoutLanguage, $defaultLanguage], $this->german(), $this->german());
 
-        self::assertSame(['', '', '', ''], array_column($presented, 'workspace'));
+        self::assertSame(['id' => 1, 'label' => '#1'], $presented[0]['language']);
+        self::assertNull($presented[1]['language']);
+        self::assertSame(0, $presented[2]['language']['id'] ?? null);
     }
 }

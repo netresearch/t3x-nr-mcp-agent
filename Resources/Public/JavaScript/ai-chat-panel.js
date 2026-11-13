@@ -19,6 +19,7 @@ import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mc
 import {approveBlockedLabel, chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {contextChipsStyles, renderContextChips} from '@netresearch/nr-mcp-agent/chat-context-chips.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
+import {chatChangesStyles, renderCallRefusal, renderChanges, renderDraftWorkspaceNote} from '@netresearch/nr-mcp-agent/chat-changes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 import {registerPanel, unregisterPanel} from '@netresearch/nr-mcp-agent/chat-panel-registry.js';
@@ -90,7 +91,7 @@ export class AiChatPanel extends LitElement {
         _moreIndex: {state: true},
     };
 
-    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatAltTextStyles, contextChipsStyles, conversationListStyles, css`
+    static styles = [themeStyles, markdownStyles, chatEditingStyles, chatActivityStyles, chatGuidedStyles, chatReplyOptionsStyles, chatSlashStyles, chatProposalStyles, chatOutcomesStyles, chatChangesStyles, chatAltTextStyles, contextChipsStyles, conversationListStyles, css`
         :host {
             position: fixed;
             z-index: calc(var(--typo3-zindex-modal-backdrop, 1050) - 10);
@@ -3102,6 +3103,7 @@ export class AiChatPanel extends LitElement {
                 ${this.chat.messages.map((msg, idx) => html`${renderOutcomeLines(this.chat, idx)}${this._renderMessage(msg, idx)}`)}
                 ${renderOutcomeLines(this.chat, this.chat.messages.length)}
                 ${renderSummary(this.chat)}
+                ${renderChanges(this.chat)}
                 ${this.chat.isProcessing() ? html`
                     <div class="message-row assistant" aria-label="${lll('chat.processing')}">
                         <div class="avatar avatar-assistant">${AVATAR_ASSISTANT(14)}</div>
@@ -3419,6 +3421,7 @@ export class AiChatPanel extends LitElement {
                 ${pending.calls.map((call) => html`
                     <div class="approval-call">
                         <p class="approval-title" role="heading" aria-level="3"><strong>${call.heading || call.actionLabel || lll('chat.approvalTitleGeneric')}</strong></p>
+                        ${renderCallRefusal(call)}
                         ${call.toolStillRegistered ? nothing : html`
                             <p class="approval-warning approval-stale">${lll('chat.approvalToolGone')}</p>
                         `}
@@ -3437,6 +3440,7 @@ export class AiChatPanel extends LitElement {
                         ` : nothing}
                     </div>
                 `)}
+                ${renderDraftWorkspaceNote(pending)}
                 ${this._renderApproveBlocked(pending)}
                 <div class="approval-actions">
                     ${pending.approveBlocked ? nothing : html`
@@ -3551,8 +3555,11 @@ export class AiChatPanel extends LitElement {
      * the button says that the step(s) will be carried out.
      */
     _approveLabel(pending) {
-        if (pending.calls.length === 1) {
-            return pending.calls[0].actionLabel || lll('chat.approvalConfirmGeneric');
+        // A call nr-llm refused by a rule is not carried out by the approval
+        // (ADR-034): the button names what is.
+        const approvable = pending.calls.filter((call) => !call.refused);
+        if (approvable.length === 1) {
+            return approvable[0].actionLabel || lll('chat.approvalConfirmGeneric');
         }
 
         return lll('chat.approvalConfirmGenericAll');

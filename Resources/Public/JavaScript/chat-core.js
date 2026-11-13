@@ -344,6 +344,20 @@ export class ChatCoreController {
     cardOutcomes = [];
 
     /**
+     * "Änderungen dieses Auftrags" (ADR-034): whether the conversation has
+     * anything to list, whether the reader has the list open, and the list as
+     * the server answered it (`null` until it was asked for).
+     */
+    changesAvailable = false;
+
+    changesOpen = false;
+
+    /** @type {{state: 'loading'|'error'|'loaded', data: object|null}|null} */
+    changes = null;
+
+    _changesRequest = 0;
+
+    /**
      * The page and language a guided process runs on (ADR-023), for the
      * header; null outside one.
      * @type {{pageTitle: string, languageName: string}|null}
@@ -579,6 +593,10 @@ export class ChatCoreController {
         this.approvalDecisionTaken = null;
         this.guided = {progress: null, highlight: null};
         this.cardOutcomes = [];
+        this.changesAvailable = false;
+        this.changesOpen = false;
+        this.changes = null;
+        this._changesRequest++;
         this.tour = null;
         this.tourStart = null;
         this.dashboardUrl = '';
@@ -739,6 +757,7 @@ export class ChatCoreController {
             this.systemPrompt = data.systemPrompt || '';
             this.guided = data.guided || {progress: null, highlight: null};
             this.cardOutcomes = data.cardOutcomes || [];
+            this._setChangesAvailable(data);
             this.tour = data.tour || null;
             this.tourStart = data.tourStart || null;
             this.dashboardUrl = data.dashboardUrl || '';
@@ -775,6 +794,67 @@ export class ChatCoreController {
         if (typeof data.errorPointsToRun === 'boolean') {
             this.errorPointsToRun = data.errorPointsToRun;
         }
+    }
+
+    /**
+     * Only the full response carries the flag. A list the reader has open is
+     * asked for again when the conversation changed, because the turn that
+     * just ended may have changed more records.
+     */
+    _setChangesAvailable(data) {
+        if (typeof data.changesAvailable !== 'boolean') {
+            return;
+        }
+
+        this.changesAvailable = data.changesAvailable;
+        if (this.changesOpen && this.changesAvailable) {
+            this.loadChanges();
+        }
+    }
+
+    /**
+     * The reader opens or closes the list; the first opening asks for it.
+     *
+     * @param {boolean} open
+     */
+    setChangesOpen(open) {
+        if (open === this.changesOpen) {
+            return;
+        }
+
+        this.changesOpen = open;
+        if (open && this.changes === null) {
+            this.loadChanges();
+        }
+    }
+
+    /**
+     * Ask for the list. The previous list stays on screen while the new one
+     * loads, so the open section does not flicker; an answer for a
+     * conversation or a request that is no longer current is dropped.
+     */
+    async loadChanges() {
+        const uid = this.activeUid;
+        if (!uid) {
+            return;
+        }
+
+        const request = ++this._changesRequest;
+        this.changes = {state: this.changes?.data ? 'loaded' : 'loading', data: this.changes?.data ?? null};
+        this.host.requestUpdate();
+        try {
+            const data = await this._api.getChanges(uid);
+            if (uid !== this.activeUid || request !== this._changesRequest) {
+                return;
+            }
+            this.changes = {state: 'loaded', data};
+        } catch (e) {
+            if (uid !== this.activeUid || request !== this._changesRequest) {
+                return;
+            }
+            this.changes = {state: 'error', data: this.changes?.data ?? null};
+        }
+        this.host.requestUpdate();
     }
 
     /**
@@ -864,6 +944,7 @@ export class ChatCoreController {
                 if (data.cardOutcomes) {
                     this.cardOutcomes = data.cardOutcomes;
                 }
+                this._setChangesAvailable(data);
                 if ('tour' in data) {
                     this.tour = data.tour || null;
                 }

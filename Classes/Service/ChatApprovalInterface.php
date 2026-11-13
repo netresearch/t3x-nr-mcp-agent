@@ -12,6 +12,7 @@ namespace Netresearch\NrMcpAgent\Service;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Enum\DenyReason;
+use Netresearch\NrMcpAgent\Service\ChangeList\ChangeCollection;
 
 /**
  * Reading and deciding the approval a conversation is parked on.
@@ -75,6 +76,20 @@ interface ChatApprovalInterface
      * initiator, so then nobody can approve it here.
      */
     public function requiresSecondApprover(Conversation $conversation): bool;
+
+    /**
+     * Whether the configuration the waiting run belongs to requires a draft
+     * workspace for writes (nr-llm ADR-293). nr-llm's card view does not carry
+     * the setting, so it is read from the run's configuration, as above.
+     */
+    public function requiresDraftWorkspace(Conversation $conversation): bool;
+
+    /**
+     * What the runs of the conversation changed (ADR-034), read from the runs'
+     * events for the conversation's owner. Not yet filtered for the viewer:
+     * ChangePresenter does that.
+     */
+    public function changesOf(Conversation $conversation): ChangeCollection;
 
     /**
      * Cancel the run a guided process waits on (a card or a question), after

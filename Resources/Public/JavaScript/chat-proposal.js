@@ -156,6 +156,7 @@ export function renderProposal(call, renderLines) {
                 </dl>
             ` : nothing}
             ${call.structured && call.workspace ? html`<p class="proposal-workspace">${call.workspace}</p>` : nothing}
+            ${call.structured && call.language ? html`<p class="proposal-workspace">${lll('chat.approvalLanguage', call.language.label)}</p>` : nothing}
             ${call.structured ? nothing : renderLines(call)}
         </div>
     `;

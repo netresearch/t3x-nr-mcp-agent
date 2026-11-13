@@ -14,6 +14,7 @@ use DateTimeInterface;
 use Exception;
 use finfo;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
+use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrMcpAgent\Configuration\ExtensionConfiguration;
 use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
@@ -36,6 +37,7 @@ use Netresearch\NrMcpAgent\Service\AltText\AltTextImage;
 use Netresearch\NrMcpAgent\Service\AltText\MissingAltText;
 use Netresearch\NrMcpAgent\Service\ApprovalCallPresenter;
 use Netresearch\NrMcpAgent\Service\Assistant\SkillLabels;
+use Netresearch\NrMcpAgent\Service\ChangeList\ChangePresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -146,6 +148,9 @@ final readonly class ChatApiController
         // What every list shows about a conversation (ADR-027); without it
         // the list carries the stored titles and no context.
         private ?ConversationListPresenter $listPresenter = null,
+        // What a conversation's runs changed, for the viewer (ADR-034);
+        // without it the change view answers with an empty list.
+        private ?ChangePresenter $changePresenter = null,
     ) {}
 
     /**
@@ -907,6 +912,62 @@ final readonly class ChatApiController
     }
 
     /**
+     * GET /ai-chat/conversations/changes?conversationUid={uid}: what the runs
+     * of the conversation changed, for the reader (ADR-034). Loaded when the
+     * reader opens "Änderungen dieses Auftrags", not with every poll.
+     */
+    public function getChanges(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied instanceof ResponseInterface) {
+            return $accessDenied;
+        }
+
+        $conversation = $this->findConversationOrFail($request);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        $viewer = $GLOBALS['BE_USER'] ?? null;
+        if (!$this->changePresenter instanceof ChangePresenter || !$viewer instanceof BackendUserAuthentication) {
+            return new JsonResponse(['error' => $this->translate('error.conversationNotFound')], 404);
+        }
+
+        $language = $GLOBALS['LANG'] ?? null;
+
+        return new JsonResponse($this->changePresenter->present(
+            $this->chatApproval->changesOf($conversation),
+            $viewer,
+            $language instanceof LanguageService ? $language : null,
+        ));
+    }
+
+    /**
+     * Whether the conversation has anything for the change view to show: a
+     * run that wrote a record or had a tool fail (which may have written
+     * first), or a run record from before the run's uuid was kept that lists a
+     * write. Cheap: it reads the stored run records only.
+     */
+    private function hasChanges(Conversation $conversation): bool
+    {
+        foreach ($conversation->getRunRecords() as $record) {
+            if ($record['writes'] !== []) {
+                return true;
+            }
+
+            if (isset($record['run'])) {
+                foreach ($record['tools'] as $tool) {
+                    if ($tool['errors'] > 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * GET /ai-chat/conversations/messages?conversationUid={uid}&after={index}.
      */
     public function getMessages(ServerRequestInterface $request): ResponseInterface
@@ -1004,7 +1065,10 @@ final readonly class ChatApiController
             'guided' => $this->presentGuided($conversation),
             // What became of each proposal of the guided process, for the
             // chat's own status lines and summary (ADR-023).
-            'cardOutcomes' => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->presentOutcomes(
+            // Whether "Änderungen dieses Auftrags" has anything to offer
+            // (ADR-034); the list itself is fetched when it is opened.
+            'changesAvailable' => $this->hasChanges($conversation),
+            'cardOutcomes'     => ($this->approvalCallPresenter ?? new ApprovalCallPresenter())->presentOutcomes(
                 $conversation->getCardOutcomes(),
                 ($GLOBALS['LANG'] ?? null) instanceof LanguageService ? $GLOBALS['LANG'] : null,
             ),
@@ -1728,6 +1792,14 @@ final readonly class ChatApiController
      */
     private function approveBlockedReason(Conversation $conversation, ?WaitingRunView $view): string
     {
+        // Nothing left to approve: nr-llm refused every call by a rule of the
+        // configuration (nr-llm ADR-293), and approving would carry out none.
+        if ($view instanceof WaitingRunView && $view->pendingCalls !== []
+            && array_filter($view->pendingCalls, static fn (PendingCallView $call): bool => !$call->refusedByRule) === []
+        ) {
+            return 'allRefused';
+        }
+
         if ($this->chatApproval->requiresSecondApprover($conversation)) {
             return 'secondApprover';
         }
@@ -2018,6 +2090,10 @@ final readonly class ChatApiController
             // Whether the approve button is offered; the ways to say no always
             // are (ADR-021).
             'approveBlocked' => $blocked,
+            // Whether the run's configuration requires a draft workspace for
+            // writes (nr-llm ADR-293); the card says so beside a call that
+            // would write in live. nr-llm's card view does not carry it.
+            'draftWorkspaceRequired' => $this->chatApproval->requiresDraftWorkspace($conversation),
             // "Übernehmen / Andere Variante / Überspringen" for a write in a
             // process run, approve and cancel for every other card (ADR-018).
             'answers' => match (true) {

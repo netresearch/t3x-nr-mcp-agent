@@ -23,8 +23,13 @@ use Netresearch\NrLlm\Service\Agent\AgentRunResult;
  * write was complete. Tool arguments, tool results and answers are not
  * read, so no stored value can reach a later prompt through the record.
  *
+ * The run's uuid is kept beside it (`run`, ADR-034) so the change view can read
+ * the run's events later. It is an identifier of the run, never shown to the
+ * model: RunRecordNotes reads the fields it names and no other.
+ *
  * @phpstan-type Entry array{
  *     outcome: string,
+ *     run?: string,
  *     decision?: string,
  *     tools: list<array{tool: string, calls: int, errors: int}>,
  *     writes: list<array{table: string, uid: int, complete: bool|null}>,
@@ -91,6 +96,10 @@ final class RunRecord
         ];
         if ($decision !== null) {
             $entry['decision'] = $decision;
+        }
+
+        if ($result->runUuid !== '') {
+            $entry['run'] = $result->runUuid;
         }
 
         return $entry;
