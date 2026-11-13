@@ -180,13 +180,24 @@ that workspace, also when you switch to another one before the chat has
 finished. A content element the chat changes there is stored as a draft of
 the workspace: it appears in the **Workspaces** module, and the live site
 stays as it was until the workspace is published. The approval card names
-the workspace, for example *Workspace: “Entwurf” — saved there as a draft*.
-The chat reads the page as your workspace shows it. The card of a proposed
-alternative text names the workspace in the same words. Changes nr-llm
+the workspace, for example *Saved as a draft in workspace “Entwurf”; live
+stays unchanged until the workspace is published*, and the target language
+where the step translates something. If you may not open that workspace, the
+card says that it is a draft in a workspace whose title is not visible to you.
+The chat reads the page as your workspace shows it. Changes nr-llm
 cannot make in a workspace are refused there with a message instead of being
 made live. When you may no
 longer work in the workspace the message was sent from, the turn fails and
 nothing is written.
+
+A step that a rule of the AI configuration excludes, for example because the
+configuration requires a draft workspace and you work in the live workspace,
+is marked **This step will not be carried out** on the card, and the rule's
+explanation stands below it. Approving the card does not carry that step out.
+When every step of the card is excluded, the card offers no approval, only
+the way to cancel. A configuration that requires a draft workspace says so
+beside the card while you work in the live workspace; switch to a workspace in
+the backend and send the request again.
 
 The tool's internal name, its arguments and the record identifiers are
 under **Show technical details**, which is closed until you open it.
@@ -202,6 +213,60 @@ instead of claiming that nothing can do what you asked.
 
     AI responses are rendered as rich Markdown — headings,
     lists, code blocks, and tables.
+
+..  _usage-assignment-changes:
+
+What an assignment changed
+--------------------------
+
+Below the conversation, **Änderungen dieses Auftrags** (*Changes of this
+assignment*) lists the records the assistant's steps changed. It appears once
+a step has written something, in every conversation, not only in guided
+processes, and it covers all steps of all runs of the conversation, also runs
+that were continued after an approval. Open it with :kbd:`Enter` or
+:kbd:`Space`; it loads the list when you open it.
+
+..  figure:: /Images/ChangeView.png
+    :alt: The list "Änderungen dieses Auftrags" with two changed records
+    :class: with-shadow
+
+    One row per record, with separate badges for each fact.
+
+Each row names the record, with its table and uid. The title is a link to the
+edit form where you may edit the table, and **Änderungen ansehen** opens the
+record history. The badges state, each on its own:
+
+*   what happened: created, updated, moved, deleted or restored;
+*   the workspace the record is stored in: a draft in a named workspace, or the
+    live workspace;
+*   the language, where the record has one;
+*   whether the record is hidden or not hidden. *Not hidden* says nothing about
+    whether the record is public: a draft in a workspace is not live, and a
+    start time, an end time or a user group can still keep it from visitors.
+    These restrictions are separate badges;
+*   whether the record is the target of the step or was changed along with it
+    (the content of a copied page, the overlay of a translation);
+*   that the step failed after this record was written, in which case check the
+    record before you ask again.
+
+Under the list a note states what the list covers: the changes TYPO3 reported
+for the steps of the assignment. A change made another way does not appear, so
+the list is not proof that nothing else changed. Further notes appear when the
+capture of a step was not complete (*Weitere Auswirkungen nicht vollständig
+erfasst*), when more records changed than the list holds, when runs are older
+than the capture (only the record each step named is known) and when runs could
+not be read.
+
+You see a record only if you may read it: the table, the page and its
+permissions and mounts, the language and, for a draft, the workspace. Records
+you may not read, and records that no longer exist, are not listed and not
+named, only counted. The link to the
+**Workspaces** module appears for records in the workspace you work in, because
+that module shows your current workspace.
+
+The list is read-only. It belongs to the conversation: editing a message
+removes the steps after it from the list as well, and a conversation older than
+the list shows the record each of its steps named.
 
 Editing a message
 -----------------

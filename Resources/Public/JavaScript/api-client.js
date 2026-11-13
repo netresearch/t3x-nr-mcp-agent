@@ -68,6 +68,16 @@ export class ApiClient {
     }
 
     /**
+     * What the runs of a conversation changed, for the reader (ADR-034).
+     *
+     * @param {number} conversationUid
+     * @returns {Promise<object>}
+     */
+    async getChanges(conversationUid) {
+        return this._get('ai_chat_conversation_changes', {conversationUid});
+    }
+
+    /**
      * Where the running turn of a conversation can be followed (ADR-028).
      *
      * @param {number} conversationUid

@@ -148,6 +148,8 @@ export function approveBlockedLabel(reason) {
     switch (reason) {
         case 'secondApprover':
             return 'chat.approvalSecondApprover';
+        case 'allRefused':
+            return 'chat.approvalAllRefused';
         case 'altTextMarkNotPermitted':
             return 'altText.markNotPermitted';
         case 'altTextOtherImage':

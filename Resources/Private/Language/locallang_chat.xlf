@@ -916,6 +916,129 @@
             <trans-unit id="error.altTextNoNext" resname="error.altTextNoNext">
                 <source>No other hit is open.</source>
             </trans-unit>
+            <trans-unit id="chat.changesTitle" resname="chat.changesTitle">
+                <source>Changes of this assignment</source>
+            </trans-unit>
+            <trans-unit id="chat.changesLoading" resname="chat.changesLoading">
+                <source>Loading the changes …</source>
+            </trans-unit>
+            <trans-unit id="chat.changesError" resname="chat.changesError">
+                <source>The changes could not be loaded.</source>
+            </trans-unit>
+            <trans-unit id="chat.changesNone" resname="chat.changesNone">
+                <source>No changes were recorded for the runs of this conversation.</source>
+            </trans-unit>
+            <trans-unit id="chat.changesNotCaptured" resname="chat.changesNotCaptured">
+                <source>Further effects were not captured completely.</source>
+            </trans-unit>
+            <trans-unit id="chat.changesOmitted" resname="chat.changesOmitted">
+                <source>%d further records are not listed.</source>
+            </trans-unit>
+            <trans-unit id="chat.changesWithheld" resname="chat.changesWithheld">
+                <source>%d further records are not shown: you may not read them, or they no longer exist.</source>
+            </trans-unit>
+            <trans-unit id="chat.changesLegacy" resname="chat.changesLegacy">
+                <source>For older runs only the record each step named is known; records changed along with it and further details are missing.</source>
+            </trans-unit>
+            <trans-unit id="chat.changesUnreadable" resname="chat.changesUnreadable">
+                <source>%d runs of this conversation could not be read.</source>
+            </trans-unit>
+            <trans-unit id="chat.changesCoverage" resname="chat.changesCoverage">
+                <source>Listed are the changes TYPO3 reported for the steps of this assignment. A change made another way does not appear, so the list is no proof that nothing else changed.</source>
+            </trans-unit>
+            <trans-unit id="chat.changeFacts" resname="chat.changeFacts">
+                <source>Properties of this change</source>
+            </trans-unit>
+            <trans-unit id="chat.changeUntitled" resname="chat.changeUntitled">
+                <source>(no title)</source>
+            </trans-unit>
+            <trans-unit id="chat.changeAction.created" resname="chat.changeAction.created">
+                <source>Created</source>
+            </trans-unit>
+            <trans-unit id="chat.changeAction.updated" resname="chat.changeAction.updated">
+                <source>Updated</source>
+            </trans-unit>
+            <trans-unit id="chat.changeAction.moved" resname="chat.changeAction.moved">
+                <source>Moved</source>
+            </trans-unit>
+            <trans-unit id="chat.changeAction.deleted" resname="chat.changeAction.deleted">
+                <source>Deleted</source>
+            </trans-unit>
+            <trans-unit id="chat.changeAction.restored" resname="chat.changeAction.restored">
+                <source>Restored</source>
+            </trans-unit>
+            <trans-unit id="chat.changeActionUnknown" resname="chat.changeActionUnknown">
+                <source>Written</source>
+            </trans-unit>
+            <trans-unit id="chat.changeLegacy" resname="chat.changeLegacy">
+                <source>Only the step's own record is known</source>
+            </trans-unit>
+            <trans-unit id="chat.changeWorkspaceDraft" resname="chat.changeWorkspaceDraft">
+                <source>Draft in workspace “%s”</source>
+            </trans-unit>
+            <trans-unit id="chat.changeWorkspaceDraftUntitled" resname="chat.changeWorkspaceDraftUntitled">
+                <source>Draft in a workspace (title not visible to you)</source>
+            </trans-unit>
+            <trans-unit id="chat.changeWorkspaceLive" resname="chat.changeWorkspaceLive">
+                <source>Live workspace</source>
+            </trans-unit>
+            <trans-unit id="chat.changeLanguage" resname="chat.changeLanguage">
+                <source>Language: %s</source>
+            </trans-unit>
+            <trans-unit id="chat.changeHidden" resname="chat.changeHidden">
+                <source>Hidden</source>
+            </trans-unit>
+            <trans-unit id="chat.changeNotHidden" resname="chat.changeNotHidden">
+                <source>Not hidden</source>
+            </trans-unit>
+            <trans-unit id="chat.changeRestrictionStarttime" resname="chat.changeRestrictionStarttime">
+                <source>Start time set</source>
+            </trans-unit>
+            <trans-unit id="chat.changeRestrictionEndtime" resname="chat.changeRestrictionEndtime">
+                <source>End time set</source>
+            </trans-unit>
+            <trans-unit id="chat.changeRestrictionFeGroup" resname="chat.changeRestrictionFeGroup">
+                <source>Restricted to user groups</source>
+            </trans-unit>
+            <trans-unit id="chat.changeTarget" resname="chat.changeTarget">
+                <source>Target of the step</source>
+            </trans-unit>
+            <trans-unit id="chat.changeDependent" resname="chat.changeDependent">
+                <source>Changed along with it</source>
+            </trans-unit>
+            <trans-unit id="chat.changePartial" resname="chat.changePartial">
+                <source>Written only in part</source>
+            </trans-unit>
+            <trans-unit id="chat.changeFailed" resname="chat.changeFailed">
+                <source>The step failed after this record was written</source>
+            </trans-unit>
+            <trans-unit id="chat.changeHistory" resname="chat.changeHistory">
+                <source>Show changes</source>
+            </trans-unit>
+            <trans-unit id="chat.changeWorkspaceModule" resname="chat.changeWorkspaceModule">
+                <source>Open workspace module</source>
+            </trans-unit>
+            <trans-unit id="chat.languageUnknown" resname="chat.languageUnknown">
+                <source>Language %d</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalWorkspace" resname="chat.approvalWorkspace">
+                <source>Saved as a draft in workspace “%s”; live stays unchanged until the workspace is published</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalWorkspaceUntitled" resname="chat.approvalWorkspaceUntitled">
+                <source>Saved as a draft in a workspace whose title is not visible to you; live stays unchanged until it is published</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalLanguage" resname="chat.approvalLanguage">
+                <source>Language: %s</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalRefused" resname="chat.approvalRefused">
+                <source>This step will not be carried out</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalAllRefused" resname="chat.approvalAllRefused">
+                <source>A rule of this configuration excludes every step of this proposal. There is nothing to confirm.</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalDraftWorkspaceRequired" resname="chat.approvalDraftWorkspaceRequired">
+                <source>This configuration requires a draft workspace for changes, and you are working in the live workspace. Switch to a workspace in the backend and send the request again.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

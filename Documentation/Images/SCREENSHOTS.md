@@ -34,6 +34,21 @@ and where they are used in the documentation.
 
 ---
 
+### `ChangeView.png`
+
+**Used in:** Usage/Index.rst
+
+**What to show:**
+- A conversation with the **Changes of this assignment** disclosure open
+- Rows for a created page, a content element changed along with it, an updated
+  page and a translation whose step failed after the write
+- The separate badges (action, workspace, language, hidden, restrictions,
+  target or dependent, failure) and the notes under the list
+
+**Taken from:** a real TYPO3 14.3 backend with nr-llm and this extension. The
+run events were seeded because no LLM was reachable; the records are real
+workspace drafts written through the DataHandler.
+
 ### `MarkdownResponse.png`
 
 **Used in:** Usage/Index.rst

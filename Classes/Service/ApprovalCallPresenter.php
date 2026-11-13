@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service;
 
 use Netresearch\NrLlm\Service\Agent\Inbox\PendingCallView;
+use Netresearch\NrMcpAgent\Service\ChangeList\LanguageLabel;
 use Netresearch\NrMcpAgent\Service\OpenPoint\NrLlmCardTarget;
 use Netresearch\NrMcpAgent\Service\OpenPoint\OpenPointTarget;
 use TYPO3\CMS\Core\Localization\LanguageService;
@@ -26,13 +27,16 @@ use TYPO3\CMS\Core\Localization\LanguageService;
  * - `technicalDetails`: the identifiers nr-llm appends as the LAST preview
  *   line ("Technical details: …", nr-llm 0.39 and later), taken out of
  *   `previewLines` so the card can put them behind "Show technical details".
- * - `workspace`: nr-llm's preview line naming the draft workspace the write
- *   goes to ("Workspace: “Entwurf” — saved there as a draft, …", nr-llm
- *   ADR-260), or '' — in live, and for a run whose write nr-llm refuses for
- *   its workspace, nr-llm writes no such line. The line stays in
- *   `previewLines`; the copy is for the cards that show a proposal or nr-llm's
- *   structured values instead of the lines (ADR-032), so they name the
- *   workspace in nr-llm's words, not in a translation of their own.
+ * - `workspace`: the sentence naming the draft workspace the write goes to,
+ *   built from nr-llm's structured `workspaceId` and `workspaceTitle` (nr-llm
+ *   ADR-292), or '' for a write in live, a refused call and a failed
+ *   preview. `workspaceId`, `workspaceTitle` and `language` ({id, label}, from
+ *   `PendingCallView::$language`; null when the tool takes no target language,
+ *   which is not the default language) are handed on as values (ADR-034).
+ *   nr-llm's own prose line stays in `previewLines`; nothing parses it.
+ * - `refused`: nr-llm refused the call by an invocation rule (nr-llm ADR-293).
+ *   Its `previewLines` are the rule's explanation, and the card offers no
+ *   action for it.
  *
  * What names the change, in this order:
  *
@@ -77,14 +81,18 @@ final readonly class ApprovalCallPresenter
      */
     private const TECHNICAL_DETAILS_SOURCE_TEXT = 'Technical details: %s';
 
-    /** nr-llm's label for the preview line naming the draft workspace; `%s` holds the workspace's title, quoted. */
+    /**
+     * nr-llm's label for the preview line naming the draft workspace; `%s` holds
+     * the workspace's title, quoted. The tools of this extension that write
+     * that line themselves (SetDecorativeImageTool) use it; the card does not.
+     */
     public const WORKSPACE_LABEL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:approvalPreview.workspace.target';
 
-    /**
-     * nr-llm's source text of that label: the fallback when the label cannot be
-     * resolved in the acting user's language, as for the technical line.
-     */
-    private const WORKSPACE_SOURCE_TEXT = 'Workspace: %s — saved there as a draft, live stays unchanged until the workspace is published';
+    /** The chat's own sentence naming the draft workspace on the card; `%s` holds the workspace's title. */
+    public const WORKSPACE_SENTENCE_LABEL = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.approvalWorkspace';
+
+    /** The same for a workspace the reader may not open, so its title is withheld. */
+    public const WORKSPACE_UNTITLED_LABEL = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.approvalWorkspaceUntitled';
 
     /** The heading of a change to exactly one field; `%s` holds the field's label. */
     public const FIELD_HEADING_LABEL = 'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:chat.approvalTitleField';
@@ -92,6 +100,7 @@ final readonly class ApprovalCallPresenter
     public function __construct(
         private ?EditorActionLabelsInterface $editorActionLabels = null,
         private ?PreviewHeadingRecogniserInterface $previewHeadings = null,
+        private ?LanguageLabel $languageLabel = null,
     ) {}
 
     /**
@@ -109,6 +118,10 @@ final readonly class ApprovalCallPresenter
      *     previewLines: list<string>,
      *     technicalDetails: string,
      *     workspace: string,
+     *     workspaceId: int,
+     *     workspaceTitle: string,
+     *     language: array{id: int, label: string}|null,
+     *     refused: bool,
      *     previewFailed: bool,
      *     previewStale: bool,
      *     argumentsJson: string,
@@ -121,7 +134,6 @@ final readonly class ApprovalCallPresenter
     {
         $labelReferences = $this->editorActionLabels?->labelReferences() ?? [];
         $technicalLabel  = $this->resolve(self::TECHNICAL_DETAILS_LABEL, $previewLanguage);
-        $workspaceLabel  = $this->resolve(self::WORKSPACE_LABEL, $previewLanguage);
 
         $presented = [];
         foreach ($calls as $call) {
@@ -156,9 +168,13 @@ final readonly class ApprovalCallPresenter
                 'toolStillRegistered'    => $call->toolStillRegistered,
                 'previewLines'           => $lines,
                 'technicalDetails'       => $withTechnicalDetails ? $technical : '',
-                // A failed or withheld preview carries a reason, never a draft.
-                'workspace'     => $call->previewFailed ? '' : $this->workspaceLineOf($lines, $workspaceLabel),
-                'previewFailed' => $call->previewFailed,
+                // A failed, withheld or refused preview carries a reason, never a draft.
+                'workspace'      => $call->previewFailed || $call->refusedByRule ? '' : $this->workspaceSentence($call, $language),
+                'workspaceId'    => $call->workspaceId,
+                'workspaceTitle' => $call->workspaceTitle,
+                'language'       => $this->languageOf($call, $language, $conversationPage),
+                'refused'        => $call->refusedByRule,
+                'previewFailed'  => $call->previewFailed,
                 // nr-llm refuses an approved write whose record changed after
                 // the preview and hands the run back with this flag. Without
                 // it the card returns looking exactly as it did before the
@@ -432,22 +448,37 @@ final readonly class ApprovalCallPresenter
     }
 
     /**
-     * nr-llm's line naming the draft workspace among `$lines`, or ''. Matched
-     * by the label resolved in the preview's language and, independent of it,
-     * by nr-llm's source text — both ends of the label, and a workspace named
-     * between them, as {@see self::technicalDetailsOf()} matches.
-     *
-     * @param list<string> $lines
+     * The sentence naming the draft workspace of a write, or '' in live. The
+     * title is nr-llm's and is empty for a reader who may not open the
+     * workspace; the sentence then names no workspace.
      */
-    private function workspaceLineOf(array $lines, string $label): string
+    private function workspaceSentence(PendingCallView $call, ?LanguageService $language): string
     {
-        foreach ($lines as $line) {
-            if ($this->technicalDetailsOf($line, $label) !== '' || $this->technicalDetailsOf($line, self::WORKSPACE_SOURCE_TEXT) !== '') {
-                return $line;
-            }
+        if ($call->workspaceId <= 0) {
+            return '';
         }
 
-        return '';
+        if ($call->workspaceTitle === '') {
+            return $this->resolve(self::WORKSPACE_UNTITLED_LABEL, $language);
+        }
+
+        $template = $this->resolve(self::WORKSPACE_SENTENCE_LABEL, $language);
+
+        return str_contains($template, '%s') ? sprintf($template, $call->workspaceTitle) : '';
+    }
+
+    /**
+     * @return array{id: int, label: string}|null
+     */
+    private function languageOf(PendingCallView $call, ?LanguageService $language, int $conversationPage): ?array
+    {
+        if ($call->language === null || $call->refusedByRule) {
+            return null;
+        }
+
+        $label = $this->languageLabel?->of($call->language, $conversationPage, $language) ?? '#' . $call->language;
+
+        return ['id' => $call->language, 'label' => $label];
     }
 
     private function resolve(string $reference, ?LanguageService $language): string

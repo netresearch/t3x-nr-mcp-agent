@@ -1,0 +1,23 @@
+"be_groups"
+,"uid","pid","title","tables_select","tables_modify","db_mountpoints"
+,5,0,"Mounted editors","pages,tt_content,sys_file","pages",10
+"be_users"
+,"uid","pid","username","password","admin","usergroup","tstamp","crdate"
+,1,0,"admin","$2y$12$xxx",1,"",1710000000,1710000000
+,11,0,"editor","$2y$12$xxx",0,"5",1710000000,1710000000
+"sys_workspace"
+,"uid","pid","title","members"
+,1,0,"Entwurf","be_users_11"
+,2,0,"Fremder Entwurf","be_users_1"
+"pages"
+,"uid","pid","title","doktype","sorting","perms_userid","perms_user","perms_groupid","perms_group","perms_everybody","hidden"
+,10,0,"Sichtbare Seite",1,10,1,31,5,1,0,1
+,11,10,"Gesperrte Unterseite",1,10,1,31,0,0,0,0
+,20,0,"Geheime Seite",1,20,1,31,0,0,0,0
+"tt_content"
+,"uid","pid","CType","header","colPos","sorting","sys_language_uid","t3ver_wsid","t3ver_oid"
+,1,10,"text","Sichtbarer Inhalt",0,256,0,0,0
+,2,20,"text","Geheimer Inhalt",0,256,0,0,0
+,3,11,"text","Inhalt der gesperrten Unterseite",0,256,0,0,0
+,4,10,"text","Entwurf im Workspace 1",0,256,0,1,1
+,5,10,"text","Entwurf im Workspace 2",0,256,0,2,1

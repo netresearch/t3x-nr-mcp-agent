@@ -582,7 +582,7 @@ final class AltTextFlowTest extends FunctionalTestCase
      * @param array<string, mixed> $arguments
      * @param list<string>         $previewLines
      */
-    private function waiting(string $tool, array $arguments, array $previewLines, bool $previewFailed = false): WaitingRunView
+    private function waiting(string $tool, array $arguments, array $previewLines, bool $previewFailed = false, int $workspaceId = 0, string $workspaceTitle = ''): WaitingRunView
     {
         return new WaitingRunView(
             self::RUN,
@@ -590,7 +590,7 @@ final class AltTextFlowTest extends FunctionalTestCase
             0,
             'Chat',
             'digest',
-            [new PendingCallView($tool, json_encode($arguments, JSON_THROW_ON_ERROR), true, $previewLines, $previewFailed)],
+            [new PendingCallView($tool, json_encode($arguments, JSON_THROW_ON_ERROR), true, $previewLines, $previewFailed, workspaceId: $workspaceId, workspaceTitle: $workspaceTitle)],
         );
     }
 
@@ -671,30 +671,32 @@ final class AltTextFlowTest extends FunctionalTestCase
     }
 
     /**
-     * In a draft workspace nr-llm's alt text writer names the workspace in
-     * its preview lines (nr-llm ADR-260), which the proposal card does not
-     * show: the card carries that line as the call's `workspace`, matched by
-     * nr-llm's own label in the editor's language — here German, from nr-llm's
-     * real translation. In live there is no such line and no workspace.
+     * In a draft workspace the proposal card does not show nr-llm's preview
+     * lines. It carries the workspace as the chat's own sentence, built from
+     * nr-llm's structured `workspaceId` and `workspaceTitle` (nr-llm ADR-292) in
+     * the editor's language, not from nr-llm's prose line, which is among the
+     * lines here and read by nothing. In live there is no workspace.
      */
     #[Test]
-    public function theProposalCardCarriesNrLlmsWorkspaceLineInTheEditorsLanguage(): void
+    public function theProposalCardCarriesTheWorkspaceFromTheStructuredFields(): void
     {
         $this->getConnectionPool()->getConnectionForTable('be_users')->update('be_users', ['lang' => 'de'], ['uid' => self::EDITOR]);
         $this->loginAs(self::EDITOR);
         $conversation = $this->settle($this->start(1), ConversationStatus::AwaitingApproval);
-        $line         = 'Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
+        $proseLine    = 'Arbeitsumgebung: „Entwurf“ – dort als Entwurf gespeichert, live bleibt unverändert, bis die Arbeitsumgebung veröffentlicht wird';
         $request      = (new ServerRequest('/', 'GET'))->withQueryParams(['conversationUid' => (string) $conversation->getUid()]);
 
-        $inDraft = $this->waiting('set_file_reference_alternative_text', ['reference' => 1, 'alternative' => 'Ein Team'], ['Bild: „team.jpg“', $line]);
+        $inDraft = $this->waiting('set_file_reference_alternative_text', ['reference' => 1, 'alternative' => 'Ein Team'], ['Bild: „team.jpg“'], workspaceId: 1, workspaceTitle: 'Entwurf');
         $card    = $this->json($this->subject($inDraft, $this->get(LanguageServiceFactory::class))->getMessages($request))['pendingApproval'] ?? null;
 
         self::assertIsArray($card);
         self::assertSame('altText', $card['answers']);
-        self::assertSame($line, $card['calls'][0]['workspace'] ?? null);
+        self::assertSame('Wird als Entwurf im Workspace „Entwurf“ gespeichert; Live bleibt unverändert, bis der Workspace veröffentlicht wird', $card['calls'][0]['workspace'] ?? null);
+        self::assertSame(1, $card['calls'][0]['workspaceId'] ?? null);
 
-        $inLive = $this->waiting('set_file_reference_alternative_text', ['reference' => 1, 'alternative' => 'Ein Team'], ['Bild: „team.jpg“']);
-        $card   = $this->json($this->subject($inLive, $this->get(LanguageServiceFactory::class))->getMessages($request))['pendingApproval'] ?? null;
+        // nr-llm's prose line without the structured fields is no workspace.
+        $proseOnly = $this->waiting('set_file_reference_alternative_text', ['reference' => 1, 'alternative' => 'Ein Team'], ['Bild: „team.jpg“', $proseLine]);
+        $card      = $this->json($this->subject($proseOnly, $this->get(LanguageServiceFactory::class))->getMessages($request))['pendingApproval'] ?? null;
 
         self::assertIsArray($card);
         self::assertSame('', $card['calls'][0]['workspace'] ?? null);

@@ -74,6 +74,8 @@ use Netresearch\NrMcpAgent\Service\AltText\AltTextFlowPrompt;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImagePolicyInterface;
 use Netresearch\NrMcpAgent\Service\AltText\AltTextImageRefusal;
 use Netresearch\NrMcpAgent\Service\AltText\ImageAnalysisPolicy;
+use Netresearch\NrMcpAgent\Service\ChangeList\ChangeCollection;
+use Netresearch\NrMcpAgent\Service\ChangeList\ConversationChangeReader;
 use Netresearch\NrMcpAgent\Service\ChatTask\ChatTaskResolver;
 use Netresearch\NrMcpAgent\Service\ChatTask\SiteConfigurationSelector;
 use Netresearch\NrMcpAgent\Service\OpenPoint\ApprovedCallReading;
@@ -278,6 +280,9 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // The configuration a site names for itself (ADR-033); without it
         // every turn runs the Task's configuration, as before.
         private readonly ?SiteConfigurationSelector $siteConfigurations = null,
+        // What a conversation's runs changed (ADR-034); without it the change
+        // view is empty.
+        private readonly ?ConversationChangeReader $changeReader = null,
     ) {}
 
     /**
@@ -786,6 +791,44 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $configuration = $this->configurations->findByUid($run->configurationUid);
 
         return $configuration instanceof LlmConfiguration && $configuration->requiresSecondApprover();
+    }
+
+    /**
+     * Read from the run's own configuration, as {@see self::requiresSecondApprover()}
+     * does. False when the run or the configuration cannot be read: nr-llm
+     * still refuses the write, and the card says so for that call.
+     */
+    public function requiresDraftWorkspace(Conversation $conversation): bool
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+        $run     = $runUuid !== '' ? $this->agentRunRepository->findByUuid($runUuid) : null;
+        if (!$run instanceof AgentRun || !$this->configurations instanceof LlmConfigurationRepository) {
+            return false;
+        }
+
+        $configuration = $this->configurations->findByUid($run->configurationUid);
+
+        return $configuration instanceof LlmConfiguration && $configuration->getRequireDraftWorkspace();
+    }
+
+    /**
+     * The runs of the conversation are the ones its run records name; records
+     * from before the uuid was kept contribute the writes they list.
+     */
+    public function changesOf(Conversation $conversation): ChangeCollection
+    {
+        if (!$this->changeReader instanceof ConversationChangeReader) {
+            return new ChangeCollection();
+        }
+
+        $legacy = [];
+        foreach ($conversation->getRunRecords() as $record) {
+            if (!isset($record['run'])) {
+                array_push($legacy, ...$record['writes']);
+            }
+        }
+
+        return $this->changeReader->read($this->actorFor($conversation), $conversation->getRunUuids(), $legacy);
     }
 
     /**

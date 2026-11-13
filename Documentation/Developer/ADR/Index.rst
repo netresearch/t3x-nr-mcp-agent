@@ -49,3 +49,4 @@ consequences of each decision.
     ADR-031-the-module-is-an-overview
     ADR-032-missing-alt-texts-in-a-draft-workspace
     ADR-033-the-sites-configuration-runs-the-chat
+    ADR-034-the-chat-lists-what-an-assignment-changed

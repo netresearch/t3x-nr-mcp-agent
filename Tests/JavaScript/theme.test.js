@@ -29,6 +29,7 @@ const STYLE_SOURCES = [
     'chat-activity.js',
     'chat-alt-text.js',
     'chat-app.js',
+    'chat-changes.js',
     'chat-context-chips.js',
     'chat-core.js',
     'chat-editing.js',

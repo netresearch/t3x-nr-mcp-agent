@@ -1039,7 +1039,7 @@ final class Conversation
      * What a run segment did (ADR-030), placed where the transcript stands
      * now: before the answer the segment adds after it.
      *
-     * @param array{outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>} $entry
+     * @param array{outcome: string, run?: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>} $entry
      */
     public function appendRunRecord(array $entry, ?int $after = null): void
     {
@@ -1069,7 +1069,7 @@ final class Conversation
     }
 
     /**
-     * @return list<array{after: int, cards: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}>
+     * @return list<array{after: int, cards: int, outcome: string, run?: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}>
      */
     public function getRunRecords(): array
     {
@@ -1091,7 +1091,7 @@ final class Conversation
     /**
      * @param array<mixed> $entry
      *
-     * @return array{after: int, cards: int, outcome: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}
+     * @return array{after: int, cards: int, outcome: string, run?: string, decision?: string, tools: list<array{tool: string, calls: int, errors: int}>, writes: list<array{table: string, uid: int, complete: bool|null}>, waiting: list<string>}
      */
     private function runRecordOf(array $entry, int $after, string $outcome): array
     {
@@ -1107,7 +1107,30 @@ final class Conversation
             $record['decision'] = $entry['decision'];
         }
 
+        if (is_string($entry['run'] ?? null) && $entry['run'] !== '') {
+            $record['run'] = $entry['run'];
+        }
+
         return $record;
+    }
+
+    /**
+     * The runs the conversation's turns ran as, oldest first, each once: a run
+     * that paused for an approval and was resumed has several records and one
+     * uuid. Records written before ADR-034 carry no uuid and are not listed.
+     *
+     * @return list<string>
+     */
+    public function getRunUuids(): array
+    {
+        $uuids = [];
+        foreach ($this->getRunRecords() as $record) {
+            if (isset($record['run'])) {
+                $uuids[$record['run']] = true;
+            }
+        }
+
+        return array_map(strval(...), array_keys($uuids));
     }
 
     /**
