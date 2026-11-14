@@ -163,7 +163,7 @@ final readonly class ChangePresenter
         // A file record lies on the root level, so its table alone says nothing
         // about the file: the viewer needs read access to this very file.
         if ($table === 'sys_file' || $table === 'sys_file_metadata') {
-            return $viewer->isAdmin() || $this->mayReadFile($viewer, $this->fileRowOf($table, $row));
+            return $viewer->isAdmin() || $this->mayReadFile($this->fileRowOf($table, $row));
         }
 
         $pageId = $this->pageOf($table, $row);
@@ -225,19 +225,9 @@ final readonly class ChangePresenter
      *
      * @param array<mixed>|null $file a sys_file row
      */
-    private function mayReadFile(BackendUserAuthentication $viewer, ?array $file): bool
+    private function mayReadFile(?array $file): bool
     {
         if ($file === null) {
-            return false;
-        }
-
-        $storage = $this->intOf($file['storage'] ?? 0);
-        $mounted = false;
-        foreach ($viewer->getFileStorages() as $candidate) {
-            $mounted = $mounted || $candidate->getUid() === $storage;
-        }
-
-        if (!$mounted) {
             return false;
         }
 
