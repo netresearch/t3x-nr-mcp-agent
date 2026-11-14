@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.2] - 2026-11-14
+
+### Fixed
+
+- The changes view withholds a file record (`sys_file`, `sys_file_metadata`) unless the viewer may read that very file. Before, any file mount in the file's storage was enough, so a viewer who mounts `1:/marketing/` saw the title and uid of a change in `1:/intern/`. Core's `ResourceStorage::checkFileActionPermission('read')` decides, a metadata row through its file ([#351](https://github.com/netresearch/t3x-nr-mcp-agent/pull/351)).
+- The changes view keeps the partial-write and hook-failure warnings of a tool call that has observed changes. They were read only for runs without `tool_changes` events. A write the tool did not finish is marked partial on its target, a hook that failed after the write marks the call's records, also when the tool reported no error, and a stated partial write keeps its mark when the hook failed as well ([#351](https://github.com/netresearch/t3x-nr-mcp-agent/pull/351)).
+
 ## [0.38.1] - 2026-11-13
 
 ### Changed
