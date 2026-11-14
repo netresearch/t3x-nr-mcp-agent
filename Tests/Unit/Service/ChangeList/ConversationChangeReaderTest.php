@@ -244,8 +244,32 @@ final class ConversationChangeReaderTest extends TestCase
 
         self::assertCount(1, $changes);
         self::assertTrue($changes[0]->failedAfterWrite);
-        // A hook failure says nothing about completeness: the legacy path reads it the same way.
-        self::assertNull($changes[0]->complete);
+        // A hook failure does not change the completeness the tool stated (nr-llm ToolResult).
+        self::assertTrue($changes[0]->complete);
+    }
+
+    /** Partial and hook-failed are two facts of one write: both stay on the target, observed or legacy. */
+    #[Test]
+    public function aPartialWriteWhoseHookAlsoFailedKeepsBothFacts(): void
+    {
+        $write = ['kind' => 'tool_write', 'toolName' => 'update_record', 'writeTargetTable' => 'pages', 'writeTargetUid' => 5, 'writeCompleteness' => 'partial', 'hookFailedAfterWrite' => true];
+        $this->addRun('observed', [
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            $write,
+            $this->changes('update_record', [$this->change('pages', 5, 'updated', target: true)]),
+        ]);
+        $this->addRun('old', [
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            array_replace($write, ['writeTargetUid' => 6]),
+        ]);
+
+        $changes = $this->reader()->read($this->actor(), ['observed', 'old'])->changes;
+
+        self::assertCount(2, $changes);
+        foreach ($changes as $change) {
+            self::assertFalse($change->complete, $change->key());
+            self::assertTrue($change->failedAfterWrite, $change->key());
+        }
     }
 
     /** The write step belongs to the call it follows: a later call of the same tool does not inherit it. */

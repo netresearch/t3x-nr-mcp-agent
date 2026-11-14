@@ -164,8 +164,9 @@ final readonly class ConversationChangeReader
 
     /**
      * What a `tool_write` event states about its write: whether a hook failed
-     * after it, and whether the tool wrote all it planned (null: not stated, or
-     * moot because a hook failed).
+     * after it, and whether the tool wrote all it planned (null: not stated).
+     * The two are independent: nr-llm reports the hook failure beside the
+     * completeness and does not change it (ToolResult).
      *
      * @param array<mixed> $payload
      *
@@ -181,7 +182,7 @@ final readonly class ConversationChangeReader
             default                     => null,
         };
 
-        return [$hookFailed, $hookFailed ? null : $complete];
+        return [$hookFailed, $complete];
     }
 
     /**
