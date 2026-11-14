@@ -57,12 +57,14 @@ final class ChangeListPresenterTest extends FunctionalTestCase
      *
      * @return array<string, mixed>
      */
-    private function present(int $user, array $changes, ?ChangeCollection $collection = null): array
+    private function present(int $user, array $changes, ?ChangeCollection $collection = null, bool $backendRequest = true): array
     {
         $viewer             = $this->setUpBackendUser($user);
         $GLOBALS['BE_USER'] = $viewer;
         // Core hands a viewer's file mounts and permissions to a storage only in a backend request.
-        $GLOBALS['TYPO3_REQUEST'] = (new ServerRequest('https://typo3-testing.local/typo3/'))->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE);
+        $GLOBALS['TYPO3_REQUEST'] = $backendRequest
+            ? (new ServerRequest('https://typo3-testing.local/typo3/'))->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
+            : null;
         self::assertInstanceOf(BackendUserAuthentication::class, $viewer);
 
         // As in a backend request: the labels and the record titles read $GLOBALS['LANG'].
@@ -171,6 +173,22 @@ final class ChangeListPresenterTest extends FunctionalTestCase
 
         // The administrator has no mount to cross.
         self::assertSame(['sys_file:9', 'sys_file_metadata:2'], $this->keys($this->present(self::ADMIN, [$this->change('sys_file', 9), $this->change('sys_file_metadata', 2)])));
+    }
+
+    /**
+     * Without a backend request core loads no mounts and no permissions into a
+     * storage, and then allows every action on it. That is no verdict, so the
+     * file is withheld, also from a viewer who has the mount.
+     */
+    #[Test]
+    public function aFileIsWithheldWhenCoreDidNotLoadTheViewersPermissionsIntoItsStorage(): void
+    {
+        $this->importFiles();
+
+        $presented = $this->present(self::MARKETING, [$this->change('sys_file', 8)], backendRequest: false);
+
+        self::assertSame([], $this->keys($presented));
+        self::assertSame(1, $presented['withheld']);
     }
 
     /** A metadata row whose file is gone cannot be tied to a mount, so it is withheld. */

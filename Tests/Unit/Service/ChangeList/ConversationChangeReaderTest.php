@@ -181,6 +181,20 @@ final class ConversationChangeReaderTest extends TestCase
     }
 
     /** The failure belongs to the call whose tool step precedes the list, not to another tool of the run. */
+    /** A later clean call that touches the record again does not undo the doubt about the earlier write. */
+    #[Test]
+    public function aLaterCleanCallDoesNotClearAnEarlierFailureMarker(): void
+    {
+        $this->addRun('run', [
+            ['kind' => 'tool', 'toolName' => 'copy_record', 'toolIsError' => true],
+            $this->changes('copy_record', [$this->change('pages', 30)]),
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            $this->changes('update_record', [$this->change('pages', 30, 'updated')]),
+        ]);
+
+        self::assertTrue($this->reader()->read($this->actor(), ['run'])->changes[0]->failedAfterWrite);
+    }
+
     #[Test]
     public function theFailureOfAnotherToolIsNotAttributed(): void
     {
