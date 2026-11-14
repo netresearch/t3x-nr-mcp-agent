@@ -25,7 +25,7 @@ final readonly class RecordChange
 {
     /**
      * @param list<string> $restrictions
-     * @param ?bool        $complete     legacy entries only: whether the tool said it wrote what it planned
+     * @param ?bool        $complete     the write target only: whether the tool said it wrote what it planned (its `tool_write` step); null when not stated
      */
     public function __construct(
         public string $table,

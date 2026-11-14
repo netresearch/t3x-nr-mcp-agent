@@ -65,7 +65,11 @@ A record several calls changed is listed once: the later observation states
 the state now, a record created earlier stays created, a delete wins, and
 having been the tool's target once is kept. A call whose tool step failed
 shows its list with a failure marker: the records it wrote before it failed
-are the ones to check. A run without any ``tool_changes`` event, recorded
+are the ones to check. The call's ``tool_write`` step adds to the observed
+record, and no row of its own, what a tool that reports no error can still
+state: a hook that failed after the write gives the same marker, and a write
+the tool did not finish (``writeCompleteness`` partial) marks the call's target
+as partial. A run without any ``tool_changes`` event, recorded
 before nr-llm wrote them, is read through its ``tool_write`` events instead:
 the record each tool named, shown without action, workspace or dependent
 records and marked as such. A run with ``tool_changes`` events is never also
@@ -90,7 +94,11 @@ run are readable by whoever may read the run (nr-llm ADR-292). The chat
 therefore shows a record only to a viewer who may select its table, to whom
 its page is shown (page permissions and mounts, as the page module checks
 them), who may access its language and the workspace its row is stored in, and
-only while the row exists. Everything else is withheld whole - no table, no uid,
+only while the row exists. A file record (``sys_file``, ``sys_file_metadata``)
+needs read permission on that very file as core decides it
+(``ResourceStorage::checkFileActionPermission('read', $file)``): the file's
+folder lies in one of the viewer's file mounts, not merely some mount of the
+storage. Everything else is withheld whole - no table, no uid,
 no title - and only counted ("n weitere Datensätze werden nicht angezeigt").
 A deleted row is checked like any other; a row that is gone for good cannot be
 checked and is withheld. The title of a workspace the viewer may not use is

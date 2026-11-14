@@ -1,10 +1,12 @@
 "be_groups"
-,"uid","pid","title","tables_select","tables_modify","db_mountpoints"
-,5,0,"Mounted editors","pages,tt_content,sys_file","pages",10
+,"uid","pid","title","tables_select","tables_modify","db_mountpoints","file_mountpoints","file_permissions"
+,5,0,"Mounted editors","pages,tt_content,sys_file","pages",10,,
+,6,0,"Marketing file editors","pages,sys_file,sys_file_metadata","pages",10,1,"readFile,readFolder"
 "be_users"
 ,"uid","pid","username","password","admin","usergroup","tstamp","crdate"
 ,1,0,"admin","$2y$12$xxx",1,"",1710000000,1710000000
 ,11,0,"editor","$2y$12$xxx",0,"5",1710000000,1710000000
+,12,0,"marketing","$2y$12$xxx",0,"6",1710000000,1710000000
 "sys_workspace"
 ,"uid","pid","title","members"
 ,1,0,"Entwurf","be_users_11"
@@ -21,3 +23,6 @@
 ,3,11,"text","Inhalt der gesperrten Unterseite",0,256,0,0,0
 ,4,10,"text","Entwurf im Workspace 1",0,256,0,1,1
 ,5,10,"text","Entwurf im Workspace 2",0,256,0,2,1
+"sys_filemounts"
+,"uid","pid","title","identifier"
+,1,0,"Marketing","1:/marketing/"

@@ -15,6 +15,7 @@ use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 
@@ -50,6 +51,7 @@ final readonly class ChangePresenter
     public function __construct(
         private UriBuilder $uriBuilder,
         private LanguageLabel $languageLabel,
+        private ResourceFactory $resourceFactory,
     ) {}
 
     /**
@@ -159,9 +161,9 @@ final readonly class ChangePresenter
         }
 
         // A file record lies on the root level, so its table alone says nothing
-        // about the file: the viewer needs the file mount.
+        // about the file: the viewer needs read access to this very file.
         if ($table === 'sys_file' || $table === 'sys_file_metadata') {
-            return $viewer->isAdmin() || $this->mayReadStorage($viewer, $this->storageOf($table, $row));
+            return $viewer->isAdmin() || $this->mayReadFile($viewer, $this->fileRowOf($table, $row));
         }
 
         $pageId = $this->pageOf($table, $row);
@@ -196,28 +198,60 @@ final readonly class ChangePresenter
     }
 
     /**
+     * The sys_file row a file record stands for: the row itself, or the file a
+     * metadata row belongs to. Deleted rows included, as for the record itself.
+     *
      * @param array<mixed> $row
+     *
+     * @return array<mixed>|null
      */
-    private function storageOf(string $table, array $row): int
+    private function fileRowOf(string $table, array $row): ?array
     {
         if ($table === 'sys_file') {
-            return $this->intOf($row['storage'] ?? 0);
+            return $row;
         }
 
-        $file = BackendUtility::getRecord('sys_file', $this->intOf($row['file'] ?? 0), 'storage', '', false);
+        $file = BackendUtility::getRecord('sys_file', $this->intOf($row['file'] ?? 0), '*', '', false);
 
-        return is_array($file) ? $this->intOf($file['storage'] ?? 0) : 0;
+        return is_array($file) ? $file : null;
     }
 
-    private function mayReadStorage(BackendUserAuthentication $viewer, int $storage): bool
+    /**
+     * Read permission on the concrete file, decided by core: the viewer's
+     * file permission, the file's folder inside one of the viewer's file
+     * mounts, and the storage's and the driver's own say (ResourceStorage::
+     * checkFileActionPermission). Having some mount in the storage is not
+     * enough: a mount of 1:/marketing/ does not open 1:/intern/.
+     *
+     * @param array<mixed>|null $file a sys_file row
+     */
+    private function mayReadFile(BackendUserAuthentication $viewer, ?array $file): bool
     {
-        foreach ($viewer->getFileStorages() as $mounted) {
-            if ($mounted->getUid() === $storage) {
-                return true;
-            }
+        if ($file === null) {
+            return false;
         }
 
-        return false;
+        $storage = $this->intOf($file['storage'] ?? 0);
+        $mounted = false;
+        foreach ($viewer->getFileStorages() as $candidate) {
+            $mounted = $mounted || $candidate->getUid() === $storage;
+        }
+
+        if (!$mounted) {
+            return false;
+        }
+
+        try {
+            $object  = $this->resourceFactory->getFileObject($this->intOf($file['uid'] ?? 0), $file);
+            $storage = $object->getStorage();
+
+            // Core loads the viewer's mounts and permissions into a storage when
+            // it creates it in a backend request. Without them checkFile-
+            // ActionPermission() allows everything, so no verdict is read from it.
+            return $storage->getEvaluatePermissions() && $storage->checkFileActionPermission('read', $object);
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**
