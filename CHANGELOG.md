@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.3] - 2026-11-14
+
+### Changed
+
+- nr-llm 0.47 is accepted beside 0.45 and 0.46 ([#353](https://github.com/netresearch/t3x-nr-mcp-agent/pull/353)).
+
 ## [0.38.2] - 2026-11-14
 
 ### Fixed
