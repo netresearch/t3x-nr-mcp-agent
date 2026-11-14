@@ -16,7 +16,10 @@ use Netresearch\NrMcpAgent\Service\ChangeList\RecordChange;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
@@ -31,6 +34,9 @@ final class ChangeListPresenterTest extends FunctionalTestCase
     private const ADMIN = 1;
 
     private const EDITOR = 11;
+
+    /** Mounts 1:/marketing/ only, with read permission on files and folders. */
+    private const MARKETING = 12;
 
     protected array $coreExtensionsToLoad = ['filelist', 'workspaces'];
 
@@ -51,10 +57,14 @@ final class ChangeListPresenterTest extends FunctionalTestCase
      *
      * @return array<string, mixed>
      */
-    private function present(int $user, array $changes, ?ChangeCollection $collection = null): array
+    private function present(int $user, array $changes, ?ChangeCollection $collection = null, bool $backendRequest = true): array
     {
         $viewer             = $this->setUpBackendUser($user);
         $GLOBALS['BE_USER'] = $viewer;
+        // Core hands a viewer's file mounts and permissions to a storage only in a backend request.
+        $GLOBALS['TYPO3_REQUEST'] = $backendRequest
+            ? (new ServerRequest('https://typo3-testing.local/typo3/'))->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
+            : null;
         self::assertInstanceOf(BackendUserAuthentication::class, $viewer);
 
         // As in a backend request: the labels and the record titles read $GLOBALS['LANG'].
@@ -136,6 +146,79 @@ final class ChangeListPresenterTest extends FunctionalTestCase
         self::assertSame(['sys_file:7'], $this->keys($this->present(self::ADMIN, [$this->change('sys_file', 7)])));
     }
 
+    /**
+     * A mount of 1:/marketing/ is not a mount of the whole storage: a file in
+     * 1:/intern/ is withheld whole, and so is the metadata row of that file,
+     * while the same two records of a file inside the mount are listed.
+     */
+    #[Test]
+    public function aFileOutsideTheViewersFileMountIsWithheldInsideTheSameStorage(): void
+    {
+        $this->importFiles();
+
+        $presented = $this->present(self::MARKETING, [
+            $this->change('sys_file', 8),
+            $this->change('sys_file', 9),
+            $this->change('sys_file_metadata', 1),
+            $this->change('sys_file_metadata', 2),
+        ]);
+
+        self::assertSame(['sys_file:8', 'sys_file_metadata:1'], $this->keys($presented));
+        self::assertSame(2, $presented['withheld']);
+        $json = json_encode($presented, JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('intern-geheim', $json);
+        self::assertStringNotContainsString('"uid":9', $json);
+        self::assertStringNotContainsString('"uid":2,', $json);
+        self::assertStringContainsString('marketing-offen', $json);
+
+        // The administrator has no mount to cross.
+        self::assertSame(['sys_file:9', 'sys_file_metadata:2'], $this->keys($this->present(self::ADMIN, [$this->change('sys_file', 9), $this->change('sys_file_metadata', 2)])));
+    }
+
+    /**
+     * Without a backend request core loads no mounts and no permissions into a
+     * storage, and then allows every action on it. That is no verdict, so the
+     * file is withheld, also from a viewer who has the mount.
+     */
+    #[Test]
+    public function aFileIsWithheldWhenCoreDidNotLoadTheViewersPermissionsIntoItsStorage(): void
+    {
+        $this->importFiles();
+
+        $presented = $this->present(self::MARKETING, [$this->change('sys_file', 8)], backendRequest: false);
+
+        self::assertSame([], $this->keys($presented));
+        self::assertSame(1, $presented['withheld']);
+    }
+
+    /** A metadata row whose file is gone cannot be tied to a mount, so it is withheld. */
+    #[Test]
+    public function aMetadataRowWithoutItsFileIsWithheld(): void
+    {
+        $this->importFiles();
+        $this->getConnectionPool()->getConnectionForTable('sys_file_metadata')->insert('sys_file_metadata', ['uid' => 3, 'pid' => 0, 'file' => 404, 'title' => 'verwaist']);
+
+        $presented = $this->present(self::MARKETING, [$this->change('sys_file_metadata', 3)]);
+
+        self::assertSame([], $this->keys($presented));
+        self::assertSame(1, $presented['withheld']);
+    }
+
+    private function importFiles(): void
+    {
+        foreach (['marketing', 'intern'] as $folder) {
+            GeneralUtility::mkdir_deep($this->instancePath . '/fileadmin/' . $folder);
+        }
+
+        $files = $this->getConnectionPool()->getConnectionForTable('sys_file');
+        $files->insert('sys_file', ['uid' => 8, 'pid' => 0, 'storage' => 1, 'identifier' => '/marketing/offen.pdf', 'name' => 'marketing-offen.pdf']);
+        $files->insert('sys_file', ['uid' => 9, 'pid' => 0, 'storage' => 1, 'identifier' => '/intern/geheim.pdf', 'name' => 'intern-geheim.pdf']);
+
+        $metadata = $this->getConnectionPool()->getConnectionForTable('sys_file_metadata');
+        $metadata->insert('sys_file_metadata', ['uid' => 1, 'pid' => 0, 'file' => 8, 'title' => 'marketing-offen']);
+        $metadata->insert('sys_file_metadata', ['uid' => 2, 'pid' => 0, 'file' => 9, 'title' => 'intern-geheim']);
+    }
+
     #[Test]
     public function anAdministratorSeesEverythingThatExists(): void
     {
@@ -167,6 +250,12 @@ final class ChangeListPresenterTest extends FunctionalTestCase
         self::assertFalse($item['writeTarget']);
         self::assertSame(1, $item['language']['id']);
         self::assertNotSame('', $item['language']['label']);
+
+        // The write facts of an observed entry reach the view as they are.
+        $partial = $this->present(self::ADMIN, [new RecordChange('tt_content', 1, ChangeAction::CREATED, isWriteTarget: true, failedAfterWrite: true, complete: false)])['changes'][0];
+        self::assertFalse($partial['complete']);
+        self::assertTrue($partial['failedAfterWrite']);
+        self::assertFalse($partial['legacy']);
 
         $unknown = $this->present(self::ADMIN, [new RecordChange('tt_content', 1)])['changes'][0];
         self::assertNull($unknown['hidden']);

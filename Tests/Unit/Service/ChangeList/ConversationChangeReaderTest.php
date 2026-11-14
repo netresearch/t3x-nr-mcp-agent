@@ -181,6 +181,20 @@ final class ConversationChangeReaderTest extends TestCase
     }
 
     /** The failure belongs to the call whose tool step precedes the list, not to another tool of the run. */
+    /** A later clean call that touches the record again does not undo the doubt about the earlier write. */
+    #[Test]
+    public function aLaterCleanCallDoesNotClearAnEarlierFailureMarker(): void
+    {
+        $this->addRun('run', [
+            ['kind' => 'tool', 'toolName' => 'copy_record', 'toolIsError' => true],
+            $this->changes('copy_record', [$this->change('pages', 30)]),
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            $this->changes('update_record', [$this->change('pages', 30, 'updated')]),
+        ]);
+
+        self::assertTrue($this->reader()->read($this->actor(), ['run'])->changes[0]->failedAfterWrite);
+    }
+
     #[Test]
     public function theFailureOfAnotherToolIsNotAttributed(): void
     {
@@ -191,6 +205,89 @@ final class ConversationChangeReaderTest extends TestCase
         ]);
 
         self::assertFalse($this->reader()->read($this->actor(), ['run'])->changes[0]->failedAfterWrite);
+    }
+
+    /**
+     * nr-llm records `isError=false` and PARTIAL for a translation that stopped
+     * half-way (CreateTranslationDraftToolTest::aFailedTranslationLeavesTheSourceTextAndSaysSo):
+     * the flag sits on the `tool_write` step of the call, and only on the write target.
+     */
+    #[Test]
+    public function aPartialWriteOfACallWithToolChangesIsCarriedOntoItsWriteTarget(): void
+    {
+        $this->addRun('run', [
+            ['kind' => 'tool', 'toolName' => 'create_translation_draft', 'toolIsError' => false],
+            ['kind' => 'tool_write', 'toolName' => 'create_translation_draft', 'writeTargetTable' => 'pages', 'writeTargetUid' => 11, 'writeCompleteness' => 'partial', 'hookFailedAfterWrite' => false],
+            $this->changes('create_translation_draft', [$this->change('pages', 11, 'created', target: true), $this->change('tt_content', 21)]),
+        ]);
+
+        $result = $this->reader()->read($this->actor(), ['run']);
+
+        self::assertCount(2, $result->changes);
+        self::assertFalse($result->legacy);
+        self::assertFalse($result->changes[0]->legacy);
+        self::assertFalse($result->changes[0]->complete);
+        self::assertFalse($result->changes[0]->failedAfterWrite);
+        self::assertNull($result->changes[1]->complete);
+    }
+
+    #[Test]
+    public function aHookFailureAfterTheWriteIsKeptWhenTheToolReportedNoError(): void
+    {
+        $this->addRun('run', [
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            ['kind' => 'tool_write', 'toolName' => 'update_record', 'writeTargetTable' => 'pages', 'writeTargetUid' => 5, 'writeCompleteness' => 'complete', 'hookFailedAfterWrite' => true],
+            $this->changes('update_record', [$this->change('pages', 5, 'updated', target: true)]),
+        ]);
+
+        $changes = $this->reader()->read($this->actor(), ['run'])->changes;
+
+        self::assertCount(1, $changes);
+        self::assertTrue($changes[0]->failedAfterWrite);
+        // A hook failure does not change the completeness the tool stated (nr-llm ToolResult).
+        self::assertTrue($changes[0]->complete);
+    }
+
+    /** Partial and hook-failed are two facts of one write: both stay on the target, observed or legacy. */
+    #[Test]
+    public function aPartialWriteWhoseHookAlsoFailedKeepsBothFacts(): void
+    {
+        $write = ['kind' => 'tool_write', 'toolName' => 'update_record', 'writeTargetTable' => 'pages', 'writeTargetUid' => 5, 'writeCompleteness' => 'partial', 'hookFailedAfterWrite' => true];
+        $this->addRun('observed', [
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            $write,
+            $this->changes('update_record', [$this->change('pages', 5, 'updated', target: true)]),
+        ]);
+        $this->addRun('old', [
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            array_replace($write, ['writeTargetUid' => 6]),
+        ]);
+
+        $changes = $this->reader()->read($this->actor(), ['observed', 'old'])->changes;
+
+        self::assertCount(2, $changes);
+        foreach ($changes as $change) {
+            self::assertFalse($change->complete, $change->key());
+            self::assertTrue($change->failedAfterWrite, $change->key());
+        }
+    }
+
+    /** The write step belongs to the call it follows: a later call of the same tool does not inherit it. */
+    #[Test]
+    public function theWriteMetadataOfOneCallIsNotAppliedToAnotherCallOfTheSameTool(): void
+    {
+        $this->addRun('run', [
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            ['kind' => 'tool_write', 'toolName' => 'update_record', 'writeTargetTable' => 'pages', 'writeTargetUid' => 5, 'writeCompleteness' => 'partial'],
+            $this->changes('update_record', [$this->change('pages', 5, 'updated', target: true)]),
+            ['kind' => 'tool', 'toolName' => 'update_record', 'toolIsError' => false],
+            $this->changes('update_record', [$this->change('pages', 6, 'updated', target: true)]),
+        ]);
+
+        $changes = $this->reader()->read($this->actor(), ['run'])->changes;
+
+        self::assertFalse($changes[0]->complete);
+        self::assertNull($changes[1]->complete);
     }
 
     #[Test]

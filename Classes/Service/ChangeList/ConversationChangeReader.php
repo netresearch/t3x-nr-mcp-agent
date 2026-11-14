@@ -33,7 +33,13 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
  * name the tool's target, and the second reading would double it.
  *
  * Whether a call failed after it wrote is read from the `tool` event of the
- * same tool that precedes its `tool_changes` event.
+ * same tool that precedes its `tool_changes` event, and from the
+ * `hookFailedAfterWrite` of its `tool_write` event, which a tool that reports
+ * no error can still set. Whether the tool wrote all it planned
+ * (`writeCompleteness`) is read from the same `tool_write` event and put on the
+ * call's write target. That event is the one between the call's `tool` event
+ * and its `tool_changes` event (nr-llm RunTrace::recordToolResult); it adds
+ * these facts to the observed record and no row of its own.
  */
 final readonly class ConversationChangeReader
 {
@@ -78,16 +84,20 @@ final readonly class ConversationChangeReader
             $observed = [];
             $writes   = [];
             $failed   = [];
+            $pending  = [];
             foreach ($this->runtime->events($actor, $uuid) as $event) {
                 $tool = is_string($event->payload['toolName'] ?? null) ? $event->payload['toolName'] : '';
                 if ($event->kind === RunStep::KIND_TOOL) {
                     $failed[$tool] = ($event->payload['toolIsError'] ?? false) === true;
+                    unset($pending[$tool]);
                 } elseif ($event->kind === RunStep::KIND_WRITE) {
-                    $writes[] = $event->payload;
+                    $writes[]       = $event->payload;
+                    $pending[$tool] = $event->payload;
                 } elseif ($event->kind === RunStep::KIND_CHANGES) {
                     $set = ObservedChangeSet::tryFromEventPayload($event->payload);
                     if ($set instanceof ObservedChangeSet) {
-                        $observed[] = [$set, $failed[$tool] ?? false];
+                        $observed[] = [$set, $failed[$tool] ?? false, $pending[$tool] ?? null];
+                        unset($pending[$tool]);
                     }
                 }
             }
@@ -104,11 +114,11 @@ final readonly class ConversationChangeReader
                 continue;
             }
 
-            foreach ($observed as [$set, $callFailed]) {
+            foreach ($observed as [$set, $callFailed, $write]) {
                 $notCaptured = $notCaptured || $set->coverage === ChangeCoverage::NOT_CAPTURED;
                 $omitted += $set->omitted;
                 foreach ($set->changes as $change) {
-                    $this->merge($byRecord, $this->changeOf($change, $callFailed));
+                    $this->merge($byRecord, $this->changeOf($change, $callFailed, $write));
                 }
             }
         }
@@ -125,8 +135,17 @@ final readonly class ConversationChangeReader
         $byRecord[$key] = isset($byRecord[$key]) ? $byRecord[$key]->seenAgain($change) : $change;
     }
 
-    private function changeOf(ObservedChange $change, bool $callFailed): RecordChange
+    /**
+     * @param array<mixed>|null $write the `tool_write` payload of the same call
+     */
+    private function changeOf(ObservedChange $change, bool $callFailed, ?array $write): RecordChange
     {
+        [$hookFailed, $complete] = $write === null ? [false, null] : $this->writeFacts($write);
+        $isTarget                = $write !== null && (
+            $change->isWriteTarget
+            || ($change->record->table === ($write['writeTargetTable'] ?? null) && $change->record->uid === ($write['writeTargetUid'] ?? null))
+        );
+
         return new RecordChange(
             $change->record->table,
             $change->record->uid,
@@ -137,8 +156,33 @@ final readonly class ConversationChangeReader
             $change->isWriteTarget,
             $change->hidden,
             $change->restrictions,
-            $callFailed,
+            // A hook that failed after the write puts the call's records in doubt, as an error does.
+            $callFailed || $hookFailed,
+            complete: $isTarget ? $complete : null,
         );
+    }
+
+    /**
+     * What a `tool_write` event states about its write: whether a hook failed
+     * after it, and whether the tool wrote all it planned (null: not stated).
+     * The two are independent: nr-llm reports the hook failure beside the
+     * completeness and does not change it (ToolResult).
+     *
+     * @param array<mixed> $payload
+     *
+     * @return array{bool, ?bool}
+     */
+    private function writeFacts(array $payload): array
+    {
+        $hookFailed   = ($payload['hookFailedAfterWrite'] ?? false) === true;
+        $completeness = is_string($payload['writeCompleteness'] ?? null) ? WriteCompleteness::tryFrom($payload['writeCompleteness']) : null;
+        $complete     = match ($completeness) {
+            WriteCompleteness::COMPLETE => true,
+            WriteCompleteness::PARTIAL  => false,
+            default                     => null,
+        };
+
+        return [$hookFailed, $complete];
     }
 
     /**
@@ -152,13 +196,7 @@ final readonly class ConversationChangeReader
             return null;
         }
 
-        $hookFailed   = ($payload['hookFailedAfterWrite'] ?? false) === true;
-        $completeness = is_string($payload['writeCompleteness'] ?? null) ? WriteCompleteness::tryFrom($payload['writeCompleteness']) : null;
-        $complete     = match ($completeness) {
-            WriteCompleteness::COMPLETE => true,
-            WriteCompleteness::PARTIAL  => false,
-            default                     => null,
-        };
+        [$hookFailed, $complete] = $this->writeFacts($payload);
 
         return new RecordChange(
             $table,
@@ -166,7 +204,7 @@ final readonly class ConversationChangeReader
             isWriteTarget: true,
             failedAfterWrite: $hookFailed,
             legacy: true,
-            complete: $hookFailed ? null : $complete,
+            complete: $complete,
         );
     }
 }

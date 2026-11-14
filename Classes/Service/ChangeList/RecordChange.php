@@ -25,7 +25,7 @@ final readonly class RecordChange
 {
     /**
      * @param list<string> $restrictions
-     * @param ?bool        $complete     legacy entries only: whether the tool said it wrote what it planned
+     * @param ?bool        $complete     the write target only: whether the tool said it wrote what it planned (its `tool_write` step); null when not stated
      */
     public function __construct(
         public string $table,
@@ -50,7 +50,8 @@ final readonly class RecordChange
     /**
      * The same record seen again, by a later call of the run or conversation:
      * the later observation states the record's state now, a record created
-     * earlier stays created, and having been the tool's target once is kept.
+     * earlier stays created, and having been the tool's target once, and having been in doubt after a failed
+     * call, is kept.
      */
     public function seenAgain(self $later): self
     {
@@ -67,7 +68,7 @@ final readonly class RecordChange
             $this->isWriteTarget || $later->isWriteTarget,
             $later->hidden ?? $this->hidden,
             $later->restrictions,
-            $later->failedAfterWrite,
+            $this->failedAfterWrite || $later->failedAfterWrite,
             $this->legacy && $later->legacy,
             $later->complete ?? $this->complete,
         );

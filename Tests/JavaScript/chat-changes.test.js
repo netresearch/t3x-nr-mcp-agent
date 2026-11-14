@@ -156,6 +156,13 @@ describe('badges', () => {
 
         expect(legacy.map((b) => b.key)).toEqual(['action', 'legacy', 'role', 'partial']);
     });
+
+    test('an observed entry whose tool wrote only part of its plan carries the partial warning', () => {
+        const partial = changeBadges({...CHANGE, complete: false});
+
+        expect(partial.find((b) => b.key === 'partial').tone).toBe('warning');
+        expect(partial.some((b) => b.key === 'legacy')).toBe(false);
+    });
 });
 
 describe('opening a backend link', () => {
