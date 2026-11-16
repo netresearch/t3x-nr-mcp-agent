@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-16
+
+### Added
+
+- A run that hands a step to a remote agent (nr-llm `WAITING_FOR_DEPENDENCY`, ADR-281) parks the conversation as *Waiting for a remote agent* instead of failing it. The chat follows the run while nr-llm's worker continues it: a proposal or question of the continued run appears as the card or the reply buttons, a failure fails the conversation with Retry, and a completed run brings its answer where nr-llm keeps one, or a line that it was not kept. *Stop waiting* cancels the run while it still waits; no new message can be sent meanwhile. The overview counts these conversations ([#361](https://github.com/netresearch/t3x-nr-mcp-agent/pull/361)).
+
+### Changed
+
+- The development dependencies `minimatch` and `glob` are overridden to 11 and 14 ([#360](https://github.com/netresearch/t3x-nr-mcp-agent/pull/360)).
+
 ## [0.38.5] - 2026-11-16
 
 ### Changed
