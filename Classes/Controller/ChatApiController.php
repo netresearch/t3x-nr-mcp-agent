@@ -1050,6 +1050,9 @@ final readonly class ChatApiController
             'status'     => $conversation->getStatus()->value,
             'messages'   => $newMessages,
             'totalCount' => count($messages),
+            // Whether Retry applies: a conversation can fail while it is open,
+            // when the run it waited for fails (nr-llm ADR-281).
+            'resumable' => $conversation->isResumable(),
             ...$this->presentError($conversation->getErrorMessage(), $conversation->getErrorCode()),
             'approvalUrl'     => $this->buildApprovalUrl($conversation->getApprovalRunUuid()),
             'pendingApproval' => $this->buildPendingApproval($conversation),

@@ -2277,6 +2277,20 @@ class ChatApiControllerTest extends TestCase
         self::assertSame('Der Lauf ist nicht mehr vorhanden', json_decode((string) $response->getBody(), true)['errorMessage']);
     }
 
+    /** The full answer says whether Retry applies, so a wait that failed offers it at once. */
+    #[Test]
+    public function theFullAnswerSaysWhetherTheConversationCanBeRetried(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Übersetzen');
+        $conversation->setStatus(ConversationStatus::Failed);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $data = json_decode((string) $this->subject->getMessages($this->createRequest('GET', '', ['conversationUid' => '1']))->getBody(), true);
+
+        self::assertTrue($data['resumable']);
+    }
+
     #[Test]
     public function stoppingTheWaitCancelsTheRun(): void
     {

@@ -847,12 +847,18 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         $run   = $this->agentRunRepository->findByUuid($runUuid);
         // A run that is gone, or that this user may no longer read, cannot be
         // cancelled and goes on no more: the wait ends here.
-        if ($run instanceof AgentRun && $actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
-            && !$this->agentRuntime->cancel($actor, $runUuid)
-        ) {
-            $this->followDependency($conversation, $runUuid);
+        if ($run instanceof AgentRun && $actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            // Only a run that still waits is cancelled. nr-llm's cancel() also
+            // ends a run the worker has taken on, with the proposal, question
+            // or answer it came back with: a stop meant for the wait must not
+            // throw that away. The conversation shows it instead.
+            if (AgentRunStatus::tryFrom($run->status) !== AgentRunStatus::WAITING_FOR_DEPENDENCY
+                || !$this->agentRuntime->cancel($actor, $runUuid)
+            ) {
+                $this->followDependency($conversation, $runUuid);
 
-            return false;
+                return false;
+            }
         }
 
         $this->endWaitCancelled($conversation);

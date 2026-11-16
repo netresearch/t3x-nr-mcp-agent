@@ -110,6 +110,41 @@ describe.each(SURFACES)('$name while the run waits for a remote agent', ({module
         expect(cancelButton(el)).not.toBeNull();
     });
 
+    test('a stop refused because the run went on stays said after the run\'s result arrives', async () => {
+        const el = await render(modulePath, tag, open);
+        el.chat._api.cancelWait = jest.fn().mockRejectedValue(new Error('Der Lauf war schon weiter'));
+        el.chat._api.getMessages = jest.fn().mockResolvedValue({
+            status: 'idle',
+            messages: [{role: 'assistant', content: 'Die Übersetzung ist fertig.'}],
+            totalCount: 2,
+            errorMessage: '',
+        });
+        el.chat._knownMessageCount = 1;
+
+        cancelButton(el).click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await el.updateComplete;
+
+        expect(el.chat.status).toBe('idle');
+        expect(el.shadowRoot.textContent).toContain('Die Übersetzung ist fertig.');
+        expect(el.shadowRoot.textContent).toContain('Der Lauf war schon weiter');
+    });
+
+    test('a wait that failed offers Retry without a reload', async () => {
+        const el = await render(modulePath, tag, open);
+        el.chat._knownMessageCount = 1;
+        el.chat._api.getMessages = jest.fn().mockResolvedValue({
+            status: 'failed', messages: [], totalCount: 1, errorMessage: 'Der Lauf ist nicht mehr vorhanden', resumable: true,
+        });
+
+        await el.chat.pollMessages();
+        el.requestUpdate();
+        await el.updateComplete;
+
+        expect(el.shadowRoot.textContent).toContain('chat.retry');
+    });
+
     test('nothing new is sent while the run waits', async () => {
         const el = await render(modulePath, tag, open);
 

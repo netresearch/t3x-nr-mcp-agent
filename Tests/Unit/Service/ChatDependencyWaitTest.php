@@ -399,6 +399,21 @@ final class ChatDependencyWaitTest extends TestCase
         self::assertSame('Fertig.', $this->lastMessage($conversation)['content']);
     }
 
+    /**
+     * The worker continued the run a moment before the click: its proposal is
+     * not thrown away by a stop meant for the wait.
+     */
+    #[Test]
+    public function aStopAfterTheRunMovedOnCancelsNothingAndShowsWhereItIs(): void
+    {
+        $conversation = $this->waiting();
+
+        self::assertFalse($this->service(run: $this->runWith(AgentRunStatus::WAITING_FOR_APPROVAL->value))->cancelDependencyWait($conversation));
+
+        self::assertSame([], $this->cancelled);
+        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+    }
+
     /** A run that is gone cannot be cancelled and continues no more: the wait just ends. */
     #[Test]
     public function stoppingAWaitWhoseRunIsGoneEndsIt(): void

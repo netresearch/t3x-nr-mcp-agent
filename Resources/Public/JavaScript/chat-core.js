@@ -976,7 +976,13 @@ export class ChatCoreController {
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>
                     c.uid === this.activeUid
-                        ? {...c, status: data.status, errorMessage: data.errorMessage || ''}
+                        ? {
+                            ...c,
+                            status: data.status,
+                            errorMessage: data.errorMessage || '',
+                            // The full answer says whether Retry applies.
+                            ...(typeof data.resumable === 'boolean' ? {resumable: data.resumable} : {}),
+                        }
                         : c
                 );
                 this.host.requestUpdate();
@@ -1920,17 +1926,22 @@ export class ChatCoreController {
         if (!uid || !this.isWaitingForAgent() || this.cancellingWait) return;
         this.cancellingWait = true;
         this.host.requestUpdate();
+        let refusal = '';
         try {
             await this._api.cancelWait(uid);
         } catch (e) {
-            if (uid === this.activeUid) {
-                this.errorMessage = e.message;
-            }
+            refusal = e.message;
         } finally {
             this.cancellingWait = false;
         }
         if (uid !== this.activeUid) return;
         await this._pollAtOnce();
+        // A refused stop usually means the run went on: the poll brings what
+        // it came back with, and the reason the stop did not happen stays
+        // beside it rather than being replaced by the poll.
+        if (refusal && !this.errorMessage) {
+            this.errorMessage = refusal;
+        }
         this.host.requestUpdate();
         // The button is gone with the notice; focus goes where the editor
         // continues, as after a decision on a card.
