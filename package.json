@@ -22,5 +22,9 @@
     "jest-environment-node": "^30.3.0",
     "lit": "^3.3.3",
     "parse5": "8.1.1"
+  },
+  "overrides": {
+    "glob": "^14.0.6",
+    "minimatch": "^11.0.1"
   }
 }
