@@ -1006,8 +1006,12 @@ final readonly class ChatApiController
             // it. Fall through once and answer with the card.
             // The same holds for a question (ADR-018): the poll that first sees
             // it must answer with the reply buttons.
+            // A run that waits for a remote agent writes nothing here either:
+            // nr-llm's worker continues it, and only reconcile() reads the run
+            // and carries its outcome into the conversation (nr-llm ADR-281).
             $isAwaitingApproval = $meta['status'] === ConversationStatus::AwaitingApproval->value
-                || $meta['status'] === ConversationStatus::AwaitingInput->value;
+                || $meta['status'] === ConversationStatus::AwaitingInput->value
+                || $meta['status'] === ConversationStatus::AwaitingDependency->value;
 
             // A conversation about a missing alt text whose turn has ended
             // falls through as well: only the full answer says whether its
@@ -1487,9 +1491,15 @@ final readonly class ChatApiController
         return new JsonResponse(['systemPrompt' => $prompt]);
     }
 
+    /**
+     * Whether the conversation's run is still going. A run that waits for a
+     * remote agent (nr-llm ADR-281) counts: a new turn would send the same
+     * task to the agent a second time. The editor stops the wait instead
+     * (cancelWaiting()).
+     */
     private function isBusy(ConversationStatus $status): bool
     {
-        return in_array($status, [ConversationStatus::Processing, ConversationStatus::Locked, ConversationStatus::ToolLoop], true);
+        return in_array($status, [ConversationStatus::Processing, ConversationStatus::Locked, ConversationStatus::ToolLoop, ConversationStatus::AwaitingDependency], true);
     }
 
     /**
@@ -2701,6 +2711,39 @@ final readonly class ChatApiController
         $this->dispatchTurn($conversation->getUid());
 
         return new JsonResponse(['status' => 'processing'], 202);
+    }
+
+    /**
+     * POST /ai-chat/conversations/cancel-wait – Stop the wait for a remote
+     * agent (nr-llm ADR-281): the run is cancelled and the conversation is
+     * free for the next message.
+     *
+     * Refused with 409 when the run had already moved on — the worker
+     * continued it and it ended, or it waits for a decision now. The
+     * conversation then shows what became of the run, which the next poll
+     * reads.
+     */
+    public function cancelWaiting(ServerRequestInterface $request): ResponseInterface
+    {
+        $accessDenied = $this->checkAccess();
+        if ($accessDenied instanceof ResponseInterface) {
+            return $accessDenied;
+        }
+
+        $conversation = $this->findConversationOrFail($request);
+        if ($conversation instanceof ResponseInterface) {
+            return $conversation;
+        }
+
+        if ($conversation->getStatus() !== ConversationStatus::AwaitingDependency) {
+            return new JsonResponse(['error' => $this->translate('error.notWaitingForAgent')], 409);
+        }
+
+        if (!$this->chatApproval->cancelDependencyWait($conversation)) {
+            return new JsonResponse(['error' => $this->translate('error.waitNotCancelled')], 409);
+        }
+
+        return new JsonResponse(['status' => ConversationStatus::Idle->value]);
     }
 
     /**

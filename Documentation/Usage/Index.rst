@@ -145,6 +145,21 @@ When the question changed after it was shown, or your answer could not be
 taken, the question comes back with the reason above the buttons; answer
 again.
 
+When a remote agent works on a step
+-----------------------------------
+
+Where an administrator has connected remote agents in nr-llm, a step can
+hand part of the work to one of them and wait for its answer. The chat then
+says *Waiting for a remote agent*. Nothing needs to be done: the step goes
+on by itself when the agent answers, which can take a while, and the chat
+shows the result. If that result is a proposed change or a question, it
+appears as an approval card or as reply buttons, as above.
+
+While the step waits, no new message can be sent, because it would send the
+same task again. **Stop waiting** cancels the step; the chat says so and is
+ready for the next message. When the answer cannot be shown in the chat,
+the chat says so; the run in **AI > AI Tasks** shows what it did.
+
 .. _usage-approving-a-step:
 
 Approving a step in the chat
@@ -508,8 +523,8 @@ each one:
     date and time are in the tooltip.
 -   **Status** -- in words, with a colour that only repeats them: *Ready* is
     neutral, *Waiting for your answer* and *Waiting for your approval* stand
-    out in the warning colour with an icon, *Working* is shown as
-    information, *Failed* as an error.
+    out in the warning colour with an icon, *Working* and *Waiting for a
+    remote agent* are shown as information, *Failed* as an error.
 
 The lists are ordered by the last message, newest first, with pinned chats
 on top. A chat without any message is not listed, except while it is the

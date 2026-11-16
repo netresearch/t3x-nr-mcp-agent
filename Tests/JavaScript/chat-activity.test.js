@@ -94,6 +94,15 @@ describe('activityEntries', () => {
         expect(last.meta).toBe('create_page, update_record');
     });
 
+    test('a run that waits for a remote agent ends with that wait', () => {
+        const chat = controller({status: 'awaiting_dependency', activity: [{kind: 'tool', tool: 'a2a_translate', ms: 30}]});
+
+        const last = activityEntries(chat).at(-1);
+
+        expect(last.label).toBe('status.awaitingDependency');
+        expect(last.tone).toBe('waiting');
+    });
+
     test('a waiting turn of a non-administrator names no tools', () => {
         // The response empties the tool names for anyone but administrators.
         const chat = controller({

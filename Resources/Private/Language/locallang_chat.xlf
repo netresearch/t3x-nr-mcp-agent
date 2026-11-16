@@ -75,6 +75,27 @@
             <trans-unit id="status.awaitingInput" resname="status.awaitingInput">
                 <source>Waiting for your answer</source>
             </trans-unit>
+            <trans-unit id="status.awaitingDependency" resname="status.awaitingDependency">
+                <source>Waiting for a remote agent</source>
+            </trans-unit>
+            <trans-unit id="chat.waitingForAgent" resname="chat.waitingForAgent">
+                <source>The assistant handed a step to a remote agent and waits for its answer. It continues on its own when the agent answers.</source>
+            </trans-unit>
+            <trans-unit id="chat.cancelWait" resname="chat.cancelWait">
+                <source>Stop waiting</source>
+            </trans-unit>
+            <trans-unit id="chat.answerNotKept" resname="chat.answerNotKept">
+                <source>The run finished after the remote agent answered, but its answer was not kept, so it cannot be shown here. Open the run under AI > AI Tasks to see what it did.</source>
+            </trans-unit>
+            <trans-unit id="chat.waitCancelled" resname="chat.waitCancelled">
+                <source>The wait for the remote agent was stopped. Nothing more comes from this step.</source>
+            </trans-unit>
+            <trans-unit id="error.notWaitingForAgent" resname="error.notWaitingForAgent">
+                <source>This conversation does not wait for a remote agent.</source>
+            </trans-unit>
+            <trans-unit id="error.waitNotCancelled" resname="error.waitNotCancelled">
+                <source>The run had already moved on, so the wait could not be stopped.</source>
+            </trans-unit>
             <trans-unit id="status.failed" resname="status.failed">
                 <source>Failed</source>
             </trans-unit>

@@ -367,6 +367,28 @@ final class ChatRunRecordTest extends TestCase
     }
 
     /**
+     * A run that handed a step to a remote agent (nr-llm ADR-281) did not end
+     * there: nr-llm's worker continued it. The record says that it waited,
+     * not that it stopped.
+     */
+    #[Test]
+    public function aRunThatWaitedForARemoteAgentIsNotRecordedAsEnded(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setBeUser(1);
+        $conversation->appendMessage(MessageRole::User, 'Übersetzen lassen');
+
+        $service = $this->service(new AgentRunResult(AgentRunOutcome::AWAITING_DEPENDENCY, 'run-1', [
+            new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolName: 'a2a_translate', toolIsError: false),
+        ]));
+        $service->processConversation($conversation);
+
+        $notes = implode("\n", array_column(RunRecordNotes::of($conversation), 'text'));
+        self::assertStringContainsString('the run handed this step to a remote agent and waited for its answer', $notes);
+        self::assertStringNotContainsString('ended as', $notes);
+    }
+
+    /**
      * A retry runs over the same transcript, which ends on the user's
      * message: the failed segment's record goes into that message, so the
      * model is still called on a user turn and still learns what was saved.

@@ -128,6 +128,21 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
     ``AgentRuntimeInterface::submitInput()`` by the worker. A refusal that
     leaves the run waiting restores ``awaiting_input`` with its reason as a
     code (``InputHandBackReason``) (ADR-018).
+*   ``AWAITING_DEPENDENCY`` -- a tool handed a step to a remote agent and
+    the run waits for its answer (nr-llm ADR-281). Set status
+    ``awaiting_dependency`` and store the run uuid. Nobody of the
+    installation decides it: nr-llm's worker continues the run when the
+    agent answers or its time is up. ``ChatService::reconcile()`` reads the
+    run on every poll and follows it: a run that now waits for an approval
+    or an answer brings the card or the question; a completed run brings
+    its answer (``AgentRun::$answer``) where nr-llm kept one, else the line
+    ``answerNotKept``; a failed run fails the conversation; a cancelled one
+    ends the wait with the line ``waitCancelled``. A new message is refused
+    as busy while the run waits, because it would send the same task again;
+    *Stop waiting* (``POST /ai-chat/conversations/cancel-wait``) cancels the
+    run through ``AgentRuntimeInterface::cancel()``. A card or question
+    decided in the AI Tasks module whose run then waits for a remote agent
+    becomes this wait as well.
 *   a refusal for a guided process (nr-llm ADR-214 item 6; ``ProcessRefusal``).
     When
     the process verdict could not be read, or only the person who started the
@@ -173,7 +188,8 @@ Text the model writes in the same round as a tool call -- the overview of
 a guided process beside ``chat_set_progress``, the explanation beside a
 proposal, a status line beside a read -- is not in ``$finalContent``,
 which holds only the last round's text. For ``COMPLETED``,
-``AWAITING_APPROVAL`` and ``AWAITING_INPUT``, ``ChatService`` reads it from
+``AWAITING_APPROVAL``, ``AWAITING_INPUT`` and ``AWAITING_DEPENDENCY``,
+``ChatService`` reads it from
 the run's ``llm`` steps that requested a tool and appends each non-blank
 text as an assistant message of its own, in the order of the rounds and
 before the answer, the card or the question. A failed run adds none: Retry

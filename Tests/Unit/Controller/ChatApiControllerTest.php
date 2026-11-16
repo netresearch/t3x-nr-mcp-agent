@@ -2204,6 +2204,104 @@ class ChatApiControllerTest extends TestCase
         self::assertSame(422, $response->getStatusCode());
     }
 
+    // ---- a run waiting for a remote agent (nr-llm ADR-281) ----------------
+
+    /**
+     * A new message would send the same task to the remote agent a second
+     * time: the conversation is busy until the wait ends or is stopped.
+     */
+    #[Test]
+    public function aMessageWhileTheRunWaitsForARemoteAgentIsRefusedAsBusy(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.conversationProcessing' => 'Der Chat wird bereits verarbeitet',
+        ]);
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingDependency);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->processor->expects(self::never())->method('dispatch');
+
+        $response = $this->subject->sendMessage($this->createRequest('POST', '{"conversationUid": 1, "content": "Und?"}'));
+
+        self::assertSame(409, $response->getStatusCode());
+    }
+
+    /**
+     * nr-llm's worker continues the run and writes nothing to the
+     * conversation: only the full answer reads the run, so a poll of a
+     * waiting conversation never takes the fast path.
+     */
+    #[Test]
+    public function aPollOfAConversationWaitingForARemoteAgentReadsTheRun(): void
+    {
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Übersetzen');
+        $conversation->setStatus(ConversationStatus::AwaitingDependency);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->repository->method('findPollStatus')->willReturn([
+            'status'            => 'awaiting_dependency',
+            'message_count'     => 1,
+            'error_message'     => '',
+            'error_code'        => '',
+            'approval_run_uuid' => 'run-1',
+            'activity'          => [],
+            'turn_timing'       => [],
+            'live_text'         => '',
+            'about_image'       => false,
+            'tstamp'            => 1,
+        ]);
+        $this->chatApproval->expects(self::once())->method('reconcile')->with($conversation);
+
+        $response = $this->subject->getMessages($this->createRequest('GET', '', ['conversationUid' => '1', 'after' => '1']));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('awaiting_dependency', json_decode((string) $response->getBody(), true)['status']);
+    }
+
+    #[Test]
+    public function stoppingTheWaitCancelsTheRun(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingDependency);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->expects(self::once())->method('cancelDependencyWait')->with($conversation)->willReturn(true);
+
+        $response = $this->subject->cancelWaiting($this->createRequest('POST', '{"conversationUid": 1}'));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(['status' => 'idle'], json_decode((string) $response->getBody(), true));
+    }
+
+    #[Test]
+    public function stoppingAWaitThatLostToTheRunIsRefusedInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.waitNotCancelled' => 'Der Lauf war schon weiter',
+        ]);
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingDependency);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->method('cancelDependencyWait')->willReturn(false);
+
+        $response = $this->subject->cancelWaiting($this->createRequest('POST', '{"conversationUid": 1}'));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['error' => 'Der Lauf war schon weiter'], json_decode((string) $response->getBody(), true));
+    }
+
+    #[Test]
+    public function aConversationThatWaitsForNoAgentHasNoWaitToStop(): void
+    {
+        $conversation = new Conversation();
+        $conversation->setStatus(ConversationStatus::AwaitingApproval);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+        $this->chatApproval->expects(self::never())->method('cancelDependencyWait');
+
+        $response = $this->subject->cancelWaiting($this->createRequest('POST', '{"conversationUid": 1}'));
+
+        self::assertSame(409, $response->getStatusCode());
+    }
+
     /**
      * @param array<string, string> $queryParams
      */

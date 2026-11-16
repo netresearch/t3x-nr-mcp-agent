@@ -226,8 +226,12 @@ final class RunRecordNotes
             $parts[] = 'proposed ' . implode(', ', array_map(RunRecord::token(...), $record['waiting'])) . ", waiting for the editor's decision — not saved yet";
         }
 
+        // A run that waited for a remote agent was continued by nr-llm's
+        // worker after the answer (nr-llm ADR-281); that segment is not in
+        // this record.
         $parts[] = match ($record['outcome']) {
             'completed', 'awaiting_approval', 'awaiting_input' => '',
+            'awaiting_dependency'                              => 'the run handed this step to a remote agent and waited for its answer; what it did after the answer is not part of this record',
             RunRecord::OUTCOME_UNKNOWN                         => 'the step failed before the chat received its steps; what it did, if anything, is not known',
             default                                            => sprintf('the run ended as "%s" before it finished; only what is listed here happened', RunRecord::token($record['outcome'])),
         };

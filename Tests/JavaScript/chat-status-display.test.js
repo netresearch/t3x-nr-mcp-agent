@@ -36,6 +36,7 @@ describe('statusLabel', () => {
         ['tool_loop', 'status.processing'],
         ['awaiting_approval', 'status.awaitingApproval'],
         ['awaiting_input', 'status.awaitingInput'],
+        ['awaiting_dependency', 'status.awaitingDependency'],
         ['failed', 'status.failed'],
     ])('labels %s with %s', (status, label) => {
         expect(statusLabel(status)).toBe(label);
@@ -59,6 +60,7 @@ describe('statusTone', () => {
         ['tool_loop', 'info'],
         ['awaiting_approval', 'warning'],
         ['awaiting_input', 'warning'],
+        ['awaiting_dependency', 'info'],
         ['failed', 'danger'],
         ['archived_later', 'neutral'],
     ])('shows %s as %s', (status, tone) => {

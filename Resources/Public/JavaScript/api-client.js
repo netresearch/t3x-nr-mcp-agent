@@ -250,6 +250,17 @@ export class ApiClient {
     }
 
     /**
+     * Stop the wait for a remote agent: the server cancels the run (nr-llm
+     * ADR-281). Rejects with the server's sentence when the run had already
+     * moved on.
+     * @param {number} conversationUid
+     * @returns {Promise<{status: string}>}
+     */
+    async cancelWait(conversationUid) {
+        return this._post('ai_chat_conversation_cancel_wait', {conversationUid});
+    }
+
+    /**
      * @param {number} conversationUid
      * @returns {Promise<{status: string}>}
      */

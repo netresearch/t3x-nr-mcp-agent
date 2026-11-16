@@ -53,6 +53,7 @@ final class ConversationListPresenterTest extends TestCase
             self::LL . 'status.processing'                    => 'Arbeitet',
             self::LL . 'status.awaitingApproval'              => 'Wartet auf deine Freigabe',
             self::LL . 'status.awaitingInput'                 => 'Wartet auf deine Antwort',
+            self::LL . 'status.awaitingDependency'            => 'Wartet auf einen externen Agenten',
             self::LL . 'status.failed'                        => 'Fehlgeschlagen',
             self::LL . 'status.unknown'                       => 'Status unbekannt',
             SkillLabels::FILE . ':skill.seo-optimieren.title' => 'SEO optimieren',
@@ -771,6 +772,7 @@ final class ConversationListPresenterTest extends TestCase
         yield 'tool loop' => [ConversationStatus::ToolLoop, 'info', 'Arbeitet'];
         yield 'awaiting approval' => [ConversationStatus::AwaitingApproval, 'warning', 'Wartet auf deine Freigabe'];
         yield 'awaiting input' => [ConversationStatus::AwaitingInput, 'warning', 'Wartet auf deine Antwort'];
+        yield 'awaiting a remote agent' => [ConversationStatus::AwaitingDependency, 'info', 'Wartet auf einen externen Agenten'];
         yield 'failed' => [ConversationStatus::Failed, 'danger', 'Fehlgeschlagen'];
     }
 

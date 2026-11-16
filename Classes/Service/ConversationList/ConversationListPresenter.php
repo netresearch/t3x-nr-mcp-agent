@@ -81,7 +81,10 @@ final class ConversationListPresenter
         'tool_loop'         => ['info', 'status.processing'],
         'awaiting_approval' => ['warning', 'status.awaitingApproval'],
         'awaiting_input'    => ['warning', 'status.awaitingInput'],
-        'failed'            => ['danger', 'status.failed'],
+        // The run waits for a remote agent: nothing for the editor to do, so
+        // information, as a running one.
+        'awaiting_dependency' => ['info', 'status.awaitingDependency'],
+        'failed'              => ['danger', 'status.failed'],
     ];
 
     /**

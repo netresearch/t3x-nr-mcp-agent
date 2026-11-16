@@ -63,12 +63,20 @@ interface ChatApprovalInterface
     public function recordInput(Conversation $conversation, array $data, string $turnDigest, string $display): bool;
 
     /**
-     * Put a claimed conversation back in step with the run it waits on, for the
-     * case where the worker never picked the decision up.
+     * Put a conversation back in step with the run it waits on: a claimed
+     * conversation whose worker never picked the decision up, and a
+     * conversation whose run waits for a remote agent (nr-llm ADR-281).
      *
      * Returns true when the conversation was changed.
      */
     public function reconcile(Conversation $conversation): bool;
+
+    /**
+     * Stop the wait for a remote agent by cancelling the run. True when the
+     * run was cancelled; false when the conversation does not wait for one or
+     * the run had already moved on, in which case the conversation follows it.
+     */
+    public function cancelDependencyWait(Conversation $conversation): bool;
 
     /**
      * Whether the configuration the waiting run belongs to requires a second
