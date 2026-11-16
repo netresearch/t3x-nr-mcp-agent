@@ -42,7 +42,9 @@ async function openConversation(page: Page, title: string): Promise<Locator> {
     await iframe.getByRole('link', { name: 'The chat as a full page' }).click();
     const chatApp = iframe.locator('nr-chat-app');
     await expect(chatApp).toBeVisible({ timeout: 15000 });
-    await chatApp.getByRole('option', { name: new RegExp(title) }).click();
+    // A string name matches a part of the accessible name, which also holds
+    // the status and the time.
+    await chatApp.getByRole('option', { name: title }).click();
 
     return chatApp;
 }
