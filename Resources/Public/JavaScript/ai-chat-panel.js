@@ -19,6 +19,7 @@ import {chatProposalStyles, isProposal, renderProposal} from '@netresearch/nr-mc
 import {approveBlockedLabel, chatAltTextStyles, isAltTextCard, renderAltTextCard, renderAltTextMessage, renderAltTextNext} from '@netresearch/nr-mcp-agent/chat-alt-text.js';
 import {contextChipsStyles, renderContextChips} from '@netresearch/nr-mcp-agent/chat-context-chips.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
+import {renderAgentWait} from '@netresearch/nr-mcp-agent/chat-agent-wait.js';
 import {chatChangesStyles, renderCallRefusal, renderChanges, renderDraftWorkspaceNote} from '@netresearch/nr-mcp-agent/chat-changes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
@@ -3197,6 +3198,17 @@ export class AiChatPanel extends LitElement {
     _renderStatusNotice(isResumable) {
         const dismiss = () => { this.chat.errorMessage = ''; this.requestUpdate(); };
 
+        // The run waits for a remote agent (nr-llm ADR-281): what it waits
+        // for, and the way to stop it. An error from a refused stop stands
+        // beside it. Before the read-only check: on a deleted page the wait
+        // would otherwise have nothing to end it from the chat.
+        if (this.chat.isWaitingForAgent()) {
+            return html`${renderAgentWait(this.chat)}${this.chat.errorMessage ? html`
+                <div class="message system status-notice" role="alert" style="color:var(--nr-chat-status-danger, #c62828);">
+                    ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
+                </div>` : nothing}`;
+        }
+
         // A conversation about a deleted page offers nothing to decide, retry
         // or resume: the read-only notice below says why (_renderInput()).
         if (this.chat.isReadOnly()) {
@@ -3209,6 +3221,7 @@ export class AiChatPanel extends LitElement {
         if (this.chat.status === 'awaiting_input') {
             return nothing;
         }
+
 
         if (this.chat.approvalDecisionTaken) {
             const granted = this.chat.approvalDecisionTaken === 'approved';
@@ -3705,14 +3718,14 @@ export class AiChatPanel extends LitElement {
                         aria-activedescendant="${slashAria(this.chat).activedescendant || nothing}"
                         placeholder="${replyPlaceholder(this.chat)}"
                         aria-label="${replyPlaceholder(this.chat)}"
-                        ?disabled=${!this.chat.available || this.chat.isProcessing()}
+                        ?disabled=${!this.chat.available || this.chat.isRunGoing()}
                         rows="2"
                     ></textarea>
                     <button class="btn-send"
                             @click=${() => this.chat.handleSend()}
                             aria-label="${lll('chat.send')}"
                             title="${lll('chat.send')}"
-                            ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isProcessing() || !this.chat.available}>
+                            ?disabled=${!this.chat.hasInput || this.chat.sending || this.chat.isRunGoing() || !this.chat.available}>
                         ${this.chat.sending ? html`<span class="spinner" style="width:12px;height:12px;border-width:2px;"></span>` : ICON_SEND(14)}
                     </button>
                 </div>

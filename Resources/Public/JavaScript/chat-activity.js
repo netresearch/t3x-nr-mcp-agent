@@ -168,6 +168,8 @@ export function activityEntries(chat) {
         entries.push({icon: '⏸', label: lll('activity.waiting'), meta: names, hint: '', tone: 'waiting'});
     } else if (chat.status === 'awaiting_input') {
         entries.push({icon: '⏸', label: lll('activity.waitingInput'), meta: '', hint: '', tone: 'waiting'});
+    } else if (chat.status === 'awaiting_dependency') {
+        entries.push({icon: '⏸', label: lll('status.awaitingDependency'), meta: '', hint: '', tone: 'waiting'});
     } else if (chat.isProcessing()) {
         entries.push({icon: '⟳', label: lll('activity.working'), meta: '', hint: '', tone: 'waiting'});
     }

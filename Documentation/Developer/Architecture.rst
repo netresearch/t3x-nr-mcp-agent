@@ -303,6 +303,12 @@ The conversation lifecycle is modeled as a state enum:
     answer; the chat offers it as reply buttons above the
     input (ADR-018).
 
+``awaiting_dependency``
+    The run handed a step to a remote agent and waits for
+    its answer (nr-llm ADR-281). nr-llm's worker continues
+    it; the chat follows the run on every poll, refuses a
+    new message and offers to stop the wait.
+
 ``failed``
     An error occurred. The user can retry by sending
     a new message.
@@ -317,6 +323,15 @@ State transitions::
                                                  (run asks)
     awaiting_input --> processing --> locked --> ...
                                                  (answered)
+    idle --> processing --> locked --> awaiting_dependency
+                                                 (run waits for a remote agent)
+    awaiting_dependency --> idle|failed|awaiting_approval|awaiting_input
+                                                 (the run went on, was
+                                                 cancelled, or is gone)
+    awaiting_approval|awaiting_input|processing --> awaiting_dependency
+                                                 (decided elsewhere, or the
+                                                 worker stopped after the
+                                                 run started to wait)
     processing|locked|tool_loop --> failed      (cleanup timeout)
 
 File attachment flow

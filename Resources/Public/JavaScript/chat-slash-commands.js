@@ -153,7 +153,7 @@ export function renderActiveSkill(chat) {
         <div class="skill-chip">
             ${lll('skills.active')} <strong>${chat.skill.title || chat.skill.name}</strong>
             <button type="button" class="btn btn-sm btn-icon"
-                ?disabled=${chat.isProcessing()}
+                ?disabled=${chat.isRunGoing()}
                 @click=${() => chat.clearSkill()}
                 aria-label="${lll('skills.remove')}" title="${lll('skills.remove')}">&times;</button>
         </div>

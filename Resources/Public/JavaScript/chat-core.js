@@ -45,6 +45,11 @@ export const PROCESSING_STATUSES = new Set(['processing', 'locked', 'tool_loop']
 const POLL_MS = 2000;
 /** How often it asks beside an open stream, to notice a stream that went quiet. */
 const POLL_GUARD_MS = 10000;
+/**
+ * How often it asks while the run waits for a remote agent (nr-llm ADR-281):
+ * an answer takes seconds to hours, and every poll reads the run.
+ */
+const POLL_WAIT_MS = 10000;
 
 /**
  * The label for each reason nr-llm gives when it drops a guided process
@@ -84,6 +89,7 @@ const STATUS_LABELS = new Map([
     ['tool_loop', 'status.processing'],
     ['awaiting_approval', 'status.awaitingApproval'],
     ['awaiting_input', 'status.awaitingInput'],
+    ['awaiting_dependency', 'status.awaitingDependency'],
     ['failed', 'status.failed'],
 ]);
 
@@ -107,6 +113,7 @@ const STATUS_TONES = new Map([
     ['tool_loop', 'info'],
     ['awaiting_approval', 'warning'],
     ['awaiting_input', 'warning'],
+    ['awaiting_dependency', 'info'],
     ['failed', 'danger'],
 ]);
 
@@ -483,6 +490,9 @@ export class ChatCoreController {
     _stream = null;
     /** The generation of the poll on its way, and whether another was asked for. */
     _polling = null;
+
+    /** Whether a request to stop the wait for a remote agent is under way. */
+    cancellingWait = false;
     _pollAgain = false;
     /** True while an attachment is being uploaded. */
     uploading = false;
@@ -749,6 +759,14 @@ export class ChatCoreController {
             this.messagesUid = uid;
             this.status = data.status;
             this.errorMessage = data.errorMessage || '';
+            // Opening the conversation can settle it (a wait for a remote
+            // agent that ended): the list entry follows, with whether Retry
+            // applies.
+            this.conversations = this.conversations.map(c =>
+                c.uid === uid
+                    ? {...c, status: data.status, ...(typeof data.resumable === 'boolean' ? {resumable: data.resumable} : {})}
+                    : c
+            );
             this._setErrorLink(data);
             this.approvalUrl = data.approvalUrl || '';
             this._setApprovalRight(data);
@@ -901,7 +919,7 @@ export class ChatCoreController {
             // Appending to the old list would never show the new answer.
             if (typeof data.totalCount === 'number' && data.totalCount < this._knownMessageCount) {
                 await this.loadMessages();
-                if (!this.isProcessing()) this.stopPolling();
+                if (!this.keepsPolling()) this.stopPolling();
                 return;
             }
 
@@ -933,7 +951,9 @@ export class ChatCoreController {
                     // it outlives a reload; the transient line does not.
                     this.approvalDecisionTaken = null;
                 }
-                if (data.pendingApproval) {
+                // A card or a wait for a remote agent replaces the line that
+                // confirmed the last decision: it is no longer what happens.
+                if (data.pendingApproval || data.status === 'awaiting_dependency') {
                     this.approvalDecisionTaken = null;
                 }
                 this.status = data.status;
@@ -966,7 +986,13 @@ export class ChatCoreController {
                 // Update active conversation status in-place (avoids extra request)
                 this.conversations = this.conversations.map(c =>
                     c.uid === this.activeUid
-                        ? {...c, status: data.status, errorMessage: data.errorMessage || ''}
+                        ? {
+                            ...c,
+                            status: data.status,
+                            errorMessage: data.errorMessage || '',
+                            // The full answer says whether Retry applies.
+                            ...(typeof data.resumable === 'boolean' ? {resumable: data.resumable} : {}),
+                        }
                         : c
                 );
                 this.host.requestUpdate();
@@ -980,9 +1006,11 @@ export class ChatCoreController {
                 this.host.requestUpdate();
             }
 
-            // Stop polling when no longer processing
+            // Stop polling when nothing is going on any more
             if (!this.isProcessing()) {
                 this.liveText = '';
+            }
+            if (!this.keepsPolling()) {
                 this.stopPolling();
             }
         } catch (e) {
@@ -1004,6 +1032,8 @@ export class ChatCoreController {
         this.stopPolling();
         if (this.isProcessing()) {
             this._openStream();
+        }
+        if (this.keepsPolling()) {
             this.schedulePoll();
         }
     }
@@ -1014,10 +1044,16 @@ export class ChatCoreController {
             this._pollTimer = null;
             if (!this.host.isConnected || generation !== this._pollGeneration) return;
             await this.pollMessages();
-            if (generation === this._pollGeneration && this.host.isConnected && this.isProcessing()) {
+            if (generation === this._pollGeneration && this.host.isConnected && this.keepsPolling()) {
                 this.schedulePoll();
             }
-        }, this._stream ? POLL_GUARD_MS : POLL_MS);
+        }, this._pollInterval());
+    }
+
+    /** The wait before the next poll: slower beside a stream or a wait for a remote agent. */
+    _pollInterval() {
+        if (this._stream) return POLL_GUARD_MS;
+        return this.isWaitingForAgent() ? POLL_WAIT_MS : POLL_MS;
     }
 
     stopPolling() {
@@ -1123,7 +1159,7 @@ export class ChatCoreController {
         }
         const generation = this._pollGeneration;
         await this.pollMessages();
-        if (generation === this._pollGeneration && this.host.isConnected && this.isProcessing()) {
+        if (generation === this._pollGeneration && this.host.isConnected && this.keepsPolling()) {
             this.schedulePoll();
         }
     }
@@ -1151,6 +1187,28 @@ export class ChatCoreController {
 
     isProcessing() {
         return PROCESSING_STATUSES.has(this.status);
+    }
+
+    /**
+     * Whether the run waits for a remote agent (nr-llm ADR-281). nr-llm's
+     * worker continues it; the chat keeps asking, and the editor may stop the
+     * wait, but sends nothing new meanwhile.
+     */
+    isWaitingForAgent() {
+        return this.status === 'awaiting_dependency';
+    }
+
+    /** Whether the chat keeps asking the server what happens. */
+    keepsPolling() {
+        return this.isProcessing() || this.isWaitingForAgent();
+    }
+
+    /**
+     * Whether the conversation's run is still going, so a new message would
+     * start a second one: the server refuses it the same way.
+     */
+    isRunGoing() {
+        return this.isProcessing() || this.isWaitingForAgent();
     }
 
     /** Whether the active conversation can only be read (its page was deleted). */
@@ -1197,7 +1255,7 @@ export class ChatCoreController {
     async handleSend(text = null) {
         const fromInput = text === null;
         const content = (fromInput ? this.inputValue : String(text)).trim();
-        if (!content || this.sending || this.isProcessing() || this.isReadOnly()) return false;
+        if (!content || this.sending || this.isRunGoing() || this.isReadOnly()) return false;
 
         if (this.isTooLong(content)) {
             this.errorMessage = lll('chat.messageTooLong', this.maxLength);
@@ -1272,7 +1330,7 @@ export class ChatCoreController {
     canEditMessage(idx) {
         const msg = this.messages[idx];
         return !!msg && msg.role === 'user' && typeof msg.content === 'string'
-            && !this.isProcessing() && !this.sending && this.available && !this.isReadOnly();
+            && !this.isRunGoing() && !this.sending && this.available && !this.isReadOnly();
     }
 
     startEdit(idx) {
@@ -1431,7 +1489,7 @@ export class ChatCoreController {
         }
         // The turn on the image has ended: an "Optimieren" that came while it
         // ran can be taken up now.
-        if (state && !this.isProcessing()) {
+        if (state && !this.isRunGoing()) {
             this.host.onAltTextIdle?.();
         }
     }
@@ -1810,7 +1868,7 @@ export class ChatCoreController {
             && (this.inputValue ?? '').trim() === ''
             && !this.pendingFile
             && !this.sending
-            && !this.isProcessing();
+            && !this.isRunGoing();
     }
 
     /**
@@ -1866,6 +1924,42 @@ export class ChatCoreController {
     keepTourPage() {
         this.pageKept = this.backendPage.pageId;
         this.host.requestUpdate();
+    }
+
+    /**
+     * Stop the wait for a remote agent: the server cancels the run. When the
+     * run had already moved on, the server says so and the next poll shows
+     * what became of it.
+     */
+    async handleCancelWait() {
+        const uid = this.activeUid;
+        if (!uid || !this.isWaitingForAgent() || this.cancellingWait) return;
+        this.cancellingWait = true;
+        this.host.requestUpdate();
+        let refusal = '';
+        try {
+            await this._api.cancelWait(uid);
+        } catch (e) {
+            refusal = e.message;
+        } finally {
+            this.cancellingWait = false;
+        }
+        if (uid !== this.activeUid) return;
+        await this._pollAtOnce();
+        // Another conversation may have been opened meanwhile.
+        if (uid !== this.activeUid) return;
+        // A refused stop usually means the run went on: the poll brings what
+        // it came back with, and the reason the stop did not happen stays
+        // beside it rather than being replaced by the poll.
+        if (refusal && !this.errorMessage) {
+            this.errorMessage = refusal;
+        }
+        this.host.requestUpdate();
+        // The button is gone with the notice; focus goes where the editor
+        // continues, as after a decision on a card.
+        if (!this.isWaitingForAgent()) {
+            this.host.onFocusInput?.();
+        }
     }
 
     async handleResume() {
@@ -2233,6 +2327,12 @@ export class ChatCoreController {
         }
         if (msg.notice === 'ruleHints') {
             return lll('chat.ruleHints');
+        }
+        if (msg.notice === 'answerNotKept') {
+            return lll('chat.answerNotKept');
+        }
+        if (msg.notice === 'waitCancelled') {
+            return lll('chat.waitCancelled');
         }
         if (msg.notice !== 'runFinishedOutside') return null;
         const writes = Array.isArray(msg.noticeArgs) ? msg.noticeArgs : [];

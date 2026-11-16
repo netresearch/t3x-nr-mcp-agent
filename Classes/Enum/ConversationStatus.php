@@ -41,5 +41,17 @@ enum ConversationStatus: string
      */
     case AwaitingInput = 'awaiting_input';
 
+    /**
+     * The run handed a step to a remote agent and waits for its answer
+     * (nr-llm ADR-281, `waiting_for_dependency`). Nobody of the installation
+     * decides it: nr-llm's worker continues the run when the agent answers or
+     * its time is up, and the chat follows the run (ChatService::reconcile()).
+     *
+     * Not Failed, for the reason given for AwaitingApproval. Not resumable,
+     * because a new turn would send the same task to the agent a second time;
+     * the editor can stop the wait instead.
+     */
+    case AwaitingDependency = 'awaiting_dependency';
+
     case Failed = 'failed';
 }

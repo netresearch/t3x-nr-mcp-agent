@@ -90,6 +90,11 @@ return [
         'target'  => ChatApiController::class . '::resumeConversation',
         'methods' => ['POST'],
     ],
+    'ai_chat_conversation_cancel_wait' => [
+        'path'    => '/ai-chat/conversations/cancel-wait',
+        'target'  => ChatApiController::class . '::cancelWaiting',
+        'methods' => ['POST'],
+    ],
     'ai_chat_conversation_archive' => [
         'path'    => '/ai-chat/conversations/archive',
         'target'  => ChatApiController::class . '::archiveConversation',

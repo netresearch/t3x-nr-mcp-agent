@@ -57,6 +57,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\AgentWaitEndReason;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -151,6 +152,21 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * kind and the sentence the editor reads.
      */
     public const NOTICE_RULE_HINTS = 'ruleHints';
+
+    /**
+     * The notice on the line the chat adds when a run that waited for a remote
+     * agent (nr-llm ADR-281) completed in nr-llm's worker and the installed
+     * nr-llm kept no answer for it: the run finished, and its answer cannot be
+     * shown here.
+     */
+    public const NOTICE_ANSWER_NOT_KEPT = 'answerNotKept';
+
+    /**
+     * The notice on the line the chat adds when the wait for a remote agent
+     * ended because the run was cancelled: by the editor in the chat, or
+     * elsewhere.
+     */
+    public const NOTICE_WAIT_CANCELLED = 'waitCancelled';
 
     /** The kind nr-llm gives a dropped process pin (nr-llm ADR-228). */
     private const DROPPED_PROCESS_KIND = 'process';
@@ -683,18 +699,44 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      *
      *   run still waiting  -> nobody consumed the decision; hand the card back
      *   run still running  -> a worker has it; leave it alone
-     *   any other status   -> not an end (e.g. waiting on a remote agent, or
-     *                         a value this version does not know); leave it
+     *   run waits for a    -> the continuation handed a step to a remote
+     *   remote agent          agent; the chat follows that wait
+     *   any other status   -> not an end (a value this version does not
+     *                         know); leave it
      *   run settled        -> the continuation happened somewhere this
      *                         conversation cannot see, so say that plainly
      *                         instead of spinning
+     *
+     * A conversation that waits for a remote agent is followed on every call
+     * ({@see self::followDependency()}), and a card or question whose run was
+     * decided elsewhere and now waits for one becomes that wait.
      *
      * Returns true when the conversation was changed.
      */
     public function reconcile(Conversation $conversation): bool
     {
         $runUuid = $conversation->getApprovalRunUuid();
-        if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::Processing) {
+        if ($runUuid === '') {
+            return false;
+        }
+
+        // A run that waits for a remote agent is continued by nr-llm's worker,
+        // never by this chat: the run is read on every poll and the
+        // conversation follows it.
+        if ($conversation->getStatus() === ConversationStatus::AwaitingDependency) {
+            return $this->followDependency($conversation, $runUuid);
+        }
+
+        // A card or a question decided outside the chat, in the AI Tasks
+        // module: the run went on and now waits for a remote agent. Left as
+        // it is, the chat would show a card nobody can decide any more.
+        if ($conversation->getStatus() === ConversationStatus::AwaitingApproval
+            || $conversation->getStatus() === ConversationStatus::AwaitingInput
+        ) {
+            return $this->waitWithRun($conversation, $runUuid);
+        }
+
+        if ($conversation->getStatus() !== ConversationStatus::Processing) {
             return false;
         }
 
@@ -749,11 +791,21 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return $this->repository->updateIf($conversation, ConversationStatus::Processing);
         }
 
+        // The decision was carried out and the run then handed a step to a
+        // remote agent, but the worker stopped before it said so here: the
+        // chat follows the waiting run from now on.
+        if ($status === AgentRunStatus::WAITING_FOR_DEPENDENCY) {
+            $conversation->clearApprovalDecision();
+            $conversation->setStatus(ConversationStatus::AwaitingDependency);
+            $conversation->setApprovalRunUuid($runUuid);
+
+            return $this->repository->updateIf($conversation, ConversationStatus::Processing);
+        }
+
         // Only nr-llm's terminal statuses settle the run. Running or queued, a
-        // worker has it; any other status — one this version does not list,
-        // such as a run waiting on a remote agent (nr-llm ADR-281), or a value
-        // the installed nr-llm does not know — is not an end, so the
-        // conversation is left as it is rather than declared finished.
+        // worker has it; any other status — a value the installed nr-llm does
+        // not know — is not an end, so the conversation is left as it is
+        // rather than declared finished.
         if (!$status instanceof AgentRunStatus || !$status->isTerminal()) {
             return false;
         }
@@ -772,6 +824,170 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
         // reachable, so a plain write would delete the answer and then claim the
         // run finished elsewhere.
         return $this->repository->updateIf($conversation, ConversationStatus::Processing);
+    }
+
+    /**
+     * Stop the wait for a remote agent (nr-llm ADR-281): the run is cancelled,
+     * and nr-llm asks the remote agent once to stop the task.
+     *
+     * Only a run that still waits is cancelled; nr-llm's cancel() is the
+     * guarded transition for it. A run the worker has taken on, or one that
+     * has ended, is not cancelled, and the conversation shows what became of
+     * it. This narrows the window and does not close it: when the worker's
+     * resume claim wins between the read here and nr-llm's own transition,
+     * cancel() stops the running continuation at its next step, as nr-llm
+     * documents; only an nr-llm API that cancels from the waiting state alone
+     * would close it. True when the run was cancelled.
+     */
+    public function cancelDependencyWait(Conversation $conversation): bool
+    {
+        $runUuid = $conversation->getApprovalRunUuid();
+        if ($runUuid === '' || $conversation->getStatus() !== ConversationStatus::AwaitingDependency) {
+            return false;
+        }
+
+        $actor = $this->actorFor($conversation);
+        $run   = $this->agentRunRepository->findByUuid($runUuid);
+        // A run that is gone, or that this user may no longer read, cannot be
+        // cancelled and goes on no more: the wait ends here.
+        if ($run instanceof AgentRun && $actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            // Only a run that still waits is cancelled. nr-llm's cancel() also
+            // ends a run the worker has taken on, with the proposal, question
+            // or answer it came back with: a stop meant for the wait must not
+            // throw that away. The conversation shows it instead.
+            if (AgentRunStatus::tryFrom($run->status) !== AgentRunStatus::WAITING_FOR_DEPENDENCY
+                || !$this->agentRuntime->cancel($actor, $runUuid)
+            ) {
+                $this->followDependency($conversation, $runUuid);
+
+                return false;
+            }
+        }
+
+        $this->endWaitCancelled($conversation);
+        $this->repository->updateIf($conversation, ConversationStatus::AwaitingDependency);
+
+        return true;
+    }
+
+    /**
+     * Put a conversation that waits for a remote agent in step with its run.
+     *
+     *   still waiting, running, queued,
+     *   or a status this version does not know -> keep waiting
+     *   waits for an approval or an answer      -> the card or the question
+     *   completed                               -> the run's answer, where
+     *                                              nr-llm kept one; else a line
+     *                                              that it was not kept
+     *   failed                                  -> the conversation fails
+     *   cancelled                               -> a line that the wait ended
+     *   gone, or not readable for the user      -> the conversation fails
+     *
+     * The run is read, never resumed: nr-llm's worker continues it. Written
+     * with a compare-and-swap for the reason reconcile() gives: another poll
+     * or the cancel may write the same row.
+     */
+    private function followDependency(Conversation $conversation, string $runUuid): bool
+    {
+        $actor = $this->actorFor($conversation);
+        $run   = $this->agentRunRepository->findByUuid($runUuid);
+        // Gone (nr-llm's retention purges runs that still wait) or no longer
+        // readable for this user: nothing will continue the conversation, and
+        // left waiting it could never be used again. It fails, with Retry.
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+            $conversation->setStatus(ConversationStatus::Failed);
+            $conversation->setErrorMessage('', AgentWaitEndReason::RunGone->value);
+
+            return $this->repository->updateIf($conversation, ConversationStatus::AwaitingDependency);
+        }
+
+        switch (AgentRunStatus::tryFrom($run->status)) {
+            case AgentRunStatus::WAITING_FOR_APPROVAL:
+                $conversation->setStatus(ConversationStatus::AwaitingApproval);
+                break;
+
+            case AgentRunStatus::WAITING_FOR_INPUT:
+                // The question goes into the transcript as the assistant's, as
+                // when the chat's own run asks it (applyResult()).
+                $schema   = $this->pendingApprovalReader->inputSchema($actor, $runUuid);
+                $question = $schema !== null ? InputPauseForm::fromSchema($schema)->question : '';
+                if ($question !== '') {
+                    $conversation->appendMessage(MessageRole::Assistant, $question);
+                }
+
+                $conversation->setStatus(ConversationStatus::AwaitingInput);
+                break;
+
+            case AgentRunStatus::COMPLETED:
+                // nr-llm keeps the answer of a run that ends in another process
+                // only from the version that adds it for such runs; before,
+                // the field is null for a chat run.
+                $answer = trim($run->answer ?? '');
+                if ($answer !== '') {
+                    $conversation->appendMessage(MessageRole::Assistant, $answer);
+                } else {
+                    $conversation->appendMessage(
+                        MessageRole::Assistant,
+                        '[The run finished after the remote agent answered; its answer was not kept, so it is not in this conversation.]',
+                        self::NOTICE_ANSWER_NOT_KEPT,
+                    );
+                }
+
+                $conversation->setStatus(ConversationStatus::Idle);
+                $conversation->setErrorMessage('');
+                break;
+
+            case AgentRunStatus::FAILED:
+                // A code, not a sentence: the reader gets it in their
+                // language (presentError()).
+                $conversation->setStatus(ConversationStatus::Failed);
+                $conversation->setErrorMessage('', AgentWaitEndReason::RunFailed->value);
+                break;
+
+            case AgentRunStatus::CANCELLED:
+                $this->endWaitCancelled($conversation);
+                break;
+
+            default:
+                return false;
+        }
+
+        return $this->repository->updateIf($conversation, ConversationStatus::AwaitingDependency);
+    }
+
+    /**
+     * A card or question whose run now waits for a remote agent becomes that
+     * wait; any other run status leaves the conversation as it is.
+     */
+    private function waitWithRun(Conversation $conversation, string $runUuid): bool
+    {
+        $run = $this->agentRunRepository->findByUuid($runUuid);
+        if (!$run instanceof AgentRun
+            || !$this->actorFor($conversation)->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
+            || AgentRunStatus::tryFrom($run->status) !== AgentRunStatus::WAITING_FOR_DEPENDENCY
+        ) {
+            return false;
+        }
+
+        // The card or question is gone, and with it a reason a refused
+        // decision left on the row.
+        $waiting = $conversation->getStatus();
+        $conversation->clearApprovalDecision();
+        $conversation->setErrorMessage('');
+        $conversation->setStatus(ConversationStatus::AwaitingDependency);
+
+        return $this->repository->updateIf($conversation, $waiting);
+    }
+
+    private function endWaitCancelled(Conversation $conversation): void
+    {
+        $conversation->appendMessage(
+            MessageRole::Assistant,
+            '[The run was cancelled while it waited for a remote agent.]',
+            self::NOTICE_WAIT_CANCELLED,
+        );
+        $conversation->setStatus(ConversationStatus::Idle);
+        $conversation->setErrorMessage('');
     }
 
     /**
@@ -1840,6 +2056,20 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             $this->noteRuleHints($conversation, $hints);
 
             $conversation->setStatus(ConversationStatus::AwaitingInput);
+            $conversation->setErrorMessage('');
+            $conversation->setApprovalRunUuid($result->runUuid);
+            $this->persist($conversation);
+
+            return false;
+        }
+
+        // A run that handed a step to a remote agent waits for its answer
+        // (nr-llm ADR-281). Nothing failed and nobody here decides it: nr-llm's
+        // worker continues the run, and the chat follows it in reconcile().
+        if ($result->outcome === AgentRunOutcome::AWAITING_DEPENDENCY && $result->runUuid !== '') {
+            $this->appendTextBesideToolCalls($conversation, $result);
+            $this->noteRuleHints($conversation, $hints);
+            $conversation->setStatus(ConversationStatus::AwaitingDependency);
             $conversation->setErrorMessage('');
             $conversation->setApprovalRunUuid($result->runUuid);
             $this->persist($conversation);

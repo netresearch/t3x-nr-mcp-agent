@@ -97,6 +97,42 @@
                 <source>Waiting for your answer</source>
                 <target>Wartet auf deine Antwort</target>
             </trans-unit>
+            <trans-unit id="status.awaitingDependency" resname="status.awaitingDependency">
+                <source>Waiting for a remote agent</source>
+                <target>Wartet auf einen externen Agenten</target>
+            </trans-unit>
+            <trans-unit id="chat.waitingForAgent" resname="chat.waitingForAgent">
+                <source>The assistant handed a step to a remote agent and waits for its answer. It continues on its own when the agent answers.</source>
+                <target>Der Assistent hat einen Schritt an einen externen Agenten übergeben und wartet auf dessen Antwort. Er macht von selbst weiter, sobald der Agent antwortet.</target>
+            </trans-unit>
+            <trans-unit id="chat.cancelWait" resname="chat.cancelWait">
+                <source>Stop waiting</source>
+                <target>Warten abbrechen</target>
+            </trans-unit>
+            <trans-unit id="chat.answerNotKept" resname="chat.answerNotKept">
+                <source>The run finished after the remote agent answered, but its answer was not kept, so it cannot be shown here. Open the run under AI > AI Tasks to see what it did.</source>
+                <target>Der Lauf ist fertig, nachdem der externe Agent geantwortet hat. Seine Antwort wurde aber nicht gespeichert und kann hier nicht angezeigt werden. Unter KI > KI-Aufgaben siehst du, was der Lauf getan hat.</target>
+            </trans-unit>
+            <trans-unit id="chat.waitCancelled" resname="chat.waitCancelled">
+                <source>The wait for the remote agent was stopped. Nothing more comes from this step.</source>
+                <target>Das Warten auf den externen Agenten wurde abgebrochen. Aus diesem Schritt kommt nichts mehr.</target>
+            </trans-unit>
+            <trans-unit id="error.notWaitingForAgent" resname="error.notWaitingForAgent">
+                <source>This conversation does not wait for a remote agent.</source>
+                <target>Dieser Chat wartet auf keinen externen Agenten.</target>
+            </trans-unit>
+            <trans-unit id="error.waitNotCancelled" resname="error.waitNotCancelled">
+                <source>The run had already moved on, so the wait could not be stopped.</source>
+                <target>Der Lauf war schon weiter, deshalb ließ sich das Warten nicht abbrechen.</target>
+            </trans-unit>
+            <trans-unit id="error.agentWait.runFailed" resname="error.agentWait.runFailed">
+                <source>The run failed after it handed a step to a remote agent. Open it under AI > AI Tasks to see what happened.</source>
+                <target>Der Lauf ist fehlgeschlagen, nachdem er einen Schritt an einen externen Agenten übergeben hatte. Unter KI > KI-Aufgaben siehst du, was passiert ist.</target>
+            </trans-unit>
+            <trans-unit id="error.agentWait.runGone" resname="error.agentWait.runGone">
+                <source>The run that waited for a remote agent is no longer available, so its result cannot come back here.</source>
+                <target>Der Lauf, der auf einen externen Agenten gewartet hat, ist nicht mehr vorhanden. Sein Ergebnis kann hier nicht mehr ankommen.</target>
+            </trans-unit>
             <trans-unit id="status.failed" resname="status.failed">
                 <source>Failed</source>
                 <target>Fehlgeschlagen</target>

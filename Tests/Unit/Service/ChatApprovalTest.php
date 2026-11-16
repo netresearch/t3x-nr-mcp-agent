@@ -900,17 +900,36 @@ final class ChatApprovalTest extends TestCase
     }
 
     /**
-     * Statuses this version does not list: nr-llm's coming
-     * `waiting_for_dependency` (a run waiting on a remote agent, nr-llm
-     * ADR-281) and any other value. None of them is an end, so the
-     * conversation must not be declared finished outside the chat.
+     * A status this version does not list. It is no end, so the conversation
+     * must not be declared finished outside the chat.
      *
      * @return iterable<string, array{string}>
      */
     public static function unlistedStatuses(): iterable
     {
-        yield 'waiting on a remote agent' => ['waiting_for_dependency'];
         yield 'a value nobody knows yet' => ['some_future_status'];
+    }
+
+    /**
+     * The decision was carried out and the run then handed a step to a remote
+     * agent (nr-llm ADR-281), but the worker stopped before it said so: the
+     * conversation follows the waiting run instead of spinning.
+     */
+    #[Test]
+    public function aRunThatNowWaitsForARemoteAgentBecomesTheWait(): void
+    {
+        $conversation  = $this->parkedConversation();
+        $runRepository = $this->createMock(AgentRunRepositoryInterface::class);
+        $runRepository->method('findByUuid')->willReturn($this->runWith('waiting_for_dependency'));
+
+        $service = $this->createChatService(null, null, true, $runRepository);
+        $service->recordDecision($conversation, true, 'digest-abc');
+        $this->staleClaim($conversation);
+
+        self::assertTrue($service->reconcile($conversation));
+        self::assertSame(ConversationStatus::AwaitingDependency, $conversation->getStatus());
+        self::assertSame('run-uuid-1234', $conversation->getApprovalRunUuid());
+        self::assertSame('', $conversation->getApprovalDecision());
     }
 
     #[Test]

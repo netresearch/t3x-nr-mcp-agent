@@ -178,6 +178,9 @@
             <trans-unit id="conversations.awaitingInput" resname="conversations.awaitingInput">
                 <source>Waiting for an answer</source>
             </trans-unit>
+            <trans-unit id="conversations.awaitingDependency" resname="conversations.awaitingDependency">
+                <source>Waiting for a remote agent</source>
+            </trans-unit>
             <trans-unit id="conversations.failed" resname="conversations.failed">
                 <source>Failed</source>
             </trans-unit>
