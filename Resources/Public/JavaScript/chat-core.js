@@ -759,6 +759,14 @@ export class ChatCoreController {
             this.messagesUid = uid;
             this.status = data.status;
             this.errorMessage = data.errorMessage || '';
+            // Opening the conversation can settle it (a wait for a remote
+            // agent that ended): the list entry follows, with whether Retry
+            // applies.
+            this.conversations = this.conversations.map(c =>
+                c.uid === uid
+                    ? {...c, status: data.status, ...(typeof data.resumable === 'boolean' ? {resumable: data.resumable} : {})}
+                    : c
+            );
             this._setErrorLink(data);
             this.approvalUrl = data.approvalUrl || '';
             this._setApprovalRight(data);

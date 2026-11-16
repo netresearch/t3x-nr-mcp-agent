@@ -237,6 +237,18 @@ describe('the chat while the run waits for a remote agent', () => {
         expect(chat.approvalDecisionTaken).toBeNull();
     });
 
+    test('opening a wait that failed meanwhile offers Retry', async () => {
+        const chat = controller('');
+        chat.conversations = [{uid: 1, title: 'Übersetzung', status: 'awaiting_dependency', resumable: false}];
+        chat._api.getMessages = jest.fn().mockResolvedValue({
+            status: 'failed', messages: [], totalCount: 1, errorMessage: 'Der Lauf ist nicht mehr vorhanden', resumable: true,
+        });
+
+        await chat.loadMessages();
+
+        expect(chat.conversations[0]).toMatchObject({status: 'failed', resumable: true});
+    });
+
     test('keeps asking while it still waits', async () => {
         const chat = controller('awaiting_dependency');
         chat._knownMessageCount = 1;
