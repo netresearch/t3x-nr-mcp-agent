@@ -943,7 +943,9 @@ export class ChatCoreController {
                     // it outlives a reload; the transient line does not.
                     this.approvalDecisionTaken = null;
                 }
-                if (data.pendingApproval) {
+                // A card or a wait for a remote agent replaces the line that
+                // confirmed the last decision: it is no longer what happens.
+                if (data.pendingApproval || data.status === 'awaiting_dependency') {
                     this.approvalDecisionTaken = null;
                 }
                 this.status = data.status;
@@ -1936,6 +1938,8 @@ export class ChatCoreController {
         }
         if (uid !== this.activeUid) return;
         await this._pollAtOnce();
+        // Another conversation may have been opened meanwhile.
+        if (uid !== this.activeUid) return;
         // A refused stop usually means the run went on: the poll brings what
         // it came back with, and the reason the stop did not happen stays
         // beside it rather than being replaced by the poll.

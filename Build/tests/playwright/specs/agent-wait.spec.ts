@@ -50,6 +50,10 @@ async function openConversation(page: Page, title: string): Promise<Locator> {
 }
 
 test.describe('A run that waits for a remote agent', () => {
+    // The first test stops the seeded wait, and nothing seeds it again: a
+    // retry would find an idle conversation and fail for that reason alone.
+    test.describe.configure({ retries: 0 });
+
     test.beforeEach(async ({ page }) => {
         await login(page);
     });

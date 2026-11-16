@@ -145,6 +145,28 @@ describe.each(SURFACES)('$name while the run waits for a remote agent', ({module
         expect(el.shadowRoot.textContent).toContain('chat.retry');
     });
 
+    test('a conversation on a deleted page can still stop its wait', async () => {
+        const el = await render(modulePath, tag, open, {pageGone: true});
+
+        expect(cancelButton(el)).not.toBeNull();
+    });
+
+    test('a refusal that arrives after another conversation was opened stays with its own', async () => {
+        const el = await render(modulePath, tag, open);
+        el.chat._api.cancelWait = jest.fn().mockRejectedValue(new Error('Der Lauf war schon weiter'));
+        el.chat._api.getMessages = jest.fn().mockImplementation(async () => {
+            el.chat.activeUid = 2;
+            el.chat.errorMessage = '';
+            return {status: 'idle', messages: [], totalCount: 0};
+        });
+        el.chat._knownMessageCount = 1;
+
+        await el.chat.handleCancelWait();
+
+        expect(el.chat.activeUid).toBe(2);
+        expect(el.chat.errorMessage).toBe('');
+    });
+
     test('nothing new is sent while the run waits', async () => {
         const el = await render(modulePath, tag, open);
 
@@ -201,6 +223,18 @@ describe('the chat while the run waits for a remote agent', () => {
 
         expect(chat.status).toBe('idle');
         expect(chat.stopPolling).toHaveBeenCalled();
+    });
+
+    test('a wait replaces the line that confirmed the approval before it', async () => {
+        const chat = controller('processing');
+        chat.approvalDecisionTaken = 'approved';
+        chat._knownMessageCount = 1;
+        chat._api.getMessages = jest.fn().mockResolvedValue({status: 'awaiting_dependency', messages: [], totalCount: 1});
+        chat.stopPolling = jest.fn();
+
+        await chat.pollMessages();
+
+        expect(chat.approvalDecisionTaken).toBeNull();
     });
 
     test('keeps asking while it still waits', async () => {

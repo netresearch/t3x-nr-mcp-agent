@@ -3198,6 +3198,17 @@ export class AiChatPanel extends LitElement {
     _renderStatusNotice(isResumable) {
         const dismiss = () => { this.chat.errorMessage = ''; this.requestUpdate(); };
 
+        // The run waits for a remote agent (nr-llm ADR-281): what it waits
+        // for, and the way to stop it. An error from a refused stop stands
+        // beside it. Before the read-only check: on a deleted page the wait
+        // would otherwise have nothing to end it from the chat.
+        if (this.chat.isWaitingForAgent()) {
+            return html`${renderAgentWait(this.chat)}${this.chat.errorMessage ? html`
+                <div class="message system status-notice" role="alert" style="color:var(--nr-chat-status-danger, #c62828);">
+                    ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
+                </div>` : nothing}`;
+        }
+
         // A conversation about a deleted page offers nothing to decide, retry
         // or resume: the read-only notice below says why (_renderInput()).
         if (this.chat.isReadOnly()) {
@@ -3211,15 +3222,6 @@ export class AiChatPanel extends LitElement {
             return nothing;
         }
 
-        // The run waits for a remote agent (nr-llm ADR-281): what it waits
-        // for, and the way to stop it. An error from a refused stop stands
-        // beside it.
-        if (this.chat.isWaitingForAgent()) {
-            return html`${renderAgentWait(this.chat)}${this.chat.errorMessage ? html`
-                <div class="message system status-notice" role="alert" style="color:var(--nr-chat-status-danger, #c62828);">
-                    ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
-                </div>` : nothing}`;
-        }
 
         if (this.chat.approvalDecisionTaken) {
             const granted = this.chat.approvalDecisionTaken === 'approved';

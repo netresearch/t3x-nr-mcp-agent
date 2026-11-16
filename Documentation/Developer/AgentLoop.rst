@@ -148,7 +148,10 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
     *Stop waiting* (``POST /ai-chat/conversations/cancel-wait``) cancels the
     run through ``AgentRuntimeInterface::cancel()`` while it still waits; a
     run the worker has taken on is not cancelled from the chat (409), since
-    ``cancel()`` would end it with what it came back with; a run that is gone just
+    ``cancel()`` would end it with what it came back with. The status is
+    read before ``cancel()`` is called, so a resume claim that wins in
+    between is still stopped at its next step; only an nr-llm API that
+    cancels from the waiting state alone would close that window; a run that is gone just
     ends the wait. A card or question
     decided in the AI Tasks module whose run then waits for a remote agent
     becomes this wait as well.

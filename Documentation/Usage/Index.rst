@@ -155,7 +155,8 @@ on by itself when the agent answers, which can take a while. A proposed
 change or a question from the rest of the step appears as an approval card
 or as reply buttons, as above. The step's final answer appears in the chat
 only where nr-llm keeps it for such a step; otherwise the chat says that the
-step has finished and that its answer is in **AI > AI Tasks**.
+step has finished without a kept answer, and **AI > AI Tasks** shows what the
+run did.
 
 While the step waits, no new message can be sent, because it would send the
 same task again. **Stop waiting** cancels the step while it still waits;
