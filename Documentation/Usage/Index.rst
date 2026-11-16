@@ -158,8 +158,10 @@ only where nr-llm keeps it for such a step; otherwise the chat says that the
 step has finished and that its answer is in **AI > AI Tasks**.
 
 While the step waits, no new message can be sent, because it would send the
-same task again. **Stop waiting** cancels the step; the chat says so and is
-ready for the next message. When the answer cannot be shown in the chat,
+same task again. **Stop waiting** cancels the step while it still waits;
+once the agent has answered and the step is going on, the chat refuses it,
+and the step can be stopped in **AI > AI Tasks**. After a stop the chat says
+so and is ready for the next message. When the answer cannot be shown in the chat,
 the chat says so; the run in **AI > AI Tasks** shows what it did.
 
 .. _usage-approving-a-step:

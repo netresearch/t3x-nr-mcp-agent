@@ -830,11 +830,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      * Stop the wait for a remote agent (nr-llm ADR-281): the run is cancelled,
      * and nr-llm asks the remote agent once to stop the task.
      *
-     * nr-llm's cancel() is the guarded transition for a waiting run; when the
-     * worker has already picked the run up, it stops the run at its next
-     * step. When the run has already ended, nothing is cancelled and the
-     * conversation shows what became of the run instead. True when the run
-     * was cancelled.
+     * Only a run that still waits is cancelled; nr-llm's cancel() is the
+     * guarded transition for it. A run the worker has taken on, or one that
+     * has ended, is not cancelled, and the conversation shows what became of
+     * it. This narrows the window and does not close it: when the worker's
+     * resume claim wins between the read here and nr-llm's own transition,
+     * cancel() stops the running continuation at its next step, as nr-llm
+     * documents; only an nr-llm API that cancels from the waiting state alone
+     * would close it. True when the run was cancelled.
      */
     public function cancelDependencyWait(Conversation $conversation): bool
     {

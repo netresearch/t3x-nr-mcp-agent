@@ -403,15 +403,26 @@ final class ChatDependencyWaitTest extends TestCase
      * The worker continued the run a moment before the click: its proposal is
      * not thrown away by a stop meant for the wait.
      */
+    /**
+     * @return iterable<string, array{AgentRunStatus, ConversationStatus}>
+     */
+    public static function runsThatMovedOn(): iterable
+    {
+        yield 'continued by the worker' => [AgentRunStatus::RUNNING, ConversationStatus::AwaitingDependency];
+        yield 'queued again' => [AgentRunStatus::QUEUED, ConversationStatus::AwaitingDependency];
+        yield 'waits for an approval' => [AgentRunStatus::WAITING_FOR_APPROVAL, ConversationStatus::AwaitingApproval];
+    }
+
     #[Test]
-    public function aStopAfterTheRunMovedOnCancelsNothingAndShowsWhereItIs(): void
+    #[DataProvider('runsThatMovedOn')]
+    public function aStopAfterTheRunMovedOnCancelsNothingAndShowsWhereItIs(AgentRunStatus $status, ConversationStatus $shown): void
     {
         $conversation = $this->waiting();
 
-        self::assertFalse($this->service(run: $this->runWith(AgentRunStatus::WAITING_FOR_APPROVAL->value))->cancelDependencyWait($conversation));
+        self::assertFalse($this->service(run: $this->runWith($status->value))->cancelDependencyWait($conversation));
 
         self::assertSame([], $this->cancelled);
-        self::assertSame(ConversationStatus::AwaitingApproval, $conversation->getStatus());
+        self::assertSame($shown, $conversation->getStatus());
     }
 
     /** A run that is gone cannot be cancelled and continues no more: the wait just ends. */

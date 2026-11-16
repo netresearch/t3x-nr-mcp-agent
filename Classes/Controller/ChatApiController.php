@@ -2723,10 +2723,10 @@ final readonly class ChatApiController
      * agent (nr-llm ADR-281): the run is cancelled and the conversation is
      * free for the next message.
      *
-     * Refused with 409 when the run had already moved on — the worker
-     * continued it and it ended, or it waits for a decision now. The
+     * Refused with 409 when the run had already moved on — the worker is
+     * continuing it, it ended, or it waits for a decision now. The
      * conversation then shows what became of the run, which the next poll
-     * reads.
+     * reads; a continuation that is running can be stopped in AI Tasks.
      */
     public function cancelWaiting(ServerRequestInterface $request): ResponseInterface
     {
