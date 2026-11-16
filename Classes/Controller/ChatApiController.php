@@ -22,6 +22,7 @@ use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Domain\Repository\PageChoiceRepository;
+use Netresearch\NrMcpAgent\Enum\AgentWaitEndReason;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -1943,7 +1944,8 @@ final readonly class ChatApiController
         // A run nr-llm handed back still pending: the stored reason is a code
         // only, rendered for every reader alike (administrators included) —
         // nr-llm's own message is in the log, never on screen.
-        $handBack = ApprovalHandBackReason::tryFrom($code) ?? InputHandBackReason::tryFrom($code) ?? ProcessStopReason::tryFrom($code);
+        // The same for a wait for a remote agent that ended in a failure.
+        $handBack = ApprovalHandBackReason::tryFrom($code) ?? InputHandBackReason::tryFrom($code) ?? ProcessStopReason::tryFrom($code) ?? AgentWaitEndReason::tryFrom($code);
         if ($handBack !== null) {
             return ['errorMessage' => $this->translate($handBack->labelKey()), 'errorLink' => '', 'errorLinkLabel' => ''];
         }

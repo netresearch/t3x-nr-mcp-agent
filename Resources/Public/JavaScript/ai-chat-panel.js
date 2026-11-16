@@ -3216,7 +3216,7 @@ export class AiChatPanel extends LitElement {
         // beside it.
         if (this.chat.isWaitingForAgent()) {
             return html`${renderAgentWait(this.chat)}${this.chat.errorMessage ? html`
-                <div class="message system status-notice" style="color:var(--nr-chat-status-danger, #c62828);">
+                <div class="message system status-notice" role="alert" style="color:var(--nr-chat-status-danger, #c62828);">
                     ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
                 </div>` : nothing}`;
         }
@@ -3716,7 +3716,7 @@ export class AiChatPanel extends LitElement {
                         aria-activedescendant="${slashAria(this.chat).activedescendant || nothing}"
                         placeholder="${replyPlaceholder(this.chat)}"
                         aria-label="${replyPlaceholder(this.chat)}"
-                        ?disabled=${!this.chat.available || this.chat.isProcessing()}
+                        ?disabled=${!this.chat.available || this.chat.isRunGoing()}
                         rows="2"
                     ></textarea>
                     <button class="btn-send"

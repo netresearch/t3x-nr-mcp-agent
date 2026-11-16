@@ -16,6 +16,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\AgentWaitEndReason;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
@@ -2256,6 +2257,24 @@ class ChatApiControllerTest extends TestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('awaiting_dependency', json_decode((string) $response->getBody(), true)['status']);
+    }
+
+    /** A wait that ended in a failure is told in the reader's language, from its code. */
+    #[Test]
+    public function aFailedWaitIsToldInTheUsersLanguage(): void
+    {
+        $this->setUpLanguageServiceAnswering([
+            'LLL:EXT:nr_mcp_agent/Resources/Private/Language/locallang_chat.xlf:error.agentWait.runGone' => 'Der Lauf ist nicht mehr vorhanden',
+        ]);
+        $conversation = new Conversation();
+        $conversation->appendMessage(MessageRole::User, 'Übersetzen');
+        $conversation->setStatus(ConversationStatus::Failed);
+        $conversation->setErrorMessage('', AgentWaitEndReason::RunGone->value);
+        $this->repository->method('findOneByUidAndBeUser')->willReturn($conversation);
+
+        $response = $this->subject->getMessages($this->createRequest('GET', '', ['conversationUid' => '1']));
+
+        self::assertSame('Der Lauf ist nicht mehr vorhanden', json_decode((string) $response->getBody(), true)['errorMessage']);
     }
 
     #[Test]

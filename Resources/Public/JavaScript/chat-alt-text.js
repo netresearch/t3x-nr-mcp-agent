@@ -359,7 +359,7 @@ export function renderAltTextCard(chat, pending) {
  */
 export function renderAltTextNext(chat) {
     const state = chat.altText;
-    if (!state || chat.isProcessing() || chat.status === 'awaiting_approval' || chat.status === 'awaiting_input') {
+    if (!state || chat.isRunGoing() || chat.status === 'awaiting_approval' || chat.status === 'awaiting_input') {
         return nothing;
     }
 

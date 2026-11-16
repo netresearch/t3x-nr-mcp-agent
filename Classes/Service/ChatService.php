@@ -57,6 +57,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\AgentWaitEndReason;
 use Netresearch\NrMcpAgent\Enum\ApprovalHandBackReason;
 use Netresearch\NrMcpAgent\Enum\ConversationErrorCode;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -842,7 +843,13 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return false;
         }
 
-        if (!$this->agentRuntime->cancel($this->actorFor($conversation), $runUuid)) {
+        $actor = $this->actorFor($conversation);
+        $run   = $this->agentRunRepository->findByUuid($runUuid);
+        // A run that is gone, or that this user may no longer read, cannot be
+        // cancelled and goes on no more: the wait ends here.
+        if ($run instanceof AgentRun && $actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)
+            && !$this->agentRuntime->cancel($actor, $runUuid)
+        ) {
             $this->followDependency($conversation, $runUuid);
 
             return false;
@@ -865,6 +872,7 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
      *                                              that it was not kept
      *   failed                                  -> the conversation fails
      *   cancelled                               -> a line that the wait ended
+     *   gone, or not readable for the user      -> the conversation fails
      *
      * The run is read, never resumed: nr-llm's worker continues it. Written
      * with a compare-and-swap for the reason reconcile() gives: another poll
@@ -874,8 +882,14 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
     {
         $actor = $this->actorFor($conversation);
         $run   = $this->agentRunRepository->findByUuid($runUuid);
+        // Gone (nr-llm's retention purges runs that still wait) or no longer
+        // readable for this user: nothing will continue the conversation, and
+        // left waiting it could never be used again. It fails, with Retry.
         if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
-            return false;
+            $conversation->setStatus(ConversationStatus::Failed);
+            $conversation->setErrorMessage('', AgentWaitEndReason::RunGone->value);
+
+            return $this->repository->updateIf($conversation, ConversationStatus::AwaitingDependency);
         }
 
         switch (AgentRunStatus::tryFrom($run->status)) {
@@ -915,11 +929,10 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
                 break;
 
             case AgentRunStatus::FAILED:
+                // A code, not a sentence: the reader gets it in their
+                // language (presentError()).
                 $conversation->setStatus(ConversationStatus::Failed);
-                $conversation->setErrorMessage(
-                    'The run failed after it handed a step to a remote agent.'
-                    . ' Open it under AI > AI Tasks to see what happened.',
-                );
+                $conversation->setErrorMessage('', AgentWaitEndReason::RunFailed->value);
                 break;
 
             case AgentRunStatus::CANCELLED:
@@ -947,7 +960,11 @@ final class ChatService implements ChatApprovalInterface, ChatCapabilitiesInterf
             return false;
         }
 
+        // The card or question is gone, and with it a reason a refused
+        // decision left on the row.
         $waiting = $conversation->getStatus();
+        $conversation->clearApprovalDecision();
+        $conversation->setErrorMessage('');
         $conversation->setStatus(ConversationStatus::AwaitingDependency);
 
         return $this->repository->updateIf($conversation, $waiting);

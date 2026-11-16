@@ -236,6 +236,10 @@
                 <source>Waiting for an answer</source>
                 <target>Warten auf eine Antwort</target>
             </trans-unit>
+            <trans-unit id="conversations.awaitingDependency" resname="conversations.awaitingDependency">
+                <source>Waiting for a remote agent</source>
+                <target>Warten auf einen externen Agenten</target>
+            </trans-unit>
             <trans-unit id="conversations.failed" resname="conversations.failed">
                 <source>Failed</source>
                 <target>Fehlgeschlagen</target>

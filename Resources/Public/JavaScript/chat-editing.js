@@ -181,7 +181,7 @@ export function renderInstructionsEditor(chat) {
             <div class="editor-actions">
                 <button class="btn btn-sm" @click=${() => chat.closeSystemPrompt()}>${lll('chat.editCancel')}</button>
                 <button class="btn btn-sm btn-primary" data-action="save-instructions"
-                        ?disabled=${chat.systemPromptSaving || chat.isProcessing()}
+                        ?disabled=${chat.systemPromptSaving || chat.isRunGoing()}
                         @click=${() => chat.saveSystemPrompt()}>${lll('instructions.save')}</button>
             </div>
         </div>

@@ -23,7 +23,7 @@ export function renderAgentWait(chat) {
         <div class="message system status-notice agent-wait" role="status" tabindex="-1"
             style="color:var(--nr-chat-status-info, #0277bd);">
             ${lll('chat.waitingForAgent')}
-            <button class="btn btn-sm" data-action="cancel-wait" style="margin-left:8px;"
+            <button type="button" class="btn btn-sm" data-action="cancel-wait" style="margin-left:8px;"
                 ?disabled=${chat.cancellingWait}
                 @click=${() => chat.handleCancelWait()}>${lll('chat.cancelWait')}</button>
         </div>

@@ -96,6 +96,12 @@
             <trans-unit id="error.waitNotCancelled" resname="error.waitNotCancelled">
                 <source>The run had already moved on, so the wait could not be stopped.</source>
             </trans-unit>
+            <trans-unit id="error.agentWait.runFailed" resname="error.agentWait.runFailed">
+                <source>The run failed after it handed a step to a remote agent. Open it under AI > AI Tasks to see what happened.</source>
+            </trans-unit>
+            <trans-unit id="error.agentWait.runGone" resname="error.agentWait.runGone">
+                <source>The run that waited for a remote agent is no longer available, so its result cannot come back here.</source>
+            </trans-unit>
             <trans-unit id="status.failed" resname="status.failed">
                 <source>Failed</source>
             </trans-unit>

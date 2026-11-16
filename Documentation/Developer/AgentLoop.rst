@@ -136,11 +136,18 @@ settled ``AgentRunResult``. ``ChatService`` maps it as follows:
     run on every poll and follows it: a run that now waits for an approval
     or an answer brings the card or the question; a completed run brings
     its answer (``AgentRun::$answer``) where nr-llm kept one, else the line
-    ``answerNotKept``; a failed run fails the conversation; a cancelled one
-    ends the wait with the line ``waitCancelled``. A new message is refused
+    ``answerNotKept``; a failed run fails the conversation with the code
+    ``AgentWaitEndReason::RunFailed``; a cancelled one ends the wait with
+    the line ``waitCancelled``. A run that is gone or no longer readable
+    (nr-llm's retention purges waiting runs too) fails it with
+    ``AgentWaitEndReason::RunGone``, so Retry is offered. What the
+    continuation did beyond that -- its steps for the run record, the
+    guided process's progress, the text beside a later proposal -- is not
+    carried into the conversation: the chat only reads the run row. A new message is refused
     as busy while the run waits, because it would send the same task again;
     *Stop waiting* (``POST /ai-chat/conversations/cancel-wait``) cancels the
-    run through ``AgentRuntimeInterface::cancel()``. A card or question
+    run through ``AgentRuntimeInterface::cancel()``; a run that is gone just
+    ends the wait. A card or question
     decided in the AI Tasks module whose run then waits for a remote agent
     becomes this wait as well.
 *   a refusal for a guided process (nr-llm ADR-214 item 6; ``ProcessRefusal``).

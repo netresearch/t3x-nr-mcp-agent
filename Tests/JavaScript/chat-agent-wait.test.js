@@ -89,6 +89,9 @@ describe.each(SURFACES)('$name while the run waits for a remote agent', ({module
         expect(el.chat.status).toBe('idle');
         expect(el.shadowRoot.textContent).toContain('chat.waitCancelled');
         expect(cancelButton(el)).toBeNull();
+        // The button went with the notice: focus moves to the input.
+        await el.updateComplete;
+        expect(el.shadowRoot.activeElement?.tagName).toBe('TEXTAREA');
     });
 
     test('a refused stop shows why, beside the wait', async () => {
@@ -102,7 +105,8 @@ describe.each(SURFACES)('$name while the run waits for a remote agent', ({module
         await new Promise((resolve) => setTimeout(resolve, 0));
         await el.updateComplete;
 
-        expect(el.shadowRoot.textContent).toContain('Der Lauf war schon weiter');
+        const alert = el.shadowRoot.querySelector('[role="alert"]');
+        expect(alert?.textContent).toContain('Der Lauf war schon weiter');
         expect(cancelButton(el)).not.toBeNull();
     });
 

@@ -301,7 +301,7 @@ final readonly class ChatOverview
     }
 
     /**
-     * @return array{active: int, awaitingApproval: int, awaitingInput: int, failed: int, idle: int, archived: int, started: int, startedWithSkill: int}
+     * @return array{active: int, awaitingApproval: int, awaitingInput: int, awaitingDependency: int, failed: int, idle: int, archived: int, started: int, startedWithSkill: int}
      */
     private function conversationCounts(?int $scope, OverviewPeriod $period): array
     {
@@ -314,15 +314,18 @@ final readonly class ChatOverview
         $from = $period->from->getTimestamp();
         $to   = $period->to->getTimestamp();
 
+        // awaitingDependency: a run that waits for a remote agent (nr-llm
+        // ADR-281), neither a running turn nor waiting for the editor.
         return [
-            'active'           => $active,
-            'awaitingApproval' => $byStatus[ConversationStatus::AwaitingApproval->value] ?? 0,
-            'awaitingInput'    => $byStatus[ConversationStatus::AwaitingInput->value] ?? 0,
-            'failed'           => $byStatus[ConversationStatus::Failed->value] ?? 0,
-            'idle'             => $byStatus[ConversationStatus::Idle->value] ?? 0,
-            'archived'         => $this->statistics->countArchived($scope),
-            'started'          => $this->statistics->countStarted($from, $to, $scope),
-            'startedWithSkill' => $this->statistics->countStartedWithSkill($from, $to, $scope),
+            'active'             => $active,
+            'awaitingApproval'   => $byStatus[ConversationStatus::AwaitingApproval->value] ?? 0,
+            'awaitingInput'      => $byStatus[ConversationStatus::AwaitingInput->value] ?? 0,
+            'awaitingDependency' => $byStatus[ConversationStatus::AwaitingDependency->value] ?? 0,
+            'failed'             => $byStatus[ConversationStatus::Failed->value] ?? 0,
+            'idle'               => $byStatus[ConversationStatus::Idle->value] ?? 0,
+            'archived'           => $this->statistics->countArchived($scope),
+            'started'            => $this->statistics->countStarted($from, $to, $scope),
+            'startedWithSkill'   => $this->statistics->countStartedWithSkill($from, $to, $scope),
         ];
     }
 

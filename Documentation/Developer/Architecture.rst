@@ -326,7 +326,12 @@ State transitions::
     idle --> processing --> locked --> awaiting_dependency
                                                  (run waits for a remote agent)
     awaiting_dependency --> idle|failed|awaiting_approval|awaiting_input
-                                                 (the run went on)
+                                                 (the run went on, was
+                                                 cancelled, or is gone)
+    awaiting_approval|awaiting_input|processing --> awaiting_dependency
+                                                 (decided elsewhere, or the
+                                                 worker stopped after the
+                                                 run started to wait)
     processing|locked|tool_loop --> failed      (cleanup timeout)
 
 File attachment flow

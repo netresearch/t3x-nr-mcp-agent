@@ -1473,7 +1473,7 @@ export class ChatCoreController {
         }
         // The turn on the image has ended: an "Optimieren" that came while it
         // ran can be taken up now.
-        if (state && !this.isProcessing()) {
+        if (state && !this.isRunGoing()) {
             this.host.onAltTextIdle?.();
         }
     }
@@ -1852,7 +1852,7 @@ export class ChatCoreController {
             && (this.inputValue ?? '').trim() === ''
             && !this.pendingFile
             && !this.sending
-            && !this.isProcessing();
+            && !this.isRunGoing();
     }
 
     /**
@@ -1932,6 +1932,11 @@ export class ChatCoreController {
         if (uid !== this.activeUid) return;
         await this._pollAtOnce();
         this.host.requestUpdate();
+        // The button is gone with the notice; focus goes where the editor
+        // continues, as after a decision on a card.
+        if (!this.isWaitingForAgent()) {
+            this.host.onFocusInput?.();
+        }
     }
 
     async handleResume() {

@@ -27,6 +27,7 @@ use Netresearch\NrMcpAgent\Document\DocumentExtractorRegistry;
 use Netresearch\NrMcpAgent\Document\UploadMimeTypeMap;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
+use Netresearch\NrMcpAgent\Enum\AgentWaitEndReason;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
 use Netresearch\NrMcpAgent\Service\ChatService;
@@ -213,13 +214,17 @@ final class ChatDependencyWaitTest extends TestCase
         self::assertSame(self::RUN, $conversation->getApprovalRunUuid());
     }
 
+    /** The answer of somebody else's run never reaches this conversation. */
     #[Test]
     public function aRunOfSomebodyElseIsNotFollowed(): void
     {
         $conversation = $this->waiting();
 
-        self::assertFalse($this->service(run: $this->runWith(AgentRunStatus::COMPLETED->value, 'Fertig', 2))->reconcile($conversation));
-        self::assertSame(ConversationStatus::AwaitingDependency, $conversation->getStatus());
+        $this->service(run: $this->runWith(AgentRunStatus::COMPLETED->value, 'Fertig', 2))->reconcile($conversation);
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertSame(AgentWaitEndReason::RunGone->value, $conversation->getErrorCode());
+        self::assertSame('Frag den Übersetzungsagenten', $this->lastMessage($conversation)['content']);
     }
 
     #[Test]
@@ -271,7 +276,23 @@ final class ChatDependencyWaitTest extends TestCase
         self::assertTrue($this->service(run: $this->runWith(AgentRunStatus::FAILED->value))->reconcile($conversation));
 
         self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
-        self::assertStringContainsString('remote agent', $conversation->getErrorMessage());
+        self::assertSame(AgentWaitEndReason::RunFailed->value, $conversation->getErrorCode());
+    }
+
+    /**
+     * nr-llm's retention purges runs that still wait. Left waiting, the
+     * conversation could never take a message again.
+     */
+    #[Test]
+    public function aWaitWhoseRunIsGoneFailsTheConversation(): void
+    {
+        $conversation = $this->waiting();
+
+        self::assertTrue($this->service()->reconcile($conversation));
+
+        self::assertSame(ConversationStatus::Failed, $conversation->getStatus());
+        self::assertSame(AgentWaitEndReason::RunGone->value, $conversation->getErrorCode());
+        self::assertTrue($conversation->isResumable());
     }
 
     #[Test]
@@ -336,11 +357,14 @@ final class ChatDependencyWaitTest extends TestCase
         $conversation->setBeUser(1);
         $conversation->setStatus(ConversationStatus::AwaitingApproval);
         $conversation->setApprovalRunUuid(self::RUN);
+        // A refused decision left its reason on the row (four-eyes rule).
+        $conversation->setErrorMessage('', 'handBack.secondApprover');
 
         self::assertTrue($this->service(run: $this->runWith(AgentRunStatus::WAITING_FOR_DEPENDENCY->value))->reconcile($conversation));
 
         self::assertSame(ConversationStatus::AwaitingDependency, $conversation->getStatus());
         self::assertSame(self::RUN, $conversation->getApprovalRunUuid());
+        self::assertSame('', $conversation->getErrorCode());
         self::assertSame([ConversationStatus::AwaitingApproval], $this->expectedStatuses);
     }
 
@@ -373,6 +397,19 @@ final class ChatDependencyWaitTest extends TestCase
 
         self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
         self::assertSame('Fertig.', $this->lastMessage($conversation)['content']);
+    }
+
+    /** A run that is gone cannot be cancelled and continues no more: the wait just ends. */
+    #[Test]
+    public function stoppingAWaitWhoseRunIsGoneEndsIt(): void
+    {
+        $conversation = $this->waiting();
+
+        self::assertTrue($this->service()->cancelDependencyWait($conversation));
+
+        self::assertSame([], $this->cancelled);
+        self::assertSame(ConversationStatus::Idle, $conversation->getStatus());
+        self::assertSame(ChatService::NOTICE_WAIT_CANCELLED, $this->lastMessage($conversation)['notice'] ?? null);
     }
 
     #[Test]

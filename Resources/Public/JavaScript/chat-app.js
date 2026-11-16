@@ -891,7 +891,7 @@ export class ChatApp extends LitElement {
         // beside it.
         if (this.chat.isWaitingForAgent()) {
             return html`${renderAgentWait(this.chat)}${this.chat.errorMessage ? html`
-                <div class="message system status-notice" style="color:var(--nr-chat-status-danger, #c62828);">
+                <div class="message system status-notice" role="alert" style="color:var(--nr-chat-status-danger, #c62828);">
                     ${lll('chat.errorPrefix')} ${this.chat.errorMessage}
                 </div>` : nothing}`;
         }
