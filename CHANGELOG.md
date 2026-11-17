@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-11-17
+
+### Fixed
+
+- A DataHandler page write no longer commits the caller's open transaction on MySQL and MariaDB: the dashboard's page counts are dropped by tag (DELETE) instead of truncating the cache tables, so a caller such as nr-llm's scoped tool calls can still roll back or release its savepoint. The counts still drop when the caller commits ([#364](https://github.com/netresearch/t3x-nr-mcp-agent/pull/364)).
+- A second start of the chat within the same second takes up the empty conversation of the first on MySQL and MariaDB as well, instead of adding a second one ([#364](https://github.com/netresearch/t3x-nr-mcp-agent/pull/364)).
+
+### Changed
+
+- CI runs the functional tests on MariaDB 11.8 in one more cell, and that cell is a required check ([#364](https://github.com/netresearch/t3x-nr-mcp-agent/pull/364)).
+
 ## [0.39.0] - 2026-11-16
 
 ### Added
