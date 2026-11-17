@@ -69,3 +69,4 @@ jobs:
       run-phpstan: false
       run-rector: false
       run-unit-tests: false
+      run-docs: false

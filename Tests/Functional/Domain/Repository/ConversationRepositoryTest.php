@@ -220,25 +220,24 @@ class ConversationRepositoryTest extends FunctionalTestCase
         $uid = $this->subject->add($empty);
 
         $connection = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation');
-        $pool       = new class (static fn () => $connection->update('tx_nrmcpagent_conversation', ['message_count' => 1], ['uid' => $uid])) extends ConnectionPool {
-            private int $builders = 0;
+        // No constructor of its own: ConnectionPool has one in TYPO3 14 and none in 13.
+        $pool = new class extends ConnectionPool {
+            /** @var (Closure(): mixed)|null */
+            public ?Closure $competitor = null;
 
-            /** @param Closure(): mixed $competitor */
-            public function __construct(private readonly Closure $competitor)
-            {
-                parent::__construct();
-            }
+            private int $builders = 0;
 
             /** The second builder is the take-up's write: the competing message lands just before it. */
             public function getQueryBuilderForTable(string $tableName): QueryBuilder
             {
-                if (++$this->builders === 2) {
+                if (++$this->builders === 2 && $this->competitor instanceof Closure) {
                     ($this->competitor)();
                 }
 
                 return parent::getQueryBuilderForTable($tableName);
             }
         };
+        $pool->competitor = static fn (): int|string => $connection->update('tx_nrmcpagent_conversation', ['message_count' => 1], ['uid' => $uid]);
 
         $start = new Conversation();
         $start->setBeUser(1);
