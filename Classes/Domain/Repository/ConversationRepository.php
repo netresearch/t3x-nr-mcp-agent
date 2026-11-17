@@ -285,11 +285,36 @@ readonly class ConversationRepository
                     ...$this->stillEmpty($update),
                 )
                 ->executeStatement();
+            if ($changed === 1) {
+                return $uid;
+            }
 
-            return $changed === 1 ? $uid : null;
+            // MySQL and MariaDB count changed rows only: a second start in the
+            // same second writes the same values and reports 0. Whether the
+            // row still meets the conditions decides.
+            return $changed === 0 && $this->isStillEmpty($uid, $start->getBeUser()) ? $uid : null;
         }
 
         return null;
+    }
+
+    private function isStillEmpty(int $uid, int $beUser): bool
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->getRestrictions()->removeAll();
+
+        $count = $qb->count('uid')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->eq('uid', $qb->createNamedParameter($uid, Connection::PARAM_INT)),
+                $qb->expr()->eq('be_user', $qb->createNamedParameter($beUser, Connection::PARAM_INT)),
+                ...$this->stillEmpty($qb),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        // The drivers return the count as an integer or as a numeric string.
+        return is_numeric($count) && (int) $count === 1;
     }
 
     /**
