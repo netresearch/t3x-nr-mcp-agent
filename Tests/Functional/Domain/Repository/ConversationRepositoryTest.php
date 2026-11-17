@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrMcpAgent\Tests\Functional\Domain\Repository;
 
+use Closure;
 use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
@@ -17,6 +18,7 @@ use Netresearch\NrMcpAgent\Enum\TurnClaim;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 class ConversationRepositoryTest extends FunctionalTestCase
@@ -201,6 +203,46 @@ class ConversationRepositoryTest extends FunctionalTestCase
         $conversation->setStatus(ConversationStatus::Processing);
 
         return $conversation;
+    }
+
+    /**
+     * A conversation that gets its first message between the take-up's read
+     * and its write is not taken up: the write finds no row, and the check
+     * after it (for databases that count changed rows only) finds the row no
+     * longer empty.
+     */
+    #[Test]
+    public function aConversationThatGetsAMessageWhileItIsTakenUpIsNotTakenUp(): void
+    {
+        $empty = new Conversation();
+        $empty->setBeUser(1);
+
+        $uid = $this->subject->add($empty);
+
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrmcpagent_conversation');
+        // No constructor of its own: ConnectionPool has one in TYPO3 14 and none in 13.
+        $pool = new class extends ConnectionPool {
+            /** @var (Closure(): mixed)|null */
+            public ?Closure $competitor = null;
+
+            private int $builders = 0;
+
+            /** The second builder is the take-up's write: the competing message lands just before it. */
+            public function getQueryBuilderForTable(string $tableName): QueryBuilder
+            {
+                if (++$this->builders === 2 && $this->competitor instanceof Closure) {
+                    ($this->competitor)();
+                }
+
+                return parent::getQueryBuilderForTable($tableName);
+            }
+        };
+        $pool->competitor = static fn (): int|string => $connection->update('tx_nrmcpagent_conversation', ['message_count' => 1], ['uid' => $uid]);
+
+        $start = new Conversation();
+        $start->setBeUser(1);
+
+        self::assertNull((new ConversationRepository($pool))->takeUpEmptyLike($start));
     }
 
     #[Test]

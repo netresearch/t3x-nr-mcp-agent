@@ -47,3 +47,26 @@ jobs:
       rector-command: 'composer ci:rector'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # MariaDB functional leg (one cell). SQLite and PostgreSQL run TRUNCATE
+  # inside a transaction; MySQL and MariaDB commit it implicitly, so tests
+  # such as DashboardCountInvalidationTransactionTest only prove something
+  # here. Same shape as nr-llm's ci-functional-mariadb: the org's mirror of
+  # the official image, and none of the engine-independent jobs repeated.
+  ci-functional-mariadb:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@main
+    permissions:
+      contents: read
+    with:
+      php-versions: '["8.4"]'
+      typo3-versions: '["^14.3"]'
+      typo3-packages: '["typo3/cms-core","typo3/cms-backend"]'
+      run-functional-tests: true
+      functional-test-db: mariadb
+      db-image: 'ghcr.io/netresearch/ci-mirror/mariadb:11.8'
+      run-lint: false
+      run-cgl: false
+      run-phpstan: false
+      run-rector: false
+      run-unit-tests: false
+      run-docs: false
