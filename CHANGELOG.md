@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.2] - 2026-11-17
+
+### Changed
+
+- nr-llm 0.50 is accepted beside 0.45 to 0.49, so the chat installs together with nr-llm 0.50.0, which offers its runs delegation tools from this extension's 0.39.0 on ([#366](https://github.com/netresearch/t3x-nr-mcp-agent/pull/366)).
+
 ## [0.39.1] - 2026-11-17
 
 ### Fixed
