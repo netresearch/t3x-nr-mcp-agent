@@ -19,6 +19,13 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  * DataHandler writes a page: a description added, a page hidden, moved,
  * deleted, translated or published, in any workspace. The count is per
  * user, so every user's entry goes; the next dashboard reads it anew.
+ *
+ * The hook runs inside whatever transaction the caller of DataHandler opened,
+ * so it drops the counts by their tag: the database backend deletes the rows,
+ * which stay part of that transaction. flush() would truncate the cache
+ * tables, and on MySQL and MariaDB a TRUNCATE commits the open transaction
+ * implicitly; the caller could then neither roll back nor release its
+ * savepoint.
  */
 final readonly class DashboardCountInvalidation
 {
@@ -43,8 +50,8 @@ final readonly class DashboardCountInvalidation
     private function flush(): void
     {
         try {
-            // Every entry is a count; dropping them all is the cheapest flush.
-            $this->cacheManager->getCache(DescriptionTour::CACHE)->flush();
+            // Every count carries the tag, so this drops them all.
+            $this->cacheManager->getCache(DescriptionTour::CACHE)->flushByTag(DescriptionTour::CACHE_TAG);
         } catch (NoSuchCacheException) {
             // Not configured (an override removed it): nothing is cached.
         }

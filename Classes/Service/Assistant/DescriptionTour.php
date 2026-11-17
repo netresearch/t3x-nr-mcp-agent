@@ -41,7 +41,7 @@ final readonly class DescriptionTour
     /** The cache the counts are kept in. */
     public const CACHE = 'nrmcpagent_dashboard';
 
-    /** The tag every count carries: DataHandler's page cache clearing flushes it for live pages. */
+    /** The tag every count carries: DataHandler's page cache clearing flushes it for live pages, DashboardCountInvalidation for every page write. */
     public const CACHE_TAG = 'pages';
 
     public function __construct(

@@ -42,7 +42,8 @@ final class DashboardCountInvalidationTest extends TestCase
     private function hook(InvocationOrder $flushes): DashboardCountInvalidation
     {
         $cache = $this->createMock(FrontendInterface::class);
-        $cache->expects($flushes)->method('flush');
+        $cache->expects($flushes)->method('flushByTag')->with(DescriptionTour::CACHE_TAG);
+        $cache->expects(self::never())->method('flush');
         $cacheManager = $this->createMock(CacheManager::class);
         $cacheManager->method('getCache')->with(DescriptionTour::CACHE)->willReturn($cache);
 
