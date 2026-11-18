@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Clarify tool availability, approvals, audit detail and attachment processing on the product pages.
+
 ## [0.39.3] - 2026-11-18
 
 ### Changed

@@ -7,7 +7,7 @@
   "skipToContent": "Zum Inhalt springen",
   "meta": {
     "title": "nr-mcp-agent — ein kontrollierter KI-Assistent für das TYPO3-Backend",
-    "description": "Ein Backend-Assistent, der standardmäßig liest und vor jedem Schreibvorgang eine menschliche Freigabe einholt. Alpha: für kontrollierte Evaluierung, nicht für unbeaufsichtigten Produktivbetrieb.",
+    "description": "TYPO3-Backend-Assistent für Recherche und Änderungsvorschläge. Freigaben für eingebaute Schreibwerkzeuge und Optionen für externe MCP-Werkzeuge. Alpha zur kontrollierten Evaluierung.",
     "ogImageAlt": "nr-mcp-agent — ein kontrollierter KI-Assistent für das TYPO3-Backend"
   },
   "nav": {
@@ -40,7 +40,7 @@
   "hero": {
     "eyebrow": "TYPO3-Extension · nr_mcp_agent",
     "title": "Ein kontrollierter KI-Assistent für das TYPO3-Backend.",
-    "lead": "Redaktionen fragen in dem Backend, in dem sie ohnehin arbeiten. Der Assistent liest, was sie ohnehin sehen dürfen, und holt vor jeder Änderung eine ausdrückliche Freigabe ein.",
+    "lead": "Redaktionen suchen im TYPO3-Backend und prüfen Änderungsvorschläge eingebauter Schreibwerkzeuge vor der Ausführung.",
     "alphaLabel": "Alpha",
     "alphaNote": "Für kontrollierte Evaluierung, nicht für unbeaufsichtigten Produktivbetrieb. Schnittstellen, Werkzeugverträge und Konfiguration können sich zwischen Releases noch ändern.",
     "ctaBusiness": "Backend-Agent kontrolliert evaluieren",
@@ -77,7 +77,7 @@
       },
       {
         "q": "Wo braucht es einen Menschen?",
-        "a": "Vor jedem Schreibvorgang. Der Lauf hält an, bis jemand freigibt oder ablehnt."
+        "a": "Eingebaute Schreibwerkzeuge benötigen eine Freigabe. Bei externen MCP-Werkzeugen bestimmt die Einstellung des Servers, ob der Chat vor einem Aufruf nachfragt."
       },
       {
         "q": "Welche Risiken bleiben?",
@@ -85,7 +85,7 @@
       },
       {
         "q": "Wie wird die Nutzung begrenzt?",
-        "a": "Werkzeugfreigabe je Gruppe, TYPO3-Berechtigungen und die Budgets aus nr-llm."
+        "a": "Aktivierte Werkzeuge, TYPO3-Benutzerrechte und die Budgetprüfung in nr-llm."
       },
       {
         "q": "Wie probiere ich es aus?",
@@ -106,8 +106,8 @@
         "body": "Der Assistent kann über die freigegebenen Werkzeuge nachschlagen und zusammenfassen, was er gefunden hat."
       },
       {
-        "title": "Nur freigegebene MCP-Werkzeuge",
-        "body": "Werkzeuge werden je Server und je Berechtigung konfiguriert. Nichts ist standardmäßig verfügbar; der Ausgangspunkt ist die leere Menge."
+        "title": "Verfügbare Werkzeuge im Chat",
+        "body": "Der Chat nutzt aktivierte eingebaute Werkzeuge im Rahmen der Benutzerrechte. Aus externen MCP-Servern importierte Werkzeuge sind zunächst deaktiviert und setzen auch nach der Aktivierung ein Administratorkonto voraus."
       },
       {
         "title": "Konversationshistorie",
@@ -124,10 +124,10 @@
     "lead": "Fünf Dinge, die die Extension nicht tut. Wenn Sie eines davon brauchen, ist das heute das falsche Werkzeug.",
     "items": [
       "Autonomer CMS-Betrieb. Es gibt keinen Zeitplan, keinen Auslöser und keinen unbeaufsichtigten Modus.",
-      "Uneingeschränkte Schreibrechte. Schreibende Werkzeuge werden je Gruppe freigegeben und je Aufruf zusätzlich abgefragt.",
+      "Uneingeschränkte Schreibrechte. Vor der Freigabe prüft ein Mensch die vorgeschlagenen Werkzeugaufrufe.",
       "Automatische Freigabe. Es gibt keine Zeitschranke, die an Ihrer Stelle zustimmt.",
       "Ein fehlerfreier Ersatz für Redaktion. Er schlägt vor, ein Mensch entscheidet.",
-      "Ungeprüfte Aktionen. Alles, was etwas ändert, hinterlässt einen Audit-Eintrag mit der Entscheidung der freigebenden Person."
+      "Vollständige Werkzeugargumente im Prüfprotokoll. Die gespeicherten Details hängen von der Datenschutzkonfiguration ab."
     ]
   },
   "scenarios": {
@@ -138,7 +138,7 @@
         "step": "1",
         "title": "Finden und zusammenfassen",
         "body": "Fragen, wo ein Thema über die Seiten hinweg behandelt wird, die die handelnde Person sehen darf – und eine Zusammenfassung mit den Datensätzen bekommen, aus denen sie stammt.",
-        "control": "Lesende Werkzeuge. Keine Freigabe nötig, weil sich nichts ändert."
+        "control": "Das eingebaute Suchwerkzeug liest im Rahmen der Benutzerrechte."
       },
       {
         "step": "2",
@@ -149,7 +149,7 @@
       {
         "step": "3",
         "title": "Eine freigegebene Änderung ausführen",
-        "body": "Ist ein schreibendes Werkzeug freigegeben, schlägt der Assistent die genaue Änderung vor und wartet. Bei Freigabe führt er sie aus, bei Ablehnung stoppt er.",
+        "body": "Ein aktiviertes eingebautes Schreibwerkzeug legt die Änderung zur Prüfung vor. Bei Ablehnung führt es die vorgeschlagene Änderung nicht aus.",
         "control": "Freigabe, Audit-Eintrag, TYPO3-Berechtigungen. Die freigebende Person liest den Vorschlag – das ist die Kontrolle, und wer sie überspringt, hebt sie auf."
       }
     ]
@@ -168,7 +168,7 @@
       },
       {
         "layer": "Freigegebene Werkzeuge",
-        "effect": "Welche MCP-Werkzeuge es für diese Gruppe gibt. Standard: keine."
+        "effect": "Der Chat nutzt aktivierte eingebaute Werkzeuge im Rahmen der Benutzerrechte. Aus externen MCP-Servern importierte Werkzeuge sind zunächst deaktiviert und setzen auch nach der Aktivierung ein Administratorkonto voraus."
       },
       {
         "layer": "Lesend oder schreibend",
@@ -176,7 +176,7 @@
       },
       {
         "layer": "Ausdrückliche Freigabe",
-        "effect": "Ob ein konkreter Schreibvorgang tatsächlich stattfindet – entschieden von einem Menschen, je Aufruf."
+        "effect": "Eine Person stimmt den anstehenden Werkzeugaufrufen dieser Runde gemeinsam zu oder lehnt sie gemeinsam ab."
       },
       {
         "layer": "TYPO3-Berechtigungen",
@@ -184,11 +184,11 @@
       },
       {
         "layer": "Audit-Eintrag",
-        "effect": "Was hinterher nachvollziehbar ist: Werkzeug, Person, Argumente, Entscheidung."
+        "effect": "In den gespeicherten Werkzeugereignissen des nr-llm-Laufs fehlen bei der Voreinstellung für Metadaten die Argumentwerte. Die Vorschau einer offenen Freigabe kann diese Werte anzeigen."
       }
     ],
     "cancelHeading": "Abbruch und Fehlerfall",
-    "cancel": "Eine abgelehnte Freigabe stoppt den Lauf und hält die Ablehnung fest. Ein fehlschlagender Werkzeugaufruf meldet den Fehler, statt still zu wiederholen, und ein Lauf, der das nr-llm-Budget überschreitet, endet mit einer ausdrücklichen Begründung."
+    "cancel": "Bei Ablehnung entfallen die vorgeschlagenen Änderungen. Je nach Ablauf kann die Redaktion eine andere Variante anfordern oder fortfahren. Erkennt die Vorabprüfung von nr-llm eine Überschreitung, meldet der Chat den Grund. Laufende Anfragen können das Limit überschreiten."
   },
   "stack": {
     "heading": "Das Verhältnis zu nr-llm",
@@ -224,7 +224,7 @@
     "items": [
       {
         "title": "Zu weit reichende Handlungsmacht",
-        "body": "Der häufigste Fehlschlag eines Agenten ist, zu viel zu dürfen. Geben Sie den kleinsten sinnvollen Werkzeugsatz frei; genau deshalb ist der Standard „keine“."
+        "body": "Prüfen Sie mit einem Redaktionskonto, welche Werkzeuge verfügbar sind. Berücksichtigen Sie dabei die aktivierten eingebauten Werkzeuge."
       },
       {
         "title": "Prompt Injection",
@@ -240,15 +240,15 @@
       },
       {
         "title": "Berechtigungsausweitung",
-        "body": "Die Freigabe gilt je Aufruf und lässt sich nicht an den Agenten delegieren. Wer ungelesen freigibt, ist der Ausweitungsweg, der bleibt."
+        "body": "Prüfen Sie vor der Entscheidung jede vorgeschlagene Änderung. Eine Freigabe gilt für alle aufgeführten Aufrufe dieser Runde."
       },
       {
         "title": "Kosten- und Ressourcengrenzen",
-        "body": "Die Budgets aus nr-llm gelten. Ein Lauf, der sie überschreitet, endet mit einer ausdrücklichen Begründung, statt still weiterzulaufen."
+        "body": "Erkennt die Vorabprüfung von nr-llm eine Überschreitung, meldet der Chat den Grund. Laufende Anfragen können das Limit überschreiten."
       },
       {
         "title": "Protokollierung und Nachvollziehbarkeit",
-        "body": "Werkzeug, Person, Argumente und Entscheidung werden je Aufruf festgehalten – erst das macht eine nachträgliche Prüfung möglich."
+        "body": "In den gespeicherten Werkzeugereignissen des nr-llm-Laufs fehlen bei der Voreinstellung für Metadaten die Argumentwerte. Die Vorschau einer offenen Freigabe kann diese Werte anzeigen."
       }
     ]
   },
@@ -320,17 +320,18 @@
       ],
       "data": [
         "Die Frage der Redaktion, der Gesprächsverlauf des jeweiligen Laufs und die Ergebnisse freigegebener Werkzeuge.",
-        "Werkzeugaufrufe und ihre Argumente für den Prüfverlauf."
+        "Werkzeuge erhalten die Argumente für die vorgeschlagene Aktion.",
+        "Die Bildanalyse ist standardmäßig aktiv. Für Alttextvorschläge erhält das Modell eine verkleinerte Kopie. Im Chat können das angehängte Bild selbst und bei passenden Modellen die vollständige PDF-Datei übertragen werden. Im Modus „Nur Kontext“ kann weiterhin extrahierter PDF-Text übertragen werden."
       ],
-      "human_oversight": "Lesen benötigt keine Freigabe. Schreibende Werkzeuge unterbrechen den Lauf, bis ein Mensch zustimmt oder ablehnt; die Entscheidung wird protokolliert.",
-      "permissions": "Administratoren geben MCP-Server und Werkzeuge je Backend-Gruppe frei. Die eigenen Zugriffsregeln von TYPO3 gelten zusätzlich und werden nicht umgangen.",
-      "logging": "Werkzeugaufrufe werden mit Werkzeug, Nutzer, Argumenten und Freigabeentscheidung protokolliert. nr-llm erfasst die Modellnutzung.",
+      "human_oversight": "Eingebaute Schreibwerkzeuge benötigen eine Freigabe. Bei externen MCP-Werkzeugen bestimmt die Einstellung des Servers, ob der Chat vor einem Aufruf nachfragt. Die Entscheidung gilt für die vorgelegten Aufrufe einer Runde.",
+      "permissions": "Der Chat nutzt aktivierte eingebaute Werkzeuge im Rahmen der Benutzerrechte. Aus externen MCP-Servern importierte Werkzeuge sind zunächst deaktiviert und setzen auch nach der Aktivierung ein Administratorkonto voraus.",
+      "logging": "In den gespeicherten Werkzeugereignissen des nr-llm-Laufs fehlen bei der Voreinstellung für Metadaten die Argumentwerte. Die Vorschau einer offenen Freigabe kann diese Werte anzeigen.",
       "retention": "Gespräche und Prüfprotokolle liegen in der Datenbank der Website. Es gelten deren Aufbewahrungsregeln.",
       "cost_control": "nr-llm begrenzt Anfragen, Tokens oder geschätzte Kosten mit Budgets je Nutzer.",
       "security_controls": [
         "Standardmäßig nur lesender Zugriff; schreibende Werkzeuge sind zunächst deaktiviert",
         "Freigabeschritt mit protokollierter Entscheidung",
-        "Werkzeugfreigabe je Gruppe",
+        "Aktivierte Werkzeuge und Benutzerrechte",
         "TYPO3-Berechtigungen werden durchgesetzt",
         "Provider-Schlüssel und Budgets bleiben in nr-llm"
       ],
