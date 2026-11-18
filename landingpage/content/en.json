@@ -7,7 +7,7 @@
   "skipToContent": "Skip to content",
   "meta": {
     "title": "nr-mcp-agent — a controlled AI assistant for the TYPO3 backend",
-    "description": "A backend assistant that reads by default and asks for a human approval before it writes. Alpha: for controlled evaluation, not for unattended production use.",
+    "description": "A TYPO3 backend assistant for research and proposed edits. Review changes from built-in writing tools and configure approvals for remote MCP tools. Alpha for controlled evaluation.",
     "ogImageAlt": "nr-mcp-agent — a controlled AI assistant for the TYPO3 backend"
   },
   "nav": {
@@ -40,7 +40,7 @@
   "hero": {
     "eyebrow": "TYPO3 extension · nr_mcp_agent",
     "title": "A controlled AI assistant for the TYPO3 backend.",
-    "lead": "Editors ask in the backend they already work in. The assistant reads what they may already see, and asks for an explicit approval before it changes anything.",
+    "lead": "Editors search from the TYPO3 backend and review changes proposed by built-in writing tools before execution.",
     "alphaLabel": "Alpha",
     "alphaNote": "For controlled evaluation, not for unattended production use. Interfaces, tool contracts and configuration can still change between releases.",
     "ctaBusiness": "Evaluate a backend agent under control",
@@ -77,7 +77,7 @@
       },
       {
         "q": "Where is a human required?",
-        "a": "Before every write. The run suspends until someone approves or rejects."
+        "a": "Built-in writing tools require approval. For remote MCP tools, the server setting determines whether chat asks before a call."
       },
       {
         "q": "What risks remain?",
@@ -85,7 +85,7 @@
       },
       {
         "q": "How is use limited?",
-        "a": "Per-group tool release, TYPO3 permissions, and nr-llm's budgets."
+        "a": "Enabled tools, TYPO3 user permissions and the nr-llm budget check."
       },
       {
         "q": "How do I try it?",
@@ -106,8 +106,8 @@
         "body": "The assistant can look things up through the tools an administrator released, and summarise what it found."
       },
       {
-        "title": "Released MCP tools only",
-        "body": "Tools are configured per server and per permission. Nothing is available by default; the empty set is the starting point."
+        "title": "Tools available in chat",
+        "body": "Chat uses enabled built-in tools within the user’s permissions. Tools imported from remote MCP servers are disabled by default and require an administrator account even after activation."
       },
       {
         "title": "Conversation history",
@@ -124,10 +124,10 @@
     "lead": "Five things the extension does not do. If you need one of them, this is the wrong tool today.",
     "items": [
       "Autonomous CMS operation. It has no schedule, no trigger and no unattended mode.",
-      "Unrestricted write access. Writing tools are released per group and gated per call.",
+      "Unrestricted write access. A person reviews the pending tool calls before approving the proposed changes.",
       "Automatic approval. There is no timeout that approves on your behalf.",
       "A faultless substitute for an editor. It proposes; a person decides.",
-      "Unreviewed actions. Everything that changes something leaves an audit record with the approver's decision."
+      "A full copy of tool arguments in the audit trail. The privacy configuration determines which details are retained."
     ]
   },
   "scenarios": {
@@ -138,7 +138,7 @@
         "step": "1",
         "title": "Find and summarise",
         "body": "Ask where a topic is covered across the pages the acting user may see, and get a summary with the records it came from.",
-        "control": "Read-only tools. No approval needed, because nothing changes."
+        "control": "The built-in search tool reads within the user’s permissions."
       },
       {
         "step": "2",
@@ -149,7 +149,7 @@
       {
         "step": "3",
         "title": "Execute an approved change",
-        "body": "With a writing tool released, the assistant proposes the exact change and waits. On approval it executes; on rejection it stops.",
+        "body": "An enabled built-in writing tool presents the proposed change for review. Rejecting it prevents that change.",
         "control": "Approval gate, audit record, TYPO3 permissions. The approver reads the proposal — that is the control, and skipping it removes it."
       }
     ]
@@ -168,7 +168,7 @@
       },
       {
         "layer": "Released tools",
-        "effect": "Which MCP tools exist for that group. The default is none."
+        "effect": "Chat uses enabled built-in tools within the user’s permissions. Tools imported from remote MCP servers are disabled by default and require an administrator account even after activation."
       },
       {
         "layer": "Read or write",
@@ -176,7 +176,7 @@
       },
       {
         "layer": "Explicit approval",
-        "effect": "Whether a specific write actually happens, decided by a person, per call."
+        "effect": "A person approves or rejects the pending tool calls together for this round."
       },
       {
         "layer": "TYPO3 permissions",
@@ -184,11 +184,11 @@
       },
       {
         "layer": "Audit record",
-        "effect": "What happened afterwards: tool, user, arguments, decision."
+        "effect": "With the default metadata policy, saved tool events in the nr-llm run omit argument values. The pending approval preview can still display those values."
       }
     ],
     "cancelHeading": "Cancellation and failure",
-    "cancel": "A rejected approval stops the run and records the rejection. A failing tool call surfaces the error rather than retrying silently, and a run that exceeds its nr-llm budget stops with an explicit reason."
+    "cancel": "Rejecting a proposal prevents its changes. Depending on the workflow, editors can request another option or continue. When the nr-llm preflight check rejects a call, chat reports the reason. Requests already in progress can exceed the limit."
   },
   "stack": {
     "heading": "How it relates to nr-llm",
@@ -224,7 +224,7 @@
     "items": [
       {
         "title": "Excessive agency",
-        "body": "The most common failure of an agent is being allowed to do too much. Release the smallest useful tool set; the default of none exists for that reason."
+        "body": "Check the tools available to a representative editor, including enabled built-ins."
       },
       {
         "title": "Prompt injection",
@@ -240,15 +240,15 @@
       },
       {
         "title": "Permission escalation",
-        "body": "Approval is per call and cannot be delegated to the agent. An approver who approves without reading is the escalation path that remains."
+        "body": "Review every proposed change in the round before deciding. A single approval covers all the listed calls."
       },
       {
         "title": "Cost and resource limits",
-        "body": "nr-llm's budgets apply. A run that exceeds them stops with an explicit reason rather than continuing quietly."
+        "body": "When the nr-llm preflight check rejects a call, chat reports the reason. Requests already in progress can exceed the limit."
       },
       {
         "title": "Logging and traceability",
-        "body": "Tool, user, arguments and decision are recorded for every call, which is what makes an after-the-fact review possible."
+        "body": "With the default metadata policy, saved tool events in the nr-llm run omit argument values. The pending approval preview can still display those values."
       }
     ]
   },
