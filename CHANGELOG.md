@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.5] - 2026-11-24
+
+### Changed
+
+- nr-llm 0.53 is accepted beside 0.45 to 0.52, so the chat installs together with nr-llm 0.53.0 ([#377](https://github.com/netresearch/t3x-nr-mcp-agent/pull/377)).
+
 ## [0.39.4] - 2026-11-21
 
 ### Changed
