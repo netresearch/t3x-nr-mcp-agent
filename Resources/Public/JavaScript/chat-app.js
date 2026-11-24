@@ -18,7 +18,7 @@ import {approveBlockedLabel, chatAltTextStyles, isAltTextCard, renderAltTextCard
 import {contextChipsStyles, renderContextChips} from '@netresearch/nr-mcp-agent/chat-context-chips.js';
 import {chatOutcomesStyles, renderOutcomeLines, renderSummary} from '@netresearch/nr-mcp-agent/chat-outcomes.js';
 import {renderAgentWait} from '@netresearch/nr-mcp-agent/chat-agent-wait.js';
-import {chatChangesStyles, renderCallRefusal, renderChanges, renderDraftWorkspaceNote} from '@netresearch/nr-mcp-agent/chat-changes.js';
+import {chatChangesStyles, renderCallPage, renderCallRefusal, renderChanges, renderDraftWorkspaceNote} from '@netresearch/nr-mcp-agent/chat-changes.js';
 import {chatSlashStyles, handleSlashKeydown, renderActiveSkill, renderSlashList, slashAria, SLASH_LIST_ID} from '@netresearch/nr-mcp-agent/chat-slash-commands.js';
 import {chatEditingStyles, renderMessageBody, renderInstructionsEditor, instructionsLabel} from '@netresearch/nr-mcp-agent/chat-editing.js';
 
@@ -1117,6 +1117,7 @@ export class ChatApp extends LitElement {
                             <p class="approval-warning approval-stale">${lll('chat.approvalPreviewStale')}</p>
                         ` : nothing}
                         ${this._renderApprovalPreview(call)}
+                        ${renderCallPage(call)}
                         ${this.chat.showTechnicalDetails ? html`
                             <details class="approval-technical">
                                 <summary>${lll('chat.approvalTechnicalDetails')}</summary>
@@ -1176,6 +1177,7 @@ export class ChatApp extends LitElement {
                 ` : nothing}
                 ${renderCallRefusal(call)}
                 ${renderProposal(call, (c) => this._renderApprovalPreview(c))}
+                ${renderCallPage(call)}
                 ${renderDraftWorkspaceNote(pending)}
                 ${this._renderApproveBlocked(pending)}
                 <div class="approval-actions">

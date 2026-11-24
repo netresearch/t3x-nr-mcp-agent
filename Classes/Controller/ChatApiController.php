@@ -2091,6 +2091,7 @@ final readonly class ChatApiController
             $conversation->getViewContext()['pageId'],
             $this->showsTechnicalDetails(),
         );
+        $calls = array_map(fn (array $call): array => [...$call, 'previewUrl' => $this->pageOfCall($call)], $calls);
         if ($blocked === 'altTextMarkNotPermitted') {
             // The tool's preview is its refusal, a sentence for developers;
             // the card says why in the reader's language instead.
@@ -2123,6 +2124,25 @@ final readonly class ChatApiController
             // server for administrators only; nothing else in the chat reads them.
             'calls' => $calls,
         ];
+    }
+
+    /**
+     * The page the record of a pending call is on, as it is stored now
+     * (ADR-035): '' where there is none to show, and for a call that names no
+     * existing record, is refused or has no preview.
+     *
+     * @param array{workspaceId: int, refused: bool, previewFailed: bool, affected: array{table: string, uid: int, ...}|null, ...} $call
+     */
+    private function pageOfCall(array $call): string
+    {
+        $viewer = $GLOBALS['BE_USER'] ?? null;
+        if ($call['affected'] === null || $call['refused'] || $call['previewFailed']
+            || !$this->changePresenter instanceof ChangePresenter || !$viewer instanceof BackendUserAuthentication
+        ) {
+            return '';
+        }
+
+        return $this->changePresenter->previewUrl($call['affected']['table'], $call['affected']['uid'], $call['workspaceId'], $viewer);
     }
 
     /** Whether the reader is an administrator, the only reader of the technical details. */

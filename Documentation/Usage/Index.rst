@@ -254,7 +254,12 @@ that were continued after an approval. Open it with :kbd:`Enter` or
 
 Each row names the record, with its table and uid. The title is a link to the
 edit form where you may edit the table, and **Änderungen ansehen** opens the
-record history. The badges state, each on its own:
+record history. **Vorschau** (*Preview*) opens the page that shows a changed page
+or content element, in the workspace you work in; it is missing for a hidden
+element and for a record of another workspace. The approval card offers
+**Seite ohne diese Änderung öffnen** (*Open page without this change*) for a
+record that exists: the change waits for your approval, so that page does not
+show it yet. The badges state, each on its own:
 
 *   what happened: created, updated, moved, deleted or restored;
 *   the workspace the record is stored in: a draft in a named workspace, or the

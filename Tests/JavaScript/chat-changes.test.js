@@ -255,6 +255,38 @@ describe.each(SURFACES)('$name approval card, structured facts', ({module: modul
     });
 });
 
+describe.each(SURFACES)('the preview links, $name', ({module, tag, open}) => {
+    beforeEach(() => {
+        document.body.replaceChildren();
+    });
+
+    test('a change that has a page links to it in a new tab, and one without has no link', async () => {
+        const data = {...DATA, changes: [{...CHANGE, previewUrl: 'https://example.com/neu'}, {...DEPENDENT, previewUrl: ''}]};
+        const el = await render(module, tag, open, {data, uiOpen: true});
+
+        const [first, second] = el.shadowRoot.querySelectorAll('.changes-view .change');
+        const link = first.querySelector('a[href="https://example.com/neu"]');
+        expect(link.target).toBe('_blank');
+        expect(link.rel).toBe('noopener noreferrer');
+        expect(link.getAttribute('aria-label')).toContain('Neue Seite');
+        expect(second.querySelector('a[target="_blank"]')).toBeNull();
+    });
+
+    test.each([['plain', '.approval-card'], ['process', '.proposal-card']])('the %s card links the page and says that the change is not on it', async (answers, selector) => {
+        const call = {...WAITING, previewUrl: 'https://example.com/seite#c1'};
+        const el = await render(module, tag, open, {available: false, pending: card([call], {answers})});
+
+        const links = el.shadowRoot.querySelectorAll(`${selector} .call-page a`);
+        expect(links).toHaveLength(1);
+        expect(links[0].getAttribute('href')).toBe('https://example.com/seite#c1');
+        expect(links[0].target).toBe('_blank');
+        expect(links[0].textContent).toBe('chat.approvalPage');
+
+        const without = await render(module, tag, open, {available: false, pending: card([{...WAITING, previewUrl: ''}], {answers})});
+        expect(without.shadowRoot.querySelector('.call-page')).toBeNull();
+    });
+});
+
 describe('loading the list', () => {
     beforeEach(() => {
         document.body.replaceChildren();

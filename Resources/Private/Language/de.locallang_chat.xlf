@@ -1379,6 +1379,14 @@
                 <source>The step failed after this record was written</source>
                 <target>Der Schritt ist nach dem Schreiben dieses Datensatzes fehlgeschlagen</target>
             </trans-unit>
+            <trans-unit id="chat.changePreview" resname="chat.changePreview">
+                <source>Preview</source>
+                <target>Vorschau</target>
+            </trans-unit>
+            <trans-unit id="chat.approvalPage" resname="chat.approvalPage">
+                <source>Open page without this change</source>
+                <target>Seite ohne diese Änderung öffnen</target>
+            </trans-unit>
             <trans-unit id="chat.changeHistory" resname="chat.changeHistory">
                 <source>Show changes</source>
                 <target>Änderungen ansehen</target>
