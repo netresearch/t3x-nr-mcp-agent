@@ -452,6 +452,31 @@ final class ChangeListPresenterTest extends FunctionalTestCase
         self::assertSame('', $this->preview(self::EDITOR, 'pages', 10, workspace: 1));
     }
 
+    /** The page type of the workspace's version decides, not that of the live page. */
+    #[Test]
+    public function thePageTypeIsTheOneOfTheWorkspace(): void
+    {
+        $this->writeSite();
+        $pages = $this->getConnectionPool()->getConnectionForTable('pages');
+        $pages->update('pages', ['doktype' => 254], ['uid' => 10]);
+        $pages->insert('pages', ['pid' => 0, 'title' => 'Draft', 'doktype' => 1, 'slug' => '/', 't3ver_oid' => 10, 't3ver_wsid' => 1, 't3ver_state' => 0, 'perms_userid' => 1, 'perms_user' => 31, 'perms_groupid' => 5, 'perms_group' => 31]);
+
+        self::assertNotSame('', $this->preview(self::EDITOR, 'pages', 10, workspace: 1));
+        self::assertNotSame('', $this->preview(self::EDITOR, 'tt_content', 1, workspace: 1));
+        self::assertSame('', $this->preview(self::EDITOR, 'pages', 10));
+    }
+
+    /** Page TSconfig names the page types without a frontend page. */
+    #[Test]
+    public function aPageTypeTheTsConfigExcludesIsNotLinked(): void
+    {
+        $this->writeSite();
+        $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEMAIN.preview.disableButtonForDokType = 1,254'], ['uid' => 10]);
+
+        self::assertSame('', $this->preview(self::EDITOR, 'pages', 10, workspace: 1));
+        self::assertSame('', $this->preview(self::EDITOR, 'pages', 10));
+    }
+
     private function withoutToken(string $url): string
     {
         return (string) preg_replace('/([?&])token=[^&#]*/', '$1', $url);

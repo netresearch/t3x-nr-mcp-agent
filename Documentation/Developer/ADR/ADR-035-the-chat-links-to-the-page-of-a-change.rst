@@ -44,9 +44,11 @@ its record, is refused or has no preview carries none.
 no link for a record of another workspace. The record must be readable by the
 viewer by the rule of :ref:`adr-034`. A hidden element and a deleted record have
 none, decided by the version in the workspace; a hidden page is previewable for
-its editors and keeps its link. ``PreviewUriBuilder::isPreviewable()`` is asked
-before the URL is built, because the workspace preview answers for a page type
-without a frontend page as well.
+its editors and keeps its link. The page type, as the workspace
+holds the page, is checked before the URL is built, because the workspace
+preview answers for a page type without a frontend page as well. The rule is
+that of ``PreviewUriBuilder::isPreviewable()``, which reads the live page and is
+missing in early TYPO3 13.4 releases.
 
 Consequences
 ============

@@ -257,8 +257,10 @@ edit form where you may edit the table, and **Änderungen ansehen** opens the
 record history. **Vorschau** (*Preview*) opens the page that shows a changed page
 or content element, in the workspace you work in; it is missing for a hidden
 element and for a record of another workspace. The approval card offers
-**Seite ohne diese Änderung öffnen** (*Open page without this change*) for a
-record that exists: the change waits for your approval, so that page does not
+**Seite ohne diese Änderung öffnen** (*Open page without this change*) for an
+existing page or content element under the same conditions: you may read it, it
+lies in the workspace you work in, the element is not hidden, and its page has a
+frontend page. The change waits for your approval, so that page does not
 show it yet. The badges state, each on its own:
 
 *   what happened: created, updated, moved, deleted or restored;

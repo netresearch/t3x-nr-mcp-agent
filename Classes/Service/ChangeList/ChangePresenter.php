@@ -16,10 +16,12 @@ use TYPO3\CMS\Backend\Routing\PreviewUriBuilder;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Versioning\VersionState;
 
 /**
@@ -186,14 +188,13 @@ final readonly class ChangePresenter
         }
 
         try {
-            $builder = PreviewUriBuilder::create($pageId);
             // In a workspace core answers with the workspace's preview without
             // asking for the page type, so it is asked here.
-            if (!$builder->isPreviewable()) {
+            if (!$this->showsAFrontendPage($pageId, $workspace)) {
                 return '';
             }
 
-            $uri = $builder
+            $uri = PreviewUriBuilder::create($pageId)
                 ->withRootLine(BackendUtility::BEgetRootLine($pageId))
                 ->withLanguage(max(0, $this->intOf($row['sys_language_uid'] ?? 0)))
                 ->withSection($table === 'tt_content' ? '#c' . $recordUid : '')
@@ -203,6 +204,43 @@ final readonly class ChangePresenter
         }
 
         return $uri instanceof UriInterface ? (string) $uri : '';
+    }
+
+    /**
+     * Whether the page, as the workspace holds it, is of a type with a
+     * frontend page. Core's `PreviewUriBuilder::isPreviewable()` reads the live
+     * row, and TYPO3 13.4.0 and 13.4.10 do not have it, so its rule is applied
+     * here: page TSconfig
+     * `TCEMAIN.preview.disableButtonForDokType`, else every type but folders,
+     * spacers and those whose TCA declares `isViewable` false.
+     */
+    private function showsAFrontendPage(int $pageId, int $workspace): bool
+    {
+        $page = $this->row('pages', $pageId);
+        if ($page !== null) {
+            BackendUtility::workspaceOL('pages', $page, $workspace);
+        }
+
+        if (!is_array($page) || VersionState::tryFrom($this->intOf($page['t3ver_state'] ?? 0)) === VersionState::DELETE_PLACEHOLDER) {
+            return false;
+        }
+
+        $doktype  = $this->intOf($page['doktype'] ?? 0);
+        $tceMain  = BackendUtility::getPagesTSconfig($pageId)['TCEMAIN.'] ?? null;
+        $preview  = is_array($tceMain) ? ($tceMain['preview.'] ?? null) : null;
+        $disabled = is_array($preview) ? ($preview['disableButtonForDokType'] ?? null) : null;
+        if (is_string($disabled)) {
+            return $doktype > 0 && !in_array($doktype, GeneralUtility::intExplode(',', $disabled, true), true);
+        }
+
+        $tca   = $GLOBALS['TCA'] ?? null;
+        $pages = is_array($tca) ? ($tca['pages'] ?? null) : null;
+        $types = is_array($pages) ? ($pages['types'] ?? null) : null;
+        $type  = is_array($types) ? ($types[$doktype] ?? null) : null;
+
+        return $doktype > 0
+            && !in_array($doktype, [PageRepository::DOKTYPE_SYSFOLDER, PageRepository::DOKTYPE_SPACER], true)
+            && (!is_array($type) || (bool) ($type['isViewable'] ?? true));
     }
 
     /**
