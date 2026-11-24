@@ -21,6 +21,7 @@ use Netresearch\NrMcpAgent\Domain\Model\Conversation;
 use Netresearch\NrMcpAgent\Domain\Repository\ConversationRepository;
 use Netresearch\NrMcpAgent\Enum\ConversationStatus;
 use Netresearch\NrMcpAgent\Enum\MessageRole;
+use Netresearch\NrMcpAgent\Service\ChangeList\ChangePresenter;
 use Netresearch\NrMcpAgent\Service\ChatApprovalInterface;
 use Netresearch\NrMcpAgent\Service\ChatCapabilitiesInterface;
 use Netresearch\NrMcpAgent\Service\ChatProcessorInterface;
@@ -28,6 +29,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
@@ -83,6 +85,7 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
             new DocumentExtractorRegistry([]),
             new UploadMimeTypeMap(),
             GeneralUtility::makeInstance(UriBuilder::class),
+            changePresenter: $this->get(ChangePresenter::class),
         );
     }
 
@@ -209,6 +212,30 @@ final class ChatApprovalPermissionTest extends FunctionalTestCase
 
         $other = $this->waiting(3, viewPage: 11, target: new PendingWriteTarget(new RecordReference('pages', 10), ['description']));
         self::assertFalse($this->messages($other)['pendingApproval']['calls'][0]['affected']['thisPage']);
+    }
+
+    /** The card links the stored page of an existing record (ADR-035). */
+    #[Test]
+    public function theCardLinksThePageOfTheRecordTheCallNames(): void
+    {
+        $this->get(SiteWriter::class)->write('main', [
+            'rootPageId' => 500,
+            'base'       => 'https://example.com/',
+            'languages'  => [['languageId' => 0, 'title' => 'Deutsch', 'locale' => 'de_DE.UTF-8', 'base' => '/', 'enabled' => true]],
+        ]);
+        $this->getConnectionPool()->getConnectionForTable('pages')->insert('pages', ['uid' => 500, 'pid' => 0, 'title' => 'Root', 'doktype' => 1, 'slug' => '/']);
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+        $target             = new PendingWriteTarget(new RecordReference('pages', 500), ['description']);
+
+        self::assertSame('https://example.com/', $this->messages($this->waiting(1, target: $target))['pendingApproval']['calls'][0]['previewUrl']);
+    }
+
+    #[Test]
+    public function theCardLinksNoPageForACallWithoutARecord(): void
+    {
+        $GLOBALS['BE_USER'] = $this->setUpBackendUser(1);
+
+        self::assertSame('', $this->messages($this->waiting(1))['pendingApproval']['calls'][0]['previewUrl']);
     }
 
     /**

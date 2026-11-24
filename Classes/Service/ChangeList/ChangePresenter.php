@@ -10,14 +10,19 @@ declare(strict_types=1);
 namespace Netresearch\NrMcpAgent\Service\ChangeList;
 
 use Netresearch\NrLlm\Domain\Enum\ChangeAction;
+use Psr\Http\Message\UriInterface;
 use Throwable;
+use TYPO3\CMS\Backend\Routing\PreviewUriBuilder;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Versioning\VersionState;
 
 /**
  * The change list as one viewer may see it (ADR-034).
@@ -38,7 +43,7 @@ use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
  *     language: array{id: int, label: string}|null,
  *     hidden: bool|null, restrictions: list<string>,
  *     legacy: bool, complete: bool|null,
- *     editUrl: string, historyUrl: string, workspaceUrl: string
+ *     editUrl: string, historyUrl: string, workspaceUrl: string, previewUrl: string
  * }
  */
 final readonly class ChangePresenter
@@ -136,7 +141,106 @@ final readonly class ChangePresenter
             'historyUrl'   => $deleted ? '' : $this->historyUrl($change->table, $change->uid),
             // The workspace module shows the workspace the viewer works in now.
             'workspaceUrl' => $workspace > 0 && $viewer->workspace === $workspace ? $this->workspaceUrl() : '',
+            'previewUrl'   => $deleted ? '' : $this->previewUrl($change->table, $change->uid, $workspace, $viewer),
         ];
+    }
+
+    /**
+     * The frontend page that shows the record, as the viewer's current
+     * workspace renders it, or '' (ADR-035).
+     *
+     * '' for anything that page would not show: a table other than `pages`
+     * and `tt_content`, a record the viewer may not read, one written in
+     * another workspace than the one the viewer works in now (the core builds
+     * the preview for that one), a deleted record and a hidden content
+     * element. A hidden page is previewable for its editors. The link shows
+     * what is stored; a write that still waits for approval is not in it.
+     */
+    public function previewUrl(string $table, int $uid, int $workspace, BackendUserAuthentication $viewer): string
+    {
+        if (($table !== 'pages' && $table !== 'tt_content') || $viewer->workspace !== $workspace) {
+            return '';
+        }
+
+        $row = $this->row($table, $uid);
+        if ($row === null) {
+            return '';
+        }
+
+        // The live uid stays the record's address; the version decides where
+        // it lies, whether it is hidden and whether it is marked deleted.
+        BackendUtility::workspaceOL($table, $row, $workspace);
+        if (!is_array($row)
+            || !$this->mayRead($viewer, $table, $row)
+            || $this->intOf($row['deleted'] ?? 0) === 1
+            || VersionState::tryFrom($this->intOf($row['t3ver_state'] ?? 0)) === VersionState::DELETE_PLACEHOLDER
+            || ($table === 'tt_content' && $this->intOf($row['hidden'] ?? 0) === 1)
+        ) {
+            return '';
+        }
+
+        $liveUid   = $this->intOf($row['t3ver_oid'] ?? 0);
+        $recordUid = $liveUid > 0 ? $liveUid : $this->intOf($row['uid'] ?? 0);
+        $pageId    = $this->intOf($row['pid'] ?? 0);
+        if ($table === 'pages') {
+            $original = $this->intOf($row['l10n_parent'] ?? 0);
+            $pageId   = $original > 0 ? $original : $recordUid;
+        }
+
+        try {
+            // In a workspace core answers with the workspace's preview without
+            // asking for the page type, so it is asked here.
+            if (!$this->showsAFrontendPage($pageId, $workspace)) {
+                return '';
+            }
+
+            $uri = PreviewUriBuilder::create($pageId)
+                ->withRootLine(BackendUtility::BEgetRootLine($pageId))
+                ->withLanguage(max(0, $this->intOf($row['sys_language_uid'] ?? 0)))
+                ->withSection($table === 'tt_content' ? '#c' . $recordUid : '')
+                ->buildUri();
+        } catch (Throwable) {
+            return '';
+        }
+
+        return $uri instanceof UriInterface ? (string) $uri : '';
+    }
+
+    /**
+     * Whether the page, as the workspace holds it, is of a type with a
+     * frontend page. Core's `PreviewUriBuilder::isPreviewable()` reads the live
+     * row, and TYPO3 13.4.0 and 13.4.10 do not have it, so its rule is applied
+     * here: page TSconfig
+     * `TCEMAIN.preview.disableButtonForDokType`, else every type but folders,
+     * spacers and those whose TCA declares `isViewable` false.
+     */
+    private function showsAFrontendPage(int $pageId, int $workspace): bool
+    {
+        $page = $this->row('pages', $pageId);
+        if ($page !== null) {
+            BackendUtility::workspaceOL('pages', $page, $workspace);
+        }
+
+        if (!is_array($page) || VersionState::tryFrom($this->intOf($page['t3ver_state'] ?? 0)) === VersionState::DELETE_PLACEHOLDER) {
+            return false;
+        }
+
+        $doktype  = $this->intOf($page['doktype'] ?? 0);
+        $tceMain  = BackendUtility::getPagesTSconfig($pageId)['TCEMAIN.'] ?? null;
+        $preview  = is_array($tceMain) ? ($tceMain['preview.'] ?? null) : null;
+        $disabled = is_array($preview) ? ($preview['disableButtonForDokType'] ?? null) : null;
+        if (is_string($disabled)) {
+            return $doktype > 0 && !in_array($doktype, GeneralUtility::intExplode(',', $disabled, true), true);
+        }
+
+        $tca   = $GLOBALS['TCA'] ?? null;
+        $pages = is_array($tca) ? ($tca['pages'] ?? null) : null;
+        $types = is_array($pages) ? ($pages['types'] ?? null) : null;
+        $type  = is_array($types) ? ($types[$doktype] ?? null) : null;
+
+        return $doktype > 0
+            && !in_array($doktype, [PageRepository::DOKTYPE_SYSFOLDER, PageRepository::DOKTYPE_SPACER], true)
+            && (!is_array($type) || (bool) ($type['isViewable'] ?? true));
     }
 
     /**

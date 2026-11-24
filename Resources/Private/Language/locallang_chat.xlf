@@ -1039,6 +1039,12 @@
             <trans-unit id="chat.changeFailed" resname="chat.changeFailed">
                 <source>The step failed after this record was written</source>
             </trans-unit>
+            <trans-unit id="chat.changePreview" resname="chat.changePreview">
+                <source>Preview</source>
+            </trans-unit>
+            <trans-unit id="chat.approvalPage" resname="chat.approvalPage">
+                <source>Open page without this change</source>
+            </trans-unit>
             <trans-unit id="chat.changeHistory" resname="chat.changeHistory">
                 <source>Show changes</source>
             </trans-unit>

@@ -16,6 +16,9 @@ use Netresearch\NrMcpAgent\Service\ChangeList\RecordChange;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\SiteWriter;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\WorkspaceAspect;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -327,5 +330,155 @@ final class ChangeListPresenterTest extends FunctionalTestCase
         self::assertStringContainsString('history', $content['historyUrl']);
         // The workspace module shows the workspace the viewer works in, and only a draft has one.
         self::assertSame('', $page['workspaceUrl']);
+    }
+
+    private function writeSite(): void
+    {
+        // The fixture's editors may not work live; here they may, so both workspaces can be compared.
+        $this->getConnectionPool()->getConnectionForTable('be_groups')->update('be_groups', ['workspace_perms' => 1], ['uid' => 5]);
+
+        $this->get(SiteWriter::class)->write('main', [
+            'rootPageId' => 10,
+            'base'       => 'https://example.com/',
+            'languages'  => [
+                ['languageId' => 0, 'title' => 'Deutsch', 'locale' => 'de_DE.UTF-8', 'base' => '/', 'enabled' => true],
+                ['languageId' => 1, 'title' => 'English', 'locale' => 'en_US.UTF-8', 'base' => '/en/', 'enabled' => true],
+            ],
+        ]);
+    }
+
+    private function preview(int $user, string $table, int $uid, int $workspace = 0, ?int $viewerWorkspace = null): string
+    {
+        $this->present($user, []);
+        $viewer = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $viewer);
+        $viewer->setWorkspace($viewerWorkspace ?? $workspace);
+        self::assertSame($viewerWorkspace ?? $workspace, $viewer->workspace, 'the viewer works in the workspace the case names');
+
+        // As the backend's authentication middleware does: core's preview reads this aspect.
+        $this->get(Context::class)->setAspect('workspace', new WorkspaceAspect($viewer->workspace));
+
+        return $this->get(ChangePresenter::class)->previewUrl($table, $uid, $workspace, $viewer);
+    }
+
+    /** A page, and an element on it, are shown where they are: the element by its anchor. */
+    #[Test]
+    public function aReadablePageAndElementLinkToThePageThatShowsThem(): void
+    {
+        $this->writeSite();
+
+        self::assertSame('https://example.com/', $this->preview(self::EDITOR, 'pages', 10));
+        self::assertSame('https://example.com/#c1', $this->preview(self::EDITOR, 'tt_content', 1));
+        // The change list carries the same link.
+        self::assertSame('https://example.com/#c1', $this->present(self::EDITOR, [$this->change('tt_content', 1)])['changes'][0]['previewUrl']);
+    }
+
+    /** A hidden element is not on the page; a hidden page is previewable for its editors. */
+    #[Test]
+    public function aHiddenElementHasNoPreviewAndAHiddenPageHasOne(): void
+    {
+        $this->writeSite();
+        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['hidden' => 1], ['uid' => 1]);
+        $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['hidden' => 1], ['uid' => 10]);
+
+        self::assertSame('', $this->preview(self::EDITOR, 'tt_content', 1));
+        self::assertSame('https://example.com/', $this->preview(self::EDITOR, 'pages', 10));
+    }
+
+    /** The preview permission is the list's: what the viewer may not read is not linked. */
+    #[Test]
+    public function aRecordTheViewerMayNotReadIsNotLinked(): void
+    {
+        $this->writeSite();
+
+        foreach ([['pages', 11], ['pages', 20], ['tt_content', 2], ['tt_content', 3], ['tt_content', 999], ['be_users', 1]] as [$table, $uid]) {
+            self::assertSame('', $this->preview(self::EDITOR, $table, $uid), $table . ':' . $uid);
+        }
+
+        self::assertNotSame('', $this->preview(self::ADMIN, 'pages', 11));
+    }
+
+    /** The core previews the workspace the viewer works in, so only that one is linked. */
+    #[Test]
+    public function aRecordOfAnotherWorkspaceIsNotLinked(): void
+    {
+        $this->writeSite();
+
+        self::assertSame('', $this->preview(self::EDITOR, 'tt_content', 1, workspace: 1, viewerWorkspace: 0));
+        self::assertSame('', $this->preview(self::EDITOR, 'tt_content', 1, workspace: 0, viewerWorkspace: 1));
+
+        // In the workspace the core hands out the workspace's own preview.
+        $url = $this->preview(self::EDITOR, 'tt_content', 1, workspace: 1);
+        self::assertStringContainsString('workspace', $url);
+        // The version row and its live record are one record on the page.
+        self::assertSame($this->withoutToken($url), $this->withoutToken($this->preview(self::EDITOR, 'tt_content', 4, workspace: 1)));
+    }
+
+    /** What the version says counts: hidden or removed in the draft, shown live. */
+    #[Test]
+    public function theVersionDecidesWhetherThePageShowsTheElement(): void
+    {
+        $this->writeSite();
+        $content = $this->getConnectionPool()->getConnectionForTable('tt_content');
+
+        $content->update('tt_content', ['hidden' => 1], ['uid' => 4]);
+        self::assertSame('', $this->preview(self::EDITOR, 'tt_content', 1, workspace: 1));
+        self::assertNotSame('', $this->preview(self::EDITOR, 'tt_content', 1));
+
+        $content->update('tt_content', ['hidden' => 0, 't3ver_state' => 2], ['uid' => 4]);
+        self::assertSame('', $this->preview(self::EDITOR, 'tt_content', 1, workspace: 1));
+    }
+
+    /** A translation is shown in its language; a translated page through its original. */
+    #[Test]
+    public function aTranslationLinksToItsLanguage(): void
+    {
+        $this->writeSite();
+        $this->getConnectionPool()->getConnectionForTable('pages')->insert('pages', ['uid' => 12, 'pid' => 0, 'title' => 'Visible page', 'doktype' => 1, 'sys_language_uid' => 1, 'l10n_parent' => 10, 'slug' => '/']);
+
+        self::assertStringStartsWith('https://example.com/en/', $this->preview(self::ADMIN, 'pages', 12));
+    }
+
+    /** Without a site, or on a page type with no frontend page, there is nothing to open. */
+    #[Test]
+    public function aPageWithoutAFrontendPageIsNotLinked(): void
+    {
+        $this->writeSite();
+        $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['doktype' => 254], ['uid' => 10]);
+
+        self::assertSame('', $this->preview(self::EDITOR, 'pages', 10));
+        self::assertSame('', $this->preview(self::EDITOR, 'tt_content', 1));
+        // The workspace's preview does not ask for the page type itself.
+        self::assertSame('', $this->preview(self::EDITOR, 'pages', 10, workspace: 1));
+    }
+
+    /** The page type of the workspace's version decides, not that of the live page. */
+    #[Test]
+    public function thePageTypeIsTheOneOfTheWorkspace(): void
+    {
+        $this->writeSite();
+        $pages = $this->getConnectionPool()->getConnectionForTable('pages');
+        $pages->update('pages', ['doktype' => 254], ['uid' => 10]);
+        $pages->insert('pages', ['pid' => 0, 'title' => 'Draft', 'doktype' => 1, 'slug' => '/', 't3ver_oid' => 10, 't3ver_wsid' => 1, 't3ver_state' => 0, 'perms_userid' => 1, 'perms_user' => 31, 'perms_groupid' => 5, 'perms_group' => 31]);
+
+        self::assertNotSame('', $this->preview(self::EDITOR, 'pages', 10, workspace: 1));
+        self::assertNotSame('', $this->preview(self::EDITOR, 'tt_content', 1, workspace: 1));
+        self::assertSame('', $this->preview(self::EDITOR, 'pages', 10));
+    }
+
+    /** Page TSconfig names the page types without a frontend page. */
+    #[Test]
+    public function aPageTypeTheTsConfigExcludesIsNotLinked(): void
+    {
+        $this->writeSite();
+        $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEMAIN.preview.disableButtonForDokType = 1,254'], ['uid' => 10]);
+
+        self::assertSame('', $this->preview(self::EDITOR, 'pages', 10, workspace: 1));
+        self::assertSame('', $this->preview(self::EDITOR, 'pages', 10));
+    }
+
+    private function withoutToken(string $url): string
+    {
+        return (string) preg_replace('/([?&])token=[^&#]*/', '$1', $url);
     }
 }

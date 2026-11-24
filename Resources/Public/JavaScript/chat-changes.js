@@ -54,6 +54,8 @@ export const chatChangesStyles = css`
     .changes-note { margin: 8px 0 0; font-size: 0.9em; color: var(--nr-chat-text-variant, inherit); }
     .changes-note[data-tone="warning"] { color: var(--nr-chat-warning-text, #8a5300); }
     .call-refused { margin: 0 0 4px; }
+    .call-page { margin: 4px 0 0; }
+    .call-page a { color: var(--nr-chat-link, #0078d4); }
     .approval-note { margin: 8px 0 0; font-size: 0.9em; color: var(--nr-chat-info-text, inherit); }
 `;
 
@@ -153,8 +155,11 @@ function renderChange(change) {
     const workspaceLink = change.workspaceUrl
         ? html`<a href=${change.workspaceUrl} @click=${(e) => openInContentFrame(e, change.workspaceUrl)}>${lll('chat.changeWorkspaceModule')}</a>`
         : nothing;
-    const links = change.historyUrl || change.workspaceUrl
-        ? html`<p class="change-links">${historyLink} ${workspaceLink}</p>`
+    const previewLink = change.previewUrl
+        ? html`<a href=${change.previewUrl} target="_blank" rel="noopener noreferrer" aria-label=${`${lll('chat.changePreview')}: ${name}`}>${lll('chat.changePreview')}</a>`
+        : nothing;
+    const links = change.historyUrl || change.workspaceUrl || change.previewUrl
+        ? html`<p class="change-links">${previewLink} ${historyLink} ${workspaceLink}</p>`
         : nothing;
 
     return html`
@@ -246,6 +251,18 @@ export function renderChanges(chat) {
 export function renderCallRefusal(call) {
     return call.refused
         ? html`<p class="approval-warning call-refused" data-refused="true"><strong>${lll('chat.approvalRefused')}</strong></p>`
+        : nothing;
+}
+
+/**
+ * The page a call's record is on, as it is stored now (ADR-035). The write
+ * waits for approval, so the page does not show it, and the label says so.
+ *
+ * @param {{previewUrl?: string}} call
+ */
+export function renderCallPage(call) {
+    return call.previewUrl
+        ? html`<p class="call-page"><a href=${call.previewUrl} target="_blank" rel="noopener noreferrer">${lll('chat.approvalPage')}</a></p>`
         : nothing;
 }
 
