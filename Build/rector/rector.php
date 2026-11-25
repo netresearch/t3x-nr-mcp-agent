@@ -7,7 +7,6 @@
 
 declare(strict_types=1);
 
-use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
 
@@ -29,7 +28,5 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
         RemoveUnusedPrivatePropertyRector::class => [
             __DIR__ . '/../../Classes/Domain/Model/Conversation.php',
         ],
-        // Verbose instanceof checks not preferred over null checks
-        FlipTypeControlToUseExclusiveTypeRector::class,
     ]);
 };
