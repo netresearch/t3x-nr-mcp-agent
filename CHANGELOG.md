@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-25
+
+### Added
+
+- The approval card links to the page of the record and says that the change is not on it yet, and the list "Changes of this assignment" links each changed page or content element to the page that shows it, in the viewer's workspace ([#380](https://github.com/netresearch/t3x-nr-mcp-agent/pull/380)).
+
+### Changed
+
+- nr-llm 0.54 and 0.55 are accepted beside 0.45 to 0.53, so the chat installs together with nr-llm 0.55.0 ([#379](https://github.com/netresearch/t3x-nr-mcp-agent/pull/379)).
+
 ## [0.39.5] - 2026-11-24
 
 ### Changed
