@@ -18,10 +18,11 @@ jobs:
       archive-prefix: nr-mcp-agent
       package-name: netresearch/nr-mcp-agent
       extension-key: nr_mcp_agent
-      # Not published to TER (no TER token in this repo, by decision) and not
+      # Published to TER since 0.40.0 (decision of 2026-11-26). Not
       # registered on docs.typo3.org. Packagist lists the package since
       # 2026-07-22 and picks up new tags through its GitHub hook, so the
       # workflow does not notify it. Remove a skip when its channel is set up.
-      skip-ter: true
       skip-packagist: true
       skip-docs: true
+    secrets:
+      TYPO3_TER_ACCESS_TOKEN: ${{ secrets.TYPO3_TER_ACCESS_TOKEN }}
