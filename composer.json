@@ -35,7 +35,7 @@
         "typo3/cms-install": "^13.4 || ^14.3"
     },
     "require-dev": {
-        "netresearch/typo3-ci-workflows": "^2.0.1",
+        "netresearch/typo3-ci-workflows": "^2.3.1",
         "phpunit/phpunit": "^10.5 || ^11.0",
         "typo3/cms-dashboard": "^13.4 || ^14.3",
         "typo3/cms-fluid-styled-content": "^13.4 || ^14.3",
@@ -107,7 +107,10 @@
             "@ci:tests"
         ],
         "ci:phpstan": ".Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon --no-progress",
-        "ci:cgl": ".Build/bin/php-cs-fixer fix --dry-run --diff",
+        "ci:cgl": [
+            "@ci:test:changelog",
+            ".Build/bin/php-cs-fixer fix --dry-run --diff"
+        ],
         "ci:tests": ".Build/bin/phpunit -c Build/phpunit.xml",
         "ci:tests:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then .Build/bin/phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
         "ci:tests:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then .Build/bin/phpunit -c Build/phpunit.xml --testsuite functional \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
@@ -115,6 +118,8 @@
         "ci:mutation:ci": ".Build/bin/infection --configuration=infection.json.dist --threads=4 --no-progress --logger-github",
         "ci:rector": ".Build/bin/rector process --config Build/rector/rector.php --dry-run",
         "fix:cgl": ".Build/bin/php-cs-fixer fix",
-        "rector": ".Build/bin/rector process --config Build/rector/rector.php"
+        "rector": ".Build/bin/rector process --config Build/rector/rector.php",
+        "changelog:collect": "changelog-fragments collect",
+        "ci:test:changelog": "changelog-fragments check @no_additional_args"
     }
 }

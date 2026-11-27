@@ -80,7 +80,7 @@ make ci                          # lint + phpstan + rector + test + test-js
 ## Changelog
 
 - Changes are recorded in [`CHANGELOG.md`](CHANGELOG.md), [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/): `## [X.Y.Z] - YYYY-MM-DD` with `### Added`, `### Changed`, `### Fixed`, `### Removed`, newest first, below an empty `## [Unreleased]`.
-- Feature and fix PRs leave the file alone; the release PR (branch `release/vX.Y.Z`) writes the version's section together with the version bump.
+- Feature and fix PRs leave the file alone; a PR that records its change writes it as a fragment `changelog.d/<branch-slug>.<section>.md` ([format](changelog.d/README.md)), checked by `composer ci:test:changelog`. The release PR (branch `release/vX.Y.Z`) runs `composer changelog:collect`, which moves the fragments into `## [Unreleased]`, and then writes the version's section together with the version bump.
 - `Documentation/Changelog.rst` only points to `CHANGELOG.md`; entries are not copied there.
 
 ## Index of Scoped AGENTS.md
