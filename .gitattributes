@@ -24,6 +24,7 @@
 /package.json export-ignore
 /package-lock.json export-ignore
 /renovate.json export-ignore
+/changelog.d/ export-ignore
 # Agent instructions, at every level of the tree.
 AGENTS.md export-ignore
 CLAUDE.md export-ignore
